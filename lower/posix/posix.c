@@ -1,3 +1,5 @@
+
+#define _LARGEFILE64_SOURCE
 #include "posix.h"
 #include "../../include/settings.h"
 #include <fcntl.h>
@@ -6,7 +8,6 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <string.h>
-#define _LARGEFILE64_SOURCE
 static int _fd;
 lower_info __posix={
 	.create=posix_create,
@@ -37,7 +38,7 @@ void *posix_destroy(lower_info *li){
 }
 
 void *posix_push_data(KEYT PPA, uint32_t size, const V_PTR value, bool async,const request *req, uint32_t dmatag){
-	if(lseek(_fd,(__posix.SOP)*PPA,SEEK_SET)==-1){
+	if(lseek64(_fd,((off64_t)__posix.SOP)*PPA,SEEK_SET)==-1){
 		printf("lseek error in read\n");
 	}
 	if(!write(_fd,value,size)){
@@ -54,7 +55,7 @@ void *posix_push_data(KEYT PPA, uint32_t size, const V_PTR value, bool async,con
 }
 
 void *posix_pull_data(KEYT PPA, uint32_t size, const V_PTR value, bool async,const request *req, uint32_t dmatag){
-	if(lseek(_fd,(__posix.SOP)*PPA,SEEK_SET)==-1){
+	if(lseek64(_fd,((off64_t)__posix.SOP)*PPA,SEEK_SET)==-1){
 		printf("lseek error in read\n");
 	}
 	if(!read(_fd,(void*)value,size)){
@@ -73,7 +74,7 @@ void *posix_pull_data(KEYT PPA, uint32_t size, const V_PTR value, bool async,con
 void *posix_trim_block(KEYT PPA, bool async){
 	char temp[__posix.SOB];
 	memset(temp,0,__posix.SOB);
-	if(lseek(_fd,(__posix.SOP)*PPA,SEEK_SET)==-1){
+	if(lseek64(_fd,((off64_t)__posix.SOP)*PPA,SEEK_SET)==-1){
 		printf("lseek error in trim\n");
 	}
 	if(!write(_fd,temp,__posix.SOB)){

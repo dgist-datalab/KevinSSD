@@ -7,8 +7,8 @@
 int main(){
 	inf_init();
 
-	for(int i=0; i<100; i++){
-		printf("set: %d\n",i);
+	for(int i=0; i<3000000; i++){
+		//printf("set: %d\n",i);
 		char *temp=(char*)malloc(PAGESIZE);
 		memcpy(temp,&i,sizeof(i));
 		inf_make_req(FS_SET_T,i,temp);
@@ -16,7 +16,7 @@ int main(){
 	}
 
 	int check;
-	for(int i=0; i<100; i++){
+	for(int i=0; i<3000000; i++){
 		char *temp=(char*)malloc(PAGESIZE);
 		inf_make_req(FS_GET_T,i,temp);
 		memcpy(&check,temp,sizeof(i));
