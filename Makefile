@@ -41,3 +41,4 @@ clean :
 	@$(RM) ./data/*
 	@$(RM) ./object/*.o
 	@$(RM) *.a
+	@$(RM) simulator
