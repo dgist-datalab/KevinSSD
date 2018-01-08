@@ -27,6 +27,7 @@ simulator: ./interface/main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ -lpthread
 
 libsimulator.a: $(TARGETOBJ)
+	mkdir -p object && mkdir -p data
 	cd ./algorithm/$(TARGET_ALGO) && make && cd ../../
 	cd ./lower/$(TARGET_LOWER) && make && cd ../../ 
 	mv ./interface/*.o ./object/
