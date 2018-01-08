@@ -12,7 +12,7 @@ CFLAGS +=\
 		 -D$(TARGET_ALGO)\
 		 -Wall\
 		 -Wno-discarded-qualifiers\
-		# -DLEAKCHECK\
+		 -DLEAKCHECK\
 
 SRCS +=\
 	./interface/queue.c\

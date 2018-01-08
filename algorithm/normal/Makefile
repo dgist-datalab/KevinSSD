@@ -3,6 +3,7 @@ CC=gcc
 CFLAGS +=\
 		 -g\
 		 -std=c99\
+		 -Wno-discarded-qualifiers\
 
 
 SRCS +=\

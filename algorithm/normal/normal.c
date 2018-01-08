@@ -1,3 +1,5 @@
+#include <string.h>
+#include <stdlib.h>
 #include "normal.h"
 
 struct algorithm __normal={
@@ -15,11 +17,37 @@ void normal_destroy (lower_info* li, algorithm *algo){
 
 }
 bool normal_get(const request *req){
-	__normal.li->pull_data(req->key,PAGESIZE,req->value,0,req,0);
+	normal_params* params=(normal_params*)malloc(sizeof(normal_params));
+	params->parents=req;
+	params->test=-1;
+
+	algo_req *my_req=(algo_req*)malloc(sizeof(algo_req));
+	my_req->end_req=normal_end_req;
+	my_req->params=(void*)params;
+
+	__normal.li->pull_data(req->key,PAGESIZE,req->value,0,my_req,0);
 }
 bool normal_set(const request *req){
-	__normal.li->push_data(req->key,PAGESIZE,req->value,0,req,0);
+	normal_params* params=(normal_params*)malloc(sizeof(normal_params));
+	params->parents=req;
+	params->test=-1;
+
+	algo_req *my_req=(algo_req*)malloc(sizeof(algo_req));
+	my_req->end_req=normal_end_req;
+	my_req->params=(void*)params;
+
+	__normal.li->push_data(req->key,PAGESIZE,req->value,0,my_req,0);
 }
 bool normal_remove(const request *req){
 //	normal->li->trim_block()
+}
+
+void *normal_end_req(algo_req* input){
+	normal_params* params=(normal_params*)input->params;
+	
+	request *res=params->parents;
+	res->end_req(res);
+
+	free(params);
+	free(input);
 }

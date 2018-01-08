@@ -8,6 +8,8 @@
 
 typedef struct lower_info lower_info;
 typedef struct algorithm algorithm;
+typedef struct algo_req algo_req;
+typedef struct request request;
 
 typedef struct upper_request{
 	const FSTYPE type;
@@ -16,7 +18,7 @@ typedef struct upper_request{
 	//anything
 }upper_request;
 
-typedef struct request {
+struct request {
 	FSTYPE type;
 	KEYT key;
 	V_PTR value;
@@ -25,15 +27,18 @@ typedef struct request {
 	bool (*end_req)(const struct request*);
 	bool isAsync;
 	pthread_mutex_t async_mutex;
-	void **params;
-}request;
+};
 
+struct algo_req{
+	void *(*end_req)(struct algo_req *);
+	void *params;
+};
 
 struct lower_info {
 	uint32_t (*create)(struct lower_info*);
 	void* (*destroy)(struct lower_info*);
-	void* (*push_data)(KEYT ppa, uint32_t size, const V_PTR value,bool async,const request *req,uint32_t dmatag);
-	void* (*pull_data)(KEYT ppa, uint32_t size, const V_PTR value,bool async,const request *req,uint32_t dmatag);
+	void* (*push_data)(KEYT ppa, uint32_t size, const V_PTR value,bool async,const algo_req* req,uint32_t dmatag);
+	void* (*pull_data)(KEYT ppa, uint32_t size, const V_PTR value,bool async,const algo_req* req,uint32_t dmatag);
 	void* (*trim_block)(KEYT ppa,bool async);
 	void (*stop)();
 	/*

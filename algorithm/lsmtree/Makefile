@@ -3,11 +3,11 @@ CC=gcc
 CFLAGS +=\
 		 -g\
 		 -std=c99\
-		 -D_FILE_OFFSET_BITS=64\
-		 -Wno-discarded-qualifiers\
+
 
 SRCS +=\
-	   posix.c\
+	   run_array.c\
+	   skiplist.c\
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\
@@ -15,7 +15,11 @@ OBJS :=\
 TARGETOBJ:=\
 	$(addprefix ../../object/,$(OBJS))\
 
-all: $(TARGETOBJ)
+
+all: $(TARGETOBJ) 
+
+liblsm.a : $(TARGETOBJ)
+	$(AR) r $(@) $(TARGETOBJ)
 
 .c.o :
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -24,5 +28,5 @@ all: $(TARGETOBJ)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean : 
-	@$(RM) libpos.a
+	@$(RM) libnom.a
 	@$(RM) *.o
