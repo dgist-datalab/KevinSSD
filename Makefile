@@ -12,17 +12,27 @@ CFLAGS +=\
 		 -D$(TARGET_ALGO)\
 		 -Wall\
 		 -Wno-discarded-qualifiers\
-		 -DLEAKCHECK\
 
 SRCS +=\
 	./interface/queue.c\
 	./interface/interface.c\
 
 TARGETOBJ =\
-			$(patsubst %.c,%.o,$(SRCS))
+			$(patsubst %.c,%.o,$(SRCS))\
+
+MEMORYOBJ =\
+		   	$(patsubst %.c,%_mem.o,$(SRCS))\
+
+LIBS +=\
+		-lpthread\
 
 all: simulator
+
+memory_leak: simulator_memory_check
 	
+simulator_memory_check: ./interface/main.c mem_libsimulator.a
+	$(CC) $(CFLAGS) -DLEAKCHECK -o $@ $^ $(LIBS)
+
 simulator: ./interface/main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ -lpthread
 
@@ -33,8 +43,19 @@ libsimulator.a: $(TARGETOBJ)
 	mv ./interface/*.o ./object/
 	$(AR) r $(@) ./object/*.o
 
+mem_libsimulator.a:$(MEMORYOBJ)
+	mkdir -p object && mkdir -p data
+	cd ./algorithm/$(TARGET_ALGO) && make && cd ../../
+	cd ./lower/$(TARGET_LOWER) && make && cd ../../ 
+	mv ./interface/*.o ./object/
+	$(AR) r $(@) ./object/*.o
+
+%_mem.o: %.c
+	$(CC) $(CFLAGS) -DLEAKCHECK -c $< -o $@ $(LIBS)
+
 .c.o :
-	$(CC) $(CFLAGS) -c $< -o $@ -lpthread
+	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS)
+
 
 clean :
 	cd ./algorithm/$(TARGET_ALGO) && make clean && cd ../../
@@ -43,3 +64,4 @@ clean :
 	@$(RM) ./object/*.o
 	@$(RM) *.a
 	@$(RM) simulator
+	@$(RM) simulator_memory_check

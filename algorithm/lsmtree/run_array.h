@@ -1,8 +1,7 @@
 #ifndef __RUN_A_H__
 #define __RUN_A_H__
-#include"utils.h"
-#include"bloomfilter.h"
-
+#include "../../include/container.h"
+#include "../../include/settings.h"
 typedef struct Entry{
 	KEYT key;
 	KEYT end;
@@ -29,7 +28,7 @@ typedef struct level{
 	int n_num;
 	int entry_p_run;
 	int r_size;//size of run
-	double fpr;
+	float fpr;
 	bool isTiering;
 	KEYT start;
 	KEYT end;

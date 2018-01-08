@@ -1,6 +1,7 @@
 *.o
 *.a
 simulator
+simulator_memory_check
 data/
 object/
 tags
