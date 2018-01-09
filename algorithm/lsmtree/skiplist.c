@@ -38,7 +38,7 @@ static int getLevel(){
 	}
 	return level;
 }
-snode *skiplist_insert(skiplist *list,KEYT key, char *value){
+snode *skiplist_insert(skiplist *list,KEYT key, char *value, algo_req *req){
 	snode *update[MAX_L+1];
 	snode *x=list->header;
 	for(int i=list->level; i>=1; i--){
@@ -49,8 +49,10 @@ snode *skiplist_insert(skiplist *list,KEYT key, char *value){
 	x=x->list[1];
 
 	if(key==x->key){
-		if(value!=NULL)
-			memcpy(x->value,value,VALUESIZE);
+		x->value=value;
+		((lsm_params*)req->params)->lsm_type=OLDDATA;
+		req->end_req(req);
+		x->req=req;
 		return x;
 	}
 	else{
