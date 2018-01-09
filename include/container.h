@@ -26,6 +26,7 @@ struct request {
 	void *(*upper_end)(void *);
 	bool (*end_req)(const struct request*);
 	bool isAsync;
+	void *params;
 	pthread_mutex_t async_mutex;
 };
 
