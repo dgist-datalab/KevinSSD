@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include <unistd.h>
 extern struct lower_info __posix;
-extern struct algorithm __normal;
+extern struct algorithm algo_pbase;
 master_processor mp;
 void *p_main(void*);
 static void assign_req(request* req){
@@ -54,8 +54,8 @@ void inf_init(){
 	mp.li=&__posix;
 #endif
 
-#ifdef normal
-	mp.algo=&__normal;
+#ifdef page
+	mp.algo=&algo_pbase;
 #endif
 	mp.li->create(mp.li);
 	mp.algo->create(mp.li,mp.algo);
