@@ -44,6 +44,7 @@ libsimulator.a: $(TARGETOBJ)
 	$(AR) r $(@) ./object/*.o
 
 mem_libsimulator.a:$(MEMORYOBJ)
+	make clean
 	mkdir -p object && mkdir -p data
 	cd ./algorithm/$(TARGET_ALGO) && make && cd ../../
 	cd ./lower/$(TARGET_LOWER) && make && cd ../../ 

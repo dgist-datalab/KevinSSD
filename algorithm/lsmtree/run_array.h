@@ -10,12 +10,15 @@ typedef struct Entry{
 #ifdef BLOOM
 	BF *filter
 #endif
+	htable *t_table;
 }Entry;
 
 typedef struct Node{
 	int n_num;
 	int m_num;
 	int e_size;
+	int start;
+	int end;
 	char **body_addr;
 	char *body;
 }Node;
@@ -38,6 +41,7 @@ typedef struct level{
 typedef struct iterator{
 	level *lev;
 	Node *now;
+	Entry *v_entry;
 	int r_idx;
 	int idx;
 	bool flag;
@@ -46,12 +50,18 @@ Entry *level_make_entry(KEYT,KEYT,KEYT);
 Entry* level_entcpy(Entry *src,char *des);
 level *level_init(level *,int size,bool);
 level *level_clear(level *);
+level *level_copy(level *,bool);
 Entry **level_find(level *,KEYT key);
 Entry *level_find_fromR(Node *, KEYT key);
+Entry **level_range_find(level *,KEYT start, KEYT end);
 bool level_check_overlap(level*,KEYT start, KEYT end);
+bool level_full_check(level *);
 Node *level_insert(level *,Entry*);
 Entry *level_get_next(Iter *);
 Iter *level_get_Iter(level *);
 void level_print(level *);
 void level_free(level *);
+
+Node *ns_run(level*, int );
+Entry *ns_entry(Node *,int);
 #endif

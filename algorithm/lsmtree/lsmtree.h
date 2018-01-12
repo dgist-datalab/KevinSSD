@@ -9,6 +9,9 @@
 #define KEYNUM (PAGESIZE/(2*sizeof(KEYT)))
 #define OLDDATA 1
 #define HEADERR 2
+#define HEADERW 3
+#define DATAR 4
+#define DATAW 5
 
 typedef struct{
 	KEYT lpa;
@@ -23,6 +26,7 @@ typedef struct{
 	const request *req;
 	pthread_mutex_t lock;
 	uint8_t lsm_type;
+	V_PTR value;
 }lsm_params;
 
 
@@ -30,6 +34,7 @@ typedef struct {
 	level *disk[LEVELN];
 	PTR leve_addr[LEVEN];
 	skiplist *memtable;
+	skiplist *temptable;
 	lower_info* li;
 }lsmtree;
 

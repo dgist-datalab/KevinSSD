@@ -4,6 +4,7 @@
 #include<stdlib.h>
 #include<limits.h>
 Node *ns_run(level*input ,int n){
+	if(n>r_num) return NULL;
 	return (Node*)&input->body[input->r_size*n];
 }
 Entry *ns_entry(Node *input, int n){
@@ -21,6 +22,10 @@ Entry *level_entcpy(Entry *src, char *des){
 	#endif
 #endif
 	return (Entry*)des;
+}
+
+bool level_full_check(level *input){
+	return input->n_num==input->m_num;
 }
 
 level *level_init(level *input,int all_entry,bool isTiering){
@@ -47,6 +52,8 @@ level *level_init(level *input,int all_entry,bool isTiering){
 		temp_run->m_num=entry_p_run;
 		temp_run->e_size=sizeof(Entry);
 		temp_run->body_addr=&temp_run->body;
+		temp_run->start=UINT_MAX;
+		tmep_run->end=0;
 	}
 	input->entry_p_run=entry_p_run;
 	input->r_n_num=1;
@@ -114,13 +121,24 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 	if(input->r_n_num==r)
 		input->r_n_num++;
 	Node *temp_run=ns_run(input,r);//active run
+	if(temp_run->start>entry->key)
+		temp_run->start=entry->key;
+	if(temp_run->end<entry->key)
+		temp_run->end=entry->key;
+
 	int o=temp_run->n_num;
 	Entry *temp_entry=ns_entry(temp_run,o);
 	level_entcpy(entry,(char*)temp_entry);
 	temp_run->n_num++;
 	input->n_num++;
+	return temp_run;
 }
 Entry *level_get_next(Iter * input){
+	if(input->now==NULL && input->v_entry !=NULL) {
+		input->r_idx++;
+		return v_entry;
+	}
+	if(input->now==NULL && input->r_idx==1) return NULL;
 	if(!input->flag) return NULL;
 	if(input->now->n_num==0) return NULL;
 	Entry *res=ns_entry(input->now,input->idx++);

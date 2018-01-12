@@ -9,5 +9,8 @@
 
 #define CTHREAD 1
 #define CQSIZE 2
+#define EPC 20
 
+//#define SPINLOCK
+#define MUTEXLOCK
 #endif

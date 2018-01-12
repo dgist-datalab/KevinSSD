@@ -24,6 +24,8 @@
 #define SYNC (1)
 #define QSIZE (1024)
 #define THREADSIZE (1)
+
+#define CHACHESIZE 101010
 typedef enum{false,true} bool;
 
 typedef enum{

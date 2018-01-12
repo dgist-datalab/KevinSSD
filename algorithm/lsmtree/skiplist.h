@@ -8,7 +8,8 @@
 
 typedef enum {false, true} bool;
 typedef struct snode{ //skiplist's node
-	KEYT key; 
+	KEYT key;
+	KEYT ppa;
 	uint8_t level;
 	V_PTR *value;
 	struct algo_req *req;
@@ -30,9 +31,11 @@ typedef struct{
 skiplist *skiplist_init(); //return initialized skiplist*
 snode *skiplist_find(skiplist*,KEYT); //find snode having key in skiplist, return NULL:no snode
 snode *skiplist_insert(skiplist*,KEYT,char *,algo_req *); //insert skiplist, return inserted snode
+snode *skiplist_insert_wP(skiplist*,KEYT,KEYT);
 int skiplist_delete(skiplist*,KEYT); //delete by key, return 0:normal -1:empty -2:no key
 void skiplist_free(skiplist *list);  //free skiplist
 void skiplist_clear(skiplist *list); //clear all snode in skiplist and  reinit skiplist
 sk_iter* skiplist_get_iterator(skiplist *list); //get read only iterator
 snode *skiplist_get_next(sk_iter* iter); //get next snode by iterator
+skiplist *skiplist_cut(skiplit*,int size);
 #endif

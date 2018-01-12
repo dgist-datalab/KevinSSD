@@ -8,6 +8,21 @@ extern struct lower_info __posix;
 extern struct algorithm __normal;
 master_processor mp;
 void *p_main(void*);
+const FSTYPE r_type=FS_GET_T;
+static request* make_temp_req(const FSTYPE type, const KEYT key, const V_PTR value,request *cpy){
+	request *res=(request*)malloc(sizeof(request));
+	res->type=type;
+	res->key=key;
+	res->value=value;
+	res->end_req=inf_end_req;
+	res->isAsync=false;
+	if(cpy){
+		res->upper_req=cpy->upper_req;
+		res->upper_end=cpy->upper_end;
+	}
+	return res;
+}
+
 static void assign_req(request* req){
 	bool flag=false;
 	if(!req->isAsync){
@@ -69,6 +84,7 @@ bool inf_make_req(const FSTYPE type, const KEYT key, const V_PTR value){
 	req->value=value;
 	req->end_req=inf_end_req;
 	req->isAsync=false;
+
 	switch(type){
 		case FS_GET_T:
 			break;
@@ -102,10 +118,20 @@ bool inf_make_req_Async(void *ureq, void *(*end_req)(void*)){
 	return true;
 }
 bool inf_end_req(const request *req){
+	FSTYPE *temp_type=(void*)req->params;
+	if((*temp_type)==FS_AGAIN_R_T){
+		request *temp=make_temp_req(FS_GET_T,req->key,req->value,req);
+		free(temp_type);
+		free(req);
+		assign_req(temp);
+		return true;
+	}
+
 	if(!req->isAsync){
 		pthread_mutex_unlock(&req->async_mutex);
 	}
-	else if(req->value){
+	
+	if(req->value){
 		free(req->value);
 	}
 	free(req);
