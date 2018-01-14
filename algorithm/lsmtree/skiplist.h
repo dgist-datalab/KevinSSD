@@ -31,7 +31,9 @@ typedef struct{
 skiplist *skiplist_init(); //return initialized skiplist*
 snode *skiplist_find(skiplist*,KEYT); //find snode having key in skiplist, return NULL:no snode
 snode *skiplist_insert(skiplist*,KEYT,char *,algo_req *); //insert skiplist, return inserted snode
-snode *skiplist_insert_wP(skiplist*,KEYT,KEYT);
+snode *skiplist_insert_wP_existIgnore(skiplit *, KEYT,KEYT); //insert skiplist, if key exists, input data be ignored
+snode *skiplist_insert_wP(skiplist*,KEYT,KEYT);//with ppa; 
+snode *skiplist_at(skiplist *,int idx);
 int skiplist_delete(skiplist*,KEYT); //delete by key, return 0:normal -1:empty -2:no key
 void skiplist_free(skiplist *list);  //free skiplist
 void skiplist_clear(skiplist *list); //clear all snode in skiplist and  reinit skiplist

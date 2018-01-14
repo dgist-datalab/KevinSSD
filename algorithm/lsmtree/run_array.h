@@ -7,6 +7,7 @@ typedef struct Entry{
 	KEYT end;
 	KEYT pbn;
 	uint8_t bitset[KEYN/8];
+	uint64_t version;
 #ifdef BLOOM
 	BF *filter
 #endif
@@ -53,7 +54,7 @@ level *level_clear(level *);
 level *level_copy(level *,bool);
 Entry **level_find(level *,KEYT key);
 Entry *level_find_fromR(Node *, KEYT key);
-Entry **level_range_find(level *,KEYT start, KEYT end);
+int level_range_find(level *,KEYT start, KEYT end, Entry ***target);
 bool level_check_overlap(level*,KEYT start, KEYT end);
 bool level_full_check(level *);
 Node *level_insert(level *,Entry*);

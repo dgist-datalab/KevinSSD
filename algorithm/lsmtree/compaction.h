@@ -25,8 +25,12 @@ struct compaction_master{
 };
 bool compaction_init();
 void *compaction_main(void *);
-uint32_t tiering();
-uint32_t leveling();
+uint32_t tiering(int f, int t, Entry *);
+uint32_t leveling(int f, int t, Entry *);
+uint32_t leveling_to_tiering(int f, int t);
+uint32_t tiering_to_leveling(int f, int t);
+uint32_t partial_tiering(level *, skiplist *);
+uint32_t partial_leveling(level *, skiplit *);
 void compaction_check();
 void compaction_free();
 #endif

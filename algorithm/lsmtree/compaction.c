@@ -102,7 +102,7 @@ void *compaction_main(void *input){
 			htable *table=compaction_data_write(LSM->temp_table);
 			KEYT start=table->sets[0].lpa;
 			KEYT end=table->sets[KEYNUM-1].lpa;
-	//		KEYT ppa=compaction_htable_write(table);
+			//		KEYT ppa=compaction_htable_write(table);
 			Entry *entry=level_make_entry(start,end,-1);
 			entry->t_table=table;
 			if(LSM->disk[0]->isTiering){
@@ -151,7 +151,7 @@ htable *compaction_htable_convert(skiplist *input,float fpr){
 		res->sets[idx].lpa=snode_t->key;
 		res->sets[idx++].ppa=snode_t->ppa;
 #ifdef BLOOM
-	
+
 #endif
 	}
 	//free skiplist too;
@@ -173,17 +173,34 @@ void compaction_htable_read(Entry *ent,V_PTR value){
 
 int epc_check=0;
 extern int comp_target_get_cnt;
-void compaction_subprocessing_tier(skiplist *target,level *t, htable* datas,bool final){
-//wait all header read
+void compaction_subprocessing_CMI(skiplist * target,level * t,bool final){
+	KEYT ppa;
+	Entry *res;
+	htable *table;
+	skiplist *write_t;
+	while((write_t=skiplist_cut(target, (final? (KEYNUM > write_t->size? KEYNUM : write-t->size):(KEYNUM))))){
+		table=compaction_htable_convert(write_t,t->fpr);
+		res=level_make_entry(table->sets[0].lpa,table->sets[KEYNUM-1].lpa,ppa);
+		ppa=compaction_htable_write(table);
+		level_insert(t,res);
+	}
+}
+
+void compaction_subprocessing(skiplist *target,level *t, htable* datas,bool final,bool existIgnore){
+	//wait all header read
 #ifdef MUTEXLOCK
 	pthread_mutex_lock(&compaction_wait);
 #elif defined (SPINLOCK)
 	while(comp_taget_get_cnt!=epc_check){}
 #endif
+
 	for(int i=0; i<epc_check; i++){//insert htable into target
 		htable table=datas[i];
-		for(int j=0; j<KEYNUM; j++){	
-			skiplist_insert_wP(target,table.sets[j].lpa,table.sets[j].ppa);
+		for(int j=0; j<KEYNUM; j++){
+			if(existIgnore)
+				skiplist_insert_wP_existIgnore(target,table.sets[j].lpa,table.sets[j].ppa);
+			else
+				skiplist_insert_wP(target,table.sets[j].lpa,table.sets[j].ppa);
 		}
 	}
 
@@ -192,23 +209,9 @@ void compaction_subprocessing_tier(skiplist *target,level *t, htable* datas,bool
 	KEYT ppa;
 	Entry *res;
 	htable *table;
-	if(final){
-		while((write_t=skiplist_cut(target,KEYNUM>write_t->size?KEYNUM:write_t->size))){
-			table=compaction_htable_convert(write_t,t->fpr)
-			res=level_make_entry(table->sets[0].lpa,table->sets[KEYNUM-1].lpa,ppa);
-			ppa=compaction_htable_write(table);
-			level_insert(t,res);
-		}
-	}
-	else{
-		while((write_t=skiplist_cut(target,KEYNUM))){
-			table=compaction_htable_convert(write_t,t->fpr)
-			res=level_make_entry(table->sets[0].lpa,table->sets[KEYNUM-1].lpa,ppa);
-			ppa=compaction_htable_write(table);
-			level_insert(t,res);
-		}
-	}
+	compaction_subprocessing_CMI(target,t,final);
 }
+
 typedef struct temp_ndr{
 	int	s_num;
 	int idx;
@@ -223,6 +226,7 @@ int comp (const void * elem1, const void * elem2) {
 	return 0;
 }
 uint32_t tiering(int from, int to, Entry *entry){
+	/*have to change*/
 	if(from==-1){
 		KEYT ppa=compaction_htable_write(entry->t_table);
 		entry->ppa=ppa; entry->t_table=NULL;
@@ -254,12 +258,12 @@ uint32_t tiering(int from, int to, Entry *entry){
 				passcheck=false;
 			}
 		}
-		
+
 		Entry *target_e;
 		if(passcheck){//no overlapping
 			for(int j=0; (target_e=ns_entry(before_n,j))!=NULL; j++){
 #ifdef BLOOM
-				
+
 #else
 				level_insert(t,target_e);
 #endif
@@ -267,7 +271,7 @@ uint32_t tiering(int from, int to, Entry *entry){
 			before_n=target_n;
 			continue;
 		}
-		
+
 		if(!passcheck && first){
 			first=false;
 			for(int j=0; (target_e=ns_entry(before_n,j))!=NULL; j++){
@@ -277,7 +281,7 @@ uint32_t tiering(int from, int to, Entry *entry){
 					compaction_htable_read(target_e,(V_PTR)&headerset[epc_check++]);
 
 					if(epc_check==EPC){
-						compaction_subprocessing_tier(templ,t,headerset,false);
+						compaction_subprocessing(templ,t,headerset,false);
 						epc_check=0;
 					}
 				}
@@ -287,7 +291,7 @@ uint32_t tiering(int from, int to, Entry *entry){
 			for(int j=0; (target_e=ns_entry(before_n,j))!=NULL; j++){
 				compaction_htable_read(target_e,(V_PTR)&headerset[epc_check++]);
 				if(epc_check==EPC){
-					compaction_subprocessing_tier(templ,t,headerset,false);
+					compaction_subprocessing(templ,t,headerset,false);
 					epc_check=0;
 				}
 			}
@@ -303,12 +307,12 @@ uint32_t tiering(int from, int to, Entry *entry){
 		for(int j=0; (target_e=ns_entry(before_n,j))!=NULL; j++){
 			compaction_htable_read(target_e,(V_PTR)&headerset[epc_check++]);
 			if(epc_check==EPC){
-				compaction_subprocessing_tier(templ,t,headerset,false);
+				compaction_subprocessing(templ,t,headerset,false);
 				epc_check=0;
 			}
 		}
 	}
-	compaction_subprocessing_tier(templ,t,headerset,true);
+	compaction_subprocessing(templ,t,headerset,true);
 
 	free(ndr);
 	free(header_set);
@@ -318,75 +322,55 @@ uint32_t tiering(int from, int to, Entry *entry){
 }
 
 uint32_t leveling(int from, int to, Entry *entry){
-	KEYT f_start,f_end,t_start,t_end;
-	level *tt=LSM->disk[to];
-	level *f;
-	level *t=(level*)malloc(sizeof(level));
-	t=level_init(t,tt->size,false);
-	Iter *src_iter=NULL;
-	if(from==-1){
-		Iter *temp=(Iter *)malloc(sizeof(Iter));
-		temp->now=NULL; temp->r_idx=0;
-		temp->v_entry=entry;
-		src_iter=temp;
-		f_start=entry->key;
-		f_end=etnry->end;
-	}
-	else{
-		src_iter=level_get_Iter(LSM->disk[from]);
-		f=LSM->disk[from];
-		f_start=f->start;
-		f_end=f->end;
-	}
-	//seq check
-	if(f_start> t_end || f_end<t_start){
-#ifdef MONKEY
-		//processing for monkey filter
-#endif
-		if(f_start > t_end)  { //tt > f 
-			Entry *temp_e;
-			Iter *iter=level_get_Iter(tt);
-			while((temp_e=level_get_next(iter))){
-				level_insert(t,temp_e);
-			}
-			free(iter);
-
-			while((temp_e=level_get_next(src_iter))){
-				level_insert(t,temp_e);
-			}
-			free(iter);
-		}
-		else{ // f >tt
-			Entry *temp_e;
-			while((temp_e=level_get_next(src_iter))){
-				level_insert(t,temp_e);
-			}
-			free(iter);
-
-			Iter *iter=level_get_Iter(tt);
-			while((temp_e=level_get_next(iter))){
-				level_insert(t,temp_e);
-			}
-			free(iter);
-		}
-		free(src_iter);
-		//swaping 
-		return 1;
-	}
-	//overlapping
-
-	Entry *src_entry;
-	Entry **target_d;
-	skiplist * templ=skiplist_init();
-	htable *headerset;
-	bool checking;
-	while(!(src_entry=level_get_next(src_iter))){
-		target_d=level_range_find(tt,src_entry->key,src_entry->end);
-		for(int i=0;)
-	}
-	skiplist_free(templ);
-	free(src_iter);
-	//swaping
-	return 1;
+	
 }
 
+uint64_t partial_tiering(level *t,level *f, skiplist* skip, int *runtable){
+	
+}
+
+uint32_t partial_leveling(level* t,level *origin,skiplit *skip,bool final){
+	KEYT start=skip->start;
+	KEYT end=skip->end;
+
+	Entry **target_s=NULL;
+	int headerSize=level_range_find(t,start,end,&target_s);
+	if(headerSize==0){ //sequential
+		for(int i=0; target_s[i]!=NULL; i++){ //origin 
+#ifdef MONKEY
+			//read header and make new bloomfilter for target entry
+#else
+			level_insert(t,target_s[i]);
+#endif
+		}
+		compaction_subprocessing_CMI(skip,t,final);
+		free(target_s);
+		return 1;
+	}
+	//overlaped, divied into EPC size
+	htable *table;
+	int target_round=headerSize/EPC+(headerSize%EPC ? 1:0);
+	int idx=0;
+	for(int round=0; round<target_round; round++){
+		table=(htable*)malloc(sizeof(htable)*EPC);
+		for(int j=0; j<EPC; j++){
+			compaction_htable_read(target_s[idx++],(V_PTR)&table[j]);
+			if(target_s[idx]==NULL) break;
+		}
+	
+		epc_check=(round+1==target_round? idx%EPC:EPC);
+
+		if(!final)
+			compaction_subprocessing(skip,t,table,final,true);
+		else{
+			if(round+1=target_round)
+				compaction_subprocessing(skip,t,table,true,true);
+			else
+				compaction_subprocessing(skip,t,table,false,true);
+		}
+		//per round
+		free(table);
+	}
+	free(target_s);
+	return 1;
+}
