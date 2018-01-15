@@ -7,7 +7,7 @@ CFLAGS +=\
 
 
 SRCS +=\
-	   page.c\
+	   page_revised.c\
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\
