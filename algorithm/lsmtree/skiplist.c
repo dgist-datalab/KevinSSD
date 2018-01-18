@@ -5,6 +5,7 @@
 #include<unistd.h>
 #include<sys/types.h>
 #include"skiplist.h"
+
 skiplist *skiplist_init(){
 	skiplist *point=(skiplist*)malloc(sizeof(skiplist));
 	point->level=1;
@@ -12,7 +13,9 @@ skiplist *skiplist_init(){
 	point->header->list=(snode**)malloc(sizeof(snode)*(MAX_L+1));
 	for(int i=0; i<MAX_L; i++) point->header->list[i]=point->header;
 	point->header->key=INT_MAX;
-
+	
+	point->start=UINT_MAX;
+	point->end=0;
 	point->size=0;
 	return point;
 }
@@ -40,7 +43,7 @@ static int getLevel(){
 	return level;
 }
 
-snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa){
+snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
 	snode *update[MAX_L+1];
 	snode *x=list->header;
 	for(int i=list->level; i>=1; i--){
@@ -49,11 +52,15 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa){
 		update[i]=x;
 	}
 	x=x->list[1];
+	
+	if(key<list->start) list->start=key;
+	if(key>list->end) list->end=key;
 
 	if(key==x->key){
 		x->key=key;
 		//delete exists x->ppa;
 		x->ppa=ppa;
+		x->isvalid=deletef;
 		return x;
 	}
 	else{
@@ -70,6 +77,7 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa){
 
 		x->key=key;
 		x->ppa=ppa;
+		x->isvalid=deletef;
 		for(int i=1; i<=level; i++){
 			x->list[i]=update[i]->list[i];
 			update[i]->list[i]=x;
@@ -80,7 +88,7 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa){
 	return x;
 }
 
-snode *skiplist_insert_wp_existIgnore(skiplist *list,KEYT key,KEYT ppa){
+snode *skiplist_insert_wp_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef){
 	snode *update[MAX_L+1];
 	snode *x=list->header;
 	for(int i=list->level; i>=1; i--){
@@ -89,6 +97,9 @@ snode *skiplist_insert_wp_existIgnore(skiplist *list,KEYT key,KEYT ppa){
 		update[i]=x;
 	}
 	x=x->list[1];
+
+	if(key<list->start) list->start=key;
+	if(key>list->end) list->end=key;
 
 	if(key==x->key){
 		//delete exists ppa; input ppa
@@ -108,6 +119,7 @@ snode *skiplist_insert_wp_existIgnore(skiplist *list,KEYT key,KEYT ppa){
 
 		x->key=key;
 		x->ppa=ppa;
+		x->isvalid=deletef;
 		for(int i=1; i<=level; i++){
 			x->list[i]=update[i]->list[i];
 			update[i]->list[i]=x;
@@ -118,7 +130,7 @@ snode *skiplist_insert_wp_existIgnore(skiplist *list,KEYT key,KEYT ppa){
 	return x;
 }
 
-snode *skiplist_insert(skiplist *list,KEYT key, char *value, algo_req *req){
+snode *skiplist_insert(skiplist *list,KEYT key, char *value, algo_req *req,bool deletef){
 	snode *update[MAX_L+1];
 	snode *x=list->header;
 	for(int i=list->level; i>=1; i--){
@@ -127,6 +139,9 @@ snode *skiplist_insert(skiplist *list,KEYT key, char *value, algo_req *req){
 		update[i]=x;
 	}
 	x=x->list[1];
+
+	if(key<list->start) list->start=key;
+	if(key>list->end) list->end=key;
 
 	if(key==x->key){
 		algo_req * old_req=x->req;
@@ -137,6 +152,7 @@ snode *skiplist_insert(skiplist *list,KEYT key, char *value, algo_req *req){
 
 		x->value=value;
 		x->req=req;
+		x->isvalid=deletef;
 		return x;
 	}
 	else{
@@ -153,6 +169,7 @@ snode *skiplist_insert(skiplist *list,KEYT key, char *value, algo_req *req){
 
 		x->key=key;
 		x->req=req;
+		x->isvalid=deletef;
 		if(value !=NULL){
 			//x->value=(char *)malloc(VALUESIZE);
 			//memcpy(x->value,value,VALUESIZE);
@@ -282,7 +299,7 @@ snode *skiplist_pop(skiplist *list){
 	return NULL;	
 }
 
-skiplsit *skiplist_cut(skiplist *list, int size){
+skiplist *skiplist_cut(skiplist *list, int num){
 	if(num==0) return NULL;
 	if(list->size<num) return NULL;
 	skiplist *res=(skiplist*)malloc(sizeof(skiplist));

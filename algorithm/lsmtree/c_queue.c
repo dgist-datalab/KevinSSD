@@ -1,10 +1,10 @@
 #include <stdlib.h>
-#include "queue.h"
-#include "../include/FS.h"
-#include "../include/settings.h"
+#include "c_queue.h"
+#include "../../include/FS.h"
+#include "../../include/settings.h"
 
 void cq_init(c_queue **q){
-	*q=(queue*)malloc(sizeof(c_queue));
+	*q=(c_queue*)malloc(sizeof(c_queue));
 	(*q)->size=0;
 	(*q)->head=(*q)->tail=NULL;
 	pthread_mutex_init(&((*q)->q_lock),NULL);
@@ -13,7 +13,7 @@ void cq_init(c_queue **q){
 bool cq_enqueue(const compR* req, c_queue* q){
 	if(q->size==QSIZE)
 		return false;
-	c_node *new_node=(node*)malloc(sizeof(c_node));
+	c_node *new_node=(c_node*)malloc(sizeof(c_node));
 	new_node->req=req;
 	new_node->next=NULL;
 	pthread_mutex_lock(&q->q_lock);
@@ -44,7 +44,7 @@ const compR * cq_dequeue(c_queue *q){
 	return res;
 }
 
-void cq_free(queue* q){
+void cq_free(c_queue* q){
 	while(cq_dequeue(q)){}
 	pthread_mutex_destroy(&q->q_lock);
 	free(q);

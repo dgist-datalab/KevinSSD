@@ -132,7 +132,11 @@ bool inf_end_req(const request *req){
 	}
 	
 	if(req->value){
+#ifdef LSM
+		
+#else
 		free(req->value);
+#endif
 	}
 	free(req);
 	return true;

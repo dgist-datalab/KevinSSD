@@ -2,16 +2,22 @@
 #define __RUN_A_H__
 #include "../../include/container.h"
 #include "../../include/settings.h"
+#include "../../include/lsm_settings.h"
+#include "lsmtree.h"
+
+struct htable;
+struct skiplis;
 typedef struct Entry{
 	KEYT key;
 	KEYT end;
 	KEYT pbn;
-	uint8_t bitset[KEYN/8];
+	uint8_t bitset[KEYNUM/8];
 	uint64_t version;
 #ifdef BLOOM
 	BF *filter
 #endif
-	htable *t_table;
+	struct htable *t_table;
+	struct skiplist *t_skip;
 }Entry;
 
 typedef struct Node{
@@ -33,6 +39,7 @@ typedef struct level{
 	int entry_p_run;
 	int r_size;//size of run
 	float fpr;
+	pthread_mutex_t level_lock;
 	bool isTiering;
 	KEYT start;
 	KEYT end;
@@ -49,9 +56,10 @@ typedef struct iterator{
 }Iter;
 Entry *level_make_entry(KEYT,KEYT,KEYT);
 Entry* level_entcpy(Entry *src,char *des);
+Entry *level_entry_copy(Entry *src);
 level *level_init(level *,int size,bool);
 level *level_clear(level *);
-level *level_copy(level *,bool);
+level *level_copy(level *,bool);//do coding
 Entry **level_find(level *,KEYT key);
 Entry *level_find_fromR(Node *, KEYT key);
 int level_range_find(level *,KEYT start, KEYT end, Entry ***target);

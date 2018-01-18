@@ -3,8 +3,9 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<limits.h>
+#include<string.h>
 Node *ns_run(level*input ,int n){
-	if(n>r_num) return NULL;
+	if(n>input->r_num) return NULL;
 	return (Node*)&input->body[input->r_size*n];
 }
 Entry *ns_entry(Node *input, int n){
@@ -28,13 +29,25 @@ bool level_full_check(level *input){
 	return input->n_num==input->m_num;
 }
 
+Entry *level_entry_copy(Entry *input){
+	Entry *res=(Entry*)malloc(sizeof(Entry));
+	res->key=input->key;
+	res->end=input->end;
+	res->pbn=input->pbn;
+
+	memcpy(res->bitset,input->bitset,sizeof(res->bitset));
+	res->version=input->version;
+	return res;
+}
+
 level *level_init(level *input,int all_entry,bool isTiering){
 	if(isTiering){
-		input->r_num=MUL;
+		input->r_num=SIZEFACTOR;
 	}
 	else{
 		input->r_num=1;
 	}
+	pthread_mutex_init(&input->level_lock,NULL);
 	input->isTiering=isTiering;
 	int entry_p_run=all_entry/input->r_num;
 	int run_body_size=sizeof(Entry)*entry_p_run;
@@ -53,7 +66,7 @@ level *level_init(level *input,int all_entry,bool isTiering){
 		temp_run->e_size=sizeof(Entry);
 		temp_run->body_addr=&temp_run->body;
 		temp_run->start=UINT_MAX;
-		tmep_run->end=0;
+		temp_run->end=0;
 	}
 	input->entry_p_run=entry_p_run;
 	input->r_n_num=1;
@@ -136,7 +149,7 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 Entry *level_get_next(Iter * input){
 	if(input->now==NULL && input->v_entry !=NULL) {
 		input->r_idx++;
-		return v_entry;
+		return input->v_entry;
 	}
 	if(input->now==NULL && input->r_idx==1) return NULL;
 	if(!input->flag) return NULL;

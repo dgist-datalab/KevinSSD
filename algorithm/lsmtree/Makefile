@@ -8,6 +8,10 @@ CFLAGS +=\
 SRCS +=\
 	   run_array.c\
 	   skiplist.c\
+	   bloomfilter.c\
+	   c_queue.c\
+	   lsmtree.c\
+	   compaction.c\
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\
@@ -28,5 +32,5 @@ liblsm.a : $(TARGETOBJ)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean : 
-	@$(RM) libnom.a
+	@$(RM) liblsm.a
 	@$(RM) *.o

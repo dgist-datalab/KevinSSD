@@ -18,16 +18,16 @@ struct algorithm algo_lsm={
 lsmtree LSM;
 
 uint32_t lsm_create(lower_info *li, algorithm *lsm){
-	LSM->memtable=skiplist_init();
+	LSM.memtable=skiplist_init();
 
 	unsigned long long sol=SIZEFACTOR;
 	float ffpr=RAF*(1-SIZEFACTOR)/(1-pow(SIZEFACTOR,LEVELN+0));
 	for(int i=0; i<LEVELN; i++){
-		LSM->disk[i]=(level*)malloc(sizeof(level));
+		LSM.disk[i]=(level*)malloc(sizeof(level));
 #ifdef TIERING
-		level_init(&LSM->disk[i],sol,true);
+		level_init(LSM.disk[i],sol,true);
 #else
-		level_init(&LSM->disk[i],sol,false);
+		level_init(LSM.disk[i],sol,false);
 #endif
 		sol*=SIZEFACTOR;
 
@@ -38,23 +38,23 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	#else
 		target_fpr=(float)RAF/LEVELN;
 	#endif
-		LSM->disk[i].fpr=target_fpr;
+		LSM.disk[i].fpr=target_fpr;
 #endif
-		LSM->level_addr[i]=&LSM->disk[i];
+		LSM.level_addr[i]=(PTR)LSM.disk[i];
 	}
 
 	//compactor start
 	compaction_init();
-	LSM->li=li;
-	lsm->li=li;
+	LSM.li=li;
+	LSM.li=li;
 }
 
 void lsm_destroy(lower_info *li, algorithm *lsm){
 	compaction_free();
 	for(int i=0; i<LEVELN; i++){
-		level_free(&LSM->disk[i]);
+		level_free(LSM.disk[i]);
 	}
-	skiplist_free(LSM->memtable);
+	skiplist_free(LSM.memtable);
 }
 
 extern pthread_mutex_t compaction_wait;
@@ -62,7 +62,7 @@ extern int epc_check;
 int comp_target_get_cnt=0;
 void* lsm_end_req(algo_req* req){
 	lsm_params *params=(lsm_params*)req->params;
-	const request *parents=params->req;
+	request *parents=params->req;
 	FSTYPE *temp_type;
 	switch(params->lsm_type){
 		case OLDDATA:
@@ -74,13 +74,14 @@ void* lsm_end_req(algo_req* req){
 				if(epc_check==comp_target_get_cnt){
 #ifdef MUTEXLOCK
 					pthread_mutex_unlock(&compaction_wait);
-#endif
+#elif defined (SPINLOCK)
 					comp_target_get_cnt=0;
+#endif
 				}
 			}
 			else{
 				temp_type=(FSTYPE*)malloc(sizeof(FSTYPE));
-				temp_type=FS_AGAIN_R_T;
+				*temp_type=FS_AGAIN_R_T;
 				parents->params=(void*)temp_type;
 			}
 			break;
@@ -92,7 +93,7 @@ void* lsm_end_req(algo_req* req){
 			free(req_temp_params);
 			break;
 		case DATAW:
-			free(req->value);
+			free(params->value);
 			break;
 		default:
 			break;
@@ -107,22 +108,25 @@ void* lsm_end_req(algo_req* req){
 uint32_t lsm_set(const request *req){
 	compaction_check();
 	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
-	lsm_params *params=(lsm_params)malloc(sizeof(lsm_params));
+	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 	params->req=NULL;
 	params->lsm_type=DATAW;
 	lsm_req->params=(void*)params;
 	lsm_req->end_req=lsm_end_req;
-	skiplist_insert(LSM->memtable,req->key,req->value,lsm_req);
-	req->value=NULL;
+	if(req->type==FS_DELETE_T)
+		skiplist_insert(LSM.memtable,req->key,req->value,lsm_req,false);
+	else
+		skiplist_insert(LSM.memtable,req->key,req->value,lsm_req,true);
+	//req->value will be ignored at free
 	req->end_req(req); //end write
 	return 1;
 }
 
-uint32_t lsm_get(const request *req){
+uint32_t lsm_get( request const *req){
 	Entry** entries;
 	htable* mapinfo;
 	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
-	lsm_params *params=(lsm_params)malloc(sizeof(lsm_params));
+	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 	params->req=req;
 	pthread_mutex_init(&params->lock,NULL);
 	pthread_mutex_lock(&params->lock);
@@ -144,7 +148,7 @@ uint32_t lsm_get(const request *req){
 		if(target){
 			//read target data;
 			params->lsm_type=DATAR;
-			LSM->li->pull_data(target->ppa,PAGESIZE,req->value,0,lsm_req,0);
+			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,0,lsm_req,0);
 			return 1;
 		}
 		int *temp_req=(int*)req->params;
@@ -153,7 +157,9 @@ uint32_t lsm_get(const request *req){
 	}
 
 	for(int i=level; i<LEVELN; i++){
-		entries=level_find(&LSM->disk[i],req->key);
+		pthread_mutex_lock(&LSM.disk[i]->level_lock);
+		entries=level_find(&LSM.disk[i],req->key);
+		pthread_mutex_unlock(&LSM.disk[i]->level_lock);
 		if(!entries)continue;
 		for(int j=run; entries[j]!=NULL; j++){
 			Entry *entry=entries[j];
@@ -165,7 +171,7 @@ uint32_t lsm_get(const request *req){
 			temp_data[0]=i;
 			temp_data[1]=j;
 
-			LSM->li->pull_data(entry->pbn,PAGESIZE,req->value,0,lsm_req,0);
+			LSM.li->pull_data(entry->pbn,PAGESIZE,req->value,0,lsm_req,0);
 			if(!req->isAsync){
 				pthread_mutex_lock(&params->lock); // wait until read table data;
 				mapinfo=(htable*)req->value;
@@ -176,7 +182,7 @@ uint32_t lsm_get(const request *req){
 				else{
 					//read target data;
 					params->lsm_type=DATAR;
-					LSM->li->pull_data(target->ppa,PAGESIZE,req->value,0,lsm_req,0);
+					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,0,lsm_req,0);
 					return 1;
 				}
 			}
