@@ -3,6 +3,7 @@ CC=gcc
 CFLAGS +=\
 		 -g\
 		 -std=c99\
+		 -Wno-discarded-qualifiers\
 
 
 SRCS +=\
@@ -30,6 +31,9 @@ liblsm.a : $(TARGETOBJ)
 
 ../../object/%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
+
+test_clean :
+	@$(RM) ../../object/*
 
 clean : 
 	@$(RM) liblsm.a

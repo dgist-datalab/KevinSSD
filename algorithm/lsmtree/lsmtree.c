@@ -62,7 +62,7 @@ extern int epc_check;
 int comp_target_get_cnt=0;
 void* lsm_end_req(algo_req* req){
 	lsm_params *params=(lsm_params*)req->params;
-	request *parents=params->req;
+	request* parents=params->req;
 	FSTYPE *temp_type;
 	switch(params->lsm_type){
 		case OLDDATA:
@@ -105,7 +105,7 @@ void* lsm_end_req(algo_req* req){
 	return NULL;
 }
 
-uint32_t lsm_set(const request *req){
+uint32_t lsm_set(request const*req){
 	compaction_check();
 	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
@@ -122,7 +122,7 @@ uint32_t lsm_set(const request *req){
 	return 1;
 }
 
-uint32_t lsm_get( request const *req){
+uint32_t lsm_get(request *req){
 	Entry** entries;
 	htable* mapinfo;
 	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
@@ -143,7 +143,7 @@ uint32_t lsm_get( request const *req){
 	}
 	else{
 		//check_sktable
-		mapinfo=(htable)req->value;
+		mapinfo=(htable*)req->value;
 		keyset *target=htable_find(mapinfo,req->key);
 		if(target){
 			//read target data;
@@ -158,7 +158,7 @@ uint32_t lsm_get( request const *req){
 
 	for(int i=level; i<LEVELN; i++){
 		pthread_mutex_lock(&LSM.disk[i]->level_lock);
-		entries=level_find(&LSM.disk[i],req->key);
+		entries=level_find(LSM.disk[i],req->key);
 		pthread_mutex_unlock(&LSM.disk[i]->level_lock);
 		if(!entries)continue;
 		for(int j=run; entries[j]!=NULL; j++){

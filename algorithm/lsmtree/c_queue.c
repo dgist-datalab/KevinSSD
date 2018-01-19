@@ -10,7 +10,7 @@ void cq_init(c_queue **q){
 	pthread_mutex_init(&((*q)->q_lock),NULL);
 }
 
-bool cq_enqueue(const compR* req, c_queue* q){
+bool cq_enqueue(struct compaction_req* req, c_queue* q){
 	if(q->size==QSIZE)
 		return false;
 	c_node *new_node=(c_node*)malloc(sizeof(c_node));
@@ -29,7 +29,7 @@ bool cq_enqueue(const compR* req, c_queue* q){
 	return true;
 }
 
-const compR * cq_dequeue(c_queue *q){
+struct compaction_req* cq_dequeue(c_queue *q){
 	if(q->size==0)
 		return NULL;
 	c_node *target_node;
@@ -37,7 +37,7 @@ const compR * cq_dequeue(c_queue *q){
 	pthread_mutex_lock(&q->q_lock);
 	target_node=q->head;
 	q->head=q->head->next;
-	const request *res=target_node->req;
+	struct compaction_req* res=target_node->req;
 	q->size--;
 	pthread_mutex_unlock(&q->q_lock);
 	free(target_node);

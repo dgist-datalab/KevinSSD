@@ -11,7 +11,7 @@ typedef struct Entry{
 	KEYT key;
 	KEYT end;
 	KEYT pbn;
-	uint8_t bitset[KEYNUM/8];
+	uint8_t *bitset;
 	uint64_t version;
 #ifdef BLOOM
 	BF *filter
@@ -59,7 +59,7 @@ Entry* level_entcpy(Entry *src,char *des);
 Entry *level_entry_copy(Entry *src);
 level *level_init(level *,int size,bool);
 level *level_clear(level *);
-level *level_copy(level *,bool);//do coding
+level *level_copy(level *);//do coding
 Entry **level_find(level *,KEYT key);
 Entry *level_find_fromR(Node *, KEYT key);
 int level_range_find(level *,KEYT start, KEYT end, Entry ***target);

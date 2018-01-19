@@ -11,7 +11,7 @@ typedef struct snode{ //skiplist's node
 	KEYT key;
 	KEYT ppa;
 	uint8_t level;
-	V_PTR *value;
+	V_PTR value;
 	bool isvalid;
 	struct algo_req *req;
 	struct snode **list;

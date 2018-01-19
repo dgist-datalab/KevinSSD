@@ -18,7 +18,7 @@
 #define FSTYPE uint8_t
 #define KEYT uint32_t
 #define BLOCKT uint32_t
-#define V_PTR char*
+#define V_PTR char const*
 #define PTR char*
 
 #define SYNC (1)
