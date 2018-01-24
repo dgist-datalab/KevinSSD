@@ -12,8 +12,6 @@ struct algorithm algo_pbase=
 };
 
 uint32_t PPA_status = 0;
-int32_t NUMOP = 32*1024*1024;
-int32_t NUMOB = 128*1024;
 int init_done = 0;//check if initial write is done.
 
 uint32_t pbase_create(lower_info* li, algorithm *algo) //define & initialize mapping table.
@@ -81,7 +79,7 @@ uint32_t pbase_set(const request *req)
 	my_req->params = (void*)params;
 	
 	//garbage_collection necessity detection.
-	if (PPA_status == NUMOP)
+	if (PPA_status == _NOP)
 	{
 		pbase_garbage_collection();
 		init_done = 1;

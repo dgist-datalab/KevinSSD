@@ -8,12 +8,12 @@
 #define T (1024L*G)
 #define P (1024L*T)
 
-#define TOTALSIZE (256L*G)
 #define PAGESIZE (8*K)
-#define _PPB (256)
+#define _PPB (8)
 #define BLOCKSIZE (_PPB*PAGESIZE)
-#define _NOB (TOTALSIZE/BLOCKSIZE)
-#define _NOP (TOTALSIZE/PAGESIZE)
+#define _NOB (30)
+#define _NOP (240)
+#define TOTALSIZE (_NOP*PAGESIZE)
 
 #define FSTYPE uint8_t
 #define KEYT uint32_t
