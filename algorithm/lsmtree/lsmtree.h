@@ -31,7 +31,7 @@ typedef struct lsm_params{
 	request *req;
 	pthread_mutex_t lock;
 	uint8_t lsm_type;
-	V_PTR value;
+	PTR value;
 }lsm_params;
 
 
@@ -45,10 +45,10 @@ typedef struct lsmtree{
 
 uint32_t lsm_create(lower_info *, algorithm *);
 void lsm_destroy(lower_info*, algorithm*);
-uint32_t lsm_get(request *);
-uint32_t lsm_set(request const*);
-uint32_t lsm_remove(request const*);
-void* lsm_end_req(struct algo_req*);
+uint32_t lsm_get(request *const);
+uint32_t lsm_set(request *const);
+uint32_t lsm_remove(request *const);
+void* lsm_end_req(struct algo_req*const);
 bool lsm_kv_validcheck(uint8_t *, int idx);
 void lsm_kv_validset(uint8_t *,int idx);
 keyset* htable_find(htable*, KEYT target);

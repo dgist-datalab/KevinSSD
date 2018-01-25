@@ -18,7 +18,7 @@
 #define FSTYPE uint8_t
 #define KEYT uint32_t
 #define BLOCKT uint32_t
-#define V_PTR char const*
+#define V_PTR char * const
 #define PTR char*
 
 #define SYNC (1)
@@ -34,7 +34,5 @@ typedef enum{
 	MIXED
 }bench_type;
 
-/*LSM SETTINGS*/
-#define LEVELN 10
 
 #endif

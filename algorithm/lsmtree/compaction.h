@@ -38,4 +38,6 @@ uint32_t tiering_to_leveling(int f, int t);
 uint32_t partial_leveling(struct level *,struct level *,struct skiplist *,bool);
 void compaction_check();
 void compaction_free();
+
+void compaction_subprocessing(skiplist *,level *, htable *, bool, bool);
 #endif

@@ -88,7 +88,7 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
 	return x;
 }
 
-snode *skiplist_insert_wp_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef){
+snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef){
 	snode *update[MAX_L+1];
 	snode *x=list->header;
 	for(int i=list->level; i>=1; i--){
@@ -130,7 +130,7 @@ snode *skiplist_insert_wp_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool dele
 	return x;
 }
 
-snode *skiplist_insert(skiplist *list,KEYT key, char *value, algo_req *req,bool deletef){
+snode *skiplist_insert(skiplist *list,KEYT key,V_PTR value, algo_req *req,bool deletef){
 	snode *update[MAX_L+1];
 	snode *x=list->header;
 	for(int i=list->level; i>=1; i--){
@@ -144,6 +144,9 @@ snode *skiplist_insert(skiplist *list,KEYT key, char *value, algo_req *req,bool 
 	if(key>list->end) list->end=key;
 
 	if(key==x->key){
+#ifdef DEBUG
+
+#endif
 		algo_req * old_req=x->req;
 		lsm_params *old_params=(lsm_params*)old_req->params;
 		old_params->lsm_type=OLDDATA;

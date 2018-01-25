@@ -1,6 +1,7 @@
 #include "lsmtree.h"
 #include "compaction.h"
 #include "c_queue.h"
+#include "skiplist.h"
 #include <pthread.h>
 #include <stdlib.h>
 
@@ -224,8 +225,10 @@ void compaction_subprocessing(skiplist *target,level *t, htable* datas,bool fina
 	for(int i=0; i<epc_check; i++){//insert htable into target
 		htable table=datas[i];
 		for(int j=0; j<KEYNUM; j++){
-			if(existIgnore)
-				skiplist_insert_wP_existIgnore(target,table.sets[j].lpa,table.sets[j].ppa,lsm_kv_validcheck(table.bitset,j));
+			if(existIgnore){
+				//skiplist_insert_wP(target,table.sets[j].lpa,table.sets[j].ppa,lsm_kv_validcheck(table.bitset,j));
+				skiplist_insert_existIgnore(target,table.sets[j].lpa,table.sets[j].ppa,lsm_kv_validcheck(table.bitset,j));
+			}
 			else
 				skiplist_insert_wP(target,table.sets[j].lpa,table.sets[j].ppa,lsm_kv_validcheck(table.bitset,j));
 		}
@@ -508,3 +511,4 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip,bool final){
 	free(target_s);
 	return 1;
 }
+

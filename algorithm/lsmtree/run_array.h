@@ -39,10 +39,10 @@ typedef struct level{
 	int entry_p_run;
 	int r_size;//size of run
 	float fpr;
-	pthread_mutex_t level_lock;
 	bool isTiering;
 	KEYT start;
 	KEYT end;
+	pthread_mutex_t level_lock;
 	char *body;
 }level;
 

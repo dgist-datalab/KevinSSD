@@ -13,9 +13,14 @@ OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\
 
 TARGETOBJ:=\
-	$(addprefix ../../object/,$(OBJS))\
+	$(patsubst %.c,%.o,$(SRCS))\
+	#$(addprefix ../../object/,$(OBJS))\
 
-all: $(TARGETOBJ)
+all: libpos.a
+
+libpos.a : $(TARGETOBJ)
+	$(AR) r $(@) $(TARGETOBJ)
+	
 
 .c.o :
 	$(CC) $(CFLAGS) -c $< -o $@

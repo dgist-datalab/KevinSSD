@@ -6,10 +6,11 @@
 #include <unistd.h>
 extern struct lower_info __posix;
 extern struct algorithm __normal;
+extern struct algorithm algo_lsm;
 master_processor mp;
 void *p_main(void*);
 const FSTYPE r_type=FS_GET_T;
-static request* make_temp_req(const FSTYPE type, const KEYT key, const V_PTR value,request *cpy){
+static request* make_temp_req(const FSTYPE type, const KEYT key, V_PTR value,request *cpy){
 	request *res=(request*)malloc(sizeof(request));
 	res->type=type;
 	res->key=key;
@@ -71,12 +72,14 @@ void inf_init(){
 
 #ifdef normal
 	mp.algo=&__normal;
+#elif defined(lsmtree)
+	mp.algo=&algo_lsm;
 #endif
 	mp.li->create(mp.li);
 	mp.algo->create(mp.li,mp.algo);
 }
 
-bool inf_make_req(const FSTYPE type, const KEYT key, const V_PTR value){
+bool inf_make_req(const FSTYPE type, const KEYT key, V_PTR value){
 	request *req=(request*)malloc(sizeof(request));
 	req->upper_req=NULL;
 	req->type=type;
@@ -117,9 +120,12 @@ bool inf_make_req_Async(void *ureq, void *(*end_req)(void*)){
 	assign_req(req);
 	return true;
 }
-bool inf_end_req(const request *req){
+bool inf_end_req( request * const req){
+#ifdef DEBUG
+	printf("inf_end_req!\n");
+#endif
 	FSTYPE *temp_type=(void*)req->params;
-	if((*temp_type)==FS_AGAIN_R_T){
+	if(temp_type!=NULL && (*temp_type)==FS_AGAIN_R_T){
 		request *temp=make_temp_req(FS_GET_T,req->key,req->value,req);
 		free(temp_type);
 		free(req);
@@ -135,7 +141,8 @@ bool inf_end_req(const request *req){
 #ifdef LSM
 		
 #else
-		free(req->value);
+		//main free 
+		//free(req->value);
 #endif
 	}
 	free(req);

@@ -6,7 +6,7 @@
 
 #define SIZEFACTOR 10 
 #define RAF 1
-#define LEVELN 10
+#define LEVELN 8
 #define KEYNUM 1024
 #define CTHREAD 1
 #define CQSIZE 2

@@ -14,7 +14,11 @@ int main(){
 		char *temp=(char*)malloc(PAGESIZE);
 		memcpy(temp,&i,sizeof(i));
 		inf_make_req(FS_SET_T,i,temp);
+#ifdef lsmtree
+
+#else
 		free(temp);
+#endif
 	}
 
 	int check;

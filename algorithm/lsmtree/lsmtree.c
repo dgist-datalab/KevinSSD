@@ -7,6 +7,9 @@
 #include "lsmtree.h"
 #include "run_array.h"
 
+#ifdef DEBUG
+#include<stdio.h>
+#endif
 
 struct algorithm algo_lsm={
 	.create=lsm_create,
@@ -33,11 +36,11 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 
 		float target_fpr;
 #ifdef BLOOM
-	#ifdef MONKEY
+#ifdef MONKEY
 		target_fpr=pow(SIZEFACTOR,i)*ffpr;
-	#else
+#else
 		target_fpr=(float)RAF/LEVELN;
-	#endif
+#endif
 		LSM.disk[i].fpr=target_fpr;
 #endif
 		LSM.level_addr[i]=(PTR)LSM.disk[i];
@@ -60,7 +63,7 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 extern pthread_mutex_t compaction_wait;
 extern int epc_check;
 int comp_target_get_cnt=0;
-void* lsm_end_req(algo_req* req){
+void* lsm_end_req(algo_req* const req){
 	lsm_params *params=(lsm_params*)req->params;
 	request* parents=params->req;
 	FSTYPE *temp_type;
@@ -105,7 +108,10 @@ void* lsm_end_req(algo_req* req){
 	return NULL;
 }
 
-uint32_t lsm_set(request const*req){
+uint32_t lsm_set(request * const req){
+#ifdef DEBUG
+	printf("lsm_set!\n");
+#endif
 	compaction_check();
 	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
@@ -117,12 +123,28 @@ uint32_t lsm_set(request const*req){
 		skiplist_insert(LSM.memtable,req->key,req->value,lsm_req,false);
 	else
 		skiplist_insert(LSM.memtable,req->key,req->value,lsm_req,true);
+	req->value=NULL;
 	//req->value will be ignored at free
 	req->end_req(req); //end write
 	return 1;
 }
 
-uint32_t lsm_get(request *req){
+uint32_t lsm_get(request *const req){
+#ifdef DEBUG
+	printf("lsm_get!\n");
+#endif
+	snode *target_node=skiplist_find(LSM.memtable,req->key);
+	if(target_node !=NULL){
+#ifdef NOHOST
+		req->value=target_node->value;
+#else
+		memcpy(req->value,target_node->value,PAGESIZE);
+#endif
+		req->end_req(req);
+		return 2;
+	}
+
+
 	Entry** entries;
 	htable* mapinfo;
 	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
@@ -195,6 +217,44 @@ uint32_t lsm_get(request *req){
 	return -1;
 }
 
-uint32_t lsm_remove(const request *req){
+uint32_t lsm_remove(request *const req){
 	lsm_set(req);
+}
+
+keyset *htable_find(htable *table, KEYT target){
+	keyset *sets=table->sets;
+
+	if(sets[0].lpa>target || sets[KEYNUM-1].lpa<target)
+		return NULL;
+	int start=0, end=KEYNUM-1;
+	int mid;
+	while(1){
+		mid=(start+end)/2;
+		if(sets[mid].lpa==target)
+			return &sets[mid];
+
+		if(start>end)
+			return NULL;
+		else{
+			if(sets[mid].lpa<target){
+				end=mid-1;
+			}
+			else{
+				start=mid+1;
+			}
+		}
+	}
+}
+
+void lsm_kv_validset(uint8_t * bitset, int idx){
+	int block=idx/8;
+	int offset=idx%8;
+	uint8_t test=(1<<offset);
+	bitset[block]|=test;
+}
+bool lsm_kv_validcheck(uint8_t *bitset, int idx){
+	int block=idx/8;
+	int offset=idx%8;
+	uint8_t test=(1<<offset);
+	return test&bitset[block];
 }

@@ -74,6 +74,7 @@ level *level_init(level *input,int all_entry,bool isTiering){
 	input->end=0;
 	return input;
 }
+
 Entry **level_find(level *input,KEYT key){
 	Entry **res=(Entry**)malloc(sizeof(Entry*)*input->r_n_num);
 	bool check=false;
@@ -215,6 +216,34 @@ bool level_check_overlap(level *input ,KEYT start, KEYT end){
 	if(input->end<start)
 		return false;
 	return true;
+}
+
+level *level_copy(level *input){
+	level *res=(level *)malloc(sizeof(level));
+	level_init(res,input->size,input->isTiering);
+	memcpy(res,input,sizeof(level)-sizeof(pthread_mutex_t)-sizeof(char*));
+
+	int entry_p_run=input->size/input->r_num;
+	int run_body_size=sizeof(Entry)*entry_p_run;
+	int run_size=sizeof(Node)-sizeof(char*)+run_body_size;
+	int level_body_size=run_size*input->r_num;
+	//node copy
+	memcpy(res->body,input->body,level_body_size);
+}
+
+int level_range_find(level *input,KEYT start,KEYT end, Entry ***res){
+	Iter *level_iter=level_get_Iter(input);
+	
+	int rev=0;
+	Entry **temp=*(res);
+	temp=(Entry **)malloc(sizeof(Entry *)*input->size);
+	Entry *value;
+	while((value=level_get_next(level_iter))){
+		if(value->key >=start && value->key<=end)
+			temp[rev++]=value;
+	}
+	temp[rev]=NULL;
+	return rev;
 }
 /*
 int main(){
