@@ -18,12 +18,13 @@ typedef struct SRAM{
 	int32_t lpa_RAM;
 	char* VPTR_RAM;
 }SRAM; // use this RAM for Garbage collection.
-
+/*
 TABLE *page_TABLE;
 OOB *page_OOB;
 SRAM *page_SRAM;
 uint16_t *invalid_per_block;
 //actaul memory allcation & deallocation would be done in create, destroy function. 
+*/
 
 uint32_t pbase_create(lower_info*,algorithm *);
 void pbase_destroy(lower_info*, algorithm *);

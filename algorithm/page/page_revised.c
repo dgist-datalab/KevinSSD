@@ -15,13 +15,19 @@ struct algorithm algo_pbase=
 uint32_t PPA_status = 0;
 int init_done = 0;//check if initial write is done.
 
+TABLE *page_TABLE;
+OOB *page_OOB;
+SRAM *page_SRAM;
+uint16_t *invalid_per_block;
+
+
 uint32_t pbase_create(lower_info* li, algorithm *algo) //define & initialize mapping table.
 {
 	 algo->li = li; 	//allocate li parameter to algorithm's li.
 	 page_TABLE = (TABLE*)malloc(sizeof(TABLE)*_NOP);
 	 for(int i = 0; i < _NOP; i++)
 	{
-        	page_TABLE[i].lpa_to_ppa = -1;
+     	page_TABLE[i].lpa_to_ppa = -1;
 		page_TABLE[i].valid_checker = 0;
 	}
 	page_OOB = (OOB *)malloc(sizeof(OOB)*_NOP);
@@ -34,10 +40,10 @@ uint32_t pbase_create(lower_info* li, algorithm *algo) //define & initialize map
 
 void pbase_destroy(lower_info* li, algorithm *algo)
 {
-        free(page_TABLE);//deallocate table.
+//        free(page_TABLE);//deallocate table.					  
         free(page_OOB);
         free(invalid_per_block);
-	free(page_SRAM);
+		  free(page_SRAM);
 	//Question: why normal_destroy need li and algo?
 }
 
@@ -47,6 +53,11 @@ void *pbase_end_req(algo_req* input)
 	request *res=params->parents;
 	res->end_req(res);
 	free(params);
+	free(input);
+}
+
+void *pbase_algo_end_req(algo_req* input)
+{
 	free(input);
 }
 
@@ -118,7 +129,7 @@ uint32_t SRAM_load(int ppa, int a)
 {
 	char* value_PTR;
 	algo_req * my_req = (algo_req*)malloc(sizeof(algo_req));
-	my_req->end_req = pbase_end_req; //request termination.
+	my_req->end_req = pbase_algo_end_req; //request termination.
 	algo_pbase.li->pull_data(ppa,PAGESIZE,value_PTR,0,my_req,0);
 	page_SRAM[a].lpa_RAM = page_OOB[ppa].reverse_table;//load reverse-mapped lpa.
 	page_SRAM[a].VPTR_RAM = value_PTR;
@@ -127,7 +138,7 @@ uint32_t SRAM_load(int ppa, int a)
 uint32_t SRAM_unload(int ppa, int a)
 {
 	algo_req * my_req = (algo_req*)malloc(sizeof(algo_req));
-	my_req->end_req = pbase_end_req;
+	my_req->end_req = pbase_algo_end_req;
 	algo_pbase.li->push_data(ppa,PAGESIZE,page_SRAM[a].VPTR_RAM,0,my_req,0);
 	
 	page_TABLE[page_SRAM[a].lpa_RAM].lpa_to_ppa = ppa;

@@ -25,6 +25,7 @@ int main(){
 		key_save[i] = rand_key;
 		memcpy(temp,&rand_key,sizeof(rand_key));
 		inf_make_req(FS_SET_T,rand_key,temp);
+		printf("set: %d\n",key_save[i]);
 		free(temp);
 	}
 
