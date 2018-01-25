@@ -13,13 +13,12 @@ int main(){
 #endif
 		char *temp=(char*)malloc(PAGESIZE);
 		memcpy(temp,&i,sizeof(i));
-		srand(time(NULL));
-		inf_make_req(FS_SET_T,rand()%100+1,temp);
+		inf_make_req(FS_SET_T,i,temp);
 		free(temp);
 	}
 
 	int check;
-	for(int i=0; i<240; i++){
+	for(int i=0; i<300; i++){
 		char *temp=(char*)malloc(PAGESIZE);
 		inf_make_req(FS_GET_T,i,temp);
 		memcpy(&check,temp,sizeof(i));
