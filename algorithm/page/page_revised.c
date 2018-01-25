@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "page.h"
+#include <stdio.h>
 
 struct algorithm algo_pbase=
 {
@@ -139,6 +140,7 @@ uint32_t SRAM_unload(int ppa, int a)
 
 uint32_t pbase_garbage_collection()//do pbase_read and pbase_set 
 {
+	printf("at least we entered GC.");
 	int target_block = 0;
 	int invalid_num = 0;
 	for (int i = 0; i < _PPB; i++)
