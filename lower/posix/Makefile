@@ -13,8 +13,8 @@ OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\
 
 TARGETOBJ:=\
-	$(patsubst %.c,%.o,$(SRCS))\
-	#$(addprefix ../../object/,$(OBJS))\
+	$(addprefix ../../object/,$(OBJS))\
+#$(patsubst %.c,%.o,$(SRCS))\
 
 all: libpos.a
 

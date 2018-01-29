@@ -19,16 +19,16 @@ OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\
 
 TARGETOBJ:=\
-	$(patsubst %.c,%.o,$(SRCS))\
-	#$(addprefix ../../object/,$(OBJS))\
+	$(addprefix ../../object/,$(OBJS))\
+#$(patsubst %.c,%.o,$(SRCS))\
 
 TARGETDOBJ:=\
-	$(patsubst %.c,%_d.o,$(SRCS))\
-	#$(addprefix ../../object/,$(OBJS))\
+	$(addprefix ../../object/,$(OBJS))\
+#$(patsubst %.c,%_d.o,$(SRCS))\
 
 
 
-all: liblsm.a
+all:$(TARGETOBJ)
 	#$(TARGETOBJ) 
 
 DEBUG: $(TARGETDOBJ)
