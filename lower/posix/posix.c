@@ -72,7 +72,7 @@ void *posix_pull_data(KEYT PPA, uint32_t size,  V_PTR value, bool async,algo_req
 }
 
 void *posix_trim_block(KEYT PPA, bool async){
-	char temp[__posix.SOB];
+	char *temp=(char *)malloc(__posix.SOB);
 	memset(temp,0,__posix.SOB);
 	if(lseek64(_fd,((off64_t)__posix.SOP)*PPA,SEEK_SET)==-1){
 		printf("lseek error in trim\n");
@@ -80,6 +80,7 @@ void *posix_trim_block(KEYT PPA, bool async){
 	if(!write(_fd,temp,__posix.SOB)){
 		printf("write none\n");
 	}
+	free(temp);
 }
 
 void posix_stop(){}
