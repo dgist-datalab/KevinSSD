@@ -38,6 +38,8 @@ typedef struct lsm_params{
 typedef struct lsmtree{
 	struct level *disk[LEVELN];
 	PTR level_addr[LEVELN];
+	pthread_mutex_t memlock;
+	pthread_mutex_t templock;
 	struct skiplist *memtable;
 	struct skiplist *temptable;
 	lower_info* li;

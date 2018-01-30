@@ -23,15 +23,23 @@ TARGETOBJ =\
 MEMORYOBJ =\
 		   	$(patsubst %.c,%_mem.o,$(SRCS))\
 
+DEBUGOBJ =\
+		   	$(patsubst %.c,%_d.o,$(SRCS))\
+
 LIBS +=\
 		-lpthread\
 
 all: simulator
 
+DEBUG: debug_simulator
+
 memory_leak: simulator_memory_check
 	
 simulator_memory_check: ./interface/main.c mem_libsimulator.a
 	$(CC) $(CFLAGS) -DLEAKCHECK -o $@ $^ $(LIBS)
+
+debug_simulator: ./interface/main.c libsimulator_d.a
+	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ -lpthread
 
 simulator: ./interface/main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ -lpthread
@@ -40,6 +48,13 @@ libsimulator.a: $(TARGETOBJ)
 	mkdir -p object && mkdir -p data
 	cd ./algorithm/$(TARGET_ALGO) && make && cd ../../
 	cd ./lower/$(TARGET_LOWER) && make && cd ../../ 
+	mv ./interface/*.o ./object/
+	$(AR) r $(@) ./object/*.o
+
+libsimulator_d.a:$(DEBUGOBJ)
+	mkdir -p object && mkdir -p data
+	cd ./algorithm/$(TARGET_ALGO) && make DEBUG && cd ../../
+	cd ./lower/$(TARGET_LOWER) && make DEBUG && cd ../../ 
 	mv ./interface/*.o ./object/
 	$(AR) r $(@) ./object/*.o
 
@@ -53,6 +68,9 @@ mem_libsimulator.a:$(MEMORYOBJ)
 %_mem.o: %.c
 	$(CC) $(CFLAGS) -DLEAKCHECK -c $< -o $@ $(LIBS)
 
+%_d.o: %.c
+	$(CC) $(CFLAGS) -DDEBUG -c $< -o $@ $(LIBS)
+
 .c.o :
 	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS)
 
@@ -65,3 +83,4 @@ clean :
 	@$(RM) *.a
 	@$(RM) simulator
 	@$(RM) simulator_memory_check
+	@$(RM) debug_simulator

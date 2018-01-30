@@ -7,8 +7,8 @@
 #include "lsmtree.h"
 #include "run_array.h"
 
-#ifdef DEBUG
 #include<stdio.h>
+#ifdef DEBUG
 #endif
 
 struct algorithm algo_lsm={
@@ -118,7 +118,10 @@ uint32_t lsm_set(request * const req){
 	params->req=NULL;
 	params->lsm_type=DATAW;
 	lsm_req->params=(void*)params;
+	
 	lsm_req->end_req=lsm_end_req;
+
+	printf("key : %u\n",req->key);//for debug
 	if(req->type==FS_DELETE_T)
 		skiplist_insert(LSM.memtable,req->key,req->value,lsm_req,false);
 	else

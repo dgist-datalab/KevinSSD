@@ -16,7 +16,8 @@ TARGETOBJ:=\
 	$(addprefix ../../object/,$(OBJS))\
 #$(patsubst %.c,%.o,$(SRCS))\
 
-all: libpos.a
+DEBUG : all
+all: $(TARGETOBJ)
 
 libpos.a : $(TARGETOBJ)
 	$(AR) r $(@) $(TARGETOBJ)

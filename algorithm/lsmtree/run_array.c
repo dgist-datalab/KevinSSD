@@ -50,9 +50,11 @@ level *level_init(level *input,int all_entry,bool isTiering){
 	pthread_mutex_init(&input->level_lock,NULL);
 	input->isTiering=isTiering;
 	int entry_p_run=all_entry/input->r_num;
-	int run_body_size=sizeof(Entry)*entry_p_run;
-	int run_size=sizeof(Node)-sizeof(char*)+run_body_size;
-	int level_body_size=run_size*input->r_num;
+	if(all_entry%input->r_num) entry_p_run++;
+
+	uint64_t run_body_size=sizeof(Entry)*entry_p_run;
+	uint64_t run_size=sizeof(Node)-sizeof(char*)+run_body_size;
+	uint64_t level_body_size=run_size*input->r_num;
 
 	input->body=(char*)malloc(level_body_size);
 	input->r_size=run_size;
@@ -206,7 +208,8 @@ Entry *level_make_entry(KEYT key,KEYT end,KEYT pbn){
 	ent->key=key;
 	ent->end=end;
 	ent->pbn=pbn;
-	memset(ent->bitset,0,sizeof(ent->bitset));
+	ent->bitset=(uint8_t*)malloc(KEYNUM/8);
+	memset(ent->bitset,0,KEYNUM/8);
 	return ent;
 }
 bool level_check_overlap(level *input ,KEYT start, KEYT end){
@@ -220,29 +223,28 @@ bool level_check_overlap(level *input ,KEYT start, KEYT end){
 
 level *level_copy(level *input){
 	level *res=(level *)malloc(sizeof(level));
-	level_init(res,input->size,input->isTiering);
-	memcpy(res,input,sizeof(level)-sizeof(pthread_mutex_t)-sizeof(char*));
-
-	int entry_p_run=input->size/input->r_num;
-	int run_body_size=sizeof(Entry)*entry_p_run;
-	int run_size=sizeof(Node)-sizeof(char*)+run_body_size;
-	int level_body_size=run_size*input->r_num;
+	memcpy(res,input,sizeof(level)-sizeof(pthread_mutex_t)-sizeof(char *));
+	pthread_mutex_init(&res->level_lock,NULL);
 	//node copy
-	memcpy(res->body,input->body,level_body_size);
+	res->body=(char*)malloc(input->r_size*input->r_num);
+	memcpy(res->body,input->body,input->r_size*input->r_num);
+	return res;
 }
 
 int level_range_find(level *input,KEYT start,KEYT end, Entry ***res){
 	Iter *level_iter=level_get_Iter(input);
 	
 	int rev=0;
-	Entry **temp=*(res);
-	temp=(Entry **)malloc(sizeof(Entry *)*input->size);
+	Entry **temp;
+	temp=(Entry **)malloc(sizeof(Entry *)*input->m_num);
 	Entry *value;
 	while((value=level_get_next(level_iter))){
 		if(value->key >=start && value->key<=end)
 			temp[rev++]=value;
 	}
+	free(level_iter);
 	temp[rev]=NULL;
+	(*res)=temp;
 	return rev;
 }
 /*
@@ -254,19 +256,10 @@ int main(){
 		level_insert(temp_lev,temp);
 		free(temp);
 	}
-	Iter *iter=level_get_Iter(temp_lev);
-	Entry *temp_ent;
-	while((temp_ent=level_get_next(iter))!=NULL){
-		printf("Key: %d, End: %d, Pbn: %d\n",temp_ent->key,temp_ent->end,temp_ent->pbn);
-	}
-
-//	for(int i=0; i<48; i++){
-//		Entry *temp_ent=level_find(temp_lev,i);
-//		printf("Key: %d, End: %d, Pbn: %d\n",temp_ent->key,temp_ent->end,temp_ent->pbn);
-//	}
 	
-//	printf("\n\n");
-//	level_print(temp_lev);
+	level_print(copied);
+
+	level_print(temp_lev);
+	level_free(copied);
 	level_free(temp_lev);
-}
-*/
+}*/

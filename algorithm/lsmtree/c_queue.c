@@ -11,7 +11,7 @@ void cq_init(c_queue **q){
 }
 
 bool cq_enqueue(struct compaction_req* req, c_queue* q){
-	if(q->size==QSIZE)
+	if(q->size==CQSIZE)
 		return false;
 	c_node *new_node=(c_node*)malloc(sizeof(c_node));
 	new_node->req=req;

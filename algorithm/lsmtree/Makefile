@@ -22,9 +22,11 @@ TARGETOBJ:=\
 	$(addprefix ../../object/,$(OBJS))\
 #$(patsubst %.c,%.o,$(SRCS))\
 
-TARGETDOBJ:=\
-	$(addprefix ../../object/,$(OBJS))\
-#$(patsubst %.c,%_d.o,$(SRCS))\
+DOBJ:=\
+	$(patsubst %.c,%_d.o,$(SRCS))\
+
+TARGETDOBJ=\
+	$(addprefix ../../object/,$(DOBJ))\
 
 
 
@@ -32,7 +34,6 @@ all:$(TARGETOBJ)
 	#$(TARGETOBJ) 
 
 DEBUG: $(TARGETDOBJ)
-	$(AR) r liblsm_d.a $(TARGETDOBJ)
 
 liblsm.a : $(TARGETOBJ)
 	$(AR) r $(@) $(TARGETOBJ)
@@ -40,11 +41,14 @@ liblsm.a : $(TARGETOBJ)
 .c.o :
 	$(CC) $(CFLAGS) -c $< -o $@
 
-%_d.o: %.c
+../../object/%_d.o: %.c
 	$(CC) $(CFLAGS) -DDEBUG -c $< -o $@
 
 ../../object/%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
+
+run_test:run_array.c
+	$(CC) $(CFLAGS) -o $@ $^
 
 test_clean :
 	@$(RM) ../../object/*

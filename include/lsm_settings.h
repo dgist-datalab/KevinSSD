@@ -6,10 +6,10 @@
 
 #define SIZEFACTOR 10 
 #define RAF 1
-#define LEVELN 8
+#define LEVELN 7
 #define KEYNUM 1024
 #define CTHREAD 1
-#define CQSIZE 2
+#define CQSIZE 1
 #define EPC 20 //size factor have to be multiple of SIZEFACTOR
 
 
