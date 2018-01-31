@@ -15,13 +15,13 @@ int main(){
 	}	
 	printf("\n");
 	*/
-	int key_save[300];
-	for(int i=0; i<300; i++){
+	int key_save[20];
+	for(int i=0; i<20; i++){
 #ifdef LEAKCHECK
 		printf("set: %d\n",i);
 #endif
 		char *temp=(char*)malloc(PAGESIZE);
-		int rand_key = rand()%100;
+		int rand_key = rand()%10;
 		key_save[i] = rand_key;
 		memcpy(temp,&rand_key,sizeof(rand_key));
 		inf_make_req(FS_SET_T,rand_key,temp);
@@ -30,7 +30,7 @@ int main(){
 	}
 
 	int check;
-	for(int i=0; i<300; i++){
+	for(int i=0; i<20; i++){
 		char *temp=(char*)malloc(PAGESIZE);
 		inf_make_req(FS_GET_T,key_save[i],temp);
 		memcpy(&check,temp,sizeof(key_save[i]));

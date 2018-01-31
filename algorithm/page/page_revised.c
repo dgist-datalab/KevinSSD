@@ -24,14 +24,23 @@ uint16_t *invalid_per_block;
 uint32_t pbase_create(lower_info* li, algorithm *algo) //define & initialize mapping table.
 {
 	 algo->li = li; 	//allocate li parameter to algorithm's li.
-	 page_TABLE = (TABLE*)malloc(sizeof(TABLE)*_NOP);
+	 page_TABLE = (TABLE*)malloc(sizeof(TABLE)*2*2*_NOP);
 	 for(int i = 0; i < _NOP; i++)
 	{
      	page_TABLE[i].lpa_to_ppa = -1;
 		page_TABLE[i].valid_checker = 0;
 	}
+	
 	page_OOB = (OOB *)malloc(sizeof(OOB)*_NOP);
-	page_SRAM = (SRAM*)malloc(sizeof(SRAM)*256);
+
+	page_SRAM = (SRAM*)malloc(sizeof(SRAM)*_PPB);
+	for (int i = 0; i<_PPB; i++)
+	{
+		page_SRAM[i].lpa_RAM = -1;
+		page_SRAM[i].VPTR_RAM = NULL;
+	}
+	printf("%d, %d",page_SRAM[1].lpa_RAM,page_SRAM[2].lpa_RAM);
+
 	invalid_per_block = (uint16_t*)malloc(sizeof(uint16_t)*_NOB);
 	for (int i = 0; i<_NOB; i++)
 		invalid_per_block[i] = 0;
@@ -39,11 +48,11 @@ uint32_t pbase_create(lower_info* li, algorithm *algo) //define & initialize map
 }	//now we can use page table after pbase_create operation.
 
 void pbase_destroy(lower_info* li, algorithm *algo)
-{
-//        free(page_TABLE);//deallocate table.					  
+{					  
         free(page_OOB);
         free(invalid_per_block);
 		  free(page_SRAM);
+		  free(page_TABLE);
 	//Question: why normal_destroy need li and algo?
 }
 
@@ -97,7 +106,7 @@ uint32_t pbase_set(const request *req)
 		init_done = 1;
 	}
 
-	else if ((init_done == 1) && (PPA_status % _PPB == _PPB-1))
+	else if ((init_done == 1) && (PPA_status % _PPB == 0))
 	{
 		pbase_garbage_collection();
 	}
@@ -111,9 +120,10 @@ uint32_t pbase_set(const request *req)
 	}
 	
 	page_TABLE[req->key].lpa_to_ppa = PPA_status; //map ppa status to table.
-	page_TABLE[PPA_status].valid_checker |= 1; 
+	page_TABLE[PPA_status].valid_checker = 1; 
 	page_OOB[PPA_status].reverse_table = req->key;//reverse-mapping.
 	KEYT set_target = PPA_status;
+	printf("PPA now, %d\n",set_target);
 	PPA_status++;
 
 	algo_pbase.li->push_data(set_target,PAGESIZE,req->value,0,my_req,0);
@@ -127,7 +137,8 @@ uint32_t pbase_remove(const request *req)
 
 uint32_t SRAM_load(int ppa, int a)
 {
-	char* value_PTR;
+	V_PTR value_PTR;
+	value_PTR =(V_PTR)malloc(PAGESIZE);
 	algo_req * my_req = (algo_req*)malloc(sizeof(algo_req));
 	my_req->end_req = pbase_algo_end_req; //request termination.
 	algo_pbase.li->pull_data(ppa,PAGESIZE,value_PTR,0,my_req,0);
@@ -142,7 +153,7 @@ uint32_t SRAM_unload(int ppa, int a)
 	algo_pbase.li->push_data(ppa,PAGESIZE,page_SRAM[a].VPTR_RAM,0,my_req,0);
 	
 	page_TABLE[page_SRAM[a].lpa_RAM].lpa_to_ppa = ppa;
-	page_TABLE[ppa].valid_checker |= 1;
+	page_TABLE[ppa].valid_checker = 1;
 	page_OOB[ppa].reverse_table = page_SRAM[a].lpa_RAM;
 	
 	page_SRAM[a].lpa_RAM = -1;
@@ -151,7 +162,7 @@ uint32_t SRAM_unload(int ppa, int a)
 
 uint32_t pbase_garbage_collection()//do pbase_read and pbase_set 
 {
-	printf("at least we entered GC.");
+	printf(" we entered GC.\n");
 	int target_block = 0;
 	int invalid_num = 0;
 	for (int i = 0; i < _PPB; i++)
@@ -162,26 +173,25 @@ uint32_t pbase_garbage_collection()//do pbase_read and pbase_set
 			invalid_num = invalid_per_block[i];
 		}
 	}//found block with the most invalid block.
-	
 	PPA_status = target_block* _PPB;
 	int valid_component = _PPB - invalid_num;
 	int a = 0;
 	for (int i = 0; i < _PPB; i++)
 	{
-		page_TABLE[PPA_status+i].valid_checker = 0;
 		if (page_TABLE[PPA_status + i].valid_checker == 1)
 		{
 			SRAM_load(PPA_status + i, a);
 			a++;
+			page_TABLE[PPA_status + i].valid_checker = 0;
 		}
 	}
 	algo_pbase.li->trim_block(PPA_status, false);
+
 	for (int i = 0; i<valid_component; i++)
 	{
 		SRAM_unload(PPA_status,i);
 		PPA_status++;
 	}
+
 	invalid_per_block[target_block] = 0;
 }
-
-

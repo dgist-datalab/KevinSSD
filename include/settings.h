@@ -9,9 +9,9 @@
 #define P (1024L*T)
 
 #define PAGESIZE (8*K)
-#define _PPB (8)
+#define _PPB (4)
 #define BLOCKSIZE (_PPB*PAGESIZE)
-#define _NOB (30)
+#define _NOB (3)
 #define _NOP (_PPB*_NOB)
 #define TOTALSIZE (PAGESIZE*_NOP)
 

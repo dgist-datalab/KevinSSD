@@ -7,7 +7,7 @@ typedef struct pbase_params
 
 typedef struct mapping_table{
 	int32_t lpa_to_ppa;
-	unsigned char valid_checker;
+	int32_t  valid_checker;
 }TABLE; //table[lpa].lpa_to_ppa = ppa & table[ppa].valid_checker = 0 or 1.
 
 typedef struct virtual_OOB{
@@ -16,7 +16,7 @@ typedef struct virtual_OOB{
 
 typedef struct SRAM{
 	int32_t lpa_RAM;
-	char* VPTR_RAM;
+	V_PTR VPTR_RAM;
 }SRAM; // use this RAM for Garbage collection.
 /*
 TABLE *page_TABLE;

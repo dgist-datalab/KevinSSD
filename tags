@@ -4,11 +4,24 @@
 !_TAG_PROGRAM_NAME	Exuberant Ctags	//
 !_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
 !_TAG_PROGRAM_VERSION	5.9~svn20110310	//
-BLOCKSIZE	include/settings.h	14;"	d
+BAD	algorithm/page/PM_blockqueue.h	/^	unsigned char BAD;$/;"	m	struct:block_info
+BINFO	algorithm/page/PM_blockqueue.h	/^}BINFO;$/;"	t	typeref:struct:block_info
+BINFO_node	algorithm/page/PM_blockqueue.h	/^	BINFO* BINFO_node;$/;"	m	struct:node
+BLOCKSIZE	include/settings.h	13;"	d
 BLOCKT	include/settings.h	20;"	d
+B_queue	algorithm/page/PM_blockqueue.h	/^}B_queue;$/;"	t	typeref:struct:Block_queue
+Block_queue	algorithm/page/PM_blockqueue.h	/^typedef struct Block_queue$/;"	s
 CC	Makefile	/^CC=gcc$/;"	m
+CC	algorithm/lsmtree/Makefile	/^CC=gcc$/;"	m
 CC	algorithm/normal/Makefile	/^CC=gcc$/;"	m
+CC	algorithm/page/Makefile	/^CC=gcc$/;"	m
 CC	lower/posix/Makefile	/^CC=gcc$/;"	m
+CQSIZE	include/lsm_settings.h	11;"	d
+CTHREAD	include/lsm_settings.h	10;"	d
+Dequeue	algorithm/page/PM_blockqueue.c	/^BINFO* Dequeue(B_queue *queue)$/;"	f
+Enqueue	algorithm/page/PM_blockqueue.c	/^void Enqueue(B_queue *queue, BINFO* new_info)$/;"	f
+Entry	algorithm/lsmtree/run_array.h	/^typedef struct Entry{$/;"	s
+Entry	algorithm/lsmtree/run_array.h	/^}Entry;$/;"	t	typeref:struct:Entry
 FSTYPE	include/settings.h	18;"	d
 FS_DELETE_T	include/types.h	6;"	d
 FS_GET_T	include/types.h	4;"	d
@@ -16,141 +29,395 @@ FS_SET_T	include/types.h	5;"	d
 FS_free	include/FS.c	/^void FS_free(void *ptr,int tag){$/;"	f
 FS_malloc	include/FS.c	/^int FS_malloc(void **ptr, int size){$/;"	f
 G	include/settings.h	7;"	d
+Giveme_Page	algorithm/page/PM_opeartion.c	/^uint64_t Giveme_Page(int reserved)$/;"	f
+HEADERR	algorithm/lsmtree/lsmtree.h	11;"	d
+Init_Bqueue	algorithm/page/PM_blockqueue.c	/^void Init_Bqueue(B_queue *queue)\/\/initialize queue for binfo.$/;"	f
+IsEmpty	algorithm/page/PM_blockqueue.c	/^int IsEmpty(B_queue *queue)$/;"	f
+Iter	algorithm/lsmtree/run_array.h	/^}Iter;$/;"	t	typeref:struct:iterator
 K	include/settings.h	5;"	d
+KEYNUM	algorithm/lsmtree/lsmtree.h	9;"	d
 KEYT	include/settings.h	19;"	d
+LEVELN	include/settings.h	36;"	d
+LSM	algorithm/lsmtree/lsmtree.c	/^lsmtree LSM;$/;"	v
 M	include/settings.h	6;"	d
+MAX_L	algorithm/lsmtree/skiplist.h	6;"	d
+MEMORYOBJ	Makefile	/^MEMORYOBJ =\\$/;"	m
 MIXED	include/settings.h	/^	MIXED$/;"	e	enum:__anon4
 NOB	include/container.h	/^	uint32_t NOB;$/;"	m	struct:lower_info
 NOP	include/container.h	/^	uint32_t NOP;$/;"	m	struct:lower_info
+NUM	algorithm/page/page.c	/^int32_t NUM = 32;$/;"	v
+NUMOP	algorithm/page/page.c	/^int32_t NUMOP = 32*1024*1024;$/;"	v
+Node	algorithm/lsmtree/run_array.h	/^typedef struct Node{$/;"	s
+Node	algorithm/lsmtree/run_array.h	/^}Node;$/;"	t	typeref:struct:Node
+OBJS	algorithm/lsmtree/Makefile	/^OBJS :=\\$/;"	m
+OBJS	algorithm/normal/Makefile	/^OBJS :=\\$/;"	m
+OBJS	algorithm/page/Makefile	/^OBJS :=\\$/;"	m
+OBJS	lower/posix/Makefile	/^OBJS :=\\$/;"	m
+OLDDATA	algorithm/lsmtree/lsmtree.h	10;"	d
+OOB	algorithm/page/page.h	/^}OOB; \/\/simulates OOB in real SSD. Now, there's info for reverse-mapping.$/;"	t	typeref:struct:virtual_OOB
+OP_area	algorithm/page/PM_blockqueue.h	7;"	d
 P	include/settings.h	9;"	d
-PAGESIZE	include/settings.h	12;"	d
+PAGESIZE	include/settings.h	11;"	d
+PPA_status	algorithm/page/page.c	/^uint32_t PPA_status = 0;\/\/initalize physical page address.$/;"	v
+PPA_status	algorithm/page/page_0127.c	/^uint32_t PPA_status = 0;$/;"	v
+PPA_status	algorithm/page/page_0130.c	/^uint32_t PPA_status = 0;$/;"	v
+PPA_status	algorithm/page/page_revised.c	/^uint32_t PPA_status = 0;$/;"	v
 PPB	include/container.h	/^	uint32_t PPB;$/;"	m	struct:lower_info
+PROB	algorithm/lsmtree/skiplist.h	7;"	d
+PTR	include/settings.h	22;"	d
 PWD	Makefile	/^PWD=$(pwd)$/;"	m
-QSIZE	include/settings.h	24;"	d
+QSIZE	include/settings.h	25;"	d
+RAF	include/lsm_settings.h	8;"	d
 RANDGET	include/settings.h	/^	RANDGET,RANDSET,$/;"	e	enum:__anon4
 RANDSET	include/settings.h	/^	RANDGET,RANDSET,$/;"	e	enum:__anon4
 SEQGET	include/settings.h	/^	SEQGET,SEQSET,$/;"	e	enum:__anon4
 SEQSET	include/settings.h	/^	SEQGET,SEQSET,$/;"	e	enum:__anon4
+SIZEFACTOR	include/lsm_settings.h	7;"	d
 SOB	include/container.h	/^	uint32_t SOB;$/;"	m	struct:lower_info
 SOK	include/container.h	/^	uint32_t SOK;$/;"	m	struct:lower_info
 SOP	include/container.h	/^	uint32_t SOP;$/;"	m	struct:lower_info
-SYNC	include/settings.h	23;"	d
+SRAM	algorithm/page/page.h	/^typedef struct SRAM{$/;"	s
+SRAM	algorithm/page/page.h	/^}SRAM; \/\/ use this RAM for Garbage collection.$/;"	t	typeref:struct:SRAM
+SRAM_load	algorithm/page/page_0130.c	/^uint32_t SRAM_load(int ppa, int a)$/;"	f
+SRAM_load	algorithm/page/page_revised.c	/^uint32_t SRAM_load(int ppa, int a)$/;"	f
+SRAM_unload	algorithm/page/page_0130.c	/^uint32_t SRAM_unload(int ppa, int a)$/;"	f
+SRAM_unload	algorithm/page/page_revised.c	/^uint32_t SRAM_unload(int ppa, int a)$/;"	f
+SYNC	include/settings.h	24;"	d
+Selector_Destroy	algorithm/page/PM_opeartion.c	/^void Selector_Destroy()$/;"	f
+Selector_Init	algorithm/page/PM_opeartion.c	/^void Selector_Init(BINFO** bp)\/\/initializes selector.$/;"	f
+Set_Free	algorithm/page/PM_opeartion.c	/^uint64_t Set_Free(BINFO**bp, int block_number, int reserved)$/;"	f
 T	include/settings.h	8;"	d
+TABLE	algorithm/page/page.h	/^}TABLE; \/\/table[lpa].lpa_to_ppa = ppa & table[ppa].valid_checker = 0 or 1.$/;"	t	typeref:struct:mapping_table
 TARGETOBJ	Makefile	/^TARGETOBJ =\\$/;"	m
+TARGETOBJ	algorithm/lsmtree/Makefile	/^TARGETOBJ:=\\$/;"	m
 TARGETOBJ	algorithm/normal/Makefile	/^TARGETOBJ:=\\$/;"	m
+TARGETOBJ	algorithm/page/Makefile	/^TARGETOBJ:=\\$/;"	m
 TARGETOBJ	lower/posix/Makefile	/^TARGETOBJ:=\\$/;"	m
-TARGET_ALGO	Makefile	/^TARGET_ALGO=normal$/;"	m
+TARGET_ALGO	Makefile	/^TARGET_ALGO=page$/;"	m
 TARGET_LOWER	Makefile	/^TARGET_LOWER=posix$/;"	m
-THREADSIZE	include/settings.h	25;"	d
-TOTALSIZE	include/settings.h	11;"	d
+THREADSIZE	include/settings.h	26;"	d
+TOTALSIZE	include/settings.h	16;"	d
 TS	include/container.h	/^	uint64_t TS;$/;"	m	struct:lower_info
+VPTR_RAM	algorithm/page/page.h	/^	char* VPTR_RAM;$/;"	m	struct:SRAM
 V_PTR	include/settings.h	21;"	d
-_LARGEFILE64_SOURCE	lower/posix/posix.c	9;"	d	file:
-_NOB	include/settings.h	15;"	d
-_NOP	include/settings.h	16;"	d
-_PPB	include/settings.h	13;"	d
+_LARGEFILE64_SOURCE	lower/posix/posix.c	2;"	d	file:
+_NOB	include/settings.h	14;"	d
+_NOP	include/settings.h	15;"	d
+_PPB	include/settings.h	12;"	d
+__H_COMPT__	algorithm/lsmtree/compaction.h	2;"	d
 __H_CONTAINER__	include/container.h	2;"	d
 __H_FS__	include/FS.h	2;"	d
 __H_INTERFACE_H	interface/interface.h	2;"	d
+__H_QUEUE__	algorithm/lsmtree/c_queue.h	2;"	d
 __H_QUEUE__	interface/queue.h	2;"	d
+__H_SETLSM__	include/lsm_settings.h	2;"	d
 __H_SETTING__	include/settings.h	2;"	d
 __H_TYPES__	include/types.h	2;"	d
+__LSM_HEADER__	algorithm/lsmtree/lsmtree.h	2;"	d
+__RUN_A_H__	algorithm/lsmtree/run_array.h	2;"	d
+__SKIPLIST_HEADER	algorithm/lsmtree/skiplist.h	2;"	d
 __normal	algorithm/normal/normal.c	/^struct algorithm __normal={$/;"	v	typeref:struct:algorithm
 __posix	lower/posix/posix.c	/^lower_info __posix={$/;"	v
 _fd	lower/posix/posix.c	/^static int _fd;$/;"	v	file:
 algo	interface/threading.h	/^	algorithm *algo;$/;"	m	struct:master_processor
 algo_body	include/container.h	/^	void *algo_body;$/;"	m	struct:algorithm
+algo_lsm	algorithm/lsmtree/lsmtree.c	/^struct algorithm algo_lsm={$/;"	v	typeref:struct:algorithm
+algo_pbase	algorithm/page/page.c	/^struct algorithm algo_pbase=$/;"	v	typeref:struct:algorithm
+algo_pbase	algorithm/page/page_0127.c	/^struct algorithm algo_pbase=$/;"	v	typeref:struct:algorithm
+algo_pbase	algorithm/page/page_0130.c	/^struct algorithm algo_pbase=$/;"	v	typeref:struct:algorithm
+algo_pbase	algorithm/page/page_revised.c	/^struct algorithm algo_pbase=$/;"	v	typeref:struct:algorithm
+algo_req	include/container.h	/^struct algo_req{$/;"	s
+algo_req	include/container.h	/^typedef struct algo_req algo_req;$/;"	t	typeref:struct:algo_req
 algorithm	include/container.h	/^struct algorithm{$/;"	s
 algorithm	include/container.h	/^typedef struct algorithm algorithm;$/;"	t	typeref:struct:algorithm
 assign_req	interface/interface.c	/^static void assign_req(request* req){$/;"	f	file:
+async_mutex	include/container.h	/^	pthread_mutex_t async_mutex;$/;"	m	struct:request
 bench_clean	bench/bench.c	/^void bench_clean(){$/;"	f
 bench_init	bench/bench.c	/^void bench_init(bench_type type, int start, int end, int number){$/;"	f
 bench_type	include/settings.h	/^}bench_type;$/;"	t	typeref:enum:__anon4
 bench_value	bench/bench.h	/^}bench_value;$/;"	t	typeref:struct:__anon1
+bitset	algorithm/lsmtree/run_array.h	/^	uint8_t bitset[KEYN\/8];$/;"	m	struct:Entry
 block_bad	include/types.h	/^	block_bad,$/;"	e	enum:__anon5
 block_empty	include/types.h	/^	block_empty,$/;"	e	enum:__anon5
 block_full	include/types.h	/^	block_full,$/;"	e	enum:__anon5
 block_he	include/types.h	/^	block_he$/;"	e	enum:__anon5
+block_info	algorithm/page/PM_blockqueue.h	/^typedef struct block_info {$/;"	s
+block_position	algorithm/page/PM_opeartion.c	/^int64_t block_position = -1;$/;"	v
+body	algorithm/lsmtree/run_array.h	/^	char *body;$/;"	m	struct:Node
+body	algorithm/lsmtree/run_array.h	/^	char *body;$/;"	m	struct:level
 body	bench/bench.c	/^bench_value *body;$/;"	v
 body	bench/bench.h	/^	bench_value *body;$/;"	m	struct:__anon2
+body_addr	algorithm/lsmtree/run_array.h	/^	char **body_addr;$/;"	m	struct:Node
+bool	algorithm/lsmtree/skiplist.h	/^typedef enum {false, true} bool;$/;"	t	typeref:enum:__anon6
 bool	include/settings.h	/^typedef enum{false,true} bool;$/;"	t	typeref:enum:__anon3
+c_node	algorithm/lsmtree/c_queue.h	/^}c_node;$/;"	t	typeref:struct:node
+c_queue	algorithm/lsmtree/c_queue.h	/^}c_queue;$/;"	t	typeref:struct:queue
+compM	algorithm/lsmtree/compaction.h	/^typedef struct compaction_master compM;$/;"	t	typeref:struct:compaction_master
+compP	algorithm/lsmtree/compaction.h	/^typedef struct compaction_processor compP;$/;"	t	typeref:struct:compaction_processor
+compR	algorithm/lsmtree/compaction.h	/^typedef struct compaction_req compR;$/;"	t	typeref:struct:compaction_req
+compaction_free	algorithm/lsmtree/compaction.c	/^void compaction_free(){$/;"	f
+compaction_init	algorithm/lsmtree/compaction.c	/^bool compaction_init(){$/;"	f
+compaction_main	algorithm/lsmtree/compaction.c	/^void *compaction_main(void *input){$/;"	f
+compaction_master	algorithm/lsmtree/compaction.h	/^struct compaction_master{$/;"	s
+compaction_processor	algorithm/lsmtree/compaction.h	/^struct compaction_processor{$/;"	s
+compaction_req	algorithm/lsmtree/compaction.h	/^struct compaction_req{$/;"	s
+compactor	algorithm/lsmtree/compaction.c	/^compM compactor;$/;"	v
+count	algorithm/page/PM_blockqueue.h	/^	int count;$/;"	m	struct:Block_queue
+cq_dequeue	algorithm/lsmtree/c_queue.c	/^const compR * cq_dequeue(c_queue *q){$/;"	f
+cq_enqueue	algorithm/lsmtree/c_queue.c	/^bool cq_enqueue(const compR* req, c_queue* q){$/;"	f
+cq_free	algorithm/lsmtree/c_queue.c	/^void cq_free(queue* q){$/;"	f
+cq_init	algorithm/lsmtree/c_queue.c	/^void cq_init(c_queue **q){$/;"	f
 create	include/container.h	/^	uint32_t (*create) (lower_info*,struct algorithm *);$/;"	m	struct:algorithm
 create	include/container.h	/^	uint32_t (*create)(struct lower_info*);$/;"	m	struct:lower_info
 destroy	include/container.h	/^	void (*destroy) (lower_info*, struct algorithm *);$/;"	m	struct:algorithm
 destroy	include/container.h	/^	void* (*destroy)(struct lower_info*);$/;"	m	struct:lower_info
-end_req	include/container.h	/^	bool (*end_req)(struct request*);$/;"	m	struct:request
+disk	algorithm/lsmtree/lsmtree.h	/^	level *disk[LEVELN];$/;"	m	struct:__anon11
+e_size	algorithm/lsmtree/run_array.h	/^	int e_size;$/;"	m	struct:Node
+empty_queue	algorithm/page/PM_operation.h	/^B_queue empty_queue;$/;"	v
+end	algorithm/lsmtree/run_array.h	/^	KEYT end;$/;"	m	struct:Entry
+end	algorithm/lsmtree/run_array.h	/^	KEYT end;$/;"	m	struct:level
+end_req	include/container.h	/^	bool (*end_req)(struct request const*);$/;"	m	struct:request
+end_req	include/container.h	/^	void *(*end_req)(struct algo_req *);$/;"	m	struct:algo_req
+entry_p_run	algorithm/lsmtree/run_array.h	/^	int entry_p_run;$/;"	m	struct:level
+false	algorithm/lsmtree/skiplist.h	/^typedef enum {false, true} bool;$/;"	e	enum:__anon6
 false	include/settings.h	/^typedef enum{false,true} bool;$/;"	e	enum:__anon3
+flag	algorithm/lsmtree/compaction.h	/^	pthread_mutex_t flag;$/;"	m	struct:compaction_processor
+flag	algorithm/lsmtree/run_array.h	/^	bool flag;$/;"	m	struct:iterator
 flag	interface/threading.h	/^	pthread_mutex_t flag;$/;"	m	struct:master_processor
 flag	interface/threading.h	/^	pthread_mutex_t flag;$/;"	m	struct:processor
+fpr	algorithm/lsmtree/run_array.h	/^	float fpr;$/;"	m	struct:level
 free_bench_all	bench/bench.c	/^void free_bench_all(){$/;"	f
 free_bench_one	bench/bench.c	/^void free_bench_one(bench_value*){$/;"	f
-get	include/container.h	/^	uint32_t (*get)(request *);$/;"	m	struct:algorithm
+fromL	algorithm/lsmtree/compaction.h	/^	int fromL;$/;"	m	struct:compaction_req
+front	algorithm/page/PM_blockqueue.h	/^	node *front;$/;"	m	struct:Block_queue
+get	include/container.h	/^	uint32_t (*get)(request const *);$/;"	m	struct:algorithm
+getLevel	algorithm/lsmtree/skiplist.c	/^static int getLevel(){$/;"	f	file:
 get_bench	bench/bench.c	/^bench_value* get_bench(){$/;"	f
+head	algorithm/lsmtree/c_queue.h	/^	c_node *head;$/;"	m	struct:queue
 head	interface/queue.h	/^	node *head;$/;"	m	struct:queue
-inf_end_req	interface/interface.c	/^bool inf_end_req(request *req){$/;"	f
+head_ppa	algorithm/page/PM_blockqueue.h	/^	uint64_t head_ppa;$/;"	m	struct:block_info
+header	algorithm/lsmtree/skiplist.h	/^	snode *header;$/;"	m	struct:skiplist
+htable	algorithm/lsmtree/lsmtree.h	/^}htable;$/;"	t	typeref:struct:__anon9
+idx	algorithm/lsmtree/run_array.h	/^	int idx;$/;"	m	struct:iterator
+inf_end_req	interface/interface.c	/^bool inf_end_req(const request *req){$/;"	f
 inf_free	interface/interface.c	/^void inf_free(){$/;"	f
 inf_init	interface/interface.c	/^void inf_init(){$/;"	f
 inf_make_req	interface/interface.c	/^bool inf_make_req(const FSTYPE type, const KEYT key, const V_PTR value){$/;"	f
 inf_make_req_Async	interface/interface.c	/^bool inf_make_req_Async(void *ureq, void *(*end_req)(void*)){$/;"	f
 inf_print_debug	interface/interface.c	/^void inf_print_debug(){$/;"	f
+init_done	algorithm/page/page_0127.c	/^int init_done = 0;\/\/check if initial write is done.$/;"	v
+init_done	algorithm/page/page_0130.c	/^int init_done = 0;\/\/check if initial write is done.$/;"	v
+init_done	algorithm/page/page_revised.c	/^int init_done = 0;\/\/check if initial write is done.$/;"	v
+invalid_per_block	algorithm/page/page_0127.c	/^uint16_t *invalid_per_block;$/;"	v
+invalid_per_block	algorithm/page/page_0130.c	/^uint16_t *invalid_per_block;$/;"	v
+invalid_per_block	algorithm/page/page_revised.c	/^uint16_t *invalid_per_block;$/;"	v
 isAsync	include/container.h	/^	bool isAsync;$/;"	m	struct:request
+isTiering	algorithm/lsmtree/run_array.h	/^	bool isTiering;$/;"	m	struct:level
+iterator	algorithm/lsmtree/run_array.h	/^typedef struct iterator{$/;"	s
+key	algorithm/lsmtree/run_array.h	/^	KEYT key;$/;"	m	struct:Entry
+key	algorithm/lsmtree/skiplist.h	/^	KEYT key; $/;"	m	struct:snode
 key	bench/bench.h	/^	KEYT key;$/;"	m	struct:__anon1
 key	include/container.h	/^	KEYT key;$/;"	m	struct:request
 key	include/container.h	/^	const KEYT key; $/;"	m	struct:upper_request
+keyset	algorithm/lsmtree/lsmtree.h	/^}keyset;$/;"	t	typeref:struct:__anon8
+lev	algorithm/lsmtree/run_array.h	/^	level *lev;$/;"	m	struct:iterator
+leve_addr	algorithm/lsmtree/lsmtree.h	/^	PTR leve_addr[LEVEN];$/;"	m	struct:__anon11
+level	algorithm/lsmtree/run_array.h	/^typedef struct level{$/;"	s
+level	algorithm/lsmtree/run_array.h	/^}level;$/;"	t	typeref:struct:level
+level	algorithm/lsmtree/skiplist.h	/^	uint8_t level;$/;"	m	struct:skiplist
+level	algorithm/lsmtree/skiplist.h	/^	uint8_t level;$/;"	m	struct:snode
+level_check_overlap	algorithm/lsmtree/run_array.c	/^bool level_check_overlap(level *input ,KEYT start, KEYT end){$/;"	f
+level_clear	algorithm/lsmtree/run_array.c	/^level *level_clear(level *input){$/;"	f
+level_entcpy	algorithm/lsmtree/run_array.c	/^Entry *level_entcpy(Entry *src, char *des){$/;"	f
+level_find	algorithm/lsmtree/run_array.c	/^Entry **level_find(level *input,KEYT key){$/;"	f
+level_find_fromR	algorithm/lsmtree/run_array.c	/^Entry *level_find_fromR(Node *run, KEYT key){$/;"	f
+level_free	algorithm/lsmtree/run_array.c	/^void level_free(level *input){$/;"	f
+level_get_Iter	algorithm/lsmtree/run_array.c	/^Iter *level_get_Iter(level *input){$/;"	f
+level_get_next	algorithm/lsmtree/run_array.c	/^Entry *level_get_next(Iter * input){$/;"	f
+level_init	algorithm/lsmtree/run_array.c	/^level *level_init(level *input,int all_entry,bool isTiering){$/;"	f
+level_insert	algorithm/lsmtree/run_array.c	/^Node *level_insert(level *input,Entry *entry){\/\/always sequential$/;"	f
+level_make_entry	algorithm/lsmtree/run_array.c	/^Entry *level_make_entry(KEYT key,KEYT end,KEYT pbn){$/;"	f
+level_print	algorithm/lsmtree/run_array.c	/^void level_print(level *input){$/;"	f
+leveling	algorithm/lsmtree/compaction.c	/^uint32_t leveling(){$/;"	f
+li	algorithm/lsmtree/lsmtree.h	/^	lower_info* li;$/;"	m	struct:__anon11
 li	include/container.h	/^	lower_info* li;$/;"	m	struct:algorithm
 li	interface/threading.h	/^	lower_info *li;$/;"	m	struct:master_processor
+list	algorithm/lsmtree/skiplist.h	/^	skiplist *list;$/;"	m	struct:__anon7
+list	algorithm/lsmtree/skiplist.h	/^	struct snode **list;$/;"	m	struct:snode	typeref:struct:snode::snode
+local_page_position	algorithm/page/PM_opeartion.c	/^int64_t local_page_position = 0;$/;"	v
+lock	algorithm/lsmtree/lsmtree.h	/^	pthread_mutex_t lock;$/;"	m	struct:__anon10
 lower_info	include/container.h	/^struct lower_info {$/;"	s
 lower_info	include/container.h	/^typedef struct lower_info lower_info;$/;"	t	typeref:struct:lower_info
 lower_status	include/types.h	/^}lower_status;$/;"	t	typeref:enum:__anon5
+lpa	algorithm/lsmtree/lsmtree.h	/^	KEYT lpa;$/;"	m	struct:__anon8
+lpa_RAM	algorithm/page/page.h	/^	int32_t lpa_RAM;$/;"	m	struct:SRAM
+lpa_to_ppa	algorithm/page/page.c	/^int32_t *lpa_to_ppa; \/\/pointer for page table.$/;"	v
+lpa_to_ppa	algorithm/page/page.h	/^	int32_t lpa_to_ppa;$/;"	m	struct:mapping_table
+lsm_create	algorithm/lsmtree/lsmtree.c	/^uint32_t lsm_create(lower_info *li, algorithm *lsm){$/;"	f
+lsm_destroy	algorithm/lsmtree/lsmtree.c	/^void lsm_destroy(lower_info *li, algorithm *lsm){$/;"	f
+lsm_end_req	algorithm/lsmtree/lsmtree.c	/^void* lsm_end_req(algo_req* req){$/;"	f
+lsm_get	algorithm/lsmtree/lsmtree.c	/^uint32_t lsm_get(const request *req){$/;"	f
+lsm_params	algorithm/lsmtree/lsmtree.h	/^}lsm_params;$/;"	t	typeref:struct:__anon10
+lsm_remove	algorithm/lsmtree/lsmtree.c	/^uint32_t lsm_remove(const request *req){$/;"	f
+lsm_set	algorithm/lsmtree/lsmtree.c	/^uint32_t lsm_set(const request *req){$/;"	f
+lsm_type	algorithm/lsmtree/lsmtree.h	/^	uint8_t lsm_type;$/;"	m	struct:__anon10
+lsmtree	algorithm/lsmtree/lsmtree.h	/^}lsmtree;$/;"	t	typeref:struct:__anon11
+m_num	algorithm/lsmtree/run_array.h	/^	int m_num;$/;"	m	struct:Node
+m_num	algorithm/lsmtree/run_array.h	/^	int m_num;\/\/number of entries$/;"	m	struct:level
 main	interface/main.c	/^int main(){$/;"	f
+mapping_table	algorithm/page/page.h	/^typedef struct mapping_table{$/;"	s
+master	algorithm/lsmtree/compaction.h	/^	compM *master;$/;"	m	struct:compaction_processor
 master	interface/threading.h	/^	master_processor *master;$/;"	m	struct:processor
 master_processor	interface/threading.h	/^struct master_processor{$/;"	s
 master_processor	interface/threading.h	/^typedef struct master_processor master_processor;$/;"	t	typeref:struct:master_processor
+memtable	algorithm/lsmtree/lsmtree.h	/^	skiplist *memtable;$/;"	m	struct:__anon11
 monitor	bench/bench.h	/^}monitor;$/;"	t	typeref:struct:__anon2
 mp	interface/interface.c	/^master_processor mp;$/;"	v
+n_num	algorithm/lsmtree/run_array.h	/^	int n_num;$/;"	m	struct:Node
+n_num	algorithm/lsmtree/run_array.h	/^	int n_num;$/;"	m	struct:level
+next	algorithm/lsmtree/c_queue.h	/^	struct c_node *next;$/;"	m	struct:node	typeref:struct:node::c_node
+next	algorithm/page/PM_blockqueue.h	/^	struct node *next;$/;"	m	struct:node	typeref:struct:node::node
 next	interface/queue.h	/^	struct node *next;$/;"	m	struct:node	typeref:struct:node::node
+node	algorithm/lsmtree/c_queue.h	/^typedef struct node{$/;"	s
+node	algorithm/page/PM_blockqueue.h	/^typedef struct node {$/;"	s
+node	algorithm/page/PM_blockqueue.h	/^}node;$/;"	t	typeref:struct:node
 node	interface/queue.h	/^typedef struct node{$/;"	s
 node	interface/queue.h	/^}node;$/;"	t	typeref:struct:node
 normal_create	algorithm/normal/normal.c	/^uint32_t normal_create (lower_info* li,algorithm *algo){$/;"	f
 normal_destroy	algorithm/normal/normal.c	/^void normal_destroy (lower_info* li, algorithm *algo){$/;"	f
-normal_get	algorithm/normal/normal.c	/^bool normal_get(request *req){$/;"	f
-normal_remove	algorithm/normal/normal.c	/^bool normal_remove(request *req){$/;"	f
-normal_set	algorithm/normal/normal.c	/^bool normal_set(request *req){$/;"	f
+normal_end_req	algorithm/normal/normal.c	/^void *normal_end_req(algo_req* input){$/;"	f
+normal_get	algorithm/normal/normal.c	/^uint32_t normal_get(request const*req){$/;"	f
+normal_params	algorithm/normal/normal.h	/^typedef struct normal_params{$/;"	s
+normal_params	algorithm/normal/normal.h	/^}normal_params;$/;"	t	typeref:struct:normal_params
+normal_remove	algorithm/normal/normal.c	/^uint32_t normal_remove(request const*req){$/;"	f
+normal_set	algorithm/normal/normal.c	/^uint32_t normal_set(request const*req){$/;"	f
+now	algorithm/lsmtree/run_array.h	/^	Node *now;$/;"	m	struct:iterator
+now	algorithm/lsmtree/skiplist.h	/^	snode *now;$/;"	m	struct:__anon7
+ns_entry	algorithm/lsmtree/run_array.c	/^Entry *ns_entry(Node *input, int n){$/;"	f
+ns_run	algorithm/lsmtree/run_array.c	/^Node *ns_run(level*input ,int n){$/;"	f
 p_main	interface/interface.c	/^void *p_main(void *__input){$/;"	f
-params	include/container.h	/^	void **params;$/;"	m	struct:request
+page_OOB	algorithm/page/page_0127.c	/^OOB *page_OOB;$/;"	v
+page_OOB	algorithm/page/page_0130.c	/^OOB *page_OOB;$/;"	v
+page_OOB	algorithm/page/page_revised.c	/^OOB *page_OOB;$/;"	v
+page_SRAM	algorithm/page/page_0127.c	/^SRAM *page_SRAM;$/;"	v
+page_SRAM	algorithm/page/page_0130.c	/^SRAM *page_SRAM;$/;"	v
+page_SRAM	algorithm/page/page_revised.c	/^SRAM *page_SRAM;$/;"	v
+page_TABLE	algorithm/page/page_0127.c	/^TABLE *page_TABLE;$/;"	v
+page_TABLE	algorithm/page/page_0130.c	/^TABLE *page_TABLE;$/;"	v
+page_TABLE	algorithm/page/page_revised.c	/^TABLE *page_TABLE;$/;"	v
+params	include/container.h	/^	void *params;$/;"	m	struct:algo_req
+params	include/container.h	/^	void *params;$/;"	m	struct:request
+parents	algorithm/normal/normal.h	/^	request *parents;$/;"	m	struct:normal_params
+parents	algorithm/page/page.h	/^	request *parents;$/;"	m	struct:pbase_params
+pbase_algo_end_req	algorithm/page/page_0127.c	/^void *pbase_algo_end_req(algo_req* input)$/;"	f
+pbase_algo_end_req	algorithm/page/page_0130.c	/^void *pbase_algo_end_req(algo_req* input)$/;"	f
+pbase_algo_end_req	algorithm/page/page_revised.c	/^void *pbase_algo_end_req(algo_req* input)$/;"	f
+pbase_create	algorithm/page/page.c	/^uint32_t pbase_create(lower_info* li, algorithm *algo) \/\/define & initialize mapping table.$/;"	f
+pbase_create	algorithm/page/page_0127.c	/^uint32_t pbase_create(lower_info* li, algorithm *algo)$/;"	f
+pbase_create	algorithm/page/page_0130.c	/^uint32_t pbase_create(lower_info* li, algorithm *algo)$/;"	f
+pbase_create	algorithm/page/page_revised.c	/^uint32_t pbase_create(lower_info* li, algorithm *algo) \/\/define & initialize mapping table.$/;"	f
+pbase_destroy	algorithm/page/page.c	/^void pbase_destroy(lower_info* li, algorithm *algo)$/;"	f
+pbase_destroy	algorithm/page/page_0127.c	/^void pbase_destroy(lower_info* li, algorithm *algo)$/;"	f
+pbase_destroy	algorithm/page/page_0130.c	/^void pbase_destroy(lower_info* li, algorithm *algo)$/;"	f
+pbase_destroy	algorithm/page/page_revised.c	/^void pbase_destroy(lower_info* li, algorithm *algo)$/;"	f
+pbase_end_req	algorithm/page/page.c	/^void *pbase_end_req(algo_req* input)$/;"	f
+pbase_end_req	algorithm/page/page_0127.c	/^void *pbase_end_req(algo_req* input)$/;"	f
+pbase_end_req	algorithm/page/page_0130.c	/^void *pbase_end_req(algo_req* input)$/;"	f
+pbase_end_req	algorithm/page/page_revised.c	/^void *pbase_end_req(algo_req* input)$/;"	f
+pbase_garbage_collection	algorithm/page/page_0130.c	/^uint32_t pbase_garbage_collection()$/;"	f
+pbase_garbage_collection	algorithm/page/page_revised.c	/^uint32_t pbase_garbage_collection()\/\/do pbase_read and pbase_set $/;"	f
+pbase_get	algorithm/page/page.c	/^uint32_t pbase_get(const request *req)$/;"	f
+pbase_get	algorithm/page/page_0127.c	/^uint32_t pbase_get(const request *req)$/;"	f
+pbase_get	algorithm/page/page_0130.c	/^uint32_t pbase_get(const request *req)$/;"	f
+pbase_get	algorithm/page/page_revised.c	/^uint32_t pbase_get(const request *req)$/;"	f
+pbase_params	algorithm/page/page.h	/^typedef struct pbase_params$/;"	s
+pbase_params	algorithm/page/page.h	/^}pbase_params;$/;"	t	typeref:struct:pbase_params
+pbase_remove	algorithm/page/page.c	/^uint32_t pbase_remove(const request *req)$/;"	f
+pbase_remove	algorithm/page/page_0127.c	/^uint32_t pbase_remove(const request* req)$/;"	f
+pbase_remove	algorithm/page/page_0130.c	/^uint32_t pbase_remove(const request* req)$/;"	f
+pbase_remove	algorithm/page/page_revised.c	/^uint32_t pbase_remove(const request *req)$/;"	f
+pbase_set	algorithm/page/page.c	/^uint32_t pbase_set(const request *req)$/;"	f
+pbase_set	algorithm/page/page_0127.c	/^uint32_t pbase_set(const request *req)$/;"	f
+pbase_set	algorithm/page/page_0130.c	/^uint32_t pbase_set(const request *req)$/;"	f
+pbase_set	algorithm/page/page_revised.c	/^uint32_t pbase_set(const request *req)$/;"	f
+pbn	algorithm/lsmtree/run_array.h	/^	KEYT pbn;$/;"	m	struct:Entry
 posix_create	lower/posix/posix.c	/^uint32_t posix_create(lower_info *li){$/;"	f
 posix_destroy	lower/posix/posix.c	/^void *posix_destroy(lower_info *li){$/;"	f
-posix_pull_data	lower/posix/posix.c	/^void *posix_pull_data(KEYT PPA, uint32_t size, const V_PTR value, bool async, request *req, uint32_t dmatag){$/;"	f
-posix_push_data	lower/posix/posix.c	/^void *posix_push_data(KEYT PPA, uint32_t size, const V_PTR value, bool async, request *req, uint32_t dmatag){$/;"	f
+posix_pull_data	lower/posix/posix.c	/^void *posix_pull_data(KEYT PPA, uint32_t size,  V_PTR value, bool async,algo_req const*req, uint32_t dmatag){$/;"	f
+posix_push_data	lower/posix/posix.c	/^void *posix_push_data(KEYT PPA, uint32_t size, V_PTR value, bool async,algo_req const*req, uint32_t dmatag){$/;"	f
 posix_stop	lower/posix/posix.c	/^void posix_stop(){}$/;"	f
 posix_trim_block	lower/posix/posix.c	/^void *posix_trim_block(KEYT PPA, bool async){$/;"	f
+ppa	algorithm/lsmtree/lsmtree.h	/^	KEYT ppa;$/;"	m	struct:__anon8
 processor	interface/threading.h	/^typedef struct processor{$/;"	s
 processor	interface/threading.h	/^}processor;$/;"	t	typeref:struct:processor
+processors	algorithm/lsmtree/compaction.h	/^	compP *processors;$/;"	m	struct:compaction_master
 processors	interface/threading.h	/^	processor *processors;$/;"	m	struct:master_processor
-pull_data	include/container.h	/^	void* (*pull_data)(KEYT ppa, uint32_t size, const V_PTR value,bool async,request *req,uint32_t dmatag);$/;"	m	struct:lower_info
-push_data	include/container.h	/^	void* (*push_data)(KEYT ppa, uint32_t size, const V_PTR value,bool async,request *req,uint32_t dmatag);$/;"	m	struct:lower_info
+pull_data	include/container.h	/^	void* (*pull_data)(KEYT ppa, uint32_t size, V_PTR value,bool async,algo_req const* req,uint32_t dmatag);$/;"	m	struct:lower_info
+push_data	include/container.h	/^	void* (*push_data)(KEYT ppa, uint32_t size, V_PTR value,bool async,algo_req const* req,uint32_t dmatag);$/;"	m	struct:lower_info
+q	algorithm/lsmtree/compaction.h	/^	c_queue *q;$/;"	m	struct:compaction_processor
 q_dequeue	interface/queue.c	/^const request * q_dequeue(queue *q){$/;"	f
 q_enqueue	interface/queue.c	/^bool q_enqueue(const request* req, queue* q){$/;"	f
 q_free	interface/queue.c	/^void q_free(queue* q){$/;"	f
 q_init	interface/queue.c	/^void q_init(queue **q){$/;"	f
+q_lock	algorithm/lsmtree/c_queue.h	/^	pthread_mutex_t q_lock;$/;"	m	struct:queue
 q_lock	interface/queue.h	/^	pthread_mutex_t q_lock;$/;"	m	struct:queue
+queue	algorithm/lsmtree/c_queue.h	/^typedef struct queue{$/;"	s
 queue	interface/queue.h	/^typedef struct queue{$/;"	s
 queue	interface/queue.h	/^}queue;$/;"	t	typeref:struct:queue
-remove	include/container.h	/^	uint32_t (*remove)(request*);$/;"	m	struct:algorithm
+r_idx	algorithm/lsmtree/run_array.h	/^	int r_idx;$/;"	m	struct:iterator
+r_n_num	algorithm/lsmtree/run_array.h	/^	int r_n_num;$/;"	m	struct:level
+r_num	algorithm/lsmtree/run_array.h	/^	int r_num;$/;"	m	struct:level
+r_size	algorithm/lsmtree/run_array.h	/^	int r_size;\/\/size of run$/;"	m	struct:level
+rear	algorithm/page/PM_blockqueue.h	/^	node *rear;$/;"	m	struct:Block_queue
+remove	include/container.h	/^	uint32_t (*remove)(request const*);$/;"	m	struct:algorithm
+req	algorithm/lsmtree/c_queue.h	/^	const compR *req;$/;"	m	struct:node
+req	algorithm/lsmtree/lsmtree.h	/^	const request *req;$/;"	m	struct:__anon10
+req	algorithm/lsmtree/skiplist.h	/^	struct algo_req *req;$/;"	m	struct:snode	typeref:struct:snode::algo_req
 req	interface/queue.h	/^	const request *req;$/;"	m	struct:node
 req_q	interface/threading.h	/^	queue *req_q;$/;"	m	struct:processor
-request	include/container.h	/^typedef struct request {$/;"	s
-request	include/container.h	/^}request;$/;"	t	typeref:struct:request
+request	include/container.h	/^struct request {$/;"	s
+request	include/container.h	/^typedef struct request request;$/;"	t	typeref:struct:request
+reserved_block	algorithm/page/PM_opeartion.c	/^int64_t reserved_block = -1;$/;"	v
+reserved_local	algorithm/page/PM_opeartion.c	/^int64_t reserved_local = 0;$/;"	v
+reserved_queue	algorithm/page/PM_operation.h	/^B_queue reserved_queue;$/;"	v
+reverse_table	algorithm/page/page.h	/^	int32_t reverse_table;$/;"	m	struct:virtual_OOB
 seqget	bench/bench.c	/^void seqget(int start, int end, int number){$/;"	f
 seqset	bench/bench.c	/^void seqset(int start, int end, int number){$/;"	f
-set	include/container.h	/^	uint32_t (*set)(request *);$/;"	m	struct:algorithm
+set	include/container.h	/^	uint32_t (*set)(request const*);$/;"	m	struct:algorithm
+size	algorithm/lsmtree/c_queue.h	/^	int size;$/;"	m	struct:queue
+size	algorithm/lsmtree/run_array.h	/^	int size;$/;"	m	struct:level
+size	algorithm/lsmtree/skiplist.h	/^	uint64_t size;$/;"	m	struct:skiplist
 size	interface/queue.h	/^	int size;$/;"	m	struct:queue
+sk_iter	algorithm/lsmtree/skiplist.h	/^} sk_iter;$/;"	t	typeref:struct:__anon7
+skiplist	algorithm/lsmtree/skiplist.h	/^typedef struct skiplist{$/;"	s
+skiplist	algorithm/lsmtree/skiplist.h	/^}skiplist;$/;"	t	typeref:struct:skiplist
+skiplist_clear	algorithm/lsmtree/skiplist.c	/^void skiplist_clear(skiplist *list){$/;"	f
+skiplist_delete	algorithm/lsmtree/skiplist.c	/^int skiplist_delete(skiplist* list, KEYT key){$/;"	f
+skiplist_dump	algorithm/lsmtree/skiplist.c	/^void skiplist_dump(skiplist * list){$/;"	f
+skiplist_find	algorithm/lsmtree/skiplist.c	/^snode *skiplist_find(skiplist *list, KEYT key){$/;"	f
+skiplist_free	algorithm/lsmtree/skiplist.c	/^void skiplist_free(skiplist *list){$/;"	f
+skiplist_get_iterator	algorithm/lsmtree/skiplist.c	/^sk_iter* skiplist_get_iterator(skiplist *list){$/;"	f
+skiplist_get_next	algorithm/lsmtree/skiplist.c	/^snode *skiplist_get_next(sk_iter* iter){$/;"	f
+skiplist_init	algorithm/lsmtree/skiplist.c	/^skiplist *skiplist_init(){$/;"	f
+skiplist_insert	algorithm/lsmtree/skiplist.c	/^snode *skiplist_insert(skiplist *list,KEYT key, char *value, algo_req *req){$/;"	f
+snode	algorithm/lsmtree/skiplist.h	/^typedef struct snode{ \/\/skiplist's node$/;"	s
+snode	algorithm/lsmtree/skiplist.h	/^}snode;$/;"	t	typeref:struct:snode
+start	algorithm/lsmtree/run_array.h	/^	KEYT start;$/;"	m	struct:level
 statusOfblock	include/container.h	/^	lower_status (*statusOfblock)(BLOCKT);$/;"	m	struct:lower_info
 stop	include/container.h	/^	void (*stop)();$/;"	m	struct:lower_info
+stopflag	algorithm/lsmtree/compaction.h	/^	bool stopflag;$/;"	m	struct:compaction_master
 stopflag	interface/threading.h	/^	bool stopflag;$/;"	m	struct:master_processor
+t_id	algorithm/lsmtree/compaction.h	/^	pthread_t t_id;$/;"	m	struct:compaction_processor
 t_id	interface/threading.h	/^	pthread_t t_id;$/;"	m	struct:processor
+tail	algorithm/lsmtree/c_queue.h	/^	c_node *tail;$/;"	m	struct:queue
 tail	interface/queue.h	/^	node *tail;$/;"	m	struct:queue
+test	algorithm/normal/normal.h	/^	int test;$/;"	m	struct:normal_params
+test	algorithm/page/page.h	/^	int test;$/;"	m	struct:pbase_params
+test	algorithm/page/page_revised.c	/^TABLE *test;$/;"	v
+tiering	algorithm/lsmtree/compaction.c	/^uint32_t tiering(){$/;"	f
+toL	algorithm/lsmtree/compaction.h	/^	int toL;$/;"	m	struct:compaction_req
 trim_block	include/container.h	/^	void* (*trim_block)(KEYT ppa,bool async);$/;"	m	struct:lower_info
+true	algorithm/lsmtree/skiplist.h	/^typedef enum {false, true} bool;$/;"	e	enum:__anon6
 true	include/settings.h	/^typedef enum{false,true} bool;$/;"	e	enum:__anon3
 type	bench/bench.h	/^	FSTYPE type;$/;"	m	struct:__anon1
 type	include/container.h	/^	FSTYPE type;$/;"	m	struct:request
@@ -159,6 +426,9 @@ upper_end	include/container.h	/^	void *(*upper_end)(void *);$/;"	m	struct:reques
 upper_req	include/container.h	/^	void *upper_req;$/;"	m	struct:request
 upper_request	include/container.h	/^typedef struct upper_request{$/;"	s
 upper_request	include/container.h	/^}upper_request;$/;"	t	typeref:struct:upper_request
+valid_checker	algorithm/page/page.h	/^	int32_t  valid_checker;$/;"	m	struct:mapping_table
+value	algorithm/lsmtree/skiplist.h	/^	V_PTR *value;$/;"	m	struct:snode
 value	bench/bench.h	/^	V_PTR value;$/;"	m	struct:__anon1
 value	include/container.h	/^	V_PTR value;$/;"	m	struct:request
 value	include/container.h	/^	const V_PTR value;$/;"	m	struct:upper_request
+virtual_OOB	algorithm/page/page.h	/^typedef struct virtual_OOB{$/;"	s
