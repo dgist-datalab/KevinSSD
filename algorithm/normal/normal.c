@@ -16,7 +16,7 @@ uint32_t normal_create (lower_info* li,algorithm *algo){
 void normal_destroy (lower_info* li, algorithm *algo){
 
 }
-uint32_t normal_get(request const*req){
+uint32_t normal_get(request *const req){
 	normal_params* params=(normal_params*)malloc(sizeof(normal_params));
 	params->parents=req;
 	params->test=-1;
@@ -27,7 +27,7 @@ uint32_t normal_get(request const*req){
 
 	__normal.li->pull_data(req->key,PAGESIZE,req->value,0,my_req,0);
 }
-uint32_t normal_set(request const*req){
+uint32_t normal_set(request *const req){
 	normal_params* params=(normal_params*)malloc(sizeof(normal_params));
 	params->parents=req;
 	params->test=-1;
@@ -38,7 +38,7 @@ uint32_t normal_set(request const*req){
 
 	__normal.li->push_data(req->key,PAGESIZE,req->value,0,my_req,0);
 }
-uint32_t normal_remove(request const*req){
+uint32_t normal_remove(request *const req){
 //	normal->li->trim_block()
 }
 
