@@ -19,20 +19,29 @@ OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\
 
 TARGETOBJ:=\
-	$(patsubst %.c,%.o,$(SRCS))\
-	#$(addprefix ../../object/,$(OBJS))\
+	$(addprefix ../../object/,$(OBJS))\
+#$(patsubst %.c,%.o,$(SRCS))\
 
-TARGETDOBJ:=\
+DOBJ:=\
 	$(patsubst %.c,%_d.o,$(SRCS))\
-	#$(addprefix ../../object/,$(OBJS))\
+
+TARGETDOBJ=\
+	$(addprefix ../../object/,$(DOBJ))\
 
 
+MOBJS :=\
+	$(patsubst %.c,%_m.o,$(SRCS))\
 
-all: liblsm.a
+TARGETMOBJ:=\
+	$(addprefix ../../object/,$(MOBJS))\
+
+
+all:$(TARGETOBJ)
 	#$(TARGETOBJ) 
 
 DEBUG: $(TARGETDOBJ)
-	$(AR) r liblsm_d.a $(TARGETDOBJ)
+
+LEAK: $(TARGETMOBJ)
 
 liblsm.a : $(TARGETOBJ)
 	$(AR) r $(@) $(TARGETOBJ)
@@ -40,11 +49,17 @@ liblsm.a : $(TARGETOBJ)
 .c.o :
 	$(CC) $(CFLAGS) -c $< -o $@
 
-%_d.o: %.c
+../../object/%_d.o: %.c
 	$(CC) $(CFLAGS) -DDEBUG -c $< -o $@
+
+../../object/%_m.o: %.c
+	$(CC) $(CFLAGS) -DLEAKCHECK -c $< -o $@
 
 ../../object/%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
+
+run_test:run_array.c
+	$(CC) $(CFLAGS) -o $@ $^
 
 test_clean :
 	@$(RM) ../../object/*

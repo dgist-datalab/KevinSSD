@@ -7,8 +7,8 @@
 #include "lsmtree.h"
 #include "run_array.h"
 
-#ifdef DEBUG
 #include<stdio.h>
+#ifdef DEBUG
 #endif
 
 struct algorithm algo_lsm={
@@ -45,7 +45,8 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 #endif
 		LSM.level_addr[i]=(PTR)LSM.disk[i];
 	}
-
+	pthread_mutex_init(&LSM.templock,NULL);
+	pthread_mutex_init(&LSM.memlock,NULL);
 	//compactor start
 	compaction_init();
 	LSM.li=li;
@@ -111,6 +112,7 @@ void* lsm_end_req(algo_req* const req){
 uint32_t lsm_set(request * const req){
 #ifdef DEBUG
 	printf("lsm_set!\n");
+	printf("key : %u\n",req->key);//for debug
 #endif
 	compaction_check();
 	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
@@ -118,7 +120,9 @@ uint32_t lsm_set(request * const req){
 	params->req=NULL;
 	params->lsm_type=DATAW;
 	lsm_req->params=(void*)params;
+	
 	lsm_req->end_req=lsm_end_req;
+
 	if(req->type==FS_DELETE_T)
 		skiplist_insert(LSM.memtable,req->key,req->value,lsm_req,false);
 	else

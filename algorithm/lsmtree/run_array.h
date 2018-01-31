@@ -11,13 +11,12 @@ typedef struct Entry{
 	KEYT key;
 	KEYT end;
 	KEYT pbn;
-	uint8_t *bitset;
+	uint8_t bitset[KEYNUM/8];
 	uint64_t version;
 #ifdef BLOOM
 	BF *filter
 #endif
 	struct htable *t_table;
-	struct skiplist *t_skip;
 }Entry;
 
 typedef struct Node{
@@ -31,7 +30,6 @@ typedef struct Node{
 }Node;
 
 typedef struct level{
-	int size;
 	int r_num;
 	int r_n_num;
 	int m_num;//number of entries
@@ -54,23 +52,25 @@ typedef struct iterator{
 	int idx;
 	bool flag;
 }Iter;
-Entry *level_make_entry(KEYT,KEYT,KEYT);
-Entry* level_entcpy(Entry *src,char *des);
+Entry *level_make_entry(KEYT,KEYT,KEYT);//
+Entry* level_entcpy(Entry *src,char *des);//
 Entry *level_entry_copy(Entry *src);
-level *level_init(level *,int size,bool);
-level *level_clear(level *);
-level *level_copy(level *);//do coding
-Entry **level_find(level *,KEYT key);
-Entry *level_find_fromR(Node *, KEYT key);
-int level_range_find(level *,KEYT start, KEYT end, Entry ***target);
-bool level_check_overlap(level*,KEYT start, KEYT end);
-bool level_full_check(level *);
-Node *level_insert(level *,Entry*);
-Entry *level_get_next(Iter *);
-Iter *level_get_Iter(level *);
-void level_print(level *);
-void level_free(level *);
+level *level_init(level *,int size,bool);//
+level *level_clear(level *);//
+level *level_copy(level *);//
+Entry **level_find(level *,KEYT key);//
+Entry *level_find_fromR(Node *, KEYT key);//
+int level_range_find(level *,KEYT start, KEYT end, Entry ***);//
+bool level_check_overlap(level*,KEYT start, KEYT end);//a
+bool level_full_check(level *);//
+Node *level_insert(level *,Entry*);//
+Entry *level_get_next(Iter *);//
+Iter *level_get_Iter(level *);//
+void level_print(level *);//
+void level_free(level *);//
+void level_free_entry(Entry *);//
 
-Node *ns_run(level*, int );
-Entry *ns_entry(Node *,int);
+
+Node *ns_run(level*, int );//
+Entry *ns_entry(Node *,int);//
 #endif

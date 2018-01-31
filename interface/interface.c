@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include <unistd.h>
 extern struct lower_info __posix;
-extern struct algorithm __normal;
+//extern struct algorithm __normal;
 extern struct algorithm algo_lsm;
 master_processor mp;
 void *p_main(void*);
