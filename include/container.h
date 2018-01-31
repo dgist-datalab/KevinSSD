@@ -21,7 +21,7 @@ typedef struct upper_request{
 struct request {
 	FSTYPE type;
 	KEYT key;
-	V_PTR value;
+	PTR value;
 	void *upper_req;
 	void *(*upper_end)(void *);
 	bool (*end_req)(struct request *const);
