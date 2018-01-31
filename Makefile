@@ -46,7 +46,7 @@ DEBUG : simulator_d
 
 memory_leak: simulator_memory_check
 	
-simulator_memory_check: ./interface/main.c mem_libsimulator.a
+simulator_memory_check: ./interface/main.c mem_libsimulator.a $(LOWER_LIB) $(ALGO_LIB)
 	$(CC) $(CFLAGS) -DLEAKCHECK -o $@ $^ $(LIBS)
 
 simulator: ./interface/main.c libsimulator.a $(LOWER_LIB) $(ALGO_LIB)
