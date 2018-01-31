@@ -24,22 +24,22 @@ struct request {
 	V_PTR value;
 	void *upper_req;
 	void *(*upper_end)(void *);
-	bool (*end_req)(struct request const*);
+	bool (*end_req)(struct request *const);
 	bool isAsync;
 	void *params;
 	pthread_mutex_t async_mutex;
 };
 
 struct algo_req{
-	void *(*end_req)(struct algo_req *);
+	void *(*end_req)(struct algo_req *const);
 	void *params;
 };
 
 struct lower_info {
 	uint32_t (*create)(struct lower_info*);
 	void* (*destroy)(struct lower_info*);
-	void* (*push_data)(KEYT ppa, uint32_t size, V_PTR value,bool async,algo_req const* req,uint32_t dmatag);
-	void* (*pull_data)(KEYT ppa, uint32_t size, V_PTR value,bool async,algo_req const* req,uint32_t dmatag);
+	void* (*push_data)(KEYT ppa, uint32_t size, V_PTR value,bool async,algo_req * const req,uint32_t dmatag);
+	void* (*pull_data)(KEYT ppa, uint32_t size, V_PTR value,bool async,algo_req * const req,uint32_t dmatag);
 	void* (*trim_block)(KEYT ppa,bool async);
 	void (*stop)();
 	/*
@@ -62,9 +62,9 @@ struct algorithm{
 	/*interface*/
 	uint32_t (*create) (lower_info*,struct algorithm *);
 	void (*destroy) (lower_info*, struct algorithm *);
-	uint32_t (*get)(request const *);
-	uint32_t (*set)(request const*);
-	uint32_t (*remove)(request const*);
+	uint32_t (*get)(request *const);
+	uint32_t (*set)(request *const);
+	uint32_t (*remove)(request *const);
 	lower_info* li;
 	void *algo_body;
 };

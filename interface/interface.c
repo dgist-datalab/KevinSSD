@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <string.h>
 extern struct lower_info __posix;
 extern struct algorithm __normal;
 master_processor mp;
@@ -36,6 +37,7 @@ static void assign_req(request* req){
 	if(!req->isAsync){
 		pthread_mutex_lock(&req->async_mutex);
 		pthread_mutex_destroy(&req->async_mutex);
+		free(req);
 	}
 }
 
@@ -101,14 +103,19 @@ bool inf_make_req_Async(void *ureq, void *(*end_req)(void*)){
 	assign_req(req);
 	return true;
 }
-bool inf_end_req(const request *req){
-	if(!req->isAsync){
-		pthread_mutex_unlock(&req->async_mutex);
+bool inf_end_req(request *const req){
+	if(req->type==FS_GET_T){
+		int check;
+		memcpy(&check,req->value,sizeof(check));
+		printf("get:%d\n",check);
 	}
-	else if(req->value){
+	if(req->value){
 		free(req->value);
 	}
-	free(req);
+	if(!req->isAsync){
+		pthread_mutex_unlock(&req->async_mutex);
+	}else
+		free(req);
 	return true;
 }
 void inf_free(){
