@@ -52,6 +52,7 @@ static void assign_req(request* req){
 	if(!req->isAsync){
 		pthread_mutex_lock(&req->async_mutex);
 		pthread_mutex_destroy(&req->async_mutex);
+		free(req);
 	}
 }
 
@@ -87,7 +88,7 @@ bool inf_make_req(const FSTYPE type, const KEYT key, V_PTR value){
 	req->value=value;
 	req->end_req=inf_end_req;
 	req->isAsync=false;
-
+	req->params=NULL;
 	switch(type){
 		case FS_GET_T:
 			break;
@@ -124,19 +125,16 @@ bool inf_end_req( request * const req){
 #ifdef DEBUG
 	printf("inf_end_req!\n");
 #endif
-	FSTYPE *temp_type=(void*)req->params;
-	if(temp_type!=NULL && (*temp_type)==FS_AGAIN_R_T){
-		request *temp=make_temp_req(FS_GET_T,req->key,req->value,req);
-		free(temp_type);
-		free(req);
-		assign_req(temp);
-		return true;
+	if(req->params!=NULL){
+		FSTYPE *temp_type=(void*)req->params;
+		if(temp_type!=NULL && (*temp_type)==FS_AGAIN_R_T){
+			request *temp=make_temp_req(FS_GET_T,req->key,req->value,req);
+			free(temp_type);
+			free(req);
+			assign_req(temp);
+			return true;
+		}
 	}
-
-	if(!req->isAsync){
-		pthread_mutex_unlock(&req->async_mutex);
-	}
-	
 	if(req->value){
 #ifdef LSM
 		
@@ -145,7 +143,11 @@ bool inf_end_req( request * const req){
 		//free(req->value);
 #endif
 	}
-	free(req);
+	if(!req->isAsync){
+		pthread_mutex_unlock(&req->async_mutex);
+	}
+	else
+		free(req);
 	return true;
 }
 void inf_free(){

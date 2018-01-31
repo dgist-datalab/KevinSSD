@@ -7,7 +7,7 @@
 int main(){
 	inf_init();
 
-	for(int i=0; i<3000; i++){
+	for(int i=0; i<30000; i++){
 #ifdef LEAKCHECK
 		printf("set: %d\n",i);
 #endif
