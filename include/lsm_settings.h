@@ -9,7 +9,7 @@
 #define LEVELN 7
 #define KEYNUM 1024
 #define CTHREAD 1
-#define CQSIZE 1
+#define CQSIZE 2
 #define EPC 20 //size factor have to be multiple of SIZEFACTOR
 
 

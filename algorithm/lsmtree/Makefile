@@ -29,11 +29,19 @@ TARGETDOBJ=\
 	$(addprefix ../../object/,$(DOBJ))\
 
 
+MOBJS :=\
+	$(patsubst %.c,%_m.o,$(SRCS))\
+
+TARGETMOBJ:=\
+	$(addprefix ../../object/,$(MOBJS))\
+
 
 all:$(TARGETOBJ)
 	#$(TARGETOBJ) 
 
 DEBUG: $(TARGETDOBJ)
+
+LEAK: $(TARGETMOBJ)
 
 liblsm.a : $(TARGETOBJ)
 	$(AR) r $(@) $(TARGETOBJ)
@@ -43,6 +51,9 @@ liblsm.a : $(TARGETOBJ)
 
 ../../object/%_d.o: %.c
 	$(CC) $(CFLAGS) -DDEBUG -c $< -o $@
+
+../../object/%_m.o: %.c
+	$(CC) $(CFLAGS) -DLEAKCHECK -c $< -o $@
 
 ../../object/%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@

@@ -11,7 +11,7 @@ typedef struct Entry{
 	KEYT key;
 	KEYT end;
 	KEYT pbn;
-	uint8_t *bitset;
+	uint8_t bitset[KEYNUM/8];
 	uint64_t version;
 #ifdef BLOOM
 	BF *filter
@@ -68,6 +68,8 @@ Entry *level_get_next(Iter *);//
 Iter *level_get_Iter(level *);//
 void level_print(level *);//
 void level_free(level *);//
+void level_free_entry(Entry *);//
+
 
 Node *ns_run(level*, int );//
 Entry *ns_entry(Node *,int);//

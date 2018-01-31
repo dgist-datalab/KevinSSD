@@ -7,7 +7,7 @@
 int main(){
 	inf_init();
 
-	for(int i=0; i<30000; i++){
+	for(int i=0; i<3000; i++){
 #ifdef LEAKCHECK
 		printf("set: %d\n",i);
 #endif
@@ -21,6 +21,7 @@ int main(){
 #endif
 	}
 
+	return 0;
 	int check;
 	for(int i=0; i<30000; i++){
 		char *temp=(char*)malloc(PAGESIZE);

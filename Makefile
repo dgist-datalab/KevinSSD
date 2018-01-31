@@ -51,7 +51,7 @@ libsimulator.a: $(TARGETOBJ)
 	mv ./interface/*.o ./object/
 	$(AR) r $(@) ./object/*.o
 
-libsimulator_d.a:$(DEBUGOBJ)
+libsimulator_d.a:$(MEMORYOBJ)
 	mkdir -p object && mkdir -p data
 	cd ./algorithm/$(TARGET_ALGO) && make DEBUG && cd ../../
 	cd ./lower/$(TARGET_LOWER) && make DEBUG && cd ../../ 
@@ -60,7 +60,7 @@ libsimulator_d.a:$(DEBUGOBJ)
 
 mem_libsimulator.a:$(MEMORYOBJ)
 	mkdir -p object && mkdir -p data
-	cd ./algorithm/$(TARGET_ALGO) && make && cd ../../
+	cd ./algorithm/$(TARGET_ALGO) && make LEAK&& cd ../../
 	cd ./lower/$(TARGET_LOWER) && make && cd ../../ 
 	mv ./interface/*.o ./object/
 	$(AR) r $(@) ./object/*.o

@@ -208,9 +208,16 @@ Entry *level_make_entry(KEYT key,KEYT end,KEYT pbn){
 	ent->key=key;
 	ent->end=end;
 	ent->pbn=pbn;
-	ent->bitset=(uint8_t*)malloc(KEYNUM/8);
 	memset(ent->bitset,0,KEYNUM/8);
+	ent->t_table=NULL;
 	return ent;
+}
+void level_free_entry(Entry *entry){
+	free(entry->t_table);
+#ifdef BLOOM
+	bf_free(entry->filter);
+#endif
+	free(entry);
 }
 bool level_check_overlap(level *input ,KEYT start, KEYT end){
 	if(input->start>end){

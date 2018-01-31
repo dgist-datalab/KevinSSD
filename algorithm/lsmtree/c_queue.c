@@ -11,12 +11,14 @@ void cq_init(c_queue **q){
 }
 
 bool cq_enqueue(struct compaction_req* req, c_queue* q){
-	if(q->size==CQSIZE)
+	pthread_mutex_lock(&q->q_lock);
+	if(q->size==CQSIZE){
+		pthread_mutex_unlock(&q->q_lock);
 		return false;
+	}
 	c_node *new_node=(c_node*)malloc(sizeof(c_node));
 	new_node->req=req;
 	new_node->next=NULL;
-	pthread_mutex_lock(&q->q_lock);
 	if(q->size==0){
 		q->head=q->tail=new_node;
 	}
@@ -30,11 +32,13 @@ bool cq_enqueue(struct compaction_req* req, c_queue* q){
 }
 
 struct compaction_req* cq_dequeue(c_queue *q){
-	if(q->size==0)
+	pthread_mutex_lock(&q->q_lock);
+	if(q->size==0){
+		pthread_mutex_unlock(&q->q_lock);
 		return NULL;
+	}
 	c_node *target_node;
 
-	pthread_mutex_lock(&q->q_lock);
 	target_node=q->head;
 	q->head=q->head->next;
 	struct compaction_req* res=target_node->req;
