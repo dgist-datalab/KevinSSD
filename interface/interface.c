@@ -10,21 +10,6 @@ extern struct lower_info __posix;
 extern struct algorithm algo_lsm;
 master_processor mp;
 void *p_main(void*);
-const FSTYPE r_type=FS_GET_T;
-static request* make_temp_req(const FSTYPE type, const KEYT key, V_PTR value,request *cpy){
-	request *res=(request*)malloc(sizeof(request));
-	res->type=type;
-	res->key=key;
-	res->value=value;
-	res->end_req=inf_end_req;
-	res->isAsync=false;
-	if(cpy){
-		res->upper_req=cpy->upper_req;
-		res->upper_end=cpy->upper_end;
-	}
-	return res;
-}
-
 static void assign_req(request* req){
 	bool flag=false;
 	if(!req->isAsync){
@@ -35,7 +20,7 @@ static void assign_req(request* req){
 	while(!flag){
 		for(int i=0; i<THREADSIZE; i++){
 			processor *t=&mp.processors[i];
-			if(q_enqueue(req,t->req_q)){
+			if(q_enqueue(req,(void*)t->req_q)){
 				flag=true;
 				break;
 			}
@@ -56,14 +41,28 @@ static void assign_req(request* req){
 		free(req);
 	}
 }
-
+bool inf_assign_try(request *req){
+	bool flag=false;
+	for(int i=0; i<THREADSIZE; i++){
+		processor *t=&mp.processors[i];
+		if(q_enqueue(req,t->req_q)){
+			flag=true;
+			break;
+		}
+		else{
+			flag=false;
+			continue;
+		}
+	}
+	return flag;
+}
 void inf_init(){
 	mp.processors=(processor*)malloc(sizeof(processor)*THREADSIZE);
 	for(int i=0; i<THREADSIZE; i++){
 		processor *t=&mp.processors[i];
 		pthread_mutex_init(&t->flag,NULL);
 		pthread_mutex_lock(&t->flag);
-		q_init(&t->req_q);
+		q_init(&t->req_q,QSIZE);
 		t->master=&mp;
 		pthread_create(&t->t_id,NULL,&p_main,NULL);
 	}
@@ -122,27 +121,20 @@ bool inf_make_req_Async(void *ureq, void *(*end_req)(void*)){
 	assign_req(req);
 	return true;
 }
+
+static int end_req_num=0;
 bool inf_end_req( request * const req){
 #ifdef DEBUG
 	printf("inf_end_req!\n");
 #endif
-	if(req->params!=NULL){
-		FSTYPE *temp_type=(void*)req->params;
-		if(temp_type!=NULL && (*temp_type)==FS_AGAIN_R_T){
-			request *temp=make_temp_req(FS_GET_T,req->key,req->value,req);
-			free(temp_type);
-			free(req);
-			assign_req(temp);
-			return true;
-		}
+	if(req->type==FS_GET_T){
+		int check;
+		memcpy(&check,req->value,sizeof(check));
+		if((++end_req_num)%1024==0)
+			printf("get:%d, number: %d\n",check,end_req_num);
 	}
 	if(req->value){
-#ifdef LSM
-		
-#else
-		//main free 
-		//free(req->value);
-#endif
+		free(req->value);
 	}
 	if(!req->isAsync){
 		pthread_mutex_unlock(&req->async_mutex);
@@ -173,6 +165,7 @@ void inf_print_debug(){
 }
 
 void *p_main(void *__input){
+	void *_inf_req;
 	request *inf_req;
 	processor *this=NULL;
 	for(int i=0; i<THREADSIZE; i++){
@@ -186,10 +179,11 @@ void *p_main(void *__input){
 #endif
 		if(mp.stopflag)
 			break;
-		if(!(inf_req=q_dequeue(this->req_q))){
+		if(!(_inf_req=q_dequeue(this->req_q))){
 			//sleep or nothing
 			continue;
 		}
+		inf_req=(request*)_inf_req;
 		switch(inf_req->type){
 			case FS_GET_T:
 				mp.algo->get(inf_req);

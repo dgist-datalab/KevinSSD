@@ -7,7 +7,7 @@
 int main(){
 	inf_init();
 
-	for(int i=0; i<30000; i++){
+	for(int i=0; i<1024*1024; i++){
 #ifdef LEAKCHECK
 		printf("set: %d\n",i);
 #endif
@@ -16,11 +16,13 @@ int main(){
 		memcpy(temp,&i,sizeof(i));
 		inf_make_req(FS_SET_T,i,temp);
 	}
-	for(int i=0; i<300; i++){
+
+	for(int i=0; i<1024*1024; i++){
 		char *temp=(char*)malloc(PAGESIZE);
 		memset(temp,0,PAGESIZE);
 		inf_make_req(FS_GET_T,i,temp);
 	}
-
+	printf("done\n");
 	inf_free();
+	return 0;
 }

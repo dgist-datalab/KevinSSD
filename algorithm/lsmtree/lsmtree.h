@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include "run_array.h"
 #include "skiplist.h"
+#include "../../interface/queue.h"
 #include "../../include/container.h"
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
@@ -42,6 +43,7 @@ typedef struct lsmtree{
 	pthread_mutex_t templock;
 	struct skiplist *memtable;
 	struct skiplist *temptable;
+	struct queue *re_q;
 	lower_info* li;
 }lsmtree;
 

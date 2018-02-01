@@ -11,7 +11,6 @@ SRCS +=\
 	   run_array.c\
 	   skiplist.c\
 	   bloomfilter.c\
-	   c_queue.c\
 	   lsmtree.c\
 	   compaction.c\
 
@@ -37,7 +36,6 @@ TARGETMOBJ:=\
 
 
 all:$(TARGETOBJ)
-	#$(TARGETOBJ) 
 
 DEBUG: $(TARGETDOBJ)
 

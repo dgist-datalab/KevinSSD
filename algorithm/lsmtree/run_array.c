@@ -26,7 +26,7 @@ Entry *level_entcpy(Entry *src, char *des){
 }
 
 bool level_full_check(level *input){
-	return input->n_num==input->m_num;
+	return input->n_num+1==input->m_num;
 }
 
 Entry *level_entry_copy(Entry *input){
@@ -53,7 +53,7 @@ level *level_init(level *input,int all_entry,bool isTiering){
 	if(all_entry%input->r_num) entry_p_run++;
 
 	uint64_t run_body_size=sizeof(Entry)*entry_p_run;
-	uint64_t run_size=sizeof(Node)-sizeof(char*)+run_body_size;
+	uint64_t run_size=sizeof(Node)+run_body_size;
 	uint64_t level_body_size=run_size*input->r_num;
 
 	input->body=(char*)malloc(level_body_size);
@@ -66,7 +66,7 @@ level *level_init(level *input,int all_entry,bool isTiering){
 		temp_run->n_num=0;
 		temp_run->m_num=entry_p_run;
 		temp_run->e_size=sizeof(Entry);
-		temp_run->body_addr=&temp_run->body;
+		temp_run->body_addr=(char**)(input->body+sizeof(Node)+i*run_size);
 		temp_run->start=UINT_MAX;
 		temp_run->end=0;
 	}
@@ -164,8 +164,13 @@ Entry *level_get_next(Iter * input){
 		}
 		else{
 			input->r_idx++;
-			input->now=ns_run(input->lev,input->r_idx);
-			input->idx=0;
+			if(input->r_idx==input->lev->r_n_num){
+				input->flag=false;
+			}
+			else{
+				input->now=ns_run(input->lev,input->r_idx);
+				input->idx=0;
+			}
 		}
 	}
 	return res;
@@ -240,7 +245,6 @@ level *level_copy(level *input){
 
 int level_range_find(level *input,KEYT start,KEYT end, Entry ***res){
 	Iter *level_iter=level_get_Iter(input);
-	
 	int rev=0;
 	Entry **temp;
 	temp=(Entry **)malloc(sizeof(Entry *)*input->m_num);
@@ -264,9 +268,9 @@ int main(){
 		free(temp);
 	}
 	
-	level_print(copied);
-
+	Entry **targets;
+	level_range_find(temp_lev,0,10,&targets);
+	free(targets);
 	level_print(temp_lev);
-	level_free(copied);
 	level_free(temp_lev);
 }*/

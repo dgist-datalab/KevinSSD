@@ -1,7 +1,7 @@
 #ifndef __H_COMPT__
 #define __H_COMPT__
 #include "../../include/lsm_settings.h"
-#include "c_queue.h"
+#include "../../interface/queue.h"
 #include "skiplist.h"
 #include "run_array.h"
 #include <pthread.h>
@@ -12,16 +12,18 @@ typedef struct compaction_req compR;
 struct Entry;
 struct level;
 struct skiplist;
+struct htable;
 struct compaction_req{
 	int fromL;
 	int toL;
+	int seq;
 };
 
 struct compaction_processor{
 	pthread_t t_id;
 	compM *master;
 	pthread_mutex_t flag;
-	struct c_queue *q;
+	queue *q;
 };
 
 struct compaction_master{
@@ -39,5 +41,5 @@ uint32_t partial_leveling(struct level *,struct level *,struct skiplist *,bool);
 void compaction_check();
 void compaction_free();
 
-void compaction_subprocessing(skiplist *,level *, htable *, bool, bool);
+void compaction_subprocessing(struct skiplist *,struct level *, struct htable *, bool, bool);
 #endif

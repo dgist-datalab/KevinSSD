@@ -4,7 +4,7 @@
 !_TAG_PROGRAM_NAME	Exuberant Ctags	//
 !_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
 !_TAG_PROGRAM_VERSION	5.9~svn20110310	//
-BF	algorithm/lsmtree/bloomfilter.h	/^}BF;$/;"	t	typeref:struct:__anon7
+BF	algorithm/lsmtree/bloomfilter.h	/^}BF;$/;"	t	typeref:struct:__anon6
 BIG_CONSTANT	algorithm/lsmtree/bloomfilter.c	24;"	d	file:
 BITGET	algorithm/lsmtree/bloomfilter.h	/^inline bool BITGET(char input, char offset){$/;"	f
 BITSET	algorithm/lsmtree/bloomfilter.h	/^inline void BITSET(char *input, char offset){$/;"	f
@@ -17,8 +17,8 @@ CC	lower/posix/Makefile	/^CC=gcc$/;"	m
 CHACHESIZE	include/settings.h	28;"	d
 CQSIZE	include/lsm_settings.h	12;"	d
 CTHREAD	include/lsm_settings.h	11;"	d
-DATAR	algorithm/lsmtree/lsmtree.h	13;"	d
-DATAW	algorithm/lsmtree/lsmtree.h	14;"	d
+DATAR	algorithm/lsmtree/lsmtree.h	14;"	d
+DATAW	algorithm/lsmtree/lsmtree.h	15;"	d
 DEBUGOBJ	Makefile	/^DEBUGOBJ =\\$/;"	m
 DOBJ	algorithm/lsmtree/Makefile	/^DOBJ:=\\$/;"	m
 ENTRYBIT	include/lsm_settings.h	16;"	d
@@ -35,8 +35,8 @@ FS_SET_T	include/types.h	5;"	d
 FS_free	include/FS.c	/^void FS_free(void *ptr,int tag){$/;"	f
 FS_malloc	include/FS.c	/^int FS_malloc(void **ptr, int size){$/;"	f
 G	include/settings.h	7;"	d
-HEADERR	algorithm/lsmtree/lsmtree.h	11;"	d
-HEADERW	algorithm/lsmtree/lsmtree.h	12;"	d
+HEADERR	algorithm/lsmtree/lsmtree.h	12;"	d
+HEADERW	algorithm/lsmtree/lsmtree.h	13;"	d
 Iter	algorithm/lsmtree/run_array.h	/^}Iter;$/;"	t	typeref:struct:iterator
 K	include/settings.h	5;"	d
 KEYNUM	include/lsm_settings.h	10;"	d
@@ -46,7 +46,8 @@ LSM	algorithm/lsmtree/lsmtree.c	/^lsmtree LSM;$/;"	v
 M	include/settings.h	6;"	d
 MAX_L	algorithm/lsmtree/skiplist.h	7;"	d
 MEMORYOBJ	Makefile	/^MEMORYOBJ =\\$/;"	m
-MIXED	include/settings.h	/^	MIXED$/;"	e	enum:__anon3
+MIXED	include/settings.h	/^	MIXED$/;"	e	enum:__anon4
+MOBJS	algorithm/lsmtree/Makefile	/^MOBJS :=\\$/;"	m
 MUTEXLOCK	include/lsm_settings.h	19;"	d
 MurmurHash3_x86_32	algorithm/lsmtree/bloomfilter.c	/^void MurmurHash3_x86_32( const void * key, int len,uint32_t seed, void * out )$/;"	f
 NOB	include/container.h	/^	uint32_t NOB;$/;"	m	struct:lower_info
@@ -56,7 +57,7 @@ Node	algorithm/lsmtree/run_array.h	/^}Node;$/;"	t	typeref:struct:Node
 OBJS	algorithm/lsmtree/Makefile	/^OBJS :=\\$/;"	m
 OBJS	algorithm/normal/Makefile	/^OBJS :=\\$/;"	m
 OBJS	lower/posix/Makefile	/^OBJS :=\\$/;"	m
-OLDDATA	algorithm/lsmtree/lsmtree.h	10;"	d
+OLDDATA	algorithm/lsmtree/lsmtree.h	11;"	d
 P	include/settings.h	9;"	d
 PAGESIZE	include/settings.h	12;"	d
 PPB	include/container.h	/^	uint32_t PPB;$/;"	m	struct:lower_info
@@ -65,12 +66,12 @@ PTR	include/settings.h	22;"	d
 PWD	Makefile	/^PWD=$(pwd)$/;"	m
 QSIZE	include/settings.h	25;"	d
 RAF	include/lsm_settings.h	8;"	d
-RANDGET	include/settings.h	/^	RANDGET,RANDSET,$/;"	e	enum:__anon3
-RANDSET	include/settings.h	/^	RANDGET,RANDSET,$/;"	e	enum:__anon3
+RANDGET	include/settings.h	/^	RANDGET,RANDSET,$/;"	e	enum:__anon4
+RANDSET	include/settings.h	/^	RANDGET,RANDSET,$/;"	e	enum:__anon4
 ROTL32	algorithm/lsmtree/bloomfilter.c	21;"	d	file:
 ROTL64	algorithm/lsmtree/bloomfilter.c	22;"	d	file:
-SEQGET	include/settings.h	/^	SEQGET,SEQSET,$/;"	e	enum:__anon3
-SEQSET	include/settings.h	/^	SEQGET,SEQSET,$/;"	e	enum:__anon3
+SEQGET	include/settings.h	/^	SEQGET,SEQSET,$/;"	e	enum:__anon4
+SEQSET	include/settings.h	/^	SEQGET,SEQSET,$/;"	e	enum:__anon4
 SIZEFACTOR	include/lsm_settings.h	7;"	d
 SOB	include/container.h	/^	uint32_t SOB;$/;"	m	struct:lower_info
 SOK	include/container.h	/^	uint32_t SOK;$/;"	m	struct:lower_info
@@ -78,6 +79,7 @@ SOP	include/container.h	/^	uint32_t SOP;$/;"	m	struct:lower_info
 SYNC	include/settings.h	24;"	d
 T	include/settings.h	8;"	d
 TARGETDOBJ	algorithm/lsmtree/Makefile	/^TARGETDOBJ=\\$/;"	m
+TARGETMOBJ	algorithm/lsmtree/Makefile	/^TARGETMOBJ:=\\$/;"	m
 TARGETOBJ	Makefile	/^TARGETOBJ =\\$/;"	m
 TARGETOBJ	algorithm/lsmtree/Makefile	/^TARGETOBJ:=\\$/;"	m
 TARGETOBJ	algorithm/normal/Makefile	/^TARGETOBJ:=\\$/;"	m
@@ -105,6 +107,7 @@ __H_TYPES__	include/types.h	2;"	d
 __LSM_HEADER__	algorithm/lsmtree/lsmtree.h	2;"	d
 __RUN_A_H__	algorithm/lsmtree/run_array.h	2;"	d
 __SKIPLIST_HEADER	algorithm/lsmtree/skiplist.h	2;"	d
+__lsm_get	algorithm/lsmtree/lsmtree.c	/^uint32_t __lsm_get(request *const req){$/;"	f
 __normal	algorithm/normal/normal.c	/^struct algorithm __normal={$/;"	v	typeref:struct:algorithm
 __posix	lower/posix/posix.c	/^lower_info __posix={$/;"	v
 _fd	lower/posix/posix.c	/^static int _fd;$/;"	v	file:
@@ -119,26 +122,25 @@ assign_req	interface/interface.c	/^static void assign_req(request* req){$/;"	f	f
 async_mutex	include/container.h	/^	pthread_mutex_t async_mutex;$/;"	m	struct:request
 bench_clean	bench/bench.c	/^void bench_clean(){$/;"	f
 bench_init	bench/bench.c	/^void bench_init(bench_type type, int start, int end, int number){$/;"	f
-bench_type	include/settings.h	/^}bench_type;$/;"	t	typeref:enum:__anon3
-bench_value	bench/bench.h	/^}bench_value;$/;"	t	typeref:struct:__anon4
+bench_type	include/settings.h	/^}bench_type;$/;"	t	typeref:enum:__anon4
+bench_value	bench/bench.h	/^}bench_value;$/;"	t	typeref:struct:__anon1
 bf_bits	algorithm/lsmtree/bloomfilter.c	/^uint64_t bf_bits(int entry, float fpr){$/;"	f
 bf_check	algorithm/lsmtree/bloomfilter.c	/^bool bf_check(BF* input, KEYT key){$/;"	f
 bf_free	algorithm/lsmtree/bloomfilter.c	/^void bf_free(BF *input){$/;"	f
 bf_init	algorithm/lsmtree/bloomfilter.c	/^BF* bf_init(int entry, float fpr){$/;"	f
 bf_set	algorithm/lsmtree/bloomfilter.c	/^void bf_set(BF *input, KEYT key){$/;"	f
 bitset	algorithm/lsmtree/lsmtree.h	/^	uint8_t *bitset;$/;"	m	struct:htable
-bitset	algorithm/lsmtree/run_array.h	/^	uint8_t *bitset;$/;"	m	struct:Entry
-block_bad	include/types.h	/^	block_bad,$/;"	e	enum:__anon1
-block_empty	include/types.h	/^	block_empty,$/;"	e	enum:__anon1
-block_full	include/types.h	/^	block_full,$/;"	e	enum:__anon1
-block_he	include/types.h	/^	block_he$/;"	e	enum:__anon1
-body	algorithm/lsmtree/bloomfilter.h	/^	char *body;$/;"	m	struct:__anon7
-body	algorithm/lsmtree/run_array.h	/^	char *body;$/;"	m	struct:Node
+bitset	algorithm/lsmtree/run_array.h	/^	uint8_t bitset[KEYNUM\/8];$/;"	m	struct:Entry
+block_bad	include/types.h	/^	block_bad,$/;"	e	enum:__anon5
+block_empty	include/types.h	/^	block_empty,$/;"	e	enum:__anon5
+block_full	include/types.h	/^	block_full,$/;"	e	enum:__anon5
+block_he	include/types.h	/^	block_he$/;"	e	enum:__anon5
+body	algorithm/lsmtree/bloomfilter.h	/^	char *body;$/;"	m	struct:__anon6
 body	algorithm/lsmtree/run_array.h	/^	char *body;$/;"	m	struct:level
 body	bench/bench.c	/^bench_value *body;$/;"	v
-body	bench/bench.h	/^	bench_value *body;$/;"	m	struct:__anon5
+body	bench/bench.h	/^	bench_value *body;$/;"	m	struct:__anon2
 body_addr	algorithm/lsmtree/run_array.h	/^	char **body_addr;$/;"	m	struct:Node
-bool	include/settings.h	/^typedef enum{false,true} bool;$/;"	t	typeref:enum:__anon2
+bool	include/settings.h	/^typedef enum{false,true} bool;$/;"	t	typeref:enum:__anon3
 c_node	algorithm/lsmtree/c_queue.h	/^typedef struct c_node{$/;"	s
 c_node	algorithm/lsmtree/c_queue.h	/^}c_node;$/;"	t	typeref:struct:c_node
 c_queue	algorithm/lsmtree/c_queue.h	/^typedef struct c_queue{$/;"	s
@@ -157,18 +159,20 @@ compaction_htable_convert	algorithm/lsmtree/compaction.c	/^htable *compaction_ht
 compaction_htable_read	algorithm/lsmtree/compaction.c	/^void compaction_htable_read(Entry *ent,V_PTR value){$/;"	f
 compaction_htable_write	algorithm/lsmtree/compaction.c	/^KEYT compaction_htable_write(htable *input){$/;"	f
 compaction_init	algorithm/lsmtree/compaction.c	/^bool compaction_init(){$/;"	f
+compaction_lev_seq_processing	algorithm/lsmtree/compaction.c	/^void compaction_lev_seq_processing(level *src, level *des, int headerSize){$/;"	f
 compaction_main	algorithm/lsmtree/compaction.c	/^void *compaction_main(void *input){$/;"	f
 compaction_master	algorithm/lsmtree/compaction.h	/^struct compaction_master{$/;"	s
 compaction_processor	algorithm/lsmtree/compaction.h	/^struct compaction_processor{$/;"	s
 compaction_read_wait	algorithm/lsmtree/compaction.c	/^void compaction_read_wait(int param){$/;"	f
 compaction_req	algorithm/lsmtree/compaction.h	/^struct compaction_req{$/;"	s
-compaction_seq_MONKEY	algorithm/lsmtree/compaction.c	/^void compaction_seq_MONKEY(Entry **targets,int num,level *des){$/;"	f
+compaction_seq_MONKEY	algorithm/lsmtree/compaction.c	/^void compaction_seq_MONKEY(level *t,int num,level *des){$/;"	f
 compaction_subprocessing	algorithm/lsmtree/compaction.c	/^void compaction_subprocessing(skiplist *target,level *t, htable* datas,bool final,bool existIgnore){$/;"	f
 compaction_subprocessing_CMI	algorithm/lsmtree/compaction.c	/^void compaction_subprocessing_CMI(skiplist * target,level * t,bool final){$/;"	f
 compaction_wait	algorithm/lsmtree/compaction.c	/^pthread_mutex_t compaction_wait;$/;"	v
+compaction_wait_done	algorithm/lsmtree/compaction.c	/^void compaction_wait_done(){$/;"	f
 compactor	algorithm/lsmtree/compaction.c	/^compM compactor;$/;"	v
-cq_dequeue	algorithm/lsmtree/c_queue.c	/^struct compaction_req* cq_dequeue(c_queue *q){$/;"	f
-cq_enqueue	algorithm/lsmtree/c_queue.c	/^bool cq_enqueue(struct compaction_req* req, c_queue* q){$/;"	f
+cq_dequeue	algorithm/lsmtree/c_queue.c	/^void* cq_dequeue(c_queue *q){$/;"	f
+cq_enqueue	algorithm/lsmtree/c_queue.c	/^bool cq_enqueue(void* req, c_queue* q){$/;"	f
 cq_free	algorithm/lsmtree/c_queue.c	/^void cq_free(c_queue* q){$/;"	f
 cq_init	algorithm/lsmtree/c_queue.c	/^void cq_init(c_queue **q){$/;"	f
 create	include/container.h	/^	uint32_t (*create) (lower_info*,struct algorithm *);$/;"	m	struct:algorithm
@@ -185,7 +189,7 @@ end_req	include/container.h	/^	bool (*end_req)(struct request *const);$/;"	m	str
 end_req	include/container.h	/^	void *(*end_req)(struct algo_req *const);$/;"	m	struct:algo_req
 entry_p_run	algorithm/lsmtree/run_array.h	/^	int entry_p_run;$/;"	m	struct:level
 epc_check	algorithm/lsmtree/compaction.c	/^int epc_check=0;$/;"	v
-false	include/settings.h	/^typedef enum{false,true} bool;$/;"	e	enum:__anon2
+false	include/settings.h	/^typedef enum{false,true} bool;$/;"	e	enum:__anon3
 filter	algorithm/lsmtree/lsmtree.h	/^	BF* filter;$/;"	m	struct:htable
 flag	algorithm/lsmtree/compaction.h	/^	pthread_mutex_t flag;$/;"	m	struct:compaction_processor
 flag	algorithm/lsmtree/run_array.h	/^	bool flag;$/;"	m	struct:iterator
@@ -210,6 +214,7 @@ htable	algorithm/lsmtree/lsmtree.h	/^}htable;$/;"	t	typeref:struct:htable
 htable_find	algorithm/lsmtree/lsmtree.c	/^keyset *htable_find(htable *table, KEYT target){$/;"	f
 idx	algorithm/lsmtree/compaction.c	/^	int idx;$/;"	m	struct:temp_ndr	file:
 idx	algorithm/lsmtree/run_array.h	/^	int idx;$/;"	m	struct:iterator
+inf_assign_try	interface/interface.c	/^bool inf_assign_try(request *req){$/;"	f
 inf_end_req	interface/interface.c	/^bool inf_end_req( request * const req){$/;"	f
 inf_free	interface/interface.c	/^void inf_free(){$/;"	f
 inf_init	interface/interface.c	/^void inf_init(){$/;"	f
@@ -220,10 +225,10 @@ isAsync	include/container.h	/^	bool isAsync;$/;"	m	struct:request
 isTiering	algorithm/lsmtree/run_array.h	/^	bool isTiering;$/;"	m	struct:level
 isvalid	algorithm/lsmtree/skiplist.h	/^	bool isvalid;$/;"	m	struct:snode
 iterator	algorithm/lsmtree/run_array.h	/^typedef struct iterator{$/;"	s
-k	algorithm/lsmtree/bloomfilter.h	/^	int k;$/;"	m	struct:__anon7
+k	algorithm/lsmtree/bloomfilter.h	/^	int k;$/;"	m	struct:__anon6
 key	algorithm/lsmtree/run_array.h	/^	KEYT key;$/;"	m	struct:Entry
 key	algorithm/lsmtree/skiplist.h	/^	KEYT key;$/;"	m	struct:snode
-key	bench/bench.h	/^	KEYT key;$/;"	m	struct:__anon4
+key	bench/bench.h	/^	KEYT key;$/;"	m	struct:__anon1
 key	include/container.h	/^	KEYT key;$/;"	m	struct:request
 key	include/container.h	/^	const KEYT key; $/;"	m	struct:upper_request
 keyset	algorithm/lsmtree/lsmtree.h	/^typedef struct keyset{$/;"	s
@@ -242,6 +247,7 @@ level_entry_copy	algorithm/lsmtree/run_array.c	/^Entry *level_entry_copy(Entry *
 level_find	algorithm/lsmtree/run_array.c	/^Entry **level_find(level *input,KEYT key){$/;"	f
 level_find_fromR	algorithm/lsmtree/run_array.c	/^Entry *level_find_fromR(Node *run, KEYT key){$/;"	f
 level_free	algorithm/lsmtree/run_array.c	/^void level_free(level *input){$/;"	f
+level_free_entry	algorithm/lsmtree/run_array.c	/^void level_free_entry(Entry *entry){$/;"	f
 level_full_check	algorithm/lsmtree/run_array.c	/^bool level_full_check(level *input){$/;"	f
 level_get_Iter	algorithm/lsmtree/run_array.c	/^Iter *level_get_Iter(level *input){$/;"	f
 level_get_next	algorithm/lsmtree/run_array.c	/^Entry *level_get_next(Iter * input){$/;"	f
@@ -255,12 +261,12 @@ leveling	algorithm/lsmtree/compaction.c	/^uint32_t leveling(int from, int to, En
 li	algorithm/lsmtree/lsmtree.h	/^	lower_info* li;$/;"	m	struct:lsmtree
 li	include/container.h	/^	lower_info* li;$/;"	m	struct:algorithm
 li	interface/threading.h	/^	lower_info *li;$/;"	m	struct:master_processor
-list	algorithm/lsmtree/skiplist.h	/^	skiplist *list;$/;"	m	struct:__anon6
+list	algorithm/lsmtree/skiplist.h	/^	skiplist *list;$/;"	m	struct:__anon7
 list	algorithm/lsmtree/skiplist.h	/^	struct snode **list;$/;"	m	struct:snode	typeref:struct:snode::snode
 lock	algorithm/lsmtree/lsmtree.h	/^	pthread_mutex_t lock;$/;"	m	struct:lsm_params
 lower_info	include/container.h	/^struct lower_info {$/;"	s
 lower_info	include/container.h	/^typedef struct lower_info lower_info;$/;"	t	typeref:struct:lower_info
-lower_status	include/types.h	/^}lower_status;$/;"	t	typeref:enum:__anon1
+lower_status	include/types.h	/^}lower_status;$/;"	t	typeref:enum:__anon5
 lpa	algorithm/lsmtree/lsmtree.h	/^	KEYT lpa;$/;"	m	struct:keyset
 lsm_create	algorithm/lsmtree/lsmtree.c	/^uint32_t lsm_create(lower_info *li, algorithm *lsm){$/;"	f
 lsm_destroy	algorithm/lsmtree/lsmtree.c	/^void lsm_destroy(lower_info *li, algorithm *lsm){$/;"	f
@@ -275,20 +281,20 @@ lsm_set	algorithm/lsmtree/lsmtree.c	/^uint32_t lsm_set(request * const req){$/;"
 lsm_type	algorithm/lsmtree/lsmtree.h	/^	uint8_t lsm_type;$/;"	m	struct:lsm_params
 lsmtree	algorithm/lsmtree/lsmtree.h	/^typedef struct lsmtree{$/;"	s
 lsmtree	algorithm/lsmtree/lsmtree.h	/^}lsmtree;$/;"	t	typeref:struct:lsmtree
-m	algorithm/lsmtree/bloomfilter.h	/^	int m;$/;"	m	struct:__anon7
+m	algorithm/lsmtree/bloomfilter.h	/^	int m;$/;"	m	struct:__anon6
 m_num	algorithm/lsmtree/run_array.h	/^	int m_num;$/;"	m	struct:Node
 m_num	algorithm/lsmtree/run_array.h	/^	int m_num;\/\/number of entries$/;"	m	struct:level
-main	algorithm/lsmtree/run_array.c	/^int main(){$/;"	f
 main	interface/main.c	/^int main(){$/;"	f
 make_temp_req	interface/interface.c	/^static request* make_temp_req(const FSTYPE type, const KEYT key, V_PTR value,request *cpy){$/;"	f	file:
 master	algorithm/lsmtree/compaction.h	/^	compM *master;$/;"	m	struct:compaction_processor
 master	interface/threading.h	/^	master_processor *master;$/;"	m	struct:processor
 master_processor	interface/threading.h	/^struct master_processor{$/;"	s
 master_processor	interface/threading.h	/^typedef struct master_processor master_processor;$/;"	t	typeref:struct:master_processor
+memlock	algorithm/lsmtree/lsmtree.h	/^	pthread_mutex_t memlock;$/;"	m	struct:lsmtree
 memtable	algorithm/lsmtree/lsmtree.h	/^	struct skiplist *memtable;$/;"	m	struct:lsmtree	typeref:struct:lsmtree::skiplist
-monitor	bench/bench.h	/^}monitor;$/;"	t	typeref:struct:__anon5
+monitor	bench/bench.h	/^}monitor;$/;"	t	typeref:struct:__anon2
 mp	interface/interface.c	/^master_processor mp;$/;"	v
-n	algorithm/lsmtree/bloomfilter.h	/^	int n;$/;"	m	struct:__anon7
+n	algorithm/lsmtree/bloomfilter.h	/^	int n;$/;"	m	struct:__anon6
 n_num	algorithm/lsmtree/run_array.h	/^	int n_num;$/;"	m	struct:Node
 n_num	algorithm/lsmtree/run_array.h	/^	int n_num;$/;"	m	struct:level
 ndr	algorithm/lsmtree/compaction.c	/^}ndr;$/;"	t	typeref:struct:temp_ndr	file:
@@ -299,16 +305,16 @@ node	interface/queue.h	/^}node;$/;"	t	typeref:struct:node
 normal_create	algorithm/normal/normal.c	/^uint32_t normal_create (lower_info* li,algorithm *algo){$/;"	f
 normal_destroy	algorithm/normal/normal.c	/^void normal_destroy (lower_info* li, algorithm *algo){$/;"	f
 normal_end_req	algorithm/normal/normal.c	/^void *normal_end_req(algo_req* input){$/;"	f
-normal_get	algorithm/normal/normal.c	/^uint32_t normal_get(request const*req){$/;"	f
+normal_get	algorithm/normal/normal.c	/^uint32_t normal_get(request *const req){$/;"	f
 normal_params	algorithm/normal/normal.h	/^typedef struct normal_params{$/;"	s
 normal_params	algorithm/normal/normal.h	/^}normal_params;$/;"	t	typeref:struct:normal_params
-normal_remove	algorithm/normal/normal.c	/^uint32_t normal_remove(request const*req){$/;"	f
-normal_set	algorithm/normal/normal.c	/^uint32_t normal_set(request const*req){$/;"	f
+normal_remove	algorithm/normal/normal.c	/^uint32_t normal_remove(request *const req){$/;"	f
+normal_set	algorithm/normal/normal.c	/^uint32_t normal_set(request *const req){$/;"	f
 now	algorithm/lsmtree/run_array.h	/^	Node *now;$/;"	m	struct:iterator
-now	algorithm/lsmtree/skiplist.h	/^	snode *now;$/;"	m	struct:__anon6
+now	algorithm/lsmtree/skiplist.h	/^	snode *now;$/;"	m	struct:__anon7
 ns_entry	algorithm/lsmtree/run_array.c	/^Entry *ns_entry(Node *input, int n){$/;"	f
 ns_run	algorithm/lsmtree/run_array.c	/^Node *ns_run(level*input ,int n){$/;"	f
-p	algorithm/lsmtree/bloomfilter.h	/^	float p;$/;"	m	struct:__anon7
+p	algorithm/lsmtree/bloomfilter.h	/^	float p;$/;"	m	struct:__anon6
 p_main	interface/interface.c	/^void *p_main(void *__input){$/;"	f
 params	include/container.h	/^	void *params;$/;"	m	struct:algo_req
 params	include/container.h	/^	void *params;$/;"	m	struct:request
@@ -343,8 +349,9 @@ r_n_num	algorithm/lsmtree/run_array.h	/^	int r_n_num;$/;"	m	struct:level
 r_num	algorithm/lsmtree/run_array.h	/^	int r_num;$/;"	m	struct:level
 r_size	algorithm/lsmtree/run_array.h	/^	int r_size;\/\/size of run$/;"	m	struct:level
 r_type	interface/interface.c	/^const FSTYPE r_type=FS_GET_T;$/;"	v
+re_q	algorithm/lsmtree/lsmtree.h	/^	struct c_queue *re_q;$/;"	m	struct:lsmtree	typeref:struct:lsmtree::c_queue
 remove	include/container.h	/^	uint32_t (*remove)(request *const);$/;"	m	struct:algorithm
-req	algorithm/lsmtree/c_queue.h	/^	struct compaction_req *req;$/;"	m	struct:c_node	typeref:struct:c_node::compaction_req
+req	algorithm/lsmtree/c_queue.h	/^	void*req;$/;"	m	struct:c_node
 req	algorithm/lsmtree/lsmtree.h	/^	request *req;$/;"	m	struct:lsm_params
 req	algorithm/lsmtree/skiplist.h	/^	struct algo_req *req;$/;"	m	struct:snode	typeref:struct:snode::algo_req
 req	interface/queue.h	/^	const request *req;$/;"	m	struct:node
@@ -359,10 +366,9 @@ seqset	bench/bench.c	/^void seqset(int start, int end, int number){$/;"	f
 set	include/container.h	/^	uint32_t (*set)(request *const);$/;"	m	struct:algorithm
 sets	algorithm/lsmtree/lsmtree.h	/^	keyset sets[KEYNUM];$/;"	m	struct:htable
 size	algorithm/lsmtree/c_queue.h	/^	int size;$/;"	m	struct:c_queue
-size	algorithm/lsmtree/run_array.h	/^	int size;$/;"	m	struct:level
 size	algorithm/lsmtree/skiplist.h	/^	uint64_t size;$/;"	m	struct:skiplist
 size	interface/queue.h	/^	int size;$/;"	m	struct:queue
-sk_iter	algorithm/lsmtree/skiplist.h	/^} sk_iter;$/;"	t	typeref:struct:__anon6
+sk_iter	algorithm/lsmtree/skiplist.h	/^} sk_iter;$/;"	t	typeref:struct:__anon7
 skiplist	algorithm/lsmtree/skiplist.h	/^typedef struct skiplist{$/;"	s
 skiplist	algorithm/lsmtree/skiplist.h	/^}skiplist;$/;"	t	typeref:struct:skiplist
 skiplist_at	algorithm/lsmtree/skiplist.c	/^snode *skiplist_at(skiplist *list, int idx){$/;"	f
@@ -390,20 +396,20 @@ stopflag	algorithm/lsmtree/compaction.h	/^	bool stopflag;$/;"	m	struct:compactio
 stopflag	interface/threading.h	/^	bool stopflag;$/;"	m	struct:master_processor
 t_id	algorithm/lsmtree/compaction.h	/^	pthread_t t_id;$/;"	m	struct:compaction_processor
 t_id	interface/threading.h	/^	pthread_t t_id;$/;"	m	struct:processor
-t_skip	algorithm/lsmtree/run_array.h	/^	struct skiplist *t_skip;$/;"	m	struct:Entry	typeref:struct:Entry::skiplist
 t_table	algorithm/lsmtree/run_array.h	/^	struct htable *t_table;$/;"	m	struct:Entry	typeref:struct:Entry::htable
 tail	algorithm/lsmtree/c_queue.h	/^	c_node *tail;$/;"	m	struct:c_queue
 tail	interface/queue.h	/^	node *tail;$/;"	m	struct:queue
-targetsize	algorithm/lsmtree/bloomfilter.h	/^	int targetsize;$/;"	m	struct:__anon7
+targetsize	algorithm/lsmtree/bloomfilter.h	/^	int targetsize;$/;"	m	struct:__anon6
 temp_ndr	algorithm/lsmtree/compaction.c	/^typedef struct temp_ndr{$/;"	s	file:
 temp_ppa	algorithm/lsmtree/compaction.c	/^uint64_t temp_ppa;$/;"	v
+templock	algorithm/lsmtree/lsmtree.h	/^	pthread_mutex_t templock;$/;"	m	struct:lsmtree
 temptable	algorithm/lsmtree/lsmtree.h	/^	struct skiplist *temptable;$/;"	m	struct:lsmtree	typeref:struct:lsmtree::skiplist
 test	algorithm/normal/normal.h	/^	int test;$/;"	m	struct:normal_params
 tiering	algorithm/lsmtree/compaction.c	/^uint32_t tiering(int from, int to, Entry *entry){$/;"	f
 toL	algorithm/lsmtree/compaction.h	/^	int toL;$/;"	m	struct:compaction_req
 trim_block	include/container.h	/^	void* (*trim_block)(KEYT ppa,bool async);$/;"	m	struct:lower_info
-true	include/settings.h	/^typedef enum{false,true} bool;$/;"	e	enum:__anon2
-type	bench/bench.h	/^	FSTYPE type;$/;"	m	struct:__anon4
+true	include/settings.h	/^typedef enum{false,true} bool;$/;"	e	enum:__anon3
+type	bench/bench.h	/^	FSTYPE type;$/;"	m	struct:__anon1
 type	include/container.h	/^	FSTYPE type;$/;"	m	struct:request
 type	include/container.h	/^	const FSTYPE type;$/;"	m	struct:upper_request
 upper_end	include/container.h	/^	void *(*upper_end)(void *);$/;"	m	struct:request
@@ -413,7 +419,7 @@ upper_request	include/container.h	/^}upper_request;$/;"	t	typeref:struct:upper_r
 v_entry	algorithm/lsmtree/run_array.h	/^	Entry *v_entry;$/;"	m	struct:iterator
 value	algorithm/lsmtree/lsmtree.h	/^	PTR value;$/;"	m	struct:lsm_params
 value	algorithm/lsmtree/skiplist.h	/^	PTR value;$/;"	m	struct:snode
-value	bench/bench.h	/^	V_PTR value;$/;"	m	struct:__anon4
+value	bench/bench.h	/^	V_PTR value;$/;"	m	struct:__anon1
 value	include/container.h	/^	PTR value;$/;"	m	struct:request
 value	include/container.h	/^	const V_PTR value;$/;"	m	struct:upper_request
 version	algorithm/lsmtree/run_array.h	/^	uint64_t version;$/;"	m	struct:Entry

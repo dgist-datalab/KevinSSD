@@ -26,7 +26,6 @@ typedef struct Node{
 	int start;
 	int end;
 	char **body_addr;
-	char *body;
 }Node;
 
 typedef struct level{

@@ -1,12 +1,12 @@
 #include "lsmtree.h"
 #include "compaction.h"
-#include "c_queue.h"
 #include "skiplist.h"
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include "../../interface/queue.h"
 #ifdef DEBUG
 #endif
 extern lsmtree LSM;
@@ -21,7 +21,7 @@ bool compaction_init(){
 		compactor.processors[i].master=&compactor;
 		pthread_mutex_init(&compactor.processors[i].flag, NULL);
 		pthread_mutex_lock(&compactor.processors[i].flag);
-		cq_init(&compactor.processors[i].q);
+		q_init(&compactor.processors[i].q,CQSIZE);
 		pthread_create(&compactor.processors[i].t_id,NULL,compaction_main,NULL);
 	}
 	compactor.stopflag=false;
@@ -34,7 +34,7 @@ void compaction_free(){
 	for(int i=0; i<CTHREAD; i++){
 		compP *t=&compactor.processors[i];
 		pthread_join(t->t_id,(void**)&temp);
-		cq_free(t->q);
+		q_free(t->q);
 	}
 	free(compactor.processors);
 }
@@ -43,7 +43,7 @@ void compaction_wait_done(){
 	bool flag=false;
 	while(1){
 #ifdef LEAKCHECK
-		sleep(1);
+		sleep(2);
 #endif
 		for(int i=0; i<CTHREAD; i++){
 			compP* proc=&compactor.processors[i];
@@ -56,14 +56,16 @@ void compaction_wait_done(){
 	}
 }
 void compaction_assign(compR* req){
+	static int seq_num=0;
 	bool flag=false;
 	while(1){
 #ifdef LEAKCHECK
-		sleep(1);
+		sleep(2);
 #endif
 		for(int i=0; i<CTHREAD; i++){
 			compP* proc=&compactor.processors[i];
-			if(cq_enqueue(req,proc->q)){
+			req->seq=seq_num++;
+			if(q_enqueue((void*)req,proc->q)){
 				flag=true;
 				break;
 			}
@@ -82,7 +84,7 @@ htable *compaction_data_write(skiplist *mem){
 		res->sets[idx].lpa=target->key;
 		res->sets[idx].ppa=temp_ppa++;//set PPA
 		target->ppa=res->sets[idx].ppa;
-
+/*
 		algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 		lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 		params->lsm_type=DATAW;
@@ -90,13 +92,14 @@ htable *compaction_data_write(skiplist *mem){
 		params->req=NULL;
 		areq->end_req=lsm_end_req;
 		areq->params=(void*)params;
-
+*/
 		if(target->isvalid)
 			lsm_kv_validset(bitset,idx);
-		LSM.li->push_data(res->sets[idx].ppa,PAGESIZE,target->value,0,areq,0);
+		LSM.li->push_data(res->sets[idx].ppa,PAGESIZE,target->value,0,target->req,0);
+		target->value=NULL;
 		idx++;
 	}
-
+	free(iter);
 	res->bitset=bitset;
 	return res;
 }
@@ -117,6 +120,7 @@ KEYT compaction_htable_write(htable *input){
 }
 
 void *compaction_main(void *input){
+	void *_req;
 	compR*req;
 	compP *this=NULL;
 	for(int i=0; i<CTHREAD; i++){
@@ -126,14 +130,16 @@ void *compaction_main(void *input){
 	}
 	while(1){
 #ifdef LEAKCHECK
-		sleep(1);
+		sleep(2);
 #endif
 		if(compactor.stopflag)
 			break;
-		if(!(req=cq_dequeue(this->q))){
+		if(!(_req=q_dequeue(this->q))){
 			//sleep or nothing
 			continue;
 		}
+		req=(compR*)_req;
+		printf("seq num: %d -",req->seq);
 		if(req->fromL==-1){
 			htable *table=compaction_data_write(LSM.temptable);
 			KEYT start=table->sets[0].lpa;
@@ -141,6 +147,7 @@ void *compaction_main(void *input){
 			//		KEYT ppa=compaction_htable_write(table);
 			Entry *entry=level_make_entry(start,end,-1);
 			memcpy(entry->bitset,table->bitset,KEYNUM/8);
+			free(table->bitset);
 			entry->t_table=table;
 			if(LSM.disk[0]->isTiering){
 				tiering(-1,0,entry);
@@ -157,10 +164,12 @@ void *compaction_main(void *input){
 				leveling(req->fromL,req->toL,NULL);
 			}
 		}
+		free(req);
 	}
 	return NULL;
 }
 
+static int compaction_num;
 void compaction_check(){
 	compR * req;
 	if(LSM.memtable->size==KEYNUM){
@@ -414,9 +423,10 @@ uint32_t leveling(int from, int to, Entry *entry){
 	level *src;
 	if(from==-1){
 		body=LSM.temptable;
+		skiplist_free(LSM.temptable);
 		LSM.temptable=NULL;
 		pthread_mutex_unlock(&LSM.templock);
-		printf("key: %u end:%u\n",body->start,body->end);
+		printf("from -1: %u end:%u\n",body->start,body->end);
 #ifdef DEBUG
 #endif
 		Entry **target_s;
