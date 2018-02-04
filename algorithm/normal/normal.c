@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "normal.h"
+#include "../../bench/bench.h"
 
 struct algorithm __normal={
 	.create=normal_create,
@@ -17,25 +18,27 @@ void normal_destroy (lower_info* li, algorithm *algo){
 
 }
 uint32_t normal_get(request *const req){
+	bench_algo_start(req);
 	normal_params* params=(normal_params*)malloc(sizeof(normal_params));
-	params->parents=req;
 	params->test=-1;
 
 	algo_req *my_req=(algo_req*)malloc(sizeof(algo_req));
+	my_req->parents=req;
 	my_req->end_req=normal_end_req;
 	my_req->params=(void*)params;
-
+	bench_algo_end(req);
 	__normal.li->pull_data(req->key,PAGESIZE,req->value,0,my_req,0);
 }
 uint32_t normal_set(request *const req){
+	bench_algo_start(req);
 	normal_params* params=(normal_params*)malloc(sizeof(normal_params));
-	params->parents=req;
 	params->test=-1;
 
 	algo_req *my_req=(algo_req*)malloc(sizeof(algo_req));
+	my_req->parents=req;
 	my_req->end_req=normal_end_req;
 	my_req->params=(void*)params;
-
+	bench_algo_end(req);
 	__normal.li->push_data(req->key,PAGESIZE,req->value,0,my_req,0);
 }
 uint32_t normal_remove(request *const req){
@@ -45,7 +48,7 @@ uint32_t normal_remove(request *const req){
 void *normal_end_req(algo_req* input){
 	normal_params* params=(normal_params*)input->params;
 	
-	request *res=params->parents;
+	request *res=input->parents;
 	res->end_req(res);
 
 	free(params);

@@ -29,7 +29,6 @@ typedef struct htable{
 }htable;
 
 typedef struct lsm_params{
-	request *req;
 	pthread_mutex_t lock;
 	uint8_t lsm_type;
 	PTR value;
@@ -41,9 +40,12 @@ typedef struct lsmtree{
 	PTR level_addr[LEVELN];
 	pthread_mutex_t memlock;
 	pthread_mutex_t templock;
+	pthread_mutex_t entrylock;
+
 	struct skiplist *memtable;
 	struct skiplist *temptable;
 	struct queue *re_q;
+	struct Entry *tempent;
 	lower_info* li;
 }lsmtree;
 

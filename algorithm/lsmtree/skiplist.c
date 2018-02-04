@@ -259,6 +259,10 @@ void skiplist_clear(skiplist *list){
 	while(now!=list->header){
 		free(now->value);
 		free(now->list);
+		if(now->req){
+			free(now->req->params);
+			free(now->req);
+		}
 		free(now);
 		now=next;
 		next=now->list[1];

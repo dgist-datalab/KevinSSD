@@ -26,7 +26,7 @@ Entry *level_entcpy(Entry *src, char *des){
 }
 
 bool level_full_check(level *input){
-	return input->n_num+1==input->m_num;
+	return input->n_num+1>=input->m_num;
 }
 
 Entry *level_entry_copy(Entry *input){
@@ -78,7 +78,7 @@ level *level_init(level *input,int all_entry,bool isTiering){
 }
 
 Entry **level_find(level *input,KEYT key){
-	Entry **res=(Entry**)malloc(sizeof(Entry*)*input->r_n_num);
+	Entry **res=(Entry**)malloc(sizeof(Entry*)*(input->r_n_num+1));
 	bool check=false;
 	int cnt=0;
 	for(int i=0; i<input->r_num; i++){

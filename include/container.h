@@ -3,6 +3,7 @@
  
 #include "settings.h"
 #include "types.h"
+#include "utils.h"
 #include <stdarg.h>
 #include <pthread.h>
 
@@ -28,9 +29,14 @@ struct request {
 	bool isAsync;
 	void *params;
 	pthread_mutex_t async_mutex;
+
+	MeasureTime algo;
+	MeasureTime lower;
+	int mark;
 };
 
 struct algo_req{
+	request * parents;
 	void *(*end_req)(struct algo_req *const);
 	void *params;
 };

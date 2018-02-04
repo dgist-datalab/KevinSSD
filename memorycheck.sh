@@ -1,3 +1,4 @@
+make clean
 make simulator_memory_check
 if [ "$1" = "n" ] ;then
 	echo "no show test"

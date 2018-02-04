@@ -89,7 +89,7 @@ htable *compaction_data_write(skiplist *mem){
 		lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 		params->lsm_type=DATAW;
 		params->value=target->value;
-		params->req=NULL;
+//		params->req=NULL;
 		areq->end_req=lsm_end_req;
 		areq->params=(void*)params;
 */
@@ -97,6 +97,7 @@ htable *compaction_data_write(skiplist *mem){
 			lsm_kv_validset(bitset,idx);
 		LSM.li->push_data(res->sets[idx].ppa,PAGESIZE,target->value,0,target->req,0);
 		target->value=NULL;
+		target->req=NULL;
 		idx++;
 	}
 	free(iter);
@@ -108,10 +109,10 @@ KEYT compaction_htable_write(htable *input){
 	KEYT ppa=temp_ppa++;//set ppa;
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
+	areq->parents=NULL;
 
 	params->lsm_type=HEADERW;
 	params->value=(V_PTR)input;
-	params->req=NULL;
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
 
@@ -139,7 +140,7 @@ void *compaction_main(void *input){
 			continue;
 		}
 		req=(compR*)_req;
-		printf("seq num: %d -",req->seq);
+		//printf("seq num: %d -",req->seq);
 		if(req->fromL==-1){
 			htable *table=compaction_data_write(LSM.temptable);
 			KEYT start=table->sets[0].lpa;
@@ -149,6 +150,11 @@ void *compaction_main(void *input){
 			memcpy(entry->bitset,table->bitset,KEYNUM/8);
 			free(table->bitset);
 			entry->t_table=table;
+			
+			pthread_mutex_lock(&LSM.entrylock);
+			LSM.tempent=entry;
+			pthread_mutex_unlock(&LSM.entrylock);
+
 			if(LSM.disk[0]->isTiering){
 				tiering(-1,0,entry);
 			}
@@ -226,7 +232,7 @@ void compaction_htable_read(Entry *ent,V_PTR value){
 
 	params->lsm_type=HEADERR;
 	params->value=value;
-	params->req=NULL;
+	areq->parents=NULL;
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
 
@@ -423,10 +429,10 @@ uint32_t leveling(int from, int to, Entry *entry){
 	level *src;
 	if(from==-1){
 		body=LSM.temptable;
-		skiplist_free(LSM.temptable);
 		LSM.temptable=NULL;
 		pthread_mutex_unlock(&LSM.templock);
-		printf("from -1: %u end:%u\n",body->start,body->end);
+	//	printf("from -1: %u end:%u\n",body->start,body->end);
+		skiplist_free(body);
 #ifdef DEBUG
 #endif
 		Entry **target_s;
@@ -440,6 +446,11 @@ uint32_t leveling(int from, int to, Entry *entry){
 
 			entry->pbn=compaction_htable_write(entry->t_table);
 			level_insert(target,entry);
+
+			pthread_mutex_lock(&LSM.entrylock);
+			LSM.tempent=NULL;
+			pthread_mutex_unlock(&LSM.entrylock);
+			
 			level_free_entry(entry);
 
 			if(!target_processed){
@@ -453,7 +464,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 	}else{
 		//	src=level_copy(LSM.disk[from]);
 		src=LSM.disk[from];
-		printf("ee: %u end:%u\n",src->start,src->end);
+	//	printf("ee: %u end:%u\n",src->start,src->end);
 		Entry **target_s;
 		int headerSize=level_range_find(target_origin,src->start,src->end,&target_s);
 		if(headerSize==0){//if seq

@@ -4,6 +4,7 @@
 #include <limits.h>
 #include "../../include/lsm_settings.h"
 #include "../../interface/interface.h"
+#include "../../bench/bench.h"
 #include "compaction.h"
 #include "run_array.h"
 #include "lsmtree.h"
@@ -46,6 +47,7 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	}
 	pthread_mutex_init(&LSM.templock,NULL);
 	pthread_mutex_init(&LSM.memlock,NULL);
+	pthread_mutex_init(&LSM.entrylock,NULL);
 	//compactor start
 	compaction_init();
 	q_init(&LSM.re_q,CQSIZE);
@@ -67,7 +69,7 @@ extern int epc_check;
 int comp_target_get_cnt=0;
 void* lsm_end_req(algo_req* const req){
 	lsm_params *params=(lsm_params*)req->params;
-	request* parents=params->req;
+	request* parents=req->parents;
 	FSTYPE *temp_type;
 	bool havetofree=true;
 	switch(params->lsm_type){
@@ -128,6 +130,7 @@ void* lsm_end_req(algo_req* const req){
 }
 
 uint32_t lsm_set(request * const req){
+	bench_algo_start(req);
 #ifdef DEBUG
 	printf("lsm_set!\n");
 	printf("key : %u\n",req->key);//for debug
@@ -135,7 +138,7 @@ uint32_t lsm_set(request * const req){
 	compaction_check();
 	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-	params->req=NULL;
+	lsm_req->parents=NULL;
 	params->lsm_type=DATAW;
 	params->value=req->value;
 	lsm_req->params=(void*)params;
@@ -148,6 +151,7 @@ uint32_t lsm_set(request * const req){
 		skiplist_insert(LSM.memtable,req->key,req->value,lsm_req,true);
 	req->value=NULL;
 	//req->value will be ignored at free
+	bench_algo_end(req);
 	req->end_req(req); //end write
 	return 1;
 }
@@ -156,9 +160,17 @@ uint32_t lsm_get(request *const req){
 	void *re_q;
 	if((re_q=q_dequeue(LSM.re_q))){
 		request *tmp_req=(request*)re_q;
-		__lsm_get(tmp_req);
+
+		bench_algo_start(tmp_req);
+		if(__lsm_get(tmp_req)==3){
+			printf("not found_tmp! key:%d \n",tmp_req->key);
+		}
 	}
+	bench_algo_start(req);
 	int res=__lsm_get(req);
+	if(res==3){
+		printf("not found! key:%d \n",req->key);
+	}
 	return res;
 }
 uint32_t __lsm_get(request *const req){
@@ -172,9 +184,11 @@ uint32_t __lsm_get(request *const req){
 #else
 		memcpy(req->value,target_node->value,PAGESIZE);
 #endif
+		bench_algo_end(req);
 		req->end_req(req);
 		return 2;
 	}
+	
 
 	int level;
 	int run;
@@ -182,11 +196,49 @@ uint32_t __lsm_get(request *const req){
 	htable* mapinfo;
 	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-	params->req=req;
+	lsm_req->parents=req;
 	pthread_mutex_init(&params->lock,NULL);
 	pthread_mutex_lock(&params->lock);
 	lsm_req->end_req=lsm_end_req;
 	lsm_req->params=(void*)params;
+
+	pthread_mutex_lock(&LSM.templock);
+	if(LSM.temptable){
+		target_node=skiplist_find(LSM.temptable,req->key);
+		//delete check
+		if(target_node){
+			pthread_mutex_unlock(&LSM.templock);
+			params->lsm_type=DATAR;
+			if(target_node->value){//if target_value null or valid
+				memcpy(req->value,target_node->value,PAGESIZE);
+				free(lsm_req);
+				free(params);
+				bench_algo_end(req);
+				req->end_req(req);
+				return 1;
+			}
+			bench_algo_end(req);
+			LSM.li->pull_data(target_node->ppa,PAGESIZE,req->value,0,lsm_req,0);
+			return 1;
+		}
+	}
+	pthread_mutex_unlock(&LSM.templock);
+
+	pthread_mutex_lock(&LSM.entrylock);
+	if(LSM.tempent){
+		keyset *target=htable_find(LSM.tempent->t_table,req->key);
+		//delete check
+		if(target){
+			params->lsm_type=DATAR;
+			bench_algo_end(req);
+
+			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,0,lsm_req,0);
+			pthread_mutex_unlock(&LSM.entrylock);
+			return 1;
+		}
+	}
+	pthread_mutex_unlock(&LSM.entrylock);
+
 	if(req->params==NULL){
 		int *_temp_data=(int *)malloc(sizeof(int)*2);
 		req->params=(void*)_temp_data;
@@ -200,6 +252,8 @@ uint32_t __lsm_get(request *const req){
 		if(target){
 			//read target data;
 			params->lsm_type=DATAR;
+
+			bench_algo_end(req);
 			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,0,lsm_req,0);
 			return 1;
 		}
@@ -234,6 +288,7 @@ uint32_t __lsm_get(request *const req){
 				else{
 					//read target data;
 					params->lsm_type=DATAR;
+					bench_algo_end(req);
 					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,0,lsm_req,0);
 					free(entries);
 					return 1;
@@ -241,12 +296,14 @@ uint32_t __lsm_get(request *const req){
 			}
 			else{
 				free(entries);
+				bench_algo_end(req);
 				return 2; //async
 			}
 		}
 		free(entries);
 	}
-	return -1;
+	bench_algo_end(req);
+	return 3;
 }
 
 uint32_t lsm_remove(request *const req){

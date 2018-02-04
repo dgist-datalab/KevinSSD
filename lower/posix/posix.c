@@ -2,6 +2,7 @@
 #define _LARGEFILE64_SOURCE
 #include "posix.h"
 #include "../../include/settings.h"
+#include "../../bench/bench.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,6 +42,8 @@ void *posix_destroy(lower_info *li){
 }
 
 void *posix_push_data(KEYT PPA, uint32_t size, V_PTR value, bool async,algo_req *const req, uint32_t dmatag){
+	if(req->parents)
+		bench_lower_start(req->parents);
 	pthread_mutex_lock(&fd_lock);
 	if(lseek64(_fd,((off64_t)__posix.SOP)*PPA,SEEK_SET)==-1){
 		printf("lseek error in read\n");
@@ -49,6 +52,8 @@ void *posix_push_data(KEYT PPA, uint32_t size, V_PTR value, bool async,algo_req 
 		printf("write none!\n");
 	}
 	pthread_mutex_unlock(&fd_lock);
+	if(req->parents)
+		bench_lower_end(req->parents);
 	req->end_req(req);
 /*
 	if(async){
@@ -60,6 +65,9 @@ void *posix_push_data(KEYT PPA, uint32_t size, V_PTR value, bool async,algo_req 
 }
 
 void *posix_pull_data(KEYT PPA, uint32_t size, V_PTR value, bool async,algo_req *const req, uint32_t dmatag){
+	if(req->parents)
+		bench_lower_start(req->parents);
+
 	pthread_mutex_lock(&fd_lock);
 	if(lseek64(_fd,((off64_t)__posix.SOP)*PPA,SEEK_SET)==-1){
 		printf("lseek error in read\n");
@@ -69,6 +77,9 @@ void *posix_pull_data(KEYT PPA, uint32_t size, V_PTR value, bool async,algo_req 
 		printf("%d:read none!\n",res);
 	}
 	pthread_mutex_unlock(&fd_lock);
+
+	if(req->parents)
+		bench_lower_end(req->parents);
 	req->end_req(req);
 	/*
 	if(async){

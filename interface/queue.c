@@ -8,6 +8,7 @@ void q_init(queue **q,int qsize){
 	(*q)->size=0;
 	(*q)->head=(*q)->tail=NULL;
 	pthread_mutex_init(&((*q)->q_lock),NULL);
+
 	(*q)->m_size=qsize;
 }
 
@@ -15,6 +16,7 @@ bool q_enqueue(void* req, queue* q){
 	if(q->size==q->m_size){
 		return false;
 	}
+
 	node *new_node=(node*)malloc(sizeof(node));
 	new_node->req=req;
 	new_node->next=NULL;
@@ -32,8 +34,9 @@ bool q_enqueue(void* req, queue* q){
 }
 
 void* q_dequeue(queue *q){
-	if(q->size==0)
+	if(q->size==0){
 		return NULL;
+	}
 	node *target_node;
 
 	pthread_mutex_lock(&q->q_lock);
