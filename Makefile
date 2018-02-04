@@ -64,7 +64,7 @@ libsimulator_d.a:$(MEMORYOBJ)
 
 mem_libsimulator.a:$(MEMORYOBJ)
 	mkdir -p object && mkdir -p data
-	cd ./algorithm/$(TARGET_ALGO) && make LEAK && cd ../../
+	cd ./algorithm/$(TARGET_ALGO) && make && cd ../../
 	cd ./lower/$(TARGET_LOWER) && make && cd ../../ 
 	mv ./interface/*.o ./object/ & mv ./bench/*.o ./object/
 	$(AR) r $(@) ./object/*.o

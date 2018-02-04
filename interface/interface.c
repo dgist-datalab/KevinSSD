@@ -33,7 +33,7 @@ static void assign_req(request* req){
 			}
 		}
 #ifdef LEAKCHECK
-		sleep(1)
+		sleep(1);
 #endif
 	}
 
@@ -189,7 +189,7 @@ void *p_main(void *__input){
 		}
 	}
 	while(1){
-#ifdef LEACkCHECK
+#ifdef LEAKCHECK
 		sleep(1);
 #endif
 		if(mp.stopflag)
