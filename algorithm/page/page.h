@@ -16,7 +16,7 @@ typedef struct virtual_OOB{
 
 typedef struct SRAM{
 	int32_t lpa_RAM;
-	V_PTR VPTR_RAM;
+	PTR VPTR_RAM;
 }SRAM; // use this RAM for Garbage collection.
 /*
 TABLE *page_TABLE;

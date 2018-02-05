@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "page.h"
 #include <stdio.h>
+#include "../../bench/bench.h"
 
 struct algorithm algo_pbase=
 {
@@ -57,15 +58,12 @@ void pbase_destroy(lower_info* li, algorithm *algo)
         free(invalid_per_block);
 		  free(page_SRAM);
 		  free(page_TABLE);
-	//Question: why normal_destroy need li and algo?
 }
 
 void *pbase_end_req(algo_req* input)
 {
-	pbase_params* params=(pbase_params*)input->params;
-	request *res=params->parents;
+	request *res=input->parents;
 	res->end_req(res);
-	free(params);
 	free(input);
 }
 
@@ -78,15 +76,13 @@ uint32_t pbase_get(request* const req)
 {
 	//put request in normal_param first.
 	//request has a type, key and value.
-	pbase_params* params = (pbase_params*)malloc(sizeof(pbase_params));
-	params->parents=req;
-	params->test=-1; //default parameter setting.
 
+	bench_algo_start(req);
 	algo_req * my_req = (algo_req*)malloc(sizeof(algo_req)); //init reqeust
+	my_req->parents = req;
 	my_req->end_req=pbase_end_req;//allocate end_req for request.
-	my_req->params=(void*)params;//allocate parameter for request.
-
 	KEYT target = page_TABLE[req->key].lpa_to_ppa;
+	bench_algo_end(req);
 
 	algo_pbase.li->pull_data(target,PAGESIZE,req->value,0,my_req,0);
 	//key-value operation.
@@ -95,14 +91,11 @@ uint32_t pbase_get(request* const req)
 
 uint32_t pbase_set(request* const req)
 {
-	pbase_params* params = (pbase_params*)malloc(sizeof(pbase_params));
-	params->parents=req;
-	params->test=-1;
-
+	bench_algo_start(req);
 	algo_req * my_req = (algo_req*)malloc(sizeof(algo_req));
+	my_req->parents = req;
 	my_req->end_req = pbase_end_req;
-	my_req->params = (void*)params;
-	
+
 	//garbage_collection necessity detection.
 	if (PPA_status == _NOP)
 	{
@@ -128,7 +121,7 @@ uint32_t pbase_set(request* const req)
 	page_OOB[PPA_status].reverse_table = req->key;//reverse-mapping.
 	KEYT set_target = PPA_status;
 	PPA_status++;
-
+	bench_algo_end(req);
 	algo_pbase.li->push_data(set_target,PAGESIZE,req->value,0,my_req,0);
 }
 
@@ -140,8 +133,8 @@ uint32_t pbase_remove(request* const req)
 
 uint32_t SRAM_load(int ppa, int a)
 {
-	V_PTR value_PTR;
-	value_PTR =(V_PTR)malloc(PAGESIZE);
+	PTR value_PTR;
+	value_PTR =(PTR)malloc(PAGESIZE);
 	algo_req * my_req = (algo_req*)malloc(sizeof(algo_req));
 	my_req->end_req = pbase_algo_end_req; //request termination.
 	algo_pbase.li->pull_data(ppa,PAGESIZE,value_PTR,0,my_req,0);
