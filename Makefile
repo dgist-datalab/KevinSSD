@@ -23,6 +23,9 @@ TARGETOBJ =\
 MEMORYOBJ =\
 		   	$(patsubst %.c,%_mem.o,$(SRCS))\
 
+DEBUGOBJ =\
+		   	$(patsubst %.c,%_d.o,$(SRCS))\
+
 LIBS +=\
 		-lpthread\
 
@@ -43,6 +46,13 @@ libsimulator.a: $(TARGETOBJ)
 	mv ./interface/*.o ./object/
 	$(AR) r $(@) ./object/*.o
 
+libsimulator_d.a:$(MEMORYOBJ)
+	mkdir -p object && mkdir -p data
+	cd ./algorithm/$(TARGET_ALGO) && make DEBUG && cd ../../
+	cd ./lower/$(TARGET_LOWER) && make DEBUG && cd ../../ 
+	mv ./interface/*.o ./object/
+	$(AR) r $(@) ./object/*.o
+
 mem_libsimulator.a:$(MEMORYOBJ)
 	mkdir -p object && mkdir -p data
 	cd ./algorithm/$(TARGET_ALGO) && make && cd ../../
@@ -52,6 +62,9 @@ mem_libsimulator.a:$(MEMORYOBJ)
 
 %_mem.o: %.c
 	$(CC) $(CFLAGS) -DLEAKCHECK -c $< -o $@ $(LIBS)
+
+%_d.o: %.c
+	$(CC) $(CFLAGS) -DDEBUG -c $< -o $@ $(LIBS)
 
 .c.o :
 	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS)

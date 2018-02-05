@@ -24,7 +24,7 @@ uint16_t *invalid_per_block;
 uint32_t pbase_create(lower_info* li, algorithm *algo) //define & initialize mapping table.
 {
 	 algo->li = li; 	//allocate li parameter to algorithm's li.
-	 page_TABLE = (TABLE*)malloc(sizeof(TABLE)*2*2*_NOP);
+	 page_TABLE = (TABLE*)malloc(sizeof(TABLE)*_NOP);
 	 for(int i = 0; i < _NOP; i++)
 	{
      	page_TABLE[i].lpa_to_ppa = -1;
@@ -32,18 +32,22 @@ uint32_t pbase_create(lower_info* li, algorithm *algo) //define & initialize map
 	}
 	
 	page_OOB = (OOB *)malloc(sizeof(OOB)*_NOP);
-
+	for (int i = 0; i < _NOP; i++)
+	{
+		page_OOB[i].reverse_table = -1;
+	}	
 	page_SRAM = (SRAM*)malloc(sizeof(SRAM)*_PPB);
 	for (int i = 0; i<_PPB; i++)
 	{
 		page_SRAM[i].lpa_RAM = -1;
 		page_SRAM[i].VPTR_RAM = NULL;
 	}
-	printf("%d, %d",page_SRAM[1].lpa_RAM,page_SRAM[2].lpa_RAM);
 
 	invalid_per_block = (uint16_t*)malloc(sizeof(uint16_t)*_NOB);
 	for (int i = 0; i<_NOB; i++)
+	{
 		invalid_per_block[i] = 0;
+	}
 	//init mapping table.
 }	//now we can use page table after pbase_create operation.
 
@@ -70,7 +74,7 @@ void *pbase_algo_end_req(algo_req* input)
 	free(input);
 }
 
-uint32_t pbase_get(const request *req)
+uint32_t pbase_get(request* const req)
 {
 	//put request in normal_param first.
 	//request has a type, key and value.
@@ -89,7 +93,7 @@ uint32_t pbase_get(const request *req)
 	//Question: why value type is char*?
 }
 
-uint32_t pbase_set(const request *req)
+uint32_t pbase_set(request* const req)
 {
 	pbase_params* params = (pbase_params*)malloc(sizeof(pbase_params));
 	params->parents=req;
@@ -123,13 +127,12 @@ uint32_t pbase_set(const request *req)
 	page_TABLE[PPA_status].valid_checker = 1; 
 	page_OOB[PPA_status].reverse_table = req->key;//reverse-mapping.
 	KEYT set_target = PPA_status;
-	printf("PPA now, %d\n",set_target);
 	PPA_status++;
 
 	algo_pbase.li->push_data(set_target,PAGESIZE,req->value,0,my_req,0);
 }
 
-uint32_t pbase_remove(const request *req)
+uint32_t pbase_remove(request* const req)
 {
 	page_TABLE[req->key].lpa_to_ppa = -1; //reset to default.
 	page_OOB[req->key].reverse_table = -1; //reset reverse_table to default.
@@ -144,6 +147,7 @@ uint32_t SRAM_load(int ppa, int a)
 	algo_pbase.li->pull_data(ppa,PAGESIZE,value_PTR,0,my_req,0);
 	page_SRAM[a].lpa_RAM = page_OOB[ppa].reverse_table;//load reverse-mapped lpa.
 	page_SRAM[a].VPTR_RAM = value_PTR;
+	
 }
 
 uint32_t SRAM_unload(int ppa, int a)
@@ -157,15 +161,15 @@ uint32_t SRAM_unload(int ppa, int a)
 	page_OOB[ppa].reverse_table = page_SRAM[a].lpa_RAM;
 	
 	page_SRAM[a].lpa_RAM = -1;
+	free(page_SRAM[a].VPTR_RAM);
 	page_SRAM[a].VPTR_RAM = NULL;
 }
 
 uint32_t pbase_garbage_collection()//do pbase_read and pbase_set 
 {
-	printf(" we entered GC.\n");
 	int target_block = 0;
 	int invalid_num = 0;
-	for (int i = 0; i < _PPB; i++)
+	for (int i = 0; i < _NOB; i++)
 	{
 		if(invalid_per_block[i] >= invalid_num)
 		{
