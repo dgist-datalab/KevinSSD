@@ -3,7 +3,9 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<limits.h>
+#include<string.h>
 Node *ns_run(level*input ,int n){
+	if(n>input->r_num) return NULL;
 	return (Node*)&input->body[input->r_size*n];
 }
 Entry *ns_entry(Node *input, int n){
@@ -23,18 +25,36 @@ Entry *level_entcpy(Entry *src, char *des){
 	return (Entry*)des;
 }
 
+bool level_full_check(level *input){
+	return input->n_num+1>=input->m_num;
+}
+
+Entry *level_entry_copy(Entry *input){
+	Entry *res=(Entry*)malloc(sizeof(Entry));
+	res->key=input->key;
+	res->end=input->end;
+	res->pbn=input->pbn;
+
+	memcpy(res->bitset,input->bitset,sizeof(res->bitset));
+	res->version=input->version;
+	return res;
+}
+
 level *level_init(level *input,int all_entry,bool isTiering){
 	if(isTiering){
-		input->r_num=MUL;
+		input->r_num=SIZEFACTOR;
 	}
 	else{
 		input->r_num=1;
 	}
+	pthread_mutex_init(&input->level_lock,NULL);
 	input->isTiering=isTiering;
 	int entry_p_run=all_entry/input->r_num;
-	int run_body_size=sizeof(Entry)*entry_p_run;
-	int run_size=sizeof(Node)-sizeof(char*)+run_body_size;
-	int level_body_size=run_size*input->r_num;
+	if(all_entry%input->r_num) entry_p_run++;
+
+	uint64_t run_body_size=sizeof(Entry)*entry_p_run;
+	uint64_t run_size=sizeof(Node)+run_body_size;
+	uint64_t level_body_size=run_size*input->r_num;
 
 	input->body=(char*)malloc(level_body_size);
 	input->r_size=run_size;
@@ -46,7 +66,9 @@ level *level_init(level *input,int all_entry,bool isTiering){
 		temp_run->n_num=0;
 		temp_run->m_num=entry_p_run;
 		temp_run->e_size=sizeof(Entry);
-		temp_run->body_addr=&temp_run->body;
+		temp_run->body_addr=(char**)(input->body+sizeof(Node)+i*run_size);
+		temp_run->start=UINT_MAX;
+		temp_run->end=0;
 	}
 	input->entry_p_run=entry_p_run;
 	input->r_n_num=1;
@@ -54,8 +76,9 @@ level *level_init(level *input,int all_entry,bool isTiering){
 	input->end=0;
 	return input;
 }
+
 Entry **level_find(level *input,KEYT key){
-	Entry **res=(Entry**)malloc(sizeof(Entry*)*input->r_n_num);
+	Entry **res=(Entry**)malloc(sizeof(Entry*)*(input->r_n_num+1));
 	bool check=false;
 	int cnt=0;
 	for(int i=0; i<input->r_num; i++){
@@ -114,13 +137,24 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 	if(input->r_n_num==r)
 		input->r_n_num++;
 	Node *temp_run=ns_run(input,r);//active run
+	if(temp_run->start>entry->key)
+		temp_run->start=entry->key;
+	if(temp_run->end<entry->key)
+		temp_run->end=entry->key;
+
 	int o=temp_run->n_num;
 	Entry *temp_entry=ns_entry(temp_run,o);
 	level_entcpy(entry,(char*)temp_entry);
 	temp_run->n_num++;
 	input->n_num++;
+	return temp_run;
 }
 Entry *level_get_next(Iter * input){
+	if(input->now==NULL && input->v_entry !=NULL) {
+		input->r_idx++;
+		return input->v_entry;
+	}
+	if(input->now==NULL && input->r_idx==1) return NULL;
 	if(!input->flag) return NULL;
 	if(input->now->n_num==0) return NULL;
 	Entry *res=ns_entry(input->now,input->idx++);
@@ -130,8 +164,13 @@ Entry *level_get_next(Iter * input){
 		}
 		else{
 			input->r_idx++;
-			input->now=ns_run(input->lev,input->r_idx);
-			input->idx=0;
+			if(input->r_idx==input->lev->r_n_num){
+				input->flag=false;
+			}
+			else{
+				input->now=ns_run(input->lev,input->r_idx);
+				input->idx=0;
+			}
 		}
 	}
 	return res;
@@ -174,8 +213,16 @@ Entry *level_make_entry(KEYT key,KEYT end,KEYT pbn){
 	ent->key=key;
 	ent->end=end;
 	ent->pbn=pbn;
-	memset(ent->bitset,0,sizeof(ent->bitset));
+	memset(ent->bitset,0,KEYNUM/8);
+	ent->t_table=NULL;
 	return ent;
+}
+void level_free_entry(Entry *entry){
+	free(entry->t_table);
+#ifdef BLOOM
+	bf_free(entry->filter);
+#endif
+	free(entry);
 }
 bool level_check_overlap(level *input ,KEYT start, KEYT end){
 	if(input->start>end){
@@ -184,6 +231,32 @@ bool level_check_overlap(level *input ,KEYT start, KEYT end){
 	if(input->end<start)
 		return false;
 	return true;
+}
+
+level *level_copy(level *input){
+	level *res=(level *)malloc(sizeof(level));
+	memcpy(res,input,sizeof(level)-sizeof(pthread_mutex_t)-sizeof(char *));
+	pthread_mutex_init(&res->level_lock,NULL);
+	//node copy
+	res->body=(char*)malloc(input->r_size*input->r_num);
+	memcpy(res->body,input->body,input->r_size*input->r_num);
+	return res;
+}
+
+int level_range_find(level *input,KEYT start,KEYT end, Entry ***res){
+	Iter *level_iter=level_get_Iter(input);
+	int rev=0;
+	Entry **temp;
+	temp=(Entry **)malloc(sizeof(Entry *)*input->m_num);
+	Entry *value;
+	while((value=level_get_next(level_iter))){
+		if(value->key >=start && value->key<=end)
+			temp[rev++]=value;
+	}
+	free(level_iter);
+	temp[rev]=NULL;
+	(*res)=temp;
+	return rev;
 }
 /*
 int main(){
@@ -194,19 +267,10 @@ int main(){
 		level_insert(temp_lev,temp);
 		free(temp);
 	}
-	Iter *iter=level_get_Iter(temp_lev);
-	Entry *temp_ent;
-	while((temp_ent=level_get_next(iter))!=NULL){
-		printf("Key: %d, End: %d, Pbn: %d\n",temp_ent->key,temp_ent->end,temp_ent->pbn);
-	}
-
-//	for(int i=0; i<48; i++){
-//		Entry *temp_ent=level_find(temp_lev,i);
-//		printf("Key: %d, End: %d, Pbn: %d\n",temp_ent->key,temp_ent->end,temp_ent->pbn);
-//	}
 	
-//	printf("\n\n");
-//	level_print(temp_lev);
+	Entry **targets;
+	level_range_find(temp_lev,0,10,&targets);
+	free(targets);
+	level_print(temp_lev);
 	level_free(temp_lev);
-}
-*/
+}*/

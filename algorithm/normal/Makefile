@@ -15,7 +15,7 @@ OBJS :=\
 TARGETOBJ:=\
 	$(addprefix ../../object/,$(OBJS))\
 
-
+LEAK: all
 all: $(TARGETOBJ) 
 
 libnom.a : $(TARGETOBJ)

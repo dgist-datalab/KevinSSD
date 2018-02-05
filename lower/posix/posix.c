@@ -2,13 +2,16 @@
 #define _LARGEFILE64_SOURCE
 #include "posix.h"
 #include "../../include/settings.h"
+#include "../../bench/bench.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <string.h>
+#include <pthread.h>
 static int _fd;
+pthread_mutex_t fd_lock;
 lower_info __posix={
 	.create=posix_create,
 	.destroy=posix_destroy,
@@ -31,6 +34,7 @@ uint32_t posix_create(lower_info *li){
 		printf("file open error!\n");
 		exit(-1);
 	}
+	pthread_mutex_init(&fd_lock,NULL);
 }
 
 void *posix_destroy(lower_info *li){
@@ -38,12 +42,18 @@ void *posix_destroy(lower_info *li){
 }
 
 void *posix_push_data(KEYT PPA, uint32_t size, V_PTR value, bool async,algo_req *const req, uint32_t dmatag){
+	if(req->parents)
+		bench_lower_start(req->parents);
+	pthread_mutex_lock(&fd_lock);
 	if(lseek64(_fd,((off64_t)__posix.SOP)*PPA,SEEK_SET)==-1){
 		printf("lseek error in read\n");
 	}
 	if(!write(_fd,value,size)){
 		printf("write none!\n");
 	}
+	pthread_mutex_unlock(&fd_lock);
+	if(req->parents)
+		bench_lower_end(req->parents);
 	req->end_req(req);
 /*
 	if(async){
@@ -54,13 +64,22 @@ void *posix_push_data(KEYT PPA, uint32_t size, V_PTR value, bool async,algo_req 
 	*/
 }
 
-void *posix_pull_data(KEYT PPA, uint32_t size,  V_PTR value, bool async,algo_req *const req, uint32_t dmatag){
+void *posix_pull_data(KEYT PPA, uint32_t size, V_PTR value, bool async,algo_req *const req, uint32_t dmatag){
+	if(req->parents)
+		bench_lower_start(req->parents);
+
+	pthread_mutex_lock(&fd_lock);
 	if(lseek64(_fd,((off64_t)__posix.SOP)*PPA,SEEK_SET)==-1){
 		printf("lseek error in read\n");
 	}
-	if(!read(_fd,(void*)value,size)){
-		printf("read none!\n");
+	int res;
+	if(!(res=read(_fd,value,size))){
+		printf("%d:read none!\n",res);
 	}
+	pthread_mutex_unlock(&fd_lock);
+
+	if(req->parents)
+		bench_lower_end(req->parents);
 	req->end_req(req);
 	/*
 	if(async){
@@ -74,12 +93,14 @@ void *posix_pull_data(KEYT PPA, uint32_t size,  V_PTR value, bool async,algo_req
 void *posix_trim_block(KEYT PPA, bool async){
 	char *temp=(char *)malloc(__posix.SOB);
 	memset(temp,0,__posix.SOB);
+	pthread_mutex_lock(&fd_lock);
 	if(lseek64(_fd,((off64_t)__posix.SOP)*PPA,SEEK_SET)==-1){
 		printf("lseek error in trim\n");
 	}
 	if(!write(_fd,temp,BLOCKSIZE)){
 		printf("write none\n");
 	}
+	pthread_mutex_unlock(&fd_lock);
 	free(temp);
 }
 

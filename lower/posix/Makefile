@@ -14,8 +14,14 @@ OBJS :=\
 
 TARGETOBJ:=\
 	$(addprefix ../../object/,$(OBJS))\
+#$(patsubst %.c,%.o,$(SRCS))\
 
+DEBUG : all
 all: $(TARGETOBJ)
+
+libpos.a : $(TARGETOBJ)
+	$(AR) r $(@) $(TARGETOBJ)
+	
 
 .c.o :
 	$(CC) $(CFLAGS) -c $< -o $@

@@ -18,21 +18,22 @@
 #define FSTYPE uint8_t
 #define KEYT uint32_t
 #define BLOCKT uint32_t
-#define V_PTR char const*
+#define V_PTR char * const
 #define PTR char*
 
 #define SYNC (1)
 #define QSIZE (1024)
 #define THREADSIZE (1)
+
+#define CHACHESIZE 101010
 typedef enum{false,true} bool;
 
 typedef enum{
 	SEQGET,SEQSET,
 	RANDGET,RANDSET,
+	RANDRW,SEQRW,
 	MIXED
 }bench_type;
 
-/*LSM SETTINGS*/
-#define LEVELN 10
 
 #endif

@@ -1,5 +1,6 @@
 #include "interface.h"
 #include "../include/container.h"
+#include "../bench/bench.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -7,6 +8,9 @@
 #include <string.h>
 extern struct lower_info __posix;
 extern struct algorithm algo_pbase;
+extern struct algorithm algo_lsm;
+pthread_mutex_t leak_check_lock;
+
 master_processor mp;
 void *p_main(void*);
 static void assign_req(request* req){
@@ -19,7 +23,7 @@ static void assign_req(request* req){
 	while(!flag){
 		for(int i=0; i<THREADSIZE; i++){
 			processor *t=&mp.processors[i];
-			if(q_enqueue(req,t->req_q)){
+			if(q_enqueue(req,(void*)t->req_q)){
 				flag=true;
 				break;
 			}
@@ -28,7 +32,6 @@ static void assign_req(request* req){
 				continue;
 			}
 		}
-		//sleep or nothing
 #ifdef LEAKCHECK
 		sleep(1);
 #endif
@@ -40,17 +43,34 @@ static void assign_req(request* req){
 		free(req);
 	}
 }
-
+bool inf_assign_try(request *req){
+	bool flag=false;
+	for(int i=0; i<THREADSIZE; i++){
+		processor *t=&mp.processors[i];
+		if(q_enqueue(req,t->req_q)){
+			flag=true;
+			break;
+		}
+		else{
+			flag=false;
+			continue;
+		}
+	}
+	return flag;
+}
 void inf_init(){
 	mp.processors=(processor*)malloc(sizeof(processor)*THREADSIZE);
 	for(int i=0; i<THREADSIZE; i++){
 		processor *t=&mp.processors[i];
 		pthread_mutex_init(&t->flag,NULL);
 		pthread_mutex_lock(&t->flag);
-		q_init(&t->req_q);
+		q_init(&t->req_q,QSIZE);
 		t->master=&mp;
 		pthread_create(&t->t_id,NULL,&p_main,NULL);
 	}
+#ifdef LEAKCHECK
+	pthread_mutex_init(&leak_check_lock,NULL);
+#endif
 	pthread_mutex_init(&mp.flag,NULL);
 #ifdef posix
 	mp.li=&__posix;
@@ -62,8 +82,11 @@ void inf_init(){
 	mp.li->create(mp.li);
 	mp.algo->create(mp.li,mp.algo);
 }
-
-bool inf_make_req(const FSTYPE type, const KEYT key, const V_PTR value){
+#ifdef BENCH
+bool inf_make_req(const FSTYPE type, const KEYT key, V_PTR value,int mark){
+#else
+bool inf_make_req(const FSTYPE type, const KEYT key,V_PTR value){
+#endif
 	request *req=(request*)malloc(sizeof(request));
 	req->upper_req=NULL;
 	req->type=type;
@@ -71,6 +94,12 @@ bool inf_make_req(const FSTYPE type, const KEYT key, const V_PTR value){
 	req->value=value;
 	req->end_req=inf_end_req;
 	req->isAsync=false;
+	req->params=NULL;
+#ifdef BENCH
+	req->algo.isused=false;
+	req->lower.isused=false;
+	req->mark=mark;
+#endif
 	switch(type){
 		case FS_GET_T:
 			break;
@@ -103,18 +132,27 @@ bool inf_make_req_Async(void *ureq, void *(*end_req)(void*)){
 	assign_req(req);
 	return true;
 }
-bool inf_end_req(request *const req){
+
+//static int end_req_num=0;
+bool inf_end_req( request * const req){
+	bench_reap_data(req);
+#ifdef DEBUG
+	printf("inf_end_req!\n");
+#endif
 	if(req->type==FS_GET_T){
 		int check;
 		memcpy(&check,req->value,sizeof(check));
-		printf("get:%d\n",check);
+		/*
+		if((++end_req_num)%1024==0)
+			printf("get:%d, number: %d\n",check,end_req_num);*/
 	}
 	if(req->value){
 		free(req->value);
 	}
 	if(!req->isAsync){
 		pthread_mutex_unlock(&req->async_mutex);
-	}else
+	}
+	else
 		free(req);
 	return true;
 }
@@ -140,6 +178,7 @@ void inf_print_debug(){
 }
 
 void *p_main(void *__input){
+	void *_inf_req;
 	request *inf_req;
 	processor *this=NULL;
 	for(int i=0; i<THREADSIZE; i++){
@@ -153,10 +192,11 @@ void *p_main(void *__input){
 #endif
 		if(mp.stopflag)
 			break;
-		if(!(inf_req=q_dequeue(this->req_q))){
+		if(!(_inf_req=q_dequeue(this->req_q))){
 			//sleep or nothing
 			continue;
 		}
+		inf_req=(request*)_inf_req;
 		switch(inf_req->type){
 			case FS_GET_T:
 				mp.algo->get(inf_req);
