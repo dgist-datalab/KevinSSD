@@ -13,10 +13,10 @@ CFLAGS +=\
 		 -Wall\
 		 -Wno-discarded-qualifiers\
 		 -D_BSD_SOURCE\
-		 -DBENCH\
+-DBENCH\
 
 SRCS +=\
-	./interface/queue.c\
+	./interface/lfqueue.c\
 	./interface/interface.c\
 	./bench/measurement.c\
 	./bench/bench.c\
@@ -38,6 +38,8 @@ all: simulator
 DEBUG: debug_simulator
 
 memory_leak: simulator_memory_check
+
+duma_sim: duma_simulator
 	
 simulator_memory_check: ./interface/main.c mem_libsimulator.a $(LOWER_LIB) $(ALGO_LIB)
 	$(CC) $(CFLAGS) -DLEAKCHECK -o $@ $^ $(LIBS)
@@ -47,6 +49,10 @@ debug_simulator: ./interface/main.c libsimulator_d.a
 
 simulator: ./interface/main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ -lpthread
+
+duma_simulator: ./interface/main.c libsimulator.a
+	$(CC) $(CFLAGS) -o $@ $^ -lpthread -lduma
+	
 
 libsimulator.a: $(TARGETOBJ)
 	mkdir -p object && mkdir -p data
@@ -88,3 +94,4 @@ clean :
 	@$(RM) simulator
 	@$(RM) simulator_memory_check
 	@$(RM) debug_simulator
+	@$(RM) duma_simulator

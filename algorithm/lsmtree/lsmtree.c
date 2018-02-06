@@ -163,13 +163,15 @@ uint32_t lsm_get(request *const req){
 
 		bench_algo_start(tmp_req);
 		if(__lsm_get(tmp_req)==3){
-			printf("not found_tmp! key:%d \n",tmp_req->key);
+	//		printf("not found_tmp! key:%d \n",tmp_req->key);
+			tmp_req->end_req(tmp_req);
 		}
 	}
 	bench_algo_start(req);
 	int res=__lsm_get(req);
 	if(res==3){
-		printf("not found! key:%d \n",req->key);
+	//	printf("not found! key:%d \n",req->key);
+		req->end_req(req);
 	}
 	return res;
 }

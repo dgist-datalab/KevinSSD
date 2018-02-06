@@ -26,6 +26,9 @@ void bench_init(int benchnum){
 	_master->datas=(bench_data*)malloc(sizeof(bench_data) * benchnum);
 	memset(_master->datas,0,sizeof(bench_data)*benchnum);
 
+	_master->li=(lower_info*)malloc(sizeof(lower_info)*benchnum);
+	memset(_master->li,0,sizeof(lower_info)*benchnum);
+
 	_master->n_num=0; _master->m_num=benchnum;
 }
 void bench_make_data(){
@@ -79,6 +82,7 @@ void bench_free(){
 	free(_master->m);
 	free(_master->meta);
 	free(_master->datas);
+	free(_master->li);
 	free(_master);
 }
 
@@ -122,6 +126,7 @@ void bench_print(){
 		printf("--------------------------------------------\n");
 		printf("|            bench type:                   |\n");
 		printf("--------------------------------------------\n");
+#ifdef BENCH
 
 		printf("----algorithm----\n");
 		for(int j=0; j<10; j++){
@@ -149,10 +154,18 @@ void bench_print(){
 		avg_sec=total/1000000;
 		avg_usec=total%1000000;
 		printf("[avg_low]: %ld.%ld\n",avg_sec,avg_usec);
-
+		bench_li_print(&_master->li[i],_m);
+#endif
+		printf("\n----summary----\n");
 		_m->benchTime.adding.tv_sec+=_m->benchTime.adding.tv_usec/1000000;
 		_m->benchTime.adding.tv_usec%=1000000;
 		printf("[all_time]: %ld.%ld\n",_m->benchTime.adding.tv_sec,_m->benchTime.adding.tv_usec);
+		uint64_t total_data=(PAGESIZE * _m->m_num)/1024;
+		printf("[size]: %lf(mb)\n",(double)total_data/1024);
+		double total_time=_m->benchTime.adding.tv_sec+(double)_m->benchTime.adding.tv_usec/1000000;
+		double throughput=(double)total_data/total_time;
+		printf("[throughput] %lf(kb/s)\n",throughput);
+		printf("             %lf(mb/s)\n",throughput/1024);
 	}
 }
 void bench_algo_start(request *const req){
@@ -202,31 +215,57 @@ void __bench_time_maker(MeasureTime mt, bench_data *datas,bool isalgo){
 		target[10]++;
 		return;
 	}
-	idx=mt.adding.tv_usec/100;
+	idx=mt.adding.tv_usec/1000;
 	if(target){
 		target[idx]++;
 	}
 	return;
 }
-void bench_reap_data(request *const req){
+void bench_reap_data(request *const req,lower_info *li){
+	if(!req) return;
 	int idx=req->mark;
 	monitor *_m=&_master->m[idx];
 	bench_data *_data=&_master->datas[idx];
 	if(_m->m_num==++_m->r_num){
 		_data->bench=_m->benchTime;
 	}
+#ifdef BENCH
 	if(req->algo.isused)
 		__bench_time_maker(req->algo,_data,true);
 
 	if(req->lower.isused)
 		__bench_time_maker(req->lower,_data,false);
-
+#endif
 	if(_m->m_num==_m->r_num){
 		_m->finish=true;
+#ifdef BENCH
+		memcpy(&_master->li[idx],li,sizeof(lower_info));
+		li->refresh(li);
+#endif
 		MA(&_m->benchTime);
 	}
 }
+void bench_li_print(lower_info* li,monitor *m){
+	printf("-----lower_info----\n");
+	printf("[write_op]: %ld\n",li->write_op);
+	printf("[read_op]: %ld\n",li->read_op);
+	printf("[trim_op]:%ld\n",li->trim_op);
+	printf("[WAF, RAF]: %lf, %lf\n",(float)li->write_op/m->m_num,(float)li->read_op/m->m_num);
+	printf("[if rw test]: %lf(WAF), %lf(RAF)\n",(float)li->write_op/(m->m_num/2),(float)li->read_op/(m->m_num/2));
+	
+	uint64_t sec, usec;
+	sec=li->writeTime.adding.tv_sec;
+	usec=li->writeTime.adding.tv_usec;
+	sec+=usec/1000000;
+	usec%=1000000;
+	printf("[all write Time]:%ld.%ld\n",sec,usec);
 
+	sec=li->readTime.adding.tv_sec;
+	usec=li->readTime.adding.tv_usec;
+	sec+=usec/1000000;
+	usec%=1000000;
+	printf("[all read Time]:%ld.%ld\n",sec,usec);
+}
 
 void seqget(KEYT start, KEYT end,monitor *m){
 	printf("making seq Get bench!\n");
@@ -300,4 +339,32 @@ void mixed(KEYT start, KEYT end,int percentage, monitor *m){
 		}
 		m->body[i].mark=m->mark;
 	}
+}
+
+void bench_lower_w_start(lower_info *li){
+#ifdef BENCH
+	MS(&li->writeTime);
+	li->write_op++;
+#endif
+}
+void bench_lower_w_end(lower_info *li){
+#ifdef BENCH
+	MA(&li->writeTime);
+#endif
+}
+void bench_lower_r_start(lower_info *li){
+#ifdef BENCH
+	MS(&li->readTime);
+	li->read_op++;
+#endif
+}
+void bench_lower_r_end(lower_info *li){
+#ifdef BENCH
+	MA(&li->readTime);
+#endif
+}
+void bench_lower_t(lower_info *li){
+#ifdef BENCH
+	li->trim_op++;
+#endif
 }

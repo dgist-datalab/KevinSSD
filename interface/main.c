@@ -54,6 +54,7 @@ int main(){
 
 	printf("benchmark setting done. starts now.\n");
 
+
 	inf_init();
 	bench_value *value;
 	while((value=get_bench())){
@@ -62,11 +63,7 @@ int main(){
 		if(value->type==FS_SET_T){
 			memcpy(data,&value->key,sizeof(value->key));
 		}
-#ifdef BENCH
 		inf_make_req(value->type,value->key,data,value->mark);
-#else
-		inf_make_req(value->type,value->key,data);
-#endif
 	}
 	
 	while(!bench_is_finish()){
@@ -74,27 +71,8 @@ int main(){
 		sleep(1);
 #endif
 	}
+	inf_free();
 	bench_print();
 	bench_free();
-	inf_free();
-/*
-	for(int i=0; i<1024*2; i++){
-#ifdef LEAKCHECK
-		printf("set: %d\n",i);
-#endif
-		int rand_key = rand()%10;
-		key_save[i] = rand_key;
-		printf("set: %d\n",rand_key);
-		char *temp=(char*)malloc(PAGESIZE);
-		memset(temp,0,PAGESIZE);
-		memcpy(temp,&rand_key,sizeof(rand_key));
-		inf_make_req(FS_SET_T,rand_key,temp);
-	}
-	for(int i=0; i<1024*2; i++){
-		char *temp=(char*)malloc(PAGESIZE);
-		memset(temp,0,PAGESIZE);
-		inf_make_req(FS_GET_T,key_save[i],temp);
-	}
- */
 	return 0;
 }

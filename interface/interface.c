@@ -9,7 +9,6 @@
 extern struct lower_info __posix;
 extern struct algorithm algo_pbase;
 extern struct algorithm algo_lsm;
-pthread_mutex_t leak_check_lock;
 
 master_processor mp;
 void *p_main(void*);
@@ -23,7 +22,7 @@ static void assign_req(request* req){
 	while(!flag){
 		for(int i=0; i<THREADSIZE; i++){
 			processor *t=&mp.processors[i];
-			if(q_enqueue(req,(void*)t->req_q)){
+			if(q_enqueue((void*)req,t->req_q)){
 				flag=true;
 				break;
 			}
@@ -47,7 +46,7 @@ bool inf_assign_try(request *req){
 	bool flag=false;
 	for(int i=0; i<THREADSIZE; i++){
 		processor *t=&mp.processors[i];
-		if(q_enqueue(req,t->req_q)){
+		if(q_enqueue((void*)req,t->req_q)){
 			flag=true;
 			break;
 		}
@@ -68,9 +67,6 @@ void inf_init(){
 		t->master=&mp;
 		pthread_create(&t->t_id,NULL,&p_main,NULL);
 	}
-#ifdef LEAKCHECK
-	pthread_mutex_init(&leak_check_lock,NULL);
-#endif
 	pthread_mutex_init(&mp.flag,NULL);
 #ifdef posix
 	mp.li=&__posix;
@@ -82,7 +78,7 @@ void inf_init(){
 	mp.li->create(mp.li);
 	mp.algo->create(mp.li,mp.algo);
 }
-#ifdef BENCH
+#ifndef USINGAPP
 bool inf_make_req(const FSTYPE type, const KEYT key, V_PTR value,int mark){
 #else
 bool inf_make_req(const FSTYPE type, const KEYT key,V_PTR value){
@@ -95,7 +91,7 @@ bool inf_make_req(const FSTYPE type, const KEYT key,V_PTR value){
 	req->end_req=inf_end_req;
 	req->isAsync=false;
 	req->params=NULL;
-#ifdef BENCH
+#ifndef USINGAPP
 	req->algo.isused=false;
 	req->lower.isused=false;
 	req->mark=mark;
@@ -135,7 +131,7 @@ bool inf_make_req_Async(void *ureq, void *(*end_req)(void*)){
 
 //static int end_req_num=0;
 bool inf_end_req( request * const req){
-	bench_reap_data(req);
+	bench_reap_data(req,mp.li);
 #ifdef DEBUG
 	printf("inf_end_req!\n");
 #endif

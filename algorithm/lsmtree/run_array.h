@@ -17,6 +17,7 @@ typedef struct Entry{
 	BF *filter
 #endif
 	struct htable *t_table;
+	bool iscompactioning;
 }Entry;
 
 typedef struct Node{
@@ -40,6 +41,7 @@ typedef struct level{
 	KEYT start;
 	KEYT end;
 	pthread_mutex_t level_lock;
+	bool iscompactioning;
 	char *body;
 }level;
 
