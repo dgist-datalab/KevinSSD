@@ -3,6 +3,7 @@
 #include "posix.h"
 #include "../../include/settings.h"
 #include "../../bench/bench.h"
+#include "../../bench/measurement.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,6 +19,7 @@ lower_info __posix={
 	.push_data=posix_push_data,
 	.pull_data=posix_pull_data,
 	.trim_block=posix_trim_block,
+	.refresh=posix_refresh,
 	.stop=posix_stop
 };
 
@@ -29,12 +31,22 @@ uint32_t posix_create(lower_info *li){
 	li->SOK=sizeof(KEYT);
 	li->PPB=_PPB;
 	li->TS=TOTALSIZE;
+
+	li->write_op=li->read_op=li->trim_op=0;
 	_fd=open("data/simulator.data",O_RDWR|O_CREAT|O_TRUNC,0666);
 	if(_fd==-1){
 		printf("file open error!\n");
 		exit(-1);
 	}
 	pthread_mutex_init(&fd_lock,NULL);
+	measure_init(&li->writeTime);
+	measure_init(&li->readTime);
+}
+
+void *posix_refresh(lower_info *li){
+	measure_init(&li->writeTime);
+	measure_init(&li->readTime);
+	li->write_op=li->read_op=li->trim_op=0;
 }
 
 void *posix_destroy(lower_info *li){
@@ -42,6 +54,7 @@ void *posix_destroy(lower_info *li){
 }
 
 void *posix_push_data(KEYT PPA, uint32_t size, V_PTR value, bool async,algo_req *const req, uint32_t dmatag){
+	bench_lower_w_start(&__posix);
 	if(req->parents)
 		bench_lower_start(req->parents);
 	pthread_mutex_lock(&fd_lock);
@@ -54,6 +67,7 @@ void *posix_push_data(KEYT PPA, uint32_t size, V_PTR value, bool async,algo_req 
 	pthread_mutex_unlock(&fd_lock);
 	if(req->parents)
 		bench_lower_end(req->parents);
+	bench_lower_w_end(&__posix);
 	req->end_req(req);
 /*
 	if(async){
@@ -65,6 +79,7 @@ void *posix_push_data(KEYT PPA, uint32_t size, V_PTR value, bool async,algo_req 
 }
 
 void *posix_pull_data(KEYT PPA, uint32_t size, V_PTR value, bool async,algo_req *const req, uint32_t dmatag){
+	bench_lower_r_start(&__posix);
 	if(req->parents)
 		bench_lower_start(req->parents);
 
@@ -80,6 +95,7 @@ void *posix_pull_data(KEYT PPA, uint32_t size, V_PTR value, bool async,algo_req 
 
 	if(req->parents)
 		bench_lower_end(req->parents);
+	bench_lower_r_end(&__posix);
 	req->end_req(req);
 	/*
 	if(async){
@@ -91,6 +107,7 @@ void *posix_pull_data(KEYT PPA, uint32_t size, V_PTR value, bool async,algo_req 
 }
 
 void *posix_trim_block(KEYT PPA, bool async){
+	bench_lower_t(&__posix);
 	char *temp=(char *)malloc(__posix.SOB);
 	memset(temp,0,__posix.SOB);
 	pthread_mutex_lock(&fd_lock);

@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include "queue.h"
 #include "../include/FS.h"
 #include "../include/settings.h"
@@ -8,19 +9,21 @@ void q_init(queue **q,int qsize){
 	(*q)->size=0;
 	(*q)->head=(*q)->tail=NULL;
 	pthread_mutex_init(&((*q)->q_lock),NULL);
-
+	printf("mutex_t : %p\n",&(*q)->q_lock);
+	(*q)->firstFlag=true;
 	(*q)->m_size=qsize;
 }
 
 bool q_enqueue(void* req, queue* q){
+	pthread_mutex_lock(&q->q_lock);
 	if(q->size==q->m_size){
+		pthread_mutex_unlock(&q->q_lock);
 		return false;
 	}
 
 	node *new_node=(node*)malloc(sizeof(node));
 	new_node->req=req;
 	new_node->next=NULL;
-	pthread_mutex_lock(&q->q_lock);
 	if(q->size==0){
 		q->head=q->tail=new_node;
 	}
@@ -34,18 +37,19 @@ bool q_enqueue(void* req, queue* q){
 }
 
 void* q_dequeue(queue *q){
-	if(q->size==0){
+	pthread_mutex_lock(&q->q_lock);
+	if(!q->head || q->size==0){
+		pthread_mutex_unlock(&q->q_lock);
 		return NULL;
 	}
 	node *target_node;
-
-	pthread_mutex_lock(&q->q_lock);
 	target_node=q->head;
 	q->head=q->head->next;
-	const request *res=target_node->req;
+
+	void *res=target_node->req;
 	q->size--;
-	pthread_mutex_unlock(&q->q_lock);
 	free(target_node);
+	pthread_mutex_unlock(&q->q_lock);
 	return res;
 }
 

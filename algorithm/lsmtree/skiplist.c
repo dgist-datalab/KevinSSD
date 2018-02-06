@@ -78,6 +78,8 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
 		x->key=key;
 		x->ppa=ppa;
 		x->isvalid=deletef;
+		x->value=NULL;
+		x->req=NULL;
 		for(int i=1; i<=level; i++){
 			x->list[i]=update[i]->list[i];
 			update[i]->list[i]=x;
@@ -120,6 +122,8 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef
 		x->key=key;
 		x->ppa=ppa;
 		x->isvalid=deletef;
+		x->value=NULL;
+		x->req=NULL;
 		for(int i=1; i<=level; i++){
 			x->list[i]=update[i]->list[i];
 			update[i]->list[i]=x;
@@ -306,26 +310,26 @@ snode *skiplist_pop(skiplist *list){
 	return NULL;	
 }
 
-skiplist *skiplist_cut(skiplist *list, int num){
+skiplist *skiplist_cut(skiplist *list, int num,KEYT limit){
 	if(num==0) return NULL;
 	if(list->size<num) return NULL;
 	skiplist* res=skiplist_init(res);
 	snode *h=res->header;
-	snode *header=list->header;
+	snode *temp;
 	for(KEYT i=0; i<num; i++){
-		snode *temp=skiplist_pop(list);
+		temp=skiplist_pop(list);
 		temp->value=NULL;
 		if(temp==NULL) return NULL;
-		/*
+
 		if(temp->key>=limit){
 			snode *temp_header=res->header->list[1];
 			snode *temp_s;
 			while(temp_header!=res->header){
-				temp_s=skiplist_insert(list,temp_header->key,NULL,NULL,temp_header->vflag);
+				temp_s=skiplist_insert_wP(list,temp_header->key,temp_header->ppa,temp_header->isvalid);
 				temp_s->ppa=temp_header->ppa;
 				temp_header=temp_header->list[1];
 			}
-			temp_s=skiplist_insert(list,temp->key,NULL,NULL,temp->vflag);
+			temp_s=skiplist_insert_wP(list,temp->key,temp->ppa,temp->isvalid);
 			temp_s->ppa=temp->ppa;
 			free(temp->list);
 			if(temp->req)
@@ -333,7 +337,8 @@ skiplist *skiplist_cut(skiplist *list, int num){
 			free(temp);
 			skiplist_free(res);
 			return NULL;
-		}*/
+		}
+
 		res->start=temp->key>res->start?res->start:temp->key;
 		res->end=temp->key>res->end?temp->key:res->end;
 		h->list[1]=temp;

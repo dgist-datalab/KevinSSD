@@ -26,7 +26,7 @@ Entry *level_entcpy(Entry *src, char *des){
 }
 
 bool level_full_check(level *input){
-	return input->n_num+1>=input->m_num;
+	return input->n_num==input->m_num;
 }
 
 Entry *level_entry_copy(Entry *input){
@@ -74,6 +74,7 @@ level *level_init(level *input,int all_entry,bool isTiering){
 	input->r_n_num=1;
 	input->start=UINT_MAX;
 	input->end=0;
+	input->iscompactioning=false;
 	return input;
 }
 
@@ -215,6 +216,7 @@ Entry *level_make_entry(KEYT key,KEYT end,KEYT pbn){
 	ent->pbn=pbn;
 	memset(ent->bitset,0,KEYNUM/8);
 	ent->t_table=NULL;
+	ent->iscompactioning=false;
 	return ent;
 }
 void level_free_entry(Entry *entry){
@@ -250,7 +252,8 @@ int level_range_find(level *input,KEYT start,KEYT end, Entry ***res){
 	temp=(Entry **)malloc(sizeof(Entry *)*input->m_num);
 	Entry *value;
 	while((value=level_get_next(level_iter))){
-		if(value->key >=start && value->key<=end)
+		if(value->iscompactioning) continue;
+		if(!(value->key >=end || value->end<=start))
 			temp[rev++]=value;
 	}
 	free(level_iter);

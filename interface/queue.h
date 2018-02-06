@@ -12,11 +12,8 @@ typedef struct queue{
 	int m_size;
 	node *head;
 	node *tail;
+	bool firstFlag;
 	pthread_mutex_t q_lock;
-#ifdef LEAKCHECK
-	pthread_mutex_t leak_lock;
-	bool islocking;
-#endif
 }queue;
 void q_init(queue**,int);
 bool q_enqueue(void*,queue*);
