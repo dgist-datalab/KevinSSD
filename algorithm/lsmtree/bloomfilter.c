@@ -7,7 +7,16 @@
 #else
 #define FORCE_INLINE inline
 #endif
-
+void BITSET(char *input, char offset){
+	char test=1;
+	test<<=offset;
+	(*input)|=test;
+}
+bool BITGET(char input, char offset){
+	char test=1;
+	test<<=offset;
+	return input&test;
+}
 static FORCE_INLINE uint32_t rotl32 ( uint32_t x, int8_t r )
 {
 	return (x << r) | (x >> (32 - r));

@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include "run_array.h"
 #include "skiplist.h"
+#include "bloomfilter.h"
 #include "../../interface/queue.h"
 #include "../../include/container.h"
 #include "../../include/settings.h"

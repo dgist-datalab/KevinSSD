@@ -6,7 +6,7 @@
 #include "../include/types.h"
 #include "../bench/bench.h"
 #include "interface.h"
-int main(){
+int main(){/*
 	int Input_cycle;
 	int Input_type;
 	int start;
@@ -53,8 +53,10 @@ int main(){
 	}
 
 	printf("benchmark setting done. starts now.\n");
+*/
 
-
+	bench_init(1);
+	bench_add(RANDRW,0,1024*300,1024*300);
 	inf_init();
 	bench_value *value;
 	while((value=get_bench())){

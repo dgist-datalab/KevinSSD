@@ -146,6 +146,10 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 	int o=temp_run->n_num;
 	Entry *temp_entry=ns_entry(temp_run,o);
 	level_entcpy(entry,(char*)temp_entry);
+#ifdef BLOOM
+	temp_entry->filter=entry->filter;
+	entry->filter=NULL;
+#endif
 	temp_run->n_num++;
 	input->n_num++;
 	return temp_run;
@@ -190,7 +194,9 @@ void level_print(level *input){
 		Node* temp_run=ns_run(input,i);
 		for(int j=0; j<temp_run->n_num; j++){
 			Entry *temp_ent=ns_entry(temp_run,j);
-			printf("Key: %d, End: %d, Pbn: %d\n",temp_ent->key,temp_ent->end,temp_ent->pbn);
+			if(!temp_ent->filter)
+				printf("no filter \n");
+//			printf("Key: %d, End: %d, Pbn: %d\n",temp_ent->key,temp_ent->end,temp_ent->pbn);
 		}
 	}
 }
@@ -222,7 +228,8 @@ Entry *level_make_entry(KEYT key,KEYT end,KEYT pbn){
 void level_free_entry(Entry *entry){
 	free(entry->t_table);
 #ifdef BLOOM
-	bf_free(entry->filter);
+	if(entry->filter)
+		bf_free(entry->filter);
 #endif
 	free(entry);
 }

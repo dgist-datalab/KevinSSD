@@ -4,6 +4,7 @@
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
 #include "lsmtree.h"
+#include "bloomfilter.h"
 
 struct htable;
 struct skiplis;
@@ -14,7 +15,7 @@ typedef struct Entry{
 	uint8_t bitset[KEYNUM/8];
 	uint64_t version;
 #ifdef BLOOM
-	BF *filter
+	BF *filter;
 #endif
 	struct htable *t_table;
 	bool iscompactioning;

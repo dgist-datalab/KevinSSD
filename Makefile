@@ -1,7 +1,7 @@
 CC=gcc
 
 TARGET_LOWER=posix
-TARGET_ALGO=page
+TARGET_ALGO=lsmtree
 PWD=$(pwd)
 
 CFLAGS +=\
@@ -48,7 +48,7 @@ debug_simulator: ./interface/main.c libsimulator_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ -lpthread
 
 simulator: ./interface/main.c libsimulator.a
-	$(CC) $(CFLAGS) -o $@ $^ -lpthread
+	$(CC) $(CFLAGS) -o $@ $^ -lpthread -lm
 
 duma_simulator: ./interface/main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ -lpthread -lduma

@@ -81,20 +81,19 @@ htable *compaction_data_write(skiplist *mem){
 	snode *target;
 	sk_iter* iter=skiplist_get_iterator(mem);
 	uint8_t *bitset=(uint8_t*)malloc(sizeof(uint8_t)*(KEYNUM/8));
+#ifdef BLOOM
+	BF *filter=bf_init(KEYNUM,LSM.disk[0]->fpr);
+	res->filter=filter;
+#endif
 	int idx=0;
 	while((target=skiplist_get_next(iter))){
 		res->sets[idx].lpa=target->key;
 		res->sets[idx].ppa=temp_ppa++;//set PPA
 		target->ppa=res->sets[idx].ppa;
-		/*
-		   algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
-		   lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-		   params->lsm_type=DATAW;
-		   params->value=target->value;
-		//		params->req=NULL;
-		areq->end_req=lsm_end_req;
-		areq->params=(void*)params;
-		 */
+
+#ifdef BLOOM
+		bf_set(filter,res->sets[idx].lpa);
+#endif
 		if(target->isvalid)
 			lsm_kv_validset(bitset,idx);
 		LSM.li->push_data(res->sets[idx].ppa,PAGESIZE,target->value,0,target->req,0);
@@ -152,7 +151,9 @@ void *compaction_main(void *input){
 			memcpy(entry->bitset,table->bitset,KEYNUM/8);
 			free(table->bitset);
 			entry->t_table=table;
-
+#ifdef BLOOM
+			entry->filter=table->filter;
+#endif
 			pthread_mutex_lock(&LSM.entrylock);
 			LSM.tempent=entry;
 			pthread_mutex_unlock(&LSM.entrylock);
@@ -217,6 +218,7 @@ htable *compaction_htable_convert(skiplist *input,float fpr){
 	uint8_t *bitset=(uint8_t*)malloc(sizeof(uint8_t)*(KEYNUM/8));
 #ifdef BLOOM
 	BF *filter=bf_init(KEYNUM,fpr);	
+	res->filter=filter;
 #endif
 	snode *snode_t; int idx=0;
 	while((snode_t=skiplist_get_next(iter))){
@@ -442,6 +444,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 	level *target_origin=LSM.disk[to];
 	level *target=(level *)malloc(sizeof(level));
 	level_init(target,target_origin->m_num, target_origin->isTiering);
+	target->fpr=target_origin->fpr;
 	level *src;
 	if(from==-1){
 		body=LSM.temptable;
@@ -473,6 +476,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 		}
 		else{
 			partial_leveling(target,target_origin,body,NULL);
+			level_print(target);
 			skiplist_free(body);
 			level_free_entry(entry);
 		}

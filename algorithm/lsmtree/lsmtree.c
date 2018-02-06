@@ -41,7 +41,7 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 #else
 		target_fpr=(float)RAF/LEVELN;
 #endif
-		LSM.disk[i].fpr=target_fpr;
+		LSM.disk[i]->fpr=target_fpr;
 #endif
 		LSM.level_addr[i]=(PTR)LSM.disk[i];
 	}

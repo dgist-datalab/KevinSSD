@@ -18,14 +18,5 @@ void bf_free(BF *);
 uint64_t bf_bits(int entry, float fpr);
 void bf_set(BF *,KEYT);
 bool bf_check(BF*,KEYT);
-inline void BITSET(char *input, char offset){
-	char test=1;
-	test<<=offset;
-	(*input)|=test;
-}
-inline bool BITGET(char input, char offset){
-	char test=1;
-	test<<=offset;
-	return input&test;
-}
+
 #endif

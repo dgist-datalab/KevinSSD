@@ -72,6 +72,10 @@ void inf_init(){
 	mp.li=&__posix;
 #endif
 
+#ifdef lsmtree
+	mp.algo=&algo_lsm;
+#endif
+
 #ifdef page
 	mp.algo=&algo_pbase;
 #endif
