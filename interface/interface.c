@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <string.h>
 extern struct lower_info __posix;
+extern struct algorithm __normal;
 extern struct algorithm algo_pbase;
 extern struct algorithm algo_lsm;
 
@@ -75,7 +76,9 @@ void inf_init(){
 #ifdef lsmtree
 	mp.algo=&algo_lsm;
 #endif
-
+#ifdef normal
+	mp.algo=&__normal;
+#endif
 #ifdef page
 	mp.algo=&algo_pbase;
 #endif

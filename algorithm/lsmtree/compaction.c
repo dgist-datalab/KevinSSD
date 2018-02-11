@@ -450,16 +450,17 @@ return 1;*/
 
 void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 #ifdef MONKEY
-	compaction_seq_MONKEY(src,headerSize,target);
-#else
+	if(src->m_num!=des->m_num){
+		compaction_seq_MONKEY(src,headerSize,des);
+	}
+#endif
 	for(int i=0; i<src->r_n_num; i++){
 		Node* temp_run=ns_run(src,i);
 		for(int j=0; j<temp_run->n_num; j++){
 			Entry *temp_ent=ns_entry(temp_run,j);
-			level_insert_seq(des,temp_ent);
+			level_insert_seq(des,temp_ent); //level insert seq deep copy in bf
 		}
 	}
-#endif
 }
 uint32_t leveling(int from, int to, Entry *entry){
 	//range find of targe lsm, 
@@ -576,10 +577,10 @@ uint32_t leveling(int from, int to, Entry *entry){
 #ifdef MONKEY
 void compaction_seq_MONKEY(level *t,int num,level *des){
 	htable *table;
+	Entry **target_s;
+	int headerSize=level_range_find(t,t->start,t->end,&target_s);
 	int target_round=headerSize/EPC+(headerSize%EPC ? 1:0);
 	int idx=0,pr_idx=0;
-	Entry **target_s;
-	level_range_find(t,t->start,t->end,&targets_s);
 	for(int round=0; round<target_round; round++){
 		table=(htable*)malloc(sizeof(htable)*EPC);
 		for(int j=0; j<EPC; j++){
@@ -588,14 +589,21 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 		}
 
 		epc_check=(round+1==target_round? idx%EPC:EPC);
-
+#ifdef CACHE
+		comp_target_get_cnt+=memcpy_cnt;
+	#ifdef MUTEXLOCK
+		if(epc_check==comp_target_get_cnt)
+			pthread_mutex_unlock(&compaction_wait);
+	#elif defined(SPINLOCK)
+	#endif
+#endif
 #ifdef MUTEXLOCK //for wait reading
 		pthread_mutex_lock(&compaction_wait);
 #elif defined (SPINLOCK)
 		while(comp_taget_get_cnt!=epc_check){}
 #endif
 
-		for(int k=0; k<epc_check; i++){
+		for(int k=0; k<epc_check; k++){
 			htable ttable=table[k];
 			BF* filter=bf_init(KEYNUM,des->fpr);
 			for(int q=0; q<KEYNUM; q++){

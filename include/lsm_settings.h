@@ -13,6 +13,7 @@
 #define EPC 20 //size factor have to be multiple of SIZEFACTOR
 
 #define BLOOM
+#define MONKEY
 #define ENTRYBIT 31//for tiering
 #define CACHE
 #define CACHESIZE (128*8*5)//1*128==1M
