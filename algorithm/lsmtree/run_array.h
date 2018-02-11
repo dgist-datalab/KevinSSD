@@ -3,6 +3,7 @@
 #include "../../include/container.h"
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
+#include "cache.h"
 #include "lsmtree.h"
 #include "bloomfilter.h"
 
@@ -16,6 +17,10 @@ typedef struct Entry{
 	uint64_t version;
 #ifdef BLOOM
 	BF *filter;
+#endif
+
+#ifdef CACHE
+	cache_entry *c_entry;
 #endif
 	struct htable *t_table;
 	bool iscompactioning;
@@ -66,6 +71,7 @@ int level_range_find(level *,KEYT start, KEYT end, Entry ***);//
 bool level_check_overlap(level*,KEYT start, KEYT end);//a
 bool level_full_check(level *);//
 Node *level_insert(level *,Entry*);//
+Node *level_insert_seq(level *, Entry *);
 Entry *level_get_next(Iter *);//
 Iter *level_get_Iter(level *);//
 void level_print(level *);//

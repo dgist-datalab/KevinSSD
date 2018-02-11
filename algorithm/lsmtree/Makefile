@@ -13,6 +13,7 @@ SRCS +=\
 	   bloomfilter.c\
 	   lsmtree.c\
 	   compaction.c\
+cache.c\
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\
@@ -35,7 +36,7 @@ TARGETMOBJ:=\
 	$(addprefix ../../object/,$(MOBJS))\
 
 
-all:$(TARGETOBJ)
+all:set_check $(TARGETOBJ)
 
 DEBUG: $(TARGETDOBJ)
 
@@ -43,6 +44,9 @@ LEAK: $(TARGETMOBJ)
 
 liblsm.a : $(TARGETOBJ)
 	$(AR) r $(@) $(TARGETOBJ)
+
+set_check:../../include/lsm_settings.h
+	make test_clean
 
 .c.o :
 	$(CC) $(CFLAGS) -c $< -o $@

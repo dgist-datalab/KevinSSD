@@ -39,6 +39,7 @@ uint32_t posix_create(lower_info *li){
 		exit(-1);
 	}
 	pthread_mutex_init(&fd_lock,NULL);
+	pthread_mutex_init(&__posix.lower_lock,NULL);
 	measure_init(&li->writeTime);
 	measure_init(&li->readTime);
 }

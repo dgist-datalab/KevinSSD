@@ -4,6 +4,10 @@
 #include<stdlib.h>
 #include<limits.h>
 #include<string.h>
+#ifdef CACHE
+extern lsmtree LSM;
+#endif
+void level_free_entry_inside(Entry *);
 Node *ns_run(level*input ,int n){
 	if(n>input->r_num) return NULL;
 	return (Node*)&input->body[input->r_size*n];
@@ -26,7 +30,8 @@ Entry *level_entcpy(Entry *src, char *des){
 }
 
 bool level_full_check(level *input){
-	return input->n_num==input->m_num;
+	int number=input->m_num/10;
+	return input->n_num+number+1>=input->m_num;
 }
 
 Entry *level_entry_copy(Entry *input){
@@ -79,11 +84,15 @@ level *level_init(level *input,int all_entry,bool isTiering){
 }
 
 Entry **level_find(level *input,KEYT key){
+	if(input->n_num==0)
+		return NULL;
 	Entry **res=(Entry**)malloc(sizeof(Entry*)*(input->r_n_num+1));
 	bool check=false;
 	int cnt=0;
 	for(int i=0; i<input->r_num; i++){
 		Node *run=ns_run(input,i);
+		if(!run)
+			break;
 		Entry *temp=level_find_fromR(run,key);
 		if(temp){
 			res[cnt++]=temp;
@@ -108,6 +117,9 @@ Entry *level_find_fromR(Node *run, KEYT key){
 		if(mid_e==NULL) break;
 		if(mid_e->key <=key && mid_e->end>=key){
 #ifdef BLOOM
+			if(!mid_e->filter){
+				printf("??\n");
+			}
 			if(!bf_check(mid_e->filter,key)){
 				return NULL;
 			}
@@ -126,14 +138,58 @@ Entry *level_find_fromR(Node *run, KEYT key){
 	}
 	return NULL;
 }
+Node *level_insert_seq(level *input, Entry *entry){
+	if(input->start>entry->key)
+		input->start=entry->key;
+	if(input->end<entry->end)
+		input->end=entry->end;
 
+	if(input->n_num==input->m_num){ 
+		printf("level full!!\n");
+		level_print(input);
+		exit(1);
+		return NULL;
+	}
+	int r=input->n_num/input->entry_p_run;
+	if(input->r_n_num==r)
+		input->r_n_num++;
+	Node *temp_run=ns_run(input,r);//active run
+	if(temp_run->start>entry->key)
+		temp_run->start=entry->key;
+	if(temp_run->end<entry->key)
+		temp_run->end=entry->key;
+
+	int o=temp_run->n_num;
+	Entry *temp_entry=ns_entry(temp_run,o);
+	level_entcpy(entry,(char*)temp_entry);
+#ifdef BLOOM
+	temp_entry->filter=bf_cpy(entry->filter);
+#endif
+#ifdef CACHE
+	if(entry->c_entry){
+		temp_entry->t_table=entry->t_table;
+		temp_entry->c_entry=entry->c_entry;
+		temp_entry->c_entry->entry=temp_entry;
+		entry->t_table=NULL;
+		entry->c_entry=NULL;
+	}
+#endif
+	temp_run->n_num++;
+	input->n_num++;
+	return temp_run;
+}
 Node *level_insert(level *input,Entry *entry){//always sequential
 	if(input->start>entry->key)
 		input->start=entry->key;
 	if(input->end<entry->end)
 		input->end=entry->end;
 
-	if(input->n_num==input->m_num) return NULL;
+	if(input->n_num==input->m_num){ 
+		printf("level full!!\n");
+		level_print(input);
+		exit(1);
+		return NULL;
+	}
 	int r=input->n_num/input->entry_p_run;
 	if(input->r_n_num==r)
 		input->r_n_num++;
@@ -149,6 +205,15 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 #ifdef BLOOM
 	temp_entry->filter=entry->filter;
 	entry->filter=NULL;
+#endif
+#ifdef CACHE
+	if(entry->c_entry){
+		temp_entry->t_table=entry->t_table;
+		temp_entry->c_entry=entry->c_entry;
+		temp_entry->c_entry->entry=temp_entry;
+		entry->t_table=NULL;
+		entry->c_entry=NULL;
+	}
 #endif
 	temp_run->n_num++;
 	input->n_num++;
@@ -196,12 +261,19 @@ void level_print(level *input){
 			Entry *temp_ent=ns_entry(temp_run,j);
 			if(!temp_ent->filter)
 				printf("no filter \n");
-//			printf("Key: %d, End: %d, Pbn: %d\n",temp_ent->key,temp_ent->end,temp_ent->pbn);
+			printf("[%d]Key: %d, End: %d, Pbn: %d\n",j,temp_ent->key,temp_ent->end,temp_ent->pbn);
 		}
 	}
 }
 void level_free(level *input){
-	free(input->body);	
+	for(int i=0; i<input->r_n_num; i++){
+		Node *temp_run=ns_run(input,i);
+		for(int j=0; j<temp_run->n_num; j++){
+			Entry *temp_ent=ns_entry(temp_run,j);
+			level_free_entry_inside(temp_ent);
+		}
+	}
+	free(input->body);
 	free(input);
 }
 level *level_clear(level *input){
@@ -223,16 +295,37 @@ Entry *level_make_entry(KEYT key,KEYT end,KEYT pbn){
 	memset(ent->bitset,0,KEYNUM/8);
 	ent->t_table=NULL;
 	ent->iscompactioning=false;
+#ifdef CACHE
+	ent->c_entry=NULL;
+#endif
 	return ent;
 }
 void level_free_entry(Entry *entry){
-	free(entry->t_table);
 #ifdef BLOOM
 	if(entry->filter)
 		bf_free(entry->filter);
 #endif
+#ifdef CACHE
+	if(entry->c_entry){
+		cache_delete_entry_only(LSM.lsm_cache,entry);
+	}
+#endif
+	free(entry->t_table);
 	free(entry);
 }
+void level_free_entry_inside(Entry * entry){
+#ifdef BLOOM
+	if(entry->filter)
+		bf_free(entry->filter);
+#endif
+#ifdef CACHE
+	if(entry->c_entry){
+		cache_delete_entry_only(LSM.lsm_cache,entry);
+	}
+#endif
+	free(entry->t_table);
+}
+
 bool level_check_overlap(level *input ,KEYT start, KEYT end){
 	if(input->start>end){
 		return false;

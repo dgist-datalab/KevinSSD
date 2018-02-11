@@ -56,7 +56,9 @@ int main(){/*
 */
 
 	bench_init(1);
-	bench_add(RANDRW,0,1024*300,1024*300);
+	bench_add(RANDRW,0,14*1024,14*1024);
+//	bench_add(RANDSET,0,15*1024,15*1024);
+//	bench_add(RANDGET,0,15*1024,15*1024);
 	inf_init();
 	bench_value *value;
 	while((value=get_bench())){

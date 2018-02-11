@@ -6,7 +6,7 @@
 
 #define SIZEFACTOR 10 
 #define RAF 1
-#define LEVELN 7
+#define LEVELN 5
 #define KEYNUM 1024
 #define CTHREAD 1
 #define CQSIZE 2
@@ -14,6 +14,8 @@
 
 #define BLOOM
 #define ENTRYBIT 31//for tiering
+#define CACHE
+#define CACHESIZE (128*8*5)//1*128==1M
 
 //#define SPINLOCK
 #define MUTEXLOCK

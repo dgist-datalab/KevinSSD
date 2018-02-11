@@ -19,6 +19,7 @@ void measure_start(MeasureTime *m){
 	linktime *new_val=(linktime*)malloc(sizeof(linktime));
 	if(m->header==NULL){
 		m->header=new_val;
+		m->header->next=NULL;
 	}
 	else{
 		new_val->next=m->header;

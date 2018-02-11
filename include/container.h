@@ -54,6 +54,7 @@ struct lower_info {
 	void*(*pull_data)(int num, ...);
 	*/
 	lower_status (*statusOfblock)(BLOCKT);
+	pthread_mutex_t lower_lock;
 	
 	uint64_t write_op;
 	uint64_t read_op;

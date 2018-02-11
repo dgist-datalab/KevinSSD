@@ -17,6 +17,7 @@ BF* bf_init(int entry,float fpr);
 void bf_free(BF *);
 uint64_t bf_bits(int entry, float fpr);
 void bf_set(BF *,KEYT);
+BF* bf_cpy(BF *src);
 bool bf_check(BF*,KEYT);
 
 #endif

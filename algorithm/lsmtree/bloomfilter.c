@@ -125,6 +125,15 @@ BF* bf_init(int entry, float fpr){
 	return res;
 }
 
+BF* bf_cpy(BF *src){
+	BF* res=(BF*)malloc(sizeof(BF));
+	memcpy(res,src,sizeof(BF));
+
+	res->body=(char *)malloc(res->targetsize);
+	memcpy(res->body,src->body,res->targetsize);
+	return res;
+}
+
 uint64_t bf_bits(int entry, float fpr){
 	uint64_t n=entry;
 	uint64_t m=ceil((n * log(fpr)) / log(1.0 / (pow(2.0, log(2.0)))));
