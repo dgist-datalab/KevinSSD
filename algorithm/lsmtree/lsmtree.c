@@ -60,21 +60,21 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 }
 
 void lsm_destroy(lower_info *li, algorithm *lsm){
-#ifdef CACHE
-	cache_free(LSM.lsm_cache);
-#endif
 	compaction_free();
 	for(int i=0; i<LEVELN; i++){
 		level_free(LSM.disk[i]);
 	}
+#ifdef CACHE
+	cache_free(LSM.lsm_cache);
+#endif
 	skiplist_free(LSM.memtable);
 	if(LSM.temptable)
 		skiplist_free(LSM.temptable);
 }
 
-extern pthread_mutex_t compaction_wait;
-extern int epc_check;KEYT memcpy_cnt;
-int comp_target_get_cnt=0;
+extern pthread_mutex_t compaction_wait,gc_wait;
+extern int epc_check,gc_read_wait;KEYT memcpy_cnt;
+int comp_target_get_cnt=0,gc_target_cnt;
 void* lsm_end_req(algo_req* const req){
 	lsm_params *params=(lsm_params*)req->params;
 	request* parents=req->parents;
@@ -124,6 +124,22 @@ void* lsm_end_req(algo_req* const req){
 #else	
 			free(params->value);
 #endif
+			break;
+		case GCR:
+			gc_target_get_cnt++;
+			if(gc_read_wait==gc_target_get_cnt){
+#ifdef MUTEXLOCK
+				pthread_mutex_unlock(&gc_wait);
+#elif defined(SPINLOCK)
+
+#endif
+				gc_target_get_cnt=0;
+			}
+			free(params);
+			break;
+		case GCW:
+			free(params->value);
+			free(params);
 			break;
 		case DATAR:
 			pthread_mutex_destroy(&params->lock);
@@ -322,7 +338,7 @@ uint32_t __lsm_get(request *const req){
 				continue;
 			}
 #endif
-			printf("header read!\n");
+			//printf("header read!\n");
 			LSM.li->pull_data(entry->pbn,PAGESIZE,req->value,0,lsm_req,0);
 			if(!req->isAsync){
 				pthread_mutex_lock(&params->lock); // wait until read table data;

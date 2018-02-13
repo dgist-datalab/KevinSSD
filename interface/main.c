@@ -56,7 +56,7 @@ int main(){/*
 */
 
 	bench_init(1);
-	bench_add(SEQSET,0,14*1024,14*1024);
+	bench_add(RANDRW,0,30*1024,30*1024);
 //	bench_add(RANDSET,0,15*1024,15*1024);
 //	bench_add(RANDGET,0,15*1024,15*1024);
 	inf_init();

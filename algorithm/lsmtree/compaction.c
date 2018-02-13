@@ -270,6 +270,7 @@ void compaction_subprocessing_CMI(skiplist * target,level * t,bool final,KEYT li
 		table=compaction_htable_convert(write_t,t->fpr);
 		res=level_make_entry(table->sets[0].lpa,table->sets[end_idx-1].lpa,ppa);
 		memcpy(res->bitset,table->bitset,KEYNUM/8);
+		free(table->bitset);
 		res->pbn=compaction_htable_write(table);
 #ifdef BLOOM
 		res->filter=table->filter;
@@ -452,6 +453,7 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 #ifdef MONKEY
 	if(src->m_num!=des->m_num){
 		compaction_seq_MONKEY(src,headerSize,des);
+		return;
 	}
 #endif
 	for(int i=0; i<src->r_n_num; i++){
@@ -478,7 +480,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 #ifdef DEBUG
 #endif
 		if(!level_check_overlap(target_origin,body->start,body->end)){
-			//printf("-1 1 .... ttt\n");
+	//		printf("-1 1 .... ttt\n");
 			skiplist_free(body);
 			bool target_processed=false;
 			if(entry->key > target_origin->end){
@@ -491,18 +493,17 @@ uint32_t leveling(int from, int to, Entry *entry){
 			//cache must be inserted befor level insert
 			cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
 			entry->c_entry=c_entry;
+#else
+			entry->t_table=NULL;
 #endif
+			
 			level_insert(target,entry);
 
 			pthread_mutex_lock(&LSM.entrylock);
 			LSM.tempent=NULL;
 			pthread_mutex_unlock(&LSM.entrylock);
-#ifdef CACHE
-			level_free_entry(entry);
-#else
-			entry->t_table=NULL;
-#endif
 
+			level_free_entry(entry);
 			if(!target_processed){
 				compaction_lev_seq_processing(target_origin,target,target_origin->n_num);
 			}
@@ -519,7 +520,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 	}else{
 		src=LSM.disk[from];
 		if(!level_check_overlap(target_origin,src->start,src->end)){//if seq
-			//printf("1 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from,src->n_num);
+		//	printf("1 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from,src->n_num);
 			bool target_processed=false;
 			if(target_origin->start>src->end){
 				target_processed=true;
@@ -555,7 +556,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 	}
 
 	level *temp;
-
+	//printf("leveling_ free \n");
 	if(from!=-1){ 
 		temp=src;
 		pthread_mutex_lock(&((temp)->level_lock));
@@ -583,12 +584,25 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 	int idx=0,pr_idx=0;
 	for(int round=0; round<target_round; round++){
 		table=(htable*)malloc(sizeof(htable)*EPC);
+		epc_check=(round+1==target_round? (headerSize)%EPC:EPC);
+
 		for(int j=0; j<EPC; j++){
-			compaction_htable_read(target_s[idx++],(V_PTR)&table[j]);
+#ifdef CACHE
+			if(target_s[idx]->c_entry){
+				memcpy(&table[j],target_s[idx]->t_table,sizeof(htable));
+				memcpy_cnt++;
+			}
+			else{
+#endif
+				compaction_htable_read(target_s[idx],(V_PTR)&table[j]);
+#ifdef CACHE
+			}
+#endif
+			idx++;
 			if(target_s[idx]==NULL) break;
+
 		}
 
-		epc_check=(round+1==target_round? idx%EPC:EPC);
 #ifdef CACHE
 		comp_target_get_cnt+=memcpy_cnt;
 	#ifdef MUTEXLOCK
@@ -597,7 +611,7 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 	#elif defined(SPINLOCK)
 	#endif
 #endif
-#ifdef MUTEXLOCK //for wait reading
+#ifdef MUTEXLOCK //for waitreading
 		pthread_mutex_lock(&compaction_wait);
 #elif defined (SPINLOCK)
 		while(comp_taget_get_cnt!=epc_check){}
@@ -613,9 +627,14 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 			new_ent->filter=filter;
 			pr_idx++;
 			level_insert(des,new_ent);
+			level_free_entry(new_ent);
 		}
 		//per round
 		free(table);
+		comp_target_get_cnt=0;
+#ifdef CACHE
+		memcpy_cnt=0;
+#endif
 	}
 	free(target_s);
 }

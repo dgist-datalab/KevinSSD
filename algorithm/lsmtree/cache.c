@@ -150,6 +150,7 @@ void cache_free(cache *c){
 	Entry *tmp_ent;
 	while((tmp_ent=cache_get(c))){
 		free(tmp_ent->c_entry);
+		tmp_ent->c_entry=NULL;
 		c->n_size--;
 	}
 	free(c);

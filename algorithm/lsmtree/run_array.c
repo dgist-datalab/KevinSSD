@@ -39,8 +39,19 @@ Entry *level_entry_copy(Entry *input){
 	res->key=input->key;
 	res->end=input->end;
 	res->pbn=input->pbn;
-
+#ifdef CACHE
+	if(input->c_entry){
+		res->t_table=input->t_table;
+		res->c_entry=input->c_entry;
+		res->c_entry->entry=res;
+		input->t_table=NULL;
+		input->c_entry=NULL;
+	}
+#else
+		res->t_table=NULL;
+#endif
 	memcpy(res->bitset,input->bitset,sizeof(res->bitset));
+	res->iscompactioning=false;
 	res->version=input->version;
 	return res;
 }

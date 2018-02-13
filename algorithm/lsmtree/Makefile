@@ -13,6 +13,7 @@ SRCS +=\
 	   bloomfilter.c\
 	   lsmtree.c\
 	   compaction.c\
+	   pageQ.c\
 cache.c\
 
 OBJS :=\
