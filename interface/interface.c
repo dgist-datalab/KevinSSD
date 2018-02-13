@@ -9,7 +9,9 @@
 extern struct lower_info __posix;
 extern struct algorithm __normal;
 extern struct algorithm algo_pbase;
+#ifdef lsmtree
 extern struct algorithm algo_lsm;
+#endif
 
 master_processor mp;
 void *p_main(void*);
