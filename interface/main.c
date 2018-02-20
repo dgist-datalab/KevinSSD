@@ -55,11 +55,11 @@ int main(){/*
 	printf("benchmark setting done. starts now.\n");
 */
 
+	inf_init();
 	bench_init(1);
-	bench_add(RANDRW,0,30*1024,30*1024);
+	bench_add(RANDRW,0,256*1024,256*1024);
 //	bench_add(RANDSET,0,15*1024,15*1024);
 //	bench_add(RANDGET,0,15*1024,15*1024);
-	inf_init();
 	bench_value *value;
 	while((value=get_bench())){
 		char *data=(char*)malloc(PAGESIZE);
@@ -75,8 +75,8 @@ int main(){/*
 		sleep(1);
 #endif
 	}
-	inf_free();
 	bench_print();
 	bench_free();
+	inf_free();
 	return 0;
 }

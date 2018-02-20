@@ -8,6 +8,7 @@
 #include "compaction.h"
 #include "run_array.h"
 #include "lsmtree.h"
+#include "page.h"
 #include<stdio.h>
 #ifdef DEBUG
 #endif
@@ -52,11 +53,12 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	//compactor start
 	compaction_init();
 	q_init(&LSM.re_q,CQSIZE);
-
 #ifdef CACHE
 	LSM.lsm_cache=cache_init();
 #endif
 	LSM.li=li;
+	algo_lsm.li=li;
+	pm_init();
 }
 
 void lsm_destroy(lower_info *li, algorithm *lsm){
@@ -74,7 +76,7 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 
 extern pthread_mutex_t compaction_wait,gc_wait;
 extern int epc_check,gc_read_wait;KEYT memcpy_cnt;
-int comp_target_get_cnt=0,gc_target_cnt;
+int comp_target_get_cnt=0,gc_target_get_cnt;
 void* lsm_end_req(algo_req* const req){
 	lsm_params *params=(lsm_params*)req->params;
 	request* parents=req->parents;
@@ -133,13 +135,10 @@ void* lsm_end_req(algo_req* const req){
 #elif defined(SPINLOCK)
 
 #endif
-				gc_target_get_cnt=0;
 			}
-			free(params);
 			break;
 		case GCW:
 			free(params->value);
-			free(params);
 			break;
 		case DATAR:
 			pthread_mutex_destroy(&params->lock);
@@ -189,9 +188,17 @@ uint32_t lsm_set(request * const req){
 	return 1;
 }
 extern bool compaction_idle;
+int nor;
 uint32_t lsm_get(request *const req){
 	void *re_q;
 	static bool temp=false;
+	static bool ccc=false;
+	nor++;
+	if(!ccc){
+		ccc=true;
+		printf("lsm_get-\n");
+		level_all_print();
+	}
 	if((re_q=q_dequeue(LSM.re_q))){
 		request *tmp_req=(request*)re_q;
 
@@ -211,6 +218,7 @@ uint32_t lsm_get(request *const req){
 	bench_algo_start(req);
 	int res=__lsm_get(req);
 	if(res==3){
+		printf("seq: %d, key:%u\n",nor,req->key);
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
 	}

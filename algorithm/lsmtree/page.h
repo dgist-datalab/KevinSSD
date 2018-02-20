@@ -5,31 +5,29 @@
 #include <pthread.h>
 typedef struct{
 	uint8_t bitset[_PPB/8];
-	bool erased;
 	KEYT ppa;
 	uint32_t invalid_n;
 }block;
 
-typedef struct{
+typedef struct page_manager{
 	block **blocks;
 	block *rblock;
 	pageQ *ppa;
 	pageQ *r_ppa;
-	pthread_t manager_lock;
+	pthread_mutex_t manager_lock;
 
 	KEYT block_n;
 	bool isdata;
-}page_manager;
+}pm;
 
 
-typedef struct page_manager pm;
 
 void block_init();
 void pm_init();
 KEYT getHPPA(KEYT);
 KEYT getDPPA(KEYT);
 void invalidate_PPA(KEYT ppa);
-block* get_victim_block();
+int get_victim_block();
 int gc_header();
 int gc_data();
 #endif

@@ -4,9 +4,7 @@
 #include<stdlib.h>
 #include<limits.h>
 #include<string.h>
-#ifdef CACHE
 extern lsmtree LSM;
-#endif
 void level_free_entry_inside(Entry *);
 Node *ns_run(level*input ,int n){
 	if(n>input->r_num) return NULL;
@@ -185,11 +183,12 @@ Node *level_insert_seq(level *input, Entry *entry){
 		entry->c_entry=NULL;
 	}
 #endif
+	temp_entry->iscompactioning=false;
 	temp_run->n_num++;
 	input->n_num++;
 	return temp_run;
 }
-Node *level_insert(level *input,Entry *entry){//always sequential
+Node *level_insert(level *input,Entry *entry){//always sequential	
 	if(input->start>entry->key)
 		input->start=entry->key;
 	if(input->end<entry->end)
@@ -226,6 +225,7 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 		entry->c_entry=NULL;
 	}
 #endif
+	temp_entry->iscompactioning=false;
 	temp_run->n_num++;
 	input->n_num++;
 	return temp_run;
@@ -265,14 +265,35 @@ Iter *level_get_Iter(level *input){
 	res->flag=true;
 	return res;
 }
+void level_all_print(){
+	for(int i=0; i<LEVELN; i++){
+		level_print(LSM.disk[i]);
+		printf("------\n");
+	}
+}
 void level_print(level *input){
+	int test1=0,test2;
 	for(int i=0; i<input->r_n_num; i++){
 		Node* temp_run=ns_run(input,i);
 		for(int j=0; j<temp_run->n_num; j++){
 			Entry *temp_ent=ns_entry(temp_run,j);
+#ifdef BLOOM
 			if(!temp_ent->filter)
 				printf("no filter \n");
-			printf("[%d]Key: %d, End: %d, Pbn: %d\n",j,temp_ent->key,temp_ent->end,temp_ent->pbn);
+#endif
+			test2=temp_ent->pbn;
+			printf("[%d]Key: %d, End: %d, Pbn: %d iscompt: %d\n",j,temp_ent->key,temp_ent->end,temp_ent->pbn,temp_ent->iscompactioning);
+			if(temp_ent->iscompactioning)
+				continue;
+			if(test1==0){
+				test1=test2;
+			}
+			else{
+				if((test1%256)+1!= test2%256){
+					printf("here\n");
+				}
+				test1=test2;
+			}
 		}
 	}
 }
@@ -356,16 +377,18 @@ level *level_copy(level *input){
 	return res;
 }
 
-int level_range_find(level *input,KEYT start,KEYT end, Entry ***res){
+int level_range_find(level *input,KEYT start,KEYT end, Entry ***res, bool compactioning){
 	Iter *level_iter=level_get_Iter(input);
 	int rev=0;
 	Entry **temp;
 	temp=(Entry **)malloc(sizeof(Entry *)*input->m_num);
 	Entry *value;
 	while((value=level_get_next(level_iter))){
-		if(value->iscompactioning) continue;
-		if(!(value->key >=end || value->end<=start))
+		if(value->iscompactioning==2) continue;
+		if(!(value->key >=end || value->end<=start)){
 			temp[rev++]=value;
+			if(compactioning) value->iscompactioning=true;
+		}
 	}
 	free(level_iter);
 	temp[rev]=NULL;

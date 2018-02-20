@@ -5,6 +5,7 @@
 #include<unistd.h>
 #include<sys/types.h>
 #include"skiplist.h"
+#include"page.h"
 
 skiplist *skiplist_init(){
 	skiplist *point=(skiplist*)malloc(sizeof(skiplist));
@@ -58,7 +59,7 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
 
 	if(key==x->key){
 		x->key=key;
-		//delete exists x->ppa;
+		invalidate_PPA(x->ppa);
 		x->ppa=ppa;
 		x->isvalid=deletef;
 		return x;
@@ -105,6 +106,7 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef
 
 	if(key==x->key){
 		//delete exists ppa; input ppa
+		invalidate_PPA(ppa);
 		return x;
 	}
 	else{
@@ -177,6 +179,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,V_PTR value, algo_req *req,bool d
 		x->key=key;
 		x->req=req;
 		x->isvalid=deletef;
+		x->ppa=UINT_MAX;
 		if(value !=NULL){
 			//x->value=(char *)malloc(VALUESIZE);
 			//memcpy(x->value,value,VALUESIZE);
