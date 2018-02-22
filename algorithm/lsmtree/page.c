@@ -29,8 +29,10 @@ void block_free_ppa(pm *m, block* b){
 	KEYT start=b->ppa;
 	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
 		oob[start+i]=0;
-		pq_enqueue(start+1,m->ppa);
+		pq_enqueue(start+i,m->ppa);
 	}
+	memset(b,0,sizeof(block));
+	b->ppa=start;
 }
 void block_init(){
 	memset(bl,0,sizeof(bl));
@@ -181,8 +183,8 @@ extern int gc_target_get_cnt;
 int gc_header(){
 	static int gc_cnt=0;
 	gc_cnt++;
-	printf("%d start\n",gc_cnt);
-	level_all_print();
+	printf("gc_header start\n");
+	//level_all_print();
 	//level_print(LSM.c_level);
 	int __idx=get_victim_block(&header_m);
 	pthread_mutex_lock(&gc_wait);
@@ -194,6 +196,7 @@ int gc_header(){
 	if(target->invalid_n==algo_lsm.li->PPB){
 		algo_lsm.li->trim_block(target->ppa,0);
 		block_free_ppa(&header_m,target);
+		pthread_mutex_unlock(&gc_wait);
 		return 1;
 	}
 
@@ -269,19 +272,18 @@ int gc_header(){
 		KEYT n_ppa=getRPPA(&header_m,lpa);
 		test=target_ent[i];
 		table=tables[i];
-		table->sets[0].ppa=n_ppa;
 		test->pbn=n_ppa;
-		gc_data_write(n_ppa,(V_PTR)table);
+		gc_data_write(n_ppa,(V_PTR)table->sets);
 	}
-	printf("gc_header\n");
-	level_all_print();
+	//printf("gc_header\n");
+	//level_all_print();
 	free(tables);
 	free(target_ent);
 	algo_lsm.li->trim_block(target->ppa,0);
 	reserve_block_change(&header_m,target,__idx);
 	pthread_mutex_unlock(&gc_wait);
 	//level_print(LSM.c_level);
-	printf("end\n");
+	//printf("end\n");
 	return 1;
 }
 
@@ -333,6 +335,7 @@ void gc_data_header_update(KEYT d_ppa, KEYT d_lpa, KEYT n_ppa){
 	// if bulk updated needed, we can change function
 }
 int gc_data(){
+	printf("gc_data start\n");
 	int __idx=get_victim_block(&data_m);
 	if(__idx==-1)
 		return 0;

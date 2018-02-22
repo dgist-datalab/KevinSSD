@@ -90,9 +90,6 @@ void* lsm_end_req(algo_req* const req){
 			if(!parents){
 
 				comp_target_get_cnt++;
-#ifdef CACHE
-				comp_target_get_cnt+=memcpy_cnt;
-#endif
 				if(epc_check==comp_target_get_cnt){
 #ifdef MUTEXLOCK
 					pthread_mutex_unlock(&compaction_wait);
@@ -192,11 +189,9 @@ int nor;
 uint32_t lsm_get(request *const req){
 	void *re_q;
 	static bool temp=false;
-	static bool ccc=false;
-	nor++;
-	if(!ccc){
-		ccc=true;
-		printf("lsm_get-\n");
+	static bool level_show=false;
+	if(!level_show){
+		level_show=true;
 		level_all_print();
 	}
 	if((re_q=q_dequeue(LSM.re_q))){

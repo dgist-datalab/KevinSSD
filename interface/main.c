@@ -57,7 +57,9 @@ int main(){/*
 
 	inf_init();
 	bench_init(1);
-	bench_add(RANDRW,0,256*1024,256*1024);
+	char t_value[PAGESIZE];
+	memset(t_value,'x',PAGESIZE);
+	bench_add(RANDRW,0,128*1024*20,128*1024*20);
 //	bench_add(RANDSET,0,15*1024,15*1024);
 //	bench_add(RANDGET,0,15*1024,15*1024);
 	bench_value *value;
@@ -65,7 +67,7 @@ int main(){/*
 		char *data=(char*)malloc(PAGESIZE);
 		memset(data,0,PAGESIZE);
 		if(value->type==FS_SET_T){
-			memcpy(data,&value->key,sizeof(value->key));
+			memcpy(data,t_value,PAGESIZE);
 		}
 		inf_make_req(value->type,value->key,data,value->mark);
 	}

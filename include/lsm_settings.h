@@ -12,14 +12,14 @@
 #define CQSIZE 2
 #define EPC 20 //size factor have to be multiple of SIZEFACTOR
 
-#define HEADERB 2
+#define HEADERB 30
 #define ONETHREAD
 //#define NOGC
-//#define BLOOM
-//#define MONKEY
+#define BLOOM
+#define MONKEY
 #define ENTRYBIT 31//for tiering
-//#define CACHE
-//#define CACHESIZE (128*8*5)//1*128==1M
+#define CACHE
+#define CACHESIZE (128*8*5)//1*128==1M
 
 //#define SPINLOCK
 #define MUTEXLOCK

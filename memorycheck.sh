@@ -5,7 +5,7 @@ if [ "$1" = "n" ] ;then
 	valgrind --leak-check=full ./simulator_memory_check  2>log 1> /dev/null &
 elif [ "$1" = "b" ]; then
 	echo "nohup no show test"
-	nohup valgrind --leak-check=full ./simulator_memory_check 2>log 1> /dev/null &
+	nohup valgrind --leak-check=full ./simulator_memory_check 2>log 1> ttt &
 else
 	echo "show test"
 	valgrind --leak-check=full ./simulator_memory_check  2>log 

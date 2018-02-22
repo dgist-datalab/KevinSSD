@@ -15,7 +15,7 @@ SRCS +=\
 	   compaction.c\
 	   page.c\
 	   pageQ.c\
-#cache.c\
+cache.c\
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\

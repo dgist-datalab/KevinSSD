@@ -323,7 +323,6 @@ skiplist *skiplist_cut(skiplist *list, int num,KEYT limit){
 		temp=skiplist_pop(list);
 		temp->value=NULL;
 		if(temp==NULL) return NULL;
-
 		if(temp->key>=limit){
 			snode *temp_header=res->header->list[1];
 			snode *temp_s;
@@ -349,6 +348,15 @@ skiplist *skiplist_cut(skiplist *list, int num,KEYT limit){
 		h=temp;
 	}
 	res->size=num;
+	//error check
+	/*
+	sk_iter* iter=skiplist_get_iterator(res);
+	snode *node;
+	while((node=skiplist_get_next(iter))){
+		if(node->ppa<512){
+			printf("here!\n");
+		}
+	}*/
 	return res;
 }
 /*

@@ -126,9 +126,6 @@ Entry *level_find_fromR(Node *run, KEYT key){
 		if(mid_e==NULL) break;
 		if(mid_e->key <=key && mid_e->end>=key){
 #ifdef BLOOM
-			if(!mid_e->filter){
-				printf("??\n");
-			}
 			if(!bf_check(mid_e->filter,key)){
 				return NULL;
 			}
@@ -289,9 +286,6 @@ void level_print(level *input){
 				test1=test2;
 			}
 			else{
-				if((test1%256)+1!= test2%256){
-					printf("here\n");
-				}
 				test1=test2;
 			}
 		}
@@ -384,7 +378,7 @@ int level_range_find(level *input,KEYT start,KEYT end, Entry ***res, bool compac
 	temp=(Entry **)malloc(sizeof(Entry *)*input->m_num);
 	Entry *value;
 	while((value=level_get_next(level_iter))){
-		if(value->iscompactioning==2) continue;
+		if(value->iscompactioning==1) continue;
 		if(!(value->key >=end || value->end<=start)){
 			temp[rev++]=value;
 			if(compactioning) value->iscompactioning=true;
