@@ -194,8 +194,8 @@ extern int gc_target_get_cnt;
 int gc_header(){
 	static int gc_cnt=0;
 	gc_cnt++;
-	printf("[%d]gc_header start\n",gc_cnt);
-	level_all_print();
+	//printf("[%d]gc_header start\n",gc_cnt);
+	//level_all_print();
 	//level_print(LSM.c_level);
 	int __idx=get_victim_block(&header_m);
 	if(__idx==-1){
@@ -382,9 +382,9 @@ void gc_data_header_update(KEYT d_ppa, KEYT d_lpa, KEYT n_ppa){
 }
 int gc_data_cnt;
 int gc_data(){
-	gc_data_cnt++;
-	printf("[%d]gc_data start\n",gc_data_cnt);
-	level_all_print();
+	//gc_data_cnt++;
+	//printf("[%d]gc_data start\n",gc_data_cnt);
+	//level_all_print();
 	int __idx=get_victim_block(&data_m);
 	if(__idx==-1)
 		return 0;
