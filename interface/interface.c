@@ -138,7 +138,10 @@ bool inf_make_req_Async(void *ureq, void *(*end_req)(void*)){
 
 //static int end_req_num=0;
 bool inf_end_req( request * const req){
+#ifdef SNU_TEST
+#else
 	bench_reap_data(req,mp.li);
+#endif
 #ifdef DEBUG
 	printf("inf_end_req!\n");
 #endif

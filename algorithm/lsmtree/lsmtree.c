@@ -194,6 +194,7 @@ uint32_t lsm_get(request *const req){
 		level_show=true;
 		level_all_print();
 	}
+	//printf("seq: %d, key:%u\n",nor++,req->key);
 	if((re_q=q_dequeue(LSM.re_q))){
 		request *tmp_req=(request*)re_q;
 
@@ -213,7 +214,7 @@ uint32_t lsm_get(request *const req){
 	bench_algo_start(req);
 	int res=__lsm_get(req);
 	if(res==3){
-		printf("seq: %d, key:%u\n",nor,req->key);
+		printf("seq: %d, key:%u\n",nor++,req->key);
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
 	}

@@ -15,9 +15,8 @@ typedef struct page_manager{
 	pageQ *ppa;
 	pageQ *r_ppa;
 	pthread_mutex_t manager_lock;
-
+	KEYT max;
 	KEYT block_n;
-	bool isdata;
 }pm;
 
 

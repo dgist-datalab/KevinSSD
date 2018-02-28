@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <limits.h>
+#include "../include/lsm_settings.h"
 #include "../include/settings.h"
 #include "../include/types.h"
 #include "../bench/bench.h"
@@ -59,10 +61,17 @@ int main(){/*
 	bench_init(1);
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
-	bench_add(RANDRW,0,128*1024*20,128*1024*20);
+	bench_add(RANDRW,0,128*1024,1024*64);
 //	bench_add(RANDSET,0,15*1024,15*1024);
 //	bench_add(RANDGET,0,15*1024,15*1024);
 	bench_value *value;
+#ifdef SNU_TEST
+	while(1){
+		char *data=(char*)malloc(PAGESIZE);
+		memset(data,0,PAGESIZE);
+		inf_make_req(FS_SET_T,rand()%UINT_MAX,data,0);
+	}
+#else
 	while((value=get_bench())){
 		char *data=(char*)malloc(PAGESIZE);
 		memset(data,0,PAGESIZE);
@@ -71,6 +80,7 @@ int main(){/*
 		}
 		inf_make_req(value->type,value->key,data,value->mark);
 	}
+#endif
 	
 	while(!bench_is_finish()){
 #ifdef LEAKCHECK

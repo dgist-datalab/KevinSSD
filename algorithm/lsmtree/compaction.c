@@ -2,6 +2,7 @@
 #include "compaction.h"
 #include "skiplist.h"
 #include "page.h"
+#include "pageQ.h"
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,6 +21,11 @@ int epc_check=0;
 compM compactor;
 pthread_mutex_t compaction_wait;
 int compactino_target_cnt;
+#ifdef SNU_TEST
+pageQ *sst_id;
+KEYT target_sst_id;
+#endif
+
 void htable_checker(htable *table){
 	for(int i=0; i<KEYNUM; i++){
 		if(table->sets[i].ppa<512 && table->sets[i].ppa!=0){
@@ -39,6 +45,12 @@ bool compaction_init(){
 	}
 	compactor.stopflag=false;
 	pthread_mutex_init(&compaction_wait,NULL);
+#ifdef SNU_TEST
+	pq_init(&sst_id,4096);
+	for(KEYT i=0; i<4096; i++){
+		pq_enqueue(i,sst_id);
+	}
+#endif
 }
 
 void compaction_free(){
@@ -126,7 +138,10 @@ KEYT compaction_htable_write(htable *input){
 	params->value=(V_PTR)input;
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
-
+#ifdef SNU_TEST
+	target_sst_id=pq_dequeue(sst_id);
+	printf("W %u\n",target_sst_id);
+#endif
 	LSM.li->push_data(ppa,PAGESIZE,(V_PTR)params->value,0,areq,0);
 	return ppa;
 }
@@ -185,6 +200,7 @@ void *compaction_main(void *input){
 			}
 			LSM.disk[req->fromL]->iscompactioning=false;
 		}
+		//level_all_print();
 		free(req);
 	}
 	return NULL;
@@ -262,7 +278,10 @@ void compaction_htable_read(Entry *ent,V_PTR value){
 	areq->parents=NULL;
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
+	//printf("R %u\n",ent->pbn);
 	LSM.li->pull_data(ent->pbn,PAGESIZE,(V_PTR)params->value,0,areq,0);
+	htable *input=(htable*)value;
+
 	return;
 }
 
@@ -279,6 +298,9 @@ void compaction_subprocessing_CMI(skiplist * target,level * t,bool final,KEYT li
 		memcpy(res->bitset,table->bitset,KEYNUM/8);
 		free(table->bitset);
 		res->pbn=compaction_htable_write(table);
+#ifdef SNU_TEST
+		res->id=target_sst_id;
+#endif
 #ifdef BLOOM
 		res->filter=table->filter;
 #endif
@@ -305,11 +327,11 @@ void compaction_subprocessing(skiplist *target,level *t, htable* datas,bool fina
 	//wait all header read
 #ifdef CACHE
 	comp_target_get_cnt+=memcpy_cnt;
-	#ifdef MUTEXLOCK
+#ifdef MUTEXLOCK
 	if(epc_check==comp_target_get_cnt)
 		pthread_mutex_unlock(&compaction_wait);
-	#elif defined (SPINLOCK)
-	#endif
+#elif defined (SPINLOCK)
+#endif
 #endif
 
 #ifdef MUTEXLOCK
@@ -317,7 +339,6 @@ void compaction_subprocessing(skiplist *target,level *t, htable* datas,bool fina
 #elif defined (SPINLOCK)
 	while(comp_target_get_cnt!=epc_check){}
 #endif
-
 
 	KEYT limit=0;
 	snode *tt;
@@ -495,7 +516,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 #ifdef DEBUG
 #endif
 		if(!level_check_overlap(target_origin,body->start,body->end)){
-			//printf("-1 1 .... ttt\n");
+	//		printf("-1 1 .... ttt\n");
 			skiplist_free(body);
 			bool target_processed=false;
 			if(entry->key > target_origin->end){
@@ -504,6 +525,9 @@ uint32_t leveling(int from, int to, Entry *entry){
 			}
 
 			entry->pbn=compaction_htable_write(entry->t_table);
+#ifdef SNU_TEST
+			entry->id=target_sst_id;
+#endif
 #ifdef CACHE
 			//cache must be inserted befor level insert
 			cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
@@ -511,7 +535,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 #else
 			entry->t_table=NULL;
 #endif
-			
+
 			level_insert(target,entry);
 
 			pthread_mutex_lock(&LSM.entrylock);
@@ -524,7 +548,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 			}
 		}
 		else{
-			//printf("-1 2 .... ttt\n");
+	//		printf("-1 2 .... ttt\n");
 			partial_leveling(target,target_origin,body,NULL);
 			skiplist_free(body);
 			pthread_mutex_lock(&LSM.entrylock);
@@ -535,7 +559,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 	}else{
 		src=LSM.disk[from];
 		if(!level_check_overlap(target_origin,src->start,src->end)){//if seq
-			//printf("1 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from,src->n_num);
+	//		printf("1 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from,src->n_num);
 			bool target_processed=false;
 			if(target_origin->start>src->end){
 				target_processed=true;
@@ -547,7 +571,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 			}
 		}
 		else{
-			//printf("2 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from,src->n_num);
+	//		printf("2 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from,src->n_num);
 			bool target_processed=false;
 			Entry **target_s=NULL;
 			body=skiplist_init();
@@ -621,11 +645,11 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 
 #ifdef CACHE
 		comp_target_get_cnt+=memcpy_cnt;
-	#ifdef MUTEXLOCK
+#ifdef MUTEXLOCK
 		if(epc_check==comp_target_get_cnt)
 			pthread_mutex_unlock(&compaction_wait);
-	#elif defined(SPINLOCK)
-	#endif
+#elif defined(SPINLOCK)
+#endif
 #endif
 #ifdef MUTEXLOCK //for waitreading
 		pthread_mutex_lock(&compaction_wait);
@@ -680,16 +704,21 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 
 			for(int j=0; j<EPC; j++){
 				invalidate_PPA(target_s[idx]->pbn);//invalidate_PPA
-#ifdef CACHE
-					if(target_s[idx]->c_entry){
-						memcpy_cnt++;
-						memcpy(&table[j],target_s[idx]->t_table,sizeof(htable));
-					}
-					else{
+#ifdef SNU_TEST
+				pq_enqueue(target_s[idx]->id,sst_id);
+				printf("I %u\n",target_s[idx]->id);
 #endif
-						compaction_htable_read(target_s[idx],(V_PTR)&table[j]);
+
 #ifdef CACHE
-					}
+				if(target_s[idx]->c_entry){
+					memcpy_cnt++;
+					memcpy(&table[j],target_s[idx]->t_table,sizeof(htable));
+				}
+				else{
+#endif
+					compaction_htable_read(target_s[idx],(V_PTR)&table[j]);
+#ifdef CACHE
+				}
 #endif
 				table[j].bitset=target_s[idx]->bitset;
 				idx++;
@@ -721,6 +750,10 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 
 				if(round==0){
 					invalidate_PPA(origin_ent->pbn);
+#ifdef SNU_TEST
+					pq_enqueue(origin_ent->id,sst_id);
+					printf("I %u\n",origin_ent->id);
+#endif
 					origin_ent->iscompactioning=true;
 					compaction_htable_read(origin_ent,(V_PTR)&table[0]);
 					table[0].bitset=origin_ent->bitset;
@@ -730,6 +763,11 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 				for(j; j<EPC; j++){
 					if(target_s[idx]==NULL)break;
 					invalidate_PPA(target_s[idx]->pbn);
+#ifdef SNU_TEST
+					pq_enqueue(target_s[idx]->id,sst_id);
+					printf("I %u\n",target_s[idx]->id);
+#endif
+
 #ifdef CACHE
 					if(target_s[idx]->c_entry){
 						memcpy_cnt++;

@@ -118,10 +118,13 @@ Entry **level_find(level *input,KEYT key){
 
 Entry *level_find_fromR(Node *run, KEYT key){
 	int start=0;
-	int end=run->n_num;
+	int end=run->n_num-1;
 	int mid;
 	while(1){
 		mid=(start+end)/2;
+		if(mid>=run->n_num){
+			printf("?n\n");
+		}
 		Entry *mid_e=ns_entry(run,mid);
 		if(mid_e==NULL) break;
 		if(mid_e->key <=key && mid_e->end>=key){
@@ -270,6 +273,7 @@ void level_all_print(){
 }
 void level_print(level *input){
 	int test1=0,test2;
+	printf("level:%p\n",input);
 	for(int i=0; i<input->r_n_num; i++){
 		Node* temp_run=ns_run(input,i);
 		for(int j=0; j<temp_run->n_num; j++){
@@ -279,7 +283,11 @@ void level_print(level *input){
 				printf("no filter \n");
 #endif
 			test2=temp_ent->pbn;
-			printf("[%d]Key: %d, End: %d, Pbn: %d iscompt: %d\n",j,temp_ent->key,temp_ent->end,temp_ent->pbn,temp_ent->iscompactioning);
+#ifdef SNU_TEST
+			printf("[%d]Key: %d, End: %d, Pbn: %d iscompt: %d, id:%u\n",j,temp_ent->key,temp_ent->end,temp_ent->pbn,temp_ent->iscompactioning,temp_ent->id);
+#else
+			printf("pointer:%p [%d]Key: %d, End: %d, Pbn: %d iscompt: %d\n",temp_ent,j,temp_ent->key,temp_ent->end,temp_ent->pbn,temp_ent->iscompactioning);
+#endif
 			if(temp_ent->iscompactioning)
 				continue;
 			if(test1==0){

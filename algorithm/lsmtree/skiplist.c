@@ -100,7 +100,6 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef
 		update[i]=x;
 	}
 	x=x->list[1];
-
 	if(key<list->start) list->start=key;
 	if(key>list->end) list->end=key;
 

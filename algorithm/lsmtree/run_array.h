@@ -19,6 +19,10 @@ typedef struct Entry{
 	BF *filter;
 #endif
 
+#ifdef SNU_TEST
+	KEYT id;
+#endif
+
 #ifdef CACHE
 	cache_entry *c_entry;
 #endif
