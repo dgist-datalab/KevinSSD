@@ -312,10 +312,11 @@ snode *skiplist_pop(skiplist *list){
 	return NULL;	
 }
 
-skiplist *skiplist_cut(skiplist *list, int num,KEYT limit){
+skiplist *skiplist_cut(skiplist *list, KEYT num,KEYT limit){
 	if(num==0) return NULL;
 	if(list->size<num) return NULL;
-	skiplist* res=skiplist_init(res);
+	skiplist* res=NULL;
+	res=skiplist_init();
 	snode *h=res->header;
 	snode *temp;
 	for(KEYT i=0; i<num; i++){

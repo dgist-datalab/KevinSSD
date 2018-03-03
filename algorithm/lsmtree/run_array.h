@@ -34,8 +34,8 @@ typedef struct Node{
 	int n_num;
 	int m_num;
 	int e_size;
-	int start;
-	int end;
+	KEYT start;
+	KEYT end;
 	char **body_addr;
 }Node;
 

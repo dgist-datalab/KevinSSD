@@ -290,7 +290,7 @@ void bench_li_print(lower_info* li,monitor *m){
 
 void seqget(KEYT start, KEYT end,monitor *m){
 	printf("making seq Get bench!\n");
-	for(int i=0; i<m->m_num; i++){
+	for(KEYT i=0; i<m->m_num; i++){
 		m->body[i].key=start+(i%(end-start));
 		m->body[i].type=FS_GET_T;
 		m->body[i].mark=m->mark;
@@ -310,7 +310,7 @@ void seqset(KEYT start, KEYT end,monitor *m){
 
 void seqrw(KEYT start, KEYT end, monitor *m){
 	printf("making seq Set and Get bench!\n");
-	for(int i=0; i<m->m_num/2; i++){
+	for(KEYT i=0; i<m->m_num/2; i++){
 		m->body[i].key=start+(i%(end-start));
 		m->body[i].type=FS_SET_T;
 		m->body[i].mark=m->mark;
@@ -334,7 +334,7 @@ void randget(KEYT start, KEYT end,monitor *m){
 
 void randset(KEYT start, KEYT end, monitor *m){
 	printf("making rand Set bench!\n");
-	for(int i=0; i<m->m_num; i++){
+	for(KEYT i=0; i<m->m_num; i++){
 		m->body[i].key=start+rand()%(end-start)+1;
 		m->body[i].mark=m->mark;
 		m->body[i].type=FS_SET_T;
@@ -344,7 +344,7 @@ void randset(KEYT start, KEYT end, monitor *m){
 
 void randrw(KEYT start, KEYT end, monitor *m){
 	printf("making rand Set and Get bench!\n");
-	for(int i=0; i<m->m_num/2; i++){
+	for(KEYT i=0; i<m->m_num/2; i++){
 		m->body[i].key=start+rand()%(end-start)+1;
 		m->body[i].type=FS_SET_T;
 		m->body[i].mark=m->mark;
@@ -358,7 +358,7 @@ void randrw(KEYT start, KEYT end, monitor *m){
 
 void mixed(KEYT start, KEYT end,int percentage, monitor *m){
 	printf("making mixed bench!\n");
-	for(int i=0; i<m->m_num; i++){
+	for(KEYT i=0; i<m->m_num; i++){
 		m->body[i].key=rand()%m->m_num;
 		if(rand()%100<percentage){
 			m->body[i].type=FS_SET_T;

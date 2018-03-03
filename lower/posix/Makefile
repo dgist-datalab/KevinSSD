@@ -1,10 +1,3 @@
-CC=gcc
-
-CFLAGS +=\
-		 -g\
-		 -std=c99\
-		 -D_FILE_OFFSET_BITS=64\
-		 -Wno-discarded-qualifiers\
 
 SRCS +=\
 	   posix.c\
@@ -24,10 +17,10 @@ libpos.a : $(TARGETOBJ)
 	
 
 .c.o :
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS_LOWER) -c $< -o $@
 
 ../../object/%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS_LOWER) -c $< -o $@
 
 clean : 
 	@$(RM) libpos.a

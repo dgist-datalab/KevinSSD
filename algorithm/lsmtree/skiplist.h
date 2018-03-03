@@ -42,5 +42,5 @@ void skiplist_free(skiplist *list);  //free skiplist
 void skiplist_clear(skiplist *list); //clear all snode in skiplist and  reinit skiplist
 sk_iter* skiplist_get_iterator(skiplist *list); //get read only iterator
 snode *skiplist_get_next(sk_iter* iter); //get next snode by iterator
-skiplist *skiplist_cut(skiplist*,int size,KEYT limit);
+skiplist *skiplist_cut(skiplist*,KEYT size,KEYT limit);
 #endif

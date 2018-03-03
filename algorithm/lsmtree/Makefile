@@ -1,11 +1,3 @@
-CC=gcc
-
-CFLAGS +=\
-		 -g\
-		 -std=c99\
-		 -Wno-discarded-qualifiers\
-		 -lpthread\
-
 
 SRCS +=\
 	   run_array.c\
@@ -51,25 +43,25 @@ set_check:../../include/lsm_settings.h
 	make test_clean
 
 .c.o :
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS_ALGO) -c $< -o $@
 
 ../../object/%_d.o: %.c
-	$(CC) $(CFLAGS) -DDEBUG -c $< -o $@
+	$(CC) $(CFLAGS_ALGO) -DDEBUG -c $< -o $@
 
 ../../object/%_m.o: %.c
-	$(CC) $(CFLAGS) -DLEAKCHECK -c $< -o $@
+	$(CC) $(CFLAGS_ALGO) -DLEAKCHECK -c $< -o $@
 
 ../../object/%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS_ALGO) -c $< -o $@
 
 run_test:run_array.c
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS_ALGO) -o $@ $^
 
 test_clean :
 	@$(RM) ../../object/*
 
 test : liblsm.a
-	$(CC) $(CFLAGS) -o ttt liblsm.a test.c -lpthread
+	$(CC) $(CFLAGS_ALGO) -o ttt liblsm.a test.c -lpthread
 
 clean : 
 	@$(RM) liblsm*

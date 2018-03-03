@@ -14,7 +14,7 @@
 
 
 #define HEADERB (2)
-#define ONETHREAD
+//#define ONETHREAD
 //#define NOGC
 #define BLOOM
 #define MONKEY

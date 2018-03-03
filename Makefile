@@ -1,23 +1,38 @@
-CC=gcc
+export CC=g++
 
 TARGET_LOWER=posix
-TARGET_ALGO=lsmtree
+TARGET_ALGO=normal
 PWD=$(pwd)
 
+export CFLAGS_ALGO=\
+			 -g\
+			 -Wall\
+
+export CFLAGS_LOWER=\
+			-g\
+			 -lpthread\
+			 -Wall\
+			 -D_FILE_OFFSET_BITS=64\
+
+ifeq ($(CC), gcc)
+ CFLAGS_ALGO+=-Wno-discarded-qualifiers -std=c99
+ CFLAGS_LOWER+=-Wno-discarded-qualifiers -std=c99
+else
+ CFLAGS_ALGO+= -std=c++11
+ CFLAGS_LOWER+= -std=c++11
+endif
+
 CFLAGS +=\
-		 -g\
-		 -std=c99\
-		 -lpthread\
+		 $(CFLAGS_ALGO)\
 		 -D$(TARGET_LOWER)\
 		 -D$(TARGET_ALGO)\
-		 -Wall\
-		 -Wno-discarded-qualifiers\
 		 -D_BSD_SOURCE\
--DBENCH\
+	-DBENCH\
 
 SRCS +=\
 	./interface/queue.c\
 	./interface/interface.c\
+	./include/FS.c\
 	./bench/measurement.c\
 	./bench/bench.c\
 
@@ -32,6 +47,7 @@ DEBUGOBJ =\
 
 LIBS +=\
 		-lpthread\
+		-lm\
 
 all: simulator
 
@@ -42,37 +58,37 @@ memory_leak: simulator_memory_check
 duma_sim: duma_simulator
 	
 simulator_memory_check: ./interface/main.c mem_libsimulator.a $(LOWER_LIB) $(ALGO_LIB)
-	$(CC) $(CFLAGS) -DLEAKCHECK -o $@ $^ $(LIBS) -lm
+	$(CC) $(CFLAGS) -DLEAKCHECK -o $@ $^ $(LIBS)
 
 debug_simulator: ./interface/main.c libsimulator_d.a
-	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ -lpthread
+	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
 
 simulator: ./interface/main.c libsimulator.a
-	$(CC) $(CFLAGS) -o $@ $^ -lpthread -lm
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 duma_simulator: ./interface/main.c libsimulator.a
-	$(CC) $(CFLAGS) -o $@ $^ -lpthread -lduma -lm
+	$(CC) $(CFLAGS) -o $@ $^ -lduma -$(LIBS)
 	
 
 libsimulator.a: $(TARGETOBJ)
 	mkdir -p object && mkdir -p data
-	cd ./algorithm/$(TARGET_ALGO) && make && cd ../../
-	cd ./lower/$(TARGET_LOWER) && make && cd ../../ 
-	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/
+	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) && cd ../../
+	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
+	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
 	$(AR) r $(@) ./object/*.o
 
 libsimulator_d.a:$(MEMORYOBJ)
 	mkdir -p object && mkdir -p data
-	cd ./algorithm/$(TARGET_ALGO) && make DEBUG && cd ../../
-	cd ./lower/$(TARGET_LOWER) && make DEBUG && cd ../../ 
-	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/
+	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) DEBUG && cd ../../
+	cd ./lower/$(TARGET_LOWER) && $(MAKE) DEBUG && cd ../../ 
+	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
 	$(AR) r $(@) ./object/*.o
 
 mem_libsimulator.a:$(MEMORYOBJ)
 	mkdir -p object && mkdir -p data
-	cd ./algorithm/$(TARGET_ALGO) && make LEAK && cd ../../
-	cd ./lower/$(TARGET_LOWER) && make && cd ../../ 
-	mv ./interface/*.o ./object/ & mv ./bench/*.o ./object/
+	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) LEAK && cd ../../
+	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
+	mv ./interface/*.o ./object/ & mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
 	$(AR) r $(@) ./object/*.o
 
 %_mem.o: %.c
@@ -86,8 +102,8 @@ mem_libsimulator.a:$(MEMORYOBJ)
 
 
 clean :
-	cd ./algorithm/$(TARGET_ALGO) && make clean && cd ../../
-	cd ./lower/$(TARGET_LOWER) && make clean && cd ../../
+	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) clean && cd ../../
+	cd ./lower/$(TARGET_LOWER) && $(MAKE) clean && cd ../../
 	@$(RM) ./data/*
 	@$(RM) ./object/*.o
 	@$(RM) *.a

@@ -1,7 +1,8 @@
 #ifndef __H_FS__
 #define __H_FS__
-
-int FS_malloc(void **,int size);
-void FS_free(void *, int tag);
+#define DMARBUF	1
+#define DMAWBUF 2
+int F_malloc(void **,int size, int rw);
+void F_free(void *, int tag, int rw);
 
 #endif

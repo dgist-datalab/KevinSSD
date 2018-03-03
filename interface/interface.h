@@ -6,13 +6,16 @@
 
 void inf_init();
 #ifdef USINGAPP
-bool inf_make_req(const FSTYPE,const KEYT, V_PTR);
+bool inf_make_req(const FSTYPE,const KEYT, value_set *);
 #else
-bool inf_make_req(const FSTYPE,const KEYT, V_PTR,int);
+bool inf_make_req(const FSTYPE,const KEYT, value_set *,int);
 #endif
 bool inf_make_req_Async(void *req, void*(*end_req)(void*));
 bool inf_end_req(request*const);
 bool inf_assign_try(request *req);
 void inf_free();
 void inf_print_debug();
+value_set *inf_get_valueset(PTR,int);//NULL is uninitial, non-NULL is memcpy
+void inf_free_valueset(value_set*, int);
+
 #endif

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <limits.h>
 //1==invalidxtern
 extern algorithm algo_lsm;
 extern lsmtree LSM;
@@ -47,7 +48,7 @@ void block_init(){
 
 void reserve_block_change(pm *m, block *b,int idx){
 	KEYT res;
-	while((res=getRPPA(m,-1))!=-1){
+	while((res=getRPPA(m,-1))!=UINT_MAX){
 		if(res==UINT_MAX)
 			printf("here!\n");
 		pq_enqueue(res,m->ppa);
@@ -126,7 +127,7 @@ void pm_init(){
 }
 KEYT getRPPA(pm* m,KEYT lpa){
 	KEYT res=pq_dequeue(m->r_ppa);
-	if(res!=-1 && lpa!=-1)
+	if(res!=UINT_MAX && lpa!=UINT_MAX)
 		oob[res]=PBITSET(lpa);
 	return res;
 }
@@ -136,7 +137,7 @@ KEYT getHPPA(KEYT lpa){
 	return __ppa++;
 #endif
 	KEYT res=pq_dequeue(header_m.ppa);
-	if(res==-1){
+	if(res==UINT_MAX){
 		if(gc_header()==0){
 			printf("device full from header!\n");
 			exit(1);
@@ -152,7 +153,7 @@ KEYT getDPPA(KEYT lpa){
 	return __ppa++;
 #endif
 	KEYT res=pq_dequeue(data_m.ppa);
-	if(res==-1){
+	if(res==UINT_MAX){
 		if(gc_data()==0){
 			printf("device full from data!\n");
 			exit(1);
@@ -324,7 +325,6 @@ void gc_data_header_update(KEYT d_ppa, KEYT d_lpa, KEYT n_ppa){
 		int idx=0;
 		entries=level_find(LSM.disk[j],d_lpa);
 		if(entries==NULL) continue;
-		int target_gc_cnt;
 		for(int k=0; entries[k]!=NULL; k++) {gc_read_wait++;}
 		for(int k=0; entries[k]!=NULL; k++){
 			tables[k]=(htable*)malloc(sizeof(htable)); 
@@ -432,4 +432,5 @@ int gc_data(){
 	algo_lsm.li->trim_block(target->ppa,0);
 	reserve_block_change(&data_m,target,__idx);
 	//level_all_print();
+	return 1;
 }

@@ -26,8 +26,9 @@
 #define QSIZE (1024)
 #define THREADSIZE (1)
 
-#define CHACHESIZE 101010
+#ifndef __GNUG__
 typedef enum{false,true} bool;
+#endif
 
 typedef enum{
 	SEQGET,SEQSET,

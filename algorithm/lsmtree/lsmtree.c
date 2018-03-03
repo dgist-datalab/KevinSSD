@@ -59,6 +59,7 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	LSM.li=li;
 	algo_lsm.li=li;
 	pm_init();
+	return 0;
 }
 
 void lsm_destroy(lower_info *li, algorithm *lsm){
@@ -75,13 +76,14 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 }
 
 extern pthread_mutex_t compaction_wait,gc_wait;
-extern int epc_check,gc_read_wait;KEYT memcpy_cnt;
+extern int epc_check,gc_read_wait;
+extern KEYT memcpy_cnt;
 int comp_target_get_cnt=0,gc_target_get_cnt;
 void* lsm_end_req(algo_req* const req){
 	lsm_params *params=(lsm_params*)req->params;
 	request* parents=req->parents;
-	FSTYPE *temp_type;
 	bool havetofree=true;
+	void *req_temp_params=NULL;
 	switch(params->lsm_type){
 		case OLDDATA:
 			//do nothing
@@ -108,7 +110,7 @@ void* lsm_end_req(algo_req* const req){
 						if(inf_assign_try(parents)){
 							break;
 						}else{
-							if(q_enqueue(LSM.re_q,(void*)parents))
+							if(q_enqueue((void*)parents,LSM.re_q))
 								break;
 						}
 					}
@@ -139,7 +141,7 @@ void* lsm_end_req(algo_req* const req){
 			break;
 		case DATAR:
 			pthread_mutex_destroy(&params->lock);
-			int *req_temp_params=parents->params;
+			req_temp_params=parents->params;
 			free(req_temp_params);
 			break;
 		case DATAW:
@@ -379,7 +381,7 @@ uint32_t __lsm_get(request *const req){
 }
 
 uint32_t lsm_remove(request *const req){
-	lsm_set(req);
+	return lsm_set(req);
 }
 
 keyset *htable_find(htable *table, KEYT target){

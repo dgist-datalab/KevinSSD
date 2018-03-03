@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <limits.h>
 #include "pageQ.h"
 #include "../../include/FS.h"
 #include "../../include/settings.h"
@@ -40,7 +41,7 @@ KEYT pq_dequeue(pageQ *q){
 	pthread_mutex_lock(&q->q_lock);
 	if(!q->head || q->size==0){
 		pthread_mutex_unlock(&q->q_lock);
-		return -1;
+		return UINT_MAX;
 	}
 	p_node *target_node;
 	target_node=q->head;
@@ -55,7 +56,7 @@ KEYT pq_dequeue(pageQ *q){
 
 void pq_free(pageQ* q){
 	KEYT res;
-	while((res=pq_dequeue(q))!=-1){}
+	while((res=pq_dequeue(q))!=UINT_MAX){}
 	pthread_mutex_destroy(&q->q_lock);
 	free(q);
 }

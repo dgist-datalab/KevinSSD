@@ -13,9 +13,10 @@ struct algorithm __normal={
 
 uint32_t normal_create (lower_info* li,algorithm *algo){
 	algo->li=li;
+	return 1;
 }
 void normal_destroy (lower_info* li, algorithm *algo){
-
+	return;
 }
 uint32_t normal_get(request *const req){
 	bench_algo_start(req);
@@ -28,6 +29,7 @@ uint32_t normal_get(request *const req){
 	my_req->params=(void*)params;
 	bench_algo_end(req);
 	__normal.li->pull_data(req->key,PAGESIZE,req->value,0,my_req,0);
+	return 1;
 }
 uint32_t normal_set(request *const req){
 	bench_algo_start(req);
@@ -40,9 +42,11 @@ uint32_t normal_set(request *const req){
 	my_req->params=(void*)params;
 	bench_algo_end(req);
 	__normal.li->push_data(req->key,PAGESIZE,req->value,0,my_req,0);
+	return 1;
 }
 uint32_t normal_remove(request *const req){
 //	normal->li->trim_block()
+	return 1;
 }
 
 void *normal_end_req(algo_req* input){
@@ -53,4 +57,5 @@ void *normal_end_req(algo_req* input){
 
 	free(params);
 	free(input);
+	return NULL;
 }
