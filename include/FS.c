@@ -9,7 +9,7 @@ int F_malloc(void **ptr, int size,int rw){
 #ifdef bdbm
 	dmatag=memio_alloc_dma(rw,ptr);
 #else
-	*ptr=malloc(size);
+	(*ptr)=malloc(size);
 #endif
 	return dmatag;
 }

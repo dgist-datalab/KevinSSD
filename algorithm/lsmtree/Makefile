@@ -1,4 +1,20 @@
+ifeq ($(CC),cc)
+ CC=gcc
+ CFLAGS_ALGO=\
+		 -g\
+		 -Wall\
 
+ ifeq ($(CC),gcc)
+  CFLAGS_ALGO+=\
+			   -Wno-discarded-qualifiers\
+			   -std=c99\
+
+ else
+  CFLAGS_ALGO+=\
+			   -std=c++11\
+
+ endif
+endif
 SRCS +=\
 	   run_array.c\
 	   skiplist.c\

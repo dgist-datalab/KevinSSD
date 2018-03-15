@@ -2,6 +2,7 @@
 #include "limits.h"
 #include "compaction.h"
 #include "lsmtree.h"
+#include "../../interface/interface.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -65,31 +66,35 @@ void reserve_block_change(pm *m, block *b,int idx){
 	m->rblock=b;
 }	
 
-void gc_data_read(KEYT ppa,V_PTR value){
+void gc_data_read(KEYT ppa,htable_t *value){
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 
 	params->lsm_type=GCR;
-	params->value=value;
+	params->value=inf_get_valueset(NULL,FS_MALLOC_R);
+	params->target=(PTR*)value->sets;
+	value->origin=params->value;
+
 	areq->parents=NULL;
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
 
-	algo_lsm.li->pull_data(ppa,PAGESIZE,(V_PTR)params->value,0,areq,0);
+	algo_lsm.li->pull_data(ppa,PAGESIZE,params->value,0,areq,0);
 	return;
 }
 
-void gc_data_write(KEYT ppa,V_PTR value){
+void gc_data_write(KEYT ppa,htable_t *value){
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 
 	params->lsm_type=GCW;
-	params->value=value;
+	params->value=inf_get_valueset((PTR)(value)->sets,FS_MALLOC_W);
+
 	areq->parents=NULL;
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
 
-	algo_lsm.li->push_data(ppa,PAGESIZE,(V_PTR)params->value,0,areq,0);
+	algo_lsm.li->push_data(ppa,PAGESIZE,params->value,0,areq,0);
 	return;
 }
 void pm_a_init(pm *m,KEYT size,KEYT *_idx){
@@ -195,7 +200,7 @@ extern int gc_target_get_cnt;
 int gc_header(){
 	static int gc_cnt=0;
 	gc_cnt++;
-	//printf("[%d]gc_header start\n",gc_cnt);
+	printf("[%d]gc_header start\n",gc_cnt);
 	//level_all_print();
 	//level_print(LSM.c_level);
 	int __idx=get_victim_block(&header_m);
@@ -212,7 +217,7 @@ int gc_header(){
 	}
 	pthread_mutex_lock(&gc_wait);
 	KEYT start=target->ppa;
-	htable **tables=(htable**)malloc(sizeof(htable*)*algo_lsm.li->PPB);
+	htable_t **tables=(htable_t**)malloc(sizeof(htable_t*)*algo_lsm.li->PPB);
 	Entry **target_ent=(Entry**)malloc(sizeof(Entry*)*algo_lsm.li->PPB);
 	//printf("2\n");
 	//level_all_print();
@@ -240,16 +245,16 @@ int gc_header(){
 						target_ent[i]=NULL;
 						break;
 					}
-					tables[i]=(htable*)malloc(sizeof(htable));
+					tables[i]=(htable_t*)malloc(sizeof(htable_t));
 					target_ent[i]=entries[k];
 #ifdef CACHE
 					if(entries[k]->c_entry){
-						memcpy(tables[i],entries[k]->t_table,sizeof(htable));
+						memcpy(tables[i]->sets,entries[k]->t_table->sets,PAGESIZE);
 						continue;
 					}
 #endif
 					gc_read_wait++;
-					gc_data_read(t_ppa,(V_PTR)tables[i]->sets);
+					gc_data_read(t_ppa,tables[i]);
 					break;
 				}
 			}
@@ -263,16 +268,16 @@ int gc_header(){
 					if(entries[k]->pbn==t_ppa){
 						//printf("in new_level\n");
 						checkdone=true;
-						tables[i]=(htable*)malloc(sizeof(htable));
+						tables[i]=(htable_t*)malloc(sizeof(htable_t));
 						target_ent[i]=entries[k];
 #ifdef CACHE
 						if(entries[k]->c_entry){
-							memcpy(tables[i],entries[k]->t_table,sizeof(htable));
+							memcpy(tables[i]->sets,entries[k]->t_table->sets,PAGESIZE);
 							break;
 						}
 #endif
 						gc_read_wait++;
-						gc_data_read(t_ppa,(V_PTR)tables[i]->sets);
+						gc_data_read(t_ppa,tables[i]);
 					}
 				}
 			}
@@ -294,7 +299,7 @@ int gc_header(){
 	gc_target_get_cnt=0;
 
 	Entry *test;
-	htable *table;
+	htable_t *table;
 	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
 		if(tables[i]==NULL) continue;
 		KEYT t_ppa=start+i;
@@ -303,7 +308,7 @@ int gc_header(){
 		test=target_ent[i];
 		table=tables[i];
 		test->pbn=n_ppa;
-		gc_data_write(n_ppa,(V_PTR)table->sets);
+		gc_data_write(n_ppa,table);
 	}
 	//printf("gc_header\n");
 	//level_all_print();
@@ -318,7 +323,7 @@ int gc_header(){
 
 void gc_data_header_update(KEYT d_ppa, KEYT d_lpa, KEYT n_ppa){
 	Entry **entries=NULL;
-	htable **tables=(htable**)malloc(sizeof(htable*)*(LSM.disk[0]->r_num));
+	htable_t **tables=(htable_t**)malloc(sizeof(htable_t*)*(LSM.disk[0]->r_num));
 	pthread_mutex_lock(&gc_wait);
 	bool doneflag=false;
 	for(int j=0; j<LEVELN; j++){
@@ -327,8 +332,8 @@ void gc_data_header_update(KEYT d_ppa, KEYT d_lpa, KEYT n_ppa){
 		if(entries==NULL) continue;
 		for(int k=0; entries[k]!=NULL; k++) {gc_read_wait++;}
 		for(int k=0; entries[k]!=NULL; k++){
-			tables[k]=(htable*)malloc(sizeof(htable)); 
-			gc_data_read(entries[k]->pbn,(V_PTR)tables[idx++]);
+			tables[k]=(htable_t*)malloc(sizeof(htable_t)); 
+			gc_data_read(entries[k]->pbn,tables[idx++]);
 		}
 
 #ifdef MUTEXLOCK
@@ -347,7 +352,7 @@ void gc_data_header_update(KEYT d_ppa, KEYT d_lpa, KEYT n_ppa){
 				for(int q=k; q<idx; q++) free(tables[q]);
 				break;
 			}
-			sets=htable_find(tables[k],d_lpa);
+			sets=htable_find(tables[k]->sets,d_lpa);
 			if(sets){
 				if(sets->ppa==d_ppa){
 					sets->ppa=n_ppa;
@@ -356,13 +361,13 @@ void gc_data_header_update(KEYT d_ppa, KEYT d_lpa, KEYT n_ppa){
 					entries[k]->pbn=n_hppa;
 #ifdef CACHE
 					if(entries[k]->c_entry){
-						sets=htable_find(entries[k]->t_table,d_lpa);
+						sets=htable_find(entries[k]->t_table->sets,d_lpa);
 						if(sets){
 							sets->ppa=n_ppa;
 						}
 					}
 #endif
-					gc_data_write(n_hppa,(V_PTR)tables[k]);
+					gc_data_write(n_hppa,tables[k]);
 					doneflag=true;
 				}
 			}
@@ -382,8 +387,8 @@ void gc_data_header_update(KEYT d_ppa, KEYT d_lpa, KEYT n_ppa){
 }
 int gc_data_cnt;
 int gc_data(){
-	//gc_data_cnt++;
-	//printf("[%d]gc_data start\n",gc_data_cnt);
+	gc_data_cnt++;
+	printf("[%d]gc_data start\n",gc_data_cnt);
 	//level_all_print();
 	int __idx=get_victim_block(&data_m);
 	if(__idx==-1)
@@ -397,18 +402,17 @@ int gc_data(){
 
 	pthread_mutex_lock(&gc_wait);
 	KEYT start=target->ppa;
-	htable **tables=(htable**)malloc(sizeof(htable*)*algo_lsm.li->PPB);
+	htable_t **tables=(htable_t**)malloc(sizeof(htable_t*)*algo_lsm.li->PPB);
 	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
 		if(target->bitset[i/8]&(1<<(i%8))){
 			tables[i]=NULL;
 			continue;
 		}
 		gc_read_wait++;
-		tables[i]=(htable*)malloc(sizeof(htable));
+		tables[i]=(htable_t*)malloc(sizeof(htable_t));
 		KEYT t_ppa=start+i;
-		gc_data_read(t_ppa,(V_PTR)tables[i]->sets);
+		gc_data_read(t_ppa,tables[i]);
 	}
-
 #ifdef MUTEXLOCK
 	pthread_mutex_lock(&gc_wait);
 #elif defined(SPINLOCK)
@@ -420,13 +424,13 @@ int gc_data(){
 	gc_target_get_cnt=0;
 	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
 		if(!tables[i]){	continue;	}
-		htable *data=tables[i];
+		htable_t *data=tables[i];
 		KEYT d_ppa=start+i;
 		KEYT d_lpa=PBITGET(d_ppa);
 		KEYT n_ppa=getRPPA(&data_m,d_lpa);
 		gc_data_header_update(d_ppa,d_lpa,n_ppa);
 
-		gc_data_write(n_ppa,(V_PTR)data);
+		gc_data_write(n_ppa,data);
 	}
 	free(tables);
 	algo_lsm.li->trim_block(target->ppa,0);

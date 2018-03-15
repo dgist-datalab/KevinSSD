@@ -51,8 +51,10 @@ bool cache_delete(cache *c, Entry * ent){
 		return false;
 	}
 	cache_entry *c_ent=ent->c_entry;
-	if(ent->t_table)
+	if(ent->t_table){
+		free(ent->t_table->sets);
 		free(ent->t_table);
+	}
 	ent->t_table=NULL;
 	c->n_size--;
 	free(c_ent);

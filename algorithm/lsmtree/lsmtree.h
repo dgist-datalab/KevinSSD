@@ -24,17 +24,33 @@ typedef struct keyset{
 }keyset;
 
 typedef struct htable{
+	keyset *sets;
+	uint8_t *bitset;
+#ifdef BLOOM
+	BF* filter;
+#endif
+	value_set *origin;
+	uint8_t t_b;//0, MALLOC
+				//1, valueset from W
+				//2, valueset from R
+}htable;
+
+
+typedef struct htable_t{
 	keyset sets[KEYNUM];
 	uint8_t *bitset;
 #ifdef BLOOM
 	BF* filter;
 #endif
-}htable;
+	value_set *origin;
+}htable_t;
 
 typedef struct lsm_params{
 	pthread_mutex_t lock;
 	uint8_t lsm_type;
-	PTR value;
+	PTR* target;
+	value_set* value;
+	PTR htable_ptr;
 }lsm_params;
 
 
@@ -64,5 +80,7 @@ uint32_t lsm_remove(request *const);
 void* lsm_end_req(struct algo_req*const);
 bool lsm_kv_validcheck(uint8_t *, int idx);
 void lsm_kv_validset(uint8_t *,int idx);
-keyset* htable_find(htable*, KEYT target);
+keyset* htable_find(keyset*, KEYT target);
+htable *htable_copy(htable *);
+void htable_free(htable*);
 #endif

@@ -6,6 +6,9 @@
 #define FS_DELETE_T 2 
 #define FS_AGAIN_R_T 3
 #define FS_NOTFOUND_T 4
+
+#define FS_MALLOC_W 1
+#define FS_MALLOC_R 2
 typedef enum{
 	block_bad,
 	block_full,

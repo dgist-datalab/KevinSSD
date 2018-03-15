@@ -11,7 +11,7 @@ typedef struct snode{ //skiplist's node
 	KEYT key;
 	KEYT ppa;
 	uint8_t level;
-	PTR value;
+	value_set* value;
 	bool isvalid;
 	struct algo_req *req;
 	struct snode **list;
@@ -33,7 +33,7 @@ typedef struct{
 
 skiplist *skiplist_init(); //return initialized skiplist*
 snode *skiplist_find(skiplist*,KEYT); //find snode having key in skiplist, return NULL:no snode
-snode *skiplist_insert(skiplist*,KEYT,V_PTR ,algo_req *,bool); //insert skiplist, return inserted snode
+snode *skiplist_insert(skiplist*,KEYT,value_set* ,algo_req *,bool); //insert skiplist, return inserted snode
 snode *skiplist_insert_wP(skiplist*,KEYT,KEYT,bool);//with ppa; 
 snode *skiplist_at(skiplist *,int idx);
 snode *skiplist_insert_existIgnore(skiplist *, KEYT,KEYT,bool); //insert skiplist, if key exists, input data be ignored

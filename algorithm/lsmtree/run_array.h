@@ -80,6 +80,7 @@ Entry *level_get_next(Iter *);//
 Iter *level_get_Iter(level *);//
 void level_print(level *);//
 void level_all_print();//
+void level_all_check();
 void level_free(level *);//
 void level_free_entry(Entry *);//
 

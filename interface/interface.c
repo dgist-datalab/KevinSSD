@@ -99,7 +99,7 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value){
 	req->key=key;
 
 	req->value=inf_get_valueset(value->value,req->type);
-	
+
 	req->end_req=inf_end_req;
 	req->isAsync=false;
 	req->params=NULL;
@@ -228,7 +228,7 @@ void *p_main(void *__input){
 value_set *inf_get_valueset(PTR in_v, int type){
 	value_set *res=(value_set*)malloc(sizeof(value_set));
 	//check dma alloc type
-	res->dmatag=F_malloc((void**)&res->value,PAGESIZE,type);
+	res->dmatag=F_malloc((void**)&(res->value),PAGESIZE,type);
 	if(in_v){
 		memcpy(res->value,in_v,PAGESIZE);
 	}
@@ -238,5 +238,4 @@ value_set *inf_get_valueset(PTR in_v, int type){
 void inf_free_valueset(value_set *in, int type){
 	F_free((void*)in->value,in->dmatag,type);
 	free(in);
-
 }

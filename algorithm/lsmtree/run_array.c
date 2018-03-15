@@ -1,4 +1,5 @@
 #include"run_array.h"
+#include "../../interface/interface.h"
 #include<string.h>
 #include<stdio.h>
 #include<stdlib.h>
@@ -18,11 +19,11 @@ Entry *ns_entry(Node *input, int n){
 Entry *level_entcpy(Entry *src, char *des){
 	memcpy(des,src,sizeof(Entry));
 #ifdef BLOOM
-	#ifdef MONKEY
+#ifdef MONKEY
 
-	#else
+#else
 
-	#endif
+#endif
 #endif
 	return (Entry*)des;
 }
@@ -46,7 +47,7 @@ Entry *level_entry_copy(Entry *input){
 		input->c_entry=NULL;
 	}
 #else
-		res->t_table=NULL;
+	res->t_table=NULL;
 #endif
 	memcpy(res->bitset,input->bitset,sizeof(res->bitset));
 	res->iscompactioning=false;
@@ -344,6 +345,15 @@ void level_free_entry(Entry *entry){
 		cache_delete_entry_only(LSM.lsm_cache,entry);
 	}
 #endif
+	if(entry->t_table){
+		if(entry->t_table->t_b){
+			inf_free_valueset(entry->t_table->origin,entry->t_table->t_b);
+		}
+		else{
+			htable *temp_table=entry->t_table;
+			free(temp_table->sets);
+		}
+	}
 	free(entry->t_table);
 	free(entry);
 }
@@ -357,6 +367,15 @@ void level_free_entry_inside(Entry * entry){
 		cache_delete_entry_only(LSM.lsm_cache,entry);
 	}
 #endif
+	if(entry->t_table){
+		if(entry->t_table->t_b){
+			inf_free_valueset(entry->t_table->origin,entry->t_table->t_b);
+		}
+		else{
+			htable *temp_table=entry->t_table;
+			free(temp_table->sets);
+		}
+	}
 	free(entry->t_table);
 }
 
@@ -397,19 +416,51 @@ int level_range_find(level *input,KEYT start,KEYT end, Entry ***res, bool compac
 	(*res)=temp;
 	return rev;
 }
-/*
-int main(){
-	level *temp_lev=(level*)malloc(sizeof(level));
-	level_init(temp_lev,48,true);
-	for(int i=0; i<48; i++){
-		Entry *temp=level_make_entry(i,i,i);
-		level_insert(temp_lev,temp);
-		free(temp);
+void level_check(level *input){
+	int cnt=0;
+	for(int i=0; i<input->r_n_num; i++){
+		Node *temp_run=ns_run(input,i);
+		for(int j=0; j<temp_run->n_num; j++){
+			Entry *temp_ent=ns_entry(temp_run,j);
+
+			if(temp_ent->filter->p>1){
+				printf("\r");
+			}
+			if(temp_ent->c_entry){
+				if(temp_ent->c_entry->entry==temp_ent){
+					printf("\r");
+				}
+			}
+			if(temp_ent->t_table){
+				if(temp_ent->t_table->sets[10].lpa>10){
+					printf("\r");
+				}
+			}
+			if(temp_ent->bitset[10]){
+				printf("\r");
+			}
+		}
+		cnt++;
 	}
-	
-	Entry **targets;
-	level_range_find(temp_lev,0,10,&targets);
-	free(targets);
-	level_print(temp_lev);
-	level_free(temp_lev);
-}*/
+}
+void level_all_check(){
+	for(int i=0; i<LEVELN; i++){
+		level_check(LSM.disk[i]);
+	}
+}
+/*
+   int main(){
+   level *temp_lev=(level*)malloc(sizeof(level));
+   level_init(temp_lev,48,true);
+   for(int i=0; i<48; i++){
+   Entry *temp=level_make_entry(i,i,i);
+   level_insert(temp_lev,temp);
+   free(temp);
+   }
+
+   Entry **targets;
+   level_range_find(temp_lev,0,10,&targets);
+   free(targets);
+   level_print(temp_lev);
+   level_free(temp_lev);
+   }*/

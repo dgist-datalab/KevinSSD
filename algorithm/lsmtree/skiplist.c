@@ -6,6 +6,7 @@
 #include<sys/types.h>
 #include"skiplist.h"
 #include"page.h"
+#include"../../interface/interface.h"
 
 skiplist *skiplist_init(){
 	skiplist *point=(skiplist*)malloc(sizeof(skiplist));
@@ -135,7 +136,7 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef
 	return x;
 }
 
-snode *skiplist_insert(skiplist *list,KEYT key,V_PTR value, algo_req *req,bool deletef){
+snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, algo_req *req,bool deletef){
 	snode *update[MAX_L+1];
 	snode *x=list->header;
 	for(int i=list->level; i>=1; i--){
@@ -263,7 +264,8 @@ void skiplist_clear(skiplist *list){
 	snode *now=list->header->list[1];
 	snode *next=now->list[1];
 	while(now!=list->header){
-		free(now->value);
+		if(now->value)
+			inf_free_valueset(now->value,FS_MALLOC_W);
 		free(now->list);
 		if(now->req){
 			free(now->req->params);

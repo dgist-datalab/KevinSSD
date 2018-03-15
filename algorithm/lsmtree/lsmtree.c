@@ -84,12 +84,18 @@ void* lsm_end_req(algo_req* const req){
 	request* parents=req->parents;
 	bool havetofree=true;
 	void *req_temp_params=NULL;
+	PTR target=NULL;
+	htable *t_table=NULL;
 	switch(params->lsm_type){
 		case OLDDATA:
 			//do nothing
 			break;
 		case HEADERR:
-			if(!parents){
+			if(!parents){ //end_req for compaction
+				//mem cpy for compaction
+				target=*params->target;
+				target=(PTR)malloc(PAGESIZE);
+				memcpy(target,params->value->value,PAGESIZE);
 
 				comp_target_get_cnt++;
 				if(epc_check==comp_target_get_cnt){
@@ -99,9 +105,12 @@ void* lsm_end_req(algo_req* const req){
 					comp_target_get_cnt=0;
 #endif
 				}
+
+				//have to free
+				inf_free_valueset(params->value,FS_MALLOC_R);
 			}
 			else{
-				if(!parents->isAsync){
+				if(!parents->isAsync){ // end_req for lsm_get
 					pthread_mutex_unlock(&params->lock);
 					havetofree=false;
 				}
@@ -120,14 +129,14 @@ void* lsm_end_req(algo_req* const req){
 			}
 			break;
 		case HEADERW:
-#ifdef CACHE
-
-#else	
-			free(params->value);
-#endif
+			inf_free_valueset(params->value,FS_MALLOC_W);
+			free(params->htable_ptr);
 			break;
 		case GCR:
 			gc_target_get_cnt++;
+			target=(PTR)params->target;//gc has malloc in gc function
+			memcpy(target,params->value->value,PAGESIZE);
+
 			if(gc_read_wait==gc_target_get_cnt){
 #ifdef MUTEXLOCK
 				pthread_mutex_unlock(&gc_wait);
@@ -135,9 +144,10 @@ void* lsm_end_req(algo_req* const req){
 
 #endif
 			}
+			inf_free_valueset(params->value,FS_MALLOC_R);
 			break;
 		case GCW:
-			free(params->value);
+			inf_free_valueset(params->value,FS_MALLOC_W);
 			break;
 		case DATAR:
 			pthread_mutex_destroy(&params->lock);
@@ -145,7 +155,7 @@ void* lsm_end_req(algo_req* const req){
 			free(req_temp_params);
 			break;
 		case DATAW:
-			free(params->value);
+			inf_free_valueset(params->value,FS_MALLOC_W);
 			break;
 		default:
 			break;
@@ -180,6 +190,7 @@ uint32_t lsm_set(request * const req){
 		skiplist_insert(LSM.memtable,req->key,req->value,lsm_req,false);
 	else
 		skiplist_insert(LSM.memtable,req->key,req->value,lsm_req,true);
+
 	req->value=NULL;
 	//req->value will be ignored at free
 	bench_algo_end(req);
@@ -231,7 +242,7 @@ uint32_t __lsm_get(request *const req){
 #ifdef NOHOST
 		req->value=target_node->value;
 #else
-		memcpy(req->value,target_node->value,PAGESIZE);
+		memcpy(req->value->value,target_node->value->value,PAGESIZE);
 #endif
 		bench_algo_end(req);
 		req->end_req(req);
@@ -275,7 +286,7 @@ uint32_t __lsm_get(request *const req){
 
 	pthread_mutex_lock(&LSM.entrylock);
 	if(LSM.tempent){
-		keyset *target=htable_find(LSM.tempent->t_table,req->key);
+		keyset *target=htable_find(LSM.tempent->t_table->sets,req->key);
 		if(target){
 			params->lsm_type=DATAR;
 			bench_algo_end(req);
@@ -299,7 +310,7 @@ uint32_t __lsm_get(request *const req){
 		level=temp_req[0];
 		run=temp_req[1]+1;
 		mapinfo=(htable*)req->value;
-		keyset *target=htable_find(mapinfo,req->key);
+		keyset *target=htable_find(mapinfo->sets,req->key);
 		if(target){
 #ifdef CACHE
 			Node *t_node=ns_run(LSM.disk[level],run);
@@ -332,7 +343,7 @@ uint32_t __lsm_get(request *const req){
 			temp_data[1]=j;
 #ifdef CACHE
 			if(entry->c_entry){
-				keyset *target=htable_find(entry->t_table,req->key);
+				keyset *target=htable_find(entry->t_table->sets,req->key);
 				if(target){
 					params->lsm_type=DATAR;
 					cache_update(LSM.lsm_cache,entry);
@@ -349,7 +360,7 @@ uint32_t __lsm_get(request *const req){
 			if(!req->isAsync){
 				pthread_mutex_lock(&params->lock); // wait until read table data;
 				mapinfo=(htable*)req->value;
-				keyset *target=htable_find(mapinfo,req->key);//check_sktable
+				keyset *target=htable_find(mapinfo->sets,req->key);//check_sktable
 				if(!target){
 					continue; // check next entry
 				}
@@ -384,8 +395,8 @@ uint32_t lsm_remove(request *const req){
 	return lsm_set(req);
 }
 
-keyset *htable_find(htable *table, KEYT target){
-	keyset *sets=table->sets;
+keyset *htable_find(keyset *table, KEYT target){
+	keyset *sets=table;
 
 	if(sets[0].lpa>target || sets[KEYNUM-1].lpa<target)
 		return NULL;
@@ -421,3 +432,19 @@ bool lsm_kv_validcheck(uint8_t *bitset, int idx){
 	uint8_t test=(1<<offset);
 	return test&bitset[block];
 }
+
+htable *htable_copy(htable *input){
+	htable *res=(htable*)malloc(sizeof(htable));
+	res->sets=(keyset*)malloc(PAGESIZE);
+	memcpy(res->sets,input->sets,PAGESIZE);
+	res->t_b=0;
+	res->origin=NULL;
+	return res;
+}
+
+void htable_free(htable *input){
+	free(input->sets);
+	free(input);
+}
+
+

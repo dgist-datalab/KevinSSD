@@ -43,5 +43,5 @@ void compaction_free();
 #ifdef MONKEY
 void compaction_seq_MONKEY(level *,int, level *);
 #endif
-void compaction_subprocessing(struct skiplist *,struct level *, struct htable *, bool, bool);
+void compaction_subprocessing(struct skiplist *,struct level *, struct htable **, bool, bool);
 #endif
