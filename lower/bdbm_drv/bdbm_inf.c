@@ -40,6 +40,7 @@ void *memio_info_destroy(lower_info *li){
 	measure_init(&li->writeTime);
 	measure_init(&li->readTime);
 	li->write_op=li->read_op=li->trim_op=0;
+	memio_close(mio);
 	return NULL;
 }
 

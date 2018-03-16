@@ -14,6 +14,10 @@ extern struct algorithm algo_pbase;
 extern struct algorithm algo_lsm;
 #endif
 
+#ifdef bdbm_drv
+extern struct lower_info memio_info;
+#endif
+
 master_processor mp;
 void *p_main(void*);
 static void assign_req(request* req){
@@ -75,6 +79,10 @@ void inf_init(){
 #ifdef posix
 	mp.li=&my_posix;
 #endif
+#ifdef bdbm_drv
+	mp.li=&memio_info;
+#endif
+
 
 #ifdef lsmtree
 	mp.algo=&algo_lsm;
@@ -85,6 +93,7 @@ void inf_init(){
 #ifdef page
 	mp.algo=&algo_pbase;
 #endif
+
 	mp.li->create(mp.li);
 	mp.algo->create(mp.li,mp.algo);
 }
@@ -98,8 +107,6 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value){
 	req->type=type;
 	req->key=key;
 
-	req->value=inf_get_valueset(value->value,req->type);
-
 	req->end_req=inf_end_req;
 	req->isAsync=false;
 	req->params=NULL;
@@ -110,8 +117,10 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value){
 #endif
 	switch(type){
 		case FS_GET_T:
+			req->value=inf_get_valueset(value->value,FS_MALLOC_R);
 			break;
 		case FS_SET_T:
+			req->value=inf_get_valueset(value->value,FS_MALLOC_W);
 			break;
 		case FS_DELETE_T:
 			break;
@@ -127,12 +136,13 @@ bool inf_make_req_Async(void *ureq, void *(*end_req)(void*)){
 	upper_request *u_req=(upper_request*)ureq;
 	req->type=u_req->type;
 	req->key=u_req->key;
-	req->value=inf_get_valueset(u_req->value,req->type);
 	req->isAsync=true;
 	switch(req->type){
 		case FS_GET_T:
+			req->value=inf_get_valueset(u_req->value,FS_MALLOC_R);
 			break;
 		case FS_SET_T:
+			req->value=inf_get_valueset(u_req->value,FS_MALLOC_W);
 			break;
 		case FS_DELETE_T:
 			break;
@@ -158,7 +168,10 @@ bool inf_end_req( request * const req){
 			printf("get:%d, number: %d\n",check,end_req_num);*/
 	}
 	if(req->value){
-		inf_free_valueset(req->value, req->type);
+		if(req->type==FS_GET_T)
+			inf_free_valueset(req->value, FS_MALLOC_R);
+		else if(req->type==FS_SET_T)
+			inf_free_valueset(req->value, FS_MALLOC_W);
 	}
 	if(!req->isAsync){
 		pthread_mutex_unlock(&req->async_mutex);

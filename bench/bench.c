@@ -258,10 +258,10 @@ void bench_reap_data(request *const req,lower_info *li){
 	if(_m->m_num==_m->r_num){
 		_m->finish=true;
 #ifdef BENCH
-		pthread_mutex_lock(&li->lower_lock);
+		//pthread_mutex_lock(&li->lower_lock);
 		memcpy(&_master->li[idx],li,sizeof(lower_info));
 		li->refresh(li);
-		pthread_mutex_unlock(&li->lower_lock);
+		//pthread_mutex_unlock(&li->lower_lock);
 #endif
 		MA(&_m->benchTime);
 	}
