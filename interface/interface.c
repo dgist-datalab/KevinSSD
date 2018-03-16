@@ -7,7 +7,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <string.h>
-extern struct lower_info __posix;
+extern struct lower_info my_posix;
 extern struct algorithm __normal;
 extern struct algorithm algo_pbase;
 #ifdef lsmtree
@@ -73,7 +73,7 @@ void inf_init(){
 	}
 	pthread_mutex_init(&mp.flag,NULL);
 #ifdef posix
-	mp.li=&__posix;
+	mp.li=&my_posix;
 #endif
 
 #ifdef lsmtree
