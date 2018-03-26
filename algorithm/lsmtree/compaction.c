@@ -218,6 +218,31 @@ void *compaction_main(void *input){
 	}
 	return NULL;
 }
+bool compaction_forcing(){
+	bool no_more_page=false;//after get some page from page.c
+	bool out=false;
+	bool flag=false;
+	while(no_more_page){
+		for(int j=LEVELN-1; j>=0; j--){
+			compR *req=(compR*)malloc(sizeof(compR));
+			if(LSM.disk[j]->n_num){
+				req->fromL=j;
+				req->toL=LEVELN;
+				compaction_assign(req);
+				flag=true;
+				break;
+			}
+			if(j==0)
+				out=true;
+		}
+		if(out)
+			break;
+#ifdef ONETHREAD
+		while(!compaction_idle){}
+#endif
+	}
+	return out|flag;
+}
 
 //static int compaction_num;
 void compaction_check(){
@@ -228,6 +253,10 @@ void compaction_check(){
 				continue;
 			}
 			if(level_full_check(LSM.disk[i])){
+				if(compaction_forcing()){
+					i=LEVELN-1;
+					continue;
+				}
 				LSM.disk[i]->iscompactioning=true;
 				req=(compR*)malloc(sizeof(compR));
 				req->fromL=i;
@@ -326,9 +355,9 @@ void compaction_subprocessing_CMI(skiplist * target,level * t,bool final,KEYT li
 #ifdef CACHE
 		res->t_table=htable_copy(table); 
 		/*
-		speed check needed
-		1. copy from dma : table to cache_table
-		2. make new skiplist to htable for cache
+		   speed check needed
+		   1. copy from dma : table to cache_table
+		   2. make new skiplist to htable for cache
 		 */
 		cache_entry *c_entry=cache_insert(LSM.lsm_cache,res,0);
 		res->c_entry=c_entry;
@@ -498,7 +527,7 @@ free(header_set);
 skiplist_free(templ);
 //swaping
 return 1;*/
-	return 1;
+return 1;
 }
 
 void compaction_lev_seq_processing(level *src, level *des, int headerSize){
@@ -649,12 +678,13 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 		for(int j=0; j<EPC; j++){
 #ifdef CACHE
 			if(target_s[idx]->c_entry){
-		//		memcpy(&table[j],target_s[idx]->t_table,sizeof(htable));
+				//		memcpy(&table[j],target_s[idx]->t_table,sizeof(htable));
 				table[j]=target_s[idx]->t_table;
 				memcpy_cnt++;
 			}
 			else{
 #endif
+				table[j]=htable_assign();
 				compaction_htable_read(target_s[idx],(PTR*)&table[j]);
 #ifdef CACHE
 			}
@@ -713,7 +743,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 	htable **table=NULL;
 	if(!data){
 		start=skip->start;
-		end=skip->end;
+		end=origin->end;
 		int headerSize=level_range_find(origin,start,end,&target_s,true);
 		int target_round=headerSize/EPC+(headerSize%EPC?1:0);
 		int idx=0;
@@ -738,6 +768,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 				}
 				else{
 #endif
+					table[j]=htable_assign();
 					compaction_htable_read(target_s[idx],(PTR*)&table[j]);
 #ifdef CACHE
 				}
@@ -754,12 +785,16 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 	else{
 		KEYT endcheck=UINT_MAX;
 		for(int i=0; data[i]!=NULL; i++){
-			if(data[i+1]==NULL){
-				endcheck=data[i]->end;
-			}
 			Entry *origin_ent=data[i];
 			start=origin_ent->key;
-			end=origin_ent->end;
+			if(data[i+1]==NULL){
+				endcheck=data[i]->end;
+				end=(origin->end>origin_ent->end?origin->end:origin_ent->end);
+				endcheck=end;
+			}
+			else
+				end=origin_ent->end;
+
 			int headerSize=level_range_find(origin,start,end,&target_s,true); 
 			int target_round=(headerSize+1)/EPC+((headerSize+1)%EPC?1:0);
 			int idx=0;
@@ -785,7 +820,8 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 					}
 					else{
 #endif
-					compaction_htable_read(origin_ent,(PTR*)&table[0]);
+						table[0]=htable_assign();
+						compaction_htable_read(origin_ent,(PTR*)&table[0]);
 #ifdef CACHE
 					}
 #endif
@@ -810,6 +846,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 					}
 					else{
 #endif
+						table[k]=htable_assign();
 						compaction_htable_read(target_s[idx],(PTR*)&table[k]);
 #ifdef CACHE
 					}
@@ -817,12 +854,12 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 					table[k]->bitset=target_s[idx]->bitset;
 					idx++;
 				}
+
 				compaction_subprocessing(skip,t,table,(end==endcheck?1:0),true);
 				free(table);
 			}
 			free(target_s);
 		}
-
 		for(int i=origin->r_n_num-1; i>=0; i--){
 			Node *temp_run=ns_run(origin,i);
 			for(int j=temp_run->n_num-1; j>=0; j--){

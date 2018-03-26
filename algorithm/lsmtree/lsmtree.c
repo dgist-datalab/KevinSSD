@@ -85,7 +85,8 @@ void* lsm_end_req(algo_req* const req){
 	bool havetofree=true;
 	void *req_temp_params=NULL;
 	PTR target=NULL;
-	htable *t_table=NULL;
+	htable **t_table=NULL;
+	htable *table=NULL;
 	switch(params->lsm_type){
 		case OLDDATA:
 			//do nothing
@@ -93,9 +94,9 @@ void* lsm_end_req(algo_req* const req){
 		case HEADERR:
 			if(!parents){ //end_req for compaction
 				//mem cpy for compaction
-				target=*params->target;
-				target=(PTR)malloc(PAGESIZE);
-				memcpy(target,params->value->value,PAGESIZE);
+				t_table=(htable**)params->target;
+				table=*t_table;
+				memcpy(table->sets,params->value->value,PAGESIZE);
 
 				comp_target_get_cnt++;
 				if(epc_check==comp_target_get_cnt){
@@ -105,7 +106,6 @@ void* lsm_end_req(algo_req* const req){
 					comp_target_get_cnt=0;
 #endif
 				}
-
 				//have to free
 				inf_free_valueset(params->value,FS_MALLOC_R);
 			}
@@ -227,7 +227,7 @@ uint32_t lsm_get(request *const req){
 	bench_algo_start(req);
 	int res=__lsm_get(req);
 	if(res==3){
-		printf("seq: %d, key:%u\n",nor++,req->key);
+	//	printf("seq: %d, key:%u\n",nor++,req->key);
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
 	}
@@ -437,6 +437,14 @@ htable *htable_copy(htable *input){
 	htable *res=(htable*)malloc(sizeof(htable));
 	res->sets=(keyset*)malloc(PAGESIZE);
 	memcpy(res->sets,input->sets,PAGESIZE);
+	res->t_b=0;
+	res->origin=NULL;
+	return res;
+}
+
+htable *htable_assign(){
+	htable *res=(htable*)malloc(sizeof(htable));
+	res->sets=(keyset*)malloc(PAGESIZE);
 	res->t_b=0;
 	res->origin=NULL;
 	return res;

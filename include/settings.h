@@ -8,7 +8,7 @@
 #define T (1024L*G)
 #define P (1024L*T)
 
-#define TOTALSIZE (G/2)
+#define TOTALSIZE (G/4)
 #define PAGESIZE (8*K)
 #define _PPB (256)
 #define BLOCKSIZE (_PPB*PAGESIZE)
