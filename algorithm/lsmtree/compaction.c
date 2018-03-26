@@ -24,10 +24,6 @@ int epc_check=0;
 compM compactor;
 pthread_mutex_t compaction_wait;
 int compactino_target_cnt;
-#ifdef SNU_TEST
-pageQ *sst_id;
-KEYT target_sst_id;
-#endif
 
 void htable_checker(htable *table){
 	for(int i=0; i<KEYNUM; i++){
@@ -48,12 +44,6 @@ bool compaction_init(){
 	}
 	compactor.stopflag=false;
 	pthread_mutex_init(&compaction_wait,NULL);
-#ifdef SNU_TEST
-	pq_init(&sst_id,4096);
-	for(KEYT i=0; i<4096; i++){
-		pq_enqueue(i,sst_id);
-	}
-#endif
 	return true;
 }
 
@@ -150,10 +140,6 @@ KEYT compaction_htable_write(htable *input){
 
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
-#ifdef SNU_TEST
-	target_sst_id=pq_dequeue(sst_id);
-	printf("W %u\n",target_sst_id);
-#endif
 	LSM.li->push_data(ppa,PAGESIZE,params->value,0,areq,0);
 	return ppa;
 }
@@ -346,9 +332,6 @@ void compaction_subprocessing_CMI(skiplist * target,level * t,bool final,KEYT li
 		res=level_make_entry(table->sets[0].lpa,table->sets[end_idx-1].lpa,ppa);
 		memcpy(res->bitset,table->bitset,KEYNUM/8);
 		free(table->bitset);
-#ifdef SNU_TEST
-		res->id=target_sst_id;
-#endif
 #ifdef BLOOM
 		res->filter=table->filter;
 #endif
@@ -570,9 +553,6 @@ uint32_t leveling(int from, int to, Entry *entry){
 				compaction_lev_seq_processing(target_origin,target,target_origin->n_num);
 			}
 
-#ifdef SNU_TEST
-			entry->id=target_sst_id;
-#endif
 #ifdef CACHE
 			//cache must be inserted befor level insert
 			htable *temp_table=htable_copy(entry->t_table);
@@ -755,10 +735,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 
 			for(int j=0; j<EPC; j++){
 				invalidate_PPA(target_s[idx]->pbn);//invalidate_PPA
-#ifdef SNU_TEST
-				pq_enqueue(target_s[idx]->id,sst_id);
-				printf("I %u\n",target_s[idx]->id);
-#endif
 
 #ifdef CACHE
 				if(target_s[idx]->c_entry){
@@ -807,10 +783,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 
 				if(round==0){
 					invalidate_PPA(origin_ent->pbn);
-#ifdef SNU_TEST
-					pq_enqueue(origin_ent->id,sst_id);
-					printf("I %u\n",origin_ent->id);
-#endif
 					origin_ent->iscompactioning=true;
 #ifdef CACHE
 					if(origin_ent->c_entry){
@@ -832,10 +804,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 				for(int k=j; k<EPC; k++){
 					if(target_s[idx]==NULL)break;
 					invalidate_PPA(target_s[idx]->pbn);
-#ifdef SNU_TEST
-					pq_enqueue(target_s[idx]->id,sst_id);
-					printf("I %u\n",target_s[idx]->id);
-#endif
 
 #ifdef CACHE
 					if(target_s[idx]->c_entry){
