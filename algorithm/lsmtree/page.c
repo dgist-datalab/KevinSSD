@@ -309,6 +309,7 @@ int gc_header(){
 		table=tables[i];
 		test->pbn=n_ppa;
 		gc_data_write(n_ppa,table);
+		free(tables[i]);
 	}
 	//printf("gc_header\n");
 	//level_all_print();
@@ -368,6 +369,7 @@ void gc_data_header_update(KEYT d_ppa, KEYT d_lpa, KEYT n_ppa){
 					}
 #endif
 					gc_data_write(n_hppa,tables[k]);
+					free(tables[k]);
 					doneflag=true;
 				}
 			}
@@ -429,8 +431,8 @@ int gc_data(){
 		KEYT d_lpa=PBITGET(d_ppa);
 		KEYT n_ppa=getRPPA(&data_m,d_lpa);
 		gc_data_header_update(d_ppa,d_lpa,n_ppa);
-
 		gc_data_write(n_ppa,data);
+		free(tables[i]);
 	}
 	free(tables);
 	algo_lsm.li->trim_block(target->ppa,0);

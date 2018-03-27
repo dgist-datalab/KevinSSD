@@ -28,7 +28,7 @@ uint32_t normal_get(request *const req){
 	my_req->end_req=normal_end_req;
 	my_req->params=(void*)params;
 	bench_algo_end(req);
-	__normal.li->pull_data(req->key,PAGESIZE,req->value,0,my_req,0);
+	__normal.li->pull_data(req->key,PAGESIZE,req->value,req->isAsync,my_req,0);
 	return 1;
 }
 uint32_t normal_set(request *const req){
@@ -41,7 +41,7 @@ uint32_t normal_set(request *const req){
 	my_req->end_req=normal_end_req;
 	my_req->params=(void*)params;
 	bench_algo_end(req);
-	__normal.li->push_data(req->key,PAGESIZE,req->value,0,my_req,0);
+	__normal.li->push_data(req->key,PAGESIZE,req->value,req->isAsync,my_req,0);
 	return 1;
 }
 uint32_t normal_remove(request *const req){
