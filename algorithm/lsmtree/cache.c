@@ -1,3 +1,4 @@
+#ifdef CACHE
 #include "lsmtree.h"
 #include "../../include/lsm_settings.h"
 #include "cache.h"
@@ -174,3 +175,4 @@ void cache_print(cache *c){
 		start=start->down;
 	}
 }
+#endif

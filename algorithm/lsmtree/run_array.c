@@ -426,11 +426,13 @@ void level_check(level *input){
 			if(temp_ent->filter->p>1){
 				printf("\r");
 			}
+#ifdef CACHE
 			if(temp_ent->c_entry){
 				if(temp_ent->c_entry->entry==temp_ent){
 					printf("\r");
 				}
 			}
+#endif
 			if(temp_ent->t_table){
 				if(temp_ent->t_table->sets[10].lpa>10){
 					printf("\r");

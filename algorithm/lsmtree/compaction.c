@@ -24,10 +24,6 @@ int epc_check=0;
 compM compactor;
 pthread_mutex_t compaction_wait;
 int compactino_target_cnt;
-#ifdef SNU_TEST
-pageQ *sst_id;
-KEYT target_sst_id;
-#endif
 
 void htable_checker(htable *table){
 	for(int i=0; i<KEYNUM; i++){
@@ -48,12 +44,6 @@ bool compaction_init(){
 	}
 	compactor.stopflag=false;
 	pthread_mutex_init(&compaction_wait,NULL);
-#ifdef SNU_TEST
-	pq_init(&sst_id,4096);
-	for(KEYT i=0; i<4096; i++){
-		pq_enqueue(i,sst_id);
-	}
-#endif
 	return true;
 }
 
@@ -150,10 +140,6 @@ KEYT compaction_htable_write(htable *input){
 
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
-#ifdef SNU_TEST
-	target_sst_id=pq_dequeue(sst_id);
-	printf("W %u\n",target_sst_id);
-#endif
 	LSM.li->push_data(ppa,PAGESIZE,params->value,0,areq,0);
 	return ppa;
 }
@@ -218,6 +204,31 @@ void *compaction_main(void *input){
 	}
 	return NULL;
 }
+bool compaction_forcing(){
+	bool no_more_page=false;//after get some page from page.c
+	bool out=false;
+	bool flag=false;
+	while(no_more_page){
+		for(int j=LEVELN-1; j>=0; j--){
+			compR *req=(compR*)malloc(sizeof(compR));
+			if(LSM.disk[j]->n_num){
+				req->fromL=j;
+				req->toL=LEVELN;
+				compaction_assign(req);
+				flag=true;
+				break;
+			}
+			if(j==0)
+				out=true;
+		}
+		if(out)
+			break;
+#ifdef ONETHREAD
+		while(!compaction_idle){}
+#endif
+	}
+	return out|flag;
+}
 
 //static int compaction_num;
 void compaction_check(){
@@ -228,6 +239,10 @@ void compaction_check(){
 				continue;
 			}
 			if(level_full_check(LSM.disk[i])){
+				if(compaction_forcing()){
+					i=LEVELN-1;
+					continue;
+				}
 				LSM.disk[i]->iscompactioning=true;
 				req=(compR*)malloc(sizeof(compR));
 				req->fromL=i;
@@ -317,18 +332,15 @@ void compaction_subprocessing_CMI(skiplist * target,level * t,bool final,KEYT li
 		res=level_make_entry(table->sets[0].lpa,table->sets[end_idx-1].lpa,ppa);
 		memcpy(res->bitset,table->bitset,KEYNUM/8);
 		free(table->bitset);
-#ifdef SNU_TEST
-		res->id=target_sst_id;
-#endif
 #ifdef BLOOM
 		res->filter=table->filter;
 #endif
 #ifdef CACHE
 		res->t_table=htable_copy(table); 
 		/*
-		speed check needed
-		1. copy from dma : table to cache_table
-		2. make new skiplist to htable for cache
+		   speed check needed
+		   1. copy from dma : table to cache_table
+		   2. make new skiplist to htable for cache
 		 */
 		cache_entry *c_entry=cache_insert(LSM.lsm_cache,res,0);
 		res->c_entry=c_entry;
@@ -498,7 +510,7 @@ free(header_set);
 skiplist_free(templ);
 //swaping
 return 1;*/
-	return 1;
+return 1;
 }
 
 void compaction_lev_seq_processing(level *src, level *des, int headerSize){
@@ -525,7 +537,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 	level_init(target,target_origin->m_num, target_origin->isTiering);
 	target->fpr=target_origin->fpr;
 	LSM.c_level=target;
-	level *src;
+	level *src=NULL;
 	if(from==-1){
 		body=LSM.temptable;
 		LSM.temptable=NULL;
@@ -541,9 +553,6 @@ uint32_t leveling(int from, int to, Entry *entry){
 				compaction_lev_seq_processing(target_origin,target,target_origin->n_num);
 			}
 
-#ifdef SNU_TEST
-			entry->id=target_sst_id;
-#endif
 #ifdef CACHE
 			//cache must be inserted befor level insert
 			htable *temp_table=htable_copy(entry->t_table);
@@ -649,12 +658,13 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 		for(int j=0; j<EPC; j++){
 #ifdef CACHE
 			if(target_s[idx]->c_entry){
-		//		memcpy(&table[j],target_s[idx]->t_table,sizeof(htable));
+				//		memcpy(&table[j],target_s[idx]->t_table,sizeof(htable));
 				table[j]=target_s[idx]->t_table;
 				memcpy_cnt++;
 			}
 			else{
 #endif
+				table[j]=htable_assign();
 				compaction_htable_read(target_s[idx],(PTR*)&table[j]);
 #ifdef CACHE
 			}
@@ -713,7 +723,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 	htable **table=NULL;
 	if(!data){
 		start=skip->start;
-		end=skip->end;
+		end=origin->end;
 		int headerSize=level_range_find(origin,start,end,&target_s,true);
 		int target_round=headerSize/EPC+(headerSize%EPC?1:0);
 		int idx=0;
@@ -725,10 +735,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 
 			for(int j=0; j<EPC; j++){
 				invalidate_PPA(target_s[idx]->pbn);//invalidate_PPA
-#ifdef SNU_TEST
-				pq_enqueue(target_s[idx]->id,sst_id);
-				printf("I %u\n",target_s[idx]->id);
-#endif
 
 #ifdef CACHE
 				if(target_s[idx]->c_entry){
@@ -738,6 +744,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 				}
 				else{
 #endif
+					table[j]=htable_assign();
 					compaction_htable_read(target_s[idx],(PTR*)&table[j]);
 #ifdef CACHE
 				}
@@ -754,12 +761,16 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 	else{
 		KEYT endcheck=UINT_MAX;
 		for(int i=0; data[i]!=NULL; i++){
-			if(data[i+1]==NULL){
-				endcheck=data[i]->end;
-			}
 			Entry *origin_ent=data[i];
 			start=origin_ent->key;
-			end=origin_ent->end;
+			if(data[i+1]==NULL){
+				endcheck=data[i]->end;
+				end=(origin->end>origin_ent->end?origin->end:origin_ent->end);
+				endcheck=end;
+			}
+			else
+				end=origin_ent->end;
+
 			int headerSize=level_range_find(origin,start,end,&target_s,true); 
 			int target_round=(headerSize+1)/EPC+((headerSize+1)%EPC?1:0);
 			int idx=0;
@@ -772,10 +783,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 
 				if(round==0){
 					invalidate_PPA(origin_ent->pbn);
-#ifdef SNU_TEST
-					pq_enqueue(origin_ent->id,sst_id);
-					printf("I %u\n",origin_ent->id);
-#endif
 					origin_ent->iscompactioning=true;
 #ifdef CACHE
 					if(origin_ent->c_entry){
@@ -785,7 +792,8 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 					}
 					else{
 #endif
-					compaction_htable_read(origin_ent,(PTR*)&table[0]);
+						table[0]=htable_assign();
+						compaction_htable_read(origin_ent,(PTR*)&table[0]);
 #ifdef CACHE
 					}
 #endif
@@ -796,10 +804,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 				for(int k=j; k<EPC; k++){
 					if(target_s[idx]==NULL)break;
 					invalidate_PPA(target_s[idx]->pbn);
-#ifdef SNU_TEST
-					pq_enqueue(target_s[idx]->id,sst_id);
-					printf("I %u\n",target_s[idx]->id);
-#endif
 
 #ifdef CACHE
 					if(target_s[idx]->c_entry){
@@ -810,6 +814,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 					}
 					else{
 #endif
+						table[k]=htable_assign();
 						compaction_htable_read(target_s[idx],(PTR*)&table[k]);
 #ifdef CACHE
 					}
@@ -817,12 +822,12 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 					table[k]->bitset=target_s[idx]->bitset;
 					idx++;
 				}
+
 				compaction_subprocessing(skip,t,table,(end==endcheck?1:0),true);
 				free(table);
 			}
 			free(target_s);
 		}
-
 		for(int i=origin->r_n_num-1; i>=0; i--){
 			Node *temp_run=ns_run(origin,i);
 			for(int j=temp_run->n_num-1; j>=0; j--){

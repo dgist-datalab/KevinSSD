@@ -1,15 +1,17 @@
 export CC=g++
 
-TARGET_LOWER=bdbm_drv
-TARGET_ALGO=normal
+TARGET_LOWER=posix
+TARGET_ALGO=lsmtree
 PWD=$(pwd)
 
 export CFLAGS_ALGO=\
 			 -g\
+			 -Og\
 			 -Wall\
 
 export CFLAGS_LOWER=\
 			-g\
+			-Og\
 			 -lpthread\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\
@@ -27,7 +29,7 @@ CFLAGS +=\
 		 -D$(TARGET_LOWER)\
 		 -D$(TARGET_ALGO)\
 		 -D_BSD_SOURCE\
-	-DBENCH\
+	#-DBENCH\
 
 SRCS +=\
 	./interface/queue.c\

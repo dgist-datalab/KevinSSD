@@ -37,6 +37,7 @@ THE SOFTWARE.
 #include "dm_nohost.h"
 
 #include "../../../../include/container.h"
+#include "../../../../bench/bench.h"
 
 extern unsigned int* dstBuffer;
 extern unsigned int* srcBuffer;
@@ -88,6 +89,9 @@ static void __dm_intr_handler (
 	}*/
 
 	algo_req *my_algo_req=(algo_req*)r->req;
+	if(my_algo_req->parents){
+		bench_lower_end(my_algo_req->parents);
+	}
 	my_algo_req->end_req(my_algo_req);
 	/*
 	lsmtree_req_t* lsm_req=(lsmtree_req_t*)r->req;
@@ -318,6 +322,12 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 		r->logaddr.lpa[0] = cur_lba;
 		r->fmain.kp_ptr[0] = cur_buf;
 		r->async = async;
+		/*kukania*/
+		algo_req *my_algo_req=(algo_req*)req;
+		if(my_algo_req->parents){
+			bench_lower_start(my_algo_req->parents);
+		}
+		/*kukania*/
 		r->req = req;
 		//r->dmaTag = req->req->dmaTag;
 		r->dmaTag = dmatag;
