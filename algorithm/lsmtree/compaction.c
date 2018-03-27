@@ -682,6 +682,7 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 #elif defined(SPINLOCK)
 #endif
 #endif
+
 #ifdef MUTEXLOCK //for waitreading
 		pthread_mutex_lock(&compaction_wait);
 #elif defined (SPINLOCK)
@@ -694,6 +695,7 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 			for(int q=0; q<KEYNUM; q++){
 				bf_set(filter,ttable->sets[q].lpa);
 			}
+			htable_free(table[k]);
 			Entry *new_ent=level_entry_copy(target_s[pr_idx]);
 			new_ent->filter=filter;
 			pr_idx++;
@@ -729,6 +731,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 		int idx=0;
 		for(int round=0; round<target_round; round++){
 			table=(htable**)malloc(sizeof(htable*)*EPC);
+			memset(table,0,sizeof(htable*)*EPC);
 
 			epc_check=(round+1==target_round? headerSize%EPC:EPC);
 			if(!epc_check) epc_check=EPC;
@@ -754,6 +757,12 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 				if(target_s[idx]==NULL) break;
 			}
 			compaction_subprocessing(skip,t,table,(round==target_round-1?1:0),true);
+			for(int i=0; i<EPC; i++){
+				if(table[i])
+					htable_free(table[i]);
+				else
+					break;
+			}
 			free(table);
 		}
 		free(target_s);
@@ -777,6 +786,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 			for(int round=0; round<target_round; round++){
 				int j=0;
 				table=(htable**)malloc(sizeof(htable*)*EPC); //end req do
+				memset(table,0,sizeof(htable*)*EPC);
 
 				epc_check=(round+1==target_round? (headerSize+1)%EPC:EPC);
 				if(!epc_check) epc_check=EPC;
@@ -792,7 +802,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 					}
 					else{
 #endif
-						table[0]=htable_assign();
+						table[j]=htable_assign();
 						compaction_htable_read(origin_ent,(PTR*)&table[0]);
 #ifdef CACHE
 					}
@@ -823,7 +833,13 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 					idx++;
 				}
 
-				compaction_subprocessing(skip,t,table,(end==endcheck?1:0),true);
+				compaction_subprocessing(skip,t,table,(end==endcheck?1:0),true);	
+				for(int i=0; i<EPC; i++){
+					if(table[i])
+						htable_free(table[i]);
+					else 
+						break;
+				}
 				free(table);
 			}
 			free(target_s);
