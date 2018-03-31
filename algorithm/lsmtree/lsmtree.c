@@ -227,7 +227,7 @@ uint32_t lsm_get(request *const req){
 	bench_algo_start(req);
 	int res=__lsm_get(req);
 	if(res==3){
-	//	printf("seq: %d, key:%u\n",nor++,req->key);
+		printf("seq: %d, key:%u\n",nor++,req->key);
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
 	}
