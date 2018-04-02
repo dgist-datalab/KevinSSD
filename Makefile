@@ -1,17 +1,15 @@
 export CC=g++
 
-TARGET_LOWER=posix
+TARGET_LOWER=bdbm_drv
 TARGET_ALGO=lsmtree
 PWD=$(pwd)
 
 export CFLAGS_ALGO=\
 			 -g\
-			 -Og\
 			 -Wall\
 
 export CFLAGS_LOWER=\
 			-g\
-			-Og\
 			 -lpthread\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\

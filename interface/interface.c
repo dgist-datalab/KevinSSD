@@ -169,10 +169,12 @@ bool inf_end_req( request * const req){
 			printf("get:%d, number: %d\n",check,end_req_num);*/
 	}
 	if(req->value){
-		if(req->type==FS_GET_T)
+		if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){
 			inf_free_valueset(req->value, FS_MALLOC_R);
-		else if(req->type==FS_SET_T)
+		}
+		else if(req->type==FS_SET_T){
 			inf_free_valueset(req->value, FS_MALLOC_W);
+		}
 	}
 	if(!req->isAsync){
 		pthread_mutex_unlock(&req->async_mutex);

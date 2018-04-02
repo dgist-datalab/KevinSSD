@@ -129,6 +129,7 @@ void* lsm_end_req(algo_req* const req){
 			}
 			break;
 		case HEADERW:
+			//htable_print((htable*)params->htable_ptr);
 			inf_free_valueset(params->value,FS_MALLOC_W);
 			free(params->htable_ptr);
 			break;
@@ -278,7 +279,7 @@ uint32_t __lsm_get(request *const req){
 				return 1;
 			}
 			bench_algo_end(req);
-			LSM.li->pull_data(target_node->ppa,PAGESIZE,req->value,0,lsm_req,0);
+			LSM.li->pull_data(target_node->ppa,PAGESIZE,req->value,ASYNC,lsm_req,0);
 			return 1;
 		}
 	}
@@ -291,7 +292,7 @@ uint32_t __lsm_get(request *const req){
 			params->lsm_type=DATAR;
 			bench_algo_end(req);
 
-			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,0,lsm_req,0);
+			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req,0);
 			pthread_mutex_unlock(&LSM.entrylock);
 			return 1;
 		}
@@ -310,6 +311,7 @@ uint32_t __lsm_get(request *const req){
 		level=temp_req[0];
 		run=temp_req[1]+1;
 		mapinfo=(htable*)req->value;
+		htable_print(mapinfo);
 		keyset *target=htable_find(mapinfo->sets,req->key);
 		if(target){
 #ifdef CACHE
@@ -323,7 +325,7 @@ uint32_t __lsm_get(request *const req){
 			//read target data;
 			params->lsm_type=DATAR;
 			bench_algo_end(req);
-			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,0,lsm_req,0);
+			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req,0);
 			return 1;
 		}
 	}
@@ -348,7 +350,7 @@ uint32_t __lsm_get(request *const req){
 					params->lsm_type=DATAR;
 					cache_update(LSM.lsm_cache,entry);
 					bench_algo_end(req);
-					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,0,lsm_req,0);
+					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req,0);
 					free(entries);
 					return 1;
 				}
@@ -356,7 +358,7 @@ uint32_t __lsm_get(request *const req){
 			}
 #endif
 			//printf("header read!\n");
-			LSM.li->pull_data(entry->pbn,PAGESIZE,req->value,0,lsm_req,0);
+			LSM.li->pull_data(entry->pbn,PAGESIZE,req->value,ASYNC,lsm_req,0);
 			if(!req->isAsync){
 				pthread_mutex_lock(&params->lock); // wait until read table data;
 				mapinfo=(htable*)req->value;
@@ -374,7 +376,7 @@ uint32_t __lsm_get(request *const req){
 #endif
 					params->lsm_type=DATAR;
 					bench_algo_end(req);
-					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,0,lsm_req,0);
+					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req,0);
 					free(entries);
 					return 1;
 				}
@@ -455,4 +457,9 @@ void htable_free(htable *input){
 	free(input);
 }
 
+void htable_print(htable * input){
+	for(int i=0; i<KEYNUM; i++){
+		printf("[%d] %u %u\n",i, input->sets[i].lpa, input->sets[i].ppa);
+	}
+}
 

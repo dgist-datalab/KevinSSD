@@ -84,4 +84,5 @@ keyset* htable_find(keyset*, KEYT target);
 htable *htable_copy(htable *);
 htable *htable_assign();
 void htable_free(htable*);
+void htable_print(htable*);
 #endif

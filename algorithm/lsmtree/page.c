@@ -79,7 +79,7 @@ void gc_data_read(KEYT ppa,htable_t *value){
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
 
-	algo_lsm.li->pull_data(ppa,PAGESIZE,params->value,0,areq,0);
+	algo_lsm.li->pull_data(ppa,PAGESIZE,params->value,ASYNC,areq,0);
 	return;
 }
 

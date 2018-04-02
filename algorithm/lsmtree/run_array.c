@@ -131,6 +131,7 @@ Entry *level_find_fromR(Node *run, KEYT key){
 		if(mid_e->key <=key && mid_e->end>=key){
 #ifdef BLOOM
 			if(!bf_check(mid_e->filter,key)){
+				printf("false from filter\n");
 				return NULL;
 			}
 #endif
@@ -354,7 +355,6 @@ void level_free_entry(Entry *entry){
 			free(temp_table->sets);
 		}
 	}
-	free(entry->t_table);
 	free(entry);
 }
 void level_free_entry_inside(Entry * entry){
@@ -422,7 +422,6 @@ void level_check(level *input){
 		Node *temp_run=ns_run(input,i);
 		for(int j=0; j<temp_run->n_num; j++){
 			Entry *temp_ent=ns_entry(temp_run,j);
-
 			if(temp_ent->filter->p>1){
 				printf("\r");
 			}
@@ -439,6 +438,7 @@ void level_check(level *input){
 				}
 			}
 			if(temp_ent->bitset[10]){
+			
 				printf("\r");
 			}
 		}
@@ -447,7 +447,8 @@ void level_check(level *input){
 }
 void level_all_check(){
 	for(int i=0; i<LEVELN; i++){
-		level_check(LSM.disk[i]);
+		if(LSM.disk[i]!=0)
+			level_check(LSM.disk[i]);
 	}
 }
 /*
