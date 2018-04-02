@@ -27,16 +27,8 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	LSM.memtable=skiplist_init();
 	unsigned long long sol=SIZEFACTOR;
 	float ffpr=RAF*(1-SIZEFACTOR)/(1-pow(SIZEFACTOR,LEVELN+0));
+	float target_fpr=0;
 	for(int i=0; i<LEVELN; i++){
-		LSM.disk[i]=(level*)malloc(sizeof(level));
-#ifdef TIERING
-		level_init(LSM.disk[i],sol,true);
-#else
-		level_init(LSM.disk[i],sol,false);
-#endif
-		sol*=SIZEFACTOR;
-
-		float target_fpr;
 #ifdef BLOOM
 #ifdef MONKEY
 		target_fpr=pow(SIZEFACTOR,i)*ffpr;
@@ -45,6 +37,14 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 #endif
 		LSM.disk[i]->fpr=target_fpr;
 #endif
+		LSM.disk[i]=(level*)malloc(sizeof(level));
+
+#ifdef TIERING
+		level_init(LSM.disk[i],sol,target_fpr,true);
+#else
+		level_init(LSM.disk[i],sol,target_fpr,false);
+#endif
+		sol*=SIZEFACTOR;
 		LSM.level_addr[i]=(PTR)LSM.disk[i];
 	}
 	pthread_mutex_init(&LSM.templock,NULL);

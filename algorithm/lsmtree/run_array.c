@@ -51,11 +51,11 @@ Entry *level_entry_copy(Entry *input){
 #endif
 	memcpy(res->bitset,input->bitset,sizeof(res->bitset));
 	res->iscompactioning=false;
-	res->version=input->version;
+	//res->version=input->version;
 	return res;
 }
 
-level *level_init(level *input,int all_entry,bool isTiering){
+level *level_init(level *input,int all_entry,float fpr, bool isTiering){
 	if(isTiering){
 		input->r_num=SIZEFACTOR;
 	}
@@ -90,6 +90,9 @@ level *level_init(level *input,int all_entry,bool isTiering){
 	input->start=UINT_MAX;
 	input->end=0;
 	input->iscompactioning=false;
+	input->fpr=fpr;
+	input->remain=NULL;
+	//input->version_info=0;
 	return input;
 }
 
@@ -172,6 +175,7 @@ Node *level_insert_seq(level *input, Entry *entry){
 	int o=temp_run->n_num;
 	Entry *temp_entry=ns_entry(temp_run,o);
 	level_entcpy(entry,(char*)temp_entry);
+	//temp_entry->version=input->version_info++;
 #ifdef BLOOM
 	temp_entry->filter=bf_cpy(entry->filter);
 #endif
@@ -213,6 +217,7 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 	int o=temp_run->n_num;
 	Entry *temp_entry=ns_entry(temp_run,o);
 	level_entcpy(entry,(char*)temp_entry);
+	//temp_entry->version=version_info++;
 #ifdef BLOOM
 	temp_entry->filter=entry->filter;
 	entry->filter=NULL;

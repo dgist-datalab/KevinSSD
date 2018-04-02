@@ -1,8 +1,6 @@
 #ifndef __H_SETLSM__
 #define __H_SETLSM__
 
-//#define BLOOM
-//#define MONKEY
 
 #define SIZEFACTOR 10 
 #define RAF 1
@@ -11,7 +9,7 @@
 #define CTHREAD 1
 #define CQSIZE 2
 #define EPC 20 //size factor have to be multiple of SIZEFACTOR
-
+#define TIERFACTOR 10
 
 #define HEADERB (3)
 //#define ONETHREAD
