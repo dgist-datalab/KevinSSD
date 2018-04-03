@@ -75,6 +75,7 @@ level *level_copy(level *);//
 Entry **level_find(level *,KEYT key);//
 Entry *level_find_fromR(Node *, KEYT key);//
 int level_range_find(level *,KEYT start, KEYT end, Entry ***,bool compaction);//
+int level_range_unmatch(level *,KEYT start, Entry ***,bool);
 bool level_check_overlap(level*,KEYT start, KEYT end);//a
 bool level_full_check(level *);//
 Node *level_insert(level *,Entry*);//
