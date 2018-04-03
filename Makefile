@@ -1,6 +1,6 @@
 export CC=g++
 
-TARGET_LOWER=bdbm_drv
+TARGET_LOWER=posix
 TARGET_ALGO=lsmtree
 PWD=$(pwd)
 

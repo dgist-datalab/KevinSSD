@@ -51,11 +51,10 @@ Entry *level_entry_copy(Entry *input){
 #endif
 	memcpy(res->bitset,input->bitset,sizeof(res->bitset));
 	res->iscompactioning=false;
-	res->version=input->version;
 	return res;
 }
 
-level *level_init(level *input,int all_entry,bool isTiering){
+level *level_init(level *input,int all_entry,float fpr, bool isTiering){
 	if(isTiering){
 		input->r_num=SIZEFACTOR;
 	}
@@ -90,6 +89,9 @@ level *level_init(level *input,int all_entry,bool isTiering){
 	input->start=UINT_MAX;
 	input->end=0;
 	input->iscompactioning=false;
+	input->fpr=fpr;
+	input->remain=NULL;
+	//input->version_info=0;
 	return input;
 }
 
@@ -422,9 +424,12 @@ void level_check(level *input){
 		Node *temp_run=ns_run(input,i);
 		for(int j=0; j<temp_run->n_num; j++){
 			Entry *temp_ent=ns_entry(temp_run,j);
+
+#ifdef BLOOM
 			if(temp_ent->filter->p>1){
 				printf("\r");
 			}
+#endif
 #ifdef CACHE
 			if(temp_ent->c_entry){
 				if(temp_ent->c_entry->entry==temp_ent){
@@ -438,7 +443,6 @@ void level_check(level *input){
 				}
 			}
 			if(temp_ent->bitset[10]){
-			
 				printf("\r");
 			}
 		}

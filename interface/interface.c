@@ -108,6 +108,8 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value){
 	req->type=type;
 	req->key=key;
 
+	req->value=inf_get_valueset(value->value,req->type);
+
 	req->end_req=inf_end_req;
 	req->isAsync=true;
 	req->params=NULL;
@@ -118,10 +120,8 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value){
 #endif
 	switch(type){
 		case FS_GET_T:
-			req->value=inf_get_valueset(NULL,FS_MALLOC_R);
 			break;
 		case FS_SET_T:
-			req->value=inf_get_valueset(value->value,FS_MALLOC_W);
 			break;
 		case FS_DELETE_T:
 			break;
@@ -137,13 +137,12 @@ bool inf_make_req_Async(void *ureq, void *(*end_req)(void*)){
 	upper_request *u_req=(upper_request*)ureq;
 	req->type=u_req->type;
 	req->key=u_req->key;
+	req->value=inf_get_valueset(u_req->value,req->type);
 	req->isAsync=true;
 	switch(req->type){
 		case FS_GET_T:
-			req->value=inf_get_valueset(u_req->value,FS_MALLOC_R);
 			break;
 		case FS_SET_T:
-			req->value=inf_get_valueset(u_req->value,FS_MALLOC_W);
 			break;
 		case FS_DELETE_T:
 			break;

@@ -6,6 +6,7 @@
 #include "cache.h"
 #include "lsmtree.h"
 #include "bloomfilter.h"
+#include "skiplist.h"
 
 struct htable;
 struct skiplis;
@@ -14,7 +15,7 @@ typedef struct Entry{
 	KEYT end;
 	KEYT pbn;
 	uint8_t bitset[KEYNUM/8];
-	uint64_t version;
+	//uint64_t version; version == order by input;
 #ifdef BLOOM
 	BF *filter;
 #endif
@@ -52,6 +53,8 @@ typedef struct level{
 	KEYT end;
 	pthread_mutex_t level_lock;
 	bool iscompactioning;
+	//KEYT version_info;
+	struct skiplist *remain;
 	char *body;
 }level;
 
@@ -66,7 +69,7 @@ typedef struct iterator{
 Entry *level_make_entry(KEYT,KEYT,KEYT);//
 Entry* level_entcpy(Entry *src,char *des);//
 Entry *level_entry_copy(Entry *src);
-level *level_init(level *,int size,bool);//
+level *level_init(level *,int size,float fpr,bool);//
 level *level_clear(level *);//
 level *level_copy(level *);//
 Entry **level_find(level *,KEYT key);//
