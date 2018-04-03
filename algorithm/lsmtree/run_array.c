@@ -418,6 +418,25 @@ int level_range_find(level *input,KEYT start,KEYT end, Entry ***res, bool compac
 	(*res)=temp;
 	return rev;
 }
+
+int level_range_unmatch(level *input, KEYT start,Entry ***res,bool compactioning){
+	Iter *level_iter=level_get_Iter(input);
+	int rev=0;
+	Entry **temp;
+	temp=(Entry **)malloc(sizeof(Entry *)*input->m_num);
+	Entry *value;
+	while((value=level_get_next(level_iter))){
+		if(value->end<=start){
+			temp[rev++]=value;
+			if(compactioning) value->iscompactioning=true;
+		}
+	}
+	free(level_iter);
+	temp[rev]=NULL;
+	(*res)=temp;
+	return rev;
+}
+
 void level_check(level *input){
 	int cnt=0;
 	for(int i=0; i<input->r_n_num; i++){

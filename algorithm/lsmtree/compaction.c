@@ -417,9 +417,11 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 		}
 	}
 }
+int leveling_cnt;
 uint32_t leveling(int from, int to, Entry *entry){
 	//range find of targe lsm, 
 	//have to insert src level to skiplist,
+	printf("[%d]",leveling_cnt++);
 	skiplist *body;
 	level *target_origin=LSM.disk[to];
 	level *target=(level *)malloc(sizeof(level));
@@ -654,10 +656,18 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 	KEYT end=0;
 	Entry **target_s=NULL;
 	htable **table=NULL;
+
+	if(!data) start=skip->start;
+	else start=data[0]->key;
+	int headerSize=level_range_unmatch(origin,start,&target_s,true);
+	for(int i=0; i<headerSize; i++){
+		level_insert(t,target_s[i]);
+	}
+	free(target_s);
+
 	if(!data){
-		start=skip->start;
 		end=origin->end;
-		int headerSize=level_range_find(origin,start,end,&target_s,true);
+		headerSize=level_range_find(origin,start,end,&target_s,true);
 		int target_round=headerSize/EPC+(headerSize%EPC?1:0);
 		int idx=0;
 		for(int round=0; round<target_round; round++){
@@ -672,7 +682,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 #ifdef CACHE
 				if(target_s[idx]->c_entry){
 					memcpy_cnt++;
-					//memcpy(table[j],target_s[idx]->t_table,sizeof(htable));
 					table[j]=target_s[idx]->t_table;
 				}
 				else{
@@ -688,8 +697,14 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 			}
 			compaction_subprocessing(skip,t,table,(round==target_round-1?1:0),true);
 			for(int i=0; i<EPC; i++){
-				if(table[i])
+				if(table[i]){
+#ifdef CACHE
+					if(target_s[i]->c_entry){
+						continue;
+					}
+#endif
 					htable_free(table[i]);
+				}
 				else
 					break;
 			}
@@ -710,7 +725,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 			else
 				end=origin_ent->end;
 
-			int headerSize=level_range_find(origin,start,end,&target_s,true); 
+			headerSize=level_range_find(origin,start,end,&target_s,true); 
 			int target_round=(headerSize+1)/EPC+((headerSize+1)%EPC?1:0);
 			int idx=0;
 			for(int round=0; round<target_round; round++){
@@ -727,7 +742,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 #ifdef CACHE
 					if(origin_ent->c_entry){
 						memcpy_cnt++;
-						//table[0]=htable_copy(origin_ent->t_table);
 						table[0]=origin_ent->t_table;
 					}
 					else{
@@ -748,8 +762,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 #ifdef CACHE
 					if(target_s[idx]->c_entry){
 						memcpy_cnt++;
-						//memcpy(&table[k],target_s[idx]->t_table,sizeof(htable));
-						//table[k]=htable_copy(target_s[idx]->t_table);
 						table[k]=target_s[idx]->t_table;
 					}
 					else{
@@ -765,24 +777,20 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 
 				compaction_subprocessing(skip,t,table,(end==endcheck?1:0),true);	
 				for(int i=0; i<EPC; i++){
-					if(table[i])
+					if(table[i]){
+#ifdef CACHE
+						if((i==0 && origin_ent->c_entry) || target_s[i-1]->c_entry){
+							continue;
+						}
+#endif
 						htable_free(table[i]);
+					}
 					else 
 						break;
 				}
 				free(table);
 			}
 			free(target_s);
-		}
-		for(int i=origin->r_n_num-1; i>=0; i--){
-			Node *temp_run=ns_run(origin,i);
-			for(int j=temp_run->n_num-1; j>=0; j--){
-				Entry *temp_ent=ns_entry(temp_run,j);
-				if(temp_ent->iscompactioning){
-					continue;
-				}
-				level_insert(t,temp_ent);
-			}
 		}
 	}
 	return 1;
