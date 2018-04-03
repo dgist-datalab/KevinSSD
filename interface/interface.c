@@ -76,6 +76,7 @@ void inf_init(){
 		pthread_create(&t->t_id,NULL,&p_main,NULL);
 	}
 	pthread_mutex_init(&mp.flag,NULL);
+	measure_init(&mt);
 #ifdef posix
 	mp.li=&my_posix;
 #endif
@@ -110,7 +111,7 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value){
 	req->value=inf_get_valueset(value->value,req->type);
 
 	req->end_req=inf_end_req;
-	req->isAsync=false;
+	req->isAsync=true;
 	req->params=NULL;
 #ifndef USINGAPP
 	req->algo.isused=false;
@@ -160,8 +161,8 @@ bool inf_end_req( request * const req){
 	printf("inf_end_req!\n");
 #endif
 	if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){
-		int check;
-		memcpy(&check,req->value,sizeof(check));
+		//int check;
+		//memcpy(&check,req->value,sizeof(check));
 		/*
 		if((++end_req_num)%1024==0)
 			printf("get:%d, number: %d\n",check,end_req_num);*/
@@ -186,6 +187,8 @@ void inf_free(){
 	mp.li->stop();
 	mp.stopflag=true;
 	int *temp;
+	printf("result of ms:\n");
+	printf("---\n");
 	for(int i=0; i<THREADSIZE; i++){
 		processor *t=&mp.processors[i];
 		pthread_join(t->t_id,(void**)&temp);

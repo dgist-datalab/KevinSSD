@@ -5,6 +5,6 @@ simulator_memory_check
 data/
 object/
 tags
-log
+*log
 .
 *log

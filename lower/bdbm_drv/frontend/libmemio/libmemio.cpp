@@ -35,15 +35,12 @@ THE SOFTWARE.
 #include <string.h>
 //#include "../../devices/nohost/dm_nohost.h"
 #include "dm_nohost.h"
-#include "LR_inter.h"
-#include  "utils.h"
+
+#include "../../../../include/container.h"
+#include "../../../../bench/bench.h"
 
 extern unsigned int* dstBuffer;
 extern unsigned int* srcBuffer;
-extern MeasureTime mt;
-extern MeasureTime mem;
-extern MeasureTime buf;
-int cnt=0;
 extern pthread_mutex_t endR;
 
 static void __dm_intr_handler (bdbm_drv_info_t* bdi, bdbm_llm_req_t* r);
@@ -90,6 +87,13 @@ static void __dm_intr_handler (
 		if ( lsm_gc_req->end_req ) lsm_gc_req->end_req(lsm_gc_req);
 		break;
 	}*/
+
+	algo_req *my_algo_req=(algo_req*)r->req;
+	if(my_algo_req->parents){
+		bench_lower_end(my_algo_req->parents);
+	}
+	my_algo_req->end_req(my_algo_req);
+	/*
 	lsmtree_req_t* lsm_req=(lsmtree_req_t*)r->req;
 	if(lsm_req->isgc){
 		lsmtree_gc_req_t *gc=(lsmtree_gc_req_t*)lsm_req;
@@ -97,7 +101,7 @@ static void __dm_intr_handler (
 	}
 	else{
 		lsm_req->end_req(lsm_req);
-	}
+	}*/
 	__memio_free_llm_req((memio_t*)bdi->private_data,r);
 	//printf("unlock!\n");
 	//printf("lsm_req :%p \n",r->req);
@@ -318,6 +322,12 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 		r->logaddr.lpa[0] = cur_lba;
 		r->fmain.kp_ptr[0] = cur_buf;
 		r->async = async;
+		/*kukania*/
+		algo_req *my_algo_req=(algo_req*)req;
+		if(my_algo_req->parents){
+			bench_lower_start(my_algo_req->parents);
+		}
+		/*kukania*/
 		r->req = req;
 		//r->dmaTag = req->req->dmaTag;
 		r->dmaTag = dmatag;

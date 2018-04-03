@@ -20,7 +20,9 @@ lower_info my_posix={
 	.pull_data=posix_pull_data,
 	.trim_block=posix_trim_block,
 	.refresh=posix_refresh,
-	.stop=posix_stop
+	.stop=posix_stop,
+	.lower_alloc=NULL,
+	.lower_free=NULL
 };
 
 uint32_t posix_create(lower_info *li){
