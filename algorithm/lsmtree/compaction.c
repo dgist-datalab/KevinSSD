@@ -137,7 +137,8 @@ KEYT compaction_htable_write(htable *input){
 
 	params->value=input->origin;
 	params->htable_ptr=(PTR)input;
-
+	
+	//htable_print(input);
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
 	LSM.li->push_data(ppa,PAGESIZE,params->value,0,areq,0);
@@ -316,7 +317,7 @@ void compaction_htable_read(Entry *ent,PTR* value){
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
 	//printf("R %u\n",ent->pbn);
-	LSM.li->pull_data(ent->pbn,PAGESIZE,params->value,0,areq,0);
+	LSM.li->pull_data(ent->pbn,PAGESIZE,params->value,ASYNC,areq,0);
 	return;
 }
 
@@ -424,7 +425,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 	level *target=(level *)malloc(sizeof(level));
 	level_init(target,target_origin->m_num, target_origin->fpr,false);
 	LSM.c_level=target;
-	level *src;
+	level *src=NULL;
 	if(from==-1){
 		body=LSM.temptable;
 		LSM.temptable=NULL;
@@ -444,7 +445,6 @@ uint32_t leveling(int from, int to, Entry *entry){
 			//cache must be inserted befor level insert
 			htable *temp_table=htable_copy(entry->t_table);
 			entry->pbn=compaction_htable_write(entry->t_table);//write table & free allocated htable by inf_get_valueset
-
 			entry->t_table=temp_table;
 			cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
 			entry->c_entry=c_entry;
@@ -584,7 +584,13 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 			for(int q=0; q<KEYNUM; q++){
 				bf_set(filter,ttable->sets[q].lpa);
 			}
-			htable_free(table[k]);
+#ifdef CACHE
+			if(!target_s[pr_idx]->c_entry){
+#endif
+				htable_free(table[k]);
+#ifdef CACHE
+			}
+#endif
 			Entry *new_ent=level_entry_copy(target_s[pr_idx]);
 			new_ent->filter=filter;
 			pr_idx++;

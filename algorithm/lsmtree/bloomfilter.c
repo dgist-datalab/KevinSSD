@@ -144,24 +144,27 @@ uint64_t bf_bits(int entry, float fpr){
 }
 void bf_set(BF *input, KEYT key){
 	KEYT h;
+	int block;
+	int offset;
 	for(int i=0; i<input->k; i++){
 		//MurmurHash3_x86_32(&key,sizeof(key),i,&h);
 		h=hashfunction(key+i);
 		h%=input->m;
-		int block=h/8;
-		int offset=h%8;
+		block=h/8;
+		offset=h%8;
 		BITSET(&input->body[block],offset);
 	}
 }
 
 bool bf_check(BF* input, KEYT key){
 	KEYT h;
+	int block,offset;
 	for(int i=0; i<input->k; i++){
 		//MurmurHash3_x86_32(&key,sizeof(key),i,&h);
 		h=hashfunction(key+i);
 		h%=input->m;
-		int block=h/8;
-		int offset=h%8;
+		block=h/8;
+		offset=h%8;
 		if(!BITGET(input->body[block],offset))
 			return false;
 	}

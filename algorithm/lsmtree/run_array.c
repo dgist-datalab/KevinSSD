@@ -51,7 +51,6 @@ Entry *level_entry_copy(Entry *input){
 #endif
 	memcpy(res->bitset,input->bitset,sizeof(res->bitset));
 	res->iscompactioning=false;
-	//res->version=input->version;
 	return res;
 }
 
@@ -134,6 +133,7 @@ Entry *level_find_fromR(Node *run, KEYT key){
 		if(mid_e->key <=key && mid_e->end>=key){
 #ifdef BLOOM
 			if(!bf_check(mid_e->filter,key)){
+				printf("false from filter\n");
 				return NULL;
 			}
 #endif
@@ -175,7 +175,6 @@ Node *level_insert_seq(level *input, Entry *entry){
 	int o=temp_run->n_num;
 	Entry *temp_entry=ns_entry(temp_run,o);
 	level_entcpy(entry,(char*)temp_entry);
-	//temp_entry->version=input->version_info++;
 #ifdef BLOOM
 	temp_entry->filter=bf_cpy(entry->filter);
 #endif
@@ -217,7 +216,6 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 	int o=temp_run->n_num;
 	Entry *temp_entry=ns_entry(temp_run,o);
 	level_entcpy(entry,(char*)temp_entry);
-	//temp_entry->version=version_info++;
 #ifdef BLOOM
 	temp_entry->filter=entry->filter;
 	entry->filter=NULL;
@@ -359,7 +357,6 @@ void level_free_entry(Entry *entry){
 			free(temp_table->sets);
 		}
 	}
-	free(entry->t_table);
 	free(entry);
 }
 void level_free_entry_inside(Entry * entry){
@@ -428,9 +425,11 @@ void level_check(level *input){
 		for(int j=0; j<temp_run->n_num; j++){
 			Entry *temp_ent=ns_entry(temp_run,j);
 
+#ifdef BLOOM
 			if(temp_ent->filter->p>1){
 				printf("\r");
 			}
+#endif
 #ifdef CACHE
 			if(temp_ent->c_entry){
 				if(temp_ent->c_entry->entry==temp_ent){
@@ -452,7 +451,8 @@ void level_check(level *input){
 }
 void level_all_check(){
 	for(int i=0; i<LEVELN; i++){
-		level_check(LSM.disk[i]);
+		if(LSM.disk[i]!=0)
+			level_check(LSM.disk[i]);
 	}
 }
 /*
