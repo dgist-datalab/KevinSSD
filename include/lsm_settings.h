@@ -2,7 +2,7 @@
 #define __H_SETLSM__
 
 
-#define SIZEFACTOR 5
+#define SIZEFACTOR 10
 #define RAF 1
 #define LEVELN 5
 #define KEYNUM 1024

@@ -59,7 +59,7 @@ int main(){/*
 */
 
 	inf_init();
-	bench_init(2);
+	bench_init(1);
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
 	bench_add(SEQSET,0,128*1024,40*1024);
