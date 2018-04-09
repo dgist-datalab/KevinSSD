@@ -5,6 +5,7 @@
 #include <time.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 
 master *_master;
 void seqget(KEYT, KEYT,monitor *);
@@ -15,6 +16,7 @@ void randset(KEYT,KEYT,monitor*);
 void randrw(KEYT,KEYT,monitor*);
 void mixed(KEYT,KEYT,int percentage,monitor*);
 
+pthread_mutex_t bench_lock;
 void bench_init(int benchnum){
 	_master=(master*)malloc(sizeof(master));
 	_master->m=(monitor*)malloc(sizeof(monitor)*benchnum);
@@ -30,6 +32,7 @@ void bench_init(int benchnum){
 	memset(_master->li,0,sizeof(lower_info)*benchnum);
 
 	_master->n_num=0; _master->m_num=benchnum;
+	pthread_mutex_init(&bench_lock,NULL);
 }
 void bench_make_data(){
 	int idx=_master->n_num;
@@ -238,7 +241,11 @@ void __bench_time_maker(MeasureTime mt, bench_data *datas,bool isalgo){
 	return;
 }
 void bench_reap_data(request *const req,lower_info *li){
-	if(!req) return;
+	pthread_mutex_lock(&bench_lock);
+	if(!req){ 
+		pthread_mutex_unlock(&bench_lock);
+		return;
+	}
 	int idx=req->mark;
 	monitor *_m=&_master->m[idx];
 	bench_data *_data=&_master->datas[idx];
@@ -265,6 +272,7 @@ void bench_reap_data(request *const req,lower_info *li){
 #endif
 		MA(&_m->benchTime);
 	}
+	pthread_mutex_unlock(&bench_lock);
 }
 void bench_li_print(lower_info* li,monitor *m){
 	printf("-----lower_info----\n");

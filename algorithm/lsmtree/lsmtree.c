@@ -29,6 +29,7 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	float ffpr=RAF*(1-SIZEFACTOR)/(1-pow(SIZEFACTOR,LEVELN+0));
 	float target_fpr=0;
 	for(int i=0; i<LEVELN; i++){
+		LSM.disk[i]=(level*)malloc(sizeof(level));
 #ifdef BLOOM
 #ifdef MONKEY
 		target_fpr=pow(SIZEFACTOR,i)*ffpr;
@@ -37,7 +38,6 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 #endif
 		LSM.disk[i]->fpr=target_fpr;
 #endif
-		LSM.disk[i]=(level*)malloc(sizeof(level));
 
 #ifdef TIERING
 		level_init(LSM.disk[i],sol,target_fpr,true);
