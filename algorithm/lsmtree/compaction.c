@@ -428,9 +428,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 	if(from==-1){
 		body=LSM.temptable;
 		LSM.temptable=NULL;
-		pthread_mutex_unlock(&LSM.templock);
-#ifdef DEBUG
-#endif
+		pthread_mutex_unlock(&LSM.templock); // unlock
 		if(!level_check_overlap(target_origin,body->start,body->end)){
 			printf("-1 1 .... ttt\n");
 			skiplist_free(body);
@@ -584,7 +582,13 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 			for(int q=0; q<KEYNUM; q++){
 				bf_set(filter,ttable->sets[q].lpa);
 			}
-			htable_free(table[k]);
+#ifdef CACHE
+			if(!target_s[pr_idx]->c_entry){
+#endif
+				htable_free(table[k]);
+#ifdef CACHE
+			}
+#endif
 			Entry *new_ent=level_entry_copy(target_s[pr_idx]);
 			new_ent->filter=filter;
 			pr_idx++;
@@ -610,10 +614,12 @@ uint64_t partial_tiering(level *des,level *src, int size){
 	htable **table=(htable**)malloc(sizeof(htable*)*size*src->entry_p_run);
 	int table_cnt=0;
 	for(int i=0; i<size; i++){
+		epc_check=size;
 		Node *temp_run=ns_run(src,i);
 		for(int j=0; j<temp_run->n_num; j++){
 			Entry *temp_ent=ns_entry(temp_run,j);
 			temp_ent->iscompactioning=true;
+
 #ifdef CACHE
 			if(temp_ent->c_entry){
 				memcpy_cnt++;
@@ -621,11 +627,12 @@ uint64_t partial_tiering(level *des,level *src, int size){
 			}
 			else{
 #endif
-				table[j]=htable_assign();
+				table[table_cnt]=htable_assign();
 				compaction_htable_read(temp_ent,(PTR*)table[table_cnt]);
 #ifdef CACHE
 			}
 #endif
+			table[table_cnt]->bitset=temp_ent->bitset;
 			table_cnt++;
 		}
 	}
@@ -785,17 +792,23 @@ uint32_t tiering(int from, int to, Entry *entry){
 	level *src_level=NULL;
 	level *src_origin_level=NULL;
 	level *des_origin_level=LSM.disk[to];
-	level *des_level=(level*)malloc(sizeof(level));
-	level_init(des_level,des_origin_level->m_num,des_origin_level->fpr,true);
+	level *des_level=NULL;/*
+	if(des_origin_level->n_num)
+		des_level=level_copy(des_origin_level);
+	else{*/
+		des_level=(level*)malloc(sizeof(level));
+		level_init(des_level,des_origin_level->m_num,des_origin_level->fpr,true);
+	//}
 	LSM.c_level=des_level;
 
 	if(from==-1){
 		printf("0 to 1 tiering\n");
 		skiplist *body=LSM.temptable;
 		skiplist_free(body);
+		pthread_mutex_unlock(&LSM.templock);
 
 		//copy all level from origin to des;
-		compaction_lev_seq_processing(des_level,des_origin_level,des_origin_level->n_num);
+		compaction_lev_seq_processing(des_origin_level,des_level,des_origin_level->n_num);
 #ifdef CACHE
 		//cache must be inserted befor level insert
 		htable *temp_table=htable_copy(entry->t_table);
@@ -867,6 +880,6 @@ uint32_t tiering(int from, int to, Entry *entry){
 	pthread_mutex_unlock(&((temp)->level_lock));
 	LSM.c_level=NULL;
 	level_free(temp);
-//	level_all_check();
+	level_all_check();
 	return 1;
 }

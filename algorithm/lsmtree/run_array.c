@@ -123,12 +123,10 @@ Entry **level_find(level *input,KEYT key){
 Entry *level_find_fromR(Node *run, KEYT key){
 	int start=0;
 	int end=run->n_num-1;
+	if(run->n_num==0) return NULL;
 	int mid;
 	while(1){
 		mid=(start+end)/2;
-		if(mid>=run->n_num){
-			printf("?n\n");
-		}
 		Entry *mid_e=ns_entry(run,mid);
 		if(mid_e==NULL) break;
 		if(mid_e->key <=key && mid_e->end>=key){
@@ -151,6 +149,7 @@ Entry *level_find_fromR(Node *run, KEYT key){
 	}
 	return NULL;
 }
+
 Node *level_insert_seq(level *input, Entry *entry){
 	if(input->start>entry->key)
 		input->start=entry->key;
@@ -282,6 +281,7 @@ void level_print(level *input){
 	printf("level:%p\n",input);
 	for(int i=0; i<input->r_n_num; i++){
 		Node* temp_run=ns_run(input,i);
+		printf("start_run[%d]\n",i);
 		for(int j=0; j<temp_run->n_num; j++){
 			Entry *temp_ent=ns_entry(temp_run,j);
 #ifdef BLOOM
@@ -303,6 +303,7 @@ void level_print(level *input){
 				test1=test2;
 			}
 		}
+		printf("\n\n");
 	}
 }
 void level_free(level *input){
@@ -395,11 +396,14 @@ bool level_check_overlap(level *input ,KEYT start, KEYT end){
 
 level *level_copy(level *input){
 	level *res=(level *)malloc(sizeof(level));
-	memcpy(res,input,sizeof(level)-sizeof(pthread_mutex_t)-sizeof(char *));
-	pthread_mutex_init(&res->level_lock,NULL);
-	//node copy
-	res->body=(char*)malloc(input->r_size*input->r_num);
-	memcpy(res->body,input->body,input->r_size*input->r_num);
+	level_init(res,input->m_num,input->fpr,input->isTiering);
+	Iter *iter=level_get_Iter(input);
+	Entry *value;
+	while((value=level_get_next(iter))){
+		Entry *new_entry=level_entry_copy(value);
+		level_insert(res,new_entry);
+	}
+	free(iter);
 	return res;
 }
 

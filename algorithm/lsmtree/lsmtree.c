@@ -233,10 +233,8 @@ uint32_t lsm_get(request *const req){
 	}
 	return res;
 }
+
 uint32_t __lsm_get(request *const req){
-#ifdef DEBUG
-	printf("lsm_get!\n");
-#endif
 	snode *target_node=skiplist_find(LSM.memtable,req->key);
 	if(target_node !=NULL){
 #ifdef NOHOST
@@ -313,12 +311,12 @@ uint32_t __lsm_get(request *const req){
 		keyset *target=htable_find(mapinfo->sets,req->key);
 		if(target){
 #ifdef CACHE
-			Node *t_node=ns_run(LSM.disk[level],run);
-			Entry *_entry=level_find_fromR(t_node,mapinfo->sets[0].lpa);
-			if(_entry){
-				cache_entry *c_entry=cache_insert(LSM.lsm_cache,_entry,0);
-				_entry->c_entry=c_entry;
-			}
+			//Node *t_node=ns_run(LSM.disk[level],run);
+			Entry **_entry=level_find(LSM.disk[level],req->key);
+			_entry[run]->t_table=htable_copy(mapinfo);
+			cache_entry *c_entry=cache_insert(LSM.lsm_cache,_entry[run],0);
+			_entry[run]->c_entry=c_entry;
+			free(_entry);
 #endif
 			//read target data;
 			params->lsm_type=DATAR;

@@ -51,10 +51,10 @@ typedef struct level{
 	bool isTiering;
 	KEYT start;
 	KEYT end;
-	pthread_mutex_t level_lock;
 	bool iscompactioning;
-	//KEYT version_info;
 	struct skiplist *remain;
+	pthread_mutex_t level_lock;
+	//KEYT version_info;
 	char *body;
 }level;
 
