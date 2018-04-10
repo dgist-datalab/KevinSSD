@@ -1,3 +1,5 @@
+#ifndef __H_BENCH__
+#define __H_BENCH__
 #include "../include/settings.h"
 #include "../include/container.h"
 #include "measurement.h"
@@ -72,3 +74,4 @@ void bench_reap_data(request *const,lower_info *);
 
 void free_bnech_all();
 void free_bench_one(bench_value *);
+#endif

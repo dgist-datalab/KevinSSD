@@ -3,6 +3,7 @@
 #include "normal.h"
 #include "../../bench/bench.h"
 
+extern MeasureTime mt;
 struct algorithm __normal={
 	.create=normal_create,
 	.destroy=normal_destroy,

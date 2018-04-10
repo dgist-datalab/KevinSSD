@@ -138,6 +138,7 @@ KEYT compaction_htable_write(htable *input){
 	params->value=input->origin;
 	params->htable_ptr=(PTR)input;
 
+	//htable_print(input);
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
 	LSM.li->push_data(ppa,PAGESIZE,params->value,0,areq,0);
@@ -189,17 +190,24 @@ void *compaction_main(void *input){
 			else{
 				leveling(-1,0,entry);
 			}
-		}	
-		else{
-			if(LSM.disk[req->toL]->isTiering){
-				tiering(req->fromL,req->toL,NULL);
+		}
+
+		int start_level=0;
+		while(1){
+			if(level_full_check(LSM.disk[start_level])){
+				int des_level=(start_level==LEVELN?start_level:start_level+1);
+				if(LSM.disk[des_level]->isTiering){
+					tiering(start_level,des_level,NULL);
+				}
+				else{
+					leveling(start_level,des_level,NULL);
+				}
+				LSM.disk[req->fromL]->iscompactioning=false;
 			}
 			else{
-				leveling(req->fromL,req->toL,NULL);
+				break;
 			}
-			LSM.disk[req->fromL]->iscompactioning=false;
 		}
-		//level_all_print();
 		free(req);
 	}
 	return NULL;
@@ -230,32 +238,13 @@ bool compaction_forcing(){
 	return out|flag;
 }
 
-//static int compaction_num;
 void compaction_check(){
-	compR * req;
+	compR *req;
 	if(LSM.memtable->size==KEYNUM){
-		for(int i=LEVELN-1; i>=0; i--){
-			if(LSM.disk[i]->iscompactioning) {
-				continue;
-			}
-			if(level_full_check(LSM.disk[i])){
-				if(compaction_forcing()){
-					i=LEVELN-1;
-					continue;
-				}
-				LSM.disk[i]->iscompactioning=true;
-				req=(compR*)malloc(sizeof(compR));
-				req->fromL=i;
-				req->toL=i+1;
-				compaction_assign(req);
-			}
-		}
 		req=(compR*)malloc(sizeof(compR));
 		req->fromL=-1;
 		req->toL=0;
-#ifdef ONETHREAD
-		while(!compaction_idle){}
-#endif
+
 		if(LSM.temptable==NULL){
 			LSM.temptable=LSM.memtable;
 			LSM.memtable=skiplist_init();
@@ -266,9 +255,53 @@ void compaction_check(){
 			LSM.temptable=LSM.memtable;
 			LSM.memtable=skiplist_init();
 		}
+
 		compaction_assign(req);
+#ifdef ONETHREAD
+		while(!compaction_idle){}
+#endif
 	}
 }
+/*
+   void compaction_check(){
+   compR * req;
+   if(LSM.memtable->size==KEYNUM){
+   for(int i=LEVELN-1; i>=0; i--){
+   if(LSM.disk[i]->iscompactioning) {
+   continue;
+   }
+   if(level_full_check(LSM.disk[i])){
+   if(compaction_forcing()){
+   i=LEVELN-1;
+   continue;
+   }
+   LSM.disk[i]->iscompactioning=true;
+   req=(compR*)malloc(sizeof(compR));
+   req->fromL=i;
+   req->toL=i+1;
+   compaction_assign(req);
+   }
+   }
+   req=(compR*)malloc(sizeof(compR));
+   req->fromL=-1;
+   req->toL=0;
+#ifdef ONETHREAD
+while(!compaction_idle){}
+#endif
+if(LSM.temptable==NULL){
+LSM.temptable=LSM.memtable;
+LSM.memtable=skiplist_init();
+pthread_mutex_lock(&LSM.templock);
+}
+else{
+pthread_mutex_lock(&LSM.templock);
+LSM.temptable=LSM.memtable;
+LSM.memtable=skiplist_init();
+}
+compaction_assign(req);
+}
+}
+ */
 htable *compaction_htable_convert(skiplist *input,float fpr){
 	value_set *temp=inf_get_valueset(NULL,FS_MALLOC_W);
 	htable *res=(htable*)malloc(sizeof(htable));
@@ -316,7 +349,7 @@ void compaction_htable_read(Entry *ent,PTR* value){
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
 	//printf("R %u\n",ent->pbn);
-	LSM.li->pull_data(ent->pbn,PAGESIZE,params->value,0,areq,0);
+	LSM.li->pull_data(ent->pbn,PAGESIZE,params->value,ASYNC,areq,0);
 	return;
 }
 
@@ -416,15 +449,17 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 		}
 	}
 }
+int leveling_cnt;
 uint32_t leveling(int from, int to, Entry *entry){
 	//range find of targe lsm, 
 	//have to insert src level to skiplist,
+	printf("[%d]",leveling_cnt++);
 	skiplist *body;
 	level *target_origin=LSM.disk[to];
 	level *target=(level *)malloc(sizeof(level));
 	level_init(target,target_origin->m_num, target_origin->fpr,false);
 	LSM.c_level=target;
-	level *src;
+	level *src=NULL;
 	if(from==-1){
 		body=LSM.temptable;
 		LSM.temptable=NULL;
@@ -442,7 +477,6 @@ uint32_t leveling(int from, int to, Entry *entry){
 			//cache must be inserted befor level insert
 			htable *temp_table=htable_copy(entry->t_table);
 			entry->pbn=compaction_htable_write(entry->t_table);//write table & free allocated htable by inf_get_valueset
-
 			entry->t_table=temp_table;
 			cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
 			entry->c_entry=c_entry;
@@ -528,7 +562,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 	pthread_mutex_unlock(&((temp)->level_lock));
 	LSM.c_level=NULL;
 	level_free(temp);
-//	level_all_check();
+	//	level_all_check();
 	return 1;
 }	
 #ifdef MONKEY
@@ -655,10 +689,18 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 	KEYT end=0;
 	Entry **target_s=NULL;
 	htable **table=NULL;
+
+	if(!data) start=skip->start;
+	else start=data[0]->key;
+	int headerSize=level_range_unmatch(origin,start,&target_s,true);
+	for(int i=0; i<headerSize; i++){
+		level_insert(t,target_s[i]);
+	}
+	free(target_s);
+
 	if(!data){
-		start=skip->start;
 		end=origin->end;
-		int headerSize=level_range_find(origin,start,end,&target_s,true);
+		headerSize=level_range_find(origin,start,end,&target_s,true);
 		int target_round=headerSize/EPC+(headerSize%EPC?1:0);
 		int idx=0;
 		for(int round=0; round<target_round; round++){
@@ -673,7 +715,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 #ifdef CACHE
 				if(target_s[idx]->c_entry){
 					memcpy_cnt++;
-					//memcpy(table[j],target_s[idx]->t_table,sizeof(htable));
 					table[j]=target_s[idx]->t_table;
 				}
 				else{
@@ -689,8 +730,14 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 			}
 			compaction_subprocessing(skip,t,table,(round==target_round-1?1:0),true);
 			for(int i=0; i<EPC; i++){
-				if(table[i])
+				if(table[i]){
+#ifdef CACHE
+					if(target_s[i]->c_entry){
+						continue;
+					}
+#endif
 					htable_free(table[i]);
+				}
 				else
 					break;
 			}
@@ -711,7 +758,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 			else
 				end=origin_ent->end;
 
-			int headerSize=level_range_find(origin,start,end,&target_s,true); 
+			headerSize=level_range_find(origin,start,end,&target_s,true); 
 			int target_round=(headerSize+1)/EPC+((headerSize+1)%EPC?1:0);
 			int idx=0;
 			for(int round=0; round<target_round; round++){
@@ -728,7 +775,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 #ifdef CACHE
 					if(origin_ent->c_entry){
 						memcpy_cnt++;
-						//table[0]=htable_copy(origin_ent->t_table);
 						table[0]=origin_ent->t_table;
 					}
 					else{
@@ -749,8 +795,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 #ifdef CACHE
 					if(target_s[idx]->c_entry){
 						memcpy_cnt++;
-						//memcpy(&table[k],target_s[idx]->t_table,sizeof(htable));
-						//table[k]=htable_copy(target_s[idx]->t_table);
 						table[k]=target_s[idx]->t_table;
 					}
 					else{
@@ -766,24 +810,20 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 
 				compaction_subprocessing(skip,t,table,(end==endcheck?1:0),true);	
 				for(int i=0; i<EPC; i++){
-					if(table[i])
+					if(table[i]){
+#ifdef CACHE
+						if((i==0 && origin_ent->c_entry) || target_s[i-1]->c_entry){
+							continue;
+						}
+#endif
 						htable_free(table[i]);
+					}
 					else 
 						break;
 				}
 				free(table);
 			}
 			free(target_s);
-		}
-		for(int i=origin->r_n_num-1; i>=0; i--){
-			Node *temp_run=ns_run(origin,i);
-			for(int j=temp_run->n_num-1; j>=0; j--){
-				Entry *temp_ent=ns_entry(temp_run,j);
-				if(temp_ent->iscompactioning){
-					continue;
-				}
-				level_insert(t,temp_ent);
-			}
 		}
 	}
 	return 1;
@@ -793,17 +833,18 @@ uint32_t tiering(int from, int to, Entry *entry){
 	level *src_origin_level=NULL;
 	level *des_origin_level=LSM.disk[to];
 	level *des_level=NULL;/*
-	if(des_origin_level->n_num)
-		des_level=level_copy(des_origin_level);
-	else{*/
-		des_level=(level*)malloc(sizeof(level));
-		level_init(des_level,des_origin_level->m_num,des_origin_level->fpr,true);
+							 if(des_origin_level->n_num)
+							 des_level=level_copy(des_origin_level);
+							 else{*/
+	des_level=(level*)malloc(sizeof(level));
+	level_init(des_level,des_origin_level->m_num,des_origin_level->fpr,true);
 	//}
 	LSM.c_level=des_level;
 
 	if(from==-1){
-		printf("0 to 1 tiering\n");
+		printf("-1 to 0 tiering\n");
 		skiplist *body=LSM.temptable;
+		LSM.temptable=NULL;
 		skiplist_free(body);
 		pthread_mutex_unlock(&LSM.templock);
 
@@ -828,25 +869,21 @@ uint32_t tiering(int from, int to, Entry *entry){
 		level_free_entry(entry);
 	}
 	else{
+		printf("--%d to %d tiering\n",from,to);
 		src_origin_level=LSM.disk[from];
 		src_level=(level*)malloc(sizeof(level));
 		level_init(src_level,src_origin_level->m_num,src_origin_level->fpr,true);
-		
+
+		//copy all level from origin to des;
+		compaction_lev_seq_processing(des_origin_level,des_level,des_origin_level->n_num);	
+
 		partial_tiering(des_level,src_origin_level,src_origin_level->n_num);
 		if(src_origin_level->remain){
 			src_level->remain=src_origin_level->remain;
 			src_origin_level->remain=NULL;
 		}
 
-		/*should check the src_origin_level->n_num*/
-		int fromR=src_origin_level->n_num/src_origin_level->entry_p_run+1;
-		for(int i=fromR; i<src_origin_level->r_n_num; i++){
-			Node *temp_run=ns_run(src_origin_level,i);
-			for(int j=0; j<temp_run->n_num; j++){
-				Entry *temp_ent=ns_entry(temp_run,j);
-				level_insert_seq(src_level,temp_ent);
-			}
-		}
+		level_print(des_level);
 	}
 
 	level **des_ptr=NULL;

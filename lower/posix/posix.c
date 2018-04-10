@@ -13,14 +13,16 @@
 #include <pthread.h>
 static int _fd;
 pthread_mutex_t fd_lock;
-lower_info __posix={
+lower_info my_posix={
 	.create=posix_create,
 	.destroy=posix_destroy,
 	.push_data=posix_push_data,
 	.pull_data=posix_pull_data,
 	.trim_block=posix_trim_block,
 	.refresh=posix_refresh,
-	.stop=posix_stop
+	.stop=posix_stop,
+	.lower_alloc=NULL,
+	.lower_free=NULL
 };
 
 uint32_t posix_create(lower_info *li){
@@ -39,7 +41,7 @@ uint32_t posix_create(lower_info *li){
 		exit(-1);
 	}
 	pthread_mutex_init(&fd_lock,NULL);
-	pthread_mutex_init(&__posix.lower_lock,NULL);
+	pthread_mutex_init(&my_posix.lower_lock,NULL);
 	measure_init(&li->writeTime);
 	measure_init(&li->readTime);
 	return 1;
@@ -58,11 +60,11 @@ void *posix_destroy(lower_info *li){
 }
 
 void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req, uint32_t dmatag){
-	bench_lower_w_start(&__posix);
+	bench_lower_w_start(&my_posix);
 	if(req->parents)
 		bench_lower_start(req->parents);
 	pthread_mutex_lock(&fd_lock);
-	if(lseek64(_fd,((off64_t)__posix.SOP)*PPA,SEEK_SET)==-1){
+	if(lseek64(_fd,((off64_t)my_posix.SOP)*PPA,SEEK_SET)==-1){
 		printf("lseek error in read\n");
 	}//
 	if(!write(_fd,value->value,size)){
@@ -71,7 +73,7 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	pthread_mutex_unlock(&fd_lock);
 	if(req->parents)
 		bench_lower_end(req->parents);
-	bench_lower_w_end(&__posix);
+	bench_lower_w_end(&my_posix);
 	req->end_req(req);
 /*
 	if(async){
@@ -84,12 +86,12 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 }
 
 void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req, uint32_t dmatag){
-	bench_lower_r_start(&__posix);
+	bench_lower_r_start(&my_posix);
 	if(req->parents)
 		bench_lower_start(req->parents);
 
 	pthread_mutex_lock(&fd_lock);
-	if(lseek64(_fd,((off64_t)__posix.SOP)*PPA,SEEK_SET)==-1){
+	if(lseek64(_fd,((off64_t)my_posix.SOP)*PPA,SEEK_SET)==-1){
 		printf("lseek error in read\n");
 	}
 	int res;
@@ -100,7 +102,7 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 
 	if(req->parents)
 		bench_lower_end(req->parents);
-	bench_lower_r_end(&__posix);
+	bench_lower_r_end(&my_posix);
 	req->end_req(req);
 	/*
 	if(async){
@@ -113,11 +115,11 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 }
 
 void *posix_trim_block(KEYT PPA, bool async){
-	bench_lower_t(&__posix);
-	char *temp=(char *)malloc(__posix.SOB);
-	memset(temp,0,__posix.SOB);
+	bench_lower_t(&my_posix);
+	char *temp=(char *)malloc(my_posix.SOB);
+	memset(temp,0,my_posix.SOB);
 	pthread_mutex_lock(&fd_lock);
-	if(lseek64(_fd,((off64_t)__posix.SOP)*PPA,SEEK_SET)==-1){
+	if(lseek64(_fd,((off64_t)my_posix.SOP)*PPA,SEEK_SET)==-1){
 		printf("lseek error in trim\n");
 	}
 	if(!write(_fd,temp,BLOCKSIZE)){

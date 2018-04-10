@@ -227,7 +227,7 @@ uint32_t lsm_get(request *const req){
 	bench_algo_start(req);
 	int res=__lsm_get(req);
 	if(res==3){
-		printf("seq: %d, key:%u\n",nor++,req->key);
+	//	printf("seq: %d, key:%u\n",nor++,req->key);
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
 	}
@@ -263,7 +263,6 @@ uint32_t __lsm_get(request *const req){
 	pthread_mutex_lock(&LSM.templock);
 	if(LSM.temptable){
 		target_node=skiplist_find(LSM.temptable,req->key);
-		//delete check
 		if(target_node){
 			pthread_mutex_unlock(&LSM.templock);
 			params->lsm_type=DATAR;
@@ -276,7 +275,7 @@ uint32_t __lsm_get(request *const req){
 				return 1;
 			}
 			bench_algo_end(req);
-			LSM.li->pull_data(target_node->ppa,PAGESIZE,req->value,0,lsm_req,0);
+			LSM.li->pull_data(target_node->ppa,PAGESIZE,req->value,ASYNC,lsm_req,0);
 			return 1;
 		}
 	}
@@ -289,7 +288,7 @@ uint32_t __lsm_get(request *const req){
 			params->lsm_type=DATAR;
 			bench_algo_end(req);
 
-			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,0,lsm_req,0);
+			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req,0);
 			pthread_mutex_unlock(&LSM.entrylock);
 			return 1;
 		}
@@ -321,7 +320,7 @@ uint32_t __lsm_get(request *const req){
 			//read target data;
 			params->lsm_type=DATAR;
 			bench_algo_end(req);
-			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,0,lsm_req,0);
+			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req,0);
 			return 1;
 		}
 	}
@@ -346,7 +345,7 @@ uint32_t __lsm_get(request *const req){
 					params->lsm_type=DATAR;
 					cache_update(LSM.lsm_cache,entry);
 					bench_algo_end(req);
-					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,0,lsm_req,0);
+					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req,0);
 					free(entries);
 					return 1;
 				}
@@ -354,7 +353,7 @@ uint32_t __lsm_get(request *const req){
 			}
 #endif
 			//printf("header read!\n");
-			LSM.li->pull_data(entry->pbn,PAGESIZE,req->value,0,lsm_req,0);
+			LSM.li->pull_data(entry->pbn,PAGESIZE,req->value,ASYNC,lsm_req,0);
 			if(!req->isAsync){
 				pthread_mutex_lock(&params->lock); // wait until read table data;
 				mapinfo=(htable*)req->value;
@@ -372,7 +371,7 @@ uint32_t __lsm_get(request *const req){
 #endif
 					params->lsm_type=DATAR;
 					bench_algo_end(req);
-					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,0,lsm_req,0);
+					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req,0);
 					free(entries);
 					return 1;
 				}
@@ -453,4 +452,9 @@ void htable_free(htable *input){
 	free(input);
 }
 
+void htable_print(htable * input){
+	for(int i=0; i<KEYNUM; i++){
+		printf("[%d] %u %u\n",i, input->sets[i].lpa, input->sets[i].ppa);
+	}
+}
 

@@ -54,6 +54,8 @@ struct lower_info {
 	void* (*trim_block)(KEYT ppa,bool async);
 	void* (*refresh)(struct lower_info*);
 	void (*stop)();
+	int (*lower_alloc) (int type, char** buf);
+	void (*lower_free) (int type, int dmaTag);
 	/*
 	void*(*push_data)(int num, ...);
 	void*(*pull_data)(int num, ...);

@@ -29,8 +29,7 @@ Entry *level_entcpy(Entry *src, char *des){
 }
 
 bool level_full_check(level *input){
-	int number=input->m_num/10;
-	return input->n_num+number+1>=input->m_num;
+	return input->n_num>=input->m_num;
 }
 
 Entry *level_entry_copy(Entry *input){
@@ -51,7 +50,6 @@ Entry *level_entry_copy(Entry *input){
 #endif
 	memcpy(res->bitset,input->bitset,sizeof(res->bitset));
 	res->iscompactioning=false;
-	//res->version=input->version;
 	return res;
 }
 
@@ -174,7 +172,6 @@ Node *level_insert_seq(level *input, Entry *entry){
 	int o=temp_run->n_num;
 	Entry *temp_entry=ns_entry(temp_run,o);
 	level_entcpy(entry,(char*)temp_entry);
-	//temp_entry->version=input->version_info++;
 #ifdef BLOOM
 	temp_entry->filter=bf_cpy(entry->filter);
 #endif
@@ -216,7 +213,6 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 	int o=temp_run->n_num;
 	Entry *temp_entry=ns_entry(temp_run,o);
 	level_entcpy(entry,(char*)temp_entry);
-	//temp_entry->version=version_info++;
 #ifdef BLOOM
 	temp_entry->filter=entry->filter;
 	entry->filter=NULL;
@@ -360,7 +356,6 @@ void level_free_entry(Entry *entry){
 			free(temp_table->sets);
 		}
 	}
-	free(entry->t_table);
 	free(entry);
 }
 void level_free_entry_inside(Entry * entry){
@@ -425,6 +420,25 @@ int level_range_find(level *input,KEYT start,KEYT end, Entry ***res, bool compac
 	(*res)=temp;
 	return rev;
 }
+
+int level_range_unmatch(level *input, KEYT start,Entry ***res,bool compactioning){
+	Iter *level_iter=level_get_Iter(input);
+	int rev=0;
+	Entry **temp;
+	temp=(Entry **)malloc(sizeof(Entry *)*input->m_num);
+	Entry *value;
+	while((value=level_get_next(level_iter))){
+		if(value->end<=start){
+			temp[rev++]=value;
+			if(compactioning) value->iscompactioning=true;
+		}
+	}
+	free(level_iter);
+	temp[rev]=NULL;
+	(*res)=temp;
+	return rev;
+}
+
 void level_check(level *input){
 	int cnt=0;
 	for(int i=0; i<input->r_n_num; i++){
@@ -432,9 +446,11 @@ void level_check(level *input){
 		for(int j=0; j<temp_run->n_num; j++){
 			Entry *temp_ent=ns_entry(temp_run,j);
 
+#ifdef BLOOM
 			if(temp_ent->filter->p>1){
 				printf("\r");
 			}
+#endif
 #ifdef CACHE
 			if(temp_ent->c_entry){
 				if(temp_ent->c_entry->entry==temp_ent){
@@ -456,7 +472,8 @@ void level_check(level *input){
 }
 void level_all_check(){
 	for(int i=0; i<LEVELN; i++){
-		level_check(LSM.disk[i]);
+		if(LSM.disk[i]!=0)
+			level_check(LSM.disk[i]);
 	}
 }
 /*

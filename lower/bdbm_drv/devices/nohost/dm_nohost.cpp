@@ -50,9 +50,6 @@
 std::queue<int> *writeDmaQ = NULL;
 std::queue<int> *readDmaQ = NULL;
 
-#include"utils.h"
-#include"LR_inter.h"
-extern MeasureTime mt;
 #include <pthread.h>
 pthread_mutex_t req_mutx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t writeDmaQ_mutx = PTHREAD_MUTEX_INITIALIZER;
@@ -498,7 +495,6 @@ uint32_t dm_nohost_make_req (
 
 	//pthread_mutex_lock(&endR);
 	//printf("lock!!\n");
-	lsmtree_req_t * t;
 	uint32_t bus, chip, block, page;
 	switch (r->req_type) {
 		case REQTYPE_WRITE:
