@@ -29,7 +29,46 @@ Entry *level_entcpy(Entry *src, char *des){
 }
 
 bool level_full_check(level *input){
-	return input->n_num>=input->m_num;
+	if(input->isTiering){
+		if(input->r_n_num==input->r_num)
+			return true;
+	}
+	else{
+		if(input->n_num>=input->m_num/SIZEFACTOR*(SIZEFACTOR-1))
+			return true;
+	}
+	return false;
+}
+
+bool level_check_seq(level *input){
+	Node *run=ns_run(input,0);
+	KEYT start=run->start;
+	KEYT end=run->end;
+	int delta=0;
+	for(int i=1; i<input->r_n_num; i++){
+		run=ns_run(input,i);
+		if(start>run->end || end<run->start){
+			if(delta==0){
+				delta=end<run->start?1:-1;
+			}
+			else if(delta==1){
+				if(!(end<run->start)){
+					return false;
+				}
+			}
+			else{
+				if(!(start>run->end)){
+					return false;
+				}
+			}
+			start=run->start;
+			end=run->end;
+		}
+		else{
+			return false;
+		}
+	}
+	return true;
 }
 
 Entry *level_entry_copy(Entry *input){
@@ -83,8 +122,9 @@ level *level_init(level *input,int all_entry,float fpr, bool isTiering){
 		temp_run->start=UINT_MAX;
 		temp_run->end=0;
 	}
+
 	input->entry_p_run=entry_p_run;
-	input->r_n_num=1;
+	input->r_n_num=isTiering?0:1;
 	input->start=UINT_MAX;
 	input->end=0;
 	input->iscompactioning=false;
@@ -92,6 +132,9 @@ level *level_init(level *input,int all_entry,float fpr, bool isTiering){
 	input->remain=NULL;
 	//input->version_info=0;
 	return input;
+}
+void level_tier_insert_done(level *input){
+	input->r_n_num++;
 }
 
 Entry **level_find(level *input,KEYT key){
@@ -161,8 +204,12 @@ Node *level_insert_seq(level *input, Entry *entry){
 		return NULL;
 	}
 	int r=input->n_num/input->entry_p_run;
-	if(input->r_n_num==r)
-		input->r_n_num++;
+	if(input->isTiering)
+		r=input->r_n_num;
+	else{
+		if(input->r_n_num==r)
+			input->r_n_num++;
+	}
 	Node *temp_run=ns_run(input,r);//active run
 	if(temp_run->start>entry->key)
 		temp_run->start=entry->key;
@@ -201,9 +248,14 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 		exit(1);
 		return NULL;
 	}
-	int r=input->n_num/input->entry_p_run;
-	if(input->r_n_num==r)
-		input->r_n_num++;
+	int r=input->n_num/input->entry_p_run;	
+	if(input->isTiering){
+		r=input->r_n_num;
+	}
+	else{
+		if(input->r_n_num==r)
+			input->r_n_num++;
+	}
 	Node *temp_run=ns_run(input,r);//active run
 	if(temp_run->start>entry->key)
 		temp_run->start=entry->key;

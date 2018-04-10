@@ -13,8 +13,8 @@
 #define TIERFACTOR 10
 #define ASYNC 0
 
-#define HEADERB (3)
-#define ONETHREAD
+#define HEADERB (512)
+//#define ONETHREAD
 //#define NOGC
 #define BLOOM
 #define MONKEY
