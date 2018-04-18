@@ -341,7 +341,7 @@ void seqrw(KEYT start, KEYT end, monitor *m){
 #ifdef DVALUE
 		m->body[i+m->m_num/2].length=0;
 #else	
-		m->body[i].length=PAGESIZE;
+		m->body[i+m->m_num/2].length=PAGESIZE;
 #endif
 		m->body[i+m->m_num/2].mark=m->mark;
 		m->read_cnt++;
@@ -393,9 +393,9 @@ void randrw(KEYT start, KEYT end, monitor *m){
 		m->body[m->m_num/2+i].key=m->body[i].key;
 		m->body[m->m_num/2+i].type=FS_GET_T;
 #ifdef DVALUE
-		m->body[i].length=0;
+		m->body[m->m_num/2+i].length=0;
 #else	
-		m->body[i].length=PAGESIZE;
+		m->body[m->m_num/2+i].length=PAGESIZE;
 #endif
 		m->body[m->m_num/2+i].mark=m->mark;
 		m->read_cnt++;

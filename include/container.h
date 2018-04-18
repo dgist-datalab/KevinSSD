@@ -22,7 +22,7 @@ typedef struct upper_request{
 
 typedef struct value_set{
 	PTR value;
-	uint8_t length;
+	uint32_t length;
 	int dmatag; //-1 == not dma_alloc, others== dma_alloc
 	int ppa;
 }value_set;

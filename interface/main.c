@@ -62,7 +62,7 @@ int main(){/*
 	bench_init(1);
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
-	bench_add(RANDRW,0,1024*1024,5*128*1024);
+	bench_add(RANDRW,0,1024*1024,5*1024);
 //	bench_add(RANDSET,0,15*1024,15*1024);
 //	bench_add(RANDGET,0,15*1024,15*1024);
 	bench_value *value;
@@ -72,7 +72,7 @@ int main(){/*
 	temp.dmatag=-1;
 	temp.length=0;
 	while((value=get_bench())){
-		//setting temp.length
+		temp.length=value->length;
 		inf_make_req(value->type,value->key,&temp,value->mark);
 	}
 	
