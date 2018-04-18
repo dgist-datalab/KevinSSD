@@ -5,6 +5,9 @@
 #include<stdlib.h>
 #include<limits.h>
 #include<string.h>
+#include<unistd.h>
+
+extern int save_fd;
 extern lsmtree LSM;
 void level_free_entry_inside(Entry *);
 Node *ns_run(level*input ,int n){
@@ -29,8 +32,46 @@ Entry *level_entcpy(Entry *src, char *des){
 }
 
 bool level_full_check(level *input){
-	int number=input->m_num/10;
-	return input->n_num+number+1>=input->m_num;
+	if(input->isTiering){
+		if(input->r_n_num==input->r_num)
+			return true;
+	}
+	else{
+		if(input->n_num>=input->m_num/SIZEFACTOR*(SIZEFACTOR-1))
+			return true;
+	}
+	return false;
+}
+
+bool level_check_seq(level *input){
+	Node *run=ns_run(input,0);
+	KEYT start=run->start;
+	KEYT end=run->end;
+	int delta=0;
+	for(int i=1; i<input->r_n_num; i++){
+		run=ns_run(input,i);
+		if(start>run->end || end<run->start){
+			if(delta==0){
+				delta=end<run->start?1:-1;
+			}
+			else if(delta==1){
+				if(!(end<run->start)){
+					return false;
+				}
+			}
+			else{
+				if(!(start>run->end)){
+					return false;
+				}
+			}
+			start=run->start;
+			end=run->end;
+		}
+		else{
+			return false;
+		}
+	}
+	return true;
 }
 
 Entry *level_entry_copy(Entry *input){
@@ -84,8 +125,9 @@ level *level_init(level *input,int all_entry,float fpr, bool isTiering){
 		temp_run->start=UINT_MAX;
 		temp_run->end=0;
 	}
+
 	input->entry_p_run=entry_p_run;
-	input->r_n_num=1;
+	input->r_n_num=isTiering?0:1;
 	input->start=UINT_MAX;
 	input->end=0;
 	input->iscompactioning=false;
@@ -93,6 +135,9 @@ level *level_init(level *input,int all_entry,float fpr, bool isTiering){
 	input->remain=NULL;
 	//input->version_info=0;
 	return input;
+}
+void level_tier_insert_done(level *input){
+	input->r_n_num++;
 }
 
 Entry **level_find(level *input,KEYT key){
@@ -122,18 +167,15 @@ Entry **level_find(level *input,KEYT key){
 Entry *level_find_fromR(Node *run, KEYT key){
 	int start=0;
 	int end=run->n_num-1;
+	if(run->n_num==0) return NULL;
 	int mid;
 	while(1){
 		mid=(start+end)/2;
-		if(mid>=run->n_num){
-			printf("?n\n");
-		}
 		Entry *mid_e=ns_entry(run,mid);
 		if(mid_e==NULL) break;
 		if(mid_e->key <=key && mid_e->end>=key){
 #ifdef BLOOM
 			if(!bf_check(mid_e->filter,key)){
-				printf("false from filter\n");
 				return NULL;
 			}
 #endif
@@ -151,6 +193,7 @@ Entry *level_find_fromR(Node *run, KEYT key){
 	}
 	return NULL;
 }
+
 Node *level_insert_seq(level *input, Entry *entry){
 	if(input->start>entry->key)
 		input->start=entry->key;
@@ -164,8 +207,12 @@ Node *level_insert_seq(level *input, Entry *entry){
 		return NULL;
 	}
 	int r=input->n_num/input->entry_p_run;
-	if(input->r_n_num==r)
-		input->r_n_num++;
+	if(input->isTiering)
+		r=input->r_n_num;
+	else{
+		if(input->r_n_num==r)
+			input->r_n_num++;
+	}
 	Node *temp_run=ns_run(input,r);//active run
 	if(temp_run->start>entry->key)
 		temp_run->start=entry->key;
@@ -204,9 +251,14 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 		exit(1);
 		return NULL;
 	}
-	int r=input->n_num/input->entry_p_run;
-	if(input->r_n_num==r)
-		input->r_n_num++;
+	int r=input->n_num/input->entry_p_run;	
+	if(input->isTiering){
+		r=input->r_n_num;
+	}
+	else{
+		if(input->r_n_num==r)
+			input->r_n_num++;
+	}
 	Node *temp_run=ns_run(input,r);//active run
 	if(temp_run->start>entry->key)
 		temp_run->start=entry->key;
@@ -280,6 +332,7 @@ void level_print(level *input){
 	printf("level:%p\n",input);
 	for(int i=0; i<input->r_n_num; i++){
 		Node* temp_run=ns_run(input,i);
+		printf("start_run[%d]\n",i);
 		for(int j=0; j<temp_run->n_num; j++){
 			Entry *temp_ent=ns_entry(temp_run,j);
 #ifdef BLOOM
@@ -301,6 +354,7 @@ void level_print(level *input){
 				test1=test2;
 			}
 		}
+		printf("\n\n");
 	}
 }
 void level_free(level *input){
@@ -392,11 +446,14 @@ bool level_check_overlap(level *input ,KEYT start, KEYT end){
 
 level *level_copy(level *input){
 	level *res=(level *)malloc(sizeof(level));
-	memcpy(res,input,sizeof(level)-sizeof(pthread_mutex_t)-sizeof(char *));
-	pthread_mutex_init(&res->level_lock,NULL);
-	//node copy
-	res->body=(char*)malloc(input->r_size*input->r_num);
-	memcpy(res->body,input->body,input->r_size*input->r_num);
+	level_init(res,input->m_num,input->fpr,input->isTiering);
+	Iter *iter=level_get_Iter(input);
+	Entry *value;
+	while((value=level_get_next(iter))){
+		Entry *new_entry=level_entry_copy(value);
+		level_insert(res,new_entry);
+	}
+	free(iter);
 	return res;
 }
 
@@ -468,11 +525,42 @@ void level_check(level *input){
 		cnt++;
 	}
 }
+
 void level_all_check(){
 	for(int i=0; i<LEVELN; i++){
 		if(LSM.disk[i]!=0)
 			level_check(LSM.disk[i]);
 	}
+}
+void level_save(level* input){
+	write(save_fd,input,sizeof(level));
+	uint64_t level_body_size=(sizeof(Node)+sizeof(Entry)*(input->m_num/input->r_num))*input->r_num;
+	write(save_fd,input->body,level_body_size);
+#ifdef BLOOM
+	Iter *level_iter=level_get_Iter(input);
+	Entry *temp=NULL;
+	while((temp=level_get_next(level_iter))){
+		bf_save(temp->filter);
+	}
+	free(level_iter);
+#endif
+}
+level* level_load(){
+	level *res=(level*)malloc(sizeof(level));
+	read(save_fd,res,sizeof(level));
+	uint64_t level_body_size=(sizeof(Node)+sizeof(Entry)*(res->m_num/res->r_num))*res->r_num;
+	res->body=(char*)malloc(level_body_size);
+	read(save_fd,res->body,level_body_size);
+#ifdef BLOOM
+	Iter *level_iter=level_get_Iter(res);
+	Entry *temp=NULL;
+	while((temp=level_get_next(level_iter))){
+		temp->filter=bf_load();
+	}
+	free(level_iter);
+#endif
+	pthread_mutex_init(&res->level_lock,NULL);
+	return res;
 }
 /*
    int main(){

@@ -7,6 +7,7 @@
 #include"skiplist.h"
 #include"page.h"
 #include"../../interface/interface.h"
+#include "footer.h"
 
 skiplist *skiplist_init(){
 	skiplist *point=(skiplist*)malloc(sizeof(skiplist));
@@ -149,6 +150,10 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, algo_req *req,b
 	if(key<list->start) list->start=key;
 	if(key>list->end) list->end=key;
 
+	if(value!=NULL){
+		value->length=(value->length/PIECE)+(value->length%PIECE?1:0);
+	}
+
 	if(key==x->key){
 #ifdef DEBUG
 
@@ -179,6 +184,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, algo_req *req,b
 		x->key=key;
 		x->req=req;
 		x->isvalid=deletef;
+
 		x->ppa=UINT_MAX;
 		if(value !=NULL){
 			//x->value=(char *)malloc(VALUESIZE);
@@ -193,6 +199,74 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, algo_req *req,b
 		list->size++;
 	}
 	return x;
+}
+
+value_set **skiplist_make_valueset(skiplist *input){
+	value_set **res=(value_set**)malloc(sizeof(value_set*)*KEYNUM);
+	memset(res,0,sizeof(value_set*)*KEYNUM);
+	l_bucket b;
+	memset(&b,0,sizeof(b));
+
+	snode *target;
+	sk_iter* iter=skiplist_get_iterator(input);
+	int total_size=0;
+	while((target=skiplist_get_next(iter))){
+		b.bucket[target->value->length][b.idx[target->value->length]++]=target;
+		total_size+=target->value->length;
+	}
+	free(iter);
+	
+	int res_idx=0;
+	for(int i=0; i<b.idx[PAGESIZE/PIECE]; i++){
+		snode *target=b.bucket[PAGESIZE/PIECE][i];
+		res[res_idx]=target->value; //if target->value==PAGESIZE
+		target->value=NULL;
+		res[res_idx]->ppa=getDPPA(target->key,true);
+		res_idx++;
+	}
+
+	b.idx[PAGESIZE/PIECE]=0;
+	while(1){
+		PTR page=NULL;
+		int ptr=0;
+		int remain=PAGESIZE-PIECE;
+		footer *foot=f_init();
+
+		res[res_idx]=inf_get_valueset(page,FS_MALLOC_W,PAGESIZE); //assign new dma in page
+		res[res_idx]->ppa=getDPPA(0,false);
+		page=res[res_idx]->value;
+
+		while(remain>0){
+			int target_length=remain/PIECE;
+			while(b.idx[target_length]==0 && target_length!=0) --target_length;
+			if(target_length==0){
+				break;
+			}
+			target=b.bucket[target_length][b.idx[target_length]];
+			target->ppa=res[res_idx]->ppa;
+			f_insert(foot,target->key,target_length);
+
+			memcpy(&page[ptr],target->value,target_length*PIECE);
+			b.idx[target_length]--;
+
+			ptr+=target_length*PIECE;
+			remain-=target_length*PIECE;
+		}
+		memcpy(&page[(PAGESIZE/PIECE-1)*PIECE],foot,sizeof(footer));
+		
+		res_idx++;
+
+		free(foot);
+		bool stop=0;
+		for(int i=0; i<PAGESIZE/PIECE; i++){
+			if(b.idx[i]!=0)
+				break;
+			if(i==PAGESIZE/PIECE) stop=true;
+		}
+		if(stop) break;
+	}
+
+	return res;
 }
 
 snode *skiplist_at(skiplist *list, int idx){
@@ -264,8 +338,10 @@ void skiplist_clear(skiplist *list){
 	snode *now=list->header->list[1];
 	snode *next=now->list[1];
 	while(now!=list->header){
-		if(now->value)
-			inf_free_valueset(now->value,FS_MALLOC_W);
+		if(now->value){
+			inf_free_valueset(now->value,FS_MALLOC_W);//not only length<PAGESIZE also length==PAGESIZE, just free req from inf
+		}
+		
 		free(now->list);
 		if(now->req){
 			free(now->req->params);
@@ -359,6 +435,13 @@ skiplist *skiplist_cut(skiplist *list, KEYT num,KEYT limit){
 			printf("here!\n");
 		}
 	}*/
+	return res;
+}
+void skiplist_save(skiplist *input){
+	return;
+}
+skiplist *skiplist_load(){
+	skiplist *res=skiplist_init();
 	return res;
 }
 /*

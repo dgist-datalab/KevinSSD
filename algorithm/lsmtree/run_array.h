@@ -19,11 +19,6 @@ typedef struct Entry{
 #ifdef BLOOM
 	BF *filter;
 #endif
-
-#ifdef SNU_TEST
-	KEYT id;
-#endif
-
 #ifdef CACHE
 	cache_entry *c_entry;
 #endif
@@ -51,10 +46,10 @@ typedef struct level{
 	bool isTiering;
 	KEYT start;
 	KEYT end;
-	pthread_mutex_t level_lock;
 	bool iscompactioning;
-	//KEYT version_info;
 	struct skiplist *remain;
+	pthread_mutex_t level_lock;
+	//KEYT version_info;
 	char *body;
 }level;
 
@@ -77,17 +72,22 @@ Entry *level_find_fromR(Node *, KEYT key);//
 int level_range_find(level *,KEYT start, KEYT end, Entry ***,bool compaction);//
 int level_range_unmatch(level *,KEYT start, Entry ***,bool);
 bool level_check_overlap(level*,KEYT start, KEYT end);//a
+bool level_check_seq(level *);
 bool level_full_check(level *);//
 Node *level_insert(level *,Entry*);//
 Node *level_insert_seq(level *, Entry *);
 Entry *level_get_next(Iter *);//
 Iter *level_get_Iter(level *);//
+
+void level_tier_insert_done(level *);
+
 void level_print(level *);//
 void level_all_print();//
 void level_all_check();
 void level_free(level *);//
 void level_free_entry(Entry *);//
-
+void level_save(level *);
+level* level_load();
 
 Node *ns_run(level*, int );//
 Entry *ns_entry(Node *,int);//

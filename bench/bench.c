@@ -5,6 +5,7 @@
 #include <time.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 
 master *_master;
 void seqget(KEYT, KEYT,monitor *);
@@ -15,6 +16,7 @@ void randset(KEYT,KEYT,monitor*);
 void randrw(KEYT,KEYT,monitor*);
 void mixed(KEYT,KEYT,int percentage,monitor*);
 
+pthread_mutex_t bench_lock;
 void bench_init(int benchnum){
 	_master=(master*)malloc(sizeof(master));
 	_master->m=(monitor*)malloc(sizeof(monitor)*benchnum);
@@ -30,6 +32,7 @@ void bench_init(int benchnum){
 	memset(_master->li,0,sizeof(lower_info)*benchnum);
 
 	_master->n_num=0; _master->m_num=benchnum;
+	pthread_mutex_init(&bench_lock,NULL);
 }
 void bench_make_data(){
 	int idx=_master->n_num;
@@ -238,7 +241,11 @@ void __bench_time_maker(MeasureTime mt, bench_data *datas,bool isalgo){
 	return;
 }
 void bench_reap_data(request *const req,lower_info *li){
-	if(!req) return;
+	pthread_mutex_lock(&bench_lock);
+	if(!req){ 
+		pthread_mutex_unlock(&bench_lock);
+		return;
+	}
 	int idx=req->mark;
 	monitor *_m=&_master->m[idx];
 	bench_data *_data=&_master->datas[idx];
@@ -265,6 +272,7 @@ void bench_reap_data(request *const req,lower_info *li){
 #endif
 		MA(&_m->benchTime);
 	}
+	pthread_mutex_unlock(&bench_lock);
 }
 void bench_li_print(lower_info* li,monitor *m){
 	printf("-----lower_info----\n");
@@ -292,6 +300,11 @@ void seqget(KEYT start, KEYT end,monitor *m){
 	printf("making seq Get bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
 		m->body[i].key=start+(i%(end-start));
+#ifdef DVALUE
+		m->body[i].length=0;
+#else	
+		m->body[i].length=PAGESIZE;
+#endif
 		m->body[i].type=FS_GET_T;
 		m->body[i].mark=m->mark;
 		m->read_cnt++;
@@ -302,6 +315,9 @@ void seqset(KEYT start, KEYT end,monitor *m){
 	printf("making seq Set bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
 		m->body[i].key=start+(i%(end-start));
+#ifdef DVALUE
+		m->body[i].length=(rand()%16+1)*512;
+#endif
 		m->body[i].type=FS_SET_T;
 		m->body[i].mark=m->mark;
 		m->write_cnt++;
@@ -313,10 +329,20 @@ void seqrw(KEYT start, KEYT end, monitor *m){
 	for(KEYT i=0; i<m->m_num/2; i++){
 		m->body[i].key=start+(i%(end-start));
 		m->body[i].type=FS_SET_T;
+#ifdef DVALUE
+		m->body[i].length=(rand()%16+1)*512;
+#else	
+		m->body[i].length=PAGESIZE;
+#endif
 		m->body[i].mark=m->mark;
 		m->write_cnt++;
 		m->body[i+m->m_num/2].key=start+(i%(end-start));
 		m->body[i+m->m_num/2].type=FS_GET_T;
+#ifdef DVALUE
+		m->body[i+m->m_num/2].length=0;
+#else	
+		m->body[i].length=PAGESIZE;
+#endif
 		m->body[i+m->m_num/2].mark=m->mark;
 		m->read_cnt++;
 	}
@@ -327,6 +353,11 @@ void randget(KEYT start, KEYT end,monitor *m){
 	for(KEYT i=0; i<m->m_num; i++){
 		m->body[i].key=start+rand()%(end-start)+1;
 		m->body[i].type=FS_GET_T;
+#ifdef DVALUE
+		m->body[i].length=0;
+#else	
+		m->body[i].length=PAGESIZE;
+#endif
 		m->body[i].mark=m->mark;
 		m->read_cnt++;
 	}
@@ -336,6 +367,11 @@ void randset(KEYT start, KEYT end, monitor *m){
 	printf("making rand Set bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
 		m->body[i].key=start+rand()%(end-start)+1;
+#ifdef DVALUE
+		m->body[i].length=(rand()%16+1)*512;
+#else	
+		m->body[i].length=PAGESIZE;
+#endif
 		m->body[i].mark=m->mark;
 		m->body[i].type=FS_SET_T;
 		m->write_cnt++;
@@ -347,10 +383,20 @@ void randrw(KEYT start, KEYT end, monitor *m){
 	for(KEYT i=0; i<m->m_num/2; i++){
 		m->body[i].key=start+rand()%(end-start)+1;
 		m->body[i].type=FS_SET_T;
+#ifdef DVALUE
+		m->body[i].length=(rand()%16+1)*512;
+#else	
+		m->body[i].length=PAGESIZE;
+#endif
 		m->body[i].mark=m->mark;
 		m->write_cnt++;
 		m->body[m->m_num/2+i].key=m->body[i].key;
 		m->body[m->m_num/2+i].type=FS_GET_T;
+#ifdef DVALUE
+		m->body[i].length=0;
+#else	
+		m->body[i].length=PAGESIZE;
+#endif
 		m->body[m->m_num/2+i].mark=m->mark;
 		m->read_cnt++;
 	}

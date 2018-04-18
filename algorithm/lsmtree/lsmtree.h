@@ -62,6 +62,9 @@ typedef struct lsmtree{
 	pthread_mutex_t templock;
 	pthread_mutex_t entrylock;
 
+	pthread_mutex_t valueset_lock;
+	value_set *caching_value;
+
 	struct skiplist *memtable;
 	struct skiplist *temptable;
 	struct queue *re_q;
@@ -85,4 +88,6 @@ htable *htable_copy(htable *);
 htable *htable_assign();
 void htable_free(htable*);
 void htable_print(htable*);
+void lsm_save(lsmtree *);
+lsmtree* lsm_load();
 #endif
