@@ -3,10 +3,10 @@
 #include <stdint.h>
 #include "../../include/container.h"
 #include "../../include/settings.h"
+#include "../../include/lsm_settings.h"
 #include "lsmtree.h"
 #define MAX_L 30 //max level number
 #define PROB 4 //the probaility of level increasing : 1/PROB => 1/4
-
 typedef struct snode{ //skiplist's node
 	KEYT key;
 	KEYT ppa;
@@ -16,6 +16,13 @@ typedef struct snode{ //skiplist's node
 	struct algo_req *req;
 	struct snode **list;
 }snode;
+
+typedef struct length_bucket{
+	snode *bucket[PAGESIZE/PIECE+1][KEYNUM];
+	uint16_t idx[PAGESIZE/PIECE+1];
+	value_set** contents;
+	int contents_num;
+}l_bucket;
 
 typedef struct skiplist{
 	uint8_t level;
@@ -33,7 +40,7 @@ typedef struct{
 
 skiplist *skiplist_init(); //return initialized skiplist*
 snode *skiplist_find(skiplist*,KEYT); //find snode having key in skiplist, return NULL:no snode
-snode *skiplist_insert(skiplist*,KEYT,value_set* ,algo_req *,bool); //insert skiplist, return inserted snode
+snode *skiplist_insert(skiplist*,KEYT,value_set *,algo_req *,bool); //insert skiplist, return inserted snode
 snode *skiplist_insert_wP(skiplist*,KEYT,KEYT,bool);//with ppa; 
 snode *skiplist_at(skiplist *,int idx);
 snode *skiplist_insert_existIgnore(skiplist *, KEYT,KEYT,bool); //insert skiplist, if key exists, input data be ignored
@@ -43,4 +50,8 @@ void skiplist_clear(skiplist *list); //clear all snode in skiplist and  reinit s
 sk_iter* skiplist_get_iterator(skiplist *list); //get read only iterator
 snode *skiplist_get_next(sk_iter* iter); //get next snode by iterator
 skiplist *skiplist_cut(skiplist*,KEYT size,KEYT limit);
+
+value_set **skiplist_make_valueset(skiplist*);
+void skiplist_save(skiplist *);
+skiplist *skiplist_load();
 #endif

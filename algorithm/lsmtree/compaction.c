@@ -94,12 +94,27 @@ void compaction_assign(compR* req){
 }
 
 htable *compaction_data_write(skiplist *mem){
-	value_set *temp=inf_get_valueset(NULL,FS_MALLOC_W);
+	//for data
+	value_set **data_sets=skiplist_make_valueset(mem);
+	for(int i=0; data_sets[i]!=NULL; i++){	
+		algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
+		lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
+		lsm_req->parents=NULL;
+		params->lsm_type=DATAW;
+		params->value=data_sets[i];
+		lsm_req->params=(void*)params;
+		lsm_req->end_req=lsm_end_req;
+
+		LSM.li->push_data(data_sets[i]->ppa,PAGESIZE,params->value,ASYNC,lsm_req,params->value->dmatag);
+	}
+	free(data_sets);
+
+	//for htable
+	value_set *temp=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
 	htable *res=(htable*)malloc(sizeof(htable));
 	res->t_b=FS_MALLOC_W;
 	res->sets=(keyset*)temp->value;
 	res->origin=temp;
-
 	snode *target;
 	sk_iter* iter=skiplist_get_iterator(mem);
 	uint8_t *bitset=(uint8_t*)malloc(sizeof(uint8_t)*(KEYNUM/8));
@@ -110,17 +125,15 @@ htable *compaction_data_write(skiplist *mem){
 	int idx=0;
 	while((target=skiplist_get_next(iter))){
 		res->sets[idx].lpa=target->key;
-		res->sets[idx].ppa=getDPPA(res->sets[idx].lpa);
+		res->sets[idx].ppa=target->ppa;
 		target->ppa=res->sets[idx].ppa;
-
 #ifdef BLOOM
 		bf_set(filter,res->sets[idx].lpa);
 #endif
 		if(target->isvalid)
 			lsm_kv_validset(bitset,idx);
-		LSM.li->push_data(res->sets[idx].ppa,PAGESIZE,target->value,0,target->req,0);
-		target->value=NULL;
-		target->req=NULL;
+		/*target->value=NULL;
+		  target->req=NULL;*/
 		idx++;
 	}
 	free(iter);
@@ -141,7 +154,7 @@ KEYT compaction_htable_write(htable *input){
 	//htable_print(input);
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
-	LSM.li->push_data(ppa,PAGESIZE,params->value,0,areq,0);
+	LSM.li->push_data(ppa,PAGESIZE,params->value,ASYNC,areq,params->value->dmatag);
 	return ppa;
 }
 
@@ -304,7 +317,7 @@ compaction_assign(req);
 }
  */
 htable *compaction_htable_convert(skiplist *input,float fpr){
-	value_set *temp=inf_get_valueset(NULL,FS_MALLOC_W);
+	value_set *temp=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
 	htable *res=(htable*)malloc(sizeof(htable));
 	res->t_b=FS_MALLOC_W;
 	res->sets=(keyset*)temp->value;
@@ -343,7 +356,7 @@ void compaction_htable_read(Entry *ent,PTR* value){
 
 	params->lsm_type=HEADERR;
 	//valueset_assign
-	params->value=inf_get_valueset(NULL,FS_MALLOC_R);
+	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
 	params->target=value;
 
 	areq->parents=NULL;
@@ -470,7 +483,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 		LSM.temptable=NULL;
 		pthread_mutex_unlock(&LSM.templock); // unlock
 		if(!level_check_overlap(target_origin,body->start,body->end)){
-	//		printf("-1 1 .... ttt\n");
+			//		printf("-1 1 .... ttt\n");
 			skiplist_free(body);
 			bool target_processed=false;
 			if(entry->key > target_origin->end){
@@ -501,7 +514,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 			}
 		}
 		else{
-	//		printf("-1 2 .... ttt\n");
+			//		printf("-1 2 .... ttt\n");
 			partial_leveling(target,target_origin,body,NULL);
 			skiplist_free(body);
 			pthread_mutex_lock(&LSM.entrylock);
@@ -512,7 +525,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 	}else{
 		src=LSM.disk[from];
 		if(!level_check_overlap(target_origin,src->start,src->end)){//if seq
-	//		printf("1 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from,src->n_num);
+			//		printf("1 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from,src->n_num);
 			bool target_processed=false;
 			if(target_origin->start>src->end){
 				target_processed=true;
@@ -524,7 +537,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 			}
 		}
 		else{
-	//		printf("2 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from,src->n_num);
+			//		printf("2 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from,src->n_num);
 			Entry **target_s=NULL;
 			body=skiplist_init();
 			level_range_find(src,src->start,src->end,&target_s,false);
@@ -815,7 +828,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 					idx++;
 				}
 
-				compaction_subprocessing(skip,t,table,(end==endcheck?1:0),true);	
+				compaction_subprocessing(skip,t,table,(end==endcheck&&round==target_round-1?1:0),true);	
 				for(int i=0; i<EPC; i++){
 					if(table[i]){
 #ifdef CACHE

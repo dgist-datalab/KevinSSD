@@ -107,11 +107,12 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value){
 	req->upper_req=NULL;
 	req->type=type;
 	req->key=key;
+	
+	req->value=inf_get_valueset(value->value,req->type,value->length);
 
-	req->value=inf_get_valueset(value->value,req->type);
 
 	req->end_req=inf_end_req;
-	req->isAsync=true;
+	req->isAsync=ASYNC;
 	req->params=NULL;
 #ifndef USINGAPP
 	req->algo.isused=false;
@@ -137,7 +138,7 @@ bool inf_make_req_Async(void *ureq, void *(*end_req)(void*)){
 	upper_request *u_req=(upper_request*)ureq;
 	req->type=u_req->type;
 	req->key=u_req->key;
-	req->value=inf_get_valueset(u_req->value,req->type);
+	req->value=inf_get_valueset(u_req->value,req->type,u_req->length);
 	req->isAsync=true;
 	switch(req->type){
 		case FS_GET_T:
@@ -242,17 +243,27 @@ void *p_main(void *__input){
 	printf("bye bye!\n");
 	return NULL;
 }
-value_set *inf_get_valueset(PTR in_v, int type){
+value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
 	value_set *res=(value_set*)malloc(sizeof(value_set));
 	//check dma alloc type
-	res->dmatag=F_malloc((void**)&(res->value),PAGESIZE,type);
+	if(length==PAGESIZE)
+		res->dmatag=F_malloc((void**)&(res->value),PAGESIZE,type);
+	else{
+		res->dmatag=-1;
+		res->value=(PTR)malloc(length);
+	}
 	if(in_v){
-		memcpy(res->value,in_v,PAGESIZE);
+		memcpy(res->value,in_v,length);
 	}
 	return res;
 }
 
 void inf_free_valueset(value_set *in, int type){
-	F_free((void*)in->value,in->dmatag,type);
+	if(in->dmatag==-1){
+		free(in->value);
+	}
+	else{
+		F_free((void*)in->value,in->dmatag,type);
+	}
 	free(in);
 }

@@ -69,8 +69,10 @@ int main(){/*
 
 	value_set temp;
 	temp.value=t_value;
-	temp.dmatag=0;
+	temp.dmatag=-1;
+	temp.length=0;
 	while((value=get_bench())){
+		//setting temp.length
 		inf_make_req(value->type,value->key,&temp,value->mark);
 	}
 	

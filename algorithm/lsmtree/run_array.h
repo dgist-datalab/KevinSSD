@@ -19,11 +19,6 @@ typedef struct Entry{
 #ifdef BLOOM
 	BF *filter;
 #endif
-
-#ifdef SNU_TEST
-	KEYT id;
-#endif
-
 #ifdef CACHE
 	cache_entry *c_entry;
 #endif
@@ -91,6 +86,8 @@ void level_all_print();//
 void level_all_check();
 void level_free(level *);//
 void level_free_entry(Entry *);//
+void level_save(level *);
+level* level_load();
 
 Node *ns_run(level*, int );//
 Entry *ns_entry(Node *,int);//

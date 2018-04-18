@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_LOWER=posix
-TARGET_ALGO=lsmtree
+TARGET_ALGO=normal
 PWD=$(pwd)
 
 export CFLAGS_ALGO=\

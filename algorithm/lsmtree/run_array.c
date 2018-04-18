@@ -5,6 +5,9 @@
 #include<stdlib.h>
 #include<limits.h>
 #include<string.h>
+#include<unistd.h>
+
+extern int save_fd;
 extern lsmtree LSM;
 void level_free_entry_inside(Entry *);
 Node *ns_run(level*input ,int n){
@@ -522,11 +525,42 @@ void level_check(level *input){
 		cnt++;
 	}
 }
+
 void level_all_check(){
 	for(int i=0; i<LEVELN; i++){
 		if(LSM.disk[i]!=0)
 			level_check(LSM.disk[i]);
 	}
+}
+void level_save(level* input){
+	write(save_fd,input,sizeof(level));
+	uint64_t level_body_size=(sizeof(Node)+sizeof(Entry)*(input->m_num/input->r_num))*input->r_num;
+	write(save_fd,input->body,level_body_size);
+#ifdef BLOOM
+	Iter *level_iter=level_get_Iter(input);
+	Entry *temp=NULL;
+	while((temp=level_get_next(level_iter))){
+		bf_save(temp->filter);
+	}
+	free(level_iter);
+#endif
+}
+level* level_load(){
+	level *res=(level*)malloc(sizeof(level));
+	read(save_fd,res,sizeof(level));
+	uint64_t level_body_size=(sizeof(Node)+sizeof(Entry)*(res->m_num/res->r_num))*res->r_num;
+	res->body=(char*)malloc(level_body_size);
+	read(save_fd,res->body,level_body_size);
+#ifdef BLOOM
+	Iter *level_iter=level_get_Iter(res);
+	Entry *temp=NULL;
+	while((temp=level_get_next(level_iter))){
+		temp->filter=bf_load();
+	}
+	free(level_iter);
+#endif
+	pthread_mutex_init(&res->level_lock,NULL);
+	return res;
 }
 /*
    int main(){

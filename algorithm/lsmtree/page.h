@@ -24,8 +24,9 @@ typedef struct page_manager{
 void block_init();
 void pm_init();
 KEYT getHPPA(KEYT);
-KEYT getDPPA(KEYT);
+KEYT getDPPA(KEYT,bool);
 void invalidate_PPA(KEYT ppa);
+bool PBITFULL(OOBT input);
 int get_victim_block();
 int gc_header();
 int gc_data();

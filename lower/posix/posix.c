@@ -11,6 +11,8 @@
 #include <sys/types.h>
 #include <string.h>
 #include <pthread.h>
+#include <limits.h>
+
 static int _fd;
 pthread_mutex_t fd_lock;
 lower_info my_posix={
@@ -60,6 +62,10 @@ void *posix_destroy(lower_info *li){
 }
 
 void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req, uint32_t dmatag){
+	if(dmatag==UINT_MAX){
+		printf("dmatag -1 error!\n");
+		exit(1);
+	}
 	bench_lower_w_start(&my_posix);
 	if(req->parents)
 		bench_lower_start(req->parents);
@@ -85,7 +91,11 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	return NULL;
 }
 
-void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req, uint32_t dmatag){
+void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req, uint32_t dmatag){	
+	if(dmatag==UINT_MAX){
+		printf("dmatag -1 error!\n");
+		exit(1);
+	}
 	bench_lower_r_start(&my_posix);
 	if(req->parents)
 		bench_lower_start(req->parents);

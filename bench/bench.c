@@ -300,6 +300,11 @@ void seqget(KEYT start, KEYT end,monitor *m){
 	printf("making seq Get bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
 		m->body[i].key=start+(i%(end-start));
+#ifdef DVALUE
+		m->body[i].length=0;
+#else	
+		m->body[i].length=PAGESIZE;
+#endif
 		m->body[i].type=FS_GET_T;
 		m->body[i].mark=m->mark;
 		m->read_cnt++;
@@ -310,6 +315,9 @@ void seqset(KEYT start, KEYT end,monitor *m){
 	printf("making seq Set bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
 		m->body[i].key=start+(i%(end-start));
+#ifdef DVALUE
+		m->body[i].length=(rand()%16+1)*512;
+#endif
 		m->body[i].type=FS_SET_T;
 		m->body[i].mark=m->mark;
 		m->write_cnt++;
@@ -321,10 +329,20 @@ void seqrw(KEYT start, KEYT end, monitor *m){
 	for(KEYT i=0; i<m->m_num/2; i++){
 		m->body[i].key=start+(i%(end-start));
 		m->body[i].type=FS_SET_T;
+#ifdef DVALUE
+		m->body[i].length=(rand()%16+1)*512;
+#else	
+		m->body[i].length=PAGESIZE;
+#endif
 		m->body[i].mark=m->mark;
 		m->write_cnt++;
 		m->body[i+m->m_num/2].key=start+(i%(end-start));
 		m->body[i+m->m_num/2].type=FS_GET_T;
+#ifdef DVALUE
+		m->body[i+m->m_num/2].length=0;
+#else	
+		m->body[i].length=PAGESIZE;
+#endif
 		m->body[i+m->m_num/2].mark=m->mark;
 		m->read_cnt++;
 	}
@@ -335,6 +353,11 @@ void randget(KEYT start, KEYT end,monitor *m){
 	for(KEYT i=0; i<m->m_num; i++){
 		m->body[i].key=start+rand()%(end-start)+1;
 		m->body[i].type=FS_GET_T;
+#ifdef DVALUE
+		m->body[i].length=0;
+#else	
+		m->body[i].length=PAGESIZE;
+#endif
 		m->body[i].mark=m->mark;
 		m->read_cnt++;
 	}
@@ -344,6 +367,11 @@ void randset(KEYT start, KEYT end, monitor *m){
 	printf("making rand Set bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
 		m->body[i].key=start+rand()%(end-start)+1;
+#ifdef DVALUE
+		m->body[i].length=(rand()%16+1)*512;
+#else	
+		m->body[i].length=PAGESIZE;
+#endif
 		m->body[i].mark=m->mark;
 		m->body[i].type=FS_SET_T;
 		m->write_cnt++;
@@ -355,10 +383,20 @@ void randrw(KEYT start, KEYT end, monitor *m){
 	for(KEYT i=0; i<m->m_num/2; i++){
 		m->body[i].key=start+rand()%(end-start)+1;
 		m->body[i].type=FS_SET_T;
+#ifdef DVALUE
+		m->body[i].length=(rand()%16+1)*512;
+#else	
+		m->body[i].length=PAGESIZE;
+#endif
 		m->body[i].mark=m->mark;
 		m->write_cnt++;
 		m->body[m->m_num/2+i].key=m->body[i].key;
 		m->body[m->m_num/2+i].type=FS_GET_T;
+#ifdef DVALUE
+		m->body[i].length=0;
+#else	
+		m->body[i].length=PAGESIZE;
+#endif
 		m->body[m->m_num/2+i].mark=m->mark;
 		m->read_cnt++;
 	}

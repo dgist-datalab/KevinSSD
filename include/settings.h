@@ -21,8 +21,7 @@
 #define OOBT uint64_t
 #define V_PTR char * const
 #define PTR char*
-
-#define SYNC (1)
+#define ASYNC 0
 #define QSIZE (1024)
 #define THREADSIZE (1)
 

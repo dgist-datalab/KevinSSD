@@ -24,6 +24,7 @@ SRCS +=\
 	   compaction.c\
 	   page.c\
 	   pageQ.c\
+	   footer.c\
 cache.c\
 
 OBJS :=\

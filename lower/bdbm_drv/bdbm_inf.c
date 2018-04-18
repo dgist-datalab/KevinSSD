@@ -4,7 +4,7 @@
 #include "../../include/container.h"
 #include "frontend/libmemio/libmemio.h"
 #include "bdbm_inf.h"
-
+#include <limits.h>
 memio_t *mio;
 lower_info memio_info={
 	.create=memio_info_create,
@@ -45,6 +45,10 @@ void *memio_info_destroy(lower_info *li){
 }
 
 void *memio_info_push_data(KEYT ppa, uint32_t size, value_set *value, bool async, algo_req *const req,uint32_t dmatag){
+	if(dmatag==UINT_MAX){
+		printf("dmatag -1 error!\n");
+		exit(1);
+	}
 	bench_lower_w_start(&memio_info);
 	memio_write(mio,ppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,dmatag);
 	bench_lower_w_end(&memio_info);
@@ -52,6 +56,10 @@ void *memio_info_push_data(KEYT ppa, uint32_t size, value_set *value, bool async
 }
 
 void *memio_info_pull_data(KEYT ppa, uint32_t size, value_set *value, bool async, algo_req *const req,uint32_t dmatag){
+	if(dmatag==UINT_MAX){
+		printf("dmatag -1 error!\n");
+		exit(1);
+	}
 	bench_lower_r_start(&memio_info);
 	memio_read(mio,ppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,dmatag);
 	bench_lower_r_end(&memio_info);

@@ -14,14 +14,17 @@ typedef struct request request;
 
 typedef struct upper_request{
 	const FSTYPE type;
-	const KEYT key; 
+	const KEYT key;
+	uint32_t length;
 	V_PTR value;
 	//anything
 }upper_request;
 
 typedef struct value_set{
 	PTR value;
-	int dmatag;
+	uint8_t length;
+	int dmatag; //-1 == not dma_alloc, others== dma_alloc
+	int ppa;
 }value_set;
 
 struct request {

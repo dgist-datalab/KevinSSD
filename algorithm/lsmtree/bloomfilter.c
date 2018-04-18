@@ -2,11 +2,15 @@
 #include<math.h>
 #include<stdio.h>
 #include<string.h>
+#include<unistd.h>
 #ifdef __GNUC__
 #define FORCE_INLINE __attribute__((always_inline)) inline
 #else
 #define FORCE_INLINE inline
 #endif
+
+extern int save_fd;
+
 void BITSET(char *input, char offset){
 	char test=1;
 	test<<=offset;
@@ -173,6 +177,18 @@ bool bf_check(BF* input, KEYT key){
 void bf_free(BF *input){
 	free(input->body);
 	free(input);
+}
+void bf_save(BF* input){
+	write(save_fd,input,sizeof(BF));
+	write(save_fd,input->body,input->targetsize);
+}
+
+BF* bf_load(){
+	BF *res=(BF*)malloc(sizeof(BF));
+	read(save_fd,res,sizeof(BF));
+	res->body=(char*)malloc(res->targetsize);
+	read(save_fd,res->body,res->targetsize);
+	return res;
 }
 /*
    int main(){
