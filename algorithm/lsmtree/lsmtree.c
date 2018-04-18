@@ -30,12 +30,13 @@ uint32_t __lsm_get(request *const);
 uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	/*check if file exist!*/
 	save_fd=open("data/lsm_save.data",O_RDONLY);
+	/*
 	if(save_fd!=-1){
 		lsmtree *temp_lsm=lsm_load();
 		LSM=*temp_lsm;
 		close(save_fd);
 		save_fd=open("data/lsm_save.data",O_RDWR|O_CREAT|O_TRUNC,0666);
-	}else{
+	}else{*/
 		printf("save file not exist\n");
 		save_fd=open("data/lsm_save.data",O_RDWR|O_CREAT|O_TRUNC,0666);
 		LSM.memtable=skiplist_init();
@@ -62,7 +63,7 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 			sol*=SIZEFACTOR;
 			LSM.level_addr[i]=(PTR)LSM.disk[i];
 		}
-	}
+	//}
 	pthread_mutex_init(&LSM.templock,NULL);
 	pthread_mutex_init(&LSM.memlock,NULL);
 	pthread_mutex_init(&LSM.entrylock,NULL);
