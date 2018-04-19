@@ -14,7 +14,7 @@
 #define TIERFACTOR 10
 
 #define HEADERB (512)
-//#define ONETHREAD
+#define ONETHREAD
 //#define NOGC
 #define BLOOM
 #define MONKEY

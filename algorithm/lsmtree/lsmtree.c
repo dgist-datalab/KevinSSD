@@ -28,7 +28,6 @@ lsmtree LSM;
 int save_fd;
 uint32_t __lsm_get(request *const);
 uint32_t lsm_create(lower_info *li, algorithm *lsm){
-	/*check if file exist!*/
 	save_fd=open("data/lsm_save.data",O_RDONLY);
 	/*
 	if(save_fd!=-1){
@@ -168,10 +167,11 @@ void* lsm_end_req(algo_req* const req){
 		case GCW:
 			inf_free_valueset(params->value,FS_MALLOC_W);
 			break;
-		case DATAR://getting data from value
+		case DATAR:
 			pthread_mutex_destroy(&params->lock);
 			req_temp_params=parents->params;
 			free(req_temp_params);
+			//processing data from data
 			break;
 		case DATAW:
 			inf_free_valueset(params->value,FS_MALLOC_W);
@@ -195,21 +195,11 @@ uint32_t lsm_set(request * const req){
 	printf("lsm_set!\n");
 	printf("key : %u\n",req->key);//for debug
 #endif
-	compaction_check();/*
-	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
-	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-	lsm_req->parents=NULL;
-	params->lsm_type=DATAW;
-	params->value=req->value;
-	lsm_req->params=(void*)params;
-
-	lsm_req->end_req=lsm_end_req;
-	*/
-
+	compaction_check();
 	if(req->type==FS_DELETE_T)
-		skiplist_insert(LSM.memtable,req->key,req->value,NULL,false);
+		skiplist_insert(LSM.memtable,req->key,req->value,false);
 	else
-		skiplist_insert(LSM.memtable,req->key,req->value,NULL,true);
+		skiplist_insert(LSM.memtable,req->key,req->value,true);
 
 	req->value=NULL;
 	//req->value will be ignored at free
@@ -260,7 +250,7 @@ uint32_t __lsm_get(request *const req){
 #ifdef NOHOST
 		req->value=target_node->value;
 #else
-		memcpy(req->value->value,target_node->value,PAGESIZE);
+		memcpy(req->value->value,target_node->value->value,PAGESIZE);
 #endif
 		bench_algo_end(req);
 		req->end_req(req);
@@ -269,7 +259,6 @@ uint32_t __lsm_get(request *const req){
 
 	//check cached data
 	pthread_mutex_lock(&LSM.valueset_lock);
-	
 	pthread_mutex_unlock(&LSM.valueset_lock);
 
 	int level;

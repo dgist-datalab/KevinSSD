@@ -28,6 +28,7 @@ CFLAGS +=\
 		 -D$(TARGET_ALGO)\
 		 -D_BSD_SOURCE\
 	-DBENCH\
+	-DDVALUE\
 
 SRCS +=\
 	./interface/queue.c\
