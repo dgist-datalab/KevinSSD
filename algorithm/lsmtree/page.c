@@ -17,7 +17,7 @@ pthread_mutex_t gc_wait;
 KEYT __ppa;
 #endif
 block bl[_NOB];
-OOBT oob[_NOP];
+OOBT *oob;
 pm data_m;
 pm header_m;
 
@@ -48,8 +48,9 @@ void block_free_ppa(pm *m, block* b){
 	b->ppa=start;
 }
 void block_init(){
+	oob=(OOBT*)malloc(sizeof(OOBT)*_NOP);
 	memset(bl,0,sizeof(bl));
-	memset(oob,0,sizeof(oob));
+	memset(oob,0,sizeof(OOBT)*_NOP);
 	pthread_mutex_init(&gc_wait,NULL);
 	gc_read_wait=0;
 	for(KEYT i=0; i<_NOB; i++){
@@ -128,7 +129,6 @@ void pm_a_init(pm *m,KEYT size,KEYT *_idx){
 	m->max=start+algo_lsm.li->PPB-1;
 	m->rblock=&bl[idx++];
 	*_idx=idx;
-
 	pthread_mutex_init(&m->manager_lock,NULL);
 }
 

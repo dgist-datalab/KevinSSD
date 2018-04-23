@@ -25,6 +25,7 @@ SRCS +=\
 	   page.c\
 	   pageQ.c\
 	   footer.c\
+	   factory.c\
 cache.c\
 
 OBJS :=\

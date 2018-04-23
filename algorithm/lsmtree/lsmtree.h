@@ -17,6 +17,8 @@
 #define DATAW 5
 #define GCR 6
 #define GCW 7
+#define SDATAR 8
+#define RANGER 9
 
 typedef struct keyset{
 	KEYT lpa;
@@ -63,7 +65,7 @@ typedef struct lsmtree{
 	pthread_mutex_t entrylock;
 
 	pthread_mutex_t valueset_lock;
-	value_set *caching_value;
+	PTR caching_value;
 
 	struct skiplist *memtable;
 	struct skiplist *temptable;

@@ -9,6 +9,7 @@
 #include "run_array.h"
 #include "lsmtree.h"
 #include "page.h"
+#include "factory.h"
 #include<stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -24,6 +25,7 @@ struct algorithm algo_lsm={
 	.set=lsm_set,
 	.remove=lsm_remove
 };
+extern OOBT *oob;
 lsmtree LSM;
 int save_fd;
 uint32_t __lsm_get(request *const);
@@ -69,11 +71,13 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	pthread_mutex_init(&LSM.valueset_lock,NULL);
 	//compactor start
 	compaction_init();
+	factory_init();
 	q_init(&LSM.re_q,CQSIZE);
 
 #ifdef CACHE
 	LSM.lsm_cache=cache_init();
 #endif
+	LSM.caching_value=NULL;
 	LSM.li=li;
 	algo_lsm.li=li;
 	pm_init();
@@ -171,7 +175,18 @@ void* lsm_end_req(algo_req* const req){
 			pthread_mutex_destroy(&params->lock);
 			req_temp_params=parents->params;
 			free(req_temp_params);
-			//processing data from data
+			if(!PBITFULL(oob[parents->value->ppa])){//small data
+
+				pthread_mutex_lock(&LSM.valueset_lock);
+				if(!LSM.caching_value){
+					LSM.caching_value=(PTR)malloc(PAGESIZE);
+				}
+				memcpy(LSM.caching_value,parents->value->value,PAGESIZE);
+				pthread_mutex_unlock(&LSM.valueset_lock);
+				params->lsm_type=SDATAR;
+				ftry_assign(req); //return by factory thread
+				return NULL;
+			}
 			break;
 		case DATAW:
 			inf_free_valueset(params->value,FS_MALLOC_W);

@@ -1,30 +1,30 @@
 #include "footer.h"
 #include "page.h"
+#include "../../interface/interface.h"
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
 
-footer f_grep_footer(PTR input){
-	footer res;
-	memcpy(&res,&input[(PAGESIZE/PIECE-1)*PIECE],sizeof(res));
-	return res;
+footer* f_grep_footer(PTR input){
+	//footer res;
+	//memcpy(&res,&input[(PAGESIZE/PIECE-1)*PIECE],sizeof(res));
+	return (footer*)&input[(PAGESIZE/PIECE-1)*PIECE];
 }
 
-PTR f_grep_data(KEYT lpn,OOBT ppn,PTR data){
+value_set* f_grep_data(KEYT lpn,OOBT ppn,PTR data){
 	int start_p=0;
-	if(ppn!=UINT_MAX && PBITFULL(ppn)){//check 8KB
-		return data;
-	}
-
-	footer f=f_grep_footer(data);
-	while(start_p<PAGESIZE/PIECE){
-		if(f.f[start_p].lpn==lpn){
-			PTR res=(PTR)malloc(PIECE*f.f[start_p].length);
-			memcpy(res,&data[PIECE*start_p],PIECE*f.f[start_p].length);
+	value_set *res=NULL;
+	footer *f=f_grep_footer(data);
+	int idx=0;
+	while(idx<PAGESIZE/PIECE){
+		if(f->f[idx].lpn==lpn){
+			res=inf_get_valueset(NULL,FS_MALLOC_R,f->f[idx].length*PIECE);
+			memcpy(res->value,&data[PIECE*start_p],PIECE*f->f[idx].length);
 			return res;
 		}
 		else{
-			start_p+=f.f[start_p].length;
+			idx++;
+			start_p+=f->f[start_p].length;
 		}
 	}
 	return NULL;
