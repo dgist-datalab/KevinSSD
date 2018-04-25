@@ -17,7 +17,7 @@
 #define TIERING
 #define TIERFACTOR 10
 
-#define HEADERB (512)
+#define HEADERB (5)
 #define ONETHREAD
 //#define NOGC
 #define BLOOM

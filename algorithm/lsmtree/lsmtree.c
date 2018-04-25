@@ -86,6 +86,7 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 
 void lsm_destroy(lower_info *li, algorithm *lsm){
 	compaction_free();
+	factory_free();
 	for(int i=0; i<LEVELN; i++){
 		level_free(LSM.disk[i]);
 	}
@@ -263,9 +264,11 @@ uint32_t __lsm_get(request *const req){
 	snode *target_node=skiplist_find(LSM.memtable,req->key);//checking in memtable
 	if(target_node !=NULL){
 #ifdef NOHOST
-		req->value=target_node->value;
+		//inf_free_valuset(req->value,FS_MALLOC_R);
+		have to copy
+		//req->value=target_node->value;
 #else
-		memcpy(req->value->value,target_node->value->value,PAGESIZE);
+		memcpy(req->value->value,target_node->value->value,target_node->value->length*PIECE);
 #endif
 		bench_algo_end(req);
 		req->end_req(req);

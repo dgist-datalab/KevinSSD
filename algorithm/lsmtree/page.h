@@ -19,8 +19,6 @@ typedef struct page_manager{
 	KEYT block_n;
 }pm;
 
-
-
 void block_init();
 void pm_init();
 KEYT getHPPA(KEYT);

@@ -251,7 +251,7 @@ value_set **skiplist_make_valueset(skiplist *input){
 			target->ppa=res[res_idx]->ppa;
 			f_insert(foot,target->key,target_length);
 
-			memcpy(&page[ptr],target->value,target_length*PIECE);
+			memcpy(&page[ptr],target->value->value,target_length*PIECE);
 			b.idx[target_length]--;
 
 			ptr+=target_length*PIECE;

@@ -3,6 +3,7 @@
 #include "compaction.h"
 #include "lsmtree.h"
 #include "../../interface/interface.h"
+#include "footer.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -10,7 +11,7 @@
 //1==invalidxtern
 extern algorithm algo_lsm;
 extern lsmtree LSM;
-KEYT getRPPA(pm* m,KEYT lpa);
+KEYT getRPPA(pm* m,KEYT lpa,bool);
 int gc_read_wait;
 pthread_mutex_t gc_wait;
 #ifdef NOGC
@@ -60,7 +61,7 @@ void block_init(){
 
 void reserve_block_change(pm *m, block *b,int idx){
 	KEYT res;
-	while((res=getRPPA(m,-1))!=UINT_MAX){
+	while((res=getRPPA(m,-1,false))!=UINT_MAX){
 		if(res==UINT_MAX)
 			printf("here!\n");
 		pq_enqueue(res,m->ppa);
@@ -108,6 +109,7 @@ void gc_data_write(KEYT ppa,htable_t *value){
 	algo_lsm.li->push_data(ppa,PAGESIZE,params->value,0,areq);
 	return;
 }
+
 void pm_a_init(pm *m,KEYT size,KEYT *_idx){
 	pq_init(&m->ppa,(size-1)*algo_lsm.li->PPB);
 	pq_init(&m->r_ppa,1*algo_lsm.li->PPB);
@@ -140,10 +142,11 @@ void pm_init(){
 	printf("headre block size : %lld\n",(long long int)HEADERB*algo_lsm.li->PPB);
 	printf("data block size : %lld\n",(long long int)(algo_lsm.li->NOB-HEADERB)*algo_lsm.li->PPB);
 }
-KEYT getRPPA(pm* m,KEYT lpa){
+
+KEYT getRPPA(pm* m,KEYT lpa,bool isfull){
 	KEYT res=pq_dequeue(m->r_ppa);
 	if(res!=UINT_MAX && lpa!=UINT_MAX)
-		oob[res]=PBITSET(lpa,true);
+		oob[res]=PBITSET(lpa,isfull);
 	return res;
 }
 
@@ -314,7 +317,7 @@ int gc_header(){
 		if(tables[i]==NULL) continue;
 		KEYT t_ppa=start+i;
 		KEYT lpa=PBITGET(t_ppa);
-		KEYT n_ppa=getRPPA(&header_m,lpa);
+		KEYT n_ppa=getRPPA(&header_m,lpa,true);
 		test=target_ent[i];
 		table=tables[i];
 		test->pbn=n_ppa;
@@ -436,13 +439,23 @@ int gc_data(){
 	gc_target_get_cnt=0;
 	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
 		if(!tables[i]){	continue;	}
-		htable_t *data=tables[i];
+		htable_t *data=tables[i]; //data
 		KEYT d_ppa=start+i;
-		KEYT d_lpa=PBITGET(d_ppa);
-		KEYT n_ppa=getRPPA(&data_m,d_lpa);
-		gc_data_header_update(d_ppa,d_lpa,n_ppa);
-		gc_data_write(n_ppa,data);
-		free(tables[i]);
+		if(PBITFULL(d_ppa)){
+			KEYT d_lpa=PBITGET(d_ppa);
+			KEYT n_ppa=getRPPA(&data_m,d_lpa,true);
+			gc_data_header_update(d_ppa,d_lpa,n_ppa);
+			gc_data_write(n_ppa,data);
+			free(tables[i]);
+		}
+		else{
+			footer *f=f_grep_footer((PTR)data);
+			KEYT n_ppa=getRPPA(&data_m,0,false);
+			for(int idx=0; f->f[idx].lpn!=0 && f->f[idx].length; idx++){
+				gc_data_header_update(d_ppa,f->f[idx].lpn,n_ppa);
+			}
+			gc_data_write(n_ppa,data);
+		}
 	}
 	free(tables);
 	algo_lsm.li->trim_block(target->ppa,0);
