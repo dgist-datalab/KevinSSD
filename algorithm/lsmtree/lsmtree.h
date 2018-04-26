@@ -19,6 +19,8 @@
 #define GCW 7
 #define SDATAR 8
 #define RANGER 9
+#define BLOCKW 10
+#define BLOCKR 11
 
 typedef struct keyset{
 	KEYT lpa;

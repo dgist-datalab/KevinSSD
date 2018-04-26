@@ -18,6 +18,7 @@
 #define TIERFACTOR 10
 
 #define HEADERB (5)
+#define BLOCKMB (5)
 #define ONETHREAD
 //#define NOGC
 #define BLOOM

@@ -2,10 +2,22 @@
 #define __PAGE_H__
 #include "../../include/settings.h"
 #include "pageQ.h"
+#include "heap.h"
+#include "footer.h"
 #include <pthread.h>
+
+
 typedef struct{
-	uint8_t bitset[_PPB/8];
-	KEYT ppa;
+#ifdef DVALUE
+	uint8_t *length_data;
+#else
+	uint8_t bitset[KEYNUM/8];
+#endif
+	uint8_t level;
+	KEYT bitset_data;//where this bitset's wrote
+	KEYT ppa;//block start number
+	KEYT ldp;//length_data page
+	h_node *hn_ptr;
 	uint32_t invalid_n;
 }block;
 
@@ -20,10 +32,20 @@ typedef struct page_manager{
 }pm;
 
 void block_init();
+void block_load(block *b);
+KEYT block_save(block *b);
+
 void pm_init();
-KEYT getHPPA(KEYT);
-KEYT getDPPA(KEYT,bool);
+KEYT getHPPA(KEYT);//key
+
+KEYT getDPPA(KEYT,bool);//in DVALUE return block id;
+#ifndef DVALUE
 void invalidate_PPA(KEYT ppa);
+#else
+KEYT getBPPA(KEYT);//block key
+void invalidate_DPPA(KEYT ppa,uint8_t plength);
+int gc_block();
+#endif
 bool PBITFULL(OOBT input);
 int get_victim_block();
 int gc_header();

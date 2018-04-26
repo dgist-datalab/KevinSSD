@@ -7,6 +7,7 @@ PWD=$(pwd)
 export CFLAGS_ALGO=\
 			 -g\
 			 -Wall\
+			 -DDVALUE\
 
 export CFLAGS_LOWER=\
 			-g\
@@ -28,7 +29,6 @@ CFLAGS +=\
 		 -D$(TARGET_ALGO)\
 		 -D_BSD_SOURCE\
 	-DBENCH\
-	-DDVALUE\
 
 SRCS +=\
 	./interface/queue.c\

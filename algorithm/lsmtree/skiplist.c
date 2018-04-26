@@ -61,7 +61,9 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
 
 	if(key==x->key){
 		x->key=key;
+#ifndef DVALUE
 		invalidate_PPA(x->ppa);
+#endif
 		x->ppa=ppa;
 		x->isvalid=deletef;
 		return x;
@@ -106,10 +108,13 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef
 
 	if(key==x->key){
 		//delete exists ppa; input ppa
+#ifndef DVALUE
 		invalidate_PPA(ppa);
+#endif
 		return x;
 	}
 	else{
+		
 		int level=getLevel();
 		if(level>list->level){
 			for(int i=list->level+1; i<=level; i++){
@@ -219,7 +224,9 @@ value_set **skiplist_make_valueset(skiplist *input){
 		res[res_idx]=target->value; //if target->value==PAGESIZE
 		target->value=NULL;
 		res[res_idx]->ppa=getDPPA(target->key,true);
-		target->ppa=res[res_idx]->ppa;
+
+		target->ppa=res[res_idx]->ppa<<4;//make target have d_ppa
+
 		res_idx++;
 	}
 	b.idx[PAGESIZE/PIECE]=0;
@@ -241,6 +248,7 @@ value_set **skiplist_make_valueset(skiplist *input){
 		res[res_idx]=inf_get_valueset(page,FS_MALLOC_W,PAGESIZE); //assign new dma in page
 		res[res_idx]->ppa=getDPPA(0,false);
 		page=res[res_idx]->value;
+		uint8_t used_piece=0;
 		while(remain>0){
 			int target_length=remain/PIECE;
 			while(b.idx[target_length]==0 && target_length!=0) --target_length;
@@ -249,6 +257,13 @@ value_set **skiplist_make_valueset(skiplist *input){
 			}
 			target=b.bucket[target_length][b.idx[target_length]-1];
 			target->ppa=res[res_idx]->ppa;
+			
+			//make ppa d_ppa;
+			target->ppa<<=4;
+			target->ppa+=used_piece;
+			used_piece+=target_length;
+			//end
+
 			f_insert(foot,target->key,target_length);
 
 			memcpy(&page[ptr],target->value->value,target_length*PIECE);

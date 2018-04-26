@@ -10,7 +10,7 @@
 
 #define TOTALSIZE (G/2)
 #define PAGESIZE (8*K)
-#define _PPB (256)
+#define _PPB (512)
 #define BLOCKSIZE (_PPB*PAGESIZE)
 #define _NOB (TOTALSIZE/BLOCKSIZE)
 #define _NOP (TOTALSIZE/PAGESIZE)

@@ -20,14 +20,16 @@ KEYT __ppa;
 block bl[_NOB];
 OOBT *oob;
 pm data_m;
+pm block_m;
+#ifdef DVALUE
 pm header_m;
+#endif
 
 OOBT PBITSET(KEYT input,bool isFull){
 	input<<=1;
 	if(isFull){
 		input|=1;
 	}
-
 	OOBT value=input;
 	return value;
 }
@@ -48,6 +50,7 @@ void block_free_ppa(pm *m, block* b){
 	memset(b,0,sizeof(block));
 	b->ppa=start;
 }
+
 void block_init(){
 	oob=(OOBT*)malloc(sizeof(OOBT)*_NOP);
 	memset(bl,0,sizeof(bl));
@@ -57,6 +60,42 @@ void block_init(){
 	for(KEYT i=0; i<_NOB; i++){
 		bl[i].ppa=i*_PPB;
 	}
+}
+
+
+void block_load(block *b){
+	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
+	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
+	lsm_req->parents=NULL;
+	lsm_req->end_req=lsm_end_req;
+	lsm_req->params=(void*)params;
+
+	pthread_mutex_init(&params->lock,NULL);
+	pthread_mutex_lock(&params->lock);
+
+	params->lsm_type=BLOCKR;
+
+	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
+	b->length_data=(uint8_t*)malloc(PAGESIZE);
+	params->htable_ptr=(PTR)b->length_data;
+	
+	LSM.li->pull_data(b->ldp,PAGESIZE,params->value,ASYNC,lsm_req);
+}
+
+KEYT block_save(block *b){
+	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
+	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
+	lsm_req->parents=NULL;
+	lsm_req->end_req=lsm_end_req;
+	lsm_req->params=(void*)params;
+	
+	params->lsm_type=BLOCKW;
+	params->value=inf_get_valueset((PTR)b->length_data,FS_MALLOC_W,PAGESIZE);
+	params->htable_ptr=(PTR)b->length_data;
+
+	KEYT ldp=getBPPA(b->ppa);
+	LSM.li->push_data(ldp,PAGESIZE,params->value,ASYNC,lsm_req);
+	return ldp;
 }
 
 void reserve_block_change(pm *m, block *b,int idx){
@@ -110,7 +149,7 @@ void gc_data_write(KEYT ppa,htable_t *value){
 	return;
 }
 
-void pm_a_init(pm *m,KEYT size,KEYT *_idx){
+void pm_a_init(pm *m,KEYT size,KEYT *_idx,bool isblock){
 	pq_init(&m->ppa,(size-1)*algo_lsm.li->PPB);
 	pq_init(&m->r_ppa,1*algo_lsm.li->PPB);
 	m->block_n=size;
@@ -119,14 +158,24 @@ void pm_a_init(pm *m,KEYT size,KEYT *_idx){
 	for(KEYT i=0; i<size-1; i++){
 		KEYT start=bl[idx].ppa;
 		m->blocks[i]=&bl[idx++];
-		for(KEYT j=0;j<algo_lsm.li->PPB; j++){
-			pq_enqueue(start+j,m->ppa);
+		if(isblock){
+			pq_enqueue(start,m->ppa);
+		}
+		else{
+			for(KEYT j=0;j<algo_lsm.li->PPB; j++){
+				pq_enqueue(start+j,m->ppa);
+			}
 		}
 	}
 
 	KEYT start=bl[idx].ppa;
-	for(KEYT j=0; j<algo_lsm.li->PPB; j++){
-		pq_enqueue(start+j,m->r_ppa);
+	if(isblock){
+		pq_enqueue(start,m->r_ppa);
+	}
+	else{
+		for(KEYT j=0; j<algo_lsm.li->PPB; j++){
+			pq_enqueue(start+j,m->r_ppa);
+		}
 	}
 	m->max=start+algo_lsm.li->PPB-1;
 	m->rblock=&bl[idx++];
@@ -137,8 +186,13 @@ void pm_a_init(pm *m,KEYT size,KEYT *_idx){
 void pm_init(){
 	block_init();
 	KEYT start=0;
-	pm_a_init(&header_m,HEADERB,&start);
-	pm_a_init(&data_m,algo_lsm.li->NOB-HEADERB,&start);
+	pm_a_init(&header_m,HEADERB,&start,false);
+#ifndef DVALUE
+	pm_a_init(&data_m,algo_lsm.li->NOB-HEADERB-,&start,false);
+#else
+	pm_a_init(&block_m,BLOCKMB,&start,false);
+	pm_a_init(&data_m,algo_lsm.li->NOB-HEADERB-BLOCKMB,&start,true);
+#endif
 	printf("headre block size : %lld\n",(long long int)HEADERB*algo_lsm.li->PPB);
 	printf("data block size : %lld\n",(long long int)(algo_lsm.li->NOB-HEADERB)*algo_lsm.li->PPB);
 }
@@ -181,21 +235,50 @@ KEYT getDPPA(KEYT lpa,bool isfull){
 	oob[res]=PBITSET(lpa,isfull);
 	return res;
 }
+
+#ifndef DVALUE
 void invalidate_PPA(KEYT ppa){
 	KEYT bn=ppa/algo_lsm.li->PPB;
 	KEYT idx=ppa%algo_lsm.li->PPB;
-	
-/*
-	if(ppa<=header_m.max)
-		printf("I %u\n",ppa);
-*/
+	/*
+	   if(ppa<=header_m.max)
+	   printf("I %u\n",ppa);
+	 */
 	bl[bn].bitset[idx/8]|=(1<<(idx%8));
 	bl[bn].invalid_n++;
 	if(bl[bn].invalid_n>algo_lsm.li->PPB){
 		printf("??\n");
 	}
 }
+#else
+KEYT getBPPA(KEYT ppa){
+#ifdef NOGC
+	return __ppa++;
+#endif
+	KEYT res=pq_dequeue(block_m.ppa);
+	if(res==UINT_MAX){
+		if(gc_block()==0){
+			printf("device full from block");
+			exit(1);
+		}
+		res=pq_dequeue(block_m.ppa);
+	}
+	oob[res]=PBITSET(ppa,true);
+	return res;
+}
 
+void invalidate_DPPA(KEYT ppa, uint8_t plength){
+	//find block;
+	KEYT piece=ppa%(PAGESIZE/PIECE);
+	KEYT pn=ppa/(PAGESIZE/PIECE);
+	KEYT bn=pn/_PPB;
+	//invalidate length_data
+	for(int i=0; i<plength; i++){
+		bl[bn].length_data[pn*piece+i]&=1;
+	}
+	bl[bn].invalid_n+=plength;
+}
+#endif
 int get_victim_block(pm *m){
 	KEYT idx=0;
 	uint32_t cnt=m->blocks[idx]->invalid_n;
@@ -235,12 +318,15 @@ int gc_header(){
 	//printf("2\n");
 	//level_all_print();
 	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
+#ifndef DVALUE
 		if(target->bitset[i/8]&(1<<(i%8))){
 			tables[i]=NULL;
 			target_ent[i]=NULL;
 			continue;
 		}
-
+#else
+		//ttt
+#endif
 
 		KEYT t_ppa=start+i;
 		KEYT lpa=PBITGET(t_ppa);
@@ -355,7 +441,7 @@ void gc_data_header_update(KEYT d_ppa, KEYT d_lpa, KEYT n_ppa){
 #elif defined(SPINLOCK)
 		while(gc_target_get_cnt!=gc_read_wait)()
 #endif
-		pthread_mutex_unlock(&gc_wait);
+			pthread_mutex_unlock(&gc_wait);
 
 		keyset *sets=NULL;
 		gc_read_wait=0;
@@ -371,7 +457,9 @@ void gc_data_header_update(KEYT d_ppa, KEYT d_lpa, KEYT n_ppa){
 				if(sets->ppa==d_ppa){
 					sets->ppa=n_ppa;
 					KEYT n_hppa=getHPPA(tables[k]->sets[0].lpa);
+#ifndef DVALUE
 					invalidate_PPA(entries[k]->pbn);
+#endif
 					entries[k]->pbn=n_hppa;
 #ifdef CACHE
 					if(entries[k]->c_entry){
@@ -419,10 +507,14 @@ int gc_data(){
 	KEYT start=target->ppa;
 	htable_t **tables=(htable_t**)malloc(sizeof(htable_t*)*algo_lsm.li->PPB);
 	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
+#ifndef DVALUE
 		if(target->bitset[i/8]&(1<<(i%8))){
 			tables[i]=NULL;
 			continue;
 		}
+#else
+		//test
+#endif
 		gc_read_wait++;
 		tables[i]=(htable_t*)malloc(sizeof(htable_t));
 		KEYT t_ppa=start+i;
@@ -462,4 +554,7 @@ int gc_data(){
 	reserve_block_change(&data_m,target,__idx);
 	//level_all_print();
 	return 1;
+}
+int gc_block(){
+	return 0;
 }

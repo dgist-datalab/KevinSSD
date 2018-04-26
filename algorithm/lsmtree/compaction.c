@@ -731,7 +731,9 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 			if(!epc_check) epc_check=EPC;
 
 			for(int j=0; j<EPC; j++){
+#ifndef DVALUE
 				invalidate_PPA(target_s[idx]->pbn);//invalidate_PPA
+#endif
 #ifdef CACHE
 				if(target_s[idx]->c_entry){
 					memcpy_cnt++;
@@ -790,7 +792,9 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 				if(!epc_check) epc_check=EPC;
 
 				if(round==0){
+#ifndef DVALUE
 					invalidate_PPA(origin_ent->pbn);
+#endif
 					origin_ent->iscompactioning=true;
 #ifdef CACHE
 					if(origin_ent->c_entry){
@@ -810,7 +814,9 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 
 				for(int k=j; k<EPC; k++){
 					if(target_s[idx]==NULL)break;
+#ifndef DVALUE
 					invalidate_PPA(target_s[idx]->pbn);
+#endif
 
 #ifdef CACHE
 					if(target_s[idx]->c_entry){

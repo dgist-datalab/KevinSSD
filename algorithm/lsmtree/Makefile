@@ -24,7 +24,9 @@ SRCS +=\
 	   compaction.c\
 	   page.c\
 	   pageQ.c\
+	   heap.c\
 	   footer.c\
+	   log_list.c\
 	   factory.c\
 cache.c\
 
@@ -71,7 +73,7 @@ set_check:../../include/lsm_settings.h
 	$(CC) $(CFLAGS_ALGO) -DLEAKCHECK -c $< -o $@
 
 ../../object/%.o: %.c
-	$(CC) $(CFLAGS_ALGO) -c $< -o $@
+	$(CC) $(CFLAGS) $(CFLAGS_ALGO) -c $< -o $@
 
 run_test:run_array.c
 	$(CC) $(CFLAGS_ALGO) -o $@ $^

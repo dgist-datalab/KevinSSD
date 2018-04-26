@@ -134,8 +134,12 @@ level *level_init(level *input,int all_entry,float fpr, bool isTiering){
 	input->fpr=fpr;
 	input->remain=NULL;
 	//input->version_info=0;
+
+	//heap init
+	input->h=heap_init(all_entry/_PPB+(all_entry%_PPB?1:0));
 	return input;
 }
+
 void level_tier_insert_done(level *input){
 	input->r_n_num++;
 }
@@ -532,6 +536,7 @@ void level_all_check(){
 			level_check(LSM.disk[i]);
 	}
 }
+
 void level_save(level* input){
 	write(save_fd,input,sizeof(level));
 	uint64_t level_body_size=(sizeof(Node)+sizeof(Entry)*(input->m_num/input->r_num))*input->r_num;
@@ -562,6 +567,7 @@ level* level_load(){
 	pthread_mutex_init(&res->level_lock,NULL);
 	return res;
 }
+
 /*
    int main(){
    level *temp_lev=(level*)malloc(sizeof(level));

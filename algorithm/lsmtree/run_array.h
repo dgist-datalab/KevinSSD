@@ -7,6 +7,7 @@
 #include "lsmtree.h"
 #include "bloomfilter.h"
 #include "skiplist.h"
+#include "heap.h"
 
 struct htable;
 struct skiplis;
@@ -41,6 +42,7 @@ typedef struct level{
 	int m_num;//number of entries
 	int n_num;
 	int entry_p_run;
+	int entry_size;
 	int r_size;//size of run
 	float fpr;
 	bool isTiering;
@@ -51,6 +53,7 @@ typedef struct level{
 	pthread_mutex_t level_lock;
 	//KEYT version_info;
 	char *body;
+	heap *h;
 }level;
 
 typedef struct iterator{
