@@ -79,6 +79,7 @@ void *factory_main(void *input){
 				origin_valueset=req->value;
 				req->value=f_grep_data(req->key,origin_valueset->ppa,origin_valueset->value);
 				if(req->value==NULL){
+					printf("not_found %d\n",req->key);
 					req->type=FS_NOTFOUND_T;
 					req->value=origin_valueset;
 				}

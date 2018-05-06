@@ -4,9 +4,11 @@
 #include "../../include/container.h"
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
+#include "run_array.h"
 #include "lsmtree.h"
 #define MAX_L 30 //max level number
 #define PROB 4 //the probaility of level increasing : 1/PROB => 1/4
+struct level;
 typedef struct snode{ //skiplist's node
 	KEYT key;
 	KEYT ppa;
@@ -50,7 +52,7 @@ sk_iter* skiplist_get_iterator(skiplist *list); //get read only iterator
 snode *skiplist_get_next(sk_iter* iter); //get next snode by iterator
 skiplist *skiplist_cut(skiplist*,KEYT size,KEYT limit);
 
-value_set **skiplist_make_valueset(skiplist*);
+value_set **skiplist_make_valueset(skiplist*,struct level *from);
 void skiplist_save(skiplist *);
 skiplist *skiplist_load();
 #endif

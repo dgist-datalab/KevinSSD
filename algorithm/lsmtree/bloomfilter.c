@@ -146,6 +146,7 @@ uint64_t bf_bits(int entry, float fpr){
 		targetsize++;
 	return targetsize;
 }
+
 void bf_set(BF *input, KEYT key){
 	KEYT h;
 	int block;

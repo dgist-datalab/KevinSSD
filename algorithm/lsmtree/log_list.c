@@ -3,14 +3,14 @@
 #include <stdio.h>
 #include <string.h>
 
-log* log_init(){
-	log *res=(log*)malloc(sizeof(log));
+llog* llog_init(){
+	llog *res=(llog*)malloc(sizeof(llog));
 	res->tail=NULL;
 	return res;
 }
 
-void log_insert(log *l,void *data){
-	log_node *new_l=(log_node*)malloc(sizeof(log_node));
+void llog_insert(llog *l,void *data){
+	llog_node *new_l=(llog_node*)malloc(sizeof(llog_node));
 	new_l->data=data;
 	new_l->prev=NULL;
 	if(l->tail==NULL){
@@ -23,17 +23,17 @@ void log_insert(log *l,void *data){
 	return;
 }
 
-log_node *log_next(log_node *in){
+llog_node *llog_next(llog_node *in){
 	if(!in) return NULL;
-	log_node *res=in->prev;
+	llog_node *res=in->prev;
 	return res?res:NULL;
 }
 
-void log_free(log *l){
-	log_node *temp=l->tail;
-	log_node *prev;
+void llog_free(llog *l){
+	llog_node *temp=l->tail;
+	llog_node *prev;
 	while(temp){
-		prev=log_next(temp);
+		prev=llog_next(temp);
 		free(temp);
 		temp=prev;
 	}

@@ -20,34 +20,50 @@ KEYT __ppa;
 block bl[_NOB];
 OOBT *oob;
 pm data_m;
-pm block_m;
-#ifdef DVALUE
 pm header_m;
+#ifdef DVALUE
+pm block_m;
 #endif
 
 OOBT PBITSET(KEYT input,bool isFull){
+#ifdef DVALUE
 	input<<=1;
 	if(isFull){
 		input|=1;
 	}
+#endif
 	OOBT value=input;
 	return value;
 }
 KEYT PBITGET(KEYT ppa){
 	KEYT res=(KEYT)oob[ppa];
+#ifdef DVALUE
 	res>>=1;
+#endif
 	return res;
 }
+#ifdef DVALUE
 bool PBITFULL(OOBT input){
 	return input&1?true:false;
 }
+void block_free_dppa(block *b){
+	KEYT start=b->ppa;
+	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
+		oob[start+i]=0;
+	}
+	pq_enqueue(start,data_m->ppa);
+}
+#endif
 void block_free_ppa(pm *m, block* b){
 	KEYT start=b->ppa;
 	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
 		oob[start+i]=0;
 		pq_enqueue(start+i,m->ppa);
 	}
+	free(b->bitset);
 	memset(b,0,sizeof(block));
+	b->bitset=(uint8_t*)malloc(KEYNUM/8);
+	memset(b->bitset,0,KEYNUM/8);
 	b->ppa=start;
 }
 
@@ -59,45 +75,85 @@ void block_init(){
 	gc_read_wait=0;
 	for(KEYT i=0; i<_NOB; i++){
 		bl[i].ppa=i*_PPB;
+		bl[i].ldp=UINT_MAX;
+#ifdef DVALUE
+		bl[i].isused=false;
+#endif
 	}
+	printf("# of block: %d\n",_NOB);
 }
 
-
+#ifdef DVALUE
 void block_load(block *b){
+	b->b_log=llog_init();
+
 	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 	lsm_req->parents=NULL;
 	lsm_req->end_req=lsm_end_req;
 	lsm_req->params=(void*)params;
 
-	pthread_mutex_init(&params->lock,NULL);
-	pthread_mutex_lock(&params->lock);
+	pthread_mutex_init(&b->lock,NULL);
+	pthread_mutex_lock(&b->lock);
 
 	params->lsm_type=BLOCKR;
+	params->htable_ptr=(PTR)b;
+	b->length_data=(uint8_t*)malloc(PAGESIZE);
 
 	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
-	b->length_data=(uint8_t*)malloc(PAGESIZE);
-	params->htable_ptr=(PTR)b->length_data;
-	
 	LSM.li->pull_data(b->ldp,PAGESIZE,params->value,ASYNC,lsm_req);
+	b->isflying=true;
 }
 
-KEYT block_save(block *b){
+void block_meta_init(block *b){
+	b->length_data=(uint8_t *)malloc(PAGESIZE);
+	b->b_log=llog_init();
+	//printf("block %d made\n",b->ppa);
+	pthread_mutex_init(&b->lock,NULL);
+}
+
+void block_save(block *b){
+	pthread_mutex_lock(&b->lock);
+	pthread_mutex_destroy(&b->lock);
+
 	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 	lsm_req->parents=NULL;
 	lsm_req->end_req=lsm_end_req;
 	lsm_req->params=(void*)params;
 	
-	params->lsm_type=BLOCKW;
-	params->value=inf_get_valueset((PTR)b->length_data,FS_MALLOC_W,PAGESIZE);
-	params->htable_ptr=(PTR)b->length_data;
+	/*adopt log*/
+	llog* l=b->b_log;
+	llog_node *temp=l->tail;
+	llog_node *prev;
+	while(temp){
+		prev=llog_next(temp);
+		KEYT *key=(KEYT*)temp->data;
+		KEYT idx_in_block=(*key/(PAGESIZE/PIECE))%_PPB;
+		KEYT idx_in_page=(*key%(PAGESIZE/PIECE));
+		uint8_t plength=b->length_data[idx_in_block*(PAGESIZE/PIECE)+idx_in_page]/2;
+		for(int i=0; i<plength; i++){
+			b->length_data[idx_in_block*(PAGESIZE/PIECE)+idx_in_page+i]&=1; //1 == invalid
+		}
+		temp=prev;
+		b->invalid_n+=plength;
+	}
+	llog_free(b->b_log);
+	b->b_log=NULL;
 
+	params->lsm_type=BLOCKW;
+	params->htable_ptr=(PTR)b;
+
+	params->value=inf_get_valueset((PTR)b->length_data,FS_MALLOC_W,PAGESIZE);
 	KEYT ldp=getBPPA(b->ppa);
 	LSM.li->push_data(ldp,PAGESIZE,params->value,ASYNC,lsm_req);
-	return ldp;
+	b->length_data=NULL;
+	if(b->ldp!=UINT_MAX){
+		invalidate_BPPA(b->ldp);
+	}
+	b->ldp=ldp;
 }
-
+#endif
 void reserve_block_change(pm *m, block *b,int idx){
 	KEYT res;
 	while((res=getRPPA(m,-1,false))!=UINT_MAX){
@@ -186,11 +242,24 @@ void pm_a_init(pm *m,KEYT size,KEYT *_idx,bool isblock){
 void pm_init(){
 	block_init();
 	KEYT start=0;
+	for(int i=start; i<start+HEADERB; i++){
+		bl[i]->bitset=(uint8_t*)malloc(KEYNUM/8);
+		memset(b->bitset,0,KEYNUM/8);
+	}
 	pm_a_init(&header_m,HEADERB,&start,false);
-#ifndef DVALUE
-	pm_a_init(&data_m,algo_lsm.li->NOB-HEADERB-,&start,false);
+#ifndef DVALUE	
+	for(int i=start; i<algo_lsm.li->NOB-HEADERB; i++){
+		bl[i]->bitset=(uint8_t*)malloc(KEYNUM/8);
+		memset(b->bitset,0,KEYNUM/8);
+	}
+	pm_a_init(&data_m,algo_lsm.li->NOB-HEADERB,&start,false);
 #else
-	pm_a_init(&block_m,BLOCKMB,&start,false);
+	for(int i=start; i<start+BLOCKMB; i++){
+		bl[i]->bitset=(uint8_t*)malloc(KEYNUM/8);
+		memset(b->bitset,0,KEYNUM/8);
+	}
+	pm_a_init(&block_m,BLOCKMB,&start,false);	
+
 	pm_a_init(&data_m,algo_lsm.li->NOB-HEADERB-BLOCKMB,&start,true);
 #endif
 	printf("headre block size : %lld\n",(long long int)HEADERB*algo_lsm.li->PPB);
@@ -203,7 +272,6 @@ KEYT getRPPA(pm* m,KEYT lpa,bool isfull){
 		oob[res]=PBITSET(lpa,isfull);
 	return res;
 }
-
 KEYT getHPPA(KEYT lpa){
 #ifdef NOGC
 	return __ppa++;
@@ -232,11 +300,12 @@ KEYT getDPPA(KEYT lpa,bool isfull){
 		}
 		res=pq_dequeue(data_m.ppa);
 	}
+#ifndef DVALUE
 	oob[res]=PBITSET(lpa,isfull);
+#endif
 	return res;
 }
 
-#ifndef DVALUE
 void invalidate_PPA(KEYT ppa){
 	KEYT bn=ppa/algo_lsm.li->PPB;
 	KEYT idx=ppa%algo_lsm.li->PPB;
@@ -250,7 +319,10 @@ void invalidate_PPA(KEYT ppa){
 		printf("??\n");
 	}
 }
-#else
+void invalidate_BPPA(KEYT ppa){
+	invalidate_PPA(ppa);
+}
+
 KEYT getBPPA(KEYT ppa){
 #ifdef NOGC
 	return __ppa++;
@@ -267,18 +339,30 @@ KEYT getBPPA(KEYT ppa){
 	return res;
 }
 
-void invalidate_DPPA(KEYT ppa, uint8_t plength){
+void invalidate_DPPA(KEYT ppa){
 	//find block;
-	KEYT piece=ppa%(PAGESIZE/PIECE);
 	KEYT pn=ppa/(PAGESIZE/PIECE);
-	KEYT bn=pn/_PPB;
-	//invalidate length_data
-	for(int i=0; i<plength; i++){
-		bl[bn].length_data[pn*piece+i]&=1;
+	KEYT bn=pn/_PPB;	
+	if(bl[bn].length_data==NULL && !bl[bn].isflying){
+		block_load(&bl[bn]);
 	}
-	bl[bn].invalid_n+=plength;
+	//logging
+	KEYT *lpn=(KEYT*)malloc(sizeof(KEYT));
+	*lpn=ppa;
+	llog_insert(bl[bn].b_log,(void*)lpn);
 }
-#endif
+
+block *get_victim_Dblock(){
+	block *data;	
+	for(int i=0; i<LEVELN; i++){
+		data=hea_get_max(LSM.disk[i]->h);
+		if(data!=NULL){
+			return (block*)data;
+		}
+	}
+	return NULL;
+}
+
 int get_victim_block(pm *m){
 	KEYT idx=0;
 	uint32_t cnt=m->blocks[idx]->invalid_n;
@@ -292,6 +376,7 @@ int get_victim_block(pm *m){
 		return -1;
 	return idx;
 }
+
 extern int gc_target_get_cnt;
 int gc_header(){
 	static int gc_cnt=0;
@@ -493,6 +578,7 @@ int gc_data(){
 	gc_data_cnt++;
 	printf("[%d]gc_data start\n",gc_data_cnt);
 	//level_all_print();
+#ifndef DVALUE
 	int __idx=get_victim_block(&data_m);
 	if(__idx==-1)
 		return 0;
@@ -502,7 +588,14 @@ int gc_data(){
 		block_free_ppa(&data_m,target);
 		return 1;
 	}
-
+#else
+	block *target=get_victim_Dblock();
+	if(target!=NULL) return 0;
+	if(target->invalid_n==algo_lsm.li->PPB*(PAGESIZE/PIECE)){
+		algo_lsm.li->trim_block(target->ppa,0);
+		block_free_dppa(target);
+	}
+#endif
 	pthread_mutex_lock(&gc_wait);
 	KEYT start=target->ppa;
 	htable_t **tables=(htable_t**)malloc(sizeof(htable_t*)*algo_lsm.li->PPB);
@@ -512,6 +605,8 @@ int gc_data(){
 			tables[i]=NULL;
 			continue;
 		}
+		else if(PBITGET(start+i)==0)
+			break;
 #else
 		//test
 #endif
@@ -533,12 +628,15 @@ int gc_data(){
 		if(!tables[i]){	continue;	}
 		htable_t *data=tables[i]; //data
 		KEYT d_ppa=start+i;
+#ifdef DVALUE
 		if(PBITFULL(d_ppa)){
+#endif
 			KEYT d_lpa=PBITGET(d_ppa);
 			KEYT n_ppa=getRPPA(&data_m,d_lpa,true);
 			gc_data_header_update(d_ppa,d_lpa,n_ppa);
 			gc_data_write(n_ppa,data);
 			free(tables[i]);
+#ifdef DVALUE
 		}
 		else{
 			footer *f=f_grep_footer((PTR)data);
@@ -548,6 +646,7 @@ int gc_data(){
 			}
 			gc_data_write(n_ppa,data);
 		}
+#endif
 	}
 	free(tables);
 	algo_lsm.li->trim_block(target->ppa,0);
@@ -555,6 +654,13 @@ int gc_data(){
 	//level_all_print();
 	return 1;
 }
+void block_print(){
+	for(int i=HEADERB+BLOCKMB; i<_NOB; i++){
+		if(bl[i].ldp==UINT_MAX) break;
+		printf("[block%u]ldp:%u\n",bl[i].ppa,bl[i].ldp);
+	}
+}
 int gc_block(){
+	printf("gc block! called\n");
 	return 0;
 }

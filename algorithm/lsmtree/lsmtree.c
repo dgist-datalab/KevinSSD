@@ -47,6 +47,7 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 
 		for(int i=0; i<LEVELN; i++){
 			LSM.disk[i]=(level*)malloc(sizeof(level));
+			LSM.disk[i]->level_idx=i;
 #ifdef BLOOM
 #ifdef MONKEY
 			target_fpr=pow(SIZEFACTOR,i)*ffpr;
@@ -110,6 +111,9 @@ void* lsm_end_req(algo_req* const req){
 	PTR target=NULL;
 	htable **t_table=NULL;
 	htable *table=NULL;
+#ifdef DVALUE
+	block *bl=NULL;
+#endif
 	switch(params->lsm_type){
 		case OLDDATA:
 			//do nothing
@@ -176,7 +180,8 @@ void* lsm_end_req(algo_req* const req){
 			pthread_mutex_destroy(&params->lock);
 			req_temp_params=parents->params;
 			free(req_temp_params);
-			if(!PBITFULL(oob[parents->value->ppa])){//small data
+#ifdef DVALUE
+			if(!PBITFULL(oob[parents->value->ppa/(PAGESIZE/PIECE)])){//small data
 
 				pthread_mutex_lock(&LSM.valueset_lock);
 				if(!LSM.caching_value){
@@ -188,10 +193,26 @@ void* lsm_end_req(algo_req* const req){
 				ftry_assign(req); //return by factory thread
 				return NULL;
 			}
+#endif
 			break;
 		case DATAW:
 			inf_free_valueset(params->value,FS_MALLOC_W);
 			break;
+#ifdef DVALUE
+		case BLOCKW:
+			bl=(block*)params->htable_ptr;
+			free(bl->length_data);
+			bl->length_data=NULL;
+			inf_free_valueset(params->value,FS_MALLOC_W);
+			break;
+		case BLOCKR:
+			bl=(block*)params->htable_ptr;
+			memcpy(bl->length_data,params->value->value,PAGESIZE);
+			inf_free_valueset(params->value,FS_MALLOC_R);
+			bl->isflying=false;
+			pthread_mutex_unlock(&bl->lock);
+			break;
+#endif
 		default:
 			break;
 	}
@@ -253,7 +274,7 @@ uint32_t lsm_get(request *const req){
 	bench_algo_start(req);
 	int res=__lsm_get(req);
 	if(res==3){
-		//	printf("seq: %d, key:%u\n",nor++,req->key);
+		printf("seq: %d, key:%u\n",nor++,req->key);
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
 	}
@@ -307,7 +328,11 @@ uint32_t __lsm_get(request *const req){
 			params->lsm_type=DATAR;
 			req->value->ppa=target_node->ppa;
 			bench_algo_end(req);
+#ifdef DVALUE
+			LSM.li->pull_data(target_node->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+#else
 			LSM.li->pull_data(target_node->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+#endif
 			return 1;
 		}
 	}
@@ -321,7 +346,11 @@ uint32_t __lsm_get(request *const req){
 			bench_algo_end(req);
 
 			req->value->ppa=target->ppa;
+#ifdef DVALUE
+			LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+#else
 			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+#endif
 			pthread_mutex_unlock(&LSM.entrylock);
 			return 1;
 		}
@@ -354,7 +383,11 @@ uint32_t __lsm_get(request *const req){
 			params->lsm_type=DATAR;
 			req->value->ppa=target->ppa;
 			bench_algo_end(req);
+#ifdef DVALUE
+			LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+#else
 			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+#endif
 			return 1;
 		}
 	}
@@ -380,7 +413,11 @@ uint32_t __lsm_get(request *const req){
 					req->value->ppa=target->ppa;
 					cache_update(LSM.lsm_cache,entry);
 					bench_algo_end(req);
+#ifdef DVALUE
+					LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+#else
 					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+#endif
 					free(entries);
 					return 1;
 				}
@@ -407,7 +444,11 @@ uint32_t __lsm_get(request *const req){
 					params->lsm_type=DATAR;
 					req->value->ppa=target->ppa;
 					bench_algo_end(req);
+#ifdef DVALUE
+					LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+#else
 					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+#endif
 					free(entries);
 					return 1;
 				}

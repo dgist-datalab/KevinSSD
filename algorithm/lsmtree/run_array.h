@@ -7,6 +7,7 @@
 #include "lsmtree.h"
 #include "bloomfilter.h"
 #include "skiplist.h"
+#include "page.h"
 #include "heap.h"
 
 struct htable;
@@ -37,6 +38,9 @@ typedef struct Node{
 }Node;
 
 typedef struct level{
+	heap *h;
+	block *now_block;
+	int level_idx;
 	int r_num;
 	int r_n_num;
 	int m_num;//number of entries
@@ -53,7 +57,6 @@ typedef struct level{
 	pthread_mutex_t level_lock;
 	//KEYT version_info;
 	char *body;
-	heap *h;
 }level;
 
 typedef struct iterator{
@@ -77,6 +80,13 @@ int level_range_unmatch(level *,KEYT start, Entry ***,bool);
 bool level_check_overlap(level*,KEYT start, KEYT end);//a
 bool level_check_seq(level *);
 bool level_full_check(level *);//
+#ifdef DVALUE
+KEYT level_get_page(level *,uint8_t plength);
+KEYT level_get_front_page(level*);
+void level_move_next_page(level *);
+void level_save_blocks(level *);
+void level_move_heap(level * des, level *src);
+#endif
 Node *level_insert(level *,Entry*);//
 Node *level_insert_seq(level *, Entry *);
 Entry *level_get_next(Iter *);//

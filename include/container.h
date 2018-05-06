@@ -24,7 +24,7 @@ typedef struct value_set{
 	PTR value;
 	uint32_t length;
 	int dmatag; //-1 == not dma_alloc, others== dma_alloc
-	int ppa;
+	KEYT ppa;
 }value_set;
 
 struct request {

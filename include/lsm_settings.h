@@ -1,7 +1,7 @@
 #ifndef __H_SETLSM__
 #define __H_SETLSM__
 
-#define SIZEFACTOR 10
+#define SIZEFACTOR 5
 #define RAF 1
 #define LEVELN 5
 

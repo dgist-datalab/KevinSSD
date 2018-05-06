@@ -10,7 +10,6 @@ void pq_init(pageQ **q,int qsize){
 	(*q)->size=0;
 	(*q)->head=(*q)->tail=NULL;
 	pthread_mutex_init(&((*q)->q_lock),NULL);
-	printf("mutex_t : %p\n",&(*q)->q_lock);
 	(*q)->firstFlag=true;
 	(*q)->m_size=qsize;
 }
@@ -35,6 +34,13 @@ bool pq_enqueue( KEYT req, pageQ* q){
 	q->size++;
 	pthread_mutex_unlock(&q->q_lock);
 	return true;
+}
+
+KEYT pq_front(pageQ *q){	
+	if(!q->head || q->size==0){
+		return UINT_MAX;
+	}
+	return q->head->ppa;
 }
 
 KEYT pq_dequeue(pageQ *q){

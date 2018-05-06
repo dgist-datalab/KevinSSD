@@ -8,7 +8,9 @@
 #include"page.h"
 #include"../../interface/interface.h"
 #include "footer.h"
-
+#ifdef DVALUE
+extern OOBT *oob;
+#endif
 skiplist *skiplist_init(){
 	skiplist *point=(skiplist*)malloc(sizeof(skiplist));
 	point->level=1;
@@ -63,6 +65,8 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
 		x->key=key;
 #ifndef DVALUE
 		invalidate_PPA(x->ppa);
+#else
+		invalidate_DPPA(x->ppa);
 #endif
 		x->ppa=ppa;
 		x->isvalid=deletef;
@@ -110,6 +114,8 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef
 		//delete exists ppa; input ppa
 #ifndef DVALUE
 		invalidate_PPA(ppa);
+#else
+		invalidate_DPPA(ppa);
 #endif
 		return x;
 	}
@@ -203,7 +209,11 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 	return x;
 }
 
-value_set **skiplist_make_valueset(skiplist *input){
+value_set **skiplist_make_valueset(skiplist *input, level *from){
+	/*
+	static int debuging_cnt=0;
+	printf("skip make :%d\n",debuging_cnt++);
+*/
 	value_set **res=(value_set**)malloc(sizeof(value_set*)*(KEYNUM+1));
 	memset(res,0,sizeof(value_set*)*(KEYNUM+1));
 	l_bucket b;
@@ -218,15 +228,22 @@ value_set **skiplist_make_valueset(skiplist *input){
 	}
 	free(iter);
 
+
 	int res_idx=0;
 	for(int i=0; i<b.idx[PAGESIZE/PIECE]; i++){
-		snode *target=b.bucket[PAGESIZE/PIECE][i];
+		target=b.bucket[PAGESIZE/PIECE][i];
+		res[res_idx]=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
+#ifndef DVALUE
+		res[res_idx]->ppa=getDPPA(target->key,true);
+		target->ppa=res[res_idx]->ppa;
+#else
+		level_get_front_page(from);
+		res[res_idx]->ppa=level_get_page(from,(PAGESIZE/PIECE));
+		oob[res[res_idx]->ppa/(PAGESIZE/PIECE)]=PBITSET(target->key,true);
+		target->ppa=res[res_idx]->ppa;
+#endif
 		res[res_idx]=target->value; //if target->value==PAGESIZE
 		target->value=NULL;
-		res[res_idx]->ppa=getDPPA(target->key,true);
-
-		target->ppa=res[res_idx]->ppa<<4;//make target have d_ppa
-
 		res_idx++;
 	}
 	b.idx[PAGESIZE/PIECE]=0;
@@ -238,16 +255,21 @@ value_set **skiplist_make_valueset(skiplist *input){
 			return res;
 		}
 	}
-
 	while(1){
 		PTR page=NULL;
 		int ptr=0;
 		int remain=PAGESIZE-PIECE;
 		footer *foot=f_init();
 
-		res[res_idx]=inf_get_valueset(page,FS_MALLOC_W,PAGESIZE); //assign new dma in page
+		res[res_idx]=inf_get_valueset(page,FS_MALLOC_W,PAGESIZE); 
+#ifndef DVALUE
 		res[res_idx]->ppa=getDPPA(0,false);
-		page=res[res_idx]->value;
+#else
+		res[res_idx]->ppa=level_get_front_page(from);
+		oob[res[res_idx]->ppa/(PAGESIZE/PIECE)]=PBITSET(res[res_idx]->ppa,false);
+#endif
+		page=res[res_idx]->value;//assign new dma in page
+
 		uint8_t used_piece=0;
 		while(remain>0){
 			int target_length=remain/PIECE;
@@ -256,14 +278,13 @@ value_set **skiplist_make_valueset(skiplist *input){
 				break;
 			}
 			target=b.bucket[target_length][b.idx[target_length]-1];
+#ifndef DVALUE
 			target->ppa=res[res_idx]->ppa;
-			
-			//make ppa d_ppa;
-			target->ppa<<=4;
-			target->ppa+=used_piece;
+#else
+			target->ppa=level_get_page(from,target->value->length);
+#endif
 			used_piece+=target_length;
 			//end
-
 			f_insert(foot,target->key,target_length);
 
 			memcpy(&page[ptr],target->value->value,target_length*PIECE);
@@ -285,7 +306,7 @@ value_set **skiplist_make_valueset(skiplist *input){
 		}
 		if(stop) break;
 	}
-
+	
 	return res;
 }
 

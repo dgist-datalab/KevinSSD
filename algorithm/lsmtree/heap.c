@@ -13,7 +13,7 @@ heap *heap_init(int max_size){
 	insert->body=(h_node*)malloc(sizeof(h_node)*(max_size+1));
 	insert->idx=1;
 	insert->max_size=max_size+1;
-	for(int i=0; i<2*max_size; i++){
+	for(int i=0; i<max_size+1; i++){
 		insert->body[i].value=NULL;
 		insert->body[i].my_idx=i;
 	}
@@ -26,6 +26,10 @@ void heap_free(heap *insert){
 }
 
 void heap_insert(heap *h, void *value){
+	if(h->idx==h->max_size){
+		printf("heap full!\n");
+		exit(1);
+	}
 	block *bl=(block*)value;
 	h->body[h->idx].value=value;
 	bl->hn_ptr=&h->body[h->idx];
@@ -48,7 +52,7 @@ void heap_update_from(heap *h, h_node *target){
 	do{
 		if(idx==1)
 			break;
-		h_node *parents=&h->body[idx/3];
+		h_node *parents=&h->body[idx/2];
 		block *now=(block*)target->value;
 		block *p=(block*)target->value;
 		if(now->invalid_n > p->invalid_n){

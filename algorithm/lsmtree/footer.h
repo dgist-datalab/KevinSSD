@@ -19,4 +19,5 @@ footer* f_init();
 void f_insert(footer *,KEYT,uint8_t);
 footer* f_grep_footer(PTR);
 value_set* f_grep_data(KEYT lpn, OOBT ,PTR);
+void f_print(footer *);
 #endif

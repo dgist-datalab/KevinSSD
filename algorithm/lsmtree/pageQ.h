@@ -18,5 +18,6 @@ typedef struct pageQ{
 void pq_init(pageQ**,int);
 bool pq_enqueue(KEYT ,pageQ *);
 KEYT pq_dequeue(pageQ *);
+KEYT pq_front(pageQ*);
 void pq_free(pageQ *);
 #endif

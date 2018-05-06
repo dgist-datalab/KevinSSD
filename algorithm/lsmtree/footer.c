@@ -2,6 +2,7 @@
 #include "page.h"
 #include "../../interface/interface.h"
 #include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
 
@@ -15,6 +16,7 @@ value_set* f_grep_data(KEYT lpn,OOBT ppn,PTR data){
 	int start_p=0;
 	value_set *res=NULL;
 	footer *f=f_grep_footer(data);
+	//f_print(f);
 	int idx=0;
 	while(idx<PAGESIZE/PIECE){
 		if(f->f[idx].lpn==lpn){
@@ -40,4 +42,10 @@ footer* f_init(){
 	footer *res=(footer*)malloc(sizeof(footer));
 	memset(res,0,sizeof(footer));
 	return res;
+}
+
+void f_print(footer *input){
+	for(int i=0; i<input->idx; i++){
+		printf("kye:%u length:%d\n",input->f[i].lpn,input->f[i].length);
+	}
 }
