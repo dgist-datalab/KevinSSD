@@ -313,6 +313,8 @@ void seqset(KEYT start, KEYT end,monitor *m){
 		m->body[i].key=start+(i%(end-start));
 #ifdef DVALUE
 		m->body[i].length=(rand()%16+1)*512;
+#else
+		m->body[i].length=PAGESIZE;
 #endif
 		m->body[i].type=FS_SET_T;
 		m->body[i].mark=m->mark;
@@ -396,10 +398,16 @@ void mixed(KEYT start, KEYT end,int percentage, monitor *m){
 		m->body[i].key=rand()%m->m_num;
 		if(rand()%100<percentage){
 			m->body[i].type=FS_SET_T;
+#ifdef DVALUE
+			m->body[i].length=(rand()%16+1)*512;
+#else
+			m->body[i].length=PAGESIZE;
+#endif
 			m->write_cnt++;
 		}
 		else{
 			m->body[i].type=FS_GET_T;
+			m->body[i].length=PAGESIZE;
 			m->read_cnt++;
 		}
 		m->body[i].mark=m->mark;
