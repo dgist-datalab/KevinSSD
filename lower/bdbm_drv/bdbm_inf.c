@@ -4,6 +4,8 @@
 #include "../../include/container.h"
 #include "frontend/libmemio/libmemio.h"
 #include "bdbm_inf.h"
+#include <unistd.h>
+#include <stdlib.h>
 #include <limits.h>
 memio_t *mio;
 lower_info memio_info={
