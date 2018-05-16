@@ -1,7 +1,7 @@
 #ifndef __H_SETLSM__
 #define __H_SETLSM__
 
-#define SIZEFACTOR 5
+#define SIZEFACTOR 4
 #define RAF 1
 #define LEVELN 5
 
@@ -17,8 +17,8 @@
 #define TIERING
 #define TIERFACTOR 10
 
-#define HEADERB (5)
-#define BLOCKMB (5)
+#define HEADERB (10)
+#define BLOCKMB (10)
 #define ONETHREAD
 //#define NOGC
 #define BLOOM

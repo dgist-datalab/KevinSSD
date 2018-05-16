@@ -67,10 +67,11 @@ typedef struct iterator{
 	int idx;
 	bool flag;
 }Iter;
+
 Entry *level_make_entry(KEYT,KEYT,KEYT);//
 Entry* level_entcpy(Entry *src,char *des);//
 Entry *level_entry_copy(Entry *src);
-level *level_init(level *,int size,float fpr,bool);//
+level *level_init(level *,int size,int idx,float fpr,bool);//
 level *level_clear(level *);//
 level *level_copy(level *);//
 Entry **level_find(level *,KEYT key);//
@@ -80,12 +81,13 @@ int level_range_unmatch(level *,KEYT start, Entry ***,bool);
 bool level_check_overlap(level*,KEYT start, KEYT end);//a
 bool level_check_seq(level *);
 bool level_full_check(level *);//
-#ifdef DVALUE
 KEYT level_get_page(level *,uint8_t plength);
 KEYT level_get_front_page(level*);
+void level_move_heap(level * des, level *src);
+bool level_now_block_fchk(level *in);
+#ifdef DVALUE
 void level_move_next_page(level *);
 void level_save_blocks(level *);
-void level_move_heap(level * des, level *src);
 #endif
 Node *level_insert(level *,Entry*);//
 Node *level_insert_seq(level *, Entry *);

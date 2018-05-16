@@ -82,6 +82,7 @@ void *factory_main(void *input){
 					printf("not_found %d\n",req->key);
 					req->type=FS_NOTFOUND_T;
 					req->value=origin_valueset;
+					exit(1);
 				}
 				else{
 					inf_free_valueset(origin_valueset,FS_MALLOC_R);

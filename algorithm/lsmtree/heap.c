@@ -2,17 +2,23 @@
 #include "page.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 void heap_swap(h_node *a, h_node *b){
-	void *temp=a->value;
-	a->value=b->value;
-	b->value=temp;
+	block *ablock=(block*)a->value;
+	block *bblock=(block*)b->value;
+
+	a->value=(void*)bblock;
+	bblock->hn_ptr=a;
+	b->value=ablock;
+	ablock->hn_ptr=b;
 }
 heap *heap_init(int max_size){
 	heap *insert=(heap*)malloc(sizeof(heap));
 	insert->body=(h_node*)malloc(sizeof(h_node)*(max_size+1));
 	insert->idx=1;
 	insert->max_size=max_size+1;
+	memset(insert->body,0,sizeof(h_node)*(max_size+1));
 	for(int i=0; i<max_size+1; i++){
 		insert->body[i].value=NULL;
 		insert->body[i].my_idx=i;
@@ -38,23 +44,24 @@ void heap_insert(heap *h, void *value){
 }
 
 void *heap_get_max(heap *h){
-	void *res=h->body[0].value;
-	heap_delete_from(h, &h->body[0]);
+	void *res=h->body[1].value;
+	heap_delete_from(h, &h->body[1]);
 	return res;
 }
 
 void *heap_check(heap *h){
-	return h->body[0].value;
+	return h->body[1].value;
 }
 
 void heap_update_from(heap *h, h_node *target){
+	if(target==NULL) return;
 	int idx=target->my_idx;
 	do{
 		if(idx==1)
 			break;
 		h_node *parents=&h->body[idx/2];
 		block *now=(block*)target->value;
-		block *p=(block*)target->value;
+		block *p=(block*)parents->value;
 		if(now->invalid_n > p->invalid_n){
 			heap_swap(target,parents);
 			idx=idx/2;
@@ -70,20 +77,32 @@ void heap_delete_from(heap *h, h_node *target){
 	h_node *last=&h->body[h->idx-1];
 	target->value=last->value;
 	last->value=NULL;
-
+	h->idx--;
 	while(1){
-		h_node* left=&h->body[target->my_idx*2];
-		h_node* right=&h->body[target->my_idx*2+1];
+		h_node *left,*right;
+		left=target->my_idx*2>h->idx-1?NULL:&h->body[target->my_idx*2];
+		right=target->my_idx*2+1>h->idx-1?NULL:&h->body[target->my_idx*2+1];
 
 		block *now=(block*)target->value;
-		block *left_v=(block*)left->value;
-		block *right_v=(block*)right->value;
+		block *left_v=left?(block*)left->value:NULL;
+		block *right_v=right?(block*)right->value:NULL;
 
 		if(left_v==NULL && right_v==NULL) break;
 		if(left_v==NULL && right_v->invalid_n < now->invalid_n) break;
-		if(right_v==NULL && left_v->invalid_n < now->invalid_n) break;
-		if(right_v->invalid_n < now->invalid_n && left_v->invalid_n < now->invalid_n) break;
+		else if(left_v==NULL){
+			heap_swap(target,right);
+			target=right;
+			continue;
+		}
 
+		if(right_v==NULL && left_v->invalid_n < now->invalid_n) break;
+		else if(right_v==NULL){
+			heap_swap(target,left);
+			target=left;
+			continue;
+		}
+
+		if(right_v->invalid_n < now->invalid_n && left_v->invalid_n < now->invalid_n) break;
 		if(right_v->invalid_n <left_v->invalid_n){
 			heap_swap(target,left);
 			target=left;
@@ -93,6 +112,14 @@ void heap_delete_from(heap *h, h_node *target){
 			target=right;
 		}
 	}
-	h->idx--;
+}
+void heap_print(heap *h){
+	int idx=1;
+	while(h->body[idx].value){
+		block *temp=(block*)h->body[idx].value;
+		printf("%d ",temp->ppa/(_PPB));
+		idx++;
+	}
+	printf("\n");
 }
 

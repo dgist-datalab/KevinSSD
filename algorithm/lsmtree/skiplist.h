@@ -12,12 +12,11 @@ struct level;
 typedef struct snode{ //skiplist's node
 	KEYT key;
 	KEYT ppa;
-	uint8_t level;
+	KEYT level;
 	value_set* value;
 	bool isvalid;
 	struct snode **list;
 }snode;
-
 typedef struct length_bucket{
 	snode *bucket[PAGESIZE/PIECE+1][KEYNUM];
 	uint16_t idx[PAGESIZE/PIECE+1];
@@ -51,7 +50,9 @@ void skiplist_clear(skiplist *list); //clear all snode in skiplist and  reinit s
 sk_iter* skiplist_get_iterator(skiplist *list); //get read only iterator
 snode *skiplist_get_next(sk_iter* iter); //get next snode by iterator
 skiplist *skiplist_cut(skiplist*,KEYT size,KEYT limit);
-
+#ifdef DVALUE
+int bucket_page_cnt(l_bucket *);
+#endif
 value_set **skiplist_make_valueset(skiplist*,struct level *from);
 void skiplist_save(skiplist *);
 skiplist *skiplist_load();

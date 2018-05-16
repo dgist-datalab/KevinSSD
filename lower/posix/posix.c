@@ -71,7 +71,7 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		bench_lower_start(req->parents);
 	pthread_mutex_lock(&fd_lock);
 	if(lseek64(_fd,((off64_t)my_posix.SOP)*PPA,SEEK_SET)==-1){
-		printf("lseek error in read\n");
+		printf("lseek error in write\n");
 	}//
 	if(!write(_fd,value->value,size)){
 		printf("write none!\n");

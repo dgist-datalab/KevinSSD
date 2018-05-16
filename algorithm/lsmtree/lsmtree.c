@@ -30,16 +30,16 @@ lsmtree LSM;
 int save_fd;
 uint32_t __lsm_get(request *const);
 uint32_t lsm_create(lower_info *li, algorithm *lsm){
-	save_fd=open("data/lsm_save.data",O_RDONLY);
 	/*
 	if(save_fd!=-1){
 		lsmtree *temp_lsm=lsm_load();
 		LSM=*temp_lsm;
 		close(save_fd);
 		save_fd=open("data/lsm_save.data",O_RDWR|O_CREAT|O_TRUNC,0666);
-	}else{*/
+	}else{
 		printf("save file not exist\n");
 		save_fd=open("data/lsm_save.data",O_RDWR|O_CREAT|O_TRUNC,0666);
+		*/
 		LSM.memtable=skiplist_init();
 		unsigned long long sol=SIZEFACTOR;
 		float ffpr=RAF*(1-SIZEFACTOR)/(1-pow(SIZEFACTOR,LEVELN+0));
@@ -47,7 +47,6 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 
 		for(int i=0; i<LEVELN; i++){
 			LSM.disk[i]=(level*)malloc(sizeof(level));
-			LSM.disk[i]->level_idx=i;
 #ifdef BLOOM
 #ifdef MONKEY
 			target_fpr=pow(SIZEFACTOR,i)*ffpr;
@@ -58,9 +57,9 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 #endif
 
 #ifdef TIERING
-			level_init(LSM.disk[i],sol,target_fpr,true);
+			level_init(LSM.disk[i],sol,i,target_fpr,true);
 #else
-			level_init(LSM.disk[i],sol,target_fpr,false);
+			level_init(LSM.disk[i],sol,i,target_fpr,false);
 #endif
 			sol*=SIZEFACTOR;
 			LSM.level_addr[i]=(PTR)LSM.disk[i];
@@ -181,7 +180,7 @@ void* lsm_end_req(algo_req* const req){
 			req_temp_params=parents->params;
 			free(req_temp_params);
 #ifdef DVALUE
-			if(!PBITFULL(oob[parents->value->ppa/(PAGESIZE/PIECE)])){//small data
+			if(!PBITFULL(parents->value->ppa,false)){//small data
 
 				pthread_mutex_lock(&LSM.valueset_lock);
 				if(!LSM.caching_value){
@@ -252,7 +251,7 @@ uint32_t lsm_get(request *const req){
 	static bool level_show=false;
 	if(!level_show){
 		level_show=true;
-		level_all_print();
+		//level_all_print();
 	}
 	//printf("seq: %d, key:%u\n",nor++,req->key);
 	if((re_q=q_dequeue(LSM.re_q))){
@@ -277,6 +276,7 @@ uint32_t lsm_get(request *const req){
 		printf("seq: %d, key:%u\n",nor++,req->key);
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
+		exit(1);
 	}
 	return res;
 }

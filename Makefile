@@ -64,7 +64,7 @@ memory_leak: simulator_memory_check
 duma_sim: duma_simulator
 	
 simulator_memory_check: ./interface/main.c mem_libsimulator.a
-	$(CC) $(CFLAGS) -DLEAKCHECK -o $@ $^ $(LIBS)
+	$(CC) $(CFLAGS) -DLEAKCHECK -o $@ $^ $(ARCH) $(LIBS)
 
 debug_simulator: ./interface/main.c libsimulator_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
@@ -73,7 +73,7 @@ simulator: ./interface/main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 duma_simulator: ./interface/main.c libsimulator.a
-	$(CC) $(CFLAGS) -DDUMA_SO_NO_LEAKDETECTION -o $@ $^ -lduma $(LIBS)
+	$(CC) $(CFLAGS) -o $@ $^ -lduma $(ARCH) $(LIBS)
 	
 
 libsimulator.a: $(TARGETOBJ)

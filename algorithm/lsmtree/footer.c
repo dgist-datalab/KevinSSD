@@ -32,8 +32,9 @@ value_set* f_grep_data(KEYT lpn,OOBT ppn,PTR data){
 	return NULL;
 }
 
-void f_insert(footer *input, KEYT lpn,uint8_t length){
+void f_insert(footer *input, KEYT lpn,KEYT ppa, uint8_t length){
 	input->f[input->idx].lpn=lpn;
+	input->f[input->idx].ppa=ppa;
 	input->f[input->idx].length=length;
 	input->idx++;
 }

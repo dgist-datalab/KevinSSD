@@ -15,6 +15,7 @@ void heap_insert(heap*, void * value);
 void heap_update_from(heap*, h_node *);
 void *heap_get_max(heap*);
 void heap_delete_from(heap*, h_node *);
+void heap_print(heap*);
 void heap_free(heap*);
 heap* heap_init(int max_size);
 #endif
