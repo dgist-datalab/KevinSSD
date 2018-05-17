@@ -6,7 +6,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
-
+extern int request_cnt,return_cnt;
 master *_master;
 void seqget(KEYT, KEYT,monitor *);
 void seqset(KEYT,KEYT,monitor*);
@@ -97,7 +97,10 @@ bench_value* get_bench(){
 	}
 
 	if(_m->n_num==_m->m_num){
-		while(!bench_is_finish_n(_master->n_num)){}
+		while(!bench_is_finish_n(_master->n_num)){
+			printf("%d:%d\n",request_cnt,return_cnt);
+			sleep(1);
+		}
 		printf("\rtesting...... [100%%] done!\n");
 		printf("\n");
 		free(_m->body);
@@ -120,8 +123,10 @@ bench_value* get_bench(){
 	return &_m->body[_m->n_num++];
 }
 bool bench_is_finish_n(int n){
-	if(_master->m[n].finish)
+	if(_master->m[n].finish){
 		return true;
+	}
+	printf("target:%lu now:%lu\n",_master->m[n].m_num,_master->m[n].r_num);
 	return false;
 }
 bool bench_is_finish(){
@@ -191,7 +196,7 @@ void bench_print(){
 			printf("             %lf(mb/s)\n",throughput1/1024);
 			printf("[throughput2] %lf(kb/s)\n",throughput2);
 			printf("             %lf(mb/s)\n",throughput2/1024);
-			printf("[cache hit cnt,ratio] %ld, %lf\n",_m->cache_hit,(double)_m->cache_hit/(_m->m_num/2));
+
 			printf("[READ WRITE CNT] %ld %ld\n",_m->read_cnt,_m->write_cnt);
 		}
 		else{
@@ -267,7 +272,7 @@ void __bench_time_maker(MeasureTime mt, bench_data *datas,bool isalgo){
 }
 void bench_reap_data(request *const req,lower_info *li){
 	pthread_mutex_lock(&bench_lock);
-	if(!req){ 
+	if(!req) {
 		pthread_mutex_unlock(&bench_lock);
 		return;
 	}
@@ -312,7 +317,7 @@ void bench_li_print(lower_info* li,monitor *m){
 	printf("[trim_op]:%ld\n",li->trim_op);
 	printf("[WAF, RAF]: %lf, %lf\n",(float)li->write_op/m->m_num,(float)li->read_op/m->m_num);
 	printf("[if rw test]: %lf(WAF), %lf(RAF)\n",(float)li->write_op/(m->m_num/2),(float)li->read_op/(m->m_num/2));
-	
+
 	uint64_t sec, usec;
 	sec=li->writeTime.adding.tv_sec;
 	usec=li->writeTime.adding.tv_usec;
@@ -331,7 +336,6 @@ void seqget(KEYT start, KEYT end,monitor *m){
 	printf("making seq Get bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
 		m->body[i].key=start+(i%(end-start));
-		m->body[i].length=PAGESIZE;
 		m->body[i].type=FS_GET_T;
 		m->body[i].mark=m->mark;
 		m->read_cnt++;
@@ -342,9 +346,6 @@ void seqset(KEYT start, KEYT end,monitor *m){
 	printf("making seq Set bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
 		m->body[i].key=start+(i%(end-start));
-#ifdef DVALUE
-		m->body[i].length=(rand()%16+1)*512;
-#endif
 		m->body[i].type=FS_SET_T;
 		m->body[i].mark=m->mark;
 		m->write_cnt++;
@@ -356,20 +357,10 @@ void seqrw(KEYT start, KEYT end, monitor *m){
 	for(KEYT i=0; i<m->m_num/2; i++){
 		m->body[i].key=start+(i%(end-start));
 		m->body[i].type=FS_SET_T;
-#ifdef DVALUE
-		m->body[i].length=(rand()%16+1)*512;
-#else	
-		m->body[i].length=PAGESIZE;
-#endif
 		m->body[i].mark=m->mark;
 		m->write_cnt++;
 		m->body[i+m->m_num/2].key=start+(i%(end-start));
 		m->body[i+m->m_num/2].type=FS_GET_T;
-#ifdef DVALUE
-		m->body[i+m->m_num/2].length=0;
-#else	
-		m->body[i+m->m_num/2].length=PAGESIZE;
-#endif
 		m->body[i+m->m_num/2].mark=m->mark;
 		m->read_cnt++;
 	}
@@ -380,7 +371,6 @@ void randget(KEYT start, KEYT end,monitor *m){
 	for(KEYT i=0; i<m->m_num; i++){
 		m->body[i].key=start+rand()%(end-start)+1;
 		m->body[i].type=FS_GET_T;
-		m->body[i].length=PAGESIZE;
 		m->body[i].mark=m->mark;
 		m->read_cnt++;
 	}
@@ -390,11 +380,6 @@ void randset(KEYT start, KEYT end, monitor *m){
 	printf("making rand Set bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
 		m->body[i].key=start+rand()%(end-start)+1;
-#ifdef DVALUE
-		m->body[i].length=(rand()%16+1)*512;
-#else	
-		m->body[i].length=PAGESIZE;
-#endif
 		m->body[i].mark=m->mark;
 		m->body[i].type=FS_SET_T;
 		m->write_cnt++;
@@ -406,16 +391,10 @@ void randrw(KEYT start, KEYT end, monitor *m){
 	for(KEYT i=0; i<m->m_num/2; i++){
 		m->body[i].key=start+rand()%(end-start)+1;
 		m->body[i].type=FS_SET_T;
-#ifdef DVALUE
-		m->body[i].length=(rand()%16+1)*512;
-#else	
-		m->body[i].length=PAGESIZE;
-#endif
 		m->body[i].mark=m->mark;
 		m->write_cnt++;
 		m->body[m->m_num/2+i].key=m->body[i].key;
 		m->body[m->m_num/2+i].type=FS_GET_T;
-		m->body[m->m_num/2+i].length=PAGESIZE;
 		m->body[m->m_num/2+i].mark=m->mark;
 		m->read_cnt++;
 	}
@@ -467,9 +446,4 @@ void bench_lower_t(lower_info *li){
 #ifdef BENCH
 	li->trim_op++;
 #endif
-}
-
-void bench_cache_hit(int mark){
-	monitor *_m=&_master->m[mark];
-	_m->cache_hit++;
 }

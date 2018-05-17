@@ -9,7 +9,6 @@ typedef struct{
 	FSTYPE type;
 	KEYT key;
 	V_PTR value;
-	uint32_t length;
 	int mark;
 }bench_value;
 
@@ -40,9 +39,9 @@ typedef struct{
 	uint64_t write_cnt;
 	uint64_t read_cnt;
 	bench_type type;
+	uint64_t cache_hit;
 	MeasureTime benchTime;
 	MeasureTime benchTime2;
-	uint64_t cache_hit;
 }monitor;
 
 typedef struct{

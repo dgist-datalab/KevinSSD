@@ -14,8 +14,8 @@
 #define FQSIZE 2
 
 #define EPC 20 //size factor have to be multiple of SIZEFACTOR
-#define TIERING
-#define TIERFACTOR 10
+//#define TIERING
+//#define TIERFACTOR 10
 
 #define HEADERB (10)
 #define BLOCKMB (10)
