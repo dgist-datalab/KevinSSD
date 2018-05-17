@@ -132,7 +132,7 @@ void block_init(){
 		bl[i].isused=false;
 #endif
 	}
-	printf("# of block: %d\n",_NOB);
+	printf("# of block: %ld\n",_NOB);
 }
 
 #ifdef DVALUE

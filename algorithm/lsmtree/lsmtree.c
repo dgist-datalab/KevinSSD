@@ -261,7 +261,7 @@ uint32_t lsm_get(request *const req){
 		request *tmp_req=(request*)re_q;
 
 		bench_algo_start(tmp_req);
-		res_type==__lsm_get(tmp_req);
+		res_type=__lsm_get(tmp_req);
 		if(res_type==3){
 			tmp_req->type=FS_NOTFOUND_T;
 			tmp_req->end_req(tmp_req);
