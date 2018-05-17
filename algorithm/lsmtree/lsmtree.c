@@ -249,6 +249,7 @@ uint32_t lsm_get(request *const req){
 	void *re_q;
 	static bool temp=false;
 	static bool level_show=false;
+	uint32_t res_type=0;
 	if(!level_show){
 		level_show=true;
 		//level_all_print();
@@ -258,7 +259,8 @@ uint32_t lsm_get(request *const req){
 		request *tmp_req=(request*)re_q;
 
 		bench_algo_start(tmp_req);
-		if(__lsm_get(tmp_req)==3){
+		res_type==__lsm_get(tmp_req);
+		if(res_type==3){
 			tmp_req->type=FS_NOTFOUND_T;
 			tmp_req->end_req(tmp_req);
 		}
@@ -271,14 +273,14 @@ uint32_t lsm_get(request *const req){
 		temp=true;
 	}
 	bench_algo_start(req);
-	int res=__lsm_get(req);
-	if(res==3){
+	res_type=__lsm_get(req);
+	if(res_type==3){
 		printf("seq: %d, key:%u\n",nor++,req->key);
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
 		exit(1);
 	}
-	return res;
+	return res_type;
 }
 
 uint32_t __lsm_get(request *const req){
@@ -293,6 +295,7 @@ uint32_t __lsm_get(request *const req){
 #endif
 		bench_algo_end(req);
 		req->end_req(req);
+		bench_cache_hit(req->mark);
 		return 2;
 	}
 
@@ -323,6 +326,7 @@ uint32_t __lsm_get(request *const req){
 				free(params);
 				bench_algo_end(req);
 				req->end_req(req);
+				bench_cache_hit(req->mark);
 				return 2;
 			}
 			params->lsm_type=DATAR;
@@ -333,7 +337,8 @@ uint32_t __lsm_get(request *const req){
 #else
 			LSM.li->pull_data(target_node->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 #endif
-			return 1;
+			bench_cache_hit(req->mark);
+			return 4;
 		}
 	}
 	pthread_mutex_unlock(&LSM.templock);
@@ -352,7 +357,8 @@ uint32_t __lsm_get(request *const req){
 			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 #endif
 			pthread_mutex_unlock(&LSM.entrylock);
-			return 1;
+			bench_cache_hit(req->mark);
+			return 4;
 		}
 	}
 	pthread_mutex_unlock(&LSM.entrylock);
@@ -388,7 +394,8 @@ uint32_t __lsm_get(request *const req){
 #else
 			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 #endif
-			return 1;
+			bench_cache_hit(req->mark);
+			return 2;
 		}
 	}
 
@@ -419,7 +426,8 @@ uint32_t __lsm_get(request *const req){
 					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 #endif
 					free(entries);
-					return 1;
+					bench_cache_hit(req->mark);
+					return 4;
 				}
 				continue;
 			}

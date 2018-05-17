@@ -588,7 +588,7 @@ bool level_now_block_fchk(level *in){
 #ifdef DVALUE
 	if(!in->now_block || in->now_block->ppage_idx>=(_PPB-1)*(PAGESIZE/PIECE)){
 #else
-	if(!in->now_block || in->now_blcok->ppage_idx==_PPB){
+	if(!in->now_block || in->now_block->ppage_idx==_PPB){
 #endif
 		res=true;
 	}

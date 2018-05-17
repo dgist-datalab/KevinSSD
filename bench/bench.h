@@ -39,7 +39,10 @@ typedef struct{
 	uint64_t notfound;
 	uint64_t write_cnt;
 	uint64_t read_cnt;
+	bench_type type;
 	MeasureTime benchTime;
+	MeasureTime benchTime2;
+	uint64_t cache_hit;
 }monitor;
 
 typedef struct{
@@ -62,6 +65,7 @@ void bench_li_print(lower_info *,monitor *);
 bool bench_is_finish_n(int n);
 bool bench_is_finish();
 
+void bench_cache_hit(int mark);
 void bench_algo_start(request *const);
 void bench_algo_end(request *const);
 void bench_lower_start(request *const);
