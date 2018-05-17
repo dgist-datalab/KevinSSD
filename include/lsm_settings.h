@@ -1,7 +1,7 @@
 #ifndef __H_SETLSM__
 #define __H_SETLSM__
 
-#define SIZEFACTOR 4
+#define SIZEFACTOR 10
 #define RAF 1
 #define LEVELN 5
 
@@ -14,7 +14,7 @@
 #define FQSIZE 2
 
 #define EPC 20 //size factor have to be multiple of SIZEFACTOR
-//#define TIERING
+#define TIERING
 //#define TIERFACTOR 10
 
 #define HEADERB (10)

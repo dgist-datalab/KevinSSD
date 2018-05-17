@@ -367,11 +367,7 @@ void seqrw(KEYT start, KEYT end, monitor *m){
 		m->write_cnt++;
 		m->body[i+m->m_num/2].key=start+(i%(end-start));
 		m->body[i+m->m_num/2].type=FS_GET_T;
-#ifdef DVALUE
-		m->body[i+m->m_num/2].length=0;
-#else	
 		m->body[i+m->m_num/2].length=PAGESIZE;
-#endif
 		m->body[i+m->m_num/2].mark=m->mark;
 		m->read_cnt++;
 	}

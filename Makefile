@@ -7,7 +7,7 @@ PWD=$(pwd)
 export CFLAGS_ALGO=\
 			 -g\
 			 -Wall\
-#-DDVALUE\
+-DDVALUE\
 
 export CFLAGS_LOWER=\
 			-g\

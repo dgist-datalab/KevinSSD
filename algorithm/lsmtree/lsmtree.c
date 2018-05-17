@@ -102,6 +102,7 @@ extern pthread_mutex_t compaction_wait,gc_wait;
 extern int epc_check,gc_read_wait;
 extern KEYT memcpy_cnt;
 int comp_target_get_cnt=0,gc_target_get_cnt;
+extern pthread_cond_t factory_cond;
 void* lsm_end_req(algo_req* const req){
 	lsm_params *params=(lsm_params*)req->params;
 	request* parents=req->parents;
@@ -190,6 +191,7 @@ void* lsm_end_req(algo_req* const req){
 				pthread_mutex_unlock(&LSM.valueset_lock);
 				params->lsm_type=SDATAR;
 				ftry_assign(req); //return by factory thread
+				pthread_cond_signal(&factory_cond);
 				return NULL;
 			}
 #endif

@@ -7,9 +7,11 @@
 #include<stdio.h>
 #include<unistd.h>
 #include<limits.h>
-
 extern lsmtree LSM;
 ftryM factory;
+pthread_mutex_t factory_lock;
+pthread_cond_t factory_cond;
+
 bool factory_init(){
 	factory.processors=(ftryP*)malloc(sizeof(ftryP)*FTHREAD);
 	memset(factory.processors,0,sizeof(ftryP)*FTHREAD);
@@ -21,17 +23,24 @@ bool factory_init(){
 		pthread_create(&factory.processors[i].t_id,NULL,factory_main,NULL);
 	}
 	factory.stopflag=false;
+
+	pthread_mutex_init(&factory_lock,NULL);
+	pthread_cond_init(&factory_cond,NULL);
+
 	return true;
 }
 
 void factory_free(){
 	factory.stopflag=true;
 	int *temp;
+	pthread_cond_signal(&factory_cond);
 	for(int i=0; i<FTHREAD; i++){
 		ftryP *t=&factory.processors[i];
 		pthread_join(t->t_id,(void**)&temp);
 		q_free(t->q);
 	}
+	pthread_mutex_destroy(&factory_lock);
+	pthread_cond_destroy(&factory_cond);
 	free(factory.processors);
 }
 
@@ -65,11 +74,18 @@ void *factory_main(void *input){
 #ifdef LEAKCHECK
 		sleep(1);
 #endif
+
 		if(factory.stopflag)
 			break;
+
+		pthread_mutex_lock(&factory_lock);
 		if(!(_req=q_dequeue(_this->q))){
+			pthread_cond_wait(&factory_cond,&factory_lock);
+			pthread_mutex_unlock(&factory_lock);
 			continue;
 		}
+		pthread_mutex_unlock(&factory_lock);
+
 		lsm_req=(algo_req*)_req;
 		l_params=(lsm_params*)lsm_req->params;
 		request* req=lsm_req->parents;
