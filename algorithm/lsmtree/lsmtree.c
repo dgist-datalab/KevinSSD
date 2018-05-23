@@ -42,7 +42,9 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 		*/
 		LSM.memtable=skiplist_init();
 		unsigned long long sol=SIZEFACTOR;
+#ifdef MONKEY
 		float ffpr=RAF*(1-SIZEFACTOR)/(1-pow(SIZEFACTOR,LEVELN+0));
+#endif
 		float target_fpr=0;	
 
 		for(int i=0; i<LEVELN; i++){
@@ -71,7 +73,9 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	pthread_mutex_init(&LSM.valueset_lock,NULL);
 	//compactor start
 	compaction_init();
+#ifdef DVALUE
 	factory_init();
+#endif
 	q_init(&LSM.re_q,CQSIZE);
 
 #ifdef CACHE
@@ -86,7 +90,9 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 
 void lsm_destroy(lower_info *li, algorithm *lsm){
 	compaction_free();
+#ifdef DVALUE
 	factory_free();
+#endif
 	for(int i=0; i<LEVELN; i++){
 		level_free(LSM.disk[i]);
 	}

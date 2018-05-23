@@ -142,10 +142,6 @@ level *level_init(level *input,int all_entry,int idx,float fpr, bool isTiering){
 	return input;
 }
 
-void level_tier_insert_done(level *input){
-	input->r_n_num++;
-}
-
 Entry **level_find(level *input,KEYT key){
 	if(input->n_num==0)
 		return NULL;
@@ -212,19 +208,12 @@ Node *level_insert_seq(level *input, Entry *entry){
 		exit(1);
 		return NULL;
 	}
-	int r=input->n_num/input->entry_p_run;
-	if(input->isTiering)
-		r=input->r_n_num;
-	else{
-		if(input->r_n_num==r)
-			input->r_n_num++;
-	}
-	Node *temp_run=ns_run(input,r);//active run
+	
+	Node *temp_run=ns_run(input,input->r_n_num);//active run
 	if(temp_run->start>entry->key)
 		temp_run->start=entry->key;
 	if(temp_run->end<entry->key)
 		temp_run->end=entry->key;
-
 	int o=temp_run->n_num;
 	Entry *temp_entry=ns_entry(temp_run,o);
 	level_entcpy(entry,(char*)temp_entry);
@@ -243,6 +232,10 @@ Node *level_insert_seq(level *input, Entry *entry){
 	temp_entry->iscompactioning=false;
 	temp_run->n_num++;
 	input->n_num++;
+
+	if(temp_run->n_num==temp_run->m_num){
+		input->r_n_num++;
+	}
 	return temp_run;
 }
 Node *level_insert(level *input,Entry *entry){//always sequential	
@@ -257,15 +250,8 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 		exit(1);
 		return NULL;
 	}
-	int r=input->n_num/input->entry_p_run;	
-	if(input->isTiering){
-		r=input->r_n_num;
-	}
-	else{
-		if(input->r_n_num==r)
-			input->r_n_num++;
-	}
-	Node *temp_run=ns_run(input,r);//active run
+
+	Node *temp_run=ns_run(input,input->r_n_num);//active run
 	if(temp_run->start>entry->key)
 		temp_run->start=entry->key;
 	if(temp_run->end<entry->key)
@@ -290,6 +276,10 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 	temp_entry->iscompactioning=false;
 	temp_run->n_num++;
 	input->n_num++;
+
+	if(temp_run->n_num==temp_run->m_num){
+		input->r_n_num++;
+	}
 	return temp_run;
 }
 Entry *level_get_next(Iter * input){

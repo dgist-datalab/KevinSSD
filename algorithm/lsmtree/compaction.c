@@ -474,10 +474,12 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 			Entry *temp_ent=ns_entry(temp_run,j);
 			level_insert_seq(des,temp_ent); //level insert seq deep copy in bf
 		}
+		/*
 		if(des->isTiering)
-			level_tier_insert_done(des);
+			level_tier_insert_done(des);*/
 	}
 }
+
 int leveling_cnt;
 uint32_t leveling(int from, int to, Entry *entry){
 	//range find of targe lsm, 
@@ -496,7 +498,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 		pthread_mutex_unlock(&LSM.templock); // unlock
 		if(!level_check_overlap(target_origin,body->start,body->end)){
 			compaction_heap_setting(target,target_origin);
-	//		printf("-1 1 .... ttt\n");
+			//		printf("-1 1 .... ttt\n");
 			skiplist_free(body);
 			bool target_processed=false;
 			if(entry->key > target_origin->end){
@@ -529,7 +531,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 			}
 		}
 		else{
-	//		printf("-1 2 .... ttt\n");
+			//		printf("-1 2 .... ttt\n");
 			partial_leveling(target,target_origin,body,NULL);
 			skiplist_free(body);
 			pthread_mutex_lock(&LSM.entrylock);
@@ -542,7 +544,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 		src=LSM.disk[from];
 		if(!level_check_overlap(target_origin,src->start,src->end)){//if seq
 			compaction_heap_setting(target,target_origin);
-	//		printf("1 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from,src->n_num);
+			//		printf("1 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from,src->n_num);
 			bool target_processed=false;
 			if(target_origin->start>src->end){
 				target_processed=true;
@@ -554,7 +556,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 			}
 		}
 		else{
-	//		printf("2 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from,src->n_num);
+			//		printf("2 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from,src->n_num);
 			Entry **target_s=NULL;
 			body=skiplist_init();
 			level_range_find(src,src->start,src->end,&target_s,false);
@@ -674,7 +676,7 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 #endif
 //static int pt_cnt;
 uint64_t partial_tiering(level *des,level *src, int size){
-//	printf("pt_cnt:%d\n",pt_cnt++);
+	//	printf("pt_cnt:%d\n",pt_cnt++);
 	skiplist *body;
 	if(!src->remain)
 		body=skiplist_init();
@@ -726,7 +728,6 @@ uint64_t partial_tiering(level *des,level *src, int size){
 		invalidate_PPA(table_ppn[i]);
 	}
 	//level_all_print();
-	level_tier_insert_done(des);
 	free(table_ppn);
 	free(table);
 	return 1;
@@ -877,6 +878,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 	}
 	return 1;
 }
+int tiering_compaction=0;
 uint32_t tiering(int from, int to, Entry *entry){
 	level *src_level=NULL;
 	level *src_origin_level=NULL;
@@ -890,10 +892,12 @@ uint32_t tiering(int from, int to, Entry *entry){
 	//}
 	LSM.c_level=des_level;
 	
+	//printf("comp:%d\n",tiering_compaction++);
+
 	compaction_heap_setting(des_level,des_origin_level);
 
 	if(from==-1){
-		//printf("-1 to 0 tiering\n");
+//		printf("-1 to 0 tiering\n");
 		skiplist *body=LSM.temptable;
 		LSM.temptable=NULL;
 		skiplist_free(body);
@@ -913,13 +917,9 @@ uint32_t tiering(int from, int to, Entry *entry){
 		entry->t_table=NULL;
 #endif	
 		level_insert(des_level,entry);
-		level_tier_insert_done(des_level);
 		pthread_mutex_lock(&LSM.entrylock);
 		LSM.tempent=NULL;
 		pthread_mutex_unlock(&LSM.entrylock);
-#ifdef DVALUE
-		
-#endif
 		level_free_entry(entry);
 	}
 	else{
@@ -930,11 +930,11 @@ uint32_t tiering(int from, int to, Entry *entry){
 		//heap_print(src_origin_level->h);
 		//copy all level from origin to des;
 		if(level_check_seq(src_origin_level)){//sequen tial
-			//printf("1--%d to %d tiering\n",from,to);
+//			printf("1--%d to %d tiering\n",from,to);
 			compaction_lev_seq_processing(src_origin_level,des_origin_level,src_origin_level->r_n_num);
 		}
 		else{
-			//printf("2--%d to %d tiering\n",from,to);
+//			printf("2--%d to %d tiering\n",from,to);
 			partial_tiering(des_origin_level,src_origin_level,src_origin_level->r_n_num);
 		}
 		compaction_lev_seq_processing(des_origin_level,des_level,des_origin_level->n_num);

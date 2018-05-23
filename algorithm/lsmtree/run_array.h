@@ -94,7 +94,6 @@ Node *level_insert_seq(level *, Entry *);
 Entry *level_get_next(Iter *);//
 Iter *level_get_Iter(level *);//
 
-void level_tier_insert_done(level *);
 
 void level_print(level *);//
 void level_all_print();//

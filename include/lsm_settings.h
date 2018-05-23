@@ -19,10 +19,10 @@
 
 #define HEADERB (10)
 #define BLOCKMB (10)
-#define ONETHREAD
+//#define ONETHREAD
 //#define NOGC
 #define BLOOM
-#define MONKEY
+//#define MONKEY
 #define ENTRYBIT 31//for tiering
 #define CACHE
 #define CACHESIZE (128*8*100)//1*128==1M
