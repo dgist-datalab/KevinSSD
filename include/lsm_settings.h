@@ -8,13 +8,13 @@
 #define KEYNUM 1024
 #define KEYSIZE ()
 #define CTHREAD 1
-#define CQSIZE 2
+#define CQSIZE INT_MAX
 
 #define FTHREAD 1
 #define FQSIZE 2
 
 #define EPC 20 //size factor have to be multiple of SIZEFACTOR
-#define TIERING
+//#define TIERING
 
 #define HEADERB (10)
 #define BLOCKMB (10)
@@ -25,6 +25,7 @@
 #define ENTRYBIT 31//for tiering
 //#define CACHE
 //#define CACHESIZE (128*8*100)//1*128==1M
+//#define FLASHCHECK
 
 #define PIECE 512
 
