@@ -69,7 +69,7 @@ void *memio_info_pull_data(KEYT ppa, uint32_t size, value_set *value, bool async
 }
 
 void *memio_info_trim_block(KEYT ppa, bool async){
-	int value=memio_trim(mio,ppa,(1<<14));
+	int value=memio_trim(mio,ppa,(1<<14)*PAGESIZE);
 	if(value==0){
 		return (void*)-1;
 	}
