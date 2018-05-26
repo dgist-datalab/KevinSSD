@@ -28,7 +28,7 @@ SRCS +=\
 	   footer.c\
 	   log_list.c\
 	   factory.c\
-cache.c\
+#cache.c\
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\
