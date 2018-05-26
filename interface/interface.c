@@ -110,7 +110,6 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value){
 	
 	req->value=inf_get_valueset(value->value,req->type,value->length);
 
-
 	req->end_req=inf_end_req;
 	req->isAsync=ASYNC;
 	req->params=NULL;
