@@ -87,12 +87,13 @@ static void __dm_intr_handler (
 		if ( lsm_gc_req->end_req ) lsm_gc_req->end_req(lsm_gc_req);
 		break;
 	}*/
-
-	algo_req *my_algo_req=(algo_req*)r->req;
-	if(my_algo_req->parents){
-		bench_lower_end(my_algo_req->parents);
+	if(r->req_type!=REQTYPE_GC_ERASE){
+		algo_req *my_algo_req=(algo_req*)r->req;
+		if(my_algo_req->parents){
+			bench_lower_end(my_algo_req->parents);
+		}
+		my_algo_req->end_req(my_algo_req);
 	}
-	my_algo_req->end_req(my_algo_req);
 	/*
 	lsmtree_req_t* lsm_req=(lsmtree_req_t*)r->req;
 	if(lsm_req->isgc){
@@ -453,6 +454,7 @@ int memio_trim (memio_t* mio, uint32_t lba, uint64_t len)
 			//bdbm_msg ("  -- blk #: %d", i);
 			r->req_type = REQTYPE_GC_ERASE;
 			r->logaddr.lpa[0] = cur_lba + i;
+	//		r->logaddr.lpa[0] = cur_lba + ( (mio->trim_lbas / mio->nr_punits) * i );
 			r->fmain.kp_ptr[0] = NULL;	/* no data; it must be NULL */
 
 			/* send I/O requets to the device */

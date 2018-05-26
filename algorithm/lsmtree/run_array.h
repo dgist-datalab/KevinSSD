@@ -42,7 +42,7 @@ typedef struct level{
 	block *now_block;
 	int level_idx;
 	int r_num;
-	int r_n_num;
+	int r_n_idx;
 	int m_num;//number of entries
 	int n_num;
 	int entry_p_run;
@@ -94,7 +94,7 @@ Node *level_insert_seq(level *, Entry *);
 Entry *level_get_next(Iter *);//
 Iter *level_get_Iter(level *);//
 
-void level_tier_insert_done(level *);
+void level_tier_align(level *);
 
 void level_print(level *);//
 void level_all_print();//

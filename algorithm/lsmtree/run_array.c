@@ -12,7 +12,7 @@ extern lsmtree LSM;
 extern block bl[_NOB];
 void level_free_entry_inside(Entry *);
 Node *ns_run(level*input ,int n){
-	if(n>input->r_num) return NULL;
+	if(n>=input->r_num) return NULL;
 	return (Node*)&input->body[input->r_size*n];
 }
 Entry *ns_entry(Node *input, int n){
@@ -34,7 +34,7 @@ Entry *level_entcpy(Entry *src, char *des){
 
 bool level_full_check(level *input){
 	if(input->isTiering){
-		if(input->r_n_num==input->r_num)
+		if(input->r_n_idx+1==input->r_num)
 			return true;
 	}
 	else{
@@ -49,7 +49,7 @@ bool level_check_seq(level *input){
 	KEYT start=run->start;
 	KEYT end=run->end;
 	int delta=0;
-	for(int i=1; i<input->r_n_num; i++){
+	for(int i=1; i<=input->r_n_idx; i++){
 		run=ns_run(input,i);
 		if(start>run->end || end<run->start){
 			if(delta==0){
@@ -128,7 +128,7 @@ level *level_init(level *input,int all_entry,int idx,float fpr, bool isTiering){
 	}
 
 	input->entry_p_run=entry_p_run;
-	input->r_n_num=isTiering?0:1;
+	input->r_n_idx=0;
 	input->start=UINT_MAX;
 	input->end=0;
 	input->iscompactioning=false;
@@ -142,14 +142,10 @@ level *level_init(level *input,int all_entry,int idx,float fpr, bool isTiering){
 	return input;
 }
 
-void level_tier_insert_done(level *input){
-	input->r_n_num++;
-}
-
 Entry **level_find(level *input,KEYT key){
 	if(input->n_num==0)
 		return NULL;
-	Entry **res=(Entry**)malloc(sizeof(Entry*)*(input->r_n_num+1));
+	Entry **res=(Entry**)malloc(sizeof(Entry*)*(input->r_n_idx+1));
 	bool check=false;
 	int cnt=0;
 	for(int i=0; i<input->r_num; i++){
@@ -212,19 +208,12 @@ Node *level_insert_seq(level *input, Entry *entry){
 		exit(1);
 		return NULL;
 	}
-	int r=input->n_num/input->entry_p_run;
-	if(input->isTiering)
-		r=input->r_n_num;
-	else{
-		if(input->r_n_num==r)
-			input->r_n_num++;
-	}
-	Node *temp_run=ns_run(input,r);//active run
+	
+	Node *temp_run=ns_run(input,input->r_n_idx);//active run
 	if(temp_run->start>entry->key)
 		temp_run->start=entry->key;
 	if(temp_run->end<entry->key)
 		temp_run->end=entry->key;
-
 	int o=temp_run->n_num;
 	Entry *temp_entry=ns_entry(temp_run,o);
 	level_entcpy(entry,(char*)temp_entry);
@@ -243,8 +232,21 @@ Node *level_insert_seq(level *input, Entry *entry){
 	temp_entry->iscompactioning=false;
 	temp_run->n_num++;
 	input->n_num++;
+	
+	if(temp_run->start>entry->key){
+		temp_run->start=entry->key;
+	}
+	if(temp_run->end<entry->end){
+		temp_run->end=entry->end;
+	}
+
+	if(temp_run->n_num==temp_run->m_num){
+		if(input->r_num!=input->r_n_idx+1)
+			input->r_n_idx++;
+	}
 	return temp_run;
 }
+
 Node *level_insert(level *input,Entry *entry){//always sequential	
 	if(input->start>entry->key)
 		input->start=entry->key;
@@ -257,15 +259,8 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 		exit(1);
 		return NULL;
 	}
-	int r=input->n_num/input->entry_p_run;	
-	if(input->isTiering){
-		r=input->r_n_num;
-	}
-	else{
-		if(input->r_n_num==r)
-			input->r_n_num++;
-	}
-	Node *temp_run=ns_run(input,r);//active run
+
+	Node *temp_run=ns_run(input,input->r_n_idx);//active run
 	if(temp_run->start>entry->key)
 		temp_run->start=entry->key;
 	if(temp_run->end<entry->key)
@@ -290,6 +285,18 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 	temp_entry->iscompactioning=false;
 	temp_run->n_num++;
 	input->n_num++;
+
+	if(temp_run->start>entry->key){
+		temp_run->start=entry->key;
+	}
+	if(temp_run->end<entry->end){
+		temp_run->end=entry->end;
+	}
+
+	if(temp_run->n_num==temp_run->m_num){
+		if(input->r_num!=input->r_n_idx+1)
+			input->r_n_idx++;
+	}
 	return temp_run;
 }
 Entry *level_get_next(Iter * input){
@@ -302,12 +309,12 @@ Entry *level_get_next(Iter * input){
 	if(input->now->n_num==0) return NULL;
 	Entry *res=ns_entry(input->now,input->idx++);
 	if(input->idx==input->now->n_num){
-		if(input->lev->r_n_num == input->r_idx){
+		if(input->lev->r_n_idx == input->r_idx){
 			input->flag=false;
 		}
 		else{
 			input->r_idx++;
-			if(input->r_idx==input->lev->r_n_num){
+			if(input->r_idx==input->lev->r_n_idx){
 				input->flag=false;
 			}
 			else{
@@ -329,6 +336,8 @@ Iter *level_get_Iter(level *input){
 }
 void level_all_print(){
 	for(int i=0; i<LEVELN; i++){
+		if(LSM.disk[i]->n_num==0)
+			continue;
 		level_print(LSM.disk[i]);
 		printf("------\n");
 	}
@@ -336,7 +345,7 @@ void level_all_print(){
 void level_print(level *input){
 	int test1=0,test2;
 	printf("level[%d]:%p\n",input->level_idx,input);
-	for(int i=0; i<input->r_n_num; i++){
+	for(int i=0; i<=input->r_n_idx; i++){
 		Node* temp_run=ns_run(input,i);
 		printf("start_run[%d]\n",i);
 		for(int j=0; j<temp_run->n_num; j++){
@@ -364,9 +373,10 @@ void level_print(level *input){
 	}
 }
 void level_free(level *input){
-	for(int i=0; i<input->r_n_num; i++){
+	for(int i=0; i<=input->r_n_idx; i++){
 		Node *temp_run=ns_run(input,i);
 		for(int j=0; j<temp_run->n_num; j++){
+	//		printf("temp_run->n_num %d\n",temp_run->n_num);
 			Entry *temp_ent=ns_entry(temp_run,j);
 			level_free_entry_inside(temp_ent);
 		}
@@ -378,7 +388,7 @@ void level_free(level *input){
 }
 level *level_clear(level *input){
 	input->n_num=0;
-	input->r_n_num=0;
+	input->r_n_idx=0;
 	for(int i=0; i<input->r_num; i++){
 		Node *temp_run=ns_run(input,i);
 		temp_run->n_num=0;
@@ -504,7 +514,7 @@ int level_range_unmatch(level *input, KEYT start,Entry ***res,bool compactioning
 
 void level_check(level *input){
 	int cnt=0;
-	for(int i=0; i<input->r_n_num; i++){
+	for(int i=0; i<=input->r_n_idx; i++){
 		Node *temp_run=ns_run(input,i);
 		for(int j=0; j<temp_run->n_num; j++){
 			Entry *temp_ent=ns_entry(temp_run,j);
@@ -641,6 +651,14 @@ KEYT level_get_front_page(level *in){
 	return res;
 }
 
+void level_tier_align(level* input){
+	Node *temp_run=ns_run(input,input->r_n_idx);
+	if(temp_run->n_num!=temp_run->m_num && temp_run->n_num){
+		if(input->r_num!=input->r_n_idx+1)
+			input->r_n_idx++;
+	}
+}
+
 #ifdef DVALUE
 void level_move_next_page(level *in){
 	if(in->now_block->ppage_idx%(PAGESIZE/PIECE)==0) return;
@@ -670,7 +688,6 @@ void level_save_blocks(level *in){
 		t_block=(block*)h->body[idx++].value;
 	}
 }
-
 #endif
 /*
    int main(){

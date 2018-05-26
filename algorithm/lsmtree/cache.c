@@ -174,3 +174,4 @@ void cache_print(cache *c){
 		start=start->down;
 	}
 }
+
