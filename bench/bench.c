@@ -114,8 +114,10 @@ bench_value* get_bench(){
 		printf("\r testing.....[%f%%]",head/body*100);
 	}
 	else if(_m->n_num%(PRINTPER*(_m->m_num/100))==0){
+#ifdef BENCH
 		printf("\r testing...... [%ld%%]",(_m->n_num)/(_m->m_num/100));
 		fflush(stdout);
+#endif
 	}
 	return &_m->body[_m->n_num++];
 }

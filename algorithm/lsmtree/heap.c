@@ -1,17 +1,21 @@
 #include "heap.h"
 #include "page.h"
+#include "lsmtree.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
+extern lsmtree LSM;
 void heap_swap(h_node *a, h_node *b){
+#ifdef LEVELUSINGHEAP
 	block *ablock=(block*)a->value;
 	block *bblock=(block*)b->value;
 
 	a->value=(void*)bblock;
 	bblock->hn_ptr=a;
 	b->value=ablock;
-	ablock->hn_ptr=b;
+	block->hn_ptr=b;
+#endif
 }
 heap *heap_init(int max_size){
 	heap *insert=(heap*)malloc(sizeof(heap));
@@ -31,16 +35,21 @@ void heap_free(heap *insert){
 	free(insert);
 }
 
-void heap_insert(heap *h, void *value){
+h_node* heap_insert(heap *h, void *value){
+#ifdef LEVELUSINGHEAP
 	if(h->idx==h->max_size){
 		printf("heap full!\n");
 		exit(1);
 	}
-	block *bl=(block*)value;
+	//block *bl=(block*)value;
 	h->body[h->idx].value=value;
-	bl->hn_ptr=&h->body[h->idx];
+	//bl->hn_ptr=&h->body[h->idx];
+	h_node *res=&h->body[h->idx];
 	heap_update_from(h,bl->hn_ptr);
 	h->idx++;
+	return res;
+#endif
+	return NULL;
 }
 
 void *heap_get_max(heap *h){
@@ -123,3 +132,19 @@ void heap_print(heap *h){
 	printf("\n");
 }
 
+void heap_check_debug(heap* h){
+	for(int i=1; i<h->idx; i++){
+		if(h->body[i].value==NULL){
+			printf("??\n");
+		}
+		else{
+			block *bl=(block*)h->body[i].value;
+			if(bl==LSM.disk[0]->now_block){
+				printf("?? hello!\n");
+			}
+			if(bl->level!=2){
+				printf("fuck level at %d ppa:%d\n",i,bl->ppa);
+			}
+		}	
+	}
+}

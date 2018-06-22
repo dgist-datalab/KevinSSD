@@ -7,13 +7,18 @@ PWD=$(pwd)
 export CFLAGS_ALGO=\
 			 -g\
 			 -Wall\
-#-DDVALUE\
+			 -D$(TARGET_LOWER)\
+-DDVALUE\
+
 
 export CFLAGS_LOWER=\
 			-g\
 			 -lpthread\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\
+
+
+#CFLAGS_ALGO+=-DCOMPACTIONLOG\
 
 ifeq ($(CC), gcc)
  CFLAGS_ALGO+=-Wno-discarded-qualifiers -std=c99
@@ -28,7 +33,8 @@ CFLAGS +=\
 		 -D$(TARGET_LOWER)\
 		 -D$(TARGET_ALGO)\
 		 -D_BSD_SOURCE\
-#	-DBENCH\
+-DBENCH\
+
 
 SRCS +=\
 	./interface/queue.c\

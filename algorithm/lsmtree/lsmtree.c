@@ -202,7 +202,6 @@ void* lsm_end_req(algo_req* const req){
 				pthread_mutex_unlock(&LSM.valueset_lock);
 				params->lsm_type=SDATAR;
 				ftry_assign(req); //return by factory thread
-				pthread_cond_signal(&factory_cond);
 				return NULL;
 			}
 #endif
@@ -222,6 +221,7 @@ void* lsm_end_req(algo_req* const req){
 			memcpy(bl->length_data,params->value->value,PAGESIZE);
 			inf_free_valueset(params->value,FS_MALLOC_R);
 			bl->isflying=false;
+
 			pthread_mutex_unlock(&bl->lock);
 			break;
 #endif
@@ -230,7 +230,6 @@ void* lsm_end_req(algo_req* const req){
 	}
 	if(parents)
 		parents->end_req(parents);
-
 	if(havetofree){
 		free(params);
 		free(req);
@@ -298,6 +297,8 @@ uint32_t lsm_get(request *const req){
 }
 
 uint32_t __lsm_get(request *const req){
+	//static int tt=0;
+	//printf("test:%d %d\n",tt++,req->key);
 	snode *target_node=skiplist_find(LSM.memtable,req->key);//checking in memtable
 	if(target_node !=NULL){
 #ifdef NOHOST
@@ -446,7 +447,6 @@ uint32_t __lsm_get(request *const req){
 					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 #endif
 					free(entries);
-					printf("??\n");
 					return 4;
 				}
 				continue;
