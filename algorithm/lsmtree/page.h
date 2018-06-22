@@ -1,11 +1,14 @@
 #ifndef __PAGE_H__
 #define __PAGE_H__
 #include "../../include/settings.h"
-#include "pageQ.h"
 #include "heap.h"
 #include "footer.h"
 #include "log_list.h"
 #include <pthread.h>
+
+#define HEADER 0
+#define DATA 1
+#define BLOCK 2
 
 struct level; 
 typedef struct{
@@ -18,39 +21,61 @@ typedef struct{
 }gc_node;
 
 typedef struct{
+	/*genearal pard*/
+	bool erased;
+	llog_node *l_node;//pm where the block assigned
+	KEYT ppa;//block start number
+	uint32_t invalid_n;
+
+	/*for data block*/
 #ifdef DVALUE
-	bool isused;
 	uint8_t *length_data;
 	bool isflying;
 	llog *b_log;
 	KEYT *ppage_array;
 	pthread_mutex_t lock;
-	KEYT ldp;//length_data page
+	KEYT ldp;//the page number has PVB data;
 #endif
+
+#ifdef LEVELUSINGHEAP
 	h_node *hn_ptr;
-	uint8_t *bitset;//for header block_m
-	int ppage_idx;
-	KEYT ppa;//block start number
-	uint32_t invalid_n;
+#else
+	llog_node *hn_ptr;
+#endif
+	uint8_t *bitset;//page validate bit
+	KEYT ppage_idx;
 	uint8_t level;
 }block;
 
+typedef struct{
+	uint32_t invalid_n;
+	KEYT trimed_block;
+	KEYT segment_idx; //next reserved block
+	uint8_t now_gc_level_n;
+	KEYT ppa;
+}segment;
+
 typedef struct page_manager{
-	block **blocks;
+	KEYT block_num;
+	llog *blocks;
+	llog_node *n_log;
+	segment *target;//gc_target;
+	segment *reserve; //no reserve block ->numll
 	block *rblock;
-	pageQ *ppa;
-	pageQ *r_ppa;
+	uint32_t used_blkn;
+	uint32_t rused_blkn;
+	uint32_t max_blkn;
+	uint32_t segnum;
 	pthread_mutex_t manager_lock;
-	KEYT max;
-	KEYT block_n;
 }pm;
+
 
 void block_init();
 
 void pm_init();
-KEYT getHPPA(KEYT);//key
 
-KEYT getDPPA(KEYT,bool);//in DVALUE return block id;
+KEYT getPPA(uint8_t type, KEYT, bool);//in DVALUE return block id;
+
 void invalidate_PPA(KEYT ppa);
 void block_print();
 OOBT PBITSET(KEYT,bool);
@@ -63,10 +88,14 @@ KEYT getBPPA(KEYT);//block key
 void invalidate_DPPA(KEYT ppa);
 void invalidate_BPPA(KEYT ppa);
 block **get_victim_Dblock(KEYT);
-int gc_block();
+int gc_block(KEYT tbn);
 #endif
 int get_victim_block(pm *);
 bool PBITFULL(KEYT input,bool isrealppa);
-int gc_header();
-int gc_data();
+int gc_header(KEYT tbn);
+int gc_data(KEYT tbn);
+void gc_check(uint8_t,bool);
+KEYT gc_victim_segment(uint8_t type);
+void gc_trim_segment(KEYT pbn);
+block *gc_getrblock_fromseg(uint8_t type);
 #endif

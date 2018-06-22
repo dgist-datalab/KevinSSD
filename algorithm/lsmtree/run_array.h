@@ -3,6 +3,7 @@
 #include "../../include/container.h"
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
+#include "log_list.h"
 #include "cache.h"
 #include "lsmtree.h"
 #include "bloomfilter.h"
@@ -38,11 +39,16 @@ typedef struct Node{
 }Node;
 
 typedef struct level{
+#ifdef LEVELUSEINGHEAP
 	heap *h;
+#else
+	llog *h;
+#endif
 	block *now_block;
 	int level_idx;
-	int r_num;
-	int r_n_idx;
+	int r_m_num;//max # of run
+	int n_run;//last run 
+	int r_n_idx;//target idx of run
 	int m_num;//number of entries
 	int n_num;
 	int entry_p_run;
@@ -55,7 +61,6 @@ typedef struct level{
 	bool iscompactioning;
 	struct skiplist *remain;
 	pthread_mutex_t level_lock;
-	//KEYT version_info;
 	char *body;
 }level;
 
@@ -82,7 +87,7 @@ bool level_check_overlap(level*,KEYT start, KEYT end);//a
 bool level_check_seq(level *);
 bool level_full_check(level *);//
 KEYT level_get_page(level *,uint8_t plength);
-KEYT level_get_front_page(level*);
+void level_moveTo_front_page(level*);
 void level_move_heap(level * des, level *src);
 bool level_now_block_fchk(level *in);
 #ifdef DVALUE

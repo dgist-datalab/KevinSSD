@@ -23,7 +23,6 @@ SRCS +=\
 	   lsmtree.c\
 	   compaction.c\
 	   page.c\
-	   pageQ.c\
 	   heap.c\
 	   footer.c\
 	   log_list.c\
