@@ -240,9 +240,10 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 		level_moveTo_front_page(from);
 		res[res_idx]->ppa=level_get_page(from,(PAGESIZE/PIECE));
 		/*checking new ppa in skiplist_valuset*/
+		/*
 		if(res[res_idx]->ppa==1068256){
 			printf("-----lpa:%d\n",target->key);
-		}
+		}*/
 #ifdef DVALUE
 		oob[res[res_idx]->ppa/(PAGESIZE/PIECE)]=PBITSET(target->key,true);//OOB setting
 #else
@@ -289,9 +290,9 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 			target->ppa=level_get_page(from,target->value->length);
 
 
-			/*checking new ppa in skiplist_valuset*/
+			/*checking new ppa in skiplist_valuset*//*
 			if(target->ppa==1068256)
-				printf("-----lpa:%d length:%d\n",target->key,target->value->length);
+				printf("-----lpa:%d length:%d\n",target->key,target->value->length);*/
 
 			used_piece+=target_length;
 			f_insert(foot,target->key,target->ppa,target_length);

@@ -341,6 +341,7 @@ void pm_a_init(pm *m,KEYT size,KEYT *_idx,bool isblock){
 		memset(bl[idx].bitset,0,_PPB/8);
 		idx++;
 	}
+	printf("size: %d mb\n",size*_PPB*8/1024);
 	m->used_blkn=0;
 	m->max_blkn=size;
 	m->segnum=size/BPS;
@@ -426,7 +427,8 @@ void gc_check(uint8_t type, bool force){
 			if(data_m.max_blkn-data_m.used_blkn>4){
 				return;
 			}
-			else{
+			else{	
+				llog_print(data_m.blocks);
 				printf("[%d]lack of block in data for memtable\n",gc_check_num++);
 			}
 		}
@@ -434,20 +436,20 @@ void gc_check(uint8_t type, bool force){
 	for(int j=0; j<SEGNUM; j++){
 		printf("[seg%d]:invalid_n - %d\n",j,segs[j].invalid_n);
 	}*/
-//	bool once=true;
+	bool once=true;
 	pm *target_p;
 	//		int t,n;
 	for(int i=0; i<BPS; i++){
 		KEYT target_block=0;
-		/*
+		
 		if(once){
 			once=false;
 			//int s_n=target_block/BPS;
-			llog_print(data_m.blocks);
+			llog_print(header_m.blocks);
 			//printf("target seg:%d - reserve seg:%d\n",s_n,target->reserve->ppa/BPS/_PPB);
 			//			t=s_n;
 			//n=target->reserve->ppa/BPS/_PPB;
-		}*/
+		}
 		//printf("%d -",i);
 		target_block=gc_victim_segment(type);
 		//printf("target block %d\n",target_block);
@@ -486,7 +488,6 @@ void gc_check(uint8_t type, bool force){
 		target_p->n_log=target_p->blocks->head;
 	}
 	target_p->target=NULL;//when not used block don't exist in target_segment;
-	
 }
 
 KEYT getPPA(uint8_t type, KEYT lpa,bool isfull){
