@@ -94,6 +94,11 @@ static void __dm_intr_handler (
 		}
 		my_algo_req->end_req(my_algo_req);
 	}
+	else{
+		if(r->bad_seg_func!=NULL){
+			r->bad_seg_func(r->segnum,r->isbad);
+		}
+	}
 	/*
 	lsmtree_req_t* lsm_req=(lsmtree_req_t*)r->req;
 	if(lsm_req->isgc){
@@ -427,14 +432,14 @@ int memio_comp_write (memio_t* mio, uint32_t lba, uint64_t len, uint8_t* data, i
 	//return __memio_do_io (mio, 1, lba, len, data, async, dmaTag, end_req);
 }
 
-int memio_trim (memio_t* mio, uint32_t lba, uint64_t len)
+int memio_trim (memio_t* mio, uint32_t lba, uint64_t len, void *(*end_req)(uint64_t,uint8_t))
 {
 	bdbm_llm_req_t* r = NULL;
 	bdbm_dm_inf_t* dm = mio->bdi.ptr_dm_inf;
 	uint64_t cur_lba = lba;
 	uint64_t sent = 0;
 	int ret, i;
-
+	
 //	bdbm_msg ("memio_trim: %llu, %llu", lba, len);
 
 	/* see if LBA alignment is correct */
@@ -447,6 +452,7 @@ int memio_trim (memio_t* mio, uint32_t lba, uint64_t len)
 		for (i = 0; i < mio->nr_punits; i++) {
 			/* get an empty llm_req */
 			r = __memio_alloc_llm_req (mio);
+			r->bad_seg_func=end_req;
 
 			bdbm_bug_on (!r);
 

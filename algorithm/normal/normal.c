@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "normal.h"
 #include "../../bench/bench.h"
 
@@ -52,8 +53,16 @@ uint32_t normal_remove(request *const req){
 
 void *normal_end_req(algo_req* input){
 	normal_params* params=(normal_params*)input->params;
-	
+	static int cnt=0;
 	request *res=input->parents;
+	if(res->type==FS_GET_T){
+		for(int i=0; i<PAGESIZE; i++){
+			if(res->value->value[i]!='x'){
+				printf("cnt:%d\n",cnt++);
+				break;
+			}
+		}
+	}
 	res->end_req(res);
 
 	free(params);

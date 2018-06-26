@@ -23,7 +23,7 @@ KEYT __ppa;
 #endif
 
 block bl[_NOB];
-segment segs[SEGNUM];
+segment segs[_NOS];
 OOBT *oob;
 pm data_m;//for data blocks
 pm header_m;//for header ppaa
@@ -364,7 +364,7 @@ void pm_a_init(pm *m,KEYT size,KEYT *_idx,bool isblock){
 }
 
 void segs_init(){
-	for(int i=0; i<SEGNUM; i++){
+	for(int i=0; i<_NOS; i++){
 		segs[i].invalid_n=0;
 		segs[i].segment_idx=0;
 		segs[i].ppa=i*(_PPS);
@@ -377,7 +377,7 @@ void pm_init(){
 	block_init();
 	segs_init();
 	KEYT start=0;
-	printf("# of seg: %ld\n",SEGNUM);
+	printf("# of seg: %ld\n",_NOS);
 	printf("from : %d ",start);
 	pm_a_init(&header_m,HEADERSEG*BPS,&start,false);
 	printf("to : %d (header # of seg:%d)\n",start,HEADERSEG);
@@ -442,7 +442,7 @@ void gc_check(uint8_t type, bool force){
 			}
 		}
 	}/*
-	for(int j=0; j<SEGNUM; j++){
+	for(int j=0; j<_NOS; j++){
 		printf("[seg%d]:invalid_n - %d\n",j,segs[j].invalid_n);
 	}*/
 	bool once=true;
@@ -464,7 +464,7 @@ void gc_check(uint8_t type, bool force){
 		//printf("target block %d\n",target_block);
 
 		if(target_block==UINT_MAX){
-			for(int j=0; j<SEGNUM; j++){
+			for(int j=0; j<_NOS; j++){
 				printf("[seg%d]:invalid_n - %d\n",j,segs[j].invalid_n);
 			}
 			printf("device full at ");

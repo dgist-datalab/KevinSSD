@@ -9,14 +9,16 @@
 #define P (1024L*T)
 
 #define TOTALSIZE (16L*G)
+#define REALSIZE (512L*G)
 #define PAGESIZE (8*K)
 #define _PPB (256)
+#define _PPS (1<<14)
 #define BLOCKSIZE (_PPB*PAGESIZE)
 #define _NOB (TOTALSIZE/BLOCKSIZE)
 #define _NOP (TOTALSIZE/PAGESIZE)
+#define _NOS (TOTALSIZE/(_PPS*PAGESIZE))
+#define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
 
-#define _PPS (1<<14)
-#define SEGNUM (TOTALSIZE/((_PPS)*PAGESIZE))
 #define BPS ((_PPS)/_PPB)
 
 #define FSTYPE uint8_t

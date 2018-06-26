@@ -30,7 +30,7 @@
 /*block,header,data area variable*/
 #define HEADERSEG 1
 #define BLOCKSEG (1)
-#define DATASEG ((SEGNUM-HEADERSEG-BLOCKSEG-1-(BLOCKSEG?1:0))-1)
+#define DATASEG ((_NOS-HEADERSEG-BLOCKSEG-1-(BLOCKSEG?1:0))-1)
 
 
 //#define FLASHCHECK

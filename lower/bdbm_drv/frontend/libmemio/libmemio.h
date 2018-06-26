@@ -27,7 +27,7 @@ int memio_comp_read (memio_t* mio, uint32_t lba, uint64_t len, uint8_t* data, in
 int memio_write (memio_t* mio, uint32_t lba, uint64_t len, uint8_t* data, int async, void *req, int dmaTag);
 int memio_comp_write (memio_t* mio, uint32_t lba, uint64_t len, uint8_t* data, int async, void *req, int dmaTag);
 //int memio_write (memio_t* mio, uint64_t lba, uint64_t len, uint8_t* data, int async, int dmaTag, void (*end_req)(void));
-int memio_trim (memio_t* mio, uint32_t lba, uint64_t len);
+int memio_trim (memio_t* mio, uint32_t lba, uint64_t len, void *(*end_req)(uint64_t,uint8_t));
 void memio_close (memio_t* mio);
 int memio_alloc_dma (int type, char** buf);
 void memio_free_dma (int type, int dmaTag);

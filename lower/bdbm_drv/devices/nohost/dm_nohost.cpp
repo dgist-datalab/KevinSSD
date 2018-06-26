@@ -150,7 +150,7 @@ dm_nohost_private_t* _priv = NULL;
 /* global data structure */
 extern bdbm_drv_info_t* _bdi_dm;
 
-
+int badblock_cnt;
 class FlashIndication: public FlashIndicationWrapper {
 	public:
 		FlashIndication (unsigned int id) : FlashIndicationWrapper (id) { }
@@ -185,6 +185,14 @@ class FlashIndication: public FlashIndicationWrapper {
 			_priv->llm_reqs[tag] = NULL;
 			//			bdbm_sema_unlock (&global_lock);
 			if( r == NULL ) { printf("eraseDone: Ack Duplicate with tag=%d, status=%d\n", tag, status); fflush(stdout); return; }
+			if(status==1){
+				//printf("[%d]bad block at %d!\n",badblock_cnt++,r->logaddr.lpa[0]/(1<<14));
+				r->segnum=r->logaddr.lpa[0]/(1<<14);
+				r->isbad=1;
+			}
+			else{
+				r->isbad=0;
+			}
 			dm_nohost_end_req (_bdi_dm, r);
 		}
 
@@ -552,7 +560,7 @@ uint32_t dm_nohost_make_req (
 			break;
 
 		case REQTYPE_GC_ERASE:
-			printf ("LOG: device->eraseBlock, tag=%d lpa=%d\n", r->tag, r->logaddr.lpa[0]); fflush(stdout);
+			//printf ("LOG: device->eraseBlock, tag=%d lpa=%d\n", r->tag, r->logaddr.lpa[0]); fflush(stdout);
 			//device->eraseBlock (r->tag, r->logaddr.lpa[0]);
 			bus  = r->logaddr.lpa[0] & 0x7;
 			chip = (r->logaddr.lpa[0] >> 3) & 0x7;
