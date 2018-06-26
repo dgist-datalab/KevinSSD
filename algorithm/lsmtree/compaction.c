@@ -587,7 +587,14 @@ uint32_t leveling(int from, int to, Entry *entry){
 #endif
 	LSM.c_level=NULL;
 	level_free(temp);
-	//level_all_print();
+//	printf("[level print]");
+//	level_all_print();
+#ifdef CACHE
+	/*
+	printf("[cache_print]\n");
+	cache_print(LSM.lsm_cache);
+	printf("\n\n\n");*/
+#endif
 	/*
 	printf("-----\n");
 	for(int i=0; i<LEVELN; i++){

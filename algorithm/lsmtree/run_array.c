@@ -405,7 +405,15 @@ void level_print(level *input){
 	}
 }
 void level_free(level *input){
-	for(int i=0; i<input->r_n_idx; i++){
+	int target=0;
+	if(input->isTiering){
+		target=input->r_n_idx;
+	}
+	else{
+		target=1;
+	}
+
+	for(int i=0; i<target; i++){
 		Node *temp_run=ns_run(input,i);
 		for(int j=0; j<temp_run->n_num; j++){
 	//		printf("temp_run->n_num %d\n",temp_run->n_num);

@@ -161,16 +161,10 @@ int print_number;
 void cache_print(cache *c){
 	cache_entry *start=c->top;
 	print_number=0;
+	Entry *tent;
 	while(start!=NULL){
-		if(!start->entry->t_table)
-			printf("nodata!!\n");
-		if(start->entry->t_table){
-			if(start->entry->c_entry!=start)
-				printf("fuck\n");
-		}
-		print_number++;
-		if(print_number>c->n_size)
-			exit(1);
+		tent=start->entry;
+		printf("[%d]c->entry->key:%d c->entry->pbn:%d\n",print_number++,tent->key,tent->pbn);
 		start=start->down;
 	}
 }
