@@ -10,12 +10,12 @@
 
 #define TOTALSIZE (16L*G)
 #define PAGESIZE (8*K)
-#define _PPB (64)
+#define _PPB (256)
 #define BLOCKSIZE (_PPB*PAGESIZE)
 #define _NOB (TOTALSIZE/BLOCKSIZE)
 #define _NOP (TOTALSIZE/PAGESIZE)
 
-#define _PPS (1<<7)
+#define _PPS (1<<14)
 #define SEGNUM (TOTALSIZE/((_PPS)*PAGESIZE))
 #define BPS ((_PPS)/_PPB)
 
@@ -25,7 +25,7 @@
 #define OOBT uint64_t
 #define V_PTR char * const
 #define PTR char*
-#define ASYNC 0
+#define ASYNC 1
 #define QSIZE (1024)
 #define THREADSIZE (1)
 

@@ -47,7 +47,7 @@ bool level_full_check(level *input){
 			return true;
 	}
 	else{
-		if(input->n_num>=input->m_num)
+		if(input->n_num>=(input->m_num/(SIZEFACTOR)*(SIZEFACTOR-1)))
 			return true;
 	}
 	return false;

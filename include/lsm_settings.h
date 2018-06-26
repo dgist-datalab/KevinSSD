@@ -10,9 +10,9 @@
 #define MONKEY
 #define PIECE 512
 //#define LEVELUSINGHEAP
-#define TIERING
-//#define CACHE
-//#define CACHESIZE (128*8*100)//1*128==1M
+//#define TIERING
+#define CACHE
+#define CACHESIZE (128*8*100)//1*128==1M
 
 /*lsmtree flash thread*/
 #define KEYNUM 1024
@@ -29,7 +29,7 @@
 
 /*block,header,data area variable*/
 #define HEADERSEG 1
-#define BLOCKSEG (1<<6)
+#define BLOCKSEG (1)
 #define DATASEG ((SEGNUM-HEADERSEG-BLOCKSEG-1-(BLOCKSEG?1:0))-1)
 
 

@@ -8,7 +8,7 @@ export CFLAGS_ALGO=\
 			 -g\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
--DDVALUE\
+#-DDVALUE\
 
 
 export CFLAGS_LOWER=\
