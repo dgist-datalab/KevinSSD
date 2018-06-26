@@ -455,6 +455,7 @@ void level_free_entry(Entry *entry){
 #ifdef CACHE
 	if(entry->c_entry){
 		cache_delete_entry_only(LSM.lsm_cache,entry);
+		entry->c_entry=NULL;
 	}
 #endif
 	if(entry->t_table){
@@ -476,6 +477,7 @@ void level_free_entry_inside(Entry * entry){
 #ifdef CACHE
 	if(entry->c_entry){
 		cache_delete_entry_only(LSM.lsm_cache,entry);
+		entry->c_entry=NULL;
 	}
 #endif
 	if(entry->t_table){

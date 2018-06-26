@@ -92,12 +92,13 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 #ifdef DVALUE
 	factory_free();
 #endif
-	for(int i=0; i<LEVELN; i++){
-		level_free(LSM.disk[i]);
-	}
 #ifdef CACHE
 	cache_free(LSM.lsm_cache);
 #endif
+
+	for(int i=0; i<LEVELN; i++){
+		level_free(LSM.disk[i]);
+	}
 	skiplist_free(LSM.memtable);
 	if(LSM.temptable)
 		skiplist_free(LSM.temptable);
@@ -264,7 +265,7 @@ uint32_t lsm_get(request *const req){
 	uint32_t res_type=0;
 	if(!level_show){
 		level_show=true;
-		//level_all_print();
+		level_all_print();
 	}
 	//printf("seq: %d, key:%u\n",nor++,req->key);
 	if((re_q=q_dequeue(LSM.re_q))){
@@ -309,8 +310,8 @@ uint32_t __lsm_get(request *const req){
 		memcpy(req->value->value,target_node->value->value,target_node->value->length*PIECE);
 #endif
 		bench_algo_end(req);
-		req->end_req(req);
 		bench_cache_hit(req->mark);
+		req->end_req(req);
 		return 2;
 	}
 
@@ -340,19 +341,19 @@ uint32_t __lsm_get(request *const req){
 				free(lsm_req);
 				free(params);
 				bench_algo_end(req);
-				req->end_req(req);
 				bench_cache_hit(req->mark);
+				req->end_req(req);
 				return 2;
 			}
 			params->lsm_type=DATAR;
 			req->value->ppa=target_node->ppa;
 			bench_algo_end(req);
+			bench_cache_hit(req->mark);
 #ifdef DVALUE
 			LSM.li->pull_data(target_node->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
 #else
 			LSM.li->pull_data(target_node->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 #endif
-			bench_cache_hit(req->mark);
 			return 4;
 		}
 	}
@@ -364,7 +365,7 @@ uint32_t __lsm_get(request *const req){
 		if(target){
 			params->lsm_type=DATAR;
 			bench_algo_end(req);
-
+			bench_cache_hit(req->mark);
 			req->value->ppa=target->ppa;
 #ifdef DVALUE
 			LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
@@ -372,7 +373,6 @@ uint32_t __lsm_get(request *const req){
 			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 #endif
 			pthread_mutex_unlock(&LSM.entrylock);
-			bench_cache_hit(req->mark);
 			return 4;
 		}
 	}
@@ -461,13 +461,13 @@ uint32_t __lsm_get(request *const req){
 					req->value->ppa=target->ppa;
 					cache_update(LSM.lsm_cache,entry);
 					bench_algo_end(req);
+					bench_cache_hit(req->mark);
 #ifdef DVALUE
 					LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
 #else
 					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 #endif
 					free(entries);
-					bench_cache_hit(req->mark);
 					return 4;
 				}
 				continue;
