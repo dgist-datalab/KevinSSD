@@ -60,7 +60,7 @@ typedef struct page_manager{
 	llog *blocks;
 	llog_node *n_log;
 	segment *target;//gc_target;
-	segment *reserve; //no reserve block ->numll
+	segment *reserve; //no reserve block ->null
 	block *rblock;
 	uint32_t used_blkn;
 	uint32_t rused_blkn;

@@ -673,10 +673,8 @@ uint64_t partial_tiering(level *des,level *src, int size){
 	htable **table=(htable**)malloc(sizeof(htable*)*size*src->entry_p_run);
 	int table_cnt=0;
 
-	KEYT *table_ppn=NULL;
-	int table_ppn_idx=0;
-	table_ppn=(KEYT*)malloc(sizeof(KEYT)*des->m_num);
-
+	Entry **temp_entries=(Entry**)malloc((src->m_num+1)*sizeof(Entry*));
+	int entries_idx=0;
 	epc_check=0;
 	compaction_sub_pre();
 	for(int i=0; i<size; i++){
@@ -685,7 +683,7 @@ uint64_t partial_tiering(level *des,level *src, int size){
 		for(int j=0; j<temp_run->n_num; j++){
 			Entry *temp_ent=ns_entry(temp_run,j);
 			temp_ent->iscompactioning=true;
-			table_ppn[table_ppn_idx++]=temp_ent->pbn;
+			temp_entries[entries_idx++]=temp_ent;
 #ifdef CACHE
 			if(temp_ent->c_entry){
 				memcpy_cnt++;
@@ -702,7 +700,7 @@ uint64_t partial_tiering(level *des,level *src, int size){
 			table_cnt++;
 		}
 	}
-	table_ppn[table_ppn_idx]=UINT_MAX;
+	temp_entries[entries_idx]=NULL;
 
 	if(size==src->r_n_idx){
 		compaction_subprocessing(body,des,table,1,true);
@@ -714,11 +712,12 @@ uint64_t partial_tiering(level *des,level *src, int size){
 		src->remain=body;
 	}
 
-	for(int i=0; table_ppn[i]!=UINT_MAX; i++){
-		invalidate_PPA(table_ppn[i]);
+	for(int i=0; temp_entries[i]!=NULL; i++){
+		if(temp_entries[i]->iscompactioning!=3)
+			invalidate_PPA(temp_entries[i]->pbn);
 	}
 	//level_all_print();
-	free(table_ppn);
+	free(temp_entries);
 	free(table);
 	compaction_sub_post();
 	return 1;
@@ -752,7 +751,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 			if(!epc_check) epc_check=EPC;
 
 			for(int j=0; j<EPC; j++){
-				invalidate_PPA(target_s[idx]->pbn);//invalidate_PPA
 #ifdef CACHE
 				if(target_s[idx]->c_entry){
 					memcpy_cnt++;
@@ -771,6 +769,10 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 			}
 			compaction_subprocessing(skip,t,table,(round==target_round-1?1:0),false);
 			for(int i=0; i<EPC; i++){
+				if(i<idx){
+					if(target_s[i]->iscompactioning!=3)
+						invalidate_PPA(target_s[i]->pbn);//invalidate_PPA
+				}
 				if(table[i]){
 #ifdef CACHE
 					if(target_s[i]->c_entry){
@@ -813,7 +815,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 				if(!epc_check) epc_check=EPC;
 
 				if(round==0){
-					invalidate_PPA(origin_ent->pbn);
 					origin_ent->iscompactioning=true;
 #ifdef CACHE
 					if(origin_ent->c_entry){
@@ -833,7 +834,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 
 				for(int k=j; k<EPC; k++){
 					if(target_s[idx]==NULL)break;
-					invalidate_PPA(target_s[idx]->pbn);
 
 #ifdef CACHE
 					if(target_s[idx]->c_entry){
@@ -853,6 +853,15 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 
 				compaction_subprocessing(skip,t,table,(end==endcheck&&round==target_round-1?1:0),false);	
 				for(int i=0; i<EPC; i++){
+					if(i==0){
+						if(origin_ent->iscompactioning!=3)
+							invalidate_PPA(origin_ent->pbn);
+					}
+					if(i<idx){
+						if(target_s[i]->iscompactioning!=3)
+							invalidate_PPA(target_s[i]->pbn);
+					}
+
 					if(table[i]){
 #ifdef CACHE
 						if((i==0 && origin_ent->c_entry) || target_s[i-1]->c_entry){
@@ -887,7 +896,7 @@ uint32_t tiering(int from, int to, Entry *entry){
 	LSM.c_level=des_level;
 	
 	//printf("comp:%d\n",tiering_compaction++);
-
+	des_origin_level->iscompactioning=true;
 	compaction_heap_setting(des_level,des_origin_level);
 
 	if(from==-1){

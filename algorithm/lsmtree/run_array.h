@@ -26,7 +26,7 @@ typedef struct Entry{
 	cache_entry *c_entry;
 #endif
 	struct htable *t_table;
-	bool iscompactioning; //0->nocomfaction, 1->iscompactioning, 2->already read
+	char iscompactioning; //0->nocomfaction, 1->iscompactioning, 2->already read, 3->the pbn was erased by gc process
 }Entry;
 
 typedef struct Node{

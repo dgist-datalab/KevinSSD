@@ -30,7 +30,7 @@ pm header_m;//for header ppaa
 pm block_m;//for dynamic block;
 
 segment* WHICHSEG(KEYT ppa){
-	return &segs[ppa/(1<<14)];
+	return &segs[ppa/(_PPS)];
 }
 
 OOBT PBITSET(KEYT input,bool isFull){
@@ -64,6 +64,7 @@ bool PBITFULL(KEYT input,bool isrealppa){
 void gc_general_wait_init(){	
 	pthread_mutex_lock(&gc_wait);
 }
+
 void gc_general_waiting(){
 #ifdef MUTEXLOCK
 		if(gc_read_wait!=0)
@@ -108,12 +109,12 @@ void block_free_ppa(uint8_t type, block* b){
 #endif
 			}
 			b->level=0;
-			b->invalid_n=0;
 			b->hn_ptr=NULL;
 			//printf("block free : %d\n",b->ppa);
 #ifdef DVALUE //bitset data
 			free(b->length_data);
 			b->length_data=NULL;
+			b->invalid_n=0;
 			if(b->b_log){
 				llog_free(b->b_log);
 				b->b_log=NULL;
@@ -130,6 +131,7 @@ void block_free_ppa(uint8_t type, block* b){
 #endif
 		default:
 			free(b->bitset);
+			b->invalid_n=0;
 			b->bitset=NULL;
 			b->ppage_idx=0;
 			b->erased=true;
@@ -168,13 +170,20 @@ void gc_trim_segment(uint8_t type, KEYT pbn){
 		segment *reserve=target_p->reserve;
 		for(int i=reserve->segment_idx; i<BPS; i++){
 			bl[reserve->ppa/_PPB+i].erased=true;
-#ifndef DVALUE
-			bl[reserve->ppa/_PPB+i].bitset=(uint8_t*)malloc(_PPB/8);
-			memset(bl[reserve->ppa/_PPB+i].bitset,0,_PPB/8);
+#ifdef DVALUE
+			if(type!=DATA){
+#endif
+				if(!bl[reserve->ppa/_PPB+i].bitset){
+					bl[reserve->ppa/_PPB+i].bitset=(uint8_t*)malloc(_PPB/8);
+					memset(bl[reserve->ppa/_PPB+i].bitset,0,_PPB/8);
+				}
+#ifdef DVALUE
+			}
 #endif
 			bl[reserve->ppa/_PPB+i].l_node=llog_insert(target_p->blocks,(void*)&bl[reserve->ppa/_PPB+i]);
 			reserve->segment_idx=0;
 		}
+		reserve->segment_idx=0;
 		seg->invalid_n=0;
 		seg->trimed_block=0;
 		seg->segment_idx=0;
@@ -186,6 +195,7 @@ void gc_trim_segment(uint8_t type, KEYT pbn){
 		target_p->rused_blkn=0;
 		//target_p->target=NULL;
 		target_p->reserve=seg;
+		target_p->rblock=NULL;
 	}
 }
 
@@ -357,7 +367,7 @@ void segs_init(){
 	for(int i=0; i<SEGNUM; i++){
 		segs[i].invalid_n=0;
 		segs[i].segment_idx=0;
-		segs[i].ppa=i*(1<<14);
+		segs[i].ppa=i*(_PPS);
 		segs[i].now_gc_level_n=LEVELN+1;
 	}
 };
@@ -401,21 +411,20 @@ KEYT getRPPA(uint8_t type,KEYT lpa,bool isfull){
 	}
 
 	KEYT pba=target_p->reserve->ppa/_PPB;
-	if(target_p->rblock==NULL){
+	if(target_p->rblock==NULL || target_p->rblock->ppage_idx==_PPB){ 
+		pba+=target_p->reserve->segment_idx++;
 		target_p->rblock=&bl[pba];
+		bl[pba].l_node=llog_insert(target_p->blocks,(void*)&bl[pba]);
+		bl[pba].erased=false;
 	}
-
 	block *active_block=target_p->rblock;
-	if(active_block->ppage_idx==_PPB){
-		pba=active_block->ppa/_PPB;
-		active_block=target_p->rblock=&bl[pba];
-	}
 
+	if(active_block->bitset==NULL){
+		active_block->bitset=(uint8_t*)malloc(_PPB/8);
+		memset(active_block->bitset,0,_PPB/8);
+	}
 	KEYT res=active_block->ppa+active_block->ppage_idx++;
-#ifdef DVALUE
-	if(type!=DATA)
-#endif
-		oob[res]=PBITSET(lpa,isfull);
+	oob[res]=PBITSET(lpa,isfull);
 
 	return res;
 }
@@ -488,6 +497,7 @@ void gc_check(uint8_t type, bool force){
 		target_p->n_log=target_p->blocks->head;
 	}
 	target_p->target=NULL;//when not used block don't exist in target_segment;
+	llog_print(target_p->blocks);
 }
 
 KEYT getPPA(uint8_t type, KEYT lpa,bool isfull){
@@ -517,7 +527,7 @@ KEYT getPPA(uint8_t type, KEYT lpa,bool isfull){
 		target->n_log=target->blocks->head;
 		active_block=(block*)target->n_log->data;
 
-		if(active_block->ppage_idx==_PPB || !active_block->erased){//need gc
+		if(active_block->ppage_idx==_PPB ||(type==DATA && !active_block->erased)){//need gc
 			if(type==BLOCK){
 				printf("hello!\n");
 			}
@@ -544,6 +554,7 @@ KEYT getPPA(uint8_t type, KEYT lpa,bool isfull){
 	KEYT res=active_block->ppa+(type==DATA?0:active_block->ppage_idx++);
 	if(type!=DATA){
 		oob[res]=PBITSET(lpa,true);
+		active_block->erased=false;
 	}
 	else{
 		if(!active_block->erased){
@@ -847,7 +858,9 @@ int gc_header(KEYT tbn){
 	htable_t **tables=(htable_t**)malloc(sizeof(htable_t*)*algo_lsm.li->PPB);
 	Entry **target_ent=(Entry**)malloc(sizeof(Entry*)*algo_lsm.li->PPB);
 	//printf("2\n");
-	level_all_print();
+	//level_all_print();
+	level_print(LSM.c_level);
+	printf("--------------------------------------------------\n");
 	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
 		if(target->bitset[i/8]&(1<<(i%8))){
 			tables[i]=NULL;
@@ -864,10 +877,15 @@ int gc_header(KEYT tbn){
 			if(entries==NULL) continue;
 			for(int k=0; entries[k]!=NULL ;k++){
 				if(entries[k]->pbn==t_ppa){
+					if(LSM.disk[j]->isTiering && LSM.disk[j]->m_num==LSM.c_level->m_num){
+						/*in this situation ftl should change c_level entry*/
+						break;
+					}
 					checkdone=true;
 					if(entries[k]->iscompactioning){
 						tables[i]=NULL;
 						target_ent[i]=NULL;
+						entries[k]->iscompactioning=3;
 						break;
 					}
 					tables[i]=(htable_t*)malloc(sizeof(htable_t));
@@ -885,6 +903,7 @@ int gc_header(KEYT tbn){
 			free(entries);
 			if(checkdone)break;
 		}
+
 		if(LSM.c_level && !checkdone){
 			entries=level_find(LSM.c_level,lpa);
 			if(entries!=NULL){
@@ -900,7 +919,6 @@ int gc_header(KEYT tbn){
 							break;
 						}
 #endif
-						gc_read_wait++;
 						gc_data_read(t_ppa,tables[i]);
 					}
 				}
@@ -931,6 +949,7 @@ int gc_header(KEYT tbn){
 	free(target_ent);
 	gc_trim_segment(HEADER,target->ppa);
 	level_all_print();
+	level_print(LSM.c_level);
 	return 1;
 }
 

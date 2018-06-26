@@ -166,7 +166,7 @@ Entry **level_find(level *input,KEYT key){
 		return NULL;
 	Entry **res;
 	if(input->isTiering){
-		res=(Entry**)malloc(sizeof(Entry*)*(input->r_n_idx+1));
+		res=(Entry**)malloc(sizeof(Entry*)*(input->r_n_idx+2));
 	}
 	else{
 		res=(Entry**)malloc(sizeof(Entry*)*(input->n_run+1<2?2:input->n_run+1));
@@ -378,6 +378,7 @@ void level_print(level *input){
 	printf("level[%d]:%p\n",input->level_idx,input);
 	for(int i=0; i<=input->n_run; i++){
 		Node* temp_run=ns_run(input,i);
+		if(!temp_run) continue;
 		printf("start_run[%d]\n",i);
 		for(int j=0; j<temp_run->n_num; j++){
 			Entry *temp_ent=ns_entry(temp_run,j);

@@ -67,12 +67,13 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
 #else
 		invalidate_DPPA(ppa);
 #endif
+		/*
 		if(key==1556){
 			printf("[%d]new ppa:%d old ppa:%d\n",key,x->ppa,ppa);
 			#ifdef DVALUE
 			printf("ppb:%d\n",x->ppa/16/256);
 			#endif
-		}
+		}*/
 		//x->ppa=ppa;
 		//x->isvalid=deletef;
 		return x;

@@ -10,12 +10,12 @@
 
 #define TOTALSIZE (16L*G)
 #define PAGESIZE (8*K)
-#define _PPB (256)
+#define _PPB (64)
 #define BLOCKSIZE (_PPB*PAGESIZE)
 #define _NOB (TOTALSIZE/BLOCKSIZE)
 #define _NOP (TOTALSIZE/PAGESIZE)
 
-#define _PPS (1<<8)
+#define _PPS (1<<7)
 #define SEGNUM (TOTALSIZE/((_PPS)*PAGESIZE))
 #define BPS ((_PPS)/_PPB)
 
