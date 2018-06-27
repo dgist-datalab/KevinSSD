@@ -117,7 +117,8 @@ void dpage_GC(){
 	tce = INT32_MAX; // Initial state
 	origin_ppa = (int32_t*)malloc(_PPB * sizeof(int32_t));
 	temp_table = (D_TABLE*)malloc(PAGESIZE);
-	for(int i = old_block; i < old_block + _PPB; i++){ // Load valid pages in block
+	// Load all valid pages in block
+	for(int i = old_block; i < old_block + _PPB; i++){
 		if(demand_OOB[i].valid_checker){
 			SRAM_load(i, valid_num);
 			origin_ppa[valid_num++] = i;
