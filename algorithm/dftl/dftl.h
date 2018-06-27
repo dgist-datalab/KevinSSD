@@ -20,6 +20,7 @@ typedef struct demand_mapping_table{
 // Cache mapping table data strcuture
 typedef struct cached_table{
 	int32_t t_ppa;
+	int32_t idx;
 	D_TABLE *p_table;
 	NODE *queue_ptr;
 	unsigned char flag; // 0: unchanged, 1: changed
@@ -69,8 +70,6 @@ uint32_t demand_create(lower_info*, algorithm*);
 void demand_destroy(lower_info*, algorithm*);
 algo_req* assign_pseudo_req(TYPE type, value_set *temp_v, request *req);
 void *demand_end_req(algo_req*);
-int32_t tp_alloc();
-int32_t dp_alloc();
 uint32_t demand_get(request *const);
 uint32_t __demand_get(request *const);
 uint32_t demand_set(request *const);
@@ -86,6 +85,8 @@ void tpage_GC();
 void dpage_GC();
 char btype_check();
 int lpa_compare(const void *a, const void *b);
+int32_t tp_alloc();
+int32_t dp_alloc();
 void SRAM_load(int32_t ppa, int idx);
 void SRAM_unload(int32_t ppa, int idx);
 

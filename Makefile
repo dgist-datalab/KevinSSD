@@ -4,10 +4,15 @@ TARGET_LOWER=posix #bdbm_drv
 TARGET_ALGO=dftl
 PWD=$(pwd)
 
+COMMONFLAGS=\
+			-DSLC\
+
+
 export CFLAGS_ALGO=\
 			 -g\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
+			 -DSLC\
 #-DDVALUE\
 
 
@@ -18,7 +23,11 @@ export CFLAGS_LOWER=\
 			 -D_FILE_OFFSET_BITS=64\
 
 
-CFLAGS_ALGO+=-DCOMPACTIONLOG\
+#CFLAGS_ALGO+=-DCOMPACTIONLOG\
+	
+CFLAGS_ALGO+=$(COMMONFLAGS)\
+
+CFLAGS_LOWER+=$(COMMONFLAGS)\
 
 ifeq ($(CC), gcc)
  CFLAGS_ALGO+=-Wno-discarded-qualifiers -std=c99
@@ -34,6 +43,7 @@ CFLAGS +=\
 		 -D$(TARGET_ALGO)\
 		 -D_BSD_SOURCE\
 -DBENCH\
+-DSLC\
 
 
 SRCS +=\

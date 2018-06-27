@@ -122,6 +122,7 @@ void heap_delete_from(heap *h, h_node *target){
 		}
 	}
 }
+
 void heap_print(heap *h){
 	int idx=1;
 	while(h->body[idx].value){

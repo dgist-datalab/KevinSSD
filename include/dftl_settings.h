@@ -15,9 +15,12 @@
 /* Translation page unit DFTL */
 #define MAXTPAGENUM 4 // max number of tpage on ram, Must be changed according to cache size
 #define CACHESIZE (MAXTPAGENUM*8*K)
-#define EPP (PAGESIZE / (int)sizeof(D_TABLE)) //Number of table entries per page
+#define EPP (PAGESIZE / 4) //Number of table entries per page
+#define NRB 1
+#define NTB (_NOB / EPP) // max data mapping
+#define NDB (_NOB - NTB - NRB) // max data block
+#define NDP (NDB * _PPB)
 #define NTP (_NOP / EPP) //Number of Translation Page
-#define CMTSIZE ((int)sizeof(C_TABLE) * NTP)
 #define CMTENT NTP // Num of CMT entries
 #define D_IDX (lpa/EPP)	// Idx of directory table
 #define P_IDX (lpa%EPP)	// Idx of page table

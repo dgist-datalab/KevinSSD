@@ -58,8 +58,8 @@ void *normal_end_req(algo_req* input){
 	if(res->type==FS_GET_T){
 		for(int i=0; i<PAGESIZE; i++){
 			if(res->value->value[i]!='x'){
+				printf("%x\n",res->value->value[i]);
 				printf("cnt:%d\n",cnt++);
-				break;
 			}
 		}
 	}

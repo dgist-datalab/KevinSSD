@@ -76,7 +76,8 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 #ifdef DVALUE
 	factory_init();
 #endif
-	q_init(&LSM.re_q,CQSIZE);
+	q_init(&LSM.re_q,RQSIZE);
+
 #ifdef CACHE
 	LSM.lsm_cache=cache_init();
 #endif
@@ -119,6 +120,7 @@ void* lsm_end_req(algo_req* const req){
 	PTR target=NULL;
 	htable **t_table=NULL;
 	htable *table=NULL;
+	htable mapinfo;
 #ifdef DVALUE
 	block *bl=NULL;
 #endif
@@ -132,7 +134,7 @@ void* lsm_end_req(algo_req* const req){
 				t_table=(htable**)params->target;
 				table=*t_table;
 				memcpy(table->sets,params->value->value,PAGESIZE);
-
+				//htable_print(table,params->ppa);
 				comp_target_get_cnt++;
 #ifdef CACHE
 				if(epc_check==comp_target_get_cnt+memcpy_cnt){
@@ -141,14 +143,15 @@ void* lsm_end_req(algo_req* const req){
 #endif
 #ifdef MUTEXLOCK
 					pthread_mutex_unlock(&compaction_wait);
-#elif defined (SPINLOCK)
-					comp_target_get_cnt=0;
 #endif
 				}
 				//have to free
 				inf_free_valueset(params->value,FS_MALLOC_R);
 			}
-			else{
+			else{/*
+				mapinfo.sets=(keyset*)parents->value->value;
+				printf("tag:%d\n",parents->value->dmatag);
+				htable_print(&mapinfo,params->ppa);*/
 				if(!parents->isAsync){ // end_req for lsm_get
 					pthread_mutex_unlock(&params->lock);
 					havetofree=false;
@@ -265,19 +268,23 @@ uint32_t lsm_get(request *const req){
 	uint32_t res_type=0;
 	if(!level_show){
 		level_show=true;
-		level_all_print();
+		//level_all_print();
 	}
 	//printf("seq: %d, key:%u\n",nor++,req->key);
-	if((re_q=q_dequeue(LSM.re_q))){
-		request *tmp_req=(request*)re_q;
-		bench_algo_start(tmp_req);
-		res_type=__lsm_get(tmp_req);
-		if(res_type==3){
-			printf("from req not found seq: %d, key:%u\n",nor++,req->key);
-			tmp_req->type=FS_NOTFOUND_T;
-			tmp_req->end_req(tmp_req);
-			exit(1);
+	while(1){
+		if((re_q=q_dequeue(LSM.re_q))){
+			request *tmp_req=(request*)re_q;
+			bench_algo_start(tmp_req);
+			res_type=__lsm_get(tmp_req);
+			if(res_type==3){
+				printf("from req not found seq: %d, key:%u\n",nor++,req->key);
+				tmp_req->type=FS_NOTFOUND_T;
+				tmp_req->end_req(tmp_req);
+				exit(1);
+			}
 		}
+		else 
+			break;
 	}
 	if(!temp){
 		for(int i=0; i<LEVELN; i++){
@@ -322,7 +329,7 @@ uint32_t __lsm_get(request *const req){
 	int level;
 	int run;
 	Entry** entries;
-	htable* mapinfo;
+	htable mapinfo;
 	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 	lsm_req->parents=req;
@@ -387,8 +394,9 @@ uint32_t __lsm_get(request *const req){
 	}
 	else{
 		//check_sktable
-		mapinfo=(htable*)req->value;
-		keyset *target=htable_find(mapinfo->sets,req->key);
+		mapinfo.sets=(keyset*)req->value->value;
+		keyset *target=htable_find(mapinfo.sets,req->key);
+		//htable_print(&mapinfo,0);
 	//	printf("ppa %u lpa %u\n",mapinfo->sets[512].ppa,mapinfo->sets[512].lpa);
 		int *temp_req=(int*)req->params;
 		level=temp_req[0];
@@ -474,11 +482,12 @@ uint32_t __lsm_get(request *const req){
 			}
 #endif
 			//printf("header read!\n");
+			params->ppa=entry->pbn;
 			LSM.li->pull_data(entry->pbn,PAGESIZE,req->value,ASYNC,lsm_req);
 			if(!req->isAsync){
 				pthread_mutex_lock(&params->lock); // wait until read table data;
-				mapinfo=(htable*)req->value;
-				keyset *target=htable_find(mapinfo->sets,req->key);//check_sktable
+				mapinfo.sets=(keyset*)req->value->value;
+				keyset *target=htable_find(mapinfo.sets,req->key);//check_sktable
 				if(!target){
 					continue; // check next entry
 				}
@@ -578,9 +587,20 @@ void htable_free(htable *input){
 	free(input);
 }
 
-void htable_print(htable * input){
+void htable_print(htable * input,KEYT ppa){
+	bool check=false;
+	int cnt=0;
 	for(int i=0; i<KEYNUM; i++){
+		if(input->sets[i].lpa>RANGE && input->sets[i].lpa!=UINT_MAX){
+			printf("bad reading %u\n",input->sets[i].lpa);
+			cnt++;
+			check=true;
+		}
 		printf("[%d] %u %u\n",i, input->sets[i].lpa, input->sets[i].ppa);
+	}
+	if(check){
+		printf("bad page at %d cnt:%d---------\n",ppa,cnt);
+		exit(1);
 	}
 }
 

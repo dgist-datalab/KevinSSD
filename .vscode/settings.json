@@ -1,9 +1,6 @@
 {
     "files.associations": {
-        "queue.h": "c",
-        "stdio.h": "c",
-        "queue_list.h": "c",
-        "lru_list.h": "c",
-        "heap.h": "c"
+        "lsm_settings.h": "c",
+        "types.h": "c"
     }
 }

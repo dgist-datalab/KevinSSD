@@ -73,6 +73,7 @@ void bench_make_data(){
 	measure_init(&_m->benchTime);
 	MS(&_m->benchTime);
 }
+
 void bench_add(bench_type type, KEYT start, KEYT end, uint64_t number){
 	static int idx=0;
 	_master->meta[idx].start=start;

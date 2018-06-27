@@ -48,15 +48,19 @@ static int getLevel(){
 }
 
 snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
+	if(key>RANGE){
+		printf("bad page read\n");
+		exit(1);
+	}
 	snode *update[MAX_L+1];
 	snode *x=list->header;
+
 	for(int i=list->level; i>=1; i--){
 		while(x->list[i]->key<key)
 			x=x->list[i];
 		update[i]=x;
 	}
 	x=x->list[1];
-
 	if(key<list->start) list->start=key;
 	if(key>list->end) list->end=key;
 	
@@ -104,14 +108,20 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
 	return x;
 }
 
-snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef){
+snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef){	
+	if(key>RANGE){
+		printf("bad page read\n");
+		exit(1);
+	}
 	snode *update[MAX_L+1];
 	snode *x=list->header;
+
 	for(int i=list->level; i>=1; i--){
 		while(x->list[i]->key<key)
 			x=x->list[i];
 		update[i]=x;
 	}
+
 	x=x->list[1];
 	if(key<list->start) list->start=key;
 	if(key>list->end) list->end=key;

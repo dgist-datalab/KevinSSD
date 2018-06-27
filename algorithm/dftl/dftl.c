@@ -43,7 +43,7 @@ pthread_mutex_t on_mutex;
  */
 uint32_t demand_create(lower_info *li, algorithm *algo){
 	// Table Allocation
-	CMT = (C_TABLE*)malloc(CMTSIZE);
+	CMT = (C_TABLE*)malloc(sizeof(C_TABLE) * CMTENT);
 	demand_OOB = (D_OOB*)malloc(sizeof(D_OOB) * _NOP);
 	d_sram = (D_SRAM*)malloc(sizeof(D_SRAM) * _PPB);
 	mem_all = (mem_table*)malloc(sizeof(mem_table) * MAXTPAGENUM);
@@ -53,6 +53,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	// CMT, SRAM, OOB initialization
 	for(int i = 0; i < CMTENT; i++){
 		CMT[i].t_ppa = -1;
+		CMT[i].idx = i;
 		CMT[i].p_table = NULL;
 		CMT[i].flag = 0;
 		CMT[i].on = 0;
@@ -63,7 +64,8 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 		d_sram[i].OOB_RAM = (D_OOB){-1, 0};
 	}
 	for(int i = 0; i < _NOP; i++){
-		demand_OOB[i] = (D_OOB){-1, 0};
+		demand_OOB[i].reverse_table = -1;
+		demand_OOB[i].valid_checker = 0;
 	}
 	for(int i = 0; i < MAXTPAGENUM; i++){
 		mem_all[i].mem_p = (D_TABLE*)malloc(PAGESIZE);
@@ -224,7 +226,8 @@ uint32_t __demand_set(request *const req){
 	}
 	ppa = dp_alloc(); // Allocate data page
 	p_table[P_IDX].ppa = ppa; // Page table update
-	demand_OOB[ppa] = (D_OOB){lpa, 1}; // Update OOB
+	demand_OOB[ppa].reverse_table = lpa;
+	demand_OOB[ppa].valid_checker = 1;
 	my_req = assign_pseudo_req(DATA_W, NULL, req);
 	bench_algo_end(req);
 	__demand.li->push_data(ppa, PAGESIZE, req->value, ASYNC, my_req); // Write actual data in ppa
@@ -458,6 +461,7 @@ uint32_t demand_eviction(){
 				}
 			}
 			demand_OOB[t_ppa].valid_checker = 0;
+			printf("tppa: %d\n", t_ppa);
 			free(params);
 			free(temp_req);
 			inf_free_valueset(temp_value_set, FS_MALLOC_R);
@@ -466,7 +470,8 @@ uint32_t demand_eviction(){
 		t_ppa = tp_alloc();
 		temp_value_set = inf_get_valueset((PTR)(p_table), FS_MALLOC_W, PAGESIZE);
 		__demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(MAPPING_W, temp_value_set, NULL));
-		demand_OOB[t_ppa] = (D_OOB){(int32_t)(cache_ptr - CMT), 1}; // Update OOB
+		demand_OOB[t_ppa].reverse_table = cache_ptr->idx;
+		demand_OOB[t_ppa].valid_checker = 1;
 		cache_ptr->t_ppa = t_ppa; // Update CMT t_ppa
 		cache_ptr->flag = 0;
 	}

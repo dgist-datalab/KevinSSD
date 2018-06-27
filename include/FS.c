@@ -11,11 +11,17 @@ int F_malloc(void **ptr, int size,int rw){
 	dmatag=memio_info.lower_alloc(rw,(char**)ptr);
 #else
 	(*ptr)=malloc(size);
-#endif
+#endif	
+	if(rw==FS_MALLOC_R){
+	//	printf("alloc tag:%d\n",dmatag);
+	}
 	return dmatag;
 }
 
 void F_free(void *ptr,int tag,int rw){
+	if(rw==FS_MALLOC_R){
+	//	printf("free tag:%d\n",tag);
+	}
 #ifdef bdbm_drv
 	memio_info.lower_free(rw,tag);
 #else 
