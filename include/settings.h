@@ -8,16 +8,30 @@
 #define T (1024L*G)
 #define P (1024L*T)
 
-#define TOTALSIZE (16L*G)
+#ifdef MLC
+
+#define TOTALSIZE (300L*G)
 #define REALSIZE (512L*G)
 #define PAGESIZE (8*K)
 #define _PPB (256)
 #define _PPS (1<<14)
+
+#elif defined(SLC)
+
+#define TOTALSIZE (200L*G)
+#define REALSIZE (256L*G)
+#define PAGESIZE (8*K)
+#define _PPB (128)
+#define _PPS (1<<14)
+
+#endif
+
 #define BLOCKSIZE (_PPB*PAGESIZE)
 #define _NOB (TOTALSIZE/BLOCKSIZE)
 #define _NOP (TOTALSIZE/PAGESIZE)
 #define _NOS (TOTALSIZE/(_PPS*PAGESIZE))
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
+#define RANGE (200*128*1024)
 
 #define BPS ((_PPS)/_PPB)
 

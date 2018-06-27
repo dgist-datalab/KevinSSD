@@ -381,7 +381,8 @@ void pm_init(){
 	printf("from : %d ",start);
 	pm_a_init(&header_m,HEADERSEG*BPS,&start,false);
 	printf("to : %d (header # of seg:%d)\n",start,HEADERSEG);
-	printf("from : %d ",start);
+
+	printf("from : %d ",start);	
 #ifdef DVALUE
 	pm_a_init(&block_m,BLOCKSEG*BPS,&start,false);
 	printf("to : %d (block # of seg:%d)\n",start,BLOCKSEG);

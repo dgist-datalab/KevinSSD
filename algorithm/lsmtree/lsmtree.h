@@ -52,6 +52,8 @@ typedef struct htable_t{
 typedef struct lsm_params{
 	pthread_mutex_t lock;
 	uint8_t lsm_type;
+	KEYT ppa;
+	PTR test;
 	PTR* target;
 	value_set* value;
 	PTR htable_ptr;
@@ -91,7 +93,7 @@ keyset* htable_find(keyset*, KEYT target);
 htable *htable_copy(htable *);
 htable *htable_assign();
 void htable_free(htable*);
-void htable_print(htable*);
+void htable_print(htable*,KEYT);
 void lsm_save(lsmtree *);
 lsmtree* lsm_load();
 #endif

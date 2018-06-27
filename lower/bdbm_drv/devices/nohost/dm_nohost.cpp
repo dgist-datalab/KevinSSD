@@ -76,7 +76,7 @@ struct timespec reqtime;
 
 //koo
 #define DMASIZE (64*(1024/8))
-#define METANUM 128
+#define METANUM 0
 typedef enum {
 	UNINIT,
 	ERASED,
