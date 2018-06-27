@@ -309,7 +309,7 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 		p_table = mem_alloc();
 		memcpy(p_table, req->value->value, PAGESIZE);
 		CMT[D_IDX].p_table = p_table;
-		CMT[D_IDX].queue_ptr = lru_push(lru, (void*)(CMT + D_IDX)); // Update CMT queue
+		CMT[D_IDX].queue_ptr = lru_push(lru, (void*)(CMT + D_IDX));
 		CMT[D_IDX].flag = 0; // Set flag in CMT (mapping unchanged)
 		tpage_onram_num++;
 	}
@@ -326,7 +326,7 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 		}
 	}
 	ppa = p_table[P_IDX].ppa;
-	lru_update(lru, CMT[D_IDX].queue_ptr); // Update CMT queue
+	lru_update(lru, CMT[D_IDX].queue_ptr);
 	if(ppa == -1){ // No mapping in t_page on cache
 		bench_algo_end(req);
 		return UINT32_MAX;
