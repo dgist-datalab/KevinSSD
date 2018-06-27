@@ -1,5 +1,5 @@
-#ifndef __DFTL_LRU__
-#define __DFTL_LRU__
+#ifndef __DFTL_LRU_LIST__
+#define __DFTL_LRU_LIST__
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +15,7 @@ typedef struct __lru{
 	NODE *tail;
 } LRU;
 
+//lru
 void lru_init(LRU**);
 void lru_free(LRU*);
 NODE* lru_push(LRU*, void*);

@@ -19,9 +19,11 @@ bool demand_GC(char btype){
 	if(victim_btype == 'N'){
 		__demand.li->trim_block(PBA2PPA, false);
 		if(btype == 'T'){
+			printf("trim_t_gc\n");
 			TPA_status = PBA2PPA;
 		}
 		else{
+			printf("trim_d_gc\n");
 			DPA_status = PBA2PPA;
 		}
 		return true;
@@ -225,6 +227,8 @@ void dpage_GC(){
 		}
 		else{
 			free(d_sram[i].DATA_RAM);
+			d_sram[i].DATA_RAM = NULL;
+			d_sram[i].OOB_RAM = (D_OOB){-1, 0};
 		}
 	}
 	DPA_status = new_block + real_valid;	// DPA_status update
@@ -283,6 +287,60 @@ int lpa_compare(const void *a, const void *b){
 	else{
 		return 1;
 	}
+}
+
+
+/* tp_alloc
+ * Find allocatable page address for translation page allocation
+ * Guaranteed to search block linearly to find allocatable page address (from 0 to _NOB)
+ * Saves allocatable page address to t_ppa
+ */
+int32_t tp_alloc(){ // Translation page allocation
+	if(TPA_status % _PPB == 0){
+		if(PBA_status == reserved_block){
+			PBA_status++;
+		}
+		if(PBA_status == _NOB){
+			PBA_status %= _NOB;
+			while(!demand_GC('T')){	// Find GC-able t_block and GC
+				PBA_status++;
+			}
+		}
+		else{
+			TPA_status = PBA_status * _PPB;
+		}
+		PBA_status++;
+	}
+	return TPA_status++;
+}
+
+/* dp_alloc
+ * Find allocatable page address for data page allocation
+ * Guaranteed to search block linearly to find allocatable page address (from 0 to _NOB)
+ * Saves allocatable page address to ppa
+ */
+int32_t dp_alloc(){ // Data page allocation
+	if(DPA_status % _PPB == 0){
+		if(PBA_status == reserved_block){
+			PBA_status++;
+		}
+		if(PBA_status == _NOB){
+			/*
+			 영역을 나누면 linear search 불필요
+			 translation block -> using heap
+			 data block -> too much to use linear search, using heap
+			 */
+			PBA_status %= _NOB;
+			while(!demand_GC('D')){	// Find GC-able d_block and GC
+				PBA_status++;
+			}
+		}
+		else{
+			DPA_status = PBA_status * _PPB;
+		}
+		PBA_status++;
+	}
+	return DPA_status++;
 }
 
 /* SRAM_load

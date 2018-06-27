@@ -263,8 +263,8 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 	int32_t t_ppa; // Translation page address
 	D_TABLE* p_table; // Contains page table
 	D_TABLE* src;
-	demand_params *params;
 	algo_req *my_req;
+	demand_params *params;
 
 	/* algo_req allocation, initialization */
 	lpa = req->key;
@@ -280,48 +280,46 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 		/* Load tpage to cache */
 #if ASYNC
 		my_req = assign_pseudo_req(MAPPING_R, NULL, req);
+		bench_algo_end(req);
+		__demand.li->pull_data(t_ppa, PAGESIZE, req->value, ASYNC, my_req);
+		return 1;
 #else
 		my_req = assign_pseudo_req(MAPPING_M, NULL, NULL);
-		params = (demand_params*)my_req->params;
-#endif
-#if ASYNC
-		bench_algo_end(req);
-#endif
-		__demand.li->pull_data(t_ppa, PAGESIZE, req->value, ASYNC, my_req); // Get page table
-#if ASYNC
-		return 1;
-#endif
+		params = (demand_params*)my_req->params; //베ㄹ류셋종류
+		__demand.li->pull_data(t_ppa, PAGESIZE, req->value, ASYNC, my_req);
 		pthread_mutex_lock(&params->dftl_mutex);
 		pthread_mutex_destroy(&params->dftl_mutex);
 		CMT[D_IDX].on = 1;
 		free(params);
 		free(my_req);
+#endif
 	}
 	else if(CMT[D_IDX].on == 2 || CMT[D_IDX].on == 3){
 		bench_cache_hit(req->mark);
 	}
 	/* Cache hit */
-	if(!p_table && CMT[D_IDX].on == 1){
+	if(CMT[D_IDX].on == 1){
 		CMT[D_IDX].on = 2;
-		if(tpage_onram_num == MAXTPAGENUM){
-			demand_eviction();
-		}
-		p_table = mem_alloc();
-		memcpy(p_table, req->value->value, PAGESIZE);
-		CMT[D_IDX].p_table = p_table;
-		CMT[D_IDX].queue_ptr = lru_push(lru, (void*)(CMT + D_IDX));
-		CMT[D_IDX].flag = 0; // Set flag in CMT (mapping unchanged)
-		tpage_onram_num++;
-	}
-	else if(p_table && CMT[D_IDX].on == 1){
-		CMT[D_IDX].on = 2;
-		src = (D_TABLE*)req->value->value;
-		for(int i = 0; i < EPP; i++){
-			if(p_table[i].ppa == -1){
-				p_table[i].ppa = src[i].ppa;
+		if(!p_table){
+			if(tpage_onram_num == MAXTPAGENUM){
+				demand_eviction();
 			}
-			else if(src[i].ppa != -1){
-				demand_OOB[src[i].ppa].valid_checker = 0;
+			p_table = mem_alloc();
+			memcpy(p_table, req->value->value, PAGESIZE);
+			CMT[D_IDX].p_table = p_table;
+			CMT[D_IDX].queue_ptr = lru_push(lru, (void*)(CMT + D_IDX));
+			CMT[D_IDX].flag = 0; // Set flag in CMT (mapping unchanged)
+			tpage_onram_num++;
+		}
+		else{
+			src = (D_TABLE*)req->value->value;
+			for(int i = 0; i < EPP; i++){
+				if(p_table[i].ppa == -1){
+					p_table[i].ppa = src[i].ppa;
+				}
+				else if(src[i].ppa != -1){
+					demand_OOB[src[i].ppa].valid_checker = 0;
+				}
 			}
 		}
 	}
@@ -479,59 +477,6 @@ uint32_t demand_eviction(){
 	lru_delete(lru, victim); // Delete CMT entry in queue
 	mem_free(p_table);
 	return 1;
-}
-
-/* tp_alloc
- * Find allocatable page address for translation page allocation
- * Guaranteed to search block linearly to find allocatable page address (from 0 to _NOB)
- * Saves allocatable page address to t_ppa
- */
-int32_t tp_alloc(){ // Translation page allocation
-	if(TPA_status % _PPB == 0){
-		if(PBA_status == reserved_block){
-			PBA_status++;
-		}
-		if(PBA_status == _NOB){
-			PBA_status %= _NOB;
-			while(!demand_GC('T')){	// Find GC-able t_block and GC
-				PBA_status++;
-			}
-		}
-		else{
-			TPA_status = PBA_status * _PPB;
-		}
-		PBA_status++;
-	}
-	return TPA_status++;
-}
-
-/* dp_alloc
- * Find allocatable page address for data page allocation
- * Guaranteed to search block linearly to find allocatable page address (from 0 to _NOB)
- * Saves allocatable page address to ppa
- */
-int32_t dp_alloc(){ // Data page allocation
-	if(DPA_status % _PPB == 0){
-		if(PBA_status == reserved_block){
-			PBA_status++;
-		}
-		if(PBA_status == _NOB){
-			/*
-			 영역을 나누면 linear search 불필요
-			 translation block -> using heap
-			 data block -> too much to use linear search, using heap
-			 */
-			PBA_status %= _NOB;
-			while(!demand_GC('D')){	// Find GC-able d_block and GC
-				PBA_status++;
-			}
-		}
-		else{
-			DPA_status = PBA_status * _PPB;
-		}
-		PBA_status++;
-	}
-	return DPA_status++;
 }
 
 D_TABLE* mem_alloc(){

@@ -9,7 +9,6 @@
 #include "../../interface/interface.h"
 #include "../../interface/queue.h"
 #include "../../include/container.h"
-#include "../../include/settings.h"
 #include "../../include/dftl_settings.h"
 #include "lru_list.h"
 
