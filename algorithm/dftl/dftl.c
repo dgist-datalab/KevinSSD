@@ -223,8 +223,6 @@ uint32_t __demand_set(request *const req){
 	if(p_table){ /* Cache hit */
 		if(!c_table->flag){
 			c_table->flag = 1; // Set flag to 1
-			VBM[c_table->t_ppa] = 0; // Invalidate tpage in flash
-			update_b_heap(c_table->t_ppa/_PPB, 'T');
 		}
 		lru_update(lru, c_table->queue_ptr); // Update CMT queue
 	}
@@ -391,6 +389,8 @@ uint32_t demand_eviction(){
 			free(params);
 			free(temp_req);
 			inf_free_valueset(temp_value_set, FS_MALLOC_R);
+			VBM[t_ppa] = 0;
+			update_b_heap(t_ppa/_PPB, 'T');
 		}
 		/* Write translation page */
 		t_ppa = tp_alloc();
