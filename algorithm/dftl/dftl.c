@@ -367,89 +367,6 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 	return 1;
 }
 
-/* demand_remove
- * Find page address that req want, erase mapping data, invalidate data page
- * Search cache to find page address mapping
- * If mapping data is on cache, initialize the mapping data
- * If mapping data is not on cache, search translation page
- * If translation page found in flash, load whole page to cache, 
- * whether or not mapping data is on cache search, find translation page and remove mapping data in cache
- * Print Error when there is no such data to erase
- */ 
-uint32_t demand_remove(request *const req){
-	bench_algo_start(req);
-	int32_t lpa;
-	int32_t ppa;
-	int32_t t_ppa;
-	D_TABLE *p_table;
-	value_set *temp_value_set;
-	request *temp_req = NULL;
-
-	lpa = req->key;
-	p_table = CMT[D_IDX].p_table;
-	if(!p_table){
-		if(dftl_q->size == 0){
-			q_enqueue(req, dftl_q);
-			return 0;
-		}
-		else{
-			q_enqueue(req, dftl_q);
-			temp_req = (request*)q_dequeue(dftl_q);
-			lpa = temp_req->key;
-		}
-	}
-	
-	/* algo_req allocation, initialization */
-	algo_req *my_req = (algo_req*)malloc(sizeof(algo_req));
-	if(temp_req){
-		my_req->parents = temp_req;
-	}
-	else{
-		my_req->parents = req;
-	}
-	my_req->end_req = demand_end_req;
-
-	/* Cache hit */
-	if(p_table){
-		ppa = p_table[P_IDX].ppa;
-		demand_OOB[ppa].valid_checker = 0; // Invalidate data page
-		p_table[P_IDX].ppa = -1; // Erase mapping in cache
-		CMT[D_IDX].flag = 1;
-	}
-	/* Cache miss */
-	else{
-		t_ppa = CMT[D_IDX].t_ppa; // Get t_ppa
-		if(t_ppa != -1){
-			if(n_tpage_onram >= MAXTPAGENUM){
-				demand_eviction();
-			}
-			/* Load tpage to cache */
-			p_table = mem_alloc();
-			CMT[D_IDX].p_table = p_table;
-			temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
-			__demand.li->pull_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(MAPPING_R, temp_value_set, req));
-			memcpy(p_table, temp_value_set->value, PAGESIZE); // Load page table to CMT
-			inf_free_valueset(temp_value_set, FS_MALLOC_R);
-			CMT[D_IDX].flag = 0;
-			CMT[D_IDX].queue_ptr = lru_push(lru, (void*)(CMT + D_IDX));
-		 	n_tpage_onram++;
-			/* Remove mapping data */
-			ppa = p_table[P_IDX].ppa;
-			if(ppa != -1){
-				demand_OOB[ppa].valid_checker = 0; // Invalidate data page
-				p_table[P_IDX].ppa = -1; // Remove mapping data
-				demand_OOB[t_ppa].valid_checker = 0; // Invalidate tpage on flash
-				CMT[D_IDX].flag = 1; // Set CMT flag 1 (mapping changed)
-			}
-		}
-		if(t_ppa == -1 || ppa == -1){
-			printf("Error : No such data");
-		}
-		bench_algo_end(req);
-	}
-	return 0;
-}
-
 /* demand_eviction
  * Evict one translation page on cache
  * Check there is an empty space in cache
@@ -514,6 +431,90 @@ uint32_t demand_eviction(){
 	lru_delete(lru, victim); // Delete CMT entry in queue
 	mem_free(p_table);
 	return 1;
+}
+
+/* demand_remove
+ * Find page address that req want, erase mapping data, invalidate data page
+ * Search cache to find page address mapping
+ * If mapping data is on cache, initialize the mapping data
+ * If mapping data is not on cache, search translation page
+ * If translation page found in flash, load whole page to cache, 
+ * whether or not mapping data is on cache search, find translation page and remove mapping data in cache
+ * Print Error when there is no such data to erase
+ */ 
+uint32_t demand_remove(request *const req){
+	/*
+	bench_algo_start(req);
+	int32_t lpa;
+	int32_t ppa;
+	int32_t t_ppa;
+	D_TABLE *p_table;
+	value_set *temp_value_set;
+	request *temp_req = NULL;
+
+	lpa = req->key;
+	p_table = CMT[D_IDX].p_table;
+	if(!p_table){
+		if(dftl_q->size == 0){
+			q_enqueue(req, dftl_q);
+			return 0;
+		}
+		else{
+			q_enqueue(req, dftl_q);
+			temp_req = (request*)q_dequeue(dftl_q);
+			lpa = temp_req->key;
+		}
+	}
+	
+	// algo_req allocation, initialization
+	algo_req *my_req = (algo_req*)malloc(sizeof(algo_req));
+	if(temp_req){
+		my_req->parents = temp_req;
+	}
+	else{
+		my_req->parents = req;
+	}
+	my_req->end_req = demand_end_req;
+
+	// Cache hit
+	if(p_table){
+		ppa = p_table[P_IDX].ppa;
+		demand_OOB[ppa].valid_checker = 0; // Invalidate data page
+		p_table[P_IDX].ppa = -1; // Erase mapping in cache
+		CMT[D_IDX].flag = 1;
+	}
+	// Cache miss
+	else{
+		t_ppa = CMT[D_IDX].t_ppa; // Get t_ppa
+		if(t_ppa != -1){
+			if(n_tpage_onram >= MAXTPAGENUM){
+				demand_eviction();
+			}
+			// Load tpage to cache
+			p_table = mem_alloc();
+			CMT[D_IDX].p_table = p_table;
+			temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
+			__demand.li->pull_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(MAPPING_R, temp_value_set, req));
+			memcpy(p_table, temp_value_set->value, PAGESIZE); // Load page table to CMT
+			inf_free_valueset(temp_value_set, FS_MALLOC_R);
+			CMT[D_IDX].flag = 0;
+			CMT[D_IDX].queue_ptr = lru_push(lru, (void*)(CMT + D_IDX));
+		 	n_tpage_onram++;
+			// Remove mapping data
+			ppa = p_table[P_IDX].ppa;
+			if(ppa != -1){
+				demand_OOB[ppa].valid_checker = 0; // Invalidate data page
+				p_table[P_IDX].ppa = -1; // Remove mapping data
+				demand_OOB[t_ppa].valid_checker = 0; // Invalidate tpage on flash
+				CMT[D_IDX].flag = 1; // Set CMT flag 1 (mapping changed)
+			}
+		}
+		if(t_ppa == -1 || ppa == -1){
+			printf("Error : No such data");
+		}
+		bench_algo_end(req);
+	}*/
+	return 0;
 }
 
 D_TABLE* mem_alloc(){

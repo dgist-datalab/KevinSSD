@@ -87,7 +87,6 @@ int32_t dpage_GC(){
 	/* Load valid pages to SRAM */
 	all = 0;
 	victim = (b_node*)heap_get_max(data_b);
-	printf("dgc\n");
 	if(victim->invalid == _PPB){
 		all = 1;
 	}

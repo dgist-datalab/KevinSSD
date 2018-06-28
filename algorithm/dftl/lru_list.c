@@ -2,40 +2,37 @@
 
 void lru_init(LRU** lru){
 	*lru = (LRU*)malloc(sizeof(LRU));
-	(*lru)->head = NULL;
-	(*lru)->tail = NULL;
+	(*lru)->size=0;
+	(*lru)->head = (*lru)->tail = NULL;
 }
 
 void lru_free(LRU* lru){
-	NODE *prev, *now = lru->head;
-	while(now != NULL){
-		prev = now;
-		now = now->next;
-		free(prev);
-	}
+	while(lru_pop(lru)){}
 	free(lru);
 }
 
 NODE* lru_push(LRU* lru, void* table_ptr){
 	NODE *now = (NODE*)malloc(sizeof(NODE));
 	now->DATA = table_ptr;
-	now->next = lru->head;
-	if(lru->head == NULL){
+	now->next = now->prev = NULL;
+	if(lru->size == 0){
 		lru->head = lru->tail = now;
 	}
-	lru->head->prev = now;
-	lru->head = now;
-	now->prev = NULL;
+	else{
+		lru->head->prev = now;
+		now->next = lru->head;
+		lru->head = now;
+	}
+	lru->size++;
 	return now;
 }
 
 void* lru_pop(LRU* lru){
-	NODE *now = lru->tail;
-	void *re = NULL;
-	if(now == NULL){
-		return re;
+	if(!lru->head || lru->size == 0){
+		return NULL;
 	}
-	re = now->DATA;
+	NODE *now = lru->tail;
+	void *re = now->DATA;
 	lru->tail = now->prev;
 	if(lru->tail != NULL){
 		lru->tail->next = NULL;
@@ -45,25 +42,6 @@ void* lru_pop(LRU* lru){
 	}
 	free(now);
 	return re;
-}
-
-void lru_delete(LRU* lru, NODE* now){
-	if(now == NULL){
-		return ;
-	}
-	if(now == lru->head){
-		lru->head = now->next;
-		lru->head->prev = NULL;
-	}
-	else if(now == lru->tail){
-		lru->tail = now->prev;
-		lru->tail->next = NULL;
-	}
-	else{
-		now->prev->next = now->next;
-		now->next->prev = now->prev;
-	}	
-	free(now);
 }
 
 void lru_update(LRU* lru, NODE* now){
@@ -87,28 +65,26 @@ void lru_update(LRU* lru, NODE* now){
 	lru->head = now;
 }
 
-/* Print from head to tail */
-void lru_print(LRU* lru){
-	NODE *now = lru->head;
+void lru_delete(LRU* lru, NODE* now){
 	if(now == NULL){
-		printf("Empty queue!\n");
 		return ;
 	}
-	while (now != NULL){
-		printf("%p\n", now->DATA);
-		now = now->next;
+	if(now == lru->head){
+		lru->head = now->next;
+		if(lru->head != NULL){
+			lru->head->prev = NULL;
+		}
+		else{
+			lru->tail = NULL;
+		}
 	}
-}
-
-/* Print from tail to head */
-void lru_print_back(LRU* lru){
-	NODE *now = lru->tail;
-	if(now == NULL){
-		printf("Empty queue!\n");
-		return ;
+	else if(now == lru->tail){
+		lru->tail = now->prev;
+		lru->tail->next = NULL;
 	}
-	while (now != NULL){
-		printf("%p\n", now->DATA);
-		now = now->prev;
-	}
+	else{
+		now->prev->next = now->next;
+		now->next->prev = now->prev;
+	}	
+	free(now);
 }

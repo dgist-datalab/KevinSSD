@@ -11,6 +11,7 @@ typedef struct __node{
 } NODE;
 
 typedef struct __lru{
+	int size;
 	NODE *head;
 	NODE *tail;
 } LRU;
@@ -19,10 +20,8 @@ typedef struct __lru{
 void lru_init(LRU**);
 void lru_free(LRU*);
 NODE* lru_push(LRU*, void*);
-void lru_delete(LRU*, NODE*);
 void* lru_pop(LRU*);
 void lru_update(LRU*, NODE*);
-void lru_print(LRU*);
-void lru_print_back(LRU*);
+void lru_delete(LRU*, NODE*);
 
 #endif
