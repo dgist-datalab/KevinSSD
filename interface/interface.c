@@ -2,6 +2,7 @@
 #include "../include/container.h"
 #include "../include/FS.h"
 #include "../bench/bench.h"
+#include "../bench/measurement.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -48,7 +49,7 @@ static void assign_req(request* req){
 	}
 
 	if(!req->isAsync){
-		pthread_mutex_lock(&req->async_mutex);
+		pthread_mutex_lock(&req->async_mutex);	
 		pthread_mutex_destroy(&req->async_mutex);
 		free(req);
 	}
@@ -129,6 +130,11 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value){
 	req->lower.isused=false;
 	req->mark=mark;
 #endif
+
+#ifdef CDF
+	measure_init(&req->latency_checker);
+	measure_start(&req->latency_checker);
+#endif
 	switch(type){
 		case FS_GET_T:
 			break;
@@ -167,7 +173,9 @@ bool inf_end_req( request * const req){
 #ifdef SNU_TEST
 #else
 	bench_reap_data(req,mp.li);
+
 #endif
+
 #ifdef DEBUG
 	printf("inf_end_req!\n");
 #endif
@@ -187,7 +195,8 @@ bool inf_end_req( request * const req){
 		}
 	}
 	if(!req->isAsync){
-		pthread_mutex_unlock(&req->async_mutex);
+
+		pthread_mutex_unlock(&req->async_mutex);	
 	}
 	else{
 		free(req);
@@ -239,6 +248,7 @@ void *p_main(void *__input){
 			continue;
 		}
 		inf_req=(request*)_inf_req;
+
 		switch(inf_req->type){
 			case FS_GET_T:
 				mp.algo->get(inf_req);

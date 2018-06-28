@@ -9,6 +9,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <limits.h>
+
+#ifdef SLC
+#include "../../lower/bdbm_drv/bb_checker.h"
+#endif
 //1==invalidxtern
 
 extern algorithm algo_lsm;
@@ -334,6 +338,7 @@ void gc_data_write(KEYT ppa,htable_t *value){
 void pm_a_init(pm *m,KEYT size,KEYT *_idx,bool isblock){
 	KEYT idx=*_idx;
 	if(idx+size+1 > _NOB){
+		//printf("_NOB:%d\n",_NOB);
 		size=_NOB-idx-1;
 	}
 	m->blocks=llog_init();
@@ -377,11 +382,11 @@ void pm_init(){
 	block_init();
 	segs_init();
 	KEYT start=0;
+	//printf("DATASEG: %ld, HEADERSEG: %ld, BLOCKSEG: %ld, BPS:%ld\n",DATASEG,HEADERSEG,BLOCKSEG,BPS);
 	printf("# of seg: %ld\n",_NOS);
 	printf("from : %d ",start);
 	pm_a_init(&header_m,HEADERSEG*BPS,&start,false);
 	printf("to : %d (header # of seg:%d)\n",start,HEADERSEG);
-
 	printf("from : %d ",start);	
 #ifdef DVALUE
 	pm_a_init(&block_m,BLOCKSEG*BPS,&start,false);
@@ -567,9 +572,17 @@ KEYT getPPA(uint8_t type, KEYT lpa,bool isfull){
 	return res;
 }
 
-void invalidate_PPA(KEYT ppa){
-	KEYT bn=ppa/algo_lsm.li->PPB;
-	KEYT idx=ppa%algo_lsm.li->PPB;
+void invalidate_PPA(KEYT _ppa){
+	KEYT ppa,bn,idx;
+#ifdef bdbm_drv
+	ppa=bb_checker_fix_ppa(_ppa);
+	KEYT segnum=ppa/(1<<14);
+	bn=segnum*64+ppa&()
+#else
+	ppa=_ppa;
+	bn=ppa/algo_lsm.li->PPB;
+	idx=ppa%algo_lsm.li->PPB;
+#endif
 
 	bl[bn].bitset[idx/8]|=(1<<(idx%8));
 	bl[bn].invalid_n++;

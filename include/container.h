@@ -39,9 +39,13 @@ struct request {
 	void *params;
 	pthread_mutex_t async_mutex;
 
+	int mark;
+
 	MeasureTime algo;
 	MeasureTime lower;
-	int mark;
+#ifdef CDF
+	MeasureTime latency_checker;
+#endif
 };
 
 struct algo_req{

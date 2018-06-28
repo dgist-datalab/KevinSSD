@@ -1,6 +1,6 @@
 export CC=g++
 
-TARGET_LOWER=bdbm_drv
+TARGET_LOWER=posix
 TARGET_ALGO=lsmtree
 PWD=$(pwd)
 
@@ -12,7 +12,6 @@ export CFLAGS_ALGO=\
 			 -g\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
-			 -DSLC\
 #-DDVALUE\
 
 
@@ -42,6 +41,7 @@ CFLAGS +=\
 		 -D$(TARGET_LOWER)\
 		 -D$(TARGET_ALGO)\
 		 -D_BSD_SOURCE\
+-DCDF\
 -DBENCH\
 
 
