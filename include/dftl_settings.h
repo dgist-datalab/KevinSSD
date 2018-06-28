@@ -19,7 +19,7 @@
 #define NRB 2
 #define NTB_Q (_NOB / EPP) // 몫
 #define NTB_R ((_NOB % EPP != 0) ? 1 : 0) // 나머지
-#define NTB (NTB_Q + NTB_R) // max data mapping
+#define NTB (NTB_Q + NTB_R + 10) // max data mapping
 #define NDB (_NOB - NTB - NRB) // max data block
 #define NDP (NDB * _PPB)
 #define NTP (NTB * _PPB) //Number of Translation Page
