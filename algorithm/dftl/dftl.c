@@ -16,23 +16,19 @@ algorithm __demand = {
  */
 LRU *lru;
 queue *dftl_q;
+f_queue *free_b;
+heap *data_b;
+heap *trans_b;
 
 C_TABLE *CMT; // Cached Mapping Table
 D_OOB *demand_OOB; // Page level OOB
 D_SRAM *d_sram; // SRAM for contain block data temporarily
 mem_table *mem_all;
 
-/*
-k:
-   block 영역 분리를 확실히 할것.
-   reserved block을 하나 둬서 gc block을 trim 한 다음 두개를 교환하는 식으로
-   gc 구현 ****추가로 물어보기-> reserved block을 영역별로 하나씩 두는게 좋을까?
- */
-int32_t DPA_status; // Data page allocation
-int32_t TPA_status; // Translation page allocation
-int32_t PBA_status; // Block allocation
-int32_t tpage_onram_num; // Number of translation page on cache
-int32_t reserved_block; // reserved translation page
+int32_t n_tpage_onram; // Number of translation page on cache
+b_node **block_array;
+b_node *t_reserved;
+b_node *d_reserved;
 
 pthread_mutex_t on_mutex;
 
@@ -73,13 +69,24 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	}
 
 	// global variables initialization
-	DPA_status = 0;
-	TPA_status = 0;
-	PBA_status = 0;
-	tpage_onram_num = 0;
-	reserved_block = _NOB - 1;
+ 	n_tpage_onram = 0;
+	block_array = (b_node**)malloc(_NOB * sizeof(b_node*));
+	for(int i = 0; i < _NOB; i++){
+		b_node *new_block=(b_node*)malloc(sizeof(b_node));
+		new_block->block_idx = i;
+		new_block->invalid = 0;
+		block_array[i] = new_block;
+	}
+	t_reserved = block_array[_NOB - 2];
+	d_reserved = block_array[_NOB - 1];
 
 	q_init(&dftl_q, 1024);
+	initqueue(&free_b);
+	for(int i = 0; i < _NOB - NRB; i++){
+		fb_enqueue(free_b, block_array[i]);
+	}
+	data_b = heap_init(NDB);
+	trans_b = heap_init(NTB);
 	pthread_mutex_init(&on_mutex, NULL);
 	return 0;
 }
@@ -91,11 +98,18 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 void demand_destroy(lower_info *li, algorithm *algo)
 {
 	q_free(dftl_q);
+	freequeue(free_b);
+	heap_free(data_b);
+	heap_free(trans_b);
 	pthread_mutex_destroy(&on_mutex);
 	lru_free(lru);
 	for(int i = 0; i < MAXTPAGENUM; i++){
 		free(mem_all[i].mem_p);
 	}
+	for(int i = 0; i < _NOB; i++){
+		free(block_array[i]);
+	}
+	free(block_array);
 	free(mem_all);
 	free(d_sram);
 	free(demand_OOB);
@@ -198,17 +212,23 @@ uint32_t __demand_set(request *const req){
 	algo_req *my_req;
 
 	lpa = req->key;
+	if(lpa > NDP - 1){
+		printf("range error\n");
+		exit(3);
+	}
 	p_table = CMT[D_IDX].p_table;
 
 	if(p_table){ /* Cache hit */
 		if(!CMT[D_IDX].flag){
 			CMT[D_IDX].flag = 1; // Set flag to 1
 			demand_OOB[CMT[D_IDX].t_ppa].valid_checker = 0; // Invalidate tpage in flash
+			block_array[CMT[D_IDX].t_ppa/_PPB]->invalid++;
+			heap_update_from(trans_b, block_array[CMT[D_IDX].t_ppa/_PPB]->hn_ptr);
 		}
 		lru_update(lru, CMT[D_IDX].queue_ptr); // Update CMT queue
 	}
 	else{ /* Cache miss */
-		if(tpage_onram_num == MAXTPAGENUM){
+		if(n_tpage_onram == MAXTPAGENUM){
 			demand_eviction();
 		}
 		p_table = mem_alloc();
@@ -216,13 +236,15 @@ uint32_t __demand_set(request *const req){
 		CMT[D_IDX].p_table = p_table;
 		CMT[D_IDX].queue_ptr = lru_push(lru, (void*)(CMT + D_IDX)); // Insert current CMT entry to CMT queue
 		CMT[D_IDX].flag = 1; // mapping table changed
-		tpage_onram_num++;
+	 	n_tpage_onram++;
 		if(CMT[D_IDX].t_ppa == -1){
 			CMT[D_IDX].on = 3;
 		}
 	}
 	if(p_table[P_IDX].ppa != -1){
 		demand_OOB[p_table[P_IDX].ppa].valid_checker = 0;
+		block_array[p_table[P_IDX].ppa/_PPB]->invalid++;
+		heap_update_from(data_b, block_array[p_table[P_IDX].ppa/_PPB]->hn_ptr);
 	}
 	ppa = dp_alloc(); // Allocate data page
 	p_table[P_IDX].ppa = ppa; // Page table update
@@ -271,6 +293,10 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 
 	/* algo_req allocation, initialization */
 	lpa = req->key;
+	if(lpa > NDP - 1){
+		printf("range error\n");
+		exit(3);
+	}
 	p_table = CMT[D_IDX].p_table;
 	t_ppa = CMT[D_IDX].t_ppa;
 
@@ -304,7 +330,7 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 	if(CMT[D_IDX].on == 1){
 		CMT[D_IDX].on = 2;
 		if(!p_table){
-			if(tpage_onram_num == MAXTPAGENUM){
+			if(n_tpage_onram == MAXTPAGENUM){
 				demand_eviction();
 			}
 			p_table = mem_alloc();
@@ -312,7 +338,7 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 			CMT[D_IDX].p_table = p_table;
 			CMT[D_IDX].queue_ptr = lru_push(lru, (void*)(CMT + D_IDX));
 			CMT[D_IDX].flag = 0; // Set flag in CMT (mapping unchanged)
-			tpage_onram_num++;
+		 	n_tpage_onram++;
 		}
 		else{
 			src = (D_TABLE*)req->value->value;
@@ -322,6 +348,8 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 				}
 				else if(src[i].ppa != -1){
 					demand_OOB[src[i].ppa].valid_checker = 0;
+					block_array[src[i].ppa/_PPB]->invalid++;
+					heap_update_from(data_b, block_array[src[i].ppa/_PPB]->hn_ptr);
 				}
 			}
 		}
@@ -391,7 +419,7 @@ uint32_t demand_remove(request *const req){
 	else{
 		t_ppa = CMT[D_IDX].t_ppa; // Get t_ppa
 		if(t_ppa != -1){
-			if(tpage_onram_num >= MAXTPAGENUM){
+			if(n_tpage_onram >= MAXTPAGENUM){
 				demand_eviction();
 			}
 			/* Load tpage to cache */
@@ -403,7 +431,7 @@ uint32_t demand_remove(request *const req){
 			inf_free_valueset(temp_value_set, FS_MALLOC_R);
 			CMT[D_IDX].flag = 0;
 			CMT[D_IDX].queue_ptr = lru_push(lru, (void*)(CMT + D_IDX));
-			tpage_onram_num++;
+		 	n_tpage_onram++;
 			/* Remove mapping data */
 			ppa = p_table[P_IDX].ppa;
 			if(ppa != -1){
@@ -458,10 +486,13 @@ uint32_t demand_eviction(){
 				}
 				else if(on_dma[i].ppa != -1){
 					demand_OOB[on_dma[i].ppa].valid_checker = 0;
+					block_array[on_dma[i].ppa/_PPB]->invalid++;
+					heap_update_from(data_b, block_array[on_dma[i].ppa/_PPB]->hn_ptr);
 				}
 			}
 			demand_OOB[t_ppa].valid_checker = 0;
-			printf("tppa: %d\n", t_ppa);
+			block_array[t_ppa/_PPB]->invalid++;
+			heap_update_from(trans_b, block_array[t_ppa/_PPB]->hn_ptr);
 			free(params);
 			free(temp_req);
 			inf_free_valueset(temp_value_set, FS_MALLOC_R);
@@ -478,7 +509,7 @@ uint32_t demand_eviction(){
 	cache_ptr->on = 0;
 	cache_ptr->queue_ptr = NULL;
 	cache_ptr->p_table = NULL;
-	tpage_onram_num--;
+ 	n_tpage_onram--;
 	lru_delete(lru, victim); // Delete CMT entry in queue
 	mem_free(p_table);
 	return 1;

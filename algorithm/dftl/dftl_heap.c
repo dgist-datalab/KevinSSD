@@ -1,14 +1,12 @@
-#include "heap.h"
+#include "heap_q.h"
 
-extern lsmtree LSM;
 void heap_swap(h_node *a, h_node *b){
-	block *ablock=(block*)a->value;
-	block *bblock=(block*)b->value;
-
-	a->value=(void*)bblock;
+	b_node *ablock=(b_node*)a->value;
+	b_node *bblock=(b_node*)b->value;
+	a->value=bblock;
 	bblock->hn_ptr=a;
 	b->value=ablock;
-	block->hn_ptr=b;
+	bblock->hn_ptr=b;
 }
 
 heap *heap_init(int max_size){
@@ -30,30 +28,21 @@ void heap_free(heap *insert){
 }
 
 h_node* heap_insert(heap *h, void *value){
-#ifdef LEVELUSINGHEAP
 	if(h->idx==h->max_size){
 		printf("heap full!\n");
 		exit(1);
 	}
-	//block *bl=(block*)value;
 	h->body[h->idx].value=value;
-	//bl->hn_ptr=&h->body[h->idx];
 	h_node *res=&h->body[h->idx];
-	heap_update_from(h,bl->hn_ptr);
+	heap_update_from(h,res);
 	h->idx++;
 	return res;
-#endif
-	return NULL;
 }
 
 void *heap_get_max(heap *h){
 	void *res=h->body[1].value;
 	heap_delete_from(h, &h->body[1]);
 	return res;
-}
-
-void *heap_check(heap *h){
-	return h->body[1].value;
 }
 
 void heap_update_from(heap *h, h_node *target){
@@ -63,9 +52,9 @@ void heap_update_from(heap *h, h_node *target){
 		if(idx==1)
 			break;
 		h_node *parents=&h->body[idx/2];
-		block *now=(block*)target->value;
-		block *p=(block*)parents->value;
-		if(now->invalid_n > p->invalid_n){
+		b_node *now=(b_node*)target->value;
+		b_node *p=(b_node*)parents->value;
+		if(now->invalid > p->invalid){
 			heap_swap(target,parents);
 			idx=idx/2;
 			target=parents;
@@ -86,27 +75,27 @@ void heap_delete_from(heap *h, h_node *target){
 		left=target->my_idx*2>h->idx-1?NULL:&h->body[target->my_idx*2];
 		right=target->my_idx*2+1>h->idx-1?NULL:&h->body[target->my_idx*2+1];
 
-		block *now=(block*)target->value;
-		block *left_v=left?(block*)left->value:NULL;
-		block *right_v=right?(block*)right->value:NULL;
+		b_node *now=(b_node*)target->value;
+		b_node *left_v=left?(b_node*)left->value:NULL;
+		b_node *right_v=right?(b_node*)right->value:NULL;
 
 		if(left_v==NULL && right_v==NULL) break;
-		if(left_v==NULL && right_v->invalid_n < now->invalid_n) break;
+		if(left_v==NULL && right_v->invalid < now->invalid) break;
 		else if(left_v==NULL){
 			heap_swap(target,right);
 			target=right;
 			continue;
 		}
 
-		if(right_v==NULL && left_v->invalid_n < now->invalid_n) break;
+		if(right_v==NULL && left_v->invalid < now->invalid) break;
 		else if(right_v==NULL){
 			heap_swap(target,left);
 			target=left;
 			continue;
 		}
 
-		if(right_v->invalid_n < now->invalid_n && left_v->invalid_n < now->invalid_n) break;
-		if(right_v->invalid_n <left_v->invalid_n){
+		if(right_v->invalid < now->invalid && left_v->invalid < now->invalid) break;
+		if(right_v->invalid <left_v->invalid){
 			heap_swap(target,left);
 			target=left;
 		}
@@ -116,29 +105,4 @@ void heap_delete_from(heap *h, h_node *target){
 		}
 	}
 }
-void heap_print(heap *h){
-	int idx=1;
-	while(h->body[idx].value){
-		block *temp=(block*)h->body[idx].value;
-		printf("%d ",temp->ppa/(_PPB));
-		idx++;
-	}
-	printf("\n");
-}
 
-void heap_check_debug(heap* h){
-	for(int i=1; i<h->idx; i++){
-		if(h->body[i].value==NULL){
-			printf("??\n");
-		}
-		else{
-			block *bl=(block*)h->body[i].value;
-			if(bl==LSM.disk[0]->now_block){
-				printf("?? hello!\n");
-			}
-			if(bl->level!=2){
-				printf("fuck level at %d ppa:%d\n",i,bl->ppa);
-			}
-		}	
-	}
-}

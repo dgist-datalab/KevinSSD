@@ -11,6 +11,7 @@
 #include "../../include/container.h"
 #include "../../include/dftl_settings.h"
 #include "lru_list.h"
+#include "heap_q.h"
 
 // Page table data structure
 typedef struct demand_mapping_table{
@@ -58,12 +59,14 @@ extern C_TABLE *CMT; // Cached Mapping Table
 extern D_OOB *demand_OOB; // Page level OOB
 extern D_SRAM *d_sram; // SRAM for contain block data temporarily
 
-extern pthread_mutex_t bench_mutex;
+extern f_queue *free_b;
+extern heap *data_b;
+extern heap *trans_b;
 
-extern int32_t DPA_status; // Data page allocation
-extern int32_t TPA_status; // Translation page allocation
-extern int32_t PBA_status; // Block allocation
-extern int32_t reserved_block; // reserved translation page
+extern pthread_mutex_t bench_mutex;
+extern b_node **block_array;
+extern b_node *t_reserved;
+extern b_node *d_reserved;
 /* extern variables */
 
 uint32_t demand_create(lower_info*, algorithm*);
@@ -80,10 +83,8 @@ void cache_show(char* dest);
 D_TABLE* mem_alloc();
 void mem_free(D_TABLE *input);
 
-bool demand_GC(char btype);
-void tpage_GC();
-void dpage_GC();
-char btype_check();
+int32_t tpage_GC();
+int32_t dpage_GC();
 int lpa_compare(const void *a, const void *b);
 int32_t tp_alloc();
 int32_t dp_alloc();

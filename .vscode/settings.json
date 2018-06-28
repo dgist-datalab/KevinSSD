@@ -1,6 +1,18 @@
 {
     "files.associations": {
         "lsm_settings.h": "c",
-        "types.h": "c"
+        "types.h": "c",
+        "array": "c",
+        "deque": "cpp",
+        "vector": "cpp",
+        "functional": "c",
+        "type_traits": "c",
+        "tuple": "c",
+        "utility": "c",
+        "heap_q.h": "c",
+        "initializer_list": "c",
+        "system_error": "c",
+        "*.tcc": "c",
+        "unordered_map": "c"
     }
 }

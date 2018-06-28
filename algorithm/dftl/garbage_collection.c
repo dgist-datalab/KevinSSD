@@ -1,48 +1,5 @@
 #include "dftl.h"
 
-// Check the case when no page be GCed.
-/* demand_GC
- * Determine which GC scheme to be use
- * If victim block is 'N' type, just trim the victim block and return true
- * If req block type is 'T', do tpage_GC and return true
- * If req block type is 'D' and victim block is 'D' type with at least one more invalid pages, do dpage_GC and return true
- * Otherwise, return false
- */
-bool demand_GC(char btype){
-	int32_t PBA2PPA;	// Change PBA to PPA
-	char victim_btype;
-
-	victim_btype = btype_check();
-	PBA2PPA = PBA_status * _PPB;	// Change PBA to PPA
-	/* Case 0 : GC block type 'N' */
-	//printf("GC...\n");
-	if(victim_btype == 'N'){
-		__demand.li->trim_block(PBA2PPA, false);
-		if(btype == 'T'){
-			printf("trim_t_gc\n");
-			TPA_status = PBA2PPA;
-		}
-		else{
-			printf("trim_d_gc\n");
-			DPA_status = PBA2PPA;
-		}
-		return true;
-	}
-
-	if(victim_btype == 'T' && btype == 'T'){
-		//printf("tpage_gc\n");
-		tpage_GC();
-	}
-	else if(victim_btype == 'D' && btype == 'D'){
-		printf("dpage_gc\n");
-		dpage_GC();
-	}
-	else{
-		return false;
-	}
-	return true;
-}
-
 /* Please enhance the full merge algorithm !!! */
 /* tpage_GC
  * Find all translation pages using CMT.t_ppa and GC all of translation blocks
@@ -50,20 +7,31 @@ bool demand_GC(char btype){
  * Move as many as translation pages to one translation block that hold lowest ppa translation page
  * Repeat until no more translation pages remains to move
  */
-void tpage_GC(){
+int32_t tpage_GC(){
 	int32_t old_block;
 	int32_t new_block;
 	int32_t* entry;
+	uint8_t all;
+	b_node *victim;
 	int valid_page_num;
 
-	/* Load valid pages to SRAM 
-	old_block = PBA_status * _PPB; // Convert PBA to PPA
-	new_block = reserved_block * _PPB;
-	reserved_block = PBA_status;*/
-	old_block = TPA_status - _PPB; // Convert PBA to PPA
-	new_block = reserved_block * _PPB;
-	reserved_block = old_block/_PPB;
-	printf("tpage_gc %d %d %d\n", old_block , new_block, reserved_block);
+	/* Load valid pages to SRAM */
+	all = 0;
+	victim = (b_node*)heap_get_max(trans_b);
+	printf("tgc\n");
+	if(victim->invalid == _PPB){
+		all = 1;
+	}
+	victim->hn_ptr = NULL;
+	victim->invalid = 0;
+	old_block = victim->block_idx * _PPB;
+	new_block = t_reserved->block_idx * _PPB;
+	t_reserved->hn_ptr = heap_insert(trans_b, (void*)t_reserved);
+	t_reserved = victim;
+	if(all){
+		__demand.li->trim_block(old_block, false);
+		return new_block;
+	}
 	valid_page_num = 0;
 	entry = (int32_t*)malloc(_PPB * sizeof(int32_t));
 
@@ -74,16 +42,19 @@ void tpage_GC(){
 			SRAM_load(i, valid_page_num++);
 		}
 	}
+
 	/* Manage mapping */
 	for(int i = 0; i < valid_page_num; i++){
 		CMT[entry[i]].t_ppa = new_block + i;
 		SRAM_unload(new_block + i, i);
 	}
-	TPA_status = new_block + valid_page_num;	// TPA_status update
+	// TPA_status update
 	free(entry);
 
 	/* Trim block */
 	__demand.li->trim_block(old_block, false);
+
+	return new_block + valid_page_num;
 }
 
 /* dpage_GC
@@ -95,16 +66,18 @@ void tpage_GC(){
  * 'Batch update' updates mapping datas in one translation page at the same time
  * After managing mapping data, write data pages to victim block
  */
-void dpage_GC(){
+int32_t dpage_GC(){
 	int32_t lpa;
 	int32_t tce; // temp_cache_entry
 	uint8_t dirty; // temp_cache_entry
+	uint8_t all;
 	int32_t t_ppa;
 	int32_t old_block;
 	int32_t new_block;
 	int32_t *origin_ppa;
 	int valid_num;
 	int real_valid;
+	b_node *victim;
 	D_TABLE* p_table; // mapping table in translation page
 	D_TABLE* temp_table;
 	D_TABLE* on_dma;
@@ -113,9 +86,22 @@ void dpage_GC(){
 	value_set *temp_value_set;
 
 	/* Load valid pages to SRAM */
-	old_block = PBA_status * _PPB; // Convert PBA to PPA
-	new_block = reserved_block * _PPB;
-	reserved_block = PBA_status;
+	all = 0;
+	victim = (b_node*)heap_get_max(data_b);
+	printf("dgc\n");
+	if(victim->invalid == _PPB){
+		all = 1;
+	}
+	victim->hn_ptr = NULL;
+	victim->invalid = 0;
+	old_block = victim->block_idx * _PPB;
+	new_block = d_reserved->block_idx * _PPB;
+	d_reserved->hn_ptr = heap_insert(trans_b, (void*)d_reserved);
+	d_reserved = victim;
+	if(all){
+		__demand.li->trim_block(old_block, false);
+		return new_block;
+	}
 	valid_num = 0;
 	real_valid = 0;
 	dirty = 0;
@@ -132,9 +118,6 @@ void dpage_GC(){
 
 	/* Sort pages in SRAM */
 	qsort(d_sram, _PPB, sizeof(D_SRAM), lpa_compare); // Sort valid pages by lpa order
-
-		/* Trim data block */
-	__demand.li->trim_block(old_block, false);
 
 	/* Manage mapping data and write tpages */
 	for(int i = 0; i < valid_num; i++){
@@ -170,9 +153,13 @@ void dpage_GC(){
 				}
 				else if(on_dma[i].ppa != -1){
 					demand_OOB[on_dma[i].ppa].valid_checker = 0;
+					block_array[on_dma[i].ppa/_PPB]->invalid++;
+					heap_update_from(data_b, block_array[on_dma[i].ppa/_PPB]->hn_ptr);
 				}
 			}
 			demand_OOB[t_ppa].valid_checker = 0;
+			block_array[t_ppa/_PPB]->invalid++;
+			heap_update_from(trans_b, block_array[t_ppa/_PPB]->hn_ptr);
 			CMT[D_IDX].flag = 1;
 			CMT[D_IDX].on = 2;
 			free(params);
@@ -198,10 +185,7 @@ void dpage_GC(){
 			free(temp_req);
 			inf_free_valueset(temp_value_set, FS_MALLOC_R);
 		}
-		if(temp_table[P_IDX].ppa != origin_ppa[i]){
-			origin_ppa[i] = -1;
-		}
-		else if(temp_table[P_IDX].ppa != new_block + i){
+		if(temp_table[P_IDX].ppa != new_block + i){
 			temp_table[P_IDX].ppa = new_block + i;
 			if(!dirty){
 				dirty = 1;
@@ -217,6 +201,8 @@ void dpage_GC(){
 		}
 		if(dirty && tce == INT32_MAX){
 			demand_OOB[t_ppa].valid_checker = 0;
+			block_array[t_ppa/_PPB]->invalid++;
+			heap_update_from(trans_b, block_array[t_ppa/_PPB]->hn_ptr);
 			t_ppa = tp_alloc();
 			temp_value_set = inf_get_valueset((PTR)temp_table, FS_MALLOC_W, PAGESIZE); // Make valueset to WRITEMODE
 			__demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(GC_W, temp_value_set, NULL));	// Unload page to ppa
@@ -235,46 +221,16 @@ void dpage_GC(){
 		else{
 			free(d_sram[i].DATA_RAM);
 			d_sram[i].DATA_RAM = NULL;
-			d_sram[i].OOB_RAM = (D_OOB){-1, 0};
+			d_sram[i].OOB_RAM.reverse_table = -1;
+			d_sram[i].OOB_RAM.valid_checker = 0;
 		}
 	}
-	DPA_status = new_block + real_valid;	// DPA_status update
+
 	free(origin_ppa);
 	free(temp_table);
-
-
-}
-
-/* btype_check
- * Determine a type of block
- * If there are only invalid pages, block type is 'N'
- * Else if the block is mapped on GTD, block type is 'T'
- * Else block type is 'D'
- */
-char btype_check(){
-	int32_t PBA2PPA = PBA_status * _PPB; // Convert PBA to PPA
-	int invalid_page_num = 0;
-	for(int i = PBA2PPA; i < PBA2PPA + _PPB; i++){ // Count the number of invalid pages in block
-		if(!demand_OOB[i].valid_checker){
-			invalid_page_num++;
-		}
-	}
-
-	if(invalid_page_num == _PPB){
-		return 'N'; // No valid page in this block
-	}
-
-	if(invalid_page_num == 0){
-		return 'A'; // all valid page in this block
-	}
-
-	for(int i = 0; i < CMTENT; i++){
-		if(CMT[i].t_ppa != -1 && (CMT[i].t_ppa / _PPB) == PBA_status){ // CMT search
-			return 'T'; // Translation block
-		}
-	}
-
-	return 'D'; // Data block
+		/* Trim data block */
+	__demand.li->trim_block(old_block, false);
+	return new_block + real_valid;
 }
 
 /* lpa_compare
@@ -295,25 +251,32 @@ int lpa_compare(const void *a, const void *b){
 	}
 }
 
-
 /* tp_alloc
  * Find allocatable page address for translation page allocation
  * Guaranteed to search block linearly to find allocatable page address (from 0 to _NOB)
  * Saves allocatable page address to t_ppa
  */
-int32_t tp_alloc(){ // Translation page allocation
-	static int check = 0;
-	if(TPA_status % _PPB == 0){
-		if(check == 0){
-			TPA_status = PBA_status * _PPB;
-			check = 1;
-			PBA_status++;
+int32_t tp_alloc(){
+	static int32_t ppa = -1;
+	b_node *block;
+	if(ppa % _PPB == 0){
+		ppa = -1;
+	}
+	if(ppa == -1){
+		if(trans_b->idx == trans_b->max_size){
+			ppa = tpage_GC();
+			return ppa++;
+		}
+		block = fb_dequeue(free_b);
+		if(block){
+			heap_insert(trans_b, (void*)block);
+			ppa = block->block_idx * _PPB;
 		}
 		else{
-			tpage_GC();
+			ppa = tpage_GC();
 		}
 	}
-	return TPA_status++;
+	return ppa++;
 }
 
 /* dp_alloc
@@ -322,27 +285,26 @@ int32_t tp_alloc(){ // Translation page allocation
  * Saves allocatable page address to ppa
  */
 int32_t dp_alloc(){ // Data page allocation
-	if(DPA_status % _PPB == 0){
-		if(PBA_status == reserved_block){
-			PBA_status++;
+	static int32_t ppa = -1;
+	b_node *block;
+	if(ppa % _PPB == 0){
+		ppa = -1;
+	}
+	if(ppa == -1){
+		if(data_b->idx == data_b->max_size){
+			ppa = dpage_GC();
+			return ppa++;
 		}
-		if(PBA_status == _NOB){
-			/*
-			 영역을 나누면 linear search 불필요
-			 translation block -> using heap
-			 data block -> too much to use linear search, using heap
-			 */
-			PBA_status %= _NOB;
-			while(!demand_GC('D')){	// Find GC-able d_block and GC
-				PBA_status++;
-			}
+		block = fb_dequeue(free_b);
+		if(block){
+			heap_insert(data_b, (void*)block);
+			ppa = block->block_idx * _PPB;
 		}
 		else{
-			DPA_status = PBA_status * _PPB;
+			ppa = dpage_GC();
 		}
-		PBA_status++;
 	}
-	return DPA_status++;
+	return ppa++;
 }
 
 /* SRAM_load
@@ -371,7 +333,7 @@ void SRAM_load(int32_t ppa, int idx){
 /* SRAM_unload
  * Write a page and its OOB in ith d_sram to correspond ppa
  */
-void SRAM_unload(int32_t ppa, int idx){
+void SRAM_unload(int32_t ppa, int idx){ //unload시 카운트하게
 	value_set *temp_value_set;
 	temp_value_set = inf_get_valueset((PTR)d_sram[idx].DATA_RAM, FS_MALLOC_W, PAGESIZE); // Make valueset to WRITEMODE
 	__demand.li->push_data(ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(GC_W, temp_value_set, NULL));	// Unload page to ppa
