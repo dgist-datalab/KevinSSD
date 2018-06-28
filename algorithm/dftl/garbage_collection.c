@@ -10,7 +10,6 @@
 int32_t tpage_GC(){
 	int32_t old_block;
 	int32_t new_block;
-	int32_t* entry;
 	uint8_t all;
 	b_node *victim;
 	value_set **temp_set;
@@ -34,7 +33,6 @@ int32_t tpage_GC(){
 	}
 	valid_page_num = 0;
 	gc_load = 0;
-	entry = (int32_t*)malloc(_PPB * sizeof(int32_t));
 	temp_set = (value_set**)malloc(_PPB * sizeof(value_set*));
 
 	/* Load valid pages in block */
@@ -49,17 +47,15 @@ int32_t tpage_GC(){
 
 	for(int i = 0; i < valid_page_num; i++){
 		memcpy(d_sram[i].DATA_RAM, temp_set[i]->value, PAGESIZE);
-		entry[i] = demand_OOB[i].lpa;
 		inf_free_valueset(temp_set[i], FS_MALLOC_R);
 	}
 
 	/* Manage mapping */
 	for(int i = 0; i < valid_page_num; i++){
-		CMT[entry[i]].t_ppa = new_block + i;
+		CMT[d_sram[i].OOB_RAM.lpa].t_ppa = new_block + i;
 		SRAM_unload(new_block + i, i);
 	}
 	// TPA_status update
-	free(entry);
 	free(temp_set);
 
 	/* Trim block */
