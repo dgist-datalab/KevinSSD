@@ -305,6 +305,9 @@ uint32_t lsm_get(request *const req){
 }
 
 uint32_t __lsm_get(request *const req){
+	if(req->mark!=0){
+		printf("key : %d??????\n",req->key);
+	}
 	//static int tt=0;
 	//printf("test:%d %d\n",tt++,req->key);
 	snode *target_node=skiplist_find(LSM.memtable,req->key);//checking in memtable
@@ -347,15 +350,15 @@ uint32_t __lsm_get(request *const req){
 				memcpy(req->value->value,target_node->value,PAGESIZE);
 				free(lsm_req);
 				free(params);
-				bench_algo_end(req);
 				bench_cache_hit(req->mark);
+				bench_algo_end(req);
 				req->end_req(req);
 				return 2;
 			}
 			params->lsm_type=DATAR;
 			req->value->ppa=target_node->ppa;
-			bench_algo_end(req);
 			bench_cache_hit(req->mark);
+			bench_algo_end(req);
 #ifdef DVALUE
 			LSM.li->pull_data(target_node->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
 #else
@@ -371,8 +374,8 @@ uint32_t __lsm_get(request *const req){
 		keyset *target=htable_find(LSM.tempent->t_table->sets,req->key);
 		if(target){
 			params->lsm_type=DATAR;
-			bench_algo_end(req);
 			bench_cache_hit(req->mark);
+			bench_algo_end(req);
 			req->value->ppa=target->ppa;
 #ifdef DVALUE
 			LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);

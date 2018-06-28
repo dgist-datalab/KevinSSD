@@ -10,6 +10,7 @@ typedef struct linktime{
 typedef struct MeasureTime{
 	linktime *header;
 	struct timeval adding;
+	uint64_t micro_time;
 	bool isused;
 	int call;
 	int cnt;

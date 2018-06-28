@@ -12,7 +12,6 @@ export CFLAGS_ALGO=\
 			 -g\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
-			 -DSLC\
 #-DDVALUE\
 
 
@@ -42,6 +41,7 @@ CFLAGS +=\
 		 -D$(TARGET_LOWER)\
 		 -D$(TARGET_ALGO)\
 		 -D_BSD_SOURCE\
+-DCDF\
 -DBENCH\
 
 

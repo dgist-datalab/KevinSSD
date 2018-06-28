@@ -15,25 +15,26 @@
 #define PAGESIZE (8*K)
 #define _PPB (256)
 #define _PPS (1<<14)
+#define BPS ((_PPS)/_PPB)
 
 #elif defined(SLC)
 
-#define TOTALSIZE (128L*M)
+#define TOTALSIZE (16L*G)
 #define REALSIZE (256L*G)
 #define PAGESIZE (8*K)
-#define _PPB (128)
+#define _PPB (256)
 #define _PPS (1<<14)
+#define BPS (64)
 
 #endif
 
 #define BLOCKSIZE (_PPB*PAGESIZE)
-#define _NOB (TOTALSIZE/BLOCKSIZE)
 #define _NOP (TOTALSIZE/PAGESIZE)
 #define _NOS (TOTALSIZE/(_PPS*PAGESIZE))
+#define _NOB (BPS*_NOS)
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
 #define RANGE (100*128*1024L)
 
-#define BPS ((_PPS)/_PPB)
 
 #define FSTYPE uint8_t
 #define KEYT uint32_t

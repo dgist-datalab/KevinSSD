@@ -76,7 +76,9 @@ void bench_lower_r_start(lower_info *);
 void bench_lower_r_end(lower_info *);
 void bench_lower_t(lower_info*);
 void bench_reap_data(request *const,lower_info *);
-
+#ifdef CDF
+void bench_cdf_print(uint64_t, uint8_t istype);
+#endif
 void free_bnech_all();
 void free_bench_one(bench_value *);
 #endif

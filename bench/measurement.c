@@ -63,17 +63,16 @@ void measure_stamp(MeasureTime *m){
 	m->header=m->header->next;
 	free(t);
 }
-/*
+
 void measure_calc(MeasureTime *m){
 	struct timeval res;
 	gettimeofday(&m->header->end,NULL);
 	timersub(&m->header->end,&m->header->start,&res);
-	double num=res.tv_sec+((float)res.tv_usec/1000000);
-	printf("%lf MB/s\n", ((double)(INPUTSIZE*PAGESIZE)/((1024*1024)*num)));
+	m->micro_time=res.tv_sec*1000000+res.tv_usec;
 	linktime *t=m->header;
 	m->header=m->header->next;
 	free(t);
-}*/
+}
 #ifdef DCPP
 void measure_end(MeasureTime *m,std::string input ){
 	char format[200];
