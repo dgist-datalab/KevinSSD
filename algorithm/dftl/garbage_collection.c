@@ -24,8 +24,10 @@ int32_t tpage_GC(){
 	}
 	victim->hn_ptr = NULL;
 	victim->invalid = 0;
+	victim->type = 0;
 	old_block = victim->block_idx * _PPB;
 	new_block = t_reserved->block_idx * _PPB;
+	t_reserved->type = 1;
 	t_reserved->hn_ptr = heap_insert(trans_b, (void*)t_reserved);
 	t_reserved = victim;
 	if(all){
@@ -110,8 +112,10 @@ int32_t dpage_GC(){
 	}
 	victim->hn_ptr = NULL;
 	victim->invalid = 0;
+	victim->type = 0;
 	old_block = victim->block_idx * _PPB;
 	new_block = d_reserved->block_idx * _PPB;
+	d_reserved->type = 2;
 	d_reserved->hn_ptr = heap_insert(data_b, (void*)d_reserved);
 	d_reserved = victim;
 	if(all){
@@ -291,6 +295,7 @@ int32_t tp_alloc(){
 		block = fb_dequeue(free_b);
 		if(block){
 			block->hn_ptr = heap_insert(trans_b, (void*)block);
+			block->type = 1;
 			ppa = block->block_idx * _PPB;
 		}
 		else{
@@ -319,6 +324,7 @@ int32_t dp_alloc(){ // Data page allocation
 		block = fb_dequeue(free_b);
 		if(block){
 			block->hn_ptr = heap_insert(data_b, (void*)block);
+			block->type = 2;
 			ppa = block->block_idx * _PPB;
 		}
 		else{

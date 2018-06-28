@@ -73,6 +73,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 		new_block->block_idx = i;
 		new_block->invalid = 0;
 		new_block->hn_ptr = NULL;
+		new_block->type = 0;
 		block_array[i] = new_block;
 	}
 	t_reserved = block_array[_NOB - 2];
