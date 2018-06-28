@@ -23,7 +23,9 @@
 #define NDB (_NOB - NTB - NRB) // max data block
 #define NDP (NDB * _PPB)
 #define NTP (NTB * _PPB) //Number of Translation Page
-#define CMTENT (_NOP / EPP) // Num of CMT entries
+#define CMTENT_Q (_NOP / EPP) // Num of CMT entries
+#define CMTENT_R ((_NOP % EPP != 0) ? 1 : 0) // 나머지
+#define CMTENT (CMTENT_Q + CMTENT_R) // Num of CMT entries
 #define D_IDX (lpa/EPP)	// Idx of directory table
 #define P_IDX (lpa%EPP)	// Idx of page table
 

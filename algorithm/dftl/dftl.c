@@ -156,12 +156,12 @@ void *demand_end_req(algo_req* input){
 			}
 			break;
 		case MAPPING_R:
-			if(!inf_assign_try(res)){
-				q_enqueue((void*)res, dftl_q);
-			}
 			lpa = res->key;
 			if(!CMT[D_IDX].on){
 				CMT[D_IDX].on = 1;
+			}
+			if(!inf_assign_try(res)){
+				q_enqueue((void*)res, dftl_q);
 			}
 			break;
 		case MAPPING_W:
@@ -387,8 +387,6 @@ uint32_t demand_eviction(){
 			pthread_mutex_lock(&params->dftl_mutex);
 			pthread_mutex_destroy(&params->dftl_mutex);
 			merge_w_origin((D_TABLE*)temp_value_set->value, p_table);
-			VBM[t_ppa] = 0;
-			update_b_heap(t_ppa/_PPB, 'T');
 			free(params);
 			free(temp_req);
 			inf_free_valueset(temp_value_set, FS_MALLOC_R);

@@ -80,11 +80,11 @@ uint32_t demand_set(request *const);
 uint32_t __demand_set(request *const);
 uint32_t demand_remove(request *const);
 uint32_t demand_eviction();
-void cache_show(char* dest);
 void merge_w_origin(D_TABLE *src, D_TABLE *dst);
 void update_b_heap(uint32_t b_idx, char type);
 D_TABLE* mem_alloc();
 void mem_free(D_TABLE *input);
+void cache_show(char* dest);
 
 int32_t tpage_GC();
 int32_t dpage_GC();
