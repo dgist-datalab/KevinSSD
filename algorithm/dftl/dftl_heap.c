@@ -3,10 +3,10 @@
 void heap_swap(h_node *a, h_node *b){
 	b_node *ablock = (b_node*)a->value;
 	b_node *bblock = (b_node*)b->value;
-	a->value = bblock;
+	a->value = (void*)bblock;
 	bblock->hn_ptr = a;
-	b->value = ablock;
-	bblock->hn_ptr = b;
+	b->value = (void*)ablock;
+	ablock->hn_ptr = b;
 }
 
 heap *heap_init(int max_size){
@@ -67,7 +67,7 @@ void heap_update_from(heap *h, h_node *target){
 }
 
 void heap_delete_from(heap *h, h_node *target){
-	h_node *last = &h->body[h->idx-1];
+	h_node *last = &h->body[h->idx - 1];
 	target->value = last->value;
 	last->value = NULL;
 	h->idx--;
