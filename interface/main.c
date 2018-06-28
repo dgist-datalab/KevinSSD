@@ -68,7 +68,7 @@ int main(){/*
 	for(int i=0; i<PAGESIZE;i++){
 		t_value2[i]=rand()%256;
 	}*/
-	bench_add(RANDRW,0,NDP-1,2*NDP);
+	bench_add(RANDRW,0,NDP-1,4*NDP);
 //	bench_add(RANDSET,0,15*1024,15*1024);
 //	bench_add(RANDGET,0,15*1024,15*1024);
 	bench_value *value;

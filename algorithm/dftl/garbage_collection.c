@@ -18,7 +18,6 @@ int32_t tpage_GC(){
 	/* Load valid pages to SRAM */
 	all = 0;
 	victim = (b_node*)heap_get_max(trans_b);
-	printf("tgc\n");
 	if(victim->invalid == _PPB){
 		all = 1;
 	}
@@ -96,7 +95,7 @@ int32_t dpage_GC(){
 	victim->invalid = 0;
 	old_block = victim->block_idx * _PPB;
 	new_block = d_reserved->block_idx * _PPB;
-	d_reserved->hn_ptr = heap_insert(trans_b, (void*)d_reserved);
+	d_reserved->hn_ptr = heap_insert(data_b, (void*)d_reserved);
 	d_reserved = victim;
 	if(all){
 		__demand.li->trim_block(old_block, false);
@@ -269,7 +268,7 @@ int32_t tp_alloc(){
 		}
 		block = fb_dequeue(free_b);
 		if(block){
-			heap_insert(trans_b, (void*)block);
+			block->hn_ptr = heap_insert(trans_b, (void*)block);
 			ppa = block->block_idx * _PPB;
 		}
 		else{
@@ -297,7 +296,7 @@ int32_t dp_alloc(){ // Data page allocation
 		}
 		block = fb_dequeue(free_b);
 		if(block){
-			heap_insert(data_b, (void*)block);
+			block->hn_ptr = heap_insert(data_b, (void*)block);
 			ppa = block->block_idx * _PPB;
 		}
 		else{

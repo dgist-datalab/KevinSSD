@@ -75,6 +75,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 		b_node *new_block=(b_node*)malloc(sizeof(b_node));
 		new_block->block_idx = i;
 		new_block->invalid = 0;
+		new_block->hn_ptr = NULL;
 		block_array[i] = new_block;
 	}
 	t_reserved = block_array[_NOB - 2];
