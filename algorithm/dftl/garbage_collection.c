@@ -163,10 +163,14 @@ int32_t dpage_GC(){
 				d_sram[i].origin_ppa = -1;
 				continue;
 			}
-			if(p_table[P_IDX].ppa != new_block + i){ //ppa가 -1이 아닌지 확인해야될까?
+			if(p_table[P_IDX].ppa != new_block + i){
+				VBM[p_table[P_IDX].ppa] = 0;
+				update_b_heap(p_table[P_IDX].ppa/_PPB, 'D');
 				p_table[P_IDX].ppa = new_block + i; // Cache ppa, flag update
 				if(c_table->flag == 0){
 					c_table->flag = 1;
+					VBM[t_ppa] = 0;
+					update_b_heap(t_ppa/_PPB, 'T');
 				}
 			}
 			continue;
@@ -180,10 +184,7 @@ int32_t dpage_GC(){
 			pthread_mutex_lock(&params->dftl_mutex);
 			pthread_mutex_destroy(&params->dftl_mutex);
 			merge_w_origin((D_TABLE*)temp_value_set->value, p_table);
-			c_table->flag = 1;
 			c_table->on = 2;
-			VBM[t_ppa] = 0;
-			update_b_heap(t_ppa/_PPB, 'T');
 			free(params);
 			free(temp_req);
 			inf_free_valueset(temp_value_set, FS_MALLOC_R);
@@ -191,7 +192,11 @@ int32_t dpage_GC(){
 				d_sram[i].origin_ppa = -1;
 				continue;
 			}
-			p_table[P_IDX].ppa = new_block + i;
+			if(p_table[P_IDX].ppa != new_block + i){
+				VBM[p_table[P_IDX].ppa] = 0;
+				update_b_heap(p_table[P_IDX].ppa/_PPB, 'D');
+				p_table[P_IDX].ppa = new_block + i;
+			}
 			continue;
 		}
 		if(tce == INT32_MAX){
@@ -208,6 +213,8 @@ int32_t dpage_GC(){
 			inf_free_valueset(temp_value_set, FS_MALLOC_R);
 		}
 		if(temp_table[P_IDX].ppa != new_block + i){
+			VBM[temp_table[P_IDX].ppa] = 0;
+			update_b_heap(temp_table[P_IDX].ppa/_PPB, 'D');
 			temp_table[P_IDX].ppa = new_block + i;
 			if(!dirty){
 				dirty = 1;
