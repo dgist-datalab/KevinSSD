@@ -197,10 +197,10 @@ int32_t dpage_GC(){
 				}
 			}
 			c_table->on = 2;
-			free(params);
-			free(temp_req);
 			VBM[t_ppa] = 0;
 			update_b_heap(t_ppa/_PPB, 'T');
+			free(params);
+			free(temp_req);
 			inf_free_valueset(temp_value_set, FS_MALLOC_R);
 			if(p_table[P_IDX].ppa != d_sram[i].origin_ppa){
 				d_sram[i].origin_ppa = -1;
@@ -257,7 +257,6 @@ int32_t dpage_GC(){
 			SRAM_unload(d_sram, new_block + real_valid++, i);
 		}
 		else{
-			VBM[i] = 0;
 			free(d_sram[i].DATA_RAM);
 		}
 	}

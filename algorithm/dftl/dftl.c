@@ -44,7 +44,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	demand_OOB = (D_OOB*)malloc(sizeof(D_OOB) * _NOP);
 	VBM = (uint8_t*)malloc(_NOP);
 	mem_all = (mem_table*)malloc(sizeof(mem_table) * MAXTPAGENUM);
-	lru_init(&lru);
+	block_array = (b_node**)malloc(_NOB * sizeof(b_node*));
 	algo->li = li;
 
 	// CMT, SRAM, OOB initialization
@@ -58,7 +58,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	}
 
 	memset(demand_OOB, -1, _NOP * sizeof(D_OOB));
-	memset(VBM, 0, _NOP * sizeof(int32_t));
+	memset(VBM, 0, _NOP);
 
 	for(int i = 0; i < MAXTPAGENUM; i++){
 		mem_all[i].mem_p = (D_TABLE*)malloc(PAGESIZE);
@@ -67,9 +67,8 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 	// global variables initialization
  	n_tpage_onram = 0;
-	block_array = (b_node**)malloc(_NOB * sizeof(b_node*));
 	for(int i = 0; i < _NOB; i++){
-		b_node *new_block=(b_node*)malloc(sizeof(b_node));
+		b_node *new_block = (b_node*)malloc(sizeof(b_node));
 		new_block->block_idx = i;
 		new_block->invalid = 0;
 		new_block->hn_ptr = NULL;
@@ -79,6 +78,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	t_reserved = block_array[_NOB - 2];
 	d_reserved = block_array[_NOB - 1];
 
+	lru_init(&lru);
 	q_init(&dftl_q, 1024);
 	initqueue(&free_b);
 	for(int i = 0; i < _NOB - NRB; i++){
