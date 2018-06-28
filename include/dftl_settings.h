@@ -22,8 +22,8 @@
 #define NTB (NTB_Q + NTB_R) // max data mapping
 #define NDB (_NOB - NTB - NRB) // max data block
 #define NDP (NDB * _PPB)
-#define NTP (_NOP / EPP) //Number of Translation Page
-#define CMTENT NTP // Num of CMT entries
+#define NTP (NTB * _PPB) //Number of Translation Page
+#define CMTENT (_NOP / EPP) // Num of CMT entries
 #define D_IDX (lpa/EPP)	// Idx of directory table
 #define P_IDX (lpa%EPP)	// Idx of page table
 

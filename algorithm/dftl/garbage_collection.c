@@ -264,7 +264,7 @@ int lpa_compare(const void *a, const void *b){
 int32_t tp_alloc(){
 	static int32_t ppa = -1;
 	b_node *block;
-	if(ppa % _PPB == 0){
+	if(ppa != -1 && ppa % _PPB == 0){
 		ppa = -1;
 	}
 	if(ppa == -1){
@@ -292,7 +292,7 @@ int32_t tp_alloc(){
 int32_t dp_alloc(){ // Data page allocation
 	static int32_t ppa = -1;
 	b_node *block;
-	if(ppa % _PPB == 0){
+	if(ppa != -1 && ppa % _PPB == 0){
 		ppa = -1;
 	}
 	if(ppa == -1){
