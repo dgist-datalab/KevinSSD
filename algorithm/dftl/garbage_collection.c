@@ -85,10 +85,10 @@ int32_t tpage_GC(){
  * After managing mapping data, write data pages to victim block
  */
 int32_t dpage_GC(){
-	int32_t lpa;
-	int32_t tce; // temp_cache_entry
 	uint8_t dirty; // temp_cache_entry
 	uint8_t all;
+	int32_t lpa;
+	int32_t tce; // temp_cache_entry
 	int32_t t_ppa;
 	int32_t old_block;
 	int32_t new_block;
@@ -199,6 +199,8 @@ int32_t dpage_GC(){
 			c_table->on = 2;
 			free(params);
 			free(temp_req);
+			VBM[t_ppa] = 0;
+			update_b_heap(t_ppa/_PPB, 'T');
 			inf_free_valueset(temp_value_set, FS_MALLOC_R);
 			if(p_table[P_IDX].ppa != d_sram[i].origin_ppa){
 				d_sram[i].origin_ppa = -1;
