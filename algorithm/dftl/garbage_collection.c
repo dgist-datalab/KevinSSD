@@ -95,8 +95,9 @@ int32_t dpage_GC(){
 	int valid_num;
 	int real_valid;
 	b_node *victim;
-	C_TABLE *c_table;
+	C_TABLE *c_table;i
 	D_TABLE* p_table; // mapping table in translation page
+	D_TABLE* on_dma;
 	D_TABLE* temp_table;
 	D_SRAM *d_sram; // SRAM for contain block data temporarily
 	algo_req *temp_req;
@@ -183,7 +184,18 @@ int32_t dpage_GC(){
 			__demand.li->pull_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req);
 			pthread_mutex_lock(&params->dftl_mutex);
 			pthread_mutex_destroy(&params->dftl_mutex);
-			merge_w_origin((D_TABLE*)temp_value_set->value, p_table);
+			on_dma = (D_TABLE*)temp_value_set->value;
+			for(int i = 0; i < EPP; i++){
+				if(p_table[i].ppa == -1){
+					p_table[i].ppa = on_dma[i].ppa;
+				}
+				else if(on_dma[i].ppa != -1){
+					if(on_dma[i].ppa/_PPB != d_reserved->block_idx){
+						VBM[on_dma[i].ppa] = 0;
+						update_b_heap(on_dma[i].ppa/_PPB, 'D');
+					}
+				}
+			}
 			c_table->on = 2;
 			free(params);
 			free(temp_req);
