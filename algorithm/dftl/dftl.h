@@ -57,7 +57,6 @@ extern algorithm __demand;
 
 extern C_TABLE *CMT; // Cached Mapping Table
 extern D_OOB *demand_OOB; // Page level OOB
-extern D_SRAM *d_sram; // SRAM for contain block data temporarily
 
 extern f_queue *free_b;
 extern heap *data_b;
@@ -92,7 +91,7 @@ int32_t dpage_GC();
 int lpa_compare(const void *a, const void *b);
 int32_t tp_alloc();
 int32_t dp_alloc();
-value_set* SRAM_load(int32_t ppa, int idx);
-void SRAM_unload(int32_t ppa, int idx);
+value_set* SRAM_load(D_SRAM* d_sram, int32_t ppa, int idx);
+void SRAM_unload(D_SRAM* d_sram, int32_t ppa, int idx);
 
 #endif

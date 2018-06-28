@@ -22,7 +22,6 @@ heap *trans_b;
 
 C_TABLE *CMT; // Cached Mapping Table
 D_OOB *demand_OOB; // Page level OOB
-D_SRAM *d_sram; // SRAM for contain block data temporarily
 uint8_t *VBM;
 mem_table *mem_all;
 
@@ -43,7 +42,6 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	// Table Allocation
 	CMT = (C_TABLE*)malloc(sizeof(C_TABLE) * CMTENT);
 	demand_OOB = (D_OOB*)malloc(sizeof(D_OOB) * _NOP);
-	d_sram = (D_SRAM*)malloc(sizeof(D_SRAM) * _PPB);
 	VBM = (uint8_t*)malloc(_NOP);
 	mem_all = (mem_table*)malloc(sizeof(mem_table) * MAXTPAGENUM);
 	lru_init(&lru);
@@ -58,11 +56,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 		CMT[i].on = 0;
 		CMT[i].queue_ptr = NULL;
 	}
-	for(int i = 0; i < _PPB; i++){
-	    d_sram[i].DATA_RAM = NULL;
-		d_sram[i].OOB_RAM.lpa= -1;
-		d_sram[i].origin_ppa = -1;
-	}
+
 	memset(demand_OOB, -1, _NOP * sizeof(int32_t));
 	memset(VBM, 0, _NOP * sizeof(int32_t));
 
@@ -116,7 +110,6 @@ void demand_destroy(lower_info *li, algorithm *algo)
 	free(block_array);
 	free(VBM);
 	free(mem_all);
-	free(d_sram);
 	free(demand_OOB);
 	free(CMT);
 }
@@ -232,7 +225,7 @@ uint32_t __demand_set(request *const req){
 			VBM[c_table->t_ppa] = 0; // Invalidate tpage in flash
 			update_b_heap(c_table->t_ppa/_PPB, 'T');
 		}
-		lru_update(lru, CMT[D_IDX].queue_ptr); // Update CMT queue
+		lru_update(lru, c_table->queue_ptr); // Update CMT queue
 	}
 	else{ /* Cache miss */
 		if(n_tpage_onram == MAXTPAGENUM){

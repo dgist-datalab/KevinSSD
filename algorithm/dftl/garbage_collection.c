@@ -14,6 +14,7 @@ int32_t tpage_GC(){
 	int valid_page_num;
 	b_node *victim;
 	value_set **temp_set;
+	D_SRAM *d_sram; // SRAM for contain block data temporarily
 
 	/* Load valid pages to SRAM */
 	all = 0;
@@ -33,12 +34,19 @@ int32_t tpage_GC(){
 	}
 	valid_page_num = 0;
 	gc_load = 0;
+	d_sram = (D_SRAM*)malloc(sizeof(D_SRAM) * _PPB);
 	temp_set = (value_set**)malloc(_PPB * sizeof(value_set*));
+
+	for(int i = 0; i < _PPB; i++){
+	    d_sram[i].DATA_RAM = NULL;
+		d_sram[i].OOB_RAM.lpa= -1;
+		d_sram[i].origin_ppa = -1;
+	}
 
 	/* Load valid pages in block */
 	for(int i = old_block; i < old_block + _PPB; i++){
 		if(VBM[i]){
-			temp_set[valid_page_num] = SRAM_load(i, valid_page_num);
+			temp_set[valid_page_num] = SRAM_load(d_sram, i, valid_page_num);
 			valid_page_num++;
 		}
 	}
@@ -53,10 +61,11 @@ int32_t tpage_GC(){
 	/* Manage mapping */
 	for(int i = 0; i < valid_page_num; i++){
 		CMT[d_sram[i].OOB_RAM.lpa].t_ppa = new_block + i;
-		SRAM_unload(new_block + i, i);
+		SRAM_unload(d_sram, new_block + i, i);
 	}
 	// TPA_status update
 	free(temp_set);
+	free(d_sram);
 
 	/* Trim block */
 	__demand.li->trim_block(old_block, false);
@@ -87,6 +96,7 @@ int32_t dpage_GC(){
 	C_TABLE *c_table;
 	D_TABLE* p_table; // mapping table in translation page
 	D_TABLE* temp_table;
+	D_SRAM *d_sram; // SRAM for contain block data temporarily
 	algo_req *temp_req;
 	demand_params *params;
 	value_set *temp_value_set;
@@ -114,12 +124,19 @@ int32_t dpage_GC(){
 	gc_load = 0;
 	tce = INT32_MAX; // Initial state
 	temp_table = (D_TABLE*)malloc(PAGESIZE);
+	d_sram = (D_SRAM*)malloc(sizeof(D_SRAM) * _PPB);
 	temp_set = (value_set**)malloc(_PPB * sizeof(value_set*));
+
+	for(int i = 0; i < _PPB; i++){
+	    d_sram[i].DATA_RAM = NULL;
+		d_sram[i].OOB_RAM.lpa= INT32_MAX;
+		d_sram[i].origin_ppa = -1;
+	}
 
 	// Load all valid pages in block
 	for(int i = old_block; i < old_block + _PPB; i++){
 		if(VBM[i]){
-			temp_set[valid_num] = SRAM_load(i, valid_num);
+			temp_set[valid_num] = SRAM_load(d_sram, i, valid_num);
 			valid_num++;
 		}
 	}
@@ -157,7 +174,7 @@ int32_t dpage_GC(){
 		/* mem t_ppa merge */
 		if(p_table){
 			temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
-			temp_req = assign_pseudo_req(MAPPING_R, temp_value_set, NULL);
+			temp_req = assign_pseudo_req(MAPPING_M, temp_value_set, NULL);
 			params = (demand_params*)temp_req->params;
 			__demand.li->pull_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req);
 			pthread_mutex_lock(&params->dftl_mutex);
@@ -180,7 +197,7 @@ int32_t dpage_GC(){
 		if(tce == INT32_MAX){
 			tce = D_IDX;
 			temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
-			temp_req = assign_pseudo_req(MAPPING_R, temp_value_set, NULL);
+			temp_req = assign_pseudo_req(MAPPING_M, temp_value_set, NULL);
 			params = (demand_params*)temp_req->params;
 			__demand.li->pull_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req); // Load tpage from GTD[vba].ppa 
 			pthread_mutex_lock(&params->dftl_mutex);
@@ -220,19 +237,17 @@ int32_t dpage_GC(){
 	/* Write dpages */ 
 	for(int i = 0; i < valid_num; i++){
 		if(d_sram[i].origin_ppa != -1){
-			SRAM_unload(new_block + real_valid++, i);
+			SRAM_unload(d_sram, new_block + real_valid++, i);
 		}
 		else{
 			VBM[i] = 0;
 			free(d_sram[i].DATA_RAM);
-			d_sram[i].DATA_RAM = NULL;
-			d_sram[i].OOB_RAM.lpa = -1;
-			d_sram[i].origin_ppa = -1;
 		}
 	}
 
 	free(temp_table);
 	free(temp_set);
+	free(d_sram);
 		/* Trim data block */
 	__demand.li->trim_block(old_block, false);
 	return new_block + real_valid;
@@ -315,7 +330,7 @@ int32_t dp_alloc(){ // Data page allocation
 /* SRAM_load
  * Load a page located at ppa and its OOB to ith d_sram
  */
-value_set* SRAM_load(int32_t ppa, int idx){
+value_set* SRAM_load(D_SRAM* d_sram, int32_t ppa, int idx){
 	value_set *temp_value_set;
 	temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);	// Make valueset to READMODE
 	__demand.li->pull_data(ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(GC_R, NULL, NULL)); // Page load
@@ -330,15 +345,12 @@ value_set* SRAM_load(int32_t ppa, int idx){
 /* SRAM_unload
  * Write a page and its OOB in ith d_sram to correspond ppa
  */
-void SRAM_unload(int32_t ppa, int idx){ //unload시 카운트하게
+void SRAM_unload(D_SRAM* d_sram, int32_t ppa, int idx){ //unload시 카운트하게
 	value_set *temp_value_set;
 	temp_value_set = inf_get_valueset((PTR)d_sram[idx].DATA_RAM, FS_MALLOC_W, PAGESIZE); // Make valueset to WRITEMODE
 	__demand.li->push_data(ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(GC_W, temp_value_set, NULL));	// Unload page to ppa
 	demand_OOB[ppa] = d_sram[idx].OOB_RAM;	// Unload OOB to ppa
 	VBM[ppa] = 1;
 	free(d_sram[idx].DATA_RAM);
-	d_sram[idx].DATA_RAM = NULL;	// SRAM init
-	d_sram[idx].OOB_RAM.lpa = -1;
-	d_sram[idx].origin_ppa = -1;
 }
 
