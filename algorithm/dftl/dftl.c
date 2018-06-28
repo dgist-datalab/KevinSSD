@@ -343,6 +343,8 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 		}
 		else{
 			merge_w_origin((D_TABLE*)req->value->value, p_table);
+			VBM[t_ppa] = 0;
+			update_b_heap(t_ppa/_PPB, 'T');
 		}
 	}
 	ppa = p_table[P_IDX].ppa;
