@@ -511,15 +511,15 @@ void update_b_heap(uint32_t b_idx, char type){
 	block_array[b_idx]->invalid++;
 	if(type == 'T'){
 		if(block_array[b_idx]->type != 1){
-			printf(fuck: %d\n, b_idx);
-			exit(2);
+			printf("fuck: %d\n", b_idx);
+			abort();
 		}
 		heap_update_from(trans_b, block_array[b_idx]->hn_ptr);
 	}
 	else if(type == 'D'){
 		if(block_array[b_idx]->type != 2){
-			printf(fuck: %d\n, b_idx);
-			exit(2);
+			printf("fuck: %d\n", b_idx);
+			abort();
 		}
 		heap_update_from(data_b, block_array[b_idx]->hn_ptr);
 	}
