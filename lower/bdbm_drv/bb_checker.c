@@ -1,34 +1,47 @@
 #include "bb_checker.h"
-#include "frontend/libmemio/libmemio.h"
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifndef TEST
+#include "frontend/libmemio/libmemio.h"
 extern memio_t *mio;
+#endif
 bb_checker checker;
-static uint64_t target_cnt, _cnt;
+static uint64_t target_cnt, _cnt, badblock_cnt;
 uint32_t array[128];
-void bb_checker_fixing();
+
 void bb_checker_start(){
+	printf("hello!\n");
 	memset(&checker,0,sizeof(checker));
 	target_cnt=_RNOS*64;
-	printf("_nos:%d\n",_NOS);
+	printf("_nos:%u\n",_NOS);
 	for(uint64_t i=0; i<_RNOS; i++){
 		checker.ent[i].origin_segnum=i*(1<<14);
+#ifndef TEST
 		memio_trim(mio,i*(1<<14),(1<<14)*PAGESIZE,bb_checker_process);
+#endif
 	}
 	
+#ifndef TEST
 	while(target_cnt!=_cnt){}
-	
+#endif
+
 	printf("\n");
+	printf("badblock_cnt: %d\n",badblock_cnt);
 	bb_checker_fixing();
 	printf("checking done!\n");
+	//exit(1);
 	return;
 }
 
 void *bb_checker_process(uint64_t bad_seg,uint8_t isbad){
-	if(!checker.ent[bad_seg].flag)
+	if(!checker.ent[bad_seg].flag){
 		checker.ent[bad_seg].flag=isbad;
+		if(isbad){
+			badblock_cnt++;
+		}
+	}
 	_cnt++;
 	if(_cnt%10==0){
 		printf("\rbad_block_checking...[%lf%]",(double)_cnt/target_cnt*100);
@@ -47,7 +60,7 @@ KEYT bb_checker_fix_ppa(KEYT ppa){
 	bool shouldchg=false;
 
 	if(page>=4){
-		if(page>=254){
+		if(page>=254 || page <6){
 			page=page-4;
 			shouldchg=true;
 		}else if(page%4<2){
@@ -63,22 +76,27 @@ KEYT bb_checker_fix_ppa(KEYT ppa){
 #endif
 	
 	if(checker.ent[res/_PPS].flag){
-		uint32_t origin_remain=ppa%(_PPS);
-		res=checker.ent[ppa/_PPS].fixed_segnum+origin_remain;
+		uint32_t origin_remain=res%(_PPS);
+		res=checker.ent[res/_PPS].fixed_segnum+origin_remain;
 		return res;
 	}
 	else return res;
 }
 
-void bb_checker_fixing(){
+void bb_checker_fixing(){/*
 	printf("bb list------------\n");
 	for(int i=0; i<_RNOS; i++){
 		if(checker.ent[i].flag){
 			printf("[%d]seg can't used\n",i);
 		}
-	}
+	}*/
+	printf("_RNOS:%d\n",_RNOS);
 	checker.back_index=_RNOS-1;
-	for(int i=0; i<_NOS; i++){
+#ifdef MLC
+	for(int i=0; i<1*_NOS; i++){
+#else
+	for(int i=0; i<2*_NOS; i++){
+#endif
 		if(checker.ent[i].flag){
 			if(i+(_RNOS-checker.back_index)>_RNOS){
 				printf("too many bad segment, please down scale the TOTALSIZE\n");

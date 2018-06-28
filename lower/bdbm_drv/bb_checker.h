@@ -15,5 +15,6 @@ typedef struct badblock_checker{
 
 void bb_checker_start();
 void *bb_checker_process(uint64_t,uint8_t);
+void bb_checker_fixing();
 KEYT bb_checker_fix_ppa(KEYT ppa);
 #endif

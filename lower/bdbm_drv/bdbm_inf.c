@@ -55,6 +55,7 @@ void *memio_info_push_data(KEYT ppa, uint32_t size, value_set *value, bool async
 		exit(1);
 	}
 	bench_lower_w_start(&memio_info);
+	//req->parents->ppa=bb_checker_fix_ppa(ppa);
 	memio_write(mio,bb_checker_fix_ppa(ppa),(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	//memio_write(mio,ppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	bench_lower_w_end(&memio_info);
@@ -67,6 +68,7 @@ void *memio_info_pull_data(KEYT ppa, uint32_t size, value_set *value, bool async
 		exit(1);
 	}
 	bench_lower_r_start(&memio_info);
+	//req->parents->ppa=bb_checker_fix_ppa(ppa);
 	memio_read(mio,bb_checker_fix_ppa(ppa),(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	//memio_read(mio,ppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	bench_lower_r_end(&memio_info);

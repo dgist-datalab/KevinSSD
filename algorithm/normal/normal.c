@@ -50,17 +50,24 @@ uint32_t normal_remove(request *const req){
 //	normal->li->trim_block()
 	return 1;
 }
-
+extern char t_value2[PAGESIZE];
 void *normal_end_req(algo_req* input){
 	normal_params* params=(normal_params*)input->params;
-	static int cnt=0;
+	bool check=false;
+	int cnt=0;
 	request *res=input->parents;
 	if(res->type==FS_GET_T){
-		for(int i=0; i<PAGESIZE; i++){
-			if(res->value->value[i]!='x'){
-				printf("%x\n",res->value->value[i]);
-				printf("cnt:%d\n",cnt++);
+		if(memcmp(res->value->value,t_value2,PAGESIZE)!=0){
+				check=true;
+		}/*
+		for(int i=0; i<PAGESIZE;i++){
+			if(res->value->value[i]!=t_value2[i]){
+				check=true;
+				break;
 			}
+		}*/
+		if(check){
+			printf("%u %u\n",res->key,res->ppa);
 		}
 	}
 	res->end_req(res);

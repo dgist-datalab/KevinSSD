@@ -30,6 +30,7 @@ typedef struct value_set{
 struct request {
 	FSTYPE type;
 	KEYT key;
+	//KEYT ppa;
 	value_set *value;
 	void *upper_req;
 	void *(*upper_end)(void *);

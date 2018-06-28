@@ -120,7 +120,7 @@ void* lsm_end_req(algo_req* const req){
 	PTR target=NULL;
 	htable **t_table=NULL;
 	htable *table=NULL;
-	htable mapinfo;
+	//htable mapinfo;
 #ifdef DVALUE
 	block *bl=NULL;
 #endif
