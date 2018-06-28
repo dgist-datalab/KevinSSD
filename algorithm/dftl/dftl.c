@@ -57,7 +57,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 		CMT[i].queue_ptr = NULL;
 	}
 
-	memset(demand_OOB, -1, _NOP * sizeof(int32_t));
+	memset(demand_OOB, -1, _NOP * sizeof(D_OOB));
 	memset(VBM, 0, _NOP * sizeof(int32_t));
 
 	for(int i = 0; i < MAXTPAGENUM; i++){
@@ -109,8 +109,8 @@ void demand_destroy(lower_info *li, algorithm *algo)
 		free(block_array[i]);
 	}
 	free(block_array);
-	free(VBM);
 	free(mem_all);
+	free(VBM);
 	free(demand_OOB);
 	free(CMT);
 }
@@ -304,6 +304,7 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 	/* Cache miss */
 	if(!c_table->on){
 		if(t_ppa == -1){
+			printf("lpa: %d\n", lpa);
 			bench_algo_end(req);
 			return UINT32_MAX;
 		}
@@ -350,6 +351,7 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 	ppa = p_table[P_IDX].ppa;
 	lru_update(lru, c_table->queue_ptr);
 	if(ppa == -1){ // No mapping in t_page on cache
+		printf("lpa2: %d\n", lpa);
 		bench_algo_end(req);
 		return UINT32_MAX;
 	}
@@ -510,17 +512,17 @@ void merge_w_origin(D_TABLE *src, D_TABLE *dst){
 void update_b_heap(uint32_t b_idx, char type){
 	block_array[b_idx]->invalid++;
 	if(type == 'T'){
-		if(block_array[b_idx]->type != 1){
-			printf("fuck: %d\n", b_idx);
+		/*if(block_array[b_idx]->type != 1){
+			printf("die: %d\n", b_idx);
 			abort();
-		}
+		}*/
 		heap_update_from(trans_b, block_array[b_idx]->hn_ptr);
 	}
 	else if(type == 'D'){
-		if(block_array[b_idx]->type != 2){
-			printf("fuck: %d\n", b_idx);
+		/*if(block_array[b_idx]->type != 2){
+			printf("die: %d\n", b_idx);
 			abort();
-		}
+		}*/
 		heap_update_from(data_b, block_array[b_idx]->hn_ptr);
 	}
 }

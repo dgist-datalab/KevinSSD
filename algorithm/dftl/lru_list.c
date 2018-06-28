@@ -40,6 +40,7 @@ void* lru_pop(LRU* lru){
 	else{
 		lru->head = NULL;
 	}
+	lru->size--;
 	free(now);
 	return re;
 }
@@ -86,5 +87,6 @@ void lru_delete(LRU* lru, NODE* now){
 		now->prev->next = now->next;
 		now->next->prev = now->prev;
 	}	
+	lru->size--;
 	free(now);
 }

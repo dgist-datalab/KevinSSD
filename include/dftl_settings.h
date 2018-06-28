@@ -13,13 +13,13 @@
 // use more space to gain performance improvement or use less space while costs some cache performance
 // Consider!!
 /* Translation page unit DFTL */
-#define MAXTPAGENUM 4 // max number of tpage on ram, Must be changed according to cache size
+#define MAXTPAGENUM 10 // max number of tpage on ram, Must be changed according to cache size
 #define CACHESIZE (MAXTPAGENUM*8*K)
 #define EPP (PAGESIZE / 4) //Number of table entries per page
 #define NRB 2
 #define NTB_Q (_NOB / EPP) // 몫
 #define NTB_R ((_NOB % EPP != 0) ? 1 : 0) // 나머지
-#define NTB (NTB_Q + NTB_R + 10) // max data mapping
+#define NTB ((NTB_Q + NTB_R) * 2) // max data mapping
 #define NDB (_NOB - NTB - NRB) // max data block
 #define NDP (NDB * _PPB)
 #define NTP (NTB * _PPB) //Number of Translation Page
