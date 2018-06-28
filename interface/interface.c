@@ -119,8 +119,12 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value){
 	req->upper_req=NULL;
 	req->type=type;
 	req->key=key;
-	
-	req->value=inf_get_valueset(value->value,req->type,value->length);
+	if(type==FS_DELETE_T){
+		req->value=NULL;
+	}
+	else{
+		req->value=inf_get_valueset(value->value,req->type,value->length);
+	}
 
 	req->end_req=inf_end_req;
 	req->isAsync=ASYNC;
