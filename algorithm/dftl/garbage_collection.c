@@ -171,8 +171,6 @@ int32_t dpage_GC(){
 				p_table[P_IDX].ppa = new_block + i; // Cache ppa, flag update
 				if(c_table->flag == 0){
 					c_table->flag = 1;
-					VBM[t_ppa] = 0;
-					update_b_heap(t_ppa/_PPB, 'T');
 				}
 			}
 			continue;

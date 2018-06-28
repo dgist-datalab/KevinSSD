@@ -348,7 +348,7 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 		}
 	}
 	ppa = p_table[P_IDX].ppa;
-	lru_update(lru, CMT[D_IDX].queue_ptr);
+	lru_update(lru, c_table->queue_ptr);
 	if(ppa == -1){ // No mapping in t_page on cache
 		bench_algo_end(req);
 		return UINT32_MAX;
@@ -510,9 +510,17 @@ void merge_w_origin(D_TABLE *src, D_TABLE *dst){
 void update_b_heap(uint32_t b_idx, char type){
 	block_array[b_idx]->invalid++;
 	if(type == 'T'){
+		if(block_array[b_idx]->type != 1){
+			printf(fuck: %d\n, b_idx);
+			exit(2);
+		}
 		heap_update_from(trans_b, block_array[b_idx]->hn_ptr);
 	}
 	else if(type == 'D'){
+		if(block_array[b_idx]->type != 2){
+			printf(fuck: %d\n, b_idx);
+			exit(2);
+		}
 		heap_update_from(data_b, block_array[b_idx]->hn_ptr);
 	}
 }
