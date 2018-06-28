@@ -294,7 +294,6 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 	int32_t t_ppa; // Translation page address
 	C_TABLE* c_table;
 	D_TABLE* p_table; // Contains page table
-	D_TABLE* src;
 	algo_req *my_req;
 	demand_params *params;
 
