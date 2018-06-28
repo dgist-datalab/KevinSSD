@@ -11,9 +11,9 @@ int32_t tpage_GC(){
 	int32_t old_block;
 	int32_t new_block;
 	uint8_t all;
+	int valid_page_num;
 	b_node *victim;
 	value_set **temp_set;
-	int valid_page_num;
 
 	/* Load valid pages to SRAM */
 	all = 0;
