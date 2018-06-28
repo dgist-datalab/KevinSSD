@@ -23,9 +23,11 @@ heap *trans_b;
 C_TABLE *CMT; // Cached Mapping Table
 D_OOB *demand_OOB; // Page level OOB
 D_SRAM *d_sram; // SRAM for contain block data temporarily
+uint8_t *VBM;
 mem_table *mem_all;
 
 int32_t n_tpage_onram; // Number of translation page on cache
+int32_t gc_load;
 b_node **block_array;
 b_node *t_reserved;
 b_node *d_reserved;
@@ -42,6 +44,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	CMT = (C_TABLE*)malloc(sizeof(C_TABLE) * CMTENT);
 	demand_OOB = (D_OOB*)malloc(sizeof(D_OOB) * _NOP);
 	d_sram = (D_SRAM*)malloc(sizeof(D_SRAM) * _PPB);
+	VBM = (uint8_t*)malloc(_NOP);
 	mem_all = (mem_table*)malloc(sizeof(mem_table) * MAXTPAGENUM);
 	lru_init(&lru);
 	algo->li = li;
@@ -57,12 +60,12 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	}
 	for(int i = 0; i < _PPB; i++){
 	    d_sram[i].DATA_RAM = NULL;
-		d_sram[i].OOB_RAM = (D_OOB){-1, 0};
+		d_sram[i].OOB_RAM.lpa= -1;
+		d_sram[i].origin_ppa = -1;
 	}
-	for(int i = 0; i < _NOP; i++){
-		demand_OOB[i].reverse_table = -1;
-		demand_OOB[i].valid_checker = 0;
-	}
+	memset(demand_OOB, -1, _NOP * sizeof(int32_t));
+	memset(VBM, 0, _NOP * sizeof(int32_t));
+
 	for(int i = 0; i < MAXTPAGENUM; i++){
 		mem_all[i].mem_p = (D_TABLE*)malloc(PAGESIZE);
 		mem_all[i].flag = 0;
@@ -111,6 +114,7 @@ void demand_destroy(lower_info *li, algorithm *algo)
 		free(block_array[i]);
 	}
 	free(block_array);
+	free(VBM);
 	free(mem_all);
 	free(d_sram);
 	free(demand_OOB);
@@ -128,7 +132,7 @@ algo_req* assign_pseudo_req(TYPE type, value_set *temp_v, request *req){
 	pseudo_my_req->parents = req;
 	params->type = type;
 	params->value = temp_v;
-	if(type == MAPPING_M || type == GC_R){
+	if(type == MAPPING_M){
 		pthread_mutex_init(&params->dftl_mutex, NULL);
 		pthread_mutex_lock(&params->dftl_mutex);
 	}
@@ -159,7 +163,9 @@ void *demand_end_req(algo_req* input){
 			}
 			break;
 		case MAPPING_R:
-			q_enqueue((void*)res, dftl_q);
+			if(!inf_assign_try(res)){
+				q_enqueue((void*)res, dftl_q);
+			}
 			lpa = res->key;
 			if(!CMT[D_IDX].on){
 				CMT[D_IDX].on = 1;
@@ -173,8 +179,7 @@ void *demand_end_req(algo_req* input){
 			return NULL;
 			break;
 		case GC_R:
-			pthread_mutex_unlock(&params->dftl_mutex);
-			return NULL;
+			gc_load++;	
 			break;
 		case GC_W:
 			inf_free_valueset(temp_v, FS_MALLOC_W);
@@ -209,6 +214,7 @@ uint32_t demand_set(request *const req){
 uint32_t __demand_set(request *const req){
 	int32_t lpa;
 	int32_t ppa;
+	C_TABLE *c_table;
 	D_TABLE *p_table;
 	algo_req *my_req;
 
@@ -217,14 +223,14 @@ uint32_t __demand_set(request *const req){
 		printf("range error\n");
 		exit(3);
 	}
-	p_table = CMT[D_IDX].p_table;
+	c_table = &CMT[D_IDX];
+	p_table = c_table->p_table;
 
 	if(p_table){ /* Cache hit */
-		if(!CMT[D_IDX].flag){
-			CMT[D_IDX].flag = 1; // Set flag to 1
-			demand_OOB[CMT[D_IDX].t_ppa].valid_checker = 0; // Invalidate tpage in flash
-			block_array[CMT[D_IDX].t_ppa/_PPB]->invalid++;
-			heap_update_from(trans_b, block_array[CMT[D_IDX].t_ppa/_PPB]->hn_ptr);
+		if(!c_table->flag){
+			c_table->flag = 1; // Set flag to 1
+			VBM[c_table->t_ppa] = 0; // Invalidate tpage in flash
+			update_b_heap(c_table->t_ppa/_PPB, 'T');
 		}
 		lru_update(lru, CMT[D_IDX].queue_ptr); // Update CMT queue
 	}
@@ -234,23 +240,22 @@ uint32_t __demand_set(request *const req){
 		}
 		p_table = mem_alloc();
 		memset(p_table, -1, PAGESIZE);
-		CMT[D_IDX].p_table = p_table;
-		CMT[D_IDX].queue_ptr = lru_push(lru, (void*)(CMT + D_IDX)); // Insert current CMT entry to CMT queue
-		CMT[D_IDX].flag = 1; // mapping table changed
+		c_table->p_table = p_table;
+		c_table->queue_ptr = lru_push(lru, (void*)c_table); // Insert current CMT entry to CMT queue
+		c_table->flag = 1; // mapping table changed
 	 	n_tpage_onram++;
-		if(CMT[D_IDX].t_ppa == -1){
-			CMT[D_IDX].on = 3;
+		if(c_table->t_ppa == -1){
+			c_table->on = 3;
 		}
 	}
 	if(p_table[P_IDX].ppa != -1){
-		demand_OOB[p_table[P_IDX].ppa].valid_checker = 0;
-		block_array[p_table[P_IDX].ppa/_PPB]->invalid++;
-		heap_update_from(data_b, block_array[p_table[P_IDX].ppa/_PPB]->hn_ptr);
+		VBM[p_table[P_IDX].ppa] = 0;
+		update_b_heap(p_table[P_IDX].ppa/_PPB, 'D');
 	}
 	ppa = dp_alloc(); // Allocate data page
 	p_table[P_IDX].ppa = ppa; // Page table update
-	demand_OOB[ppa].reverse_table = lpa;
-	demand_OOB[ppa].valid_checker = 1;
+	VBM[ppa] = 1;
+	demand_OOB[ppa].lpa = lpa;
 	my_req = assign_pseudo_req(DATA_W, NULL, req);
 	bench_algo_end(req);
 	__demand.li->push_data(ppa, PAGESIZE, req->value, ASYNC, my_req); // Write actual data in ppa
@@ -287,6 +292,7 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 	int32_t lpa; // Logical data page address
 	int32_t ppa; // Physical data page address
 	int32_t t_ppa; // Translation page address
+	C_TABLE* c_table;
 	D_TABLE* p_table; // Contains page table
 	D_TABLE* src;
 	algo_req *my_req;
@@ -294,15 +300,16 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 
 	/* algo_req allocation, initialization */
 	lpa = req->key;
+	c_table = &CMT[D_IDX];
 	if(lpa > NDP - 1){
 		printf("range error\n");
 		exit(3);
 	}
-	p_table = CMT[D_IDX].p_table;
-	t_ppa = CMT[D_IDX].t_ppa;
+	p_table = c_table->p_table;
+	t_ppa = c_table->t_ppa;
 
 	/* Cache miss */
-	if(!CMT[D_IDX].on){
+	if(!c_table->on){
 		if(t_ppa == -1){
 			bench_algo_end(req);
 			return UINT32_MAX;
@@ -315,44 +322,34 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 		return 1;
 #else
 		my_req = assign_pseudo_req(MAPPING_M, NULL, NULL);
-		params = (demand_params*)my_req->params; //베ㄹ류셋종류
+		params = (demand_params*)my_req->params;
 		__demand.li->pull_data(t_ppa, PAGESIZE, req->value, ASYNC, my_req);
 		pthread_mutex_lock(&params->dftl_mutex);
 		pthread_mutex_destroy(&params->dftl_mutex);
-		CMT[D_IDX].on = 1;
+		c_table->on = 1;
 		free(params);
 		free(my_req);
 #endif
 	}
-	else if(CMT[D_IDX].on == 2 || CMT[D_IDX].on == 3){
+	else if(c_table->on == 2 || c_table->on == 3){
 		bench_cache_hit(req->mark);
 	}
 	/* Cache hit */
-	if(CMT[D_IDX].on == 1){
-		CMT[D_IDX].on = 2;
+	if(c_table->on == 1){
+		c_table->on = 2;
 		if(!p_table){
 			if(n_tpage_onram == MAXTPAGENUM){
 				demand_eviction();
 			}
 			p_table = mem_alloc();
 			memcpy(p_table, req->value->value, PAGESIZE);
-			CMT[D_IDX].p_table = p_table;
-			CMT[D_IDX].queue_ptr = lru_push(lru, (void*)(CMT + D_IDX));
-			CMT[D_IDX].flag = 0; // Set flag in CMT (mapping unchanged)
+			c_table->p_table = p_table;
+			c_table->queue_ptr = lru_push(lru, (void*)c_table);
+			c_table->flag = 0;
 		 	n_tpage_onram++;
 		}
 		else{
-			src = (D_TABLE*)req->value->value;
-			for(int i = 0; i < EPP; i++){
-				if(p_table[i].ppa == -1){
-					p_table[i].ppa = src[i].ppa;
-				}
-				else if(src[i].ppa != -1){
-					demand_OOB[src[i].ppa].valid_checker = 0;
-					block_array[src[i].ppa/_PPB]->invalid++;
-					heap_update_from(data_b, block_array[src[i].ppa/_PPB]->hn_ptr);
-				}
-			}
+			merge_w_origin((D_TABLE*)req->value->value, p_table);
 		}
 	}
 	ppa = p_table[P_IDX].ppa;
@@ -378,7 +375,6 @@ uint32_t demand_eviction(){
 	int32_t t_ppa;
 	C_TABLE *cache_ptr; // Hold pointer that points one cache entry
 	D_TABLE *p_table;
-	D_TABLE *on_dma;
 	value_set *temp_value_set;
 	demand_params *params;
 	algo_req *temp_req;
@@ -397,20 +393,9 @@ uint32_t demand_eviction(){
 			__demand.li->pull_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req);
 			pthread_mutex_lock(&params->dftl_mutex);
 			pthread_mutex_destroy(&params->dftl_mutex);
-			on_dma = (D_TABLE*)temp_value_set->value;
-			for(int i = 0; i < EPP; i++){
-				if(p_table[i].ppa == -1){
-					p_table[i].ppa = on_dma[i].ppa;
-				}
-				else if(on_dma[i].ppa != -1){
-					demand_OOB[on_dma[i].ppa].valid_checker = 0;
-					block_array[on_dma[i].ppa/_PPB]->invalid++;
-					heap_update_from(data_b, block_array[on_dma[i].ppa/_PPB]->hn_ptr);
-				}
-			}
-			demand_OOB[t_ppa].valid_checker = 0;
-			block_array[t_ppa/_PPB]->invalid++;
-			heap_update_from(trans_b, block_array[t_ppa/_PPB]->hn_ptr);
+			merge_w_origin((D_TABLE*)temp_value_set->value, p_table);
+			VBM[t_ppa] = 0;
+			update_b_heap(t_ppa/_PPB, 'T');
 			free(params);
 			free(temp_req);
 			inf_free_valueset(temp_value_set, FS_MALLOC_R);
@@ -419,8 +404,8 @@ uint32_t demand_eviction(){
 		t_ppa = tp_alloc();
 		temp_value_set = inf_get_valueset((PTR)(p_table), FS_MALLOC_W, PAGESIZE);
 		__demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(MAPPING_W, temp_value_set, NULL));
-		demand_OOB[t_ppa].reverse_table = cache_ptr->idx;
-		demand_OOB[t_ppa].valid_checker = 1;
+		demand_OOB[t_ppa].lpa = cache_ptr->idx;
+		VBM[t_ppa] = 1;
 		cache_ptr->t_ppa = t_ppa; // Update CMT t_ppa
 		cache_ptr->flag = 0;
 	}
@@ -515,6 +500,28 @@ uint32_t demand_remove(request *const req){
 		bench_algo_end(req);
 	}*/
 	return 0;
+}
+
+void merge_w_origin(D_TABLE *src, D_TABLE *dst){
+	for(int i = 0; i < EPP; i++){
+		if(dst[i].ppa == -1){
+			dst[i].ppa = src[i].ppa;
+		}
+		else if(src[i].ppa != -1){
+			VBM[src[i].ppa] = 0;
+			update_b_heap(src[i].ppa/_PPB, 'D');
+		}
+	}
+}
+
+void update_b_heap(uint32_t b_idx, char type){
+	block_array[b_idx]->invalid++;
+	if(type == 'T'){
+		heap_update_from(trans_b, block_array[b_idx]->hn_ptr);
+	}
+	else if(type == 'D'){
+		heap_update_from(data_b, block_array[b_idx]->hn_ptr);
+	}
 }
 
 D_TABLE* mem_alloc(){

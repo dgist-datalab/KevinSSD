@@ -31,12 +31,12 @@ typedef struct cached_table{
 
 // OOB data structure
 typedef struct demand_OOB{
-	int32_t reverse_table;
-	unsigned char valid_checker; // 0: invalid, 1: valid
+	int32_t lpa;
 } D_OOB;
 
 // SRAM data structure (used to hold pages temporarily when GC)
 typedef struct demand_SRAM{
+	int32_t origin_ppa;
 	D_OOB OOB_RAM;
 	D_TABLE *DATA_RAM;
 } D_SRAM;
@@ -63,6 +63,8 @@ extern f_queue *free_b;
 extern heap *data_b;
 extern heap *trans_b;
 
+extern int32_t gc_load;
+extern uint8_t *VBM;
 extern pthread_mutex_t bench_mutex;
 extern b_node **block_array;
 extern b_node *t_reserved;
@@ -80,6 +82,8 @@ uint32_t __demand_set(request *const);
 uint32_t demand_remove(request *const);
 uint32_t demand_eviction();
 void cache_show(char* dest);
+void merge_w_origin(D_TABLE *src, D_TABLE *dst);
+void update_b_heap(uint32_t b_idx, char type);
 D_TABLE* mem_alloc();
 void mem_free(D_TABLE *input);
 
@@ -88,7 +92,7 @@ int32_t dpage_GC();
 int lpa_compare(const void *a, const void *b);
 int32_t tp_alloc();
 int32_t dp_alloc();
-void SRAM_load(int32_t ppa, int idx);
+value_set* SRAM_load(int32_t ppa, int idx);
 void SRAM_unload(int32_t ppa, int idx);
 
 #endif
