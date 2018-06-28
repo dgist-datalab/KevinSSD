@@ -95,7 +95,7 @@ int32_t dpage_GC(){
 	int valid_num;
 	int real_valid;
 	b_node *victim;
-	C_TABLE *c_table;i
+	C_TABLE *c_table;
 	D_TABLE* p_table; // mapping table in translation page
 	D_TABLE* on_dma;
 	D_TABLE* temp_table;

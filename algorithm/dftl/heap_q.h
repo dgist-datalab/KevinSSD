@@ -12,7 +12,7 @@ typedef struct{
 }h_node;
 
 typedef struct{
-	uint32_t block_idx;
+	int32_t block_idx;
 	uint32_t invalid;
 	h_node *hn_ptr;
 	uint8_t type;
