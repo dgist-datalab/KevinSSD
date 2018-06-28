@@ -50,7 +50,7 @@ static int getLevel(){
 snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
 	if(key>RANGE){
 		printf("bad page read\n");
-		exit(1);
+		return NULL;
 	}
 	snode *update[MAX_L+1];
 	snode *x=list->header;
@@ -111,7 +111,7 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
 snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef){	
 	if(key>RANGE){
 		printf("bad page read\n");
-		exit(1);
+		return NULL;
 	}
 	snode *update[MAX_L+1];
 	snode *x=list->header;

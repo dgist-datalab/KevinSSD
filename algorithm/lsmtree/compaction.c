@@ -421,6 +421,7 @@ void compaction_subprocessing_CMI(skiplist * target,level * t,bool final,KEYT li
 void compaction_subprocessing(skiplist *target,level *t, htable** datas,bool final,bool existIgnore){
 	//wait all header read
 	compaction_sub_wait();
+	snode *check_node;
 	KEYT limit=0;
 	for(int i=0; i<epc_check; i++){//insert htable into target
 		htable *table=datas[i];
@@ -428,10 +429,16 @@ void compaction_subprocessing(skiplist *target,level *t, htable** datas,bool fin
 		for(int j=0; j<KEYNUM; j++){
 			if(table->sets[j].lpa==UINT_MAX) break;
 			if(existIgnore){
-				skiplist_insert_existIgnore(target,table->sets[j].lpa,table->sets[j].ppa,lsm_kv_validcheck(table->bitset,j));
+				check_node=skiplist_insert_existIgnore(target,table->sets[j].lpa,table->sets[j].ppa,lsm_kv_validcheck(table->bitset,j));
 			}
-			else
-				skiplist_insert_wP(target,table->sets[j].lpa,table->sets[j].ppa,lsm_kv_validcheck(table->bitset,j));
+			else{
+				check_node=skiplist_insert_wP(target,table->sets[j].lpa,table->sets[j].ppa,lsm_kv_validcheck(table->bitset,j));
+			}
+			if(check_node==NULL){
+				level_all_print();
+				htable_print(table,0);
+				exit(1);
+			}
 		}
 	}
 	if(final)

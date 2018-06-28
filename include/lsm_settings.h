@@ -7,7 +7,7 @@
 #define RAF 1
 #define LEVELN 7
 #define BLOOM
-//#define MONKEY
+#define MONKEY
 #define PIECE 512
 //#define LEVELUSINGHEAP
 //#define TIERING
