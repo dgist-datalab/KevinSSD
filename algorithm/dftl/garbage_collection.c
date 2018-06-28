@@ -164,8 +164,6 @@ int32_t dpage_GC(){
 				continue;
 			}
 			if(p_table[P_IDX].ppa != new_block + i){
-				VBM[p_table[P_IDX].ppa] = 0;
-				update_b_heap(p_table[P_IDX].ppa/_PPB, 'D');
 				p_table[P_IDX].ppa = new_block + i; // Cache ppa, flag update
 				if(c_table->flag == 0){
 					c_table->flag = 1;
@@ -193,8 +191,6 @@ int32_t dpage_GC(){
 				continue;
 			}
 			if(p_table[P_IDX].ppa != new_block + i){
-				VBM[p_table[P_IDX].ppa] = 0;
-				update_b_heap(p_table[P_IDX].ppa/_PPB, 'D');
 				p_table[P_IDX].ppa = new_block + i;
 			}
 			continue;
@@ -213,8 +209,6 @@ int32_t dpage_GC(){
 			inf_free_valueset(temp_value_set, FS_MALLOC_R);
 		}
 		if(temp_table[P_IDX].ppa != new_block + i){
-			VBM[temp_table[P_IDX].ppa] = 0;
-			update_b_heap(temp_table[P_IDX].ppa/_PPB, 'D');
 			temp_table[P_IDX].ppa = new_block + i;
 			if(!dirty){
 				dirty = 1;
