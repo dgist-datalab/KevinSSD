@@ -39,7 +39,7 @@ int32_t tpage_GC(){
 
 	for(int i = 0; i < _PPB; i++){
 	    d_sram[i].DATA_RAM = NULL;
-		d_sram[i].OOB_RAM.lpa= -1;
+		d_sram[i].OOB_RAM.lpa = -1;
 		d_sram[i].origin_ppa = -1;
 	}
 
@@ -129,7 +129,7 @@ int32_t dpage_GC(){
 
 	for(int i = 0; i < _PPB; i++){
 	    d_sram[i].DATA_RAM = NULL;
-		d_sram[i].OOB_RAM.lpa= INT32_MAX;
+		d_sram[i].OOB_RAM.lpa = -1;
 		d_sram[i].origin_ppa = -1;
 	}
 

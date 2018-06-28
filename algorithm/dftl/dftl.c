@@ -288,7 +288,9 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 	C_TABLE* c_table;
 	D_TABLE* p_table; // Contains page table
 	algo_req *my_req;
+#if !ASYNC
 	demand_params *params;
+#endif
 
 	/* algo_req allocation, initialization */
 	lpa = req->key;
@@ -370,11 +372,10 @@ uint32_t demand_eviction(){
 	value_set *temp_value_set;
 	demand_params *params;
 	algo_req *temp_req;
-	NODE *victim;
 
 	/* Eviction */
-	victim = lru->tail;
-	cache_ptr = (C_TABLE*)(victim->DATA);
+
+	cache_ptr = (C_TABLE*)lru_pop(lru);
 	p_table = cache_ptr->p_table;
 	t_ppa = cache_ptr->t_ppa;
 	if(cache_ptr->flag){ // When t_page on cache has changed
@@ -405,7 +406,6 @@ uint32_t demand_eviction(){
 	cache_ptr->queue_ptr = NULL;
 	cache_ptr->p_table = NULL;
  	n_tpage_onram--;
-	lru_delete(lru, victim); // Delete CMT entry in queue
 	mem_free(p_table);
 	return 1;
 }
