@@ -22,7 +22,7 @@ void bb_checker_start(){
 		memio_trim(mio,i*(1<<14),(1<<14)*PAGESIZE,bb_checker_process);
 #endif
 	}
-	
+
 #ifndef TEST
 	while(target_cnt!=_cnt){}
 #endif
@@ -83,6 +83,20 @@ KEYT bb_checker_fix_ppa(KEYT ppa){
 	else return res;
 }
 
+KEYT bb_checker_fixed_segment(KEYT ppa){
+	KEYT res=ppa/(1<<14);
+	if(checker.ent[res].flag){
+		return checker.ent[res].fixed_segnum;
+	}
+	else
+		return ppa;
+}
+
+KEYT bb_checker_paired_segment(KEYT ppa){
+	KEYT res=bb_checker_fixed_segment(ppa);
+	return bb_checker_fixed_segment(res+_NOS*(1<<14));
+}
+
 void bb_checker_fixing(){/*
 	printf("bb list------------\n");
 	for(int i=0; i<_RNOS; i++){
@@ -110,3 +124,4 @@ void bb_checker_fixing(){/*
 		}
 	}
 }
+

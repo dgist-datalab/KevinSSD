@@ -573,16 +573,16 @@ KEYT getPPA(uint8_t type, KEYT lpa,bool isfull){
 }
 
 void invalidate_PPA(KEYT _ppa){
-	KEYT ppa,bn,idx;
+	KEYT ppa,bn,idx;/*
 #ifdef bdbm_drv
 	ppa=bb_checker_fix_ppa(_ppa);
 	KEYT segnum=ppa/(1<<14);
 	bn=segnum*64+ppa&()
-#else
+#else*/
 	ppa=_ppa;
 	bn=ppa/algo_lsm.li->PPB;
 	idx=ppa%algo_lsm.li->PPB;
-#endif
+//#endif
 
 	bl[bn].bitset[idx/8]|=(1<<(idx%8));
 	bl[bn].invalid_n++;
