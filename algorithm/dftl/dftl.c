@@ -15,23 +15,23 @@ algorithm __demand = {
    1024개씩 한번에 쓰도록.(dynamic)->변수처리
    ppa는 1씩 증가해서 보내도됨.
  */
-LRU *lru;
-queue *dftl_q;
-f_queue *free_b;
-heap *data_b;
-heap *trans_b;
+LRU *lru; // for lru cache
+queue *dftl_q; // for async get
+f_queue *free_b; // block allocate
+heap *data_b; // data block heap
+heap *trans_b; // trans block heap
 
 C_TABLE *CMT; // Cached Mapping Table
-D_OOB *demand_OOB; // Page level OOB
-uint8_t *VBM;
-mem_table *mem_all;
+D_OOB *demand_OOB; // Page OOB
+uint8_t *VBM; // Valid BitMap
+mem_table *mem_all; // 
 
-b_node **block_array;
+b_node **block_array; // array that point all block
 b_node *t_reserved;
 b_node *d_reserved;
 
 int32_t num_caching; // Number of translation page on cache
-int32_t gc_load;
+int32_t gc_load; // gc data load count
 
 int32_t num_page;
 int32_t num_block;
@@ -41,7 +41,7 @@ int32_t num_tblock;
 int32_t num_dpage;
 int32_t num_dblock;
 int32_t max_cache_entry;
-int32_t max_cache;
+int32_t num_max_cache;
 
 /* demand_create
  * Initialize data structures that are used in DFTL
@@ -57,12 +57,12 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	num_dblock = num_block - num_tblock - 2;
 	num_dpage = num_dblock * p_p_b;
 	max_cache_entry = (num_page / EPP) + ((num_page % EPP != 0) ? 1 : 0);
-	max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2;
+	num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2;
 
 	// Table Allocation
 	CMT = (C_TABLE*)malloc(sizeof(C_TABLE) * max_cache_entry);
 	VBM = (uint8_t*)malloc(num_page);
-	mem_all = (mem_table*)malloc(sizeof(mem_table) * max_cache);
+	mem_all = (mem_table*)malloc(sizeof(mem_table) * num_max_cache);
 	block_array = (b_node**)malloc(num_block * sizeof(b_node*));
 	demand_OOB = (D_OOB*)malloc(sizeof(D_OOB) * num_page);
 	algo->li = li;
@@ -80,7 +80,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	memset(VBM, 0, num_page);
 	memset(demand_OOB, -1, num_page * sizeof(D_OOB));
 
-	for(int i = 0; i < max_cache; i++){
+	for(int i = 0; i < num_max_cache; i++){
 		mem_all[i].mem_p = (D_TABLE*)malloc(PAGESIZE);
 		mem_all[i].flag = 0;
 	}
@@ -120,7 +120,7 @@ void demand_destroy(lower_info *li, algorithm *algo)
 	freequeue(free_b);
 	heap_free(data_b);
 	heap_free(trans_b);
-	for(int i = 0; i < max_cache; i++){
+	for(int i = 0; i < num_max_cache; i++){
 		free(mem_all[i].mem_p);
 	}
 	for(int i = 0; i < num_block; i++){
@@ -153,7 +153,7 @@ void *demand_end_req(algo_req* input){
 				res->end_req(res);
 			}
 			break;
-		case MAPPING_R:
+		case MAPPING_R: // only used in  async
 			lpa = res->key;
 			if(!CMT[D_IDX].on){
 				CMT[D_IDX].on = 1;
@@ -224,7 +224,7 @@ uint32_t __demand_set(request *const req){
 		lru_update(lru, c_table->queue_ptr); // Update CMT queue
 	}
 	else{ /* Cache miss */
-		if(num_caching == max_cache){
+		if(num_caching == num_max_cache){
 			demand_eviction();
 		}
 		p_table = mem_alloc();
@@ -329,7 +329,7 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 	if(c_table->on == 1){
 		c_table->on = 2;
 		if(!p_table){
-			if(num_caching == max_cache){
+			if(num_caching == num_max_cache){
 				demand_eviction();
 			}
 			p_table = mem_alloc();

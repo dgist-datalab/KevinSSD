@@ -19,7 +19,7 @@
 
 #elif defined(SLC)
 
-#define TOTALSIZE (2L*G)
+#define TOTALSIZE (100L*G)
 #define REALSIZE (256L*G)
 #define PAGESIZE (8*K)
 #define _PPB (256)
@@ -33,7 +33,7 @@
 #define _NOS (TOTALSIZE/(_PPS*PAGESIZE))
 #define _NOB (BPS*_NOS)
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
-#define RANGE (128*1024L)
+#define RANGE (100*128*1024L)
 
 
 #define FSTYPE uint8_t

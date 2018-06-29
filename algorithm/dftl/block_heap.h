@@ -15,7 +15,7 @@ typedef struct{
 	int32_t block_idx;
 	int32_t invalid;
 	h_node *hn_ptr;
-	uint8_t type;
+	uint8_t type; // 0: free, 1: trans, 2: data
 }b_node;
 
 typedef struct {

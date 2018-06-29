@@ -19,9 +19,10 @@ int32_t tpage_GC(){
 	/* Load valid pages to SRAM */
 	all = 0;
 	victim = (b_node*)heap_get_max(trans_b);
-	if(victim->invalid == p_p_b){
+	if(victim->invalid == p_p_b){ // if all invalid block
 		all = 1;
 	}
+	//exchange block
 	victim->hn_ptr = NULL;
 	victim->invalid = 0;
 	victim->type = 0;
@@ -30,7 +31,7 @@ int32_t tpage_GC(){
 	t_reserved->type = 1;
 	t_reserved->hn_ptr = heap_insert(trans_b, (void*)t_reserved);
 	t_reserved = victim;
-	if(all){
+	if(all){ // if all page is invalid, then just trim and return
 		__demand.li->trim_block(old_block, false);
 		return new_block;
 	}
@@ -45,23 +46,22 @@ int32_t tpage_GC(){
 		d_sram[i].origin_ppa = -1;
 	}
 
-	/* Load valid pages in block */
+	/* read valid pages in block */
 	for(int i = old_block; i < old_block + p_p_b; i++){
-		if(VBM[i]){
+		if(VBM[i]){ // read valid page
 			temp_set[valid_page_num] = SRAM_load(d_sram, i, valid_page_num);
 			valid_page_num++;
 		}
 	}
 
-	while(gc_load != valid_page_num){}
+	while(gc_load != valid_page_num) {}
 
 	for(int i = 0; i < valid_page_num; i++){
 		memcpy(d_sram[i].DATA_RAM, temp_set[i]->value, PAGESIZE);
 		inf_free_valueset(temp_set[i], FS_MALLOC_R);
 	}
 
-	/* Manage mapping */
-	for(int i = 0; i < valid_page_num; i++){
+	for(int i = 0; i < valid_page_num; i++){ // write page into new block
 		CMT[d_sram[i].OOB_RAM.lpa].t_ppa = new_block + i;
 		SRAM_unload(d_sram, new_block + i, i);
 	}
@@ -85,7 +85,6 @@ int32_t tpage_GC(){
  * After managing mapping data, write data pages to victim block
  */
 int32_t dpage_GC(){
-	uint8_t dirty; // temp_cache_entry
 	uint8_t all;
 	int32_t lpa;
 	int32_t tce; // temp_cache_entry
@@ -108,9 +107,10 @@ int32_t dpage_GC(){
 	/* Load valid pages to SRAM */
 	all = 0;
 	victim = (b_node*)heap_get_max(data_b);
-	if(victim->invalid == p_p_b){
+	if(victim->invalid == p_p_b){ // if all invalid block
 		all = 1;
 	}
+	//exchange block
 	victim->hn_ptr = NULL;
 	victim->invalid = 0;
 	victim->type = 0;
@@ -119,13 +119,12 @@ int32_t dpage_GC(){
 	d_reserved->type = 2;
 	d_reserved->hn_ptr = heap_insert(data_b, (void*)d_reserved);
 	d_reserved = victim;
-	if(all){
+	if(all){ // if all page is invalid, then just trim and return
 		__demand.li->trim_block(old_block, false);
 		return new_block;
 	}
 	valid_num = 0;
 	real_valid = 0;
-	dirty = 0;
 	gc_load = 0;
 	tce = INT32_MAX; // Initial state
 	temp_table = (D_TABLE*)malloc(PAGESIZE);
@@ -138,7 +137,7 @@ int32_t dpage_GC(){
 		d_sram[i].origin_ppa = -1;
 	}
 
-	// Load all valid pages in block
+	/* read valid pages in block */
 	for(int i = old_block; i < old_block + p_p_b; i++){
 		if(VBM[i]){
 			temp_set[valid_num] = SRAM_load(d_sram, i, valid_num);
@@ -161,23 +160,20 @@ int32_t dpage_GC(){
 		lpa = d_sram[i].OOB_RAM.lpa; // Get lpa of a page
 		c_table = &CMT[D_IDX];
 		t_ppa = c_table->t_ppa;
-		p_table = c_table->p_table; // Search cache
-		/* 100% cache hit */
-		if(c_table->on){ // Check valid mapping location
+		p_table = c_table->p_table;
+
+		if(c_table->on){ // 100% valid cache
 			if(p_table[P_IDX].ppa != d_sram[i].origin_ppa){
 				d_sram[i].origin_ppa = -1;
 				continue;
 			}
-			if(p_table[P_IDX].ppa != new_block + i){
-				p_table[P_IDX].ppa = new_block + i; // Cache ppa, flag update
-				if(c_table->flag == 0){
-					c_table->flag = 1;
-				}
+			p_table[P_IDX].ppa = new_block + i;
+			if(c_table->flag == 0){
+				c_table->flag = 1;
 			}
 			continue;
 		}
-		/* mem t_ppa merge */
-		if(p_table){
+		if(p_table){ // dirty cache, need merge
 			temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 			temp_req = assign_pseudo_req(MAPPING_M, temp_value_set, NULL);
 			params = (demand_params*)temp_req->params;
@@ -190,6 +186,7 @@ int32_t dpage_GC(){
 					p_table[i].ppa = on_dma[i].ppa;
 				}
 				else if(on_dma[i].ppa != -1){
+					/* !!! if prev ppa was in victim block, then do nothing !!! */
 					if(on_dma[i].ppa/p_p_b != d_reserved->block_idx){
 						VBM[on_dma[i].ppa] = 0;
 						update_b_heap(on_dma[i].ppa/p_p_b, 'D');
@@ -206,17 +203,15 @@ int32_t dpage_GC(){
 				d_sram[i].origin_ppa = -1;
 				continue;
 			}
-			if(p_table[P_IDX].ppa != new_block + i){
-				p_table[P_IDX].ppa = new_block + i;
-			}
+			p_table[P_IDX].ppa = new_block + i;
 			continue;
 		}
-		if(tce == INT32_MAX){
+		if(tce == INT32_MAX){ // read t_page into temp_table
 			tce = D_IDX;
 			temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 			temp_req = assign_pseudo_req(MAPPING_M, temp_value_set, NULL);
 			params = (demand_params*)temp_req->params;
-			__demand.li->pull_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req); // Load tpage from GTD[vba].ppa 
+			__demand.li->pull_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req);
 			pthread_mutex_lock(&params->dftl_mutex);
 			pthread_mutex_destroy(&params->dftl_mutex);
 			memcpy(temp_table, temp_value_set->value, PAGESIZE);
@@ -224,13 +219,8 @@ int32_t dpage_GC(){
 			free(temp_req);
 			inf_free_valueset(temp_value_set, FS_MALLOC_R);
 		}
-		if(temp_table[P_IDX].ppa != new_block + i){
-			temp_table[P_IDX].ppa = new_block + i;
-			if(!dirty){
-				dirty = 1;
-			}
-		}
-		if(i != valid_num -1){
+		temp_table[P_IDX].ppa = new_block + i;
+		if(i != valid_num -1){ // for flush changed t_page.
 			if(tce != d_sram[i + 1].OOB_RAM.lpa/EPP && tce != INT32_MAX){
 				tce = INT32_MAX;
 			}
@@ -238,7 +228,7 @@ int32_t dpage_GC(){
 		else{
 			tce = INT32_MAX;
 		}
-		if(dirty && tce == INT32_MAX){
+		if(tce == INT32_MAX){
 			VBM[t_ppa] = 0;
 			update_b_heap(t_ppa/p_p_b, 'T');
 			t_ppa = tp_alloc();
@@ -247,7 +237,6 @@ int32_t dpage_GC(){
 			demand_OOB[t_ppa].lpa = c_table->idx;
 			VBM[t_ppa] = 1;
 			c_table->t_ppa = t_ppa; // Update CMT t_ppa
-			dirty = 0;
 		}
 	}
 

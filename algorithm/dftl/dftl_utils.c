@@ -6,7 +6,7 @@
  */
 algo_req* assign_pseudo_req(TYPE type, value_set *temp_v, request *req){
 	algo_req *pseudo_my_req = (algo_req*)malloc(sizeof(algo_req));
-	demand_params *params = (demand_params*)malloc(sizeof(demand_params));//allocation
+	demand_params *params = (demand_params*)malloc(sizeof(demand_params));
 	pseudo_my_req->parents = req;
 	params->type = type;
 	params->value = temp_v;
@@ -38,6 +38,10 @@ void mem_free(D_TABLE *input){
 	}
 }
 
+/* merge_w_origin
+ * merge trans table.
+ * if VBM change, than update data heap
+ */
 void merge_w_origin(D_TABLE *src, D_TABLE *dst){
 	for(int i = 0; i < EPP; i++){
 		if(dst[i].ppa == -1){
@@ -50,6 +54,10 @@ void merge_w_origin(D_TABLE *src, D_TABLE *dst){
 	}
 }
 
+/* update_b_heap
+ * increase block's invalid count
+ * update type heap
+ */
 void update_b_heap(uint32_t b_idx, char type){
 	block_array[b_idx]->invalid++;
 	if(type == 'T'){
@@ -87,9 +95,9 @@ int lpa_compare(const void *a, const void *b){
 }
 
 /* tp_alloc
- * Find allocatable page address for translation page allocation
- * Guaranteed to search block linearly to find allocatable page address (from 0 to _NOB)
- * Saves allocatable page address to t_ppa
+ * return valid ppa for translation page
+ * first dequeue but when heap has max_size
+ * block, than call GC func
  */
 int32_t tp_alloc(){
 	static int32_t ppa = -1;
@@ -116,9 +124,9 @@ int32_t tp_alloc(){
 }
 
 /* dp_alloc
- * Find allocatable page address for data page allocation
- * Guaranteed to search block linearly to find allocatable page address (from 0 to _NOB)
- * Saves allocatable page address to ppa
+ * return valid ppa for data page
+ * first dequeue but when heap has max_size
+ * block, than call GC func
  */
 int32_t dp_alloc(){ // Data page allocation
 	static int32_t ppa = -1;
