@@ -8,6 +8,7 @@ algorithm __demand = {
 	.set = demand_set,
 	.remove = demand_remove
 };
+
 /*
    data에 관한 write buffer를 생성
    128개의 channel이라서 128개를 한번에 처리가능
@@ -25,13 +26,22 @@ D_OOB *demand_OOB; // Page level OOB
 uint8_t *VBM;
 mem_table *mem_all;
 
-int32_t n_tpage_onram; // Number of translation page on cache
-int32_t gc_load;
 b_node **block_array;
 b_node *t_reserved;
 b_node *d_reserved;
 
-pthread_mutex_t on_mutex;
+int32_t num_caching; // Number of translation page on cache
+int32_t gc_load;
+
+int32_t num_page;
+int32_t num_block;
+int32_t p_p_b;
+int32_t num_tpage;
+int32_t num_tblock;
+int32_t num_dpage;
+int32_t num_dblock;
+int32_t max_cache_entry;
+int32_t max_cache;
 
 /* demand_create
  * Initialize data structures that are used in DFTL
@@ -39,35 +49,45 @@ pthread_mutex_t on_mutex;
  * Use different code according to DFTL version
  */
 uint32_t demand_create(lower_info *li, algorithm *algo){
+	num_page = _NOP;
+	num_block = _NOS;
+	p_p_b = _PPS;
+	num_tblock = ((num_block / EPP) + ((num_block % EPP != 0) ? 1 : 0)) * 2;
+	num_tpage = num_tblock * p_p_b;
+	num_dblock = num_block - num_tblock - 2;
+	num_dpage = num_dblock * p_p_b;
+	max_cache_entry = (num_page / EPP) + ((num_page % EPP != 0) ? 1 : 0);
+	max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2;
+
 	// Table Allocation
-	CMT = (C_TABLE*)malloc(sizeof(C_TABLE) * CMTENT);
-	demand_OOB = (D_OOB*)malloc(sizeof(D_OOB) * _NOP);
-	VBM = (uint8_t*)malloc(_NOP);
-	mem_all = (mem_table*)malloc(sizeof(mem_table) * MAXTPAGENUM);
-	block_array = (b_node**)malloc(_NOB * sizeof(b_node*));
+	CMT = (C_TABLE*)malloc(sizeof(C_TABLE) * max_cache_entry);
+	VBM = (uint8_t*)malloc(num_page);
+	mem_all = (mem_table*)malloc(sizeof(mem_table) * max_cache);
+	block_array = (b_node**)malloc(num_block * sizeof(b_node*));
+	demand_OOB = (D_OOB*)malloc(sizeof(D_OOB) * num_page);
 	algo->li = li;
 
 	// CMT, SRAM, OOB initialization
-	for(int i = 0; i < CMTENT; i++){
+	for(int i = 0; i < max_cache_entry; i++){
 		CMT[i].t_ppa = -1;
 		CMT[i].idx = i;
 		CMT[i].p_table = NULL;
+		CMT[i].queue_ptr = NULL;
 		CMT[i].flag = 0;
 		CMT[i].on = 0;
-		CMT[i].queue_ptr = NULL;
 	}
 
-	memset(demand_OOB, -1, _NOP * sizeof(D_OOB));
-	memset(VBM, 0, _NOP);
+	memset(VBM, 0, num_page);
+	memset(demand_OOB, -1, num_page * sizeof(D_OOB));
 
-	for(int i = 0; i < MAXTPAGENUM; i++){
+	for(int i = 0; i < max_cache; i++){
 		mem_all[i].mem_p = (D_TABLE*)malloc(PAGESIZE);
 		mem_all[i].flag = 0;
 	}
 
 	// global variables initialization
- 	n_tpage_onram = 0;
-	for(int i = 0; i < _NOB; i++){
+ 	num_caching = 0;
+	for(int i = 0; i < num_block; i++){
 		b_node *new_block = (b_node*)malloc(sizeof(b_node));
 		new_block->block_idx = i;
 		new_block->invalid = 0;
@@ -75,18 +95,17 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 		new_block->type = 0;
 		block_array[i] = new_block;
 	}
-	t_reserved = block_array[_NOB - 2];
-	d_reserved = block_array[_NOB - 1];
+	t_reserved = block_array[num_block - 2];
+	d_reserved = block_array[num_block - 1];
 
 	lru_init(&lru);
 	q_init(&dftl_q, 1024);
 	initqueue(&free_b);
-	for(int i = 0; i < _NOB - NRB; i++){
-		fb_enqueue(free_b, block_array[i]);
+	for(int i = 0; i < num_block - 2; i++){
+		fb_enqueue(free_b, (void*)block_array[i]);
 	}
-	data_b = heap_init(NDB);
-	trans_b = heap_init(NTB);
-	pthread_mutex_init(&on_mutex, NULL);
+	data_b = heap_init(num_dblock);
+	trans_b = heap_init(num_tblock);
 	return 0;
 }
 
@@ -97,15 +116,14 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 void demand_destroy(lower_info *li, algorithm *algo)
 {
 	q_free(dftl_q);
+	lru_free(lru);
 	freequeue(free_b);
 	heap_free(data_b);
 	heap_free(trans_b);
-	pthread_mutex_destroy(&on_mutex);
-	lru_free(lru);
-	for(int i = 0; i < MAXTPAGENUM; i++){
+	for(int i = 0; i < max_cache; i++){
 		free(mem_all[i].mem_p);
 	}
-	for(int i = 0; i < _NOB; i++){
+	for(int i = 0; i < num_block; i++){
 		free(block_array[i]);
 	}
 	free(block_array);
@@ -114,27 +132,6 @@ void demand_destroy(lower_info *li, algorithm *algo)
 	free(demand_OOB);
 	free(CMT);
 }
-
-/* assign_pseudo_req
- * Make pseudo_my_req
- * psudo_my_req is req from algorithm, not from the interface
- */
-
-algo_req* assign_pseudo_req(TYPE type, value_set *temp_v, request *req){
-	algo_req *pseudo_my_req = (algo_req*)malloc(sizeof(algo_req));
-	demand_params *params = (demand_params*)malloc(sizeof(demand_params));//allocation
-	pseudo_my_req->parents = req;
-	params->type = type;
-	params->value = temp_v;
-	if(type == MAPPING_M){
-		pthread_mutex_init(&params->dftl_mutex, NULL);
-		pthread_mutex_lock(&params->dftl_mutex);
-	}
-	pseudo_my_req->end_req = demand_end_req;
-	pseudo_my_req->params = (void*)params;
-	return pseudo_my_req;
-}
-
 
 /* demand_end_req
  * Free my_req from interface level
@@ -213,7 +210,7 @@ uint32_t __demand_set(request *const req){
 	algo_req *my_req;
 
 	lpa = req->key;
-	if(lpa > NDP - 1){
+	if(lpa > num_dpage - 1){
 		printf("range error\n");
 		exit(3);
 	}
@@ -227,7 +224,7 @@ uint32_t __demand_set(request *const req){
 		lru_update(lru, c_table->queue_ptr); // Update CMT queue
 	}
 	else{ /* Cache miss */
-		if(n_tpage_onram == MAXTPAGENUM){
+		if(num_caching == max_cache){
 			demand_eviction();
 		}
 		p_table = mem_alloc();
@@ -235,14 +232,14 @@ uint32_t __demand_set(request *const req){
 		c_table->p_table = p_table;
 		c_table->queue_ptr = lru_push(lru, (void*)c_table); // Insert current CMT entry to CMT queue
 		c_table->flag = 1; // mapping table changed
-	 	n_tpage_onram++;
+	 	num_caching++;
 		if(c_table->t_ppa == -1){
 			c_table->on = 3;
 		}
 	}
 	if(p_table[P_IDX].ppa != -1){
 		VBM[p_table[P_IDX].ppa] = 0;
-		update_b_heap(p_table[P_IDX].ppa/_PPB, 'D');
+		update_b_heap(p_table[P_IDX].ppa/p_p_b, 'D');
 	}
 	ppa = dp_alloc(); // Allocate data page
 	p_table[P_IDX].ppa = ppa; // Page table update
@@ -294,7 +291,7 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 	/* algo_req allocation, initialization */
 	lpa = req->key;
 	c_table = &CMT[D_IDX];
-	if(lpa > NDP - 1){
+	if(lpa > num_dpage - 1){
 		printf("range error\n");
 		exit(3);
 	}
@@ -332,7 +329,7 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 	if(c_table->on == 1){
 		c_table->on = 2;
 		if(!p_table){
-			if(n_tpage_onram == MAXTPAGENUM){
+			if(num_caching == max_cache){
 				demand_eviction();
 			}
 			p_table = mem_alloc();
@@ -340,12 +337,12 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 			c_table->p_table = p_table;
 			c_table->queue_ptr = lru_push(lru, (void*)c_table);
 			c_table->flag = 0;
-		 	n_tpage_onram++;
+		 	num_caching++;
 		}
 		else{
 			merge_w_origin((D_TABLE*)req->value->value, p_table);
 			VBM[t_ppa] = 0;
-			update_b_heap(t_ppa/_PPB, 'T');
+			update_b_heap(t_ppa/p_p_b, 'T');
 		}
 	}
 	ppa = p_table[P_IDX].ppa;
@@ -394,7 +391,7 @@ uint32_t demand_eviction(){
 			free(temp_req);
 			inf_free_valueset(temp_value_set, FS_MALLOC_R);
 			VBM[t_ppa] = 0;
-			update_b_heap(t_ppa/_PPB, 'T');
+			update_b_heap(t_ppa/p_p_b, 'T');
 		}
 		/* Write translation page */
 		t_ppa = tp_alloc();
@@ -408,7 +405,7 @@ uint32_t demand_eviction(){
 	cache_ptr->on = 0;
 	cache_ptr->queue_ptr = NULL;
 	cache_ptr->p_table = NULL;
- 	n_tpage_onram--;
+ 	num_caching--;
 	mem_free(p_table);
 	return 1;
 }
@@ -495,64 +492,4 @@ uint32_t demand_remove(request *const req){
 		bench_algo_end(req);
 	}*/
 	return 0;
-}
-
-void merge_w_origin(D_TABLE *src, D_TABLE *dst){
-	for(int i = 0; i < EPP; i++){
-		if(dst[i].ppa == -1){
-			dst[i].ppa = src[i].ppa;
-		}
-		else if(src[i].ppa != -1){
-			VBM[src[i].ppa] = 0;
-			update_b_heap(src[i].ppa/_PPB, 'D');
-		}
-	}
-}
-
-void update_b_heap(uint32_t b_idx, char type){
-	block_array[b_idx]->invalid++;
-	if(type == 'T'){
-		/*if(block_array[b_idx]->type != 1){
-			printf("die: %d\n", b_idx);
-			abort();
-		}*/
-		heap_update_from(trans_b, block_array[b_idx]->hn_ptr);
-	}
-	else if(type == 'D'){
-		/*if(block_array[b_idx]->type != 2){
-			printf("die: %d\n", b_idx);
-			abort();
-		}*/
-		heap_update_from(data_b, block_array[b_idx]->hn_ptr);
-	}
-}
-
-D_TABLE* mem_alloc(){
-	for(int i = 0; i < MAXTPAGENUM; i++){
-		if(mem_all[i].flag == 0){
-			mem_all[i].flag = 1;
-			return mem_all[i].mem_p;
-		}
-	}
-	return NULL;
-}
-
-void mem_free(D_TABLE *input){
-	for(int i = 0; i < MAXTPAGENUM; i++){
-		if(mem_all[i].mem_p == input){
-			mem_all[i].flag = 0;
-			return ;
-		}
-	}
-}
-
-/* Print page_table that exist in d_idx */
-void cache_show(char* dest){
-	int parse = 16;
-	for(int i = 0; i < EPP; i++){
-		printf("%d ", ((D_TABLE*)dest)[i].ppa);
-		if((i % parse) == parse - 1){
-			printf("\n");
-		}
-	}
 }

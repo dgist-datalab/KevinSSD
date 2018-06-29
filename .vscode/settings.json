@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "settings.h": "c",
+        "queue.h": "c",
+        "system_error": "c"
+    }
+}

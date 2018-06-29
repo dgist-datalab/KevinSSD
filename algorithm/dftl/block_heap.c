@@ -1,4 +1,4 @@
-#include "heap_q.h"
+#include "block_heap.h"
 
 void heap_swap(h_node *a, h_node *b){
 	b_node *ablock = (b_node*)a->value;
@@ -111,3 +111,12 @@ void heap_delete_from(heap *h, h_node *target){
 	}
 }
 
+void heap_print(heap *h){
+	int idx=1;
+	while(h->body[idx].value){
+		b_node *temp=(b_node*)h->body[idx].value;
+		printf("%d ", temp->block_idx);
+		idx++;
+	}
+	printf("\n");
+}
