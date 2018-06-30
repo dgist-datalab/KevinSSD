@@ -16,6 +16,11 @@ extern struct algorithm algo_pbase;
 #ifdef lsmtree
 extern struct algorithm algo_lsm;
 #endif
+#ifdef posix_async
+extern struct lower_info my_posix;
+#else
+extern struct lower_info my_posix;
+#endif
 
 #ifdef bdbm_drv
 extern struct lower_info memio_info;
@@ -90,6 +95,9 @@ void inf_init(){
 #endif
 #ifdef bdbm_drv
 	mp.li=&memio_info;
+#endif
+#ifdef posix_async
+	mp.li=&my_posix;
 #endif
 
 

@@ -165,14 +165,14 @@ void *demand_end_req(algo_req* input){
 				res->end_req(res);
 			}
 			break;
-		case MAPPING_R: // only used in  async
+		case MAPPING_R: // only used in async
 			lpa = res->key;
 			if(!CMT[D_IDX].on){
 				CMT[D_IDX].on = 1;
 			}
-			if(!inf_assign_try(res)){
+			//if(!inf_assign_try(res)){
 				q_enqueue((void*)res, dftl_q);
-			}
+			//}
 			break;
 		case MAPPING_W:
 			inf_free_valueset(temp_v, FS_MALLOC_W);
@@ -321,6 +321,7 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 #if ASYNC
 		my_req = assign_pseudo_req(MAPPING_R, NULL, req);
 		bench_algo_end(req);
+		printf("get --- tppa: %d\n", t_ppa);
 		__demand.li->pull_data(t_ppa, PAGESIZE, req->value, ASYNC, my_req);
 		return 1;
 #else
@@ -339,9 +340,15 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 	}
 	/* Cache hit */
 	if(c_table->on == 1){
+		printf("on --- tppa: %d\n", t_ppa);
+		if(((int32_t*)req->value->value)[0] == 2021161080){
+			cache_show((PTR)req->value->value);
+			abort();
+		}
 		c_table->on = 2;
 		if(!p_table){
 			if(num_caching == num_max_cache){
+				printf("eee\n");
 				demand_eviction();
 			}
 			p_table = mem_alloc();

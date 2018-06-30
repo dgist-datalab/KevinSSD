@@ -235,7 +235,7 @@ int32_t dpage_GC(){
 			update_b_heap(t_ppa/p_p_b, 'T');
 			t_ppa = tp_alloc();
 			temp_value_set = inf_get_valueset((PTR)temp_table, FS_MALLOC_W, PAGESIZE); // Make valueset to WRITEMODE
-			__demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(GC_W, temp_value_set, NULL));	// Unload page to ppa
+			__demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(MAPPING_W, temp_value_set, NULL));	// Unload page to ppa
 			demand_OOB[t_ppa].lpa = c_table->idx;
 			VBM[t_ppa] = 1;
 			c_table->t_ppa = t_ppa; // Update CMT t_ppa
