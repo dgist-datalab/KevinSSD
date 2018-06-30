@@ -339,7 +339,7 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 		bench_cache_hit(req->mark);
 	}
 	/* Cache hit */
-	if(c_table->on == 1){
+	if(c_table->on == 1){ // get에서 1인 경우 바로 오지 않으면 req의 똥값을 매핑값으로 인식해서 사용 할 수 있다!!!!!!
 		printf("on --- tppa: %d\n", t_ppa);
 		if(((int32_t*)req->value->value)[0] == 2021161080){
 			cache_show((PTR)req->value->value);
