@@ -13,7 +13,7 @@ algorithm __demand = {
    data에 관한 write buffer를 생성
    128개의 channel이라서 128개를 한번에 처리가능
    1024개씩 한번에 쓰도록.(dynamic)->변수처리
-   ppa는 1씩 증가해서 보내도됨.
+   ppa는 1씩 증가해서 보내도됨. ---->>>>> bdbm_drv 에서는 없어도 된다!!!!
  */
 LRU *lru; // for lru cache
 queue *dftl_q; // for async get

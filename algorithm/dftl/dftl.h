@@ -91,7 +91,7 @@ extern int32_t num_tblock;
 extern int32_t num_dpage;
 extern int32_t num_dblock;
 extern int32_t max_cache_entry;
-extern int32_t max_cache;
+extern int32_t num_max_cache;
 /* extern variables */
 
 //dftl.c
