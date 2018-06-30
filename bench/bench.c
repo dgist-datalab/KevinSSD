@@ -439,7 +439,7 @@ void seqrw(KEYT start, KEYT end, monitor *m){
 void randget(KEYT start, KEYT end,monitor *m){
 	printf("making rand Get bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
-		m->body[i].key=start+rand()%(end-start)+1;
+		m->body[i].key=start+rand()%(end-start);
 		m->body[i].type=FS_GET_T;
 		m->body[i].length=PAGESIZE;
 		m->body[i].mark=m->mark;
@@ -450,7 +450,7 @@ void randget(KEYT start, KEYT end,monitor *m){
 void randset(KEYT start, KEYT end, monitor *m){
 	printf("making rand Set bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
-		m->body[i].key=start+rand()%(end-start)+1;
+		m->body[i].key=start+rand()%(end-start);
 #ifdef DVALUE
 		m->body[i].length=(rand()%16+1)*512;
 #else	
@@ -465,7 +465,7 @@ void randset(KEYT start, KEYT end, monitor *m){
 void randrw(KEYT start, KEYT end, monitor *m){
 	printf("making rand Set and Get bench!\n");
 	for(KEYT i=0; i<m->m_num/2; i++){
-		m->body[i].key=start+rand()%(end-start)+1;
+		m->body[i].key=start+rand()%(end-start);
 		m->body[i].type=FS_SET_T;
 #ifdef DVALUE
 		m->body[i].length=(rand()%16+1)*512;

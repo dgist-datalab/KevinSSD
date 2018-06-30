@@ -57,7 +57,19 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	num_dblock = num_block - num_tblock - 2;
 	num_dpage = num_dblock * p_p_b;
 	max_cache_entry = (num_page / EPP) + ((num_page % EPP != 0) ? 1 : 0);
-	num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2;
+	num_max_cache = max_cache_entry;
+	//num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2;
+
+	printf("!!! print info !!!\n");
+	printf("number of page: %d\n", num_page);
+	printf("number of block: %d\n", num_block);
+	printf("page per block: %d\n", p_p_b);
+	printf("number of translation block: %d\n", num_tblock);
+	printf("number of translation page: %d\n", num_tpage);
+	printf("number of data block: %d\n", num_dblock);
+	printf("number of data page: %d\n", num_dpage);
+	printf("number of total cache mapping entry: %d\n", max_cache_entry);
+	printf("max number of ram reside cme: %d\n", num_max_cache);
 
 	// Table Allocation
 	CMT = (C_TABLE*)malloc(sizeof(C_TABLE) * max_cache_entry);
@@ -210,7 +222,7 @@ uint32_t __demand_set(request *const req){
 	algo_req *my_req;
 
 	lpa = req->key;
-	if(lpa > num_dpage - 1){
+	if(lpa > RANGE){
 		printf("range error\n");
 		exit(3);
 	}
@@ -290,11 +302,11 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 
 	/* algo_req allocation, initialization */
 	lpa = req->key;
-	c_table = &CMT[D_IDX];
-	if(lpa > num_dpage - 1){
+	if(lpa > RANGE){
 		printf("range error\n");
 		exit(3);
 	}
+	c_table = &CMT[D_IDX];
 	p_table = c_table->p_table;
 	t_ppa = c_table->t_ppa;
 
@@ -395,7 +407,7 @@ uint32_t demand_eviction(){
 		}
 		/* Write translation page */
 		t_ppa = tp_alloc();
-		temp_value_set = inf_get_valueset((PTR)(p_table), FS_MALLOC_W, PAGESIZE);
+		temp_value_set = inf_get_valueset((PTR)p_table, FS_MALLOC_W, PAGESIZE);
 		__demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(MAPPING_W, temp_value_set, NULL));
 		demand_OOB[t_ppa].lpa = cache_ptr->idx;
 		VBM[t_ppa] = 1;

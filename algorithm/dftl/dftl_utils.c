@@ -163,7 +163,6 @@ value_set* SRAM_load(D_SRAM* d_sram, int32_t ppa, int idx){
 	d_sram[idx].DATA_RAM = (D_TABLE*)malloc(PAGESIZE);
 	d_sram[idx].OOB_RAM = demand_OOB[ppa];	// Load OOB to d_sram
 	d_sram[idx].origin_ppa = ppa;
-	demand_OOB[ppa].lpa = -1;
 	VBM[ppa] = 0;
 	return temp_value_set;
 }
