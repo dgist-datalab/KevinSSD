@@ -43,7 +43,7 @@
 #define V_PTR char * const
 #define PTR char*
 #define ASYNC 1
-#define QSIZE (1024)
+#define QSIZE (1)
 #define THREADSIZE (1)
 
 #ifndef __GNUG__

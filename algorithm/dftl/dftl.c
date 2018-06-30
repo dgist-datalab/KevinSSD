@@ -52,13 +52,13 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	num_page = _NOP;
 	num_block = _NOS;
 	p_p_b = _PPS;
-	num_tblock = ((num_block / EPP) + ((num_block % EPP != 0) ? 1 : 0)) * 2;
+	//num_tblock = ((num_block / EPP) + ((num_block % EPP != 0) ? 1 : 0)) * 2;
+	num_tblock = 1;
 	num_tpage = num_tblock * p_p_b;
 	num_dblock = num_block - num_tblock - 2;
 	num_dpage = num_dblock * p_p_b;
 	max_cache_entry = (num_page / EPP) + ((num_page % EPP != 0) ? 1 : 0);
-	num_max_cache = max_cache_entry;
-	//num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2;
+	num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2;
 
 	printf("!!! print info !!!\n");
 	printf("number of page: %d\n", num_page);
@@ -207,6 +207,23 @@ uint32_t demand_set(request *const req){
 	return 0;
 }
 
+uint32_t demand_get(request *const req){
+	request *temp_req;
+	while((temp_req = (request*)q_dequeue(dftl_q))){
+		bench_algo_start(temp_req);
+		if(__demand_get(temp_req) == UINT32_MAX){
+			temp_req->type = FS_NOTFOUND_T;
+			temp_req->end_req(temp_req);
+		}
+	}
+	bench_algo_start(req); // Algorithm level benchmarking startgdb ./
+	if(__demand_get(req) == UINT32_MAX){
+		req->type = FS_NOTFOUND_T;
+		req->end_req(req);
+	}
+	return 0;
+}
+
 /* __demand_set
  * Find page address that req want and write data to a page
  * Search cache to find page address mapping
@@ -261,23 +278,6 @@ uint32_t __demand_set(request *const req){
 	bench_algo_end(req);
 	__demand.li->push_data(ppa, PAGESIZE, req->value, ASYNC, my_req); // Write actual data in ppa
 	return 1;
-}
-
-uint32_t demand_get(request *const req){
-	request *temp_req;
-	while((temp_req = (request*)q_dequeue(dftl_q))){
-		bench_algo_start(temp_req);
-		if(__demand_get(temp_req) == UINT32_MAX){
-			temp_req->type = FS_NOTFOUND_T;
-			temp_req->end_req(temp_req);
-		}
-	}
-	bench_algo_start(req); // Algorithm level benchmarking startgdb ./
-	if(__demand_get(req) == UINT32_MAX){
-		req->type = FS_NOTFOUND_T;
-		req->end_req(req);
-	}
-	return 0;
 }
 
 /* demand_get
@@ -359,6 +359,9 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 	}
 	ppa = p_table[P_IDX].ppa;
 	lru_update(lru, c_table->queue_ptr);
+	if(ppa == 2021161080){
+		abort();
+	}
 	if(ppa == -1){ // No mapping in t_page on cache
 		printf("lpa2: %d\n", lpa);
 		bench_algo_end(req);

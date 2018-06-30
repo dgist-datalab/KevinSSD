@@ -41,7 +41,7 @@ int32_t tpage_GC(){
 	temp_set = (value_set**)malloc(sizeof(value_set*) * p_p_b);
 
 	for(int i = 0; i < p_p_b; i++){
-	    d_sram[i].DATA_RAM = NULL;
+		d_sram[i].DATA_RAM = NULL;
 		d_sram[i].OOB_RAM.lpa = -1;
 		d_sram[i].origin_ppa = -1;
 	}
@@ -83,6 +83,8 @@ int32_t tpage_GC(){
  * If mapping is on flash, do batch update mapping data in translation page
  * 'Batch update' updates mapping datas in one translation page at the same time
  * After managing mapping data, write data pages to victim block
+ * !!!!! if async, get -> set op -> dpage_gc -> (same)get could occur 
+ * inconsistency of translation page !!!!!!
  */
 int32_t dpage_GC(){
 	uint8_t all;
@@ -132,7 +134,7 @@ int32_t dpage_GC(){
 	temp_set = (value_set**)malloc(sizeof(value_set*) * p_p_b);
 
 	for(int i = 0; i < p_p_b; i++){
-	    d_sram[i].DATA_RAM = NULL;
+		d_sram[i].DATA_RAM = NULL;
 		d_sram[i].OOB_RAM.lpa = -1;
 		d_sram[i].origin_ppa = -1;
 	}
@@ -253,7 +255,9 @@ int32_t dpage_GC(){
 	free(temp_table);
 	free(temp_set);
 	free(d_sram);
+
 		/* Trim data block */
 	__demand.li->trim_block(old_block, false);
 	return new_block + real_valid;
 }
+

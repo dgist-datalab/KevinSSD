@@ -158,8 +158,8 @@ int32_t dp_alloc(){ // Data page allocation
 value_set* SRAM_load(D_SRAM* d_sram, int32_t ppa, int idx){
 	value_set *temp_value_set;
 	temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);	// Make valueset to READMODE
+	// read in gc act as async pull
 	__demand.li->pull_data(ppa, PAGESIZE, temp_value_set, 1, assign_pseudo_req(GC_R, NULL, NULL)); // Page load
-	//__demand.li->pull_data(ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(GC_R, NULL, NULL)); read in gc could act as async pull
 	d_sram[idx].DATA_RAM = (D_TABLE*)malloc(PAGESIZE);
 	d_sram[idx].OOB_RAM = demand_OOB[ppa];	// Load OOB to d_sram
 	d_sram[idx].origin_ppa = ppa;
