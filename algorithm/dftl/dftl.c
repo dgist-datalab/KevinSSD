@@ -291,7 +291,7 @@ uint32_t __demand_set(request *const req){
  * Print "Invalid ppa read" when no data written in ppa 
  * Translation page can be loaded even if no data written in ppa
  */
-uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
+uint32_t __demand_get(request *const req){ 
 	int32_t lpa; // Logical data page address
 	int32_t ppa; // Physical data page address
 	int32_t t_ppa; // Translation page address
