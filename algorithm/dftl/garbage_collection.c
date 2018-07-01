@@ -1,12 +1,5 @@
 #include "dftl.h"
 
-/* Please enhance the full merge algorithm !!! */
-/* tpage_GC
- * Find all translation pages using CMT.t_ppa and GC all of translation blocks
- * Copy CMT.t_ppa and them as an order of ppa of a translation page
- * Move as many as translation pages to one translation block that hold lowest ppa translation page
- * Repeat until no more translation pages remains to move
- */
 int32_t tpage_GC(){
 	int32_t old_block;
 	int32_t new_block;
@@ -55,9 +48,9 @@ int32_t tpage_GC(){
 		}
 	}
 
-	while(gc_load != valid_page_num) {}
+	while(gc_load != valid_page_num) {} // polling for reading all mapping data
 
-	for(int i = 0; i < valid_page_num; i++){
+	for(int i = 0; i < valid_page_num; i++){ // copy data to memory and free dma valueset
 		memcpy(d_sram[i].DATA_RAM, temp_set[i]->value, PAGESIZE);
 		inf_free_valueset(temp_set[i], FS_MALLOC_R);
 	}
@@ -66,7 +59,7 @@ int32_t tpage_GC(){
 		CMT[d_sram[i].OOB_RAM.lpa].t_ppa = new_block + i;
 		SRAM_unload(d_sram, new_block + i, i);
 	}
-	// TPA_status update
+
 	free(temp_set);
 	free(d_sram);
 
@@ -76,21 +69,10 @@ int32_t tpage_GC(){
 	return new_block + valid_page_num;
 }
 
-/* dpage_GC
- * GC only one data block that is indicated by PBA_status
- * Load valid pages in a GC victim block to SRAM
- * Sort them by an order of lpa
- * If mapping is on cache, update mapping data in cache
- * If mapping is on flash, do batch update mapping data in translation page
- * 'Batch update' updates mapping datas in one translation page at the same time
- * After managing mapping data, write data pages to victim block
- * !!!!! if async, get -> set op -> dpage_gc -> (same)get could occur 
- * inconsistency of translation page !!!!!!
- */
 int32_t dpage_GC(){
 	uint8_t all;
 	int32_t lpa;
-	int32_t tce; // temp_cache_entry
+	int32_t tce; // temp_cache_entry index
 	int32_t t_ppa;
 	int32_t old_block;
 	int32_t new_block;
@@ -98,7 +80,7 @@ int32_t dpage_GC(){
 	int real_valid;
 	b_node *victim;
 	C_TABLE *c_table;
-	D_TABLE* p_table; // mapping table in translation page
+	D_TABLE* p_table;
 	D_TABLE* on_dma;
 	D_TABLE* temp_table;
 	D_SRAM *d_sram; // SRAM for contain block data temporarily
@@ -149,7 +131,7 @@ int32_t dpage_GC(){
 		}
 	}
 
-	while(gc_load != valid_num) {}
+	while(gc_load != valid_num) {} // polling for reading all data
 
 	for(int i = 0; i < valid_num; i++){
 		memcpy(d_sram[i].DATA_RAM, temp_set[i]->value, PAGESIZE);
@@ -181,8 +163,8 @@ int32_t dpage_GC(){
 					}
 					else if(on_dma[i].ppa != -1){
 						/* !!! if prev ppa was in victim block, then do nothing !!! */
-						if(on_dma[i].ppa/p_p_b != d_reserved->block_idx){
-							VBM[on_dma[i].ppa] = 0;
+						if(on_dma[i].ppa/p_p_b != d_reserved->block_idx){ 	// this mean that this ppa was on victim block
+							VBM[on_dma[i].ppa] = 0;							// it doesn't need update
 							update_b_heap(on_dma[i].ppa/p_p_b, 'D');
 						}
 					}
@@ -193,7 +175,7 @@ int32_t dpage_GC(){
 				free(params);
 				free(temp_req);
 				inf_free_valueset(temp_value_set, FS_MALLOC_R);
-				if(p_table[P_IDX].ppa != d_sram[i].origin_ppa){
+				if(p_table[P_IDX].ppa != d_sram[i].origin_ppa){ // if not same as origin, it mean this is actually invalid data
 					d_sram[i].origin_ppa = -1;
 					continue;
 				}
@@ -204,10 +186,10 @@ int32_t dpage_GC(){
 			}
 			else{ // 100% valid cach
 				if(c_table->flag == 2 && p_table[P_IDX].ppa != d_sram[i].origin_ppa){
-					d_sram[i].origin_ppa = -1;
+					d_sram[i].origin_ppa = -1; // if not same as origin, it mean this is actually invalid data
 					continue;
 				}
-				else{
+				else{ // but flag 0 couldn't have this case, so just change ppa
 					p_table[P_IDX].ppa = new_block + i;
 					if(c_table->flag == 0){
 						c_table->flag = 2;
@@ -230,7 +212,7 @@ int32_t dpage_GC(){
 			inf_free_valueset(temp_value_set, FS_MALLOC_R);
 		}
 		temp_table[P_IDX].ppa = new_block + i;
-		if(i != valid_num -1){ // for flush changed t_page.
+		if(i != valid_num -1){ // check for flush changed t_page.
 			if(tce != d_sram[i + 1].OOB_RAM.lpa/EPP && tce != INT32_MAX){
 				tce = INT32_MAX;
 			}
@@ -238,7 +220,7 @@ int32_t dpage_GC(){
 		else{
 			tce = INT32_MAX;
 		}
-		if(tce == INT32_MAX){
+		if(tce == INT32_MAX){ // flush temp table into device
 			VBM[t_ppa] = 0;
 			update_b_heap(t_ppa/p_p_b, 'T');
 			t_ppa = tp_alloc('D');
@@ -256,7 +238,7 @@ int32_t dpage_GC(){
 			SRAM_unload(d_sram, new_block + real_valid++, i);
 		}
 		else{
-			free(d_sram[i].DATA_RAM);
+			free(d_sram[i].DATA_RAM); // free without SRAM_unload, because this is not valid data
 		}
 	}
 
@@ -264,7 +246,7 @@ int32_t dpage_GC(){
 	free(temp_set);
 	free(d_sram);
 
-		/* Trim data block */
+	/* Trim data block */
 	__demand.li->trim_block(old_block, false);
 	return new_block + real_valid;
 }

@@ -24,11 +24,11 @@ heap *trans_b; // trans block heap
 C_TABLE *CMT; // Cached Mapping Table
 D_OOB *demand_OOB; // Page OOB
 uint8_t *VBM; // Valid BitMap
-mem_table *mem_all; // 
+mem_table *mem_all; // for p_table allocation. please change allocate and free function.
 
 b_node **block_array; // array that point all block
-b_node *t_reserved;
-b_node *d_reserved;
+b_node *t_reserved; // pointer of reserved block for translation gc
+b_node *d_reserved; // pointer of reserved block for data gc
 
 int32_t num_caching; // Number of translation page on cache
 int32_t gc_load; // gc data load count
@@ -47,12 +47,8 @@ int32_t tgc_count;
 int32_t dgc_count;
 int32_t read_tgc_count;
 
-/* demand_create
- * Initialize data structures that are used in DFTL
- * Initialize global variables
- * Use different code according to DFTL version
- */
 uint32_t demand_create(lower_info *li, algorithm *algo){
+	// initialize all value by using macro.
 	num_page = _NOP;
 	num_block = _NOS;
 	p_p_b = _PPS;
@@ -61,6 +57,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	num_dblock = num_block - num_tblock - 2;
 	num_dpage = num_dblock * p_p_b;
 	max_cache_entry = (num_page / EPP) + ((num_page % EPP != 0) ? 1 : 0);
+	// you can control amount of max number of ram reside cache entry
 	num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2;
 
 	tgc_count = 0;
@@ -77,8 +74,9 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	printf("number of data page: %d\n", num_dpage);
 	printf("number of total cache mapping entry: %d\n", max_cache_entry);
 	printf("max number of ram reside cme: %d\n", num_max_cache);
+	printf("!!! print info !!!\n");
 
-	// Table Allocation
+	// Table Allocation and global variables initialization
 	CMT = (C_TABLE*)malloc(sizeof(C_TABLE) * max_cache_entry);
 	VBM = (uint8_t*)malloc(num_page);
 	mem_all = (mem_table*)malloc(sizeof(mem_table) * num_max_cache);
@@ -86,7 +84,6 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	demand_OOB = (D_OOB*)malloc(sizeof(D_OOB) * num_page);
 	algo->li = li;
 
-	// CMT, SRAM, OOB initialization
 	for(int i = 0; i < max_cache_entry; i++){
 		CMT[i].t_ppa = -1;
 		CMT[i].idx = i;
@@ -103,7 +100,6 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 		mem_all[i].flag = 0;
 	}
 
-	// global variables initialization
  	num_caching = 0;
 	for(int i = 0; i < num_block; i++){
 		b_node *new_block = (b_node*)malloc(sizeof(b_node));
@@ -127,10 +123,6 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	return 0;
 }
 
-// When FTL is destroyed, move CMT to SSD
-/* demand_destroy
- * Free data structures that are used in DFTL
- */
 void demand_destroy(lower_info *li, algorithm *algo)
 {
 	printf("num of translation page gc: %d\n", tgc_count);
@@ -154,9 +146,6 @@ void demand_destroy(lower_info *li, algorithm *algo)
 	free(CMT);
 }
 
-/* demand_end_req
- * Free my_req from interface level
- */
 void *demand_end_req(algo_req* input){
 	demand_params *params = (demand_params*)input->params;
 	value_set *temp_v = params->value;
@@ -182,7 +171,7 @@ void *demand_end_req(algo_req* input){
 		case MAPPING_W:
 			inf_free_valueset(temp_v, FS_MALLOC_W);
 			break;
-		case MAPPING_M:
+		case MAPPING_M: // unlock mutex lock for read mapping data completely
 			pthread_mutex_unlock(&params->dftl_mutex);
 			return NULL;
 			break;
@@ -225,23 +214,18 @@ uint32_t demand_get(request *const req){
 	return 0;
 }
 
-/* __demand_set
- * Find page address that req want and write data to a page
- * Search cache to find page address mapping
- * If mapping data is on cache, overwrite mapping data in cache
- * If mapping data is not on cache, search translation page
- * If translation page found on flash, load whole page to cache and overwrite mapping data in page
- */ 
 uint32_t __demand_set(request *const req){
-	int32_t lpa;
-	int32_t ppa;
-	C_TABLE *c_table;
-	D_TABLE *p_table;
-	algo_req *my_req;
+	/* !!! you need to print error message and exit program, when you set more valid
+	data than number of data page !!! */
+	int32_t lpa; // Logical data page address
+	int32_t ppa; // Physical data page address
+	C_TABLE *c_table; // Cache mapping entry pointer
+	D_TABLE *p_table; // pointer of p_table on cme
+	algo_req *my_req; // pseudo request pointer
 
 	bench_algo_start(req);
 	lpa = req->key;
-	if(lpa > RANGE){
+	if(lpa > RANGE){ // range check
 		printf("range error\n");
 		exit(3);
 	}
@@ -252,28 +236,28 @@ uint32_t __demand_set(request *const req){
 		if(!c_table->flag){
 			c_table->flag = 2;
 		}
-		lru_update(lru, c_table->queue_ptr); // Update CMT queue
+		lru_update(lru, c_table->queue_ptr);
 	}
 	else{ /* Cache miss */
 		if(num_caching == num_max_cache){
 			demand_eviction('W');
 		}
 		p_table = mem_alloc();
-		memset(p_table, -1, PAGESIZE);
+		memset(p_table, -1, PAGESIZE); // initialize p_table
 		c_table->p_table = p_table;
-		c_table->queue_ptr = lru_push(lru, (void*)c_table); // Insert current CMT entry to CMT queue
-		c_table->flag = 1; // mapping table changed
+		c_table->queue_ptr = lru_push(lru, (void*)c_table);
+		c_table->flag = 1;
 	 	num_caching++;
-		if(c_table->t_ppa == -1){
+		if(c_table->t_ppa == -1){ // this case, there is no previous mapping table on device
 			c_table->flag = 2;
 		}
 	}
-	if(p_table[P_IDX].ppa != -1){
+	if(p_table[P_IDX].ppa != -1){ // if there is previous data with same lpa, then invalidate it
 		VBM[p_table[P_IDX].ppa] = 0;
 		update_b_heap(p_table[P_IDX].ppa/p_p_b, 'D');
 	}
-	ppa = dp_alloc(); // Allocate data page
-	p_table[P_IDX].ppa = ppa; // Page table update
+	ppa = dp_alloc();
+	p_table[P_IDX].ppa = ppa;
 	VBM[ppa] = 1;
 	demand_OOB[ppa].lpa = lpa;
 	my_req = assign_pseudo_req(DATA_W, NULL, req);
@@ -282,48 +266,38 @@ uint32_t __demand_set(request *const req){
 	return 1;
 }
 
-/* demand_get
- * Find page address that req want and load data in a page
- * Search cache to find page address mapping
- * If mapping data is on cache, use that mapping data
- * If mapping data is not on cache, search translation page
- * If translation page found on flash, load whole page to cache
- * Print "Invalid ppa read" when no data written in ppa 
- * Translation page can be loaded even if no data written in ppa
- */
 uint32_t __demand_get(request *const req){ 
 	int32_t lpa; // Logical data page address
 	int32_t ppa; // Physical data page address
 	int32_t t_ppa; // Translation page address
-	C_TABLE* c_table;
-	D_TABLE* p_table; // Contains page table
-	algo_req *my_req;
+	C_TABLE* c_table; // Cache mapping entry pointer
+	D_TABLE* p_table; // pointer of p_table on cme
+	algo_req *my_req; // pseudo request pointer
 #if !ASYNC
-	demand_params *params;
+	demand_params *params; // used for mutex lock
 #else
-	read_params *checker;
+	read_params *checker; // used for async 
 #endif
 
-
-	/* algo_req allocation, initialization */
 	bench_algo_start(req);
 	lpa = req->key;
-	if(lpa > RANGE){
+	if(lpa > RANGE){ // range check
 		printf("range error\n");
 		exit(3);
 	}
+	// initialization
 	c_table = &CMT[D_IDX];
 	p_table = c_table->p_table;
 	t_ppa = c_table->t_ppa;
 
-	/* Cache hit */
+	// p_table 
 	if(p_table){
 		ppa = p_table[P_IDX].ppa;
-		if(ppa == -1 && c_table->flag != 1){
+		if(ppa == -1 && c_table->flag != 1){ // no mapping data -> not found
 			bench_algo_end(req);
 			return UINT32_MAX;
 		}
-		else if(ppa != -1){
+		else if(ppa != -1){ /* Cache hit */
 			lru_update(lru, c_table->queue_ptr);
 			bench_algo_end(req);
 			__demand.li->pull_data(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req)); // Get data in ppa
@@ -331,85 +305,88 @@ uint32_t __demand_get(request *const req){
 		}
 	}
 	/* Cache miss */
-	if(t_ppa == -1){
+	if(t_ppa == -1){ // no mapping table -> not found
 		printf("lpa: %d\n", lpa);
 		bench_algo_end(req);
 		return UINT32_MAX;
 	}
 	/* Load tpage to cache */
 #if ASYNC
-	if(req->params == NULL){
+	if(req->params == NULL){ // this is cache miss and request come into get first time
 		checker = (read_params*)malloc(sizeof(read_params));
 		checker->read = 0;
+		checker->t_ppa = t_ppa;
 		req->params = (void*)checker;
-		my_req = assign_pseudo_req(MAPPING_R, NULL, req);
+		my_req = assign_pseudo_req(MAPPING_R, NULL, req); // need to read mapping data
 		bench_algo_end(req);
 		__demand.li->pull_data(t_ppa, PAGESIZE, req->value, ASYNC, my_req);
 		return 1;
 	}
 	else{
-		free(req->params);
+		if(((read_params*)req->params)->t_ppa != t_ppa){ 		// mapping has changed in data gc
+			((read_params*)req->params)->read = 0; 				// read value is invalid now
+			((read_params*)req->params)->t_ppa = t_ppa; 		// these could mapping to reserved area
+			my_req = assign_pseudo_req(MAPPING_R, NULL, req); 	// send req read mapping table again.
+			bench_algo_end(req);
+			__demand.li->pull_data(t_ppa, PAGESIZE, req->value, ASYNC, my_req);
+			return 1; // very inefficient way, change after
+		}
+		else{ // mapping data is vaild
+			free(req->params);
+		}
 	}
 #else
-	my_req = assign_pseudo_req(MAPPING_M, NULL, NULL);
-	params = (demand_params*)my_req->params;
+	my_req = assign_pseudo_req(MAPPING_M, NULL, NULL);	// when sync get cache miss, we need to wait
+	params = (demand_params*)my_req->params;			// until read mapping table completely.
 	__demand.li->pull_data(t_ppa, PAGESIZE, req->value, ASYNC, my_req);
 	pthread_mutex_lock(&params->dftl_mutex);
 	pthread_mutex_destroy(&params->dftl_mutex);
 	free(params);
 	free(my_req);
 #endif
-	if(!p_table){
+	if(!p_table){ // there is no dirty mapping table on cache
 		if(num_caching == num_max_cache){
 			demand_eviction('R');
 		}
 		p_table = mem_alloc();
-		memcpy(p_table, req->value->value, PAGESIZE);
+		memcpy(p_table, req->value->value, PAGESIZE); // just copy mapping data into memory
 		c_table->p_table = p_table;
 		c_table->queue_ptr = lru_push(lru, (void*)c_table);
 		num_caching++;
 	}
-	else{
+	else{ // in this case, we need to merge with dirty mapping table on cache
 		merge_w_origin((D_TABLE*)req->value->value, p_table);
 		c_table->flag = 2;
-		VBM[t_ppa] = 0;
+		VBM[t_ppa] = 0; // now we could invalidate translation page
 		update_b_heap(t_ppa/p_p_b, 'T');
 	}
 	ppa = p_table[P_IDX].ppa;
 	lru_update(lru, c_table->queue_ptr);
-	if(ppa == -1){ // No mapping in t_page on cache
+	if(ppa == -1){ // no mapping data -> not found
 		printf("lpa2: %d\n", lpa);
 		bench_algo_end(req);
 		return UINT32_MAX;
 	}
-	// Exist mapping in t_page on cache
 	bench_algo_end(req);
 	__demand.li->pull_data(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req)); // Get data in ppa
 	return 1;
 }
 
-/* demand_eviction
- * Evict one translation page on cache
- * Check there is an empty space in cache
- * Find victim cache entry in queue of translation page that loaded on cache
- * If translation page differs from translation page in flash, update translation page in flash
- * If not, just simply erase translation page on cache
- */
 uint32_t demand_eviction(char req_t){
-	int32_t t_ppa;
-	C_TABLE *cache_ptr; // Hold pointer that points one cache entry
-	D_TABLE *p_table;
-	value_set *temp_value_set;
-	demand_params *params;
-	algo_req *temp_req;
+	int32_t t_ppa; // Translation page address
+	C_TABLE *cache_ptr; // Cache mapping entry pointer
+	D_TABLE *p_table; // pointer of p_table on cme
+	value_set *temp_value_set; // valueset for write mapping table or read too
+	demand_params *params; // pseudo request's params
+	algo_req *temp_req; // pseudo request pointer
 
 	/* Eviction */
 
-	cache_ptr = (C_TABLE*)lru_pop(lru);
+	cache_ptr = (C_TABLE*)lru_pop(lru); // call pop to get least used cache
 	p_table = cache_ptr->p_table;
 	t_ppa = cache_ptr->t_ppa;
 	if(cache_ptr->flag){ // When t_page on cache has changed
-		if(cache_ptr->flag == 1){
+		if(cache_ptr->flag == 1){ // this case is dirty mapping and not merged with original one
 			temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 			temp_req = assign_pseudo_req(MAPPING_M, NULL, NULL);
 			params = (demand_params*)temp_req->params;
@@ -420,16 +397,16 @@ uint32_t demand_eviction(char req_t){
 			free(params);
 			free(temp_req);
 			inf_free_valueset(temp_value_set, FS_MALLOC_R);
-			VBM[t_ppa] = 0;
+			VBM[t_ppa] = 0; // now invalidate t_ppa
 			update_b_heap(t_ppa/p_p_b, 'T');
 		}
 		/* Write translation page */
 		t_ppa = tp_alloc(req_t);
 		temp_value_set = inf_get_valueset((PTR)p_table, FS_MALLOC_W, PAGESIZE);
-		__demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(MAPPING_W, temp_value_set, NULL));
 		demand_OOB[t_ppa].lpa = cache_ptr->idx;
+		__demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(MAPPING_W, temp_value_set, NULL));
 		VBM[t_ppa] = 1;
-		cache_ptr->t_ppa = t_ppa; // Update CMT t_ppa
+		cache_ptr->t_ppa = t_ppa;
 		cache_ptr->flag = 0;
 	}
 	cache_ptr->queue_ptr = NULL;
@@ -439,15 +416,6 @@ uint32_t demand_eviction(char req_t){
 	return 1;
 }
 
-/* demand_remove
- * Find page address that req want, erase mapping data, invalidate data page
- * Search cache to find page address mapping
- * If mapping data is on cache, initialize the mapping data
- * If mapping data is not on cache, search translation page
- * If translation page found in flash, load whole page to cache, 
- * whether or not mapping data is on cache search, find translation page and remove mapping data in cache
- * Print Error when there is no such data to erase
- */ 
 uint32_t demand_remove(request *const req){
 	/*
 	bench_algo_start(req);

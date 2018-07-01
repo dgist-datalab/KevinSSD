@@ -59,6 +59,7 @@ typedef struct demand_params{
 } demand_params;
 
 typedef struct read_params{
+	int32_t t_ppa;
 	uint8_t read;
 } read_params;
 
