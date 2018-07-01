@@ -68,9 +68,9 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	read_tgc_count = 0;
 
 	printf("!!! print info !!!\n");
-	printf("number of page: %d\n", num_page);
 	printf("number of block: %d\n", num_block);
 	printf("page per block: %d\n", p_p_b);
+	printf("number of page: %d\n", num_page);
 	printf("number of translation block: %d\n", num_tblock);
 	printf("number of translation page: %d\n", num_tpage);
 	printf("number of data block: %d\n", num_dblock);
@@ -93,7 +93,6 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 		CMT[i].p_table = NULL;
 		CMT[i].queue_ptr = NULL;
 		CMT[i].flag = 0;
-		CMT[i].on = 0;
 	}
 
 	memset(VBM, 0, num_page);
@@ -162,7 +161,6 @@ void *demand_end_req(algo_req* input){
 	demand_params *params = (demand_params*)input->params;
 	value_set *temp_v = params->value;
 	request *res = input->parents;
-	int32_t lpa;
 
 	switch(params->type){
 		case DATA_R:
@@ -176,10 +174,7 @@ void *demand_end_req(algo_req* input){
 			}
 			break;
 		case MAPPING_R: // only used in async
-			lpa = res->key;
-			if(!CMT[D_IDX].on){
-				CMT[D_IDX].on = 1;
-			}
+			((read_params*)res->params)->read = 1;
 			if(!inf_assign_try(res)){
 				q_enqueue((void*)res, dftl_q);
 			}
@@ -206,13 +201,11 @@ void *demand_end_req(algo_req* input){
 uint32_t demand_set(request *const req){
 	request *temp_req;
 	while((temp_req = (request*)q_dequeue(dftl_q))){
-		bench_algo_start(temp_req);
 		if(__demand_get(temp_req) == UINT32_MAX){
 			temp_req->type = FS_NOTFOUND_T;
 			temp_req->end_req(temp_req);
 		}
 	}
-	bench_algo_start(req); // Algorithm level benchmarking start
 	__demand_set(req);
 	return 0;
 }
@@ -220,13 +213,11 @@ uint32_t demand_set(request *const req){
 uint32_t demand_get(request *const req){
 	request *temp_req;
 	while((temp_req = (request*)q_dequeue(dftl_q))){
-		bench_algo_start(temp_req);
 		if(__demand_get(temp_req) == UINT32_MAX){
 			temp_req->type = FS_NOTFOUND_T;
 			temp_req->end_req(temp_req);
 		}
 	}
-	bench_algo_start(req); // Algorithm level benchmarking startgdb ./
 	if(__demand_get(req) == UINT32_MAX){
 		req->type = FS_NOTFOUND_T;
 		req->end_req(req);
@@ -248,6 +239,7 @@ uint32_t __demand_set(request *const req){
 	D_TABLE *p_table;
 	algo_req *my_req;
 
+	bench_algo_start(req);
 	lpa = req->key;
 	if(lpa > RANGE){
 		printf("range error\n");
@@ -258,7 +250,7 @@ uint32_t __demand_set(request *const req){
 
 	if(p_table){ /* Cache hit */
 		if(!c_table->flag){
-			c_table->flag = 1; // Set flag to 1
+			c_table->flag = 2;
 		}
 		lru_update(lru, c_table->queue_ptr); // Update CMT queue
 	}
@@ -273,7 +265,7 @@ uint32_t __demand_set(request *const req){
 		c_table->flag = 1; // mapping table changed
 	 	num_caching++;
 		if(c_table->t_ppa == -1){
-			c_table->on = 2;
+			c_table->flag = 2;
 		}
 	}
 	if(p_table[P_IDX].ppa != -1){
@@ -308,9 +300,13 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 	algo_req *my_req;
 #if !ASYNC
 	demand_params *params;
+#else
+	read_params *checker;
 #endif
 
+
 	/* algo_req allocation, initialization */
+	bench_algo_start(req);
 	lpa = req->key;
 	if(lpa > RANGE){
 		printf("range error\n");
@@ -320,56 +316,64 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 	p_table = c_table->p_table;
 	t_ppa = c_table->t_ppa;
 
-	/* Cache miss */
-	if(!c_table->on){
-		if(t_ppa == -1){
-			printf("lpa: %d\n", lpa);
+	/* Cache hit */
+	if(p_table){
+		ppa = p_table[P_IDX].ppa;
+		if(ppa == -1 && c_table->flag != 1){
 			bench_algo_end(req);
 			return UINT32_MAX;
 		}
-		/* Load tpage to cache */
-		if(p_table && (ppa = p_table[P_IDX].ppa) != -1){
+		else if(ppa != -1){
 			lru_update(lru, c_table->queue_ptr);
 			bench_algo_end(req);
 			__demand.li->pull_data(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req)); // Get data in ppa
 			return 1;
 		}
+	}
+	/* Cache miss */
+	if(t_ppa == -1){
+		printf("lpa: %d\n", lpa);
+		bench_algo_end(req);
+		return UINT32_MAX;
+	}
+	/* Load tpage to cache */
 #if ASYNC
+	if(req->params == NULL){
+		checker = (read_params*)malloc(sizeof(read_params));
+		checker->read = 0;
+		req->params = (void*)checker;
 		my_req = assign_pseudo_req(MAPPING_R, NULL, req);
 		bench_algo_end(req);
 		__demand.li->pull_data(t_ppa, PAGESIZE, req->value, ASYNC, my_req);
 		return 1;
-#else
-		my_req = assign_pseudo_req(MAPPING_M, NULL, NULL);
-		params = (demand_params*)my_req->params;
-		__demand.li->pull_data(t_ppa, PAGESIZE, req->value, ASYNC, my_req);
-		pthread_mutex_lock(&params->dftl_mutex);
-		pthread_mutex_destroy(&params->dftl_mutex);
-		c_table->on = 1;
-		free(params);
-		free(my_req);
-#endif
 	}
-
-	/* Cache hit */
-	if(c_table->on == 1){
-		c_table->on = 2;
-		if(!p_table){
-			if(num_caching == num_max_cache){
-				demand_eviction('R');
-			}
-			p_table = mem_alloc();
-			memcpy(p_table, req->value->value, PAGESIZE);
-			c_table->p_table = p_table;
-			c_table->queue_ptr = lru_push(lru, (void*)c_table);
-			c_table->flag = 0;
-		 	num_caching++;
+	else{
+		free(req->params);
+	}
+#else
+	my_req = assign_pseudo_req(MAPPING_M, NULL, NULL);
+	params = (demand_params*)my_req->params;
+	__demand.li->pull_data(t_ppa, PAGESIZE, req->value, ASYNC, my_req);
+	pthread_mutex_lock(&params->dftl_mutex);
+	pthread_mutex_destroy(&params->dftl_mutex);
+	free(params);
+	free(my_req);
+#endif
+	if(!p_table){
+		if(num_caching == num_max_cache){
+			demand_eviction('R');
 		}
-		else{
-			merge_w_origin((D_TABLE*)req->value->value, p_table);
-			VBM[t_ppa] = 0;
-			update_b_heap(t_ppa/p_p_b, 'T');
-		}
+		p_table = mem_alloc();
+		memcpy(p_table, req->value->value, PAGESIZE);
+		c_table->p_table = p_table;
+		c_table->queue_ptr = lru_push(lru, (void*)c_table);
+		num_caching++;
+	}
+	else{
+		merge_w_origin((D_TABLE*)req->value->value, p_table);
+		c_table->flag = 2;
+		VBM[t_ppa] = 0;
+		update_b_heap(t_ppa/p_p_b, 'T');
 	}
 	ppa = p_table[P_IDX].ppa;
 	lru_update(lru, c_table->queue_ptr);
@@ -405,7 +409,7 @@ uint32_t demand_eviction(char req_t){
 	p_table = cache_ptr->p_table;
 	t_ppa = cache_ptr->t_ppa;
 	if(cache_ptr->flag){ // When t_page on cache has changed
-		if(!cache_ptr->on){ // eviction에서 1인 경우는 없다.
+		if(cache_ptr->flag == 1){
 			temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 			temp_req = assign_pseudo_req(MAPPING_M, NULL, NULL);
 			params = (demand_params*)temp_req->params;
@@ -428,7 +432,6 @@ uint32_t demand_eviction(char req_t){
 		cache_ptr->t_ppa = t_ppa; // Update CMT t_ppa
 		cache_ptr->flag = 0;
 	}
-	cache_ptr->on = 0;
 	cache_ptr->queue_ptr = NULL;
 	cache_ptr->p_table = NULL;
  	num_caching--;

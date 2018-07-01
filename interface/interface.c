@@ -8,11 +8,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <string.h>
-#ifdef posix_async
 extern struct lower_info my_posix;
-#else
-extern struct lower_info my_posix;
-#endif
 extern struct algorithm __normal;
 extern struct algorithm __badblock;
 extern struct algorithm __demand;
@@ -89,10 +85,7 @@ void inf_init(){
 	pthread_mutex_init(&inf_lock,NULL);
 	pthread_mutex_lock(&inf_lock);*/
 	measure_init(&mt);
-#ifdef posix
-	mp.li=&my_posix;
-#endif
-#ifdef posix_async
+#if defined(posix) || defined(posix_async)
 	mp.li=&my_posix;
 #endif
 #ifdef bdbm_drv

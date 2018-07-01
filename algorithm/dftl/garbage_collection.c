@@ -165,50 +165,56 @@ int32_t dpage_GC(){
 		c_table = &CMT[D_IDX];
 		t_ppa = c_table->t_ppa;
 		p_table = c_table->p_table;
-
-		if(c_table->on){ // 100% valid cache
-			if(p_table[P_IDX].ppa != d_sram[i].origin_ppa){
-				d_sram[i].origin_ppa = -1;
-				continue;
-			}
-			p_table[P_IDX].ppa = new_block + i;
-			if(c_table->flag == 0){
-				c_table->flag = 1;
-			}
-			continue;
-		}
-		if(p_table){ // dirty cache, need merge
-			temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
-			temp_req = assign_pseudo_req(MAPPING_M, temp_value_set, NULL);
-			params = (demand_params*)temp_req->params;
-			__demand.li->pull_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req);
-			pthread_mutex_lock(&params->dftl_mutex);
-			pthread_mutex_destroy(&params->dftl_mutex);
-			on_dma = (D_TABLE*)temp_value_set->value;
-			for(int i = 0; i < EPP; i++){
-				if(p_table[i].ppa == -1){
-					p_table[i].ppa = on_dma[i].ppa;
-				}
-				else if(on_dma[i].ppa != -1){
-					/* !!! if prev ppa was in victim block, then do nothing !!! */
-					if(on_dma[i].ppa/p_p_b != d_reserved->block_idx){
-						VBM[on_dma[i].ppa] = 0;
-						update_b_heap(on_dma[i].ppa/p_p_b, 'D');
+		
+		if(p_table){
+			if(c_table->flag == 1){ // dirty cache, need merge
+				temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
+				temp_req = assign_pseudo_req(MAPPING_M, temp_value_set, NULL);
+				params = (demand_params*)temp_req->params;
+				__demand.li->pull_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req);
+				pthread_mutex_lock(&params->dftl_mutex);
+				pthread_mutex_destroy(&params->dftl_mutex);
+				on_dma = (D_TABLE*)temp_value_set->value;
+				for(int i = 0; i < EPP; i++){
+					if(p_table[i].ppa == -1){
+						p_table[i].ppa = on_dma[i].ppa;
+					}
+					else if(on_dma[i].ppa != -1){
+						/* !!! if prev ppa was in victim block, then do nothing !!! */
+						if(on_dma[i].ppa/p_p_b != d_reserved->block_idx){
+							VBM[on_dma[i].ppa] = 0;
+							update_b_heap(on_dma[i].ppa/p_p_b, 'D');
+						}
 					}
 				}
-			}
-			c_table->on = 2;
-			VBM[t_ppa] = 0;
-			update_b_heap(t_ppa/p_p_b, 'T');
-			free(params);
-			free(temp_req);
-			inf_free_valueset(temp_value_set, FS_MALLOC_R);
-			if(p_table[P_IDX].ppa != d_sram[i].origin_ppa){
-				d_sram[i].origin_ppa = -1;
+				c_table->flag = 2;
+				VBM[t_ppa] = 0;
+				update_b_heap(t_ppa/p_p_b, 'T');
+				free(params);
+				free(temp_req);
+				inf_free_valueset(temp_value_set, FS_MALLOC_R);
+				if(p_table[P_IDX].ppa != d_sram[i].origin_ppa){
+					d_sram[i].origin_ppa = -1;
+					continue;
+				}
+				else{
+					p_table[P_IDX].ppa = new_block + i;
+				}
 				continue;
 			}
-			p_table[P_IDX].ppa = new_block + i;
-			continue;
+			else{ // 100% valid cach
+				if(c_table->flag == 2 && p_table[P_IDX].ppa != d_sram[i].origin_ppa){
+					d_sram[i].origin_ppa = -1;
+					continue;
+				}
+				else{
+					p_table[P_IDX].ppa = new_block + i;
+					if(c_table->flag == 0){
+						c_table->flag = 2;
+					}
+				}
+				continue;
+			}
 		}
 		if(tce == INT32_MAX){ // read t_page into temp_table
 			tce = D_IDX;

@@ -38,8 +38,6 @@ typedef struct cached_table{
 	D_TABLE *p_table;
 	NODE *queue_ptr;
 	unsigned char flag; // 0: unchanged, 1: changed
-	unsigned char on; /* 0: not in cache, 1: in dma buff(demand_get)
-	2: in cache, 3: not in ssd, only cache(demand_set) */
 } C_TABLE;
 
 // OOB data structure
@@ -59,6 +57,10 @@ typedef struct demand_params{
 	pthread_mutex_t dftl_mutex;
 	TYPE type;
 } demand_params;
+
+typedef struct read_params{
+	uint8_t read;
+} read_params;
 
 typedef struct mem_table{
 	D_TABLE *mem_p;
