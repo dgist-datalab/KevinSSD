@@ -43,6 +43,10 @@ int32_t num_dblock;
 int32_t max_cache_entry;
 int32_t num_max_cache;
 
+int32_t tgc_count;
+int32_t dgc_count;
+int32_t read_tgc_count;
+
 /* demand_create
  * Initialize data structures that are used in DFTL
  * Initialize global variables
@@ -52,13 +56,16 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	num_page = _NOP;
 	num_block = _NOS;
 	p_p_b = _PPS;
-	//num_tblock = ((num_block / EPP) + ((num_block % EPP != 0) ? 1 : 0)) * 2;
-	num_tblock = 1;
+	num_tblock = ((num_block / EPP) + ((num_block % EPP != 0) ? 1 : 0)) * 2;
 	num_tpage = num_tblock * p_p_b;
 	num_dblock = num_block - num_tblock - 2;
 	num_dpage = num_dblock * p_p_b;
 	max_cache_entry = (num_page / EPP) + ((num_page % EPP != 0) ? 1 : 0);
 	num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2;
+
+	tgc_count = 0;
+	dgc_count = 0;
+	read_tgc_count = 0;
 
 	printf("!!! print info !!!\n");
 	printf("number of page: %d\n", num_page);
@@ -127,6 +134,9 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
  */
 void demand_destroy(lower_info *li, algorithm *algo)
 {
+	printf("num of translation page gc: %d\n", tgc_count);
+	printf("num of data page gc: %d\n", dgc_count);
+	printf("num of translation page gc w/ read op: %d\n", read_tgc_count);
 	q_free(dftl_q);
 	lru_free(lru);
 	freequeue(free_b);
@@ -170,9 +180,9 @@ void *demand_end_req(algo_req* input){
 			if(!CMT[D_IDX].on){
 				CMT[D_IDX].on = 1;
 			}
-			//if(!inf_assign_try(res)){
+			if(!inf_assign_try(res)){
 				q_enqueue((void*)res, dftl_q);
-			//}
+			}
 			break;
 		case MAPPING_W:
 			inf_free_valueset(temp_v, FS_MALLOC_W);
@@ -254,7 +264,7 @@ uint32_t __demand_set(request *const req){
 	}
 	else{ /* Cache miss */
 		if(num_caching == num_max_cache){
-			demand_eviction();
+			demand_eviction('W');
 		}
 		p_table = mem_alloc();
 		memset(p_table, -1, PAGESIZE);
@@ -263,7 +273,7 @@ uint32_t __demand_set(request *const req){
 		c_table->flag = 1; // mapping table changed
 	 	num_caching++;
 		if(c_table->t_ppa == -1){
-			c_table->on = 3;
+			c_table->on = 2;
 		}
 	}
 	if(p_table[P_IDX].ppa != -1){
@@ -318,10 +328,15 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 			return UINT32_MAX;
 		}
 		/* Load tpage to cache */
+		if(p_table && (ppa = p_table[P_IDX].ppa) != -1){
+			lru_update(lru, c_table->queue_ptr);
+			bench_algo_end(req);
+			__demand.li->pull_data(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req)); // Get data in ppa
+			return 1;
+		}
 #if ASYNC
 		my_req = assign_pseudo_req(MAPPING_R, NULL, req);
 		bench_algo_end(req);
-		printf("get --- tppa: %d\n", t_ppa);
 		__demand.li->pull_data(t_ppa, PAGESIZE, req->value, ASYNC, my_req);
 		return 1;
 #else
@@ -335,21 +350,13 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 		free(my_req);
 #endif
 	}
-	else if(c_table->on == 2 || c_table->on == 3){
-		bench_cache_hit(req->mark);
-	}
+
 	/* Cache hit */
 	if(c_table->on == 1){
-		printf("on --- tppa: %d\n", t_ppa);
-		if(((int32_t*)req->value->value)[0] == 2021161080){
-			cache_show((PTR)req->value->value);
-			abort();
-		}
 		c_table->on = 2;
 		if(!p_table){
 			if(num_caching == num_max_cache){
-				printf("eee\n");
-				demand_eviction();
+				demand_eviction('R');
 			}
 			p_table = mem_alloc();
 			memcpy(p_table, req->value->value, PAGESIZE);
@@ -366,9 +373,6 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
 	}
 	ppa = p_table[P_IDX].ppa;
 	lru_update(lru, c_table->queue_ptr);
-	if(ppa == 2021161080){
-		abort();
-	}
 	if(ppa == -1){ // No mapping in t_page on cache
 		printf("lpa2: %d\n", lpa);
 		bench_algo_end(req);
@@ -387,7 +391,7 @@ uint32_t __demand_get(request *const req){ //여기서 req사라지는거같음
  * If translation page differs from translation page in flash, update translation page in flash
  * If not, just simply erase translation page on cache
  */
-uint32_t demand_eviction(){
+uint32_t demand_eviction(char req_t){
 	int32_t t_ppa;
 	C_TABLE *cache_ptr; // Hold pointer that points one cache entry
 	D_TABLE *p_table;
@@ -416,7 +420,7 @@ uint32_t demand_eviction(){
 			update_b_heap(t_ppa/p_p_b, 'T');
 		}
 		/* Write translation page */
-		t_ppa = tp_alloc();
+		t_ppa = tp_alloc(req_t);
 		temp_value_set = inf_get_valueset((PTR)p_table, FS_MALLOC_W, PAGESIZE);
 		__demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(MAPPING_W, temp_value_set, NULL));
 		demand_OOB[t_ppa].lpa = cache_ptr->idx;

@@ -99,7 +99,7 @@ int lpa_compare(const void *a, const void *b){
  * first dequeue but when heap has max_size
  * block, than call GC func
  */
-int32_t tp_alloc(){
+int32_t tp_alloc(char req_t){
 	static int32_t ppa = -1;
 	b_node *block;
 	if(ppa != -1 && ppa % p_p_b == 0){
@@ -108,6 +108,9 @@ int32_t tp_alloc(){
 	if(ppa == -1){
 		if(trans_b->idx == trans_b->max_size){
 			ppa = tpage_GC();
+			if(req_t == 'R'){
+				read_tgc_count++;
+			}
 			return ppa++;
 		}
 		block = (b_node*)fb_dequeue(free_b);
@@ -118,6 +121,9 @@ int32_t tp_alloc(){
 		}
 		else{
 			ppa = tpage_GC();
+			if(req_t == 'R'){
+				read_tgc_count++;
+			}
 		}
 	}
 	return ppa++;

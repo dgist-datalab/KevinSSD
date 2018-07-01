@@ -92,6 +92,10 @@ extern int32_t num_dpage;
 extern int32_t num_dblock;
 extern int32_t max_cache_entry;
 extern int32_t num_max_cache;
+
+extern int32_t tgc_count;
+extern int32_t dgc_count;
+extern int32_t read_tgc_count;
 /* extern variables */
 
 //dftl.c
@@ -99,11 +103,11 @@ uint32_t demand_create(lower_info*, algorithm*);
 void demand_destroy(lower_info*, algorithm*);
 void *demand_end_req(algo_req*);
 uint32_t demand_set(request *const);
-uint32_t __demand_set(request *const);
 uint32_t demand_get(request *const);
+uint32_t __demand_set(request *const);
 uint32_t __demand_get(request *const);
-uint32_t demand_eviction();
 uint32_t demand_remove(request *const);
+uint32_t demand_eviction(char req_t);
 
 //dftl_utils.c
 algo_req* assign_pseudo_req(TYPE type, value_set *temp_v, request *req);
@@ -112,7 +116,7 @@ void mem_free(D_TABLE *input);
 void merge_w_origin(D_TABLE *src, D_TABLE *dst);
 void update_b_heap(uint32_t b_idx, char type);
 int lpa_compare(const void *a, const void *b);
-int32_t tp_alloc();
+int32_t tp_alloc(char req_t);
 int32_t dp_alloc();
 value_set* SRAM_load(D_SRAM* d_sram, int32_t ppa, int idx);
 void SRAM_unload(D_SRAM* d_sram, int32_t ppa, int idx);

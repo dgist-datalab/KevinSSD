@@ -18,6 +18,7 @@ int32_t tpage_GC(){
 
 	/* Load valid pages to SRAM */
 	all = 0;
+	tgc_count++;
 	victim = (b_node*)heap_get_max(trans_b);
 	if(victim->invalid == p_p_b){ // if all invalid block
 		all = 1;
@@ -108,6 +109,7 @@ int32_t dpage_GC(){
 
 	/* Load valid pages to SRAM */
 	all = 0;
+	dgc_count++;
 	victim = (b_node*)heap_get_max(data_b);
 	if(victim->invalid == p_p_b){ // if all invalid block
 		all = 1;
@@ -233,7 +235,7 @@ int32_t dpage_GC(){
 		if(tce == INT32_MAX){
 			VBM[t_ppa] = 0;
 			update_b_heap(t_ppa/p_p_b, 'T');
-			t_ppa = tp_alloc();
+			t_ppa = tp_alloc('D');
 			temp_value_set = inf_get_valueset((PTR)temp_table, FS_MALLOC_W, PAGESIZE); // Make valueset to WRITEMODE
 			__demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(MAPPING_W, temp_value_set, NULL));	// Unload page to ppa
 			demand_OOB[t_ppa].lpa = c_table->idx;

@@ -8,18 +8,17 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <string.h>
+#ifdef posix_async
 extern struct lower_info my_posix;
+#else
+extern struct lower_info my_posix;
+#endif
 extern struct algorithm __normal;
 extern struct algorithm __badblock;
 extern struct algorithm __demand;
 extern struct algorithm algo_pbase;
 #ifdef lsmtree
 extern struct algorithm algo_lsm;
-#endif
-#ifdef posix_async
-extern struct lower_info my_posix;
-#else
-extern struct lower_info my_posix;
 #endif
 
 #ifdef bdbm_drv
@@ -93,11 +92,11 @@ void inf_init(){
 #ifdef posix
 	mp.li=&my_posix;
 #endif
-#ifdef bdbm_drv
-	mp.li=&memio_info;
-#endif
 #ifdef posix_async
 	mp.li=&my_posix;
+#endif
+#ifdef bdbm_drv
+	mp.li=&memio_info;
 #endif
 
 
