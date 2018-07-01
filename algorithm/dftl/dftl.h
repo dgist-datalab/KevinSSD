@@ -37,7 +37,7 @@ typedef struct cached_table{
 	int32_t idx;
 	D_TABLE *p_table;
 	NODE *queue_ptr;
-	unsigned char flag; // 0: unchanged, 1: changed
+	unsigned char flag; // 0: unchanged, 1: dirty, need to merge, 2: changed but all data on cache
 } C_TABLE;
 
 // OOB data structure
