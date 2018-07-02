@@ -9,14 +9,12 @@
 #include "../include/types.h"
 #include "../bench/bench.h"
 #include "interface.h"
-//char t_value2[PAGESIZE];
 int main(){/*
 	int Input_cycle;
 	int Input_type;
 	int start;
 	int end;
 	int Input_size;
-
 	printf("How many times would you run a benchmark?");
 	scanf("%d", &Input_cycle);
 	bench_init(Input_cycle);
@@ -67,13 +65,14 @@ int main(){/*
 	for(int i=0; i<PAGESIZE;i++){
 		t_value2[i]=rand()%256;
 	}*/
-	bench_add(SEQRW,0,RANGE,2*RANGE);
+	bench_add(SEQRW,0,15*K,2*15*K);
 //	bench_add(RANDSET,0,15*1024,15*1024);
 //	bench_add(RANDGET,0,15*1024,15*1024);
 	bench_value *value;
 
 	value_set temp;
 	temp.value=t_value;
+	//temp.value=NULL;
 	temp.dmatag=-1;
 	temp.length=0;
 	int cnt=0;
