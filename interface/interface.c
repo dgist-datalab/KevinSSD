@@ -42,7 +42,7 @@ int bitmap_search(hash_bm *bitmap, KEYT key, int s_flag){
 			return idx;
 		}
 		idx=idx+1;
-		if(idx == QSIZE){
+		if(idx >= QSIZE){
 			idx=0;	
 		}
 	}
@@ -114,24 +114,34 @@ static void assign_req(request* req){
 				continue;
 			}
 			pthread_mutex_lock(&t->w_lock);
-			if(q_enqueue((void*)req,req_q[i])){
-				if(req_q[i]==t->req_wq){
-					idx=bitmap_search(t->bitmap, req->key, 0);
-					if(idx==-1){
-						pthread_mutex_unlock(&t->w_lock);
-						continue;
-					}
-					t->bitmap[idx].key=req->key;
-					t->bitmap[idx].node_ptr=req_q[i]->tail;
-					((request*)req)->params=(void*)(intptr_t)idx;
+			if(req_q[i]==t->req_wq){
+				if(t->bm_full==QSIZE){
+					pthread_mutex_unlock(&t->w_lock);
+					continue;
 				}
+				idx=bitmap_search(t->bitmap, req->key, 0);
+			}
+			if(q_enqueue((void*)req,req_q[i])){
+				t->bitmap[idx].key=req->key;
+				t->bitmap[idx].node_ptr=req_q[i]->tail;
+				t->bm_full++;
+				((request*)req)->params=(void*)(intptr_t)idx;
 				flag[i]=true;
 				total_flag++;
-				pthread_mutex_unlock(&t->w_lock);
-				continue;
-				//break;
 			}
 			pthread_mutex_unlock(&t->w_lock);
+			/*
+			if(req_q[i]==t->req_wq){
+				idx=bitmap_search(t->bitmap, req->key, 0);
+				if(idx==-1){
+					pthread_mutex_unlock(&t->w_lock);
+					continue;
+				}
+				t->bitmap[idx].key=req->key;
+				t->bitmap[idx].node_ptr=req_q[i]->tail;
+				((request*)req)->params=(void*)(intptr_t)idx;
+			}
+			*/
 		}
 #ifdef LEAKCHECK
 		sleep(1);
@@ -235,6 +245,7 @@ void inf_init(){
 			t->bitmap[j].key=UINT32_MAX;
 			t->bitmap[j].node_ptr=NULL;
 		}
+		t->bm_full=0;
 	}
 	pthread_mutex_init(&mp.flag,NULL);
 	/*
@@ -423,6 +434,7 @@ void *p_main(void *__input){
 				idx=(int)(intptr_t)inf_req->params;
 				_this->bitmap[idx].key=UINT32_MAX;
 				_this->bitmap[idx].node_ptr=NULL;
+				_this->bm_full--;
 				inf_req->params=NULL;
 				pthread_mutex_unlock(&_this->w_lock);
 			}
