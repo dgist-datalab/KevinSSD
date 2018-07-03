@@ -64,6 +64,7 @@ static void assign_req(request* req){
 
 	for(int i=0; i<THREADSIZE; i++){
 		processor *t=&mp.processors[i];
+		pthread_mutex_lock(&t->w_lock);
 		idx=bitmap_search(t->bitmap, req->key, 1);
 		if(idx!=-1){
 			res_node=t->bitmap[idx].node_ptr;
@@ -78,7 +79,7 @@ static void assign_req(request* req){
 			case FS_SET_T:
 				req_q[i]=t->req_wq;
 				break;
-			case FS_GET_T:
+			case FS_GET_T: //FS_GET_T의 경우 bm_lock의 제한을 안받게 하면 성능향상이 있을 것이다.
 				req_q[i]=t->req_rq;
 				break;
 			case FS_DELETE_T:
@@ -103,25 +104,34 @@ static void assign_req(request* req){
 				total_flag++;
 				break;
 		}
+		pthread_mutex_unlock(&t->w_lock);
 	}
 
 	while(total_flag<THREADSIZE){
 		for(int i=0; i<THREADSIZE; i++){
+			processor *t=&mp.processors[i];
 			if(flag[i]){
 				continue;
 			}
-			processor *t=&mp.processors[i];
+			pthread_mutex_lock(&t->w_lock);
 			if(q_enqueue((void*)req,req_q[i])){
-				flag[i]=true;
-				total_flag++;
 				if(req_q[i]==t->req_wq){
 					idx=bitmap_search(t->bitmap, req->key, 0);
+					if(idx==-1){
+						pthread_mutex_unlock(&t->w_lock);
+						continue;
+					}
 					t->bitmap[idx].key=req->key;
-					t->bitmap[idx].node_ptr=req_q[i]->head;
+					t->bitmap[idx].node_ptr=req_q[i]->tail;
 					((request*)req)->params=(void*)(intptr_t)idx;
 				}
-				break;
+				flag[i]=true;
+				total_flag++;
+				pthread_mutex_unlock(&t->w_lock);
+				continue;
+				//break;
 			}
+			pthread_mutex_unlock(&t->w_lock);
 		}
 #ifdef LEAKCHECK
 		sleep(1);
@@ -214,12 +224,17 @@ void inf_init(){
 		processor *t=&mp.processors[i];
 		pthread_mutex_init(&t->flag,NULL);
 		pthread_mutex_lock(&t->flag);
+		pthread_mutex_init(&t->w_lock,NULL);
 		//FIXME: consider r/w queue QSIZE
 		q_init(&t->req_wq,QSIZE);
 		q_init(&t->req_rq,QSIZE);
 		t->master=&mp;
 		pthread_create(&t->t_id,NULL,&p_main,NULL);
 		t->bitmap=(hash_bm*)malloc(QSIZE*sizeof(hash_bm));
+		for(int j=0; j<QSIZE; j++){
+			t->bitmap[j].key=UINT32_MAX;
+			t->bitmap[j].node_ptr=NULL;
+		}
 	}
 	pthread_mutex_init(&mp.flag,NULL);
 	/*
@@ -398,15 +413,18 @@ void *p_main(void *__input){
 		if(mp.stopflag)
 			break;
 		if(!(_inf_req=q_dequeue(_this->req_rq))){
+			pthread_mutex_lock(&_this->w_lock);
 			if(!(_inf_req=q_dequeue(_this->req_wq))){
+				pthread_mutex_unlock(&_this->w_lock);
 				continue;
 			}
 			else{
 				inf_req=(request*)_inf_req;
-				idx=(intptr_t)inf_req->params;
+				idx=(int)(intptr_t)inf_req->params;
 				_this->bitmap[idx].key=UINT32_MAX;
 				_this->bitmap[idx].node_ptr=NULL;
 				inf_req->params=NULL;
+				pthread_mutex_unlock(&_this->w_lock);
 			}
 		}
 

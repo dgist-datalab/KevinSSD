@@ -16,6 +16,7 @@ typedef struct processor{
 	queue *req_wq;
 	queue *req_rq;
 	hash_bm *bitmap;
+	pthread_mutex_t w_lock;
 }processor;
 
 struct master_processor{

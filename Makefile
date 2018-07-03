@@ -1,6 +1,6 @@
 export CC=g++
 
-TARGET_LOWER=posix_async
+TARGET_LOWER=posix
 TARGET_ALGO=normal
 PWD=$(pwd)
 
