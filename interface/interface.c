@@ -27,17 +27,18 @@ extern struct lower_info memio_info;
 MeasureTime mt;
 master_processor mp;
 
+uint64_t bm_search_fail=0;
+
 //왜 get queue가 priority가 더 높은가????
 //pthread_mutex_t inf_lock;
 void *p_main(void*);
 int bitmap_search(hash_bm *bitmap, KEYT key, int s_flag){
 	int idx=key%QSIZE;
-	//s_flag 
 	//0: find empty bitmap entry, 1: find key in the bitmap
 	if(!s_flag){ 
 		key=UINT32_MAX;
 	}
-	for(int j=0; j<QSIZE; j++){ //hash search
+	for(int i=0; i<QSIZE; i++){ //hash search
 		if(bitmap[idx].key==key){
 			return idx;
 		}
@@ -69,6 +70,9 @@ static void assign_req(request* req){
 		if(idx!=-1){
 			res_node=t->bitmap[idx].node_ptr;
 		}
+		else{
+			bm_search_fail++;
+		}
 		if(res_node){
 			res_type=req->type+3;
 		}
@@ -79,7 +83,7 @@ static void assign_req(request* req){
 			case FS_SET_T:
 				req_q[i]=t->req_wq;
 				break;
-			case FS_GET_T: //FS_GET_T의 경우 bm_lock의 제한을 안받게 하면 성능향상이 있을 것이다.
+			case FS_GET_T: //FS_GET_T의 경우 w_lock의 제한을 안받게 하면 성능향상이 있을 것이다.
 				req_q[i]=t->req_rq;
 				break;
 			case FS_DELETE_T:
@@ -88,6 +92,7 @@ static void assign_req(request* req){
 			case FS_SET_F:
 				inf_end_req((request*)res_node->req);
 				res_node->req=req;
+				req->params=(void*)(intptr_t)idx;
 				flag[i]=true;
 				total_flag++;
 				break;
@@ -100,6 +105,7 @@ static void assign_req(request* req){
 			case FS_DELETE_F:
 				inf_end_req((request*)res_node->req);
 				res_node->req=req;
+				req->params=(void*)(intptr_t)idx;
 				flag[i]=true;
 				total_flag++;
 				break;
@@ -114,34 +120,29 @@ static void assign_req(request* req){
 				continue;
 			}
 			pthread_mutex_lock(&t->w_lock);
-			if(req_q[i]==t->req_wq){
-				if(t->bm_full==QSIZE){
-					pthread_mutex_unlock(&t->w_lock);
-					continue;
-				}
-				idx=bitmap_search(t->bitmap, req->key, 0);
-			}
 			if(q_enqueue((void*)req,req_q[i])){
-				t->bitmap[idx].key=req->key;
-				t->bitmap[idx].node_ptr=req_q[i]->tail;
-				t->bm_full++;
-				((request*)req)->params=(void*)(intptr_t)idx;
+				if(req_q[i]==t->req_wq){
+					idx=bitmap_search(t->bitmap, req->key, 0);
+					if(idx==-1){
+						bm_search_fail++;
+					}
+					/*
+					if(idx==-1){
+						printf("bitmap manage error\n");
+					}
+					*/
+					t->bitmap[idx].key=req->key;
+					t->bitmap[idx].node_ptr=req_q[i]->tail;
+					((request*)req)->params=(void*)(intptr_t)idx;
+				}
 				flag[i]=true;
 				total_flag++;
 			}
-			pthread_mutex_unlock(&t->w_lock);
-			/*
-			if(req_q[i]==t->req_wq){
-				idx=bitmap_search(t->bitmap, req->key, 0);
-				if(idx==-1){
-					pthread_mutex_unlock(&t->w_lock);
-					continue;
-				}
-				t->bitmap[idx].key=req->key;
-				t->bitmap[idx].node_ptr=req_q[i]->tail;
-				((request*)req)->params=(void*)(intptr_t)idx;
+			else{
+				pthread_mutex_unlock(&t->w_lock);
+				continue;
 			}
-			*/
+			pthread_mutex_unlock(&t->w_lock);
 		}
 #ifdef LEAKCHECK
 		sleep(1);
@@ -164,6 +165,7 @@ bool inf_assign_try(request *req){
 	int idx;
 	for(int i=0; i<THREADSIZE; i++){
 		processor *t=&mp.processors[i];
+		pthread_mutex_lock(&t->w_lock);
 		idx=bitmap_search(t->bitmap, req->key, 1);
 		if(idx!=-1){
 			res_node=t->bitmap[idx].node_ptr;
@@ -178,7 +180,7 @@ bool inf_assign_try(request *req){
 			case FS_SET_T:
 				req_q[i]=t->req_wq;
 				break;
-			case FS_GET_T:
+			case FS_GET_T: //FS_GET_T의 경우 w_lock의 제한을 안받게 하면 성능향상이 있을 것이다.
 				req_q[i]=t->req_rq;
 				break;
 			case FS_DELETE_T:
@@ -187,6 +189,7 @@ bool inf_assign_try(request *req){
 			case FS_SET_F:
 				inf_end_req((request*)res_node->req);
 				res_node->req=req;
+				req->params=(void*)(intptr_t)idx;
 				flag[i]=true;
 				total_flag++;
 				break;
@@ -199,30 +202,41 @@ bool inf_assign_try(request *req){
 			case FS_DELETE_F:
 				inf_end_req((request*)res_node->req);
 				res_node->req=req;
+				req->params=(void*)(intptr_t)idx;
 				flag[i]=true;
 				total_flag++;
 				break;
 		}
+		pthread_mutex_unlock(&t->w_lock);
 	}
 
 	for(int i=0; i<THREADSIZE; i++){
+		processor *t=&mp.processors[i];
 		if(flag[i]){
 			continue;
 		}
-		processor *t=&mp.processors[i];
+		pthread_mutex_lock(&t->w_lock);
 		if(q_enqueue((void*)req,req_q[i])){
-			flag[i]=true;
-			total_flag++;
 			if(req_q[i]==t->req_wq){
 				idx=bitmap_search(t->bitmap, req->key, 0);
+				/*
+				if(idx==-1){
+					printf("bitmap manage error\n");
+				}
+				*/
 				t->bitmap[idx].key=req->key;
-				t->bitmap[idx].node_ptr=req_q[i]->head;
+				t->bitmap[idx].node_ptr=req_q[i]->tail;
 				((request*)req)->params=(void*)(intptr_t)idx;
 			}
-			break;
+			flag[i]=true;
+			total_flag++;
 		}
+		else{
+			pthread_mutex_unlock(&t->w_lock);
+			continue;
+		}
+		pthread_mutex_unlock(&t->w_lock);
 	}
-
 	if(total_flag==THREADSIZE){
 		return true;
 	}
@@ -245,7 +259,6 @@ void inf_init(){
 			t->bitmap[j].key=UINT32_MAX;
 			t->bitmap[j].node_ptr=NULL;
 		}
-		t->bm_full=0;
 	}
 	pthread_mutex_init(&mp.flag,NULL);
 	/*
@@ -398,6 +411,7 @@ void inf_free(){
 		pthread_mutex_destroy(&t->flag);
 	}
 	free(mp.processors);
+	printf("bm_search_fail count : %lu\n", bm_search_fail);
 
 	mp.algo->destroy(mp.li,mp.algo);
 	mp.li->destroy(mp.li);
@@ -412,6 +426,7 @@ void *p_main(void *__input){
 	request *inf_req;
 	processor *_this=NULL;
 	int idx;
+	int count;
 	for(int i=0; i<THREADSIZE; i++){
 		if(pthread_self()==mp.processors[i].t_id){
 			_this=&mp.processors[i];
@@ -434,7 +449,6 @@ void *p_main(void *__input){
 				idx=(int)(intptr_t)inf_req->params;
 				_this->bitmap[idx].key=UINT32_MAX;
 				_this->bitmap[idx].node_ptr=NULL;
-				_this->bm_full--;
 				inf_req->params=NULL;
 				pthread_mutex_unlock(&_this->w_lock);
 			}
