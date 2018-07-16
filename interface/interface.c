@@ -27,8 +27,6 @@ extern struct lower_info memio_info;
 MeasureTime mt;
 master_processor mp;
 
-uint64_t bm_search_fail=0;
-
 //왜 get queue가 priority가 더 높은가????
 //pthread_mutex_t inf_lock;
 void *p_main(void*);
@@ -69,9 +67,6 @@ static void assign_req(request* req){
 		idx=bitmap_search(t->bitmap, req->key, 1);
 		if(idx!=-1){
 			res_node=t->bitmap[idx].node_ptr;
-		}
-		else{
-			bm_search_fail++;
 		}
 		if(res_node){
 			res_type=req->type+3;
@@ -123,9 +118,6 @@ static void assign_req(request* req){
 			if(q_enqueue((void*)req,req_q[i])){
 				if(req_q[i]==t->req_wq){
 					idx=bitmap_search(t->bitmap, req->key, 0);
-					if(idx==-1){
-						bm_search_fail++;
-					}
 					/*
 					if(idx==-1){
 						printf("bitmap manage error\n");
@@ -411,7 +403,6 @@ void inf_free(){
 		pthread_mutex_destroy(&t->flag);
 	}
 	free(mp.processors);
-	printf("bm_search_fail count : %lu\n", bm_search_fail);
 
 	mp.algo->destroy(mp.li,mp.algo);
 	mp.li->destroy(mp.li);
