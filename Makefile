@@ -1,6 +1,6 @@
 export CC=g++
 
-TARGET_LOWER=posix
+TARGET_LOWER=posix_async
 TARGET_ALGO=lsmtree
 PWD=$(pwd)
 
