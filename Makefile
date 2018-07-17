@@ -1,7 +1,7 @@
 export CC=g++
 
-TARGET_LOWER=posix_async
-TARGET_ALGO=lsmtree
+TARGET_LOWER=posix_async #bdbm_drv
+TARGET_ALGO=dftl
 PWD=$(pwd)
 
 COMMONFLAGS=\

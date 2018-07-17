@@ -48,7 +48,7 @@ void *l_main(void *__input){
 	while(1){
 		//stopflag 어디서 전달
 		if(stopflag){
-			printf("posix bye bye!\n");
+			//printf("posix bye bye!\n");
 			pthread_exit(NULL);
 			break;
 		}
@@ -138,12 +138,12 @@ void *posix_make_trim(KEYT PPA, bool async){
 }
 
 uint32_t posix_create(lower_info *li){
-	li->NOB=_NOB;
+	li->NOB=_NOS;
 	li->NOP=_NOP;
-	li->SOB=BLOCKSIZE;
+	li->SOB=BLOCKSIZE*BPS;
 	li->SOP=PAGESIZE;
 	li->SOK=sizeof(KEYT);
-	li->PPB=_PPB;
+	li->PPB=_PPS;
 	li->TS=TOTALSIZE;
 
 	li->write_op=li->read_op=li->trim_op=0;
@@ -204,7 +204,6 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		bench_lower_end(req->parents);
 	bench_lower_w_end(&my_posix);
 	req->end_req(req);
-
 	return NULL;
 }
 

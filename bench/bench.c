@@ -73,7 +73,7 @@ void bench_make_data(){
 			randset(start,end,_m);
 			break;
 		case MIXED:
-			mixed(start,end,10,_m);
+			mixed(start,end,50,_m);
 			break;
 	}
 	measure_init(&_m->benchTime);
@@ -485,7 +485,7 @@ void randrw(KEYT start, KEYT end, monitor *m){
 void mixed(KEYT start, KEYT end,int percentage, monitor *m){
 	printf("making mixed bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
-		m->body[i].key=rand()%m->m_num;
+		m->body[i].key=start+rand()%(end-start);
 		if(rand()%100<percentage){
 			m->body[i].type=FS_SET_T;
 #ifdef DVALUE

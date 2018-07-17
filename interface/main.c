@@ -9,14 +9,12 @@
 #include "../include/types.h"
 #include "../bench/bench.h"
 #include "interface.h"
-//char t_value2[PAGESIZE];
 int main(){/*
 	int Input_cycle;
 	int Input_type;
 	int start;
 	int end;
 	int Input_size;
-
 	printf("How many times would you run a benchmark?");
 	scanf("%d", &Input_cycle);
 	bench_init(Input_cycle);
@@ -60,20 +58,25 @@ int main(){/*
 */
 
 	inf_init();
-	bench_init(1);
+	bench_init(2);
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
 	/*
 	for(int i=0; i<PAGESIZE;i++){
 		t_value2[i]=rand()%256;
 	}*/
-	bench_add(RANDRW,0,RANGE,2*RANGE);
+	//bench_add(RANDRW,0,128*1024,2*128*1024);
+	//bench_add(SEQSET,0,RANGE-(4*_PPS),RANGE-(4*_PPS));
+	//bench_add(MIXED,0,RANGE-(4*_PPS),RANGE-(4*_PPS));
+	bench_add(SEQSET,0,0.8*RANGE,0.8*RANGE);
+	bench_add(MIXED,0,0.8*RANGE,0.8*RANGE);
 //	bench_add(RANDSET,0,15*1024,15*1024);
 //	bench_add(RANDGET,0,15*1024,15*1024);
 	bench_value *value;
 
 	value_set temp;
 	temp.value=t_value;
+	//temp.value=NULL;
 	temp.dmatag=-1;
 	temp.length=0;
 	int cnt=0;
@@ -99,7 +102,8 @@ int main(){/*
 #endif
 	}
 	bench_print();
-//	bench_free();
+
+	bench_free();
 	inf_free();
 	return 0;
 }
