@@ -1,7 +1,7 @@
 export CC=g++
 
-TARGET_LOWER=bdbm_drv
-TARGET_ALGO=normal
+TARGET_LOWER=posix
+TARGET_ALGO=lsmtree
 PWD=$(pwd)
 
 COMMONFLAGS=\
@@ -48,6 +48,7 @@ CFLAGS +=\
 SRCS +=\
 	./interface/queue.c\
 	./interface/interface.c\
+	./interface/bb_checker.c\
 	./include/FS.c\
 	./bench/measurement.c\
 	./bench/bench.c\

@@ -4,7 +4,7 @@
 #include "../../include/container.h"
 #include "frontend/libmemio/libmemio.h"
 #include "bdbm_inf.h"
-#include "bb_checker.h"
+#include "../../interface/bb_checker.h"
 #include <unistd.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -15,6 +15,7 @@ lower_info memio_info={
 	.push_data=memio_info_push_data,
 	.pull_data=memio_info_pull_data,
 	.trim_block=memio_info_trim_block,
+	.device_badblock_checker=memio_badblock_checker,
 	.refresh=memio_info_refresh,
 	.stop=memio_info_stop,
 	.lower_alloc=memio_alloc_dma,
@@ -92,4 +93,8 @@ void *memio_info_refresh(struct lower_info* li){
 	li->write_op=li->read_op=li->trim_op=0;
 	return NULL;
 }
+void *memio_badblock_checker(KEYT ppa,uint32_t size, void*(*process)(uint64_t,uint8_t)){
+	memio_trim(mio,ppa,size,process);
+}
+
 void memio_info_stop(){}

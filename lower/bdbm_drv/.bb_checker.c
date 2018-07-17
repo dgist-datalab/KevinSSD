@@ -12,7 +12,6 @@ static uint64_t target_cnt, _cnt, badblock_cnt;
 uint32_t array[128];
 
 void bb_checker_start(){
-	printf("hello!\n");
 	memset(&checker,0,sizeof(checker));
 	target_cnt=_RNOS*64;
 	printf("_nos:%u\n",_NOS);

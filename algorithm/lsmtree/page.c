@@ -10,9 +10,6 @@
 #include <stdio.h>
 #include <limits.h>
 
-#ifdef SLC
-#include "../../lower/bdbm_drv/bb_checker.h"
-#endif
 //1==invalidxtern
 
 extern algorithm algo_lsm;
@@ -573,16 +570,10 @@ KEYT getPPA(uint8_t type, KEYT lpa,bool isfull){
 }
 
 void invalidate_PPA(KEYT _ppa){
-	KEYT ppa,bn,idx;/*
-#ifdef bdbm_drv
-	ppa=bb_checker_fix_ppa(_ppa);
-	KEYT segnum=ppa/(1<<14);
-	bn=segnum*64+ppa&()
-#else*/
+	KEYT ppa,bn,idx;
 	ppa=_ppa;
 	bn=ppa/algo_lsm.li->PPB;
 	idx=ppa%algo_lsm.li->PPB;
-//#endif
 
 	bl[bn].bitset[idx/8]|=(1<<(idx%8));
 	bl[bn].invalid_n++;
@@ -969,7 +960,7 @@ int gc_header(KEYT tbn){
 
 int gc_data(KEYT tbn){//
 	gc_data_cnt++;
-	//printf("gc_data_cnt : %d\n",gc_data_cnt);
+	printf("gc_data_cnt : %d\n",gc_data_cnt);
 	block *target=&bl[tbn];
 #ifdef DVALUE
 	if(target->invalid_n==algo_lsm.li->PPB*(PAGESIZE/PIECE)){
