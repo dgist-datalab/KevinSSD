@@ -164,7 +164,7 @@ void *demand_end_req(algo_req* input){
 			break;
 		case MAPPING_R: // only used in async
 			((read_params*)res->params)->read = 1;
-			if(!inf_assign_try(res)){
+			if(!inf_assign_try(res)){ //assign 안돼면??
 				q_enqueue((void*)res, dftl_q);
 			}
 			break;
@@ -254,7 +254,7 @@ uint32_t __demand_set(request *const req){
 	}
 	if(p_table[P_IDX].ppa != -1){ // if there is previous data with same lpa, then invalidate it
 		VBM[p_table[P_IDX].ppa] = 0;
-		update_b_heap(p_table[P_IDX].ppa/p_p_b, 'D');
+		update_b_heap(p_table[P_IDX].ppa/p_p_b, 'D'); //data block heap update
 	}
 	ppa = dp_alloc();
 	p_table[P_IDX].ppa = ppa;
@@ -322,7 +322,8 @@ uint32_t __demand_get(request *const req){
 		__demand.li->pull_data(t_ppa, PAGESIZE, req->value, ASYNC, my_req);
 		return 1;
 	}
-	else{
+	else{ 
+		//없어도 될 것 같음
 		if(((read_params*)req->params)->t_ppa != t_ppa){ 		// mapping has changed in data gc
 			((read_params*)req->params)->read = 0; 				// read value is invalid now
 			((read_params*)req->params)->t_ppa = t_ppa; 		// these could mapping to reserved area
