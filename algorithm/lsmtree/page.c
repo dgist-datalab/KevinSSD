@@ -435,7 +435,8 @@ KEYT getRPPA(uint8_t type,KEYT lpa,bool isfull){
 	return res;
 }
 
-static int gc_check_num=0;
+//static int gc_check_num;
+uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
 void gc_check(uint8_t type, bool force){
 	if(!force){
 		if(type==DATA){
@@ -459,8 +460,20 @@ void gc_check(uint8_t type, bool force){
 	for(int i=0; i<BPS; i++){
 		KEYT target_block=0;
 		
+		target_block=gc_victim_segment(type);
 		if(once){
 			once=false;
+			switch(type){
+				case HEADER:
+					target_p=&header_m;
+					header_gc_cnt++; break;
+				case DATA:
+					target_p=&data_m;
+					data_gc_cnt++; break;
+				case BLOCK:
+					target_p=&block_m;
+					block_gc_cnt++; break;
+			}
 			//int s_n=target_block/BPS;
 			//llog_print(data_m.blocks);
 			//printf("[%d]lack of block in data for memtable\n",gc_check_num++);
@@ -469,10 +482,12 @@ void gc_check(uint8_t type, bool force){
 			//n=target->reserve->ppa/BPS/_PPB;
 			if(type==DATA){
 //				printf("gc_datacnt: %d\n",cnt++);
+				//printf("before gc\n");
+				//segment_print(data_m.target->ppa/_PPB/BPS);
 			}
+			
 		}
 		//printf("%d -",i);
-		target_block=gc_victim_segment(type);
 		//printf("target block %d\n",target_block);
 
 		if(target_block==UINT_MAX){
@@ -493,23 +508,22 @@ void gc_check(uint8_t type, bool force){
 		switch(type){
 			case HEADER:
 				gc_header(target_block);
-				target_p=&header_m;
 				break;
 			case DATA:
 				gc_data(target_block);
-				target_p=&data_m;
 				break;
 #ifdef DVALUE
 			case BLOCK:
 				gc_block(target_block);
-				target_p=&block_m;
 				break;
 #endif
 		}
 		target_p->n_log=target_p->blocks->head;
 	}
+	//printf("after gc\n");
+	//segment_print(target_p->target->ppa/_PPB/BPS);
 	target_p->target=NULL;//when not used block don't exist in target_segment;
-//	llog_print(target_p->blocks);
+	//llog_print(target_p->blocks);
 	if(!force){
 //		printf("after free block:%d\n",data_m.max_blkn-data_m.used_blkn);
 	}
@@ -652,10 +666,7 @@ void gc_data_header_update(gc_node **gn,int size, int target_level){
 	for(int i=0; i<size; i++){
 		if(gn[i]==NULL) continue;
 		gc_node *target=gn[i];
-		
-		if(gc_check_num==3){
-			//level_print(in);
-		}
+
 		entries=level_find(in,target->lpa);
 		int htable_idx=0;
 		gc_general_wait_init();
@@ -862,13 +873,14 @@ KEYT gc_victim_segment(uint8_t type){ //gc for segment
 	}
 
 	target_p->target=target;
+	
 	return target->ppa/_PPB+target->segment_idx++;
 }
 
 int gc_header(KEYT tbn){
 	static int gc_cnt=0;
 	gc_cnt++;
-	printf("[%d]gc_header start\n",gc_cnt);
+//	printf("[%d]gc_header start\n",gc_cnt);
 	block *target=&bl[tbn];
 
 	if(target->invalid_n==algo_lsm.li->PPB){
