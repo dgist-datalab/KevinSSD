@@ -3,6 +3,7 @@
 #include "../include/FS.h"
 #include "../bench/bench.h"
 #include "../bench/measurement.h"
+#include "bb_checker.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -14,6 +15,7 @@
 #define FS_DELETE_F 6
 
 extern struct lower_info my_posix;
+
 extern struct algorithm __normal;
 extern struct algorithm __badblock;
 extern struct algorithm __demand;
@@ -261,6 +263,7 @@ void inf_init(){
 #if defined(posix) || defined(posix_async)
 	mp.li=&my_posix;
 #endif
+
 #ifdef bdbm_drv
 	mp.li=&memio_info;
 #endif
@@ -294,6 +297,8 @@ void inf_init(){
 
 	mp.li->create(mp.li);
 	mp.algo->create(mp.li,mp.algo);
+	
+	bb_checker_start(mp.li);
 }
 #ifndef USINGAPP
 bool inf_make_req(const FSTYPE type, const KEYT key, value_set *value,int mark){
@@ -319,7 +324,7 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value){
 	req->lower.isused=false;
 	req->mark=mark;
 #endif
-
+	
 #ifdef CDF
 	measure_init(&req->latency_checker);
 	measure_start(&req->latency_checker);

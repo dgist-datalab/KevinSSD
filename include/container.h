@@ -59,6 +59,7 @@ struct lower_info {
 	void* (*destroy)(struct lower_info*);
 	void* (*push_data)(KEYT ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
 	void* (*pull_data)(KEYT ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
+	void* (*device_badblock_checker)(KEYT ppa,uint32_t size,void *(*process)(uint64_t, uint8_t));
 	void* (*trim_block)(KEYT ppa,bool async);
 	void* (*refresh)(struct lower_info*);
 	void (*stop)();

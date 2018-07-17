@@ -228,7 +228,9 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 	return x;
 }
 
+//static int make_value_cnt=0;
 value_set **skiplist_make_valueset(skiplist *input, level *from){
+	//printf("make_value_cnt:%d\n",++make_value_cnt);
 	gc_check(DATA,false);
 	value_set **res=(value_set**)malloc(sizeof(value_set*)*(KEYNUM+1));
 	memset(res,0,sizeof(value_set*)*(KEYNUM+1));

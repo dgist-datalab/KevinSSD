@@ -10,9 +10,6 @@
 #include <stdio.h>
 #include <limits.h>
 
-#ifdef SLC
-#include "../../lower/bdbm_drv/bb_checker.h"
-#endif
 //1==invalidxtern
 
 extern algorithm algo_lsm;
@@ -195,7 +192,10 @@ void gc_trim_segment(uint8_t type, KEYT pbn){
 		//segment_print(seg->ppa/_PPB/BPS);
 		//printf("moved_block\n");	
 		//segment_print(reserve->ppa/_PPB/BPS);
-		target_p->used_blkn=target_p->rused_blkn;
+
+		target_p->used_blkn-=BPS; // trimed new block
+		target_p->used_blkn+=target_p->rused_blkn; // add using in reserved block
+
 		target_p->rused_blkn=0;
 		//target_p->target=NULL;
 		target_p->reserve=seg;
@@ -439,19 +439,21 @@ static int gc_check_num=0;
 void gc_check(uint8_t type, bool force){
 	if(!force){
 		if(type==DATA){
-			if(data_m.max_blkn-data_m.used_blkn>4){
+			if(data_m.max_blkn-data_m.used_blkn>=KEYNUM/_PPB){
 				return;
 			}
 			else{	
-				llog_print(data_m.blocks);
-				printf("[%d]lack of block in data for memtable\n",gc_check_num++);
+				//printf("before free block:%d\n",data_m.max_blkn-data_m.used_blkn);
+				//llog_print(data_m.blocks);
 			}
 		}
-	}/*
+	}
+	/*
 	for(int j=0; j<_NOS; j++){
 		printf("[seg%d]:invalid_n - %d\n",j,segs[j].invalid_n);
 	}*/
 	bool once=true;
+	//static int cnt=0;
 	pm *target_p;
 	//		int t,n;
 	for(int i=0; i<BPS; i++){
@@ -460,10 +462,14 @@ void gc_check(uint8_t type, bool force){
 		if(once){
 			once=false;
 			//int s_n=target_block/BPS;
-			llog_print(header_m.blocks);
+			//llog_print(data_m.blocks);
+			//printf("[%d]lack of block in data for memtable\n",gc_check_num++);
 			//printf("target seg:%d - reserve seg:%d\n",s_n,target->reserve->ppa/BPS/_PPB);
 			//			t=s_n;
 			//n=target->reserve->ppa/BPS/_PPB;
+			if(type==DATA){
+//				printf("gc_datacnt: %d\n",cnt++);
+			}
 		}
 		//printf("%d -",i);
 		target_block=gc_victim_segment(type);
@@ -503,7 +509,10 @@ void gc_check(uint8_t type, bool force){
 		target_p->n_log=target_p->blocks->head;
 	}
 	target_p->target=NULL;//when not used block don't exist in target_segment;
-	llog_print(target_p->blocks);
+//	llog_print(target_p->blocks);
+	if(!force){
+//		printf("after free block:%d\n",data_m.max_blkn-data_m.used_blkn);
+	}
 }
 
 KEYT getPPA(uint8_t type, KEYT lpa,bool isfull){
@@ -573,16 +582,10 @@ KEYT getPPA(uint8_t type, KEYT lpa,bool isfull){
 }
 
 void invalidate_PPA(KEYT _ppa){
-	KEYT ppa,bn,idx;/*
-#ifdef bdbm_drv
-	ppa=bb_checker_fix_ppa(_ppa);
-	KEYT segnum=ppa/(1<<14);
-	bn=segnum*64+ppa&()
-#else*/
+	KEYT ppa,bn,idx;
 	ppa=_ppa;
 	bn=ppa/algo_lsm.li->PPB;
 	idx=ppa%algo_lsm.li->PPB;
-//#endif
 
 	bl[bn].bitset[idx/8]|=(1<<(idx%8));
 	bl[bn].invalid_n++;
@@ -649,7 +652,10 @@ void gc_data_header_update(gc_node **gn,int size, int target_level){
 	for(int i=0; i<size; i++){
 		if(gn[i]==NULL) continue;
 		gc_node *target=gn[i];
-
+		
+		if(gc_check_num==3){
+			//level_print(in);
+		}
 		entries=level_find(in,target->lpa);
 		int htable_idx=0;
 		gc_general_wait_init();
@@ -845,6 +851,10 @@ KEYT gc_victim_segment(uint8_t type){ //gc for segment
 		}
 		if(cnt==0)
 			return UINT_MAX;
+		else if(type==DATA && cnt<KEYNUM ){
+			return UINT_MAX;
+		}
+
 	}else if(target && target->invalid_n==0){
 		//printf("segment trim done\n");
 		target_p->target=NULL;
@@ -968,7 +978,7 @@ int gc_header(KEYT tbn){
 }
 
 int gc_data(KEYT tbn){//
-	gc_data_cnt++;
+	//gc_data_cnt++;
 	//printf("gc_data_cnt : %d\n",gc_data_cnt);
 	block *target=&bl[tbn];
 #ifdef DVALUE
@@ -1140,6 +1150,7 @@ block* getRBLOCK(uint8_t type){
 	target->rused_blkn++;
 	segment *res=target->reserve;
 	block *r=&bl[res->ppa/_PPB+res->segment_idx++];
+	//printf("r->ppa:%d rused_blkn:%d\n",r->ppa,target->rused_blkn);
 	r->erased=false;
 	r->l_node=llog_insert(target->blocks,(void*)r);
 #ifdef DVALUE

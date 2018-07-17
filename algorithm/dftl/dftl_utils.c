@@ -117,8 +117,6 @@ int32_t dp_alloc(){ // Data page allocation
 	if(ppa == -1){
 		if(data_b->idx == data_b->max_size){ // to maintain heap struct
 			ppa = dpage_GC();
-			if(524288 < ppa)
-				abort();
 			return ppa++;
 		}
 		block = (b_node*)fb_dequeue(free_b); // dequeue block from free block queue
@@ -131,8 +129,6 @@ int32_t dp_alloc(){ // Data page allocation
 			ppa = dpage_GC();
 		}
 	}
-	if(524288 < ppa)
-		abort();
 	return ppa++;
 }
 

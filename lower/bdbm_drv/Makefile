@@ -1,6 +1,5 @@
 SRCS +=\
 		bdbm_inf.c\
-		bb_checker.c\
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\

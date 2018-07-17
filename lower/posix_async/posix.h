@@ -10,6 +10,7 @@ void* posix_push_data(KEYT ppa, uint32_t size, value_set *value,bool async, algo
 void* posix_pull_data(KEYT ppa, uint32_t size, value_set* value,bool async,algo_req * const req);
 void* posix_make_push(KEYT ppa, uint32_t size, value_set *value,bool async, algo_req * const req);
 void* posix_make_pull(KEYT ppa, uint32_t size, value_set *value,bool async, algo_req * const req);
+void* posix_badblock_checker(KEYT ppa, uint32_t size, void*(*process)(uint64_t,uint8_t));
 void* posix_trim_block(KEYT ppa,bool async);
 void *posix_refresh(lower_info*);
 void posix_stop();
