@@ -248,6 +248,8 @@ int32_t dpage_GC(){
 
 	/* Trim data block */
 	__demand.li->trim_block(old_block, false);
+	if(new_block + real_valid > 524288)
+		abort();
 	return new_block + real_valid;
 }
 

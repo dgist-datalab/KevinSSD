@@ -421,22 +421,27 @@ void *p_main(void *__input){
 	void *_inf_req;
 	request *inf_req;
 	processor *_this=NULL;
+	queue *req_rq;
+	queue *req_wq;
 	int idx;
 	int count;
 	for(int i=0; i<THREADSIZE; i++){
 		if(pthread_self()==mp.processors[i].t_id){
 			_this=&mp.processors[i];
+			req_rq=_this->req_rq;
+			req_wq=_this->req_wq;
 		}
 	}
+
 	while(1){
 #ifdef LEAKCHECK
 		sleep(1);
 #endif
 		if(mp.stopflag)
 			break;
-		if(!(_inf_req=q_dequeue(_this->req_rq))){
+		if((req_wq->size == req_wq->m_size) || !(_inf_req=q_dequeue(req_rq))){
 			pthread_mutex_lock(&_this->w_lock);
-			if(!(_inf_req=q_dequeue(_this->req_wq))){
+			if(!(_inf_req=q_dequeue(req_wq))){
 				pthread_mutex_unlock(&_this->w_lock);
 				continue;
 			}

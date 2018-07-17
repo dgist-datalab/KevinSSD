@@ -227,6 +227,8 @@ uint32_t __demand_set(request *const req){
 	lpa = req->key;
 	if(lpa > RANGE){ // range check
 		printf("range error\n");
+		printf("뇌인지 에러\n");
+		printf("lpa : %d\n", lpa);
 		exit(3);
 	}
 	c_table = &CMT[D_IDX];
@@ -252,17 +254,17 @@ uint32_t __demand_set(request *const req){
 			c_table->flag = 2;
 		}
 	}
+	ppa = dp_alloc();
+	my_req = assign_pseudo_req(DATA_W, NULL, req);
+	bench_algo_end(req);
+	__demand.li->push_data(ppa, PAGESIZE, req->value, ASYNC, my_req); // Write actual data in ppa
 	if(p_table[P_IDX].ppa != -1){ // if there is previous data with same lpa, then invalidate it
 		VBM[p_table[P_IDX].ppa] = 0;
 		update_b_heap(p_table[P_IDX].ppa/p_p_b, 'D'); //data block heap update
 	}
-	ppa = dp_alloc();
 	p_table[P_IDX].ppa = ppa;
 	VBM[ppa] = 1;
 	demand_OOB[ppa].lpa = lpa;
-	my_req = assign_pseudo_req(DATA_W, NULL, req);
-	bench_algo_end(req);
-	__demand.li->push_data(ppa, PAGESIZE, req->value, ASYNC, my_req); // Write actual data in ppa
 	return 1;
 }
 

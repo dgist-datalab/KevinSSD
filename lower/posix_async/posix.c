@@ -43,7 +43,7 @@ void *l_main(void *__input){
 	while(1){
 		//stopflag 어디서 전달
 		if(stopflag){
-			printf("posix bye bye!\n");
+			//printf("posix bye bye!\n");
 			pthread_exit(NULL);
 			break;
 		}
