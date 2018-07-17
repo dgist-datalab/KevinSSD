@@ -15,6 +15,7 @@
 
 extern struct lower_info my_posix;
 extern struct algorithm __normal;
+extern struct algorithm __badblock;
 extern struct algorithm __demand;
 extern struct algorithm algo_pbase;
 #ifdef lsmtree
@@ -257,7 +258,7 @@ void inf_init(){
 	pthread_mutex_init(&inf_lock,NULL);
 	pthread_mutex_lock(&inf_lock);*/
 	measure_init(&mt);
-#ifdef posix
+#if defined(posix) || defined(posix_async)
 	mp.li=&my_posix;
 #endif
 #ifdef bdbm_drv
@@ -281,6 +282,10 @@ void inf_init(){
 
 #ifdef badblock
 	mp.algo=&__badblock;
+#endif
+
+#ifdef dftl
+	mp.algo=&__demand;
 #endif
 
 #ifdef page

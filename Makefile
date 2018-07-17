@@ -1,7 +1,7 @@
 export CC=g++
 
-TARGET_LOWER=posix
-TARGET_ALGO=normal
+TARGET_LOWER=posix #bdbm_drv
+TARGET_ALGO=dftl
 PWD=$(pwd)
 
 COMMONFLAGS=\
