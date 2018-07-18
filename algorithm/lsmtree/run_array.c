@@ -611,6 +611,7 @@ void level_save(level* input){
 	free(level_iter);
 #endif
 }
+
 level* level_load(){
 	level *res=(level*)malloc(sizeof(level));
 	read(save_fd,res,sizeof(level));
@@ -628,6 +629,7 @@ level* level_load(){
 	pthread_mutex_init(&res->level_lock,NULL);
 	return res;
 }
+
 KEYT level_get_page(level *in,uint8_t plength){
 	KEYT res=0;
 #ifdef DVALUE
@@ -636,8 +638,8 @@ KEYT level_get_page(level *in,uint8_t plength){
 	in->now_block->ppage_idx+=plength;
 #else
 	res=in->now_block->ppa+in->now_block->ppage_idx++;
-#endif
 
+#endif
 	return res;
 }
 

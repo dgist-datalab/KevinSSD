@@ -429,7 +429,6 @@ void *p_main(void *__input){
 	queue *req_rq;
 	queue *req_wq;
 	int idx;
-	int count;
 	for(int i=0; i<THREADSIZE; i++){
 		if(pthread_self()==mp.processors[i].t_id){
 			_this=&mp.processors[i];

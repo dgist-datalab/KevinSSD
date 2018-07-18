@@ -309,9 +309,9 @@ uint32_t lsm_get(request *const req){
 }
 
 uint32_t __lsm_get(request *const req){
-	if(req->mark!=0){
-		printf("key : %d??????\n",req->key);
-	}
+	//if(req->mark!=0){
+	//	printf("key : %d??????\n",req->key);
+	//}
 	//static int tt=0;
 	//printf("test:%d %d\n",tt++,req->key);
 	snode *target_node=skiplist_find(LSM.memtable,req->key);//checking in memtable

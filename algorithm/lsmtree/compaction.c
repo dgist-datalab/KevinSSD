@@ -606,7 +606,8 @@ uint32_t leveling(int from, int to, Entry *entry){
 	LSM.c_level=NULL;
 	level_free(temp);
 //	printf("[level print]");
-//	level_all_print();
+	//level_all_print();
+	//level_print(LSM.disk[0]);
 #ifdef CACHE
 	/*
 	printf("[cache_print]\n");
@@ -748,7 +749,7 @@ uint64_t partial_tiering(level *des,level *src, int size){
 	return 1;
 }
 uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
-	//stagic int cnt=0;
+	//static int cnt=0;
 	//printf("%d\n",cnt++);
 	KEYT start=0;
 	KEYT end=0;
@@ -757,11 +758,17 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 
 	if(!data) start=skip->start;
 	else start=data[0]->key;
+
+	int headerSize;
+	//not overlap processing failed
+	/*
 	int headerSize=level_range_unmatch(origin,start,&target_s,true);
 	for(int i=0; i<headerSize; i++){
 		level_insert(t,target_s[i]);
 	}
 	free(target_s);
+	*/
+
 	if(!data){
 		end=origin->end;
 		headerSize=level_range_find(origin,start,end,&target_s,true);
@@ -827,8 +834,9 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 			else
 				end=origin_ent->end;
 
-			headerSize=level_range_find(origin,start,end,&target_s,true); 
+			headerSize=level_range_find(origin,start,end,&target_s,true);
 			int target_round=(headerSize+1)/EPC+((headerSize+1)%EPC?1:0);
+
 			int idx=0;
 			for(int round=0; round<target_round; round++){
 				compaction_sub_pre();
@@ -879,12 +887,12 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 				compaction_subprocessing(skip,t,table,(end==endcheck&&round==target_round-1?1:0),false);	
 				for(int i=0; i<EPC; i++){
 					if(i==0){
-						if(origin_ent->iscompactioning!=3)
+						if(round==0 && origin_ent->iscompactioning!=3)
 							invalidate_PPA(origin_ent->pbn);
 					}
-					if(i<idx){
-						if(target_s[i]->iscompactioning!=3)
-							invalidate_PPA(target_s[i]->pbn);
+					if(i+round*EPC<idx){
+						if(target_s[i+round*EPC]->iscompactioning!=3)
+							invalidate_PPA(target_s[i+round*EPC]->pbn);
 					}
 
 					if(table[i]){

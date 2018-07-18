@@ -143,7 +143,8 @@ uint32_t posix_create(lower_info *li){
 	li->SOB=BLOCKSIZE*BPS;
 	li->SOP=PAGESIZE;
 	li->SOK=sizeof(KEYT);
-	li->PPB=_PPS;
+	li->PPB=_PPB;
+	li->PPS=_PPS;
 	li->TS=TOTALSIZE;
 
 	li->write_op=li->read_op=li->trim_op=0;
