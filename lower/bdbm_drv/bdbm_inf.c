@@ -8,14 +8,17 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <limits.h>
+
+pthread_mutex_t test_lock;
+
 memio_t *mio;
 lower_info memio_info={
 	.create=memio_info_create,
 	.destroy=memio_info_destroy,
 	.push_data=memio_info_push_data,
 	.pull_data=memio_info_pull_data,
-	.trim_block=memio_info_trim_block,
 	.device_badblock_checker=memio_badblock_checker,
+	.trim_block=memio_info_trim_block,
 	.refresh=memio_info_refresh,
 	.stop=memio_info_stop,
 	.lower_alloc=memio_alloc_dma,
@@ -35,10 +38,11 @@ uint32_t memio_info_create(lower_info *li){
 	pthread_mutex_init(&memio_info.lower_lock,NULL);
 	measure_init(&li->writeTime);
 	measure_init(&li->readTime);
+	pthread_mutex_init(&test_lock, 0);
+	pthread_mutex_lock(&test_lock);
 
 	mio=memio_open();
-
-	bb_checker_start();
+	
 	return 1;
 }
 
@@ -60,6 +64,7 @@ void *memio_info_push_data(KEYT ppa, uint32_t size, value_set *value, bool async
 	memio_write(mio,bb_checker_fix_ppa(ppa),(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	//memio_write(mio,ppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	bench_lower_w_end(&memio_info);
+	//pthread_mutex_lock(&test_lock);
 	return NULL;
 }
 
@@ -73,6 +78,7 @@ void *memio_info_pull_data(KEYT ppa, uint32_t size, value_set *value, bool async
 	memio_read(mio,bb_checker_fix_ppa(ppa),(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	//memio_read(mio,ppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	bench_lower_r_end(&memio_info);
+	//pthread_mutex_lock(&test_lock);
 	return NULL;
 }
 
@@ -95,6 +101,7 @@ void *memio_info_refresh(struct lower_info* li){
 }
 void *memio_badblock_checker(KEYT ppa,uint32_t size, void*(*process)(uint64_t,uint8_t)){
 	memio_trim(mio,ppa,size,process);
+	return NULL;
 }
 
 void memio_info_stop(){}

@@ -150,7 +150,6 @@ dm_nohost_private_t* _priv = NULL;
 /* global data structure */
 extern bdbm_drv_info_t* _bdi_dm;
 
-int badblock_cnt;
 class FlashIndication: public FlashIndicationWrapper {
 	public:
 		FlashIndication (unsigned int id) : FlashIndicationWrapper (id) { }
@@ -186,7 +185,6 @@ class FlashIndication: public FlashIndicationWrapper {
 			//			bdbm_sema_unlock (&global_lock);
 			if( r == NULL ) { printf("eraseDone: Ack Duplicate with tag=%d, status=%d\n", tag, status); fflush(stdout); return; }
 			if(status==1){
-				//printf("[%d]bad block at %d!\n",badblock_cnt++,r->logaddr.lpa[0]/(1<<14));
 				r->segnum=r->logaddr.lpa[0]/(1<<14);
 				r->isbad=1;
 			}
