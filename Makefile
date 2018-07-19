@@ -1,12 +1,12 @@
 export CC=g++
 
+TARGET_INF=interface
 TARGET_LOWER=posix_async
 TARGET_ALGO=lsmtree
 PWD=$(pwd)
 
 COMMONFLAGS=\
 			-DSLC\
-
 
 export CFLAGS_ALGO=\
 			 -g\
@@ -40,10 +40,10 @@ CFLAGS +=\
 		 $(CFLAGS_ALGO)\
 		 -D$(TARGET_LOWER)\
 		 -D$(TARGET_ALGO)\
+		 -D$(TARGET_INF)\
 		 -D_BSD_SOURCE\
 -DBENCH\
 -DCDF\
-
 
 SRCS +=\
 	./interface/queue.c\

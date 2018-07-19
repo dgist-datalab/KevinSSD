@@ -13,11 +13,16 @@ typedef struct processor{
 	pthread_t t_id;
 	pthread_mutex_t flag;
 	master_processor *master;
+#ifdef interface
+	queue *req_q;
+#endif
+#ifdef interface_pq
 	queue *req_wq;
 	queue *req_rq;
 	hash_bm *bitmap;
 	uint32_t bm_full;
 	pthread_mutex_t w_lock;
+#endif
 }processor;
 
 struct master_processor{
