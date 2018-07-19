@@ -5,6 +5,10 @@
 #include "measurement.h"
 
 #define PRINTPER 1
+
+#ifdef CDF
+#define TIMESLOT 100  //micro sec
+#endif
 typedef struct{
 	FSTYPE type;
 	KEYT key;
@@ -25,20 +29,25 @@ typedef struct{
 	uint64_t lower_mic_per_u100[12];
 	uint64_t algo_sec,algo_usec;
 	uint64_t lower_sec,lower_usec;
+#ifdef CDF
+	uint64_t write_cdf[1000000/TIMESLOT+1];
+	uint64_t read_cdf[1000000/TIMESLOT+1];
+#endif
 	MeasureTime bench;
 }bench_data;
 
 
 typedef struct{
 	bench_value *body;
-	uint64_t n_num;
+	uint64_t n_num;//request throw num
 	uint64_t m_num;
-	uint64_t r_num;
+	uint64_t r_num;//request end num
 	bool finish;
 	int mark;
 	uint64_t notfound;
 	uint64_t write_cnt;
 	uint64_t read_cnt;
+
 	bench_type type;
 	MeasureTime benchTime;
 	MeasureTime benchTime2;
@@ -77,7 +86,7 @@ void bench_lower_r_end(lower_info *);
 void bench_lower_t(lower_info*);
 void bench_reap_data(request *const,lower_info *);
 #ifdef CDF
-void bench_cdf_print(uint64_t, uint8_t istype);
+void bench_cdf_print(uint64_t, uint8_t istype, bench_data*);
 #endif
 void free_bnech_all();
 void free_bench_one(bench_value *);

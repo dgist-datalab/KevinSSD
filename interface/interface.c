@@ -324,6 +324,7 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value){
 	req->lower.isused=false;
 	req->mark=mark;
 #endif
+
 	
 #ifdef CDF
 	measure_init(&req->latency_checker);
@@ -367,7 +368,6 @@ bool inf_end_req( request * const req){
 #ifdef SNU_TEST
 #else
 	bench_reap_data(req,mp.li);
-
 #endif
 
 #ifdef DEBUG

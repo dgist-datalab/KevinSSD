@@ -229,7 +229,7 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	}
 	int res;
 	if(!(res=read(_fd,value->value,size))){
-		//printf("%d:read none!\n",res);
+		printf("%d:read none!\n",res);
 	}
 	}
 	pthread_mutex_unlock(&fd_lock);
