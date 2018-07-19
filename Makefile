@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=bdbm_drv
+TARGET_LOWER=posix_async
 TARGET_ALGO=lsmtree
 PWD=$(pwd)
 

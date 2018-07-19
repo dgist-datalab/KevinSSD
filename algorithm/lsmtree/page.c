@@ -766,6 +766,7 @@ void gc_data_header_update(gc_node **gn,int size, int target_level){
 				}
 			}
 			KEYT temp_header=entries[j]->pbn;
+			invalidate_PPA(temp_header);
 			entries[j]->pbn=getPPA(HEADER,entries[j]->key,true);
 			/*
 			if(entries[j]->key==297984){
@@ -773,7 +774,6 @@ void gc_data_header_update(gc_node **gn,int size, int target_level){
 				//printf("start----\n");
 				//printf("change %u->%u\n",temp_header,entries[j]->pbn);
 			}*/
-			invalidate_PPA(temp_header);
 			gc_data_write(entries[j]->pbn,data);
 			free(data);
 		}
