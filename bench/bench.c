@@ -354,12 +354,13 @@ void bench_reap_data(request *const req,lower_info *li){
 	if(req->type==FS_NOTFOUND_T){
 		_m->notfound++;
 	}
-#ifdef BENCH
 	if(_m->m_num==_m->r_num+1){
+#ifdef BENCH
 		memcpy(&_master->li[idx],li,sizeof(lower_info));
 		li->refresh(li);
-	}
 #endif
+		MA(&_m->benchTime);
+	}
 	_m->r_num++;
 
 	pthread_mutex_unlock(&bench_lock);
