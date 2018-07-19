@@ -118,8 +118,11 @@ void llog_print(llog *b){
 	printf("size: %d\n",b->size);
 	llog_node *head=b->head;
 	int cnt=0;
+	int ecnt=0;
 	while(head){
 		block* target=(block*)head->data;
+		if(target->erased)
+			ecnt++;
 #ifndef DVALUE
 		printf("[%d]ppa:%d(%d) ppage_idx:%d invalid_n:%d level:%d erased:%d\n",target->ppa/_PPB,target->ppa,target->ppa/BPS/_PPB,target->ppage_idx,target->invalid_n,target->level,target->erased?1:0);
 #else
@@ -130,7 +133,7 @@ void llog_print(llog *b){
 		cnt++;
 		if(cnt>b->size) break;
 	}
-	printf("cnt:%d\n",cnt);
+	printf("cnt:%d ecnt:%d\n",cnt,ecnt);
 }	
 
 void llog_free(llog *l){

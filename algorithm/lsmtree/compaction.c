@@ -214,6 +214,23 @@ KEYT compaction_htable_write(htable *input){
 	return ppa;
 }
 
+bool compaction_force(){
+	for(int i=LEVELN-2; i>=0; i--){
+		if(LSM.disk[i]->n_num){
+			if(LSM.disk[LEVELN-1]->isTiering){
+				tiering(i,LEVELN-1,NULL);
+			}
+			else{
+				leveling(i,LEVELN-1,NULL);
+			}
+			level_summary();
+			return true;
+		}
+	}
+	level_summary();
+	return false;
+}
+
 bool compaction_idle;
 void *compaction_main(void *input){
 	void *_req;
@@ -240,6 +257,7 @@ void *compaction_main(void *input){
 		req=(compR*)_req;
 		//printf("seq num: %d -",req->seq);
 		if(req->fromL==-1){
+			gc_check(DATA,false);
 			htable *table=compaction_data_write(LSM.temptable);
 			KEYT start=table->sets[0].lpa;
 			KEYT end=table->sets[KEYNUM-1].lpa;
@@ -284,31 +302,6 @@ void *compaction_main(void *input){
 	}
 	
 	return NULL;
-}
-bool compaction_forcing(){
-	bool no_more_page=false;//after get some page from page.c
-	bool out=false;
-	bool flag=false;
-	while(no_more_page){
-		for(int j=LEVELN-1; j>=0; j--){
-			compR *req=(compR*)malloc(sizeof(compR));
-			if(LSM.disk[j]->n_num){
-				req->fromL=j;
-				req->toL=LEVELN;
-				compaction_assign(req);
-				flag=true;
-				break;
-			}
-			if(j==0)
-				out=true;
-		}
-		if(out)
-			break;
-#ifdef ONETHREAD
-		while(!compaction_idle){}
-#endif
-	}
-	return out|flag;
 }
 
 void compaction_check(){
@@ -503,6 +496,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 				target_processed=true;
 				compaction_lev_seq_processing(target_origin,target,target_origin->n_num);
 			}
+			pthread_mutex_lock(&LSM.entrylock);
 #ifdef CACHE
 			//cache must be inserted befor level insert
 			htable *temp_table=htable_copy(entry->t_table);
@@ -514,11 +508,10 @@ uint32_t leveling(int from, int to, Entry *entry){
 			entry->pbn=compaction_htable_write(entry->t_table);//write table
 			entry->t_table=NULL;
 #endif	
-			level_insert(target,entry);
 
-			pthread_mutex_lock(&LSM.entrylock);
 			LSM.tempent=NULL;
 			pthread_mutex_unlock(&LSM.entrylock);
+			level_insert(target,entry);
 #ifdef DVALUE
 			//level_save_blocks(target); target block can be uesd for next insert
 #endif
@@ -606,7 +599,9 @@ uint32_t leveling(int from, int to, Entry *entry){
 	LSM.c_level=NULL;
 	level_free(temp);
 //	printf("[level print]");
-	//level_all_print();
+	/*
+	if(to==6)
+		level_print(LSM.disk[6]);*/
 	//level_print(LSM.disk[0]);
 #ifdef CACHE
 	/*
@@ -824,7 +819,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 	else{
 		KEYT endcheck=UINT_MAX;
 		for(int i=0; data[i]!=NULL; i++){
-			Entry *origin_ent=data[i];
+			Entry *origin_ent=data[i];	
 			start=origin_ent->key;
 			if(data[i+1]==NULL){
 				endcheck=data[i]->end;
@@ -837,7 +832,9 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 			headerSize=level_range_find(origin,start,end,&target_s,true);
 			int target_round=(headerSize+1)/EPC+((headerSize+1)%EPC?1:0);
 
+			int prev_idx=0;
 			int idx=0;
+
 			for(int round=0; round<target_round; round++){
 				compaction_sub_pre();
 				int j=0;
@@ -866,6 +863,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 				}
 
 				for(int k=j; k<EPC; k++){
+
 					if(target_s[idx]==NULL)break;
 
 #ifdef CACHE
@@ -885,29 +883,33 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 				}
 
 				compaction_subprocessing(skip,t,table,(end==endcheck&&round==target_round-1?1:0),false);	
-				for(int i=0; i<EPC; i++){
-					if(i==0){
+				for(int z=0; z<EPC; z++){
+					if(z==0){
 						if(round==0 && origin_ent->iscompactioning!=3)
 							invalidate_PPA(origin_ent->pbn);
 					}
-					if(i+round*EPC<idx){
-						if(target_s[i+round*EPC]->iscompactioning!=3)
-							invalidate_PPA(target_s[i+round*EPC]->pbn);
+					if(prev_idx<idx){
+						if(target_s[prev_idx]->iscompactioning!=3)
+							invalidate_PPA(target_s[prev_idx]->pbn);
+						prev_idx++;
 					}
 
-					if(table[i]){
+					if(table[z]){
 #ifdef CACHE
-						if((i==0 && origin_ent->c_entry) || target_s[i-1]->c_entry){
+						if((z==0 && origin_ent->c_entry) || target_s[z-1]->c_entry){
 							continue;
 						}
 #endif
-						htable_free(table[i]);
+						htable_free(table[z]);
 					}
 					else 
 						break;
 				}
 				free(table);
 				compaction_sub_post();
+				if(prev_idx!=idx){
+					printf("prev_idx error\n");
+				}
 			}
 			free(target_s);
 		}
