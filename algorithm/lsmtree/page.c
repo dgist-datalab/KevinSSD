@@ -942,7 +942,7 @@ int gc_header(KEYT tbn){
 	static int gc_cnt=0;
 	gc_cnt++;
 	//llog_print(header_m.blocks);
-	//printf("[%d]gc_header start\n",gc_cnt);
+	//printf("[%d]gc_header start -> block:%u\n",gc_cnt,tbn);
 	block *target=&bl[tbn];
 
 	if(target->invalid_n==algo_lsm.li->PPB){
@@ -957,8 +957,9 @@ int gc_header(KEYT tbn){
 	Entry **target_ent=(Entry**)malloc(sizeof(Entry*)*algo_lsm.li->PPB);
 	//printf("2\n");
 	//level_all_print();
+	/*
 	if(LSM.c_level)
-		level_print(LSM.c_level);
+		level_print(LSM.c_level);*/
 	//printf("--------------------------------------------------\n");
 	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
 		if(target->bitset[i/8]&(1<<(i%8))){
@@ -968,6 +969,7 @@ int gc_header(KEYT tbn){
 		}
 		KEYT t_ppa=start+i;
 		KEYT lpa=PBITGET(t_ppa);
+		
 		Entry **entries=NULL;
 		bool checkdone=false;
 	//	level_all_print();
@@ -975,10 +977,7 @@ int gc_header(KEYT tbn){
 			entries=level_find(LSM.disk[j],lpa);
 			//level_print(LSM.disk[j]);
 			if(entries==NULL) continue;
-			
-			if(lpa==297984){
-				printf("find\n");
-			}
+
 			for(int k=0; entries[k]!=NULL ;k++){
 				if(entries[k]->pbn==t_ppa){
 					if(LSM.disk[j]->isTiering && LSM.disk[j]->m_num==LSM.c_level->m_num){
@@ -986,6 +985,9 @@ int gc_header(KEYT tbn){
 						break;
 					}
 					checkdone=true;
+					if(lpa==64292){
+						printf("here\n");
+					}
 					if(entries[k]->iscompactioning){
 						tables[i]=NULL;
 						target_ent[i]=NULL;
@@ -1054,8 +1056,9 @@ int gc_header(KEYT tbn){
 	free(target_ent);
 	gc_trim_segment(HEADER,target->ppa);
 	//level_all_print();
+	/*
 	if(LSM.c_level)
-		level_print(LSM.c_level);
+		level_print(LSM.c_level);*/
 	return 1;
 }
 
