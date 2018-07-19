@@ -88,6 +88,7 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	return 0;
 }
 
+extern uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
 void lsm_destroy(lower_info *li, algorithm *lsm){
 	compaction_free();
 #ifdef DVALUE
@@ -103,6 +104,9 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	skiplist_free(LSM.memtable);
 	if(LSM.temptable)
 		skiplist_free(LSM.temptable);
+	printf("data gc: %d\n",data_gc_cnt);
+	printf("header gc: %d\n",header_gc_cnt);
+	printf("block gc: %d\n",block_gc_cnt);
 }
 
 extern pthread_mutex_t compaction_wait,gc_wait;
@@ -175,7 +179,6 @@ void* lsm_end_req(algo_req* const req){
 			free(params->htable_ptr);
 			break;
 		case GCR:
-			gc_target_get_cnt++;
 			target=(PTR)params->target;//gc has malloc in gc function
 			memcpy(target,params->value->value,PAGESIZE);
 
@@ -187,6 +190,7 @@ void* lsm_end_req(algo_req* const req){
 #endif
 			}
 			inf_free_valueset(params->value,FS_MALLOC_R);
+			gc_target_get_cnt++;
 			break;
 		case GCW:
 			inf_free_valueset(params->value,FS_MALLOC_W);
@@ -305,9 +309,9 @@ uint32_t lsm_get(request *const req){
 }
 
 uint32_t __lsm_get(request *const req){
-	if(req->mark!=0){
-		printf("key : %d??????\n",req->key);
-	}
+	//if(req->mark!=0){
+	//	printf("key : %d??????\n",req->key);
+	//}
 	//static int tt=0;
 	//printf("test:%d %d\n",tt++,req->key);
 	snode *target_node=skiplist_find(LSM.memtable,req->key);//checking in memtable

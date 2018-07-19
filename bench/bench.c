@@ -16,11 +16,6 @@ void randset(KEYT,KEYT,monitor*);
 void randrw(KEYT,KEYT,monitor*);
 void mixed(KEYT,KEYT,int percentage,monitor*);
 
-#ifdef CDF
-#define TIMESLOT 100  //micro sec
-uint64_t write_cdf[1000000/TIMESLOT+1];
-uint64_t read_cdf[1000000/TIMESLOT+1];
-#endif
 
 pthread_mutex_t bench_lock;
 void bench_init(int benchnum){
@@ -107,9 +102,7 @@ bench_value* get_bench(){
 		while(!bench_is_finish_n(_master->n_num)){}
 		printf("\rtesting...... [100%%] done!\n");
 		printf("\n");
-#ifdef CDF
-		bench_cdf_print(_m->m_num,_m->type);
-#endif
+
 		free(_m->body);
 		_master->n_num++;
 		if(_master->n_num==_master->m_num)
@@ -133,8 +126,10 @@ bench_value* get_bench(){
 	return &_m->body[_m->n_num++];
 }
 bool bench_is_finish_n(int n){
-	if(_master->m[n].finish)
+	if(_master->m[n].r_num==_master->m[n].m_num){
+		_master->m[n].finish=true;
 		return true;
+	}
 	return false;
 }
 bool bench_is_finish(){
@@ -151,6 +146,7 @@ void bench_print(){
 		printf("\n\n");
 		_m=&_master->m[i];
 		bdata=&_master->datas[i];
+		bench_cdf_print(_m->m_num,_m->type,bdata);
 		printf("--------------------------------------------\n");
 		printf("|            bench type:                   |\n");
 		printf("--------------------------------------------\n");
@@ -280,16 +276,16 @@ void __bench_time_maker(MeasureTime mt, bench_data *datas,bool isalgo){
 }
 
 #ifdef CDF
-void bench_cdf_print(uint64_t nor, uint8_t type){//number of reqeusts
+void bench_cdf_print(uint64_t nor, uint8_t type, bench_data *_d){//number of reqeusts
 	uint64_t cumulate_number=0;
 	if(type>RANDSET)
 		nor/=2;
 	if(type>RANDSET || type%2==1){
 		printf("\n[cdf]write---\n");
 		for(int i=0; i<1000000/TIMESLOT+1; i++){
-			cumulate_number+=write_cdf[i];
-			if(write_cdf[i]==0) continue;
-			printf("%d\t\t%ld\t\t%f\n",i,write_cdf[i],(float)cumulate_number/nor);
+			cumulate_number+=_d->write_cdf[i];
+			if(_d->write_cdf[i]==0) continue;
+			printf("%d\t\t%ld\t\t%f\n",i,_d->write_cdf[i],(float)cumulate_number/nor);
 			if(nor==cumulate_number)
 				break;
 		}	
@@ -298,9 +294,9 @@ void bench_cdf_print(uint64_t nor, uint8_t type){//number of reqeusts
 	if(type>RANDSET || type%2==0){
 		printf("\n[cdf]read---\n");
 		for(int i=0; i<1000000/TIMESLOT+1; i++){
-			cumulate_number+=read_cdf[i];
-			if(read_cdf[i]==0) continue;
-			printf("%d\t\t%ld\t\t%f\n",i,read_cdf[i],(float)cumulate_number/nor);	
+			cumulate_number+=_d->read_cdf[i];
+			if(_d->read_cdf[i]==0) continue;
+			printf("%d\t\t%ld\t\t%f\n",i,_d->read_cdf[i],(float)cumulate_number/nor);	
 			if(nor==cumulate_number)
 				break;
 		}
@@ -310,37 +306,39 @@ void bench_cdf_print(uint64_t nor, uint8_t type){//number of reqeusts
 
 void bench_reap_data(request *const req,lower_info *li){
 	pthread_mutex_lock(&bench_lock);
-#ifdef CDF
-	measure_calc(&req->latency_checker);
-	int slot_num=req->latency_checker.micro_time/TIMESLOT;
-	if(req->type==FS_GET_T){
-		if(slot_num>=1000000/TIMESLOT){
-			read_cdf[1000000/TIMESLOT]++;
-		}
-		else{
-			read_cdf[slot_num]++;
-		}
-	}
-	else if(req->type==FS_SET_T){
-		if(slot_num>=1000000/TIMESLOT){
-			write_cdf[1000000/TIMESLOT]++;
-		}
-		else{
-			write_cdf[slot_num]++;
-		}
-	}
-#endif
 	if(!req){ 
 		pthread_mutex_unlock(&bench_lock);
 		return;
 	}
 	int idx=req->mark;
 	monitor *_m=&_master->m[idx];
+
 	bench_data *_data=&_master->datas[idx];
-	if(_m->m_num==++_m->r_num){
+#ifdef CDF
+	measure_calc(&req->latency_checker);
+	int slot_num=req->latency_checker.micro_time/TIMESLOT;
+	if(req->type==FS_GET_T){
+		if(slot_num>=1000000/TIMESLOT){
+			_data->read_cdf[1000000/TIMESLOT]++;
+		}
+		else{
+			_data->read_cdf[slot_num]++;
+		}
+	}
+	else if(req->type==FS_SET_T){
+		if(slot_num>=1000000/TIMESLOT){
+			_data->write_cdf[1000000/TIMESLOT]++;
+		}
+		else{
+			_data->write_cdf[slot_num]++;
+		}
+	}
+#endif
+
+	if(_m->m_num==_m->r_num+1){
 		_data->bench=_m->benchTime;
 	}
-	if(_m->r_num==_m->m_num/2 && (_m->type==SEQRW || _m->type==RANDRW)){
+	if(_m->r_num+1==_m->m_num/2 && (_m->type==SEQRW || _m->type==RANDRW)){
 		MA(&_m->benchTime);
 		_m->benchTime2=_m->benchTime;
 		measure_init(&_m->benchTime);
@@ -356,16 +354,14 @@ void bench_reap_data(request *const req,lower_info *li){
 	if(req->type==FS_NOTFOUND_T){
 		_m->notfound++;
 	}
-	if(_m->m_num==_m->r_num){
-		_m->finish=true;
 #ifdef BENCH
-		//pthread_mutex_lock(&li->lower_lock);
+	if(_m->m_num==_m->r_num+1){
 		memcpy(&_master->li[idx],li,sizeof(lower_info));
 		li->refresh(li);
-		//pthread_mutex_unlock(&li->lower_lock);
-#endif
-		MA(&_m->benchTime);
 	}
+#endif
+	_m->r_num++;
+
 	pthread_mutex_unlock(&bench_lock);
 }
 void bench_li_print(lower_info* li,monitor *m){

@@ -85,6 +85,7 @@ struct lower_info {
 	uint32_t SOB;
 	uint32_t SOP;
 	uint32_t PPB;
+	uint32_t PPS;
 	uint64_t TS;
 	//anything
 };

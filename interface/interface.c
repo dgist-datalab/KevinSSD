@@ -324,6 +324,7 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value){
 	req->lower.isused=false;
 	req->mark=mark;
 #endif
+
 	
 #ifdef CDF
 	measure_init(&req->latency_checker);
@@ -367,7 +368,6 @@ bool inf_end_req( request * const req){
 #ifdef SNU_TEST
 #else
 	bench_reap_data(req,mp.li);
-
 #endif
 
 #ifdef DEBUG
@@ -429,7 +429,6 @@ void *p_main(void *__input){
 	queue *req_rq;
 	queue *req_wq;
 	int idx;
-	int count;
 	for(int i=0; i<THREADSIZE; i++){
 		if(pthread_self()==mp.processors[i].t_id){
 			_this=&mp.processors[i];

@@ -107,6 +107,7 @@ void level_all_check();
 void level_free(level *);//
 void level_free_entry(Entry *);//
 void level_save(level *);
+void level_summary();
 level* level_load();
 
 Node *ns_run(level*, int );//

@@ -1,7 +1,7 @@
 export CC=g++
 
-TARGET_LOWER=bdbm_drv
-TARGET_ALGO=dftl
+TARGET_LOWER=posix_async
+TARGET_ALGO=lsmtree
 PWD=$(pwd)
 
 COMMONFLAGS=\
@@ -40,8 +40,8 @@ CFLAGS +=\
 		 -D$(TARGET_LOWER)\
 		 -D$(TARGET_ALGO)\
 		 -D_BSD_SOURCE\
--DCDF\
 -DBENCH\
+-DCDF\
 
 SRCS +=\
 	./interface/queue.c\

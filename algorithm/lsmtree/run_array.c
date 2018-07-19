@@ -365,6 +365,12 @@ Iter *level_get_Iter(level *input){
 	res->flag=true;
 	return res;
 }
+void level_summary(){
+	for(int i=0; i<LEVELN; i++){
+		level *t=LSM.disk[i];
+		//printf("[%d(%s)] n_num:%d, m_num:%d, r_num:%d\n",i,t->isTiering?"tier":"level",t->n_num,t->m_num,t->n_run);
+	}
+}
 void level_all_print(){
 	for(int i=0; i<LEVELN; i++){
 		if(LSM.disk[i]->n_num==0)
@@ -382,6 +388,7 @@ void level_print(level *input){
 		printf("start_run[%d]\n",i);
 		for(int j=0; j<temp_run->n_num; j++){
 			Entry *temp_ent=ns_entry(temp_run,j);
+			if(temp_ent->key!=297984) continue;
 #ifdef BLOOM
 			if(!temp_ent->filter)
 				printf("no filter \n");
@@ -431,6 +438,7 @@ void level_free(level *input){
 	free(input->body);
 	free(input);
 }
+
 level *level_clear(level *input){
 	input->n_num=0;
 	input->r_n_idx=0;
@@ -442,6 +450,7 @@ level *level_clear(level *input){
 	input->end=0;
 	return input;
 }
+
 Entry *level_make_entry(KEYT key,KEYT end,KEYT pbn){
 	Entry *ent=(Entry *)malloc(sizeof(Entry));
 	ent->key=key;
@@ -455,6 +464,7 @@ Entry *level_make_entry(KEYT key,KEYT end,KEYT pbn){
 #endif
 	return ent;
 }
+
 void level_free_entry(Entry *entry){
 #ifdef BLOOM
 	if(entry->filter)
@@ -611,6 +621,7 @@ void level_save(level* input){
 	free(level_iter);
 #endif
 }
+
 level* level_load(){
 	level *res=(level*)malloc(sizeof(level));
 	read(save_fd,res,sizeof(level));
@@ -628,6 +639,8 @@ level* level_load(){
 	pthread_mutex_init(&res->level_lock,NULL);
 	return res;
 }
+
+extern pm data_m;
 KEYT level_get_page(level *in,uint8_t plength){
 	KEYT res=0;
 #ifdef DVALUE
@@ -637,7 +650,11 @@ KEYT level_get_page(level *in,uint8_t plength){
 #else
 	res=in->now_block->ppa+in->now_block->ppage_idx++;
 #endif
-
+	/*
+	if(in->now_block->erased){
+		in->now_block->erased=false;
+		data_m.used_blkn++;
+	}*/
 	return res;
 }
 
@@ -664,7 +681,6 @@ void level_moveTo_front_page(level *in){
 		
 		in->now_block=&bl[blockn/_PPB];
 		in->now_block->level=in->level_idx;
-		in->now_block->erased=false;
 #ifdef LEVELUSINGHEAP
 		in->now_block->hn_ptr=heap_insert(in->h,(void*)in->now_block);
 #else
@@ -733,6 +749,7 @@ void level_move_heap(level *des, level *src){
 	}
 #endif
 }
+
 #ifdef DVALUE
 void level_save_blocks(level *in){
 #ifdef LEVELUSINGHEAP
