@@ -542,7 +542,11 @@ int level_range_find(level *input,KEYT start,KEYT end, Entry ***res, bool compac
 		if(value->iscompactioning==1) continue;
 		if(!(value->key >=end || value->end<=start)){
 			temp[rev++]=value;
-			if(compactioning) value->iscompactioning=true;
+			if(compactioning){
+				if(!value->iscompactioning){
+					value->iscompactioning=true;
+				}
+			}
 		}
 	}
 	free(level_iter);
