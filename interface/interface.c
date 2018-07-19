@@ -480,10 +480,7 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value)
 	req->lower.isused=false;
 	req->mark=mark;
 #endif
-#ifdef CDF
-	measure_init(&req->latency_checker);
-	measure_start(&req->latency_checker);
-#endif
+
 	switch(type){
 		case FS_GET_T:
 			break;
