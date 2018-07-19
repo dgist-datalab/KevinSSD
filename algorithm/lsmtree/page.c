@@ -985,9 +985,6 @@ int gc_header(KEYT tbn){
 						break;
 					}
 					checkdone=true;
-					if(lpa==64292){
-						printf("here\n");
-					}
 					if(entries[k]->iscompactioning){
 						tables[i]=NULL;
 						target_ent[i]=NULL;
