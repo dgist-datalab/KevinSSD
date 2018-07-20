@@ -126,6 +126,8 @@ bdbm_sema_t global_lock;
 bdbm_sema_t ftl_table_lock;
 /***/
 
+uint32_t bus_history[128];
+
 /* interface for dm */
 bdbm_dm_inf_t _bdbm_dm_inf = {
 	.ptr_private = NULL,
@@ -502,6 +504,13 @@ uint32_t dm_nohost_make_req (
 	//pthread_mutex_lock(&endR);
 	//printf("lock!!\n");
 	uint32_t bus, chip, block, page;
+	/*bus check*/
+	bus  = r->logaddr.lpa[0] & 0x7;
+	if(bus_history[bus]){
+		r->path_type+=2;
+	}
+	bus_history[bus]=r->logaddr.lpa[0];
+
 	switch (r->req_type) {
 		case REQTYPE_WRITE:
 		case REQTYPE_RMW_WRITE:
@@ -584,6 +593,10 @@ void dm_nohost_end_req (
 		bdbm_llm_req_t* r)
 {
 	bdbm_bug_on (r == NULL);
+	
+	if(bus_history[r->logaddr.lpa[0]&0x7] == r->logaddr.lpa[0]){
+		bus_history[r->logaddr.lpa[0]&0x7]=0;
+	}
 
 	if (r->req_type == REQTYPE_META_READ) {
 		bdbm_memcpy (r->fmain.kp_ptr[0], readBuffers[r->tag], 8192);

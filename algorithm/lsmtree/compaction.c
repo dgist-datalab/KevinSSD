@@ -198,6 +198,7 @@ htable *compaction_data_write(skiplist *mem){
 
 KEYT compaction_htable_write(htable *input){
 	KEYT ppa=getPPA(HEADER,input->sets[0].lpa,true);//set ppa;
+
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 	areq->parents=NULL;
@@ -322,9 +323,9 @@ void compaction_check(){
 			LSM.memtable=skiplist_init();
 		}
 		compaction_assign(req);
-#ifdef ONETHREAD
+//#ifdef ONETHREAD
 		while(!compaction_idle){}
-#endif
+//#endif
 	}
 }
 
@@ -622,6 +623,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 			}
 		}
 	}*/
+
 	return 1;
 }	
 #ifdef MONKEY
@@ -790,6 +792,10 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 #ifdef CACHE
 				}
 #endif
+				if(!target_s[idx]->iscompactioning){
+					target_s[idx]->iscompactioning=true;
+				}
+
 				table[j]->bitset=target_s[idx]->bitset;
 				idx++;
 				if(target_s[idx]==NULL) break;
@@ -865,7 +871,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 				for(int k=j; k<EPC; k++){
 
 					if(target_s[idx]==NULL)break;
-
 #ifdef CACHE
 					if(target_s[idx]->c_entry){
 						memcpy_cnt++;
@@ -878,6 +883,9 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 #ifdef CACHE
 					}
 #endif
+					if(!target_s[idx]->iscompactioning){
+						target_s[idx]->iscompactioning=true;
+					}
 					table[k]->bitset=target_s[idx]->bitset;
 					idx++;
 				}
@@ -914,6 +922,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 			free(target_s);
 		}
 	}
+
 	return 1;
 }
 int tiering_compaction=0;

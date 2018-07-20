@@ -332,7 +332,7 @@ void gc_data_write(KEYT ppa,htable_t *value){
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
 
-	algo_lsm.li->push_data(ppa,PAGESIZE,params->value,0,areq);
+	algo_lsm.li->push_data(ppa,PAGESIZE,params->value,ASYNC,areq);
 	return;
 }
 
@@ -493,10 +493,12 @@ void gc_check(uint8_t type, bool force){
 			switch(type){
 				case HEADER:
 					target_p=&header_m;
-					header_gc_cnt++; break;
+					header_gc_cnt++; 
+					break;
 				case DATA:
 					target_p=&data_m;
-					data_gc_cnt++; break;
+					data_gc_cnt++; 
+					break;
 				case BLOCK:
 					target_p=&block_m;
 					block_gc_cnt++; break;
@@ -547,6 +549,7 @@ void gc_check(uint8_t type, bool force){
 				gc_header(target_block);
 				break;
 			case DATA:
+	//			compaction_force();
 				gc_data(target_block);
 				break;
 #ifdef DVALUE
@@ -724,6 +727,10 @@ void gc_data_header_update(gc_node **gn,int size, int target_level){
 		entries=level_find(in,target->lpa);
 		int htable_idx=0;
 		gc_general_wait_init();
+
+		if(entries==NULL){
+			level_all_print();
+		}
 
 		for(int j=0; entries[j]!=NULL;j++){
 			datas[htable_idx]=(htable_t*)malloc(sizeof(htable_t));
@@ -985,9 +992,6 @@ int gc_header(KEYT tbn){
 						break;
 					}
 					checkdone=true;
-					if(lpa==64292){
-						printf("here\n");
-					}
 					if(entries[k]->iscompactioning){
 						tables[i]=NULL;
 						target_ent[i]=NULL;

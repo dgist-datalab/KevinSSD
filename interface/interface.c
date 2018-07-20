@@ -32,7 +32,7 @@ master_processor mp;
 
 //pthread_mutex_t inf_lock;
 void *p_main(void*);
-
+int req_cnt_test=0;
 #ifdef interface
 static void assign_req(request* req){
 	bool flag=false;
@@ -63,6 +63,7 @@ static void assign_req(request* req){
 		pthread_mutex_lock(&req->async_mutex);	
 		pthread_mutex_destroy(&req->async_mutex);
 		free(req);
+		req_cnt_test++;
 	}
 }
 
@@ -105,6 +106,13 @@ void *p_main(void *__input){
 		}
 		inf_req=(request*)_inf_req;
 
+#ifdef CDF
+		if(!inf_req->isstart){
+			inf_req->isstart=true;
+			measure_init(&inf_req->latency_checker);
+			measure_start(&inf_req->latency_checker);
+		}
+#endif
 		switch(inf_req->type){
 			case FS_GET_T:
 				mp.algo->get(inf_req);
@@ -451,6 +459,7 @@ void inf_init(){
 
 	bb_checker_start(mp.li);
 }
+
 #ifndef USINGAPP
 bool inf_make_req(const FSTYPE type, const KEYT key, value_set *value,int mark)
 #else
@@ -476,11 +485,8 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value)
 	req->lower.isused=false;
 	req->mark=mark;
 #endif
-
-
 #ifdef CDF
-	measure_init(&req->latency_checker);
-	measure_start(&req->latency_checker);
+	req->isstart=false;
 #endif
 	switch(type){
 		case FS_GET_T:
@@ -578,6 +584,7 @@ void inf_free(){
 void inf_print_debug(){
 
 }
+
 
 value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
 	value_set *res=(value_set*)malloc(sizeof(value_set));

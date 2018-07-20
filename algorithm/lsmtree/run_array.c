@@ -388,7 +388,6 @@ void level_print(level *input){
 		printf("start_run[%d]\n",i);
 		for(int j=0; j<temp_run->n_num; j++){
 			Entry *temp_ent=ns_entry(temp_run,j);
-			if(temp_ent->key!=297984) continue;
 #ifdef BLOOM
 			if(!temp_ent->filter)
 				printf("no filter \n");
@@ -541,12 +540,13 @@ int level_range_find(level *input,KEYT start,KEYT end, Entry ***res, bool compac
 	while((value=level_get_next(level_iter))){
 		if(value->iscompactioning==1) continue;
 		if(!(value->key >=end || value->end<=start)){
-			temp[rev++]=value;
+			temp[rev++]=value;/*
 			if(compactioning){
 				if(!value->iscompactioning){
 					value->iscompactioning=true;
 				}
 			}
+			*/
 		}
 	}
 	free(level_iter);
