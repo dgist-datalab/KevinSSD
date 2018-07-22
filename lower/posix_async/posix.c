@@ -21,9 +21,12 @@
 static FILE *_fp;
 static int _fd;
 pthread_mutex_t fd_lock;
+#if (ASYNC==1)
 queue *p_q;
 pthread_t t_id;
 bool stopflag;
+#endif
+
 lower_info my_posix={
 	.create=posix_create,
 	.destroy=posix_destroy,
@@ -35,41 +38,44 @@ lower_info my_posix={
 	.pull_data=posix_pull_data,
 #endif
 	.device_badblock_checker=posix_badblock_checker,
+#if (ASYNC==1)
+	.trim_block=posix_make_trim,
+#elif (ASYNC==0)
 	.trim_block=posix_trim_block,
+#endif
 	.refresh=posix_refresh,
 	.stop=posix_stop,
 	.lower_alloc=NULL,
 	.lower_free=NULL
 };
 
+#if (ASYNC==1)
 void *l_main(void *__input){
-	void *_inf_req;
 	posix_request *inf_req;
 
 	while(1){
-		//stopflag 어디서 전달
 		if(stopflag){
 			//printf("posix bye bye!\n");
 			pthread_exit(NULL);
 			break;
 		}
-		if(!(_inf_req=q_dequeue(p_q))){
+		if(!(inf_req=(posix_request*)q_dequeue(p_q))){
 			continue;
 		}
-		inf_req=(posix_request*)_inf_req;
 		//chang ppa, mapping right ppa from bad block or somthing
 		inf_req->key=bb_checker_fix_ppa(inf_req->key);
 		switch(inf_req->type){
 			case FS_LOWER_W:
-				posix_push_data(inf_req->key, inf_req->size, inf_req->value, inf_req->isAsync, (algo_req*)(inf_req->upper_req));
+				posix_push_data(inf_req->key, inf_req->size, inf_req->value, inf_req->isAsync, inf_req->upper_req);
 				break;
 			case FS_LOWER_R:
-				posix_pull_data(inf_req->key, inf_req->size, inf_req->value, inf_req->isAsync, (algo_req*)(inf_req->upper_req));
+				posix_pull_data(inf_req->key, inf_req->size, inf_req->value, inf_req->isAsync, inf_req->upper_req);
 				break;
-			case FS_LOWER_E:
+			case FS_LOWER_T:
 				posix_trim_block(inf_req->key, inf_req->isAsync);
 				break;
 		}
+		free(inf_req);
 	}
 	return NULL;
 }
@@ -79,19 +85,14 @@ void *posix_make_push(KEYT PPA, uint32_t size, value_set* value, bool async, alg
 	posix_request *p_req=(posix_request*)malloc(sizeof(posix_request));
 	p_req->type=FS_LOWER_W;
 	p_req->key=PPA;
-	p_req->size=size;
 	p_req->value=value;
+	p_req->upper_req=req;
 	p_req->isAsync=async;
-	p_req->upper_req=(void*)req;
+	p_req->size=size;
 	
 	while(!flag){
 		if(q_enqueue((void*)p_req,p_q)){
 			flag=true;
-			break;
-		}
-		else{
-			flag=false;
-			continue;
 		}
 	}
 	return NULL;
@@ -102,19 +103,14 @@ void *posix_make_pull(KEYT PPA, uint32_t size, value_set* value, bool async, alg
 	posix_request *p_req=(posix_request*)malloc(sizeof(posix_request));
 	p_req->type=FS_LOWER_R;
 	p_req->key=PPA;
-	p_req->size=size;
 	p_req->value=value;
+	p_req->upper_req=req;
 	p_req->isAsync=async;
-	p_req->upper_req=(void*)req;
+	p_req->size=size;
 	
 	while(!flag){
 		if(q_enqueue((void*)p_req,p_q)){
 			flag=true;
-			break;
-		}
-		else{
-			flag=false;
-			continue;
 		}
 	}
 	return NULL;
@@ -123,20 +119,18 @@ void *posix_make_pull(KEYT PPA, uint32_t size, value_set* value, bool async, alg
 void *posix_make_trim(KEYT PPA, bool async){
 	bool flag=false;
 	posix_request *p_req=(posix_request*)malloc(sizeof(posix_request));
+	p_req->type=FS_LOWER_T;
+	p_req->key=PPA;
 	p_req->isAsync=async;
 
 	while(!flag){
 		if(q_enqueue((void*)p_req,p_q)){
 			flag=true;
-			break;
-		}
-		else{
-			flag=false;
-			continue;
 		}
 	}
 	return NULL;
 }
+#endif
 
 uint32_t posix_create(lower_info *li){
 	li->NOB=_NOS;
@@ -165,6 +159,7 @@ uint32_t posix_create(lower_info *li){
 	measure_init(&li->writeTime);
 	measure_init(&li->readTime);
 #if (ASYNC==1)
+	stopflag = false;
 	q_init(&p_q, 1024);
 	pthread_create(&t_id,NULL,&l_main,NULL);
 #endif
@@ -179,7 +174,10 @@ void *posix_refresh(lower_info *li){
 }
 
 void *posix_destroy(lower_info *li){
+	pthread_mutex_destroy(&my_posix.lower_lock);
+	pthread_mutex_destroy(&fd_lock);
 	fclose(_fp);
+	close(_fd);
 #if (ASYNC==1)
 	stopflag = true;
 #endif
@@ -229,7 +227,7 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	}
 	int res;
 	if(!(res=read(_fd,value->value,size))){
-		//printf("%d:read none!\n",res);
+		printf("%d:read none!\n",res);
 	}
 	}
 	pthread_mutex_unlock(&fd_lock);
