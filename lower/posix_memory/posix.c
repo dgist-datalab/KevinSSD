@@ -189,6 +189,7 @@ void *posix_destroy(lower_info *li){
 		}
 	}
 	free(seg_table);
+	pthread_mutex_destroy(&my_posix.lower_lock);
 	pthread_mutex_destroy(&fd_lock);
 #if (ASYNC==1)
 	stopflag = true;
