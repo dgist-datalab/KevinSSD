@@ -60,8 +60,8 @@ void *posix_refresh(lower_info *li){
 }
 
 void *posix_destroy(lower_info *li){
-	pthread_mutex_destroy(&fd_lock);
 	pthread_mutex_destroy(&my_posix.lower_lock);
+	pthread_mutex_destroy(&fd_lock);
 	close(_fd);
 	return NULL;
 }

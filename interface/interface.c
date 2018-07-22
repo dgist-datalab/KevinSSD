@@ -59,7 +59,8 @@ static void assign_req(request* req){
 #endif
 	}
 
-	if(!req->isAsync){
+	//if(!req->isAsync){
+	if(!ASYNC){
 		pthread_mutex_lock(&req->async_mutex);	
 		pthread_mutex_destroy(&req->async_mutex);
 		free(req);
