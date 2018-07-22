@@ -368,7 +368,7 @@ Iter *level_get_Iter(level *input){
 void level_summary(){
 	for(int i=0; i<LEVELN; i++){
 		level *t=LSM.disk[i];
-		//printf("[%d(%s)] n_num:%d, m_num:%d, r_num:%d\n",i,t->isTiering?"tier":"level",t->n_num,t->m_num,t->n_run);
+		printf("[%d(%s)] n_num:%d, m_num:%d, r_num:%d\n",i,t->isTiering?"tier":"level",t->n_num,t->m_num,t->n_run);
 	}
 }
 void level_all_print(){
@@ -577,9 +577,13 @@ void level_check(level *input){
 	int cnt=0;
 	for(int i=0; i<=input->n_run; i++){
 		Node *temp_run=ns_run(input,i);
+		if(!temp_run) continue;
 		for(int j=0; j<temp_run->n_num; j++){
 			Entry *temp_ent=ns_entry(temp_run,j);
-
+			if(!temp_ent->iscompactioning){
+				printf("[%d:%d]here!\n",i,j);
+			}
+/*
 #ifdef BLOOM
 			if(temp_ent->filter->p>1){
 				printf("\r");
@@ -601,8 +605,9 @@ void level_check(level *input){
 				printf("\r");
 			}
 		}
-		cnt++;
+		cnt++;*/
 	}
+}
 }
 
 void level_all_check(){

@@ -218,6 +218,9 @@ KEYT compaction_htable_write(htable *input){
 }
 
 bool compaction_force(){
+	static int cnt=0;
+	/*printf("\nbefore :%d\n",cnt++);
+	level_summary();*/
 	for(int i=LEVELN-2; i>=0; i--){
 		if(LSM.disk[i]->n_num){
 			if(LSM.disk[LEVELN-1]->isTiering){
@@ -226,11 +229,14 @@ bool compaction_force(){
 			else{
 				leveling(i,LEVELN-1,NULL);
 			}
-			level_summary();
+			/*
+			printf("\n true after \n");
+			level_summary();*/
 			return true;
 		}
-	}
-	level_summary();
+	}/*
+	printf("\n false after \n");
+	level_summary();*/
 	return false;
 }
 
@@ -756,15 +762,15 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 	if(!data) start=skip->start;
 	else start=data[0]->key;
 
-	int headerSize;
+	//int headerSize;
+	
 	//not overlap processing failed
-	/*
 	int headerSize=level_range_unmatch(origin,start,&target_s,true);
 	for(int i=0; i<headerSize; i++){
 		level_insert(t,target_s[i]);
 	}
 	free(target_s);
-	*/
+	
 
 	if(!data){
 		end=origin->end;
@@ -825,8 +831,8 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 	else{
 		KEYT endcheck=UINT_MAX;
 		for(int i=0; data[i]!=NULL; i++){
-			Entry *origin_ent=data[i];	
-			start=origin_ent->key;
+			Entry *origin_ent=data[i];
+			start=i==0?origin_ent->key:end;
 			if(data[i+1]==NULL){
 				endcheck=data[i]->end;
 				end=(origin->end>origin_ent->end?origin->end:origin_ent->end);
@@ -921,6 +927,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 			}
 			free(target_s);
 		}
+		//level_check(origin);
 	}
 
 	return 1;

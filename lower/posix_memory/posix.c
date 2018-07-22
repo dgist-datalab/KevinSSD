@@ -6,7 +6,7 @@
 #include "../../bench/measurement.h"
 #include "../../interface/queue.h"
 #include "../../interface/bb_checker.h"
-//#include "../../algorithm/lsmtree/lsmtree.h"
+#include "../../algorithm/lsmtree/lsmtree.h"
 #ifdef dftl
 #include "../../algorithm/dftl/dftl.h"
 #endif
@@ -210,7 +210,7 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		printf("\nwrite error\n");
 		exit(2);
 	}
-	//if(((lsm_params*)req->params)->lsm_type!=5){
+	if(((lsm_params*)req->params)->lsm_type!=5){
 #ifdef dftl
 	uint8_t req_type = ((demand_params*)req->params)->type;
 	if(req_type == 3 || req_type == 5 || req_type == 7){
@@ -249,7 +249,7 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		printf("\nread error\n");
 		exit(3);
 	}
-	//if(((lsm_params*)req->params)->lsm_type!=4){
+	if(((lsm_params*)req->params)->lsm_type!=4){
 #ifdef dftl
 	uint8_t req_type = ((demand_params*)req->params)->type;
 	if(req_type == 2 || req_type == 4 || req_type == 6){
@@ -312,7 +312,6 @@ void* posix_badblock_checker(KEYT ppa, uint32_t size, void*(*process)(uint64_t,u
 			}
 		}
 
-	
 		if(bbn==ppa){
 			need_dispatch=true;
 			process(bbn/(1<<14),1);

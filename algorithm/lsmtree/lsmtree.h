@@ -13,14 +13,16 @@
 #define OLDDATA 1
 #define HEADERR 2
 #define HEADERW 3
-#define DATAR 4
-#define DATAW 5
-#define GCR 6
-#define GCW 7
-#define SDATAR 8
-#define RANGER 9
-#define BLOCKW 10
-#define BLOCKR 11
+#define GCHR 4
+#define GCHW 5
+#define DATAR 6
+#define DATAW 7
+#define GCDR 8
+#define GCDW 9
+#define SDATAR 10
+#define RANGER 11
+#define BLOCKW 12
+#define BLOCKR 13
 
 typedef struct keyset{
 	KEYT lpa;

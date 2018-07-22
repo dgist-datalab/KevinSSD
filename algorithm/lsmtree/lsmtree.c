@@ -178,7 +178,8 @@ void* lsm_end_req(algo_req* const req){
 			inf_free_valueset(params->value,FS_MALLOC_W);
 			free(params->htable_ptr);
 			break;
-		case GCR:
+		case GCDR:
+		case GCHR:
 			target=(PTR)params->target;//gc has malloc in gc function
 			memcpy(target,params->value->value,PAGESIZE);
 
@@ -192,7 +193,8 @@ void* lsm_end_req(algo_req* const req){
 			inf_free_valueset(params->value,FS_MALLOC_R);
 			gc_target_get_cnt++;
 			break;
-		case GCW:
+		case GCDW:
+		case GCHW:
 			inf_free_valueset(params->value,FS_MALLOC_W);
 			break;
 		case DATAR:

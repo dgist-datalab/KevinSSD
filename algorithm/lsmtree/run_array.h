@@ -85,6 +85,7 @@ int level_range_find(level *,KEYT start, KEYT end, Entry ***,bool compaction);//
 int level_range_unmatch(level *,KEYT start, Entry ***,bool);
 bool level_check_overlap(level*,KEYT start, KEYT end);//a
 bool level_check_seq(level *);
+void level_check(level *);
 bool level_full_check(level *);//
 KEYT level_get_page(level *,uint8_t plength);
 void level_moveTo_front_page(level*);
