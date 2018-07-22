@@ -7,7 +7,9 @@
 #include "../../interface/queue.h"
 #include "../../interface/bb_checker.h"
 //#include "../../algorithm/lsmtree/lsmtree.h"
+#ifdef dftl
 #include "../../algorithm/dftl/dftl.h"
+#endif
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -155,6 +157,7 @@ uint32_t posix_create(lower_info *li){
 	seg_table = (mem_seg*)malloc(sizeof(mem_seg)*li->NOB);
 	for(uint32_t i = 0; i < li->NOB; i++){
 		seg_table[i].storage = NULL;
+		seg_table[i].alloc = 0;
 	}
 	_fp=fopen("badblock.txt","r");	
 	if(_fp==NULL){
@@ -186,6 +189,7 @@ void *posix_destroy(lower_info *li){
 		}
 	}
 	free(seg_table);
+	pthread_mutex_destroy(&fd_lock);
 #if (ASYNC==1)
 	stopflag = true;
 #endif
@@ -203,18 +207,25 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	pthread_mutex_lock(&fd_lock);
 
 	if(my_posix.SOP*PPA >= my_posix.TS){
-		printf("write error\n");
+		printf("\nwrite error\n");
 		exit(2);
 	}
-//	if(((lsm_params*)req->params)->lsm_type!=5){
-	if(((demand_params*)req->params)->type < 10){
-		if(!seg_table[PPA/my_posix.PPS].storage){
+	//if(((lsm_params*)req->params)->lsm_type!=5){
+#ifdef dftl
+	uint8_t req_type = ((demand_params*)req->params)->type;
+	if(req_type == 3 || req_type == 5 || req_type == 7){
+#endif
+#ifdef normal
+	if(0){
+#endif
+		if(!seg_table[PPA/my_posix.PPS].alloc){
 			seg_table[PPA/my_posix.PPS].storage = (PTR)malloc(my_posix.SOB);
+			seg_table[PPA/my_posix.PPS].alloc = 1;
 		}
 		PTR loc = seg_table[PPA/my_posix.PPS].storage;
 		memcpy(&loc[(PPA%my_posix.PPS)*my_posix.SOP],value->value,size);
 	}
-//	}
+
 	pthread_mutex_unlock(&fd_lock);
 	if(req->parents)
 		bench_lower_end(req->parents);
@@ -235,15 +246,21 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	pthread_mutex_lock(&fd_lock);
 
 	if(my_posix.SOP*PPA >= my_posix.TS){
-		printf("read error\n");
+		printf("\nread error\n");
 		exit(3);
 	}
-//	if(((lsm_params*)req->params)->lsm_type!=4){
-	if(((demand_params*)req->params)->type < 10){
+	//if(((lsm_params*)req->params)->lsm_type!=4){
+#ifdef dftl
+	uint8_t req_type = ((demand_params*)req->params)->type;
+	if(req_type == 2 || req_type == 4 || req_type == 6){
+#endif
+#ifdef normal
+	if(0){
+#endif
 		PTR loc = seg_table[PPA/my_posix.PPS].storage;
 		memcpy(value->value,&loc[(PPA%my_posix.PPS)*my_posix.SOP],size);
 	}
-//	}
+
 	pthread_mutex_unlock(&fd_lock);
 
 	if(req->parents)
@@ -265,8 +282,15 @@ void *posix_trim_block(KEYT PPA, bool async){
 	char *temp=(char *)malloc(my_posix.SOB);
 	memset(temp,0,my_posix.SOB);
 	pthread_mutex_lock(&fd_lock);
-	free(seg_table[PPA/my_posix.PPS].storage);
-	seg_table[PPA/my_posix.PPS].storage = NULL;
+	if(my_posix.SOP*PPA >= my_posix.TS || PPA%my_posix.PPS != 0){
+		printf("\ntrim error\n");
+		exit(4);
+	}
+	if(seg_table[PPA/my_posix.PPS].alloc){
+		free(seg_table[PPA/my_posix.PPS].storage);
+		seg_table[PPA/my_posix.PPS].storage = NULL;
+		seg_table[PPA/my_posix.PPS].alloc = 0;
+	}
 	pthread_mutex_unlock(&fd_lock);
 	free(temp);
 	return NULL;
