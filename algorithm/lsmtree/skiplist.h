@@ -3,11 +3,14 @@
 #include <stdint.h>
 #include "../../include/container.h"
 #include "../../include/settings.h"
+#ifdef lsmtree
 #include "../../include/lsm_settings.h"
 #include "run_array.h"
 #include "lsmtree.h"
+#endif
 #define MAX_L 30 //max level number
 #define PROB 4 //the probaility of level increasing : 1/PROB => 1/4
+
 struct level;
 typedef struct snode{ //skiplist's node
 	KEYT key;
@@ -17,12 +20,15 @@ typedef struct snode{ //skiplist's node
 	bool isvalid;
 	struct snode **list;
 }snode;
+
+#ifdef lsmtree
 typedef struct length_bucket{
 	snode *bucket[PAGESIZE/PIECE+1][KEYNUM];
 	uint16_t idx[PAGESIZE/PIECE+1];
 	value_set** contents;
 	int contents_num;
 }l_bucket;
+#endif
 
 typedef struct skiplist{
 	uint8_t level;
@@ -53,7 +59,9 @@ skiplist *skiplist_cut(skiplist*,KEYT size,KEYT limit);
 #ifdef DVALUE
 int bucket_page_cnt(l_bucket *);
 #endif
+#ifdef lsmtree
 value_set **skiplist_make_valueset(skiplist*,struct level *from);
+#endif
 void skiplist_save(skiplist *);
 skiplist *skiplist_load();
 #endif
