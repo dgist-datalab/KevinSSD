@@ -419,7 +419,7 @@ void inf_init(){
 	   pthread_mutex_init(&inf_lock,NULL);
 	   pthread_mutex_lock(&inf_lock);*/
 	measure_init(&mt);
-#if defined(posix) || defined(posix_async)
+#if defined(posix) || defined(posix_async) || defined(posix_memory)
 	mp.li=&my_posix;
 #endif
 
