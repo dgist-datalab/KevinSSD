@@ -9,7 +9,9 @@
 #include"../../interface/interface.h"
 #include "footer.h"
 
+#ifdef lsmtree
 extern OOBT *oob;
+#endif
 skiplist *skiplist_init(){
 	skiplist *point=(skiplist*)malloc(sizeof(skiplist));
 	point->level=1;

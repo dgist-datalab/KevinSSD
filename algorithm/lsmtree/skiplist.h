@@ -11,7 +11,9 @@
 #define MAX_L 30 //max level number
 #define PROB 4 //the probaility of level increasing : 1/PROB => 1/4
 
+#ifdef lsmtree
 struct level;
+#endif
 typedef struct snode{ //skiplist's node
 	KEYT key;
 	KEYT ppa;
