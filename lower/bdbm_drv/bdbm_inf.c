@@ -59,6 +59,7 @@ void *memio_info_push_data(KEYT ppa, uint32_t size, value_set *value, bool async
 		printf("dmatag -1 error!\n");
 		exit(1);
 	}
+
 	bench_lower_w_start(&memio_info);
 	//req->parents->ppa=bb_checker_fix_ppa(ppa);
 	bench_lower_w_end(&memio_info);

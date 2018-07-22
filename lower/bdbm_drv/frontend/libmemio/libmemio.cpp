@@ -92,6 +92,9 @@ static void __dm_intr_handler (
 		if(my_algo_req->parents){
 			bench_lower_end(my_algo_req->parents);
 		}
+		MA(&my_algo_req->lower_latency_checker);
+		my_algo_req->lower_latency_data=my_algo_req->lower_latency_checker.adding.tv_usec+my_algo_req->lower_latency_checker.adding.tv_sec*1000000;
+		my_algo_req->lower_path_flag=r->path_type+4;
 		my_algo_req->end_req(my_algo_req);
 	}
 	else{
@@ -180,6 +183,7 @@ memio_t* memio_open ()
 
 	mio->tagQ = new std::queue<int>;
 
+
 	/* setup some internal values according to 
 	 * the device's organization */
 	if ((ret = __memio_init_llm_reqs (mio)) != 0) {
@@ -217,6 +221,7 @@ static bdbm_llm_req_t* __memio_alloc_llm_req (memio_t* mio)
 	// using std::queue & event
 	bdbm_mutex_lock(&mio->tagQMutex);
 	while (mio->tagQ->empty()) {
+		mio->req_flag+=1;
 		bdbm_cond_wait(&mio->tagQCond, &mio->tagQMutex);
 	}
 	r = (bdbm_llm_req_t*)&mio->rr[mio->tagQ->front()];
@@ -295,10 +300,14 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 	/* see if LBA alignment is correct */
 	__memio_check_alignment (len, mio->io_size);
 
+	mio->req_flag=0;
 	/* fill up logaddr; note that phyaddr is not used here */
 	while (cur_lba < lba + (len/mio->io_size)) {
 		/* get an empty llm_req */
 		r = __memio_alloc_llm_req (mio);
+		r->path_type=0;
+		r->path_type+=mio->req_flag;
+
 		bdbm_bug_on (!r);
 
 		/* setup llm_req */
@@ -333,6 +342,8 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 		if(my_algo_req->parents){
 			bench_lower_start(my_algo_req->parents);
 		}
+
+
 		/*kukania*/
 		r->req = req;
 		//r->dmaTag = req->req->dmaTag;
@@ -342,9 +353,12 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 			r->counter = &counter;
 		}
 		
+
 	//	printf("[%d] before locked!\n",cnt++);
 		/* send I/O requets to the device */
-		
+	
+
+
 		if ((ret = dm->make_req (&mio->bdi, r)) != 0) {
 			bdbm_error ("dm->make_req() failed (ret = %d)", ret);
 			bdbm_bug_on (1);

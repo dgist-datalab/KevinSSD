@@ -9,6 +9,9 @@
 typedef struct memio {
 	bdbm_drv_info_t bdi;
 	bdbm_llm_req_t* rr;
+	/*kukania*/
+	uint8_t req_flag;
+
 	int nr_punits;
 	int nr_tags;
 	uint64_t io_size; /* bytes */

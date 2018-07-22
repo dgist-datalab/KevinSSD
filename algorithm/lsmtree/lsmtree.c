@@ -314,6 +314,7 @@ uint32_t __lsm_get(request *const req){
 	//}
 	//static int tt=0;
 	//printf("test:%d %d\n",tt++,req->key);
+
 	snode *target_node=skiplist_find(LSM.memtable,req->key);//checking in memtable
 	if(target_node !=NULL){
 #ifdef NOHOST
