@@ -25,6 +25,7 @@ int epc_check=0;
 compM compactor;
 pthread_mutex_t compaction_wait;
 //pthread_mutex_t compaction_assign_lock;//for interrunpt in compaction main
+bool compaction_idle;
 int compactino_target_cnt;
 
 void compaction_sub_pre(){
@@ -135,6 +136,7 @@ void compaction_assign(compR* req){
 			compP* proc=&compactor.processors[i];
 			req->seq=seq_num++;
 			if(q_enqueue((void*)req,proc->q)){
+				compaction_idle=false;
 				flag=true;
 				//pthread_mutex_unlock(&compaction_assign_lock);
 				break;
@@ -232,7 +234,6 @@ bool compaction_force(){
 	return false;
 }
 
-bool compaction_idle;
 void *compaction_main(void *input){
 	void *_req;
 	compR*req;
@@ -254,7 +255,6 @@ void *compaction_main(void *input){
 			//pthread_mutex_lock(&compaction_assign_lock);
 			continue;
 		}
-		compaction_idle=false;
 		req=(compR*)_req;
 		//printf("seq num: %d -",req->seq);
 		if(req->fromL==-1){

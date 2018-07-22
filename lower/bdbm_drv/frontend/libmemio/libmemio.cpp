@@ -92,9 +92,12 @@ static void __dm_intr_handler (
 		if(my_algo_req->parents){
 			bench_lower_end(my_algo_req->parents);
 		}
+		/*
 		MA(&my_algo_req->lower_latency_checker);
 		my_algo_req->lower_latency_data=my_algo_req->lower_latency_checker.adding.tv_usec+my_algo_req->lower_latency_checker.adding.tv_sec*1000000;
 		my_algo_req->lower_path_flag=r->path_type+4;
+	//	printf("test-time:%ld type:%u\n",my_algo_req->lower_latency_data,my_algo_req->lower_path_flag);
+		*/
 		my_algo_req->end_req(my_algo_req);
 	}
 	else{
@@ -305,6 +308,7 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 	while (cur_lba < lba + (len/mio->io_size)) {
 		/* get an empty llm_req */
 		r = __memio_alloc_llm_req (mio);
+
 		r->path_type=0;
 		r->path_type+=mio->req_flag;
 
@@ -343,8 +347,10 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 			bench_lower_start(my_algo_req->parents);
 		}
 
-
+	
 		/*kukania*/
+		//measure_init(&my_algo_req->lower_latency_checker);
+		//MS(&my_algo_req->lower_latency_checker);
 		r->req = req;
 		//r->dmaTag = req->req->dmaTag;
 		r->dmaTag = dmatag;
