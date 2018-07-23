@@ -28,6 +28,10 @@ CFLAGS_ALGO+=$(COMMONFLAGS)\
 
 CFLAGS_LOWER+=$(COMMONFLAGS)\
 
+ifeq ($(TARGET_ALGO), lsmtree)
+ CFLAGS_ALGO+=-DLSM_SKIP
+endif
+
 ifeq ($(CC), gcc)
  CFLAGS_ALGO+=-Wno-discarded-qualifiers -std=c99
  CFLAGS_LOWER+=-Wno-discarded-qualifiers -std=c99
