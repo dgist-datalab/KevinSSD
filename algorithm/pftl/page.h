@@ -1,45 +1,73 @@
 #ifndef _PAGE_H_
 #define _PAGE_H_
 
-#include "../../interface/interface.h"
-#include "../../include/container.h"
-#include "../../bench/bench.h"
-#include "../../include/settings.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include "../../interface/interface.h"
+#include "../../include/container.h"
+#include "../blockmanager/BM.h"
 
-typedef struct pbase_params{
-	request *parents;
-	int test;
-}pbase_params;
+//algo end req type definition.
+#define TYPE uint8_t
+#define DATA_R 0
+#define DATA_W 1
+#define GC_R 2
+#define GC_W 3
 
 typedef struct mapping_table{
-	int32_t lpa_to_ppa;
-	int8_t  valid_checker;
-}TABLE; //table[lpa].lpa_to_ppa = ppa & table[ppa].valid_checker = 0 or 1.
+	int32_t ppa;
+} TABLE;
 
-typedef struct virtual_OOB{
-	int32_t reverse_table;
-}OOB; //simulates OOB in real SSD. Now, there's info for reverse-mapping.
+typedef struct page_OOB{
+	int32_t lpa;
+} P_OOB;
 
 typedef struct SRAM{
-	int32_t lpa_RAM;
-	value_set* VPTR_RAM;
-}SRAM; // use this RAM for Garbage collection.
+	P_OOB OOB_RAM;
+	PTR PTR_RAM;
+} SRAM;
 
-//opt_bdbm_page.c
+typedef struct pbase_params{
+	value_set *value;
+	TYPE type;
+} pbase_params;
+
+extern algorithm algo_pbase;
+
+extern b_queue *free_b;
+extern Heap *b_heap;
+
+extern TABLE *page_TABLE;  // mapping Table.
+extern uint8_t *VBM;	   //valid bitmap.
+extern P_OOB *page_OOB;	   // Page level OOB.
+
+extern Block *block_array;
+extern Block *reserved;
+
+extern int32_t _g_nop;
+extern int32_t _g_nob;
+extern int32_t _g_ppb;
+
+extern int32_t gc_load;
+extern int32_t gc_count;
+
+//page.c
 uint32_t pbase_create(lower_info*,algorithm *);
+void *pbase_end_req(algo_req*);
 void pbase_destroy(lower_info*, algorithm *);
 uint32_t pbase_get(request* const);
 uint32_t pbase_set(request* const);
 uint32_t pbase_remove(request* const);
-void *pbase_end_req(algo_req*);
+
+//page_utils.c
+algo_req* assign_pseudo_req(TYPE type, value_set *temp_v, request *req);
+value_set* SRAM_load(SRAM* sram, int32_t ppa, int idx); // loads info on SRAM.
+void SRAM_unload(SRAM* sram, int32_t ppa, int idx); // unloads info from SRAM.
+int32_t alloc_page();
 
 //page_gc.c
-value_set* SRAM_load(int ppa, int a); // loads info on SRAM.
-value_set* SRAM_unload(int ppa, int a); // unloads info from SRAM.
-uint32_t pbase_garbage_collection(); // page- GC function.
+int32_t pbase_garbage_collection(); // page- GC function.
  
 #endif //!_PAGE_H_

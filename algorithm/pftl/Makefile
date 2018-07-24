@@ -1,5 +1,7 @@
 SRCS +=\
-	   page_aio.c\
+	   page.c\
+	   page_utils.c\
+	   page_gc.c\
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\

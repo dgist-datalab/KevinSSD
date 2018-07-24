@@ -1,90 +1,77 @@
 #include "page.h"
 
-extern TABLE* page_TABLE; 
-extern OOB* page_OOB;
-extern SRAM* page_SRAM;
-
-uint32_t _g_count = 0;
-uint32_t _g_valid = 0;
-
-value_set* SRAM_load(int ppa, int a)
-{
-	value_set* value_PTR; //make new value_set
-	algo_req* my_req; //pseudo req with no parent req.
-
-	value_PTR = inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
-	my_req = (algo_req*)malloc(sizeof(algo_req));
-	my_req->parents = NULL;
-	my_req->end_req = pbase_algo_end_req; //make pseudo reqeust.
-	algo_pbase.li->pull_data(ppa,PAGESIZE,value_PTR,ASYNC,my_req);//end_req will free input and increases count.
-	page_SRAM[a].lpa_RAM = page_OOB[ppa].reverse_table;//load reverse-mapped lpa.
-	page_SRAM[a].VPTR_RAM = (value_set*)malloc(sizeof(value_set));
-	return value_PTR;
-}
-
-value_set* SRAM_unload(int ppa, int a)
-{
-	value_set *value_PTR;
-
-	value_PTR = inf_get_valueset(page_SRAM[a].VPTR_RAM->value,FS_MALLOC_W,PAGESIZE);//set valueset as write mode.
-	algo_req * my_req = (algo_req*)malloc(sizeof(algo_req));
-	my_req->end_req = pbase_algo_end_req;
-	my_req->parents = NULL;
-	algo_pbase.li->push_data(ppa,PAGESIZE,value_PTR,ASYNC,my_req);
-	page_TABLE[page_SRAM[a].lpa_RAM].lpa_to_ppa = ppa;
-	page_TABLE[ppa].valid_checker = 1;
-	page_OOB[ppa].reverse_table = page_SRAM[a].lpa_RAM;
-	page_SRAM[a].lpa_RAM = -1;
-	free(page_SRAM[a].VPTR_RAM);
-	return value_PTR;
-}
-
-uint32_t pbase_garbage_collection()//do pbase_read and pbase_set 
-{
-	int target_block = 0; //index of target block for gc.
-	int invalid_num = 0; //invalid component of target block.
-	int trim_PPA = 0; //index of trim ppa. same with (block * _PPB).
-	int RAM_PTR = 0; //index of RAM slot for load and unload function.
+int32_t pbase_garbage_collection(){
+	/* garbage collection for pftl.
+	 * find victim, exchange with op area.
+	 * SRAM_load -> SRAM_unload -> trim.
+	 * need to update mapping data as well.
+	 */
+	int32_t old_block;
+	int32_t new_block;
+	uint8_t all;
+	int valid_page_num;
+	Block *victim;
 	value_set **temp_set;
-	
-	target_block = BM_get_gc_victim(blockArray, numValid_map);
-	trim_PPA = target_block* _PPB; //set trim target.
-	_g_valid = _PPB - invalid_num; //set num of valid component. 
+	SRAM *d_sram;
 
-	temp_set = (value_set**)malloc(sizeof(value_set*)*_PPB);
-	for (int i=0;i<_PPB;i++){
-		if (BM_is_valid_ppa(blockArray, trim_PPA+i) == 1){
-			temp_set[RAM_PTR] = SRAM_load(trim_PPA + i, RAM_PTR);
-			RAM_PTR++;
-			BM_InvalidateBlock_PPA(blockArray, trim_PPA+i);
+	all = 0;
+	gc_count++;
+	victim = BM_Heap_Get_Max(b_heap);
+	printf("invalid: %d\n", victim->Invalid);
+	if(victim->Invalid == _g_ppb){ // every page is invalid.
+		all = 1;
+	}
+	else if(victim->Invalid == 0){// ssd all valid.
+		printf("full!!!\n");
+		exit(2);
+	}
+	//exchange block
+	victim->Invalid = 0;
+	for (int i=0; i<BM_GetnumItem(); i++)
+		victim->ValidP[i] = BM_INVALIDPAGE;//set bitmap to 0.
+	old_block = victim->PBA * _g_ppb;
+	new_block = reserved->PBA * _g_ppb;
+	reserved->hn_ptr = BM_Heap_Insert(b_heap, reserved);//current rsv goes into heap.
+	reserved = victim;//rsv ptr points to victim.
+	if(all){ // if all page is invalid, then just trim and return
+		algo_pbase.li->trim_block(old_block, false);
+		return new_block;
+	}
+	valid_page_num = 0;
+	gc_load = 0;
+	d_sram = (SRAM*)malloc(sizeof(SRAM) * _g_ppb);
+	temp_set = (value_set**)malloc(sizeof(value_set*) * _g_ppb);
+
+	for(int i=0;i<_g_ppb;i++){
+		d_sram[i].PTR_RAM = NULL;
+		d_sram[i].OOB_RAM.lpa = -1;
+	}
+
+	/* read valid pages in block */
+	for(int i=old_block;i<old_block+_g_ppb;i++){
+		if(BM_IsValidPage(block_array,i)){ // read valid page
+			temp_set[valid_page_num] = SRAM_load(d_sram, i, valid_page_num);
+			valid_page_num++;
 		}
 	}
-	while(_g_count != _g_valid){}//wait until count reaches valid.
 
-	_g_count = 0;
+	while(gc_load != valid_page_num){} // polling for reading all mapping data
 	
-	for (int i=0;i<_g_valid;i++){  //if read is finished, copy value_set and free original one.
-		memcpy(page_SRAM[i].VPTR_RAM,temp_set[i],sizeof(value_set));
-		inf_free_valueset(temp_set[i],FS_MALLOC_R);
+	for(int i=0;i<valid_page_num;i++){ // copy data to memory and free dma valueset
+		memcpy(d_sram[i].PTR_RAM, temp_set[i]->value, PAGESIZE);
+		inf_free_valueset(temp_set[i], FS_MALLOC_R); //미리 value_set을 free시켜서 불필요한 value_set 낭비 줄임
 	}
-	
-	for (int i=0;i<_g_valid;i++){
-		temp_set[i] = SRAM_unload(RSV_status,i);
-		RSV_status++;
-	}//unload.
-	
-	while(_g_count != _g_valid){}//wait until count reaches valid.
 
-	for (int i=0;i<_g_valid;i++)
-		inf_free_valueset(temp_set[i],FS_MALLOC_W);
+	for(int i=0;i<valid_page_num;i++){ // write page into new block
+		SRAM_unload(d_sram, new_block + i, i);
+		BM_ValidatePage(block_array,new_block+i);
+	}
 
-	_g_count = 0;
+	free(temp_set);
+	free(d_sram);
 
-	int temp = PPA_status;
-	PPA_status = RSV_status;
-	RSV_status = temp;//swap Reserved area.
-	
-	invalid_per_block[target_block] = 0;
-	algo_pbase.li->trim_block(trim_PPA, false);
-	return 0;
+	/* Trim block */
+	algo_pbase.li->trim_block(old_block, false);
+
+	return new_block + valid_page_num;
 }

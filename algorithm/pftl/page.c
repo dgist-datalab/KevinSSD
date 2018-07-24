@@ -15,9 +15,9 @@ Heap *b_heap;
 
 TABLE *page_TABLE; //mapping table.
 P_OOB *page_OOB;   //OOB area.
-uint8_t *VBM;      //Valid Bitmap.
 
 //blockmanager globals.
+BM_T *BM;
 Block *block_array; //empty array.
 Block *reserved;    //reserved.
 
@@ -40,29 +40,33 @@ uint32_t pbase_create(lower_info* li, algorithm *algo){
 	_g_ppb = _PPS;
 	gc_count = 0;
 
+
 	//printf("number of block: %d\n", _g_nob);
 	//printf("page per block: %d\n", _g_ppb);
 	//printf("number of page: %d\n", _g_nop);
 
 	page_TABLE = (TABLE*)malloc(sizeof(TABLE) * _g_nop);
 	page_OOB = (P_OOB*)malloc(sizeof(P_OOB) * _g_nop);
-	VBM = (uint8_t*)malloc(_g_nop);
 	algo->li = li;
 
 	for(int i=0;i<_g_nop;i++){
      	page_TABLE[i].ppa = -1;
 		page_OOB[i].lpa = -1;
-		VBM[i] = 0;
 	}//init table, oob and vbm.
 
-	BM_Init(&block_array);
-	reserved = &block_array[0];
+	//BM_Init(&block_array);
+	BM = BM_Init(1, 1);
 
+	block_array = BM->barray;
+	reserved = &block_array[0];
 	BM_Queue_Init(&free_b);
 	for(int i=1;i<_g_nob;i++){
 		BM_Enqueue(free_b, &block_array[i]);
 	}
 	b_heap = BM_Heap_Init(_g_nob - 1);//total size == NOB - 1.
+	
+	BM->harray[0] = b_heap;
+	BM->qarray[0] = free_b;
 	return 0;
 }
 
@@ -72,10 +76,7 @@ void pbase_destroy(lower_info* li, algorithm *algo){
 	 * destroys blockmanager.
 	 */
 	printf("gc count: %d\n", gc_count);
-	BM_Queue_Free(free_b);
-	BM_Heap_Free(b_heap);
-	BM_Free(block_array);
-	free(VBM);
+	BM_Free(BM);
 	free(page_OOB);
 	free(page_TABLE);
 }
@@ -152,11 +153,13 @@ uint32_t pbase_set(request* const req){
 	bench_algo_end(req);
 	algo_pbase.li->push_data(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_W, NULL, req));
 	if(page_TABLE[lpa].ppa != -1){//already mapped case.(update)
-		VBM[page_TABLE[lpa].ppa] = 0;
-		block_array[page_TABLE[lpa].ppa/_g_ppb].Invalid++;
+		BM_InvalidatePage(block_array,page_TABLE[lpa].ppa);
+		//VBM[page_TABLE[lpa].ppa] = 0;
+		//block_array[page_TABLE[lpa].ppa/_g_ppb].Invalid++;
 	}
 	page_TABLE[lpa].ppa = ppa;
-	VBM[ppa] = 1;
+	BM_ValidatePage(block_array,ppa);
+	//VBM[ppa] = 1;
 	page_OOB[ppa].lpa = lpa;
 	return 0;
 }

@@ -17,7 +17,6 @@ value_set* SRAM_load(SRAM* sram, int32_t ppa, int idx){
 	algo_pbase.li->pull_data(ppa, PAGESIZE, temp_value_set, 1, assign_pseudo_req(GC_R, NULL, NULL)); // pull in gc is ALWAYS async
 	sram[idx].PTR_RAM = (PTR)malloc(PAGESIZE);
 	sram[idx].OOB_RAM = page_OOB[ppa];
-	VBM[ppa] = 0;
 	return temp_value_set;
 }
 
@@ -26,7 +25,6 @@ void SRAM_unload(SRAM* sram, int32_t ppa, int idx){
 	temp_value_set = inf_get_valueset((PTR)sram[idx].PTR_RAM, FS_MALLOC_W, PAGESIZE);
 	algo_pbase.li->push_data(ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(GC_W, temp_value_set, NULL));
 	page_OOB[ppa] = sram[idx].OOB_RAM;
-	VBM[ppa] = 1;
 	free(sram[idx].PTR_RAM);
 }
 
