@@ -178,7 +178,8 @@ void* lsm_end_req(algo_req* const req){
 			inf_free_valueset(params->value,FS_MALLOC_W);
 			free(params->htable_ptr);
 			break;
-		case GCR:
+		case GCDR:
+		case GCHR:
 			target=(PTR)params->target;//gc has malloc in gc function
 			memcpy(target,params->value->value,PAGESIZE);
 
@@ -192,7 +193,8 @@ void* lsm_end_req(algo_req* const req){
 			inf_free_valueset(params->value,FS_MALLOC_R);
 			gc_target_get_cnt++;
 			break;
-		case GCW:
+		case GCDW:
+		case GCHW:
 			inf_free_valueset(params->value,FS_MALLOC_W);
 			break;
 		case DATAR:
@@ -265,6 +267,7 @@ uint32_t lsm_set(request * const req){
 }
 extern bool compaction_idle;
 int nor;
+MeasureTime lsm_mt;
 uint32_t lsm_get(request *const req){
 	void *re_q;
 	static bool temp=false;
@@ -272,6 +275,7 @@ uint32_t lsm_get(request *const req){
 	uint32_t res_type=0;
 	if(!level_show){
 		level_show=true;
+		measure_init(&lsm_mt);
 		//level_all_print();
 	}
 	//printf("seq: %d, key:%u\n",nor++,req->key);
@@ -314,6 +318,7 @@ uint32_t __lsm_get(request *const req){
 	//}
 	//static int tt=0;
 	//printf("test:%d %d\n",tt++,req->key);
+
 	snode *target_node=skiplist_find(LSM.memtable,req->key);//checking in memtable
 	if(target_node !=NULL){
 #ifdef NOHOST

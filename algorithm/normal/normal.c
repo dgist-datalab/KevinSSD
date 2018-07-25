@@ -21,6 +21,7 @@ uint32_t normal_create (lower_info* li,algorithm *algo){
 void normal_destroy (lower_info* li, algorithm *algo){
 	return;
 }
+int normal_cnt;
 uint32_t normal_get(request *const req){
 	bench_algo_start(req);
 	normal_params* params=(normal_params*)malloc(sizeof(normal_params));
@@ -31,6 +32,7 @@ uint32_t normal_get(request *const req){
 	my_req->end_req=normal_end_req;
 	my_req->params=(void*)params;
 	bench_algo_end(req);
+	normal_cnt++;
 	__normal.li->pull_data(req->key,PAGESIZE,req->value,req->isAsync,my_req);
 	return 1;
 }
@@ -44,6 +46,7 @@ uint32_t normal_set(request *const req){
 	my_req->end_req=normal_end_req;
 	my_req->params=(void*)params;
 	bench_algo_end(req);
+	normal_cnt++;
 	__normal.li->push_data(req->key,PAGESIZE,req->value,req->isAsync,my_req);
 	return 1;
 }
@@ -57,14 +60,7 @@ void *normal_end_req(algo_req* input){
 	bool check=false;
 	//int cnt=0;
 	request *res=input->parents;
-	if(res->type==FS_GET_T){
-		if(memcmp(res->value->value,temp,PAGESIZE)!=0){
-			ccc++;
-			check=true;
-		}
-	}
-	if(check)
-		printf("%d\n",ccc);
+
 	res->end_req(res);
 
 	free(params);

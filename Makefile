@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=posix_memory
+TARGET_LOWER=bdbm_drv
 TARGET_ALGO=lsmtree
 PWD=$(pwd)
 
@@ -20,6 +20,8 @@ export CFLAGS_LOWER=\
 			 -lpthread\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\
+
+export priority="tru"
 
 
 #CFLAGS_ALGO+=-DCOMPACTIONLOG\
@@ -101,6 +103,7 @@ libsimulator.a: $(TARGETOBJ)
 	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) clean && $(MAKE) && cd ../../
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
 	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
+	mv ./include/data_struct/*.o ./object/
 	$(AR) r $(@) ./object/*
 
 libsimulator_d.a:$(MEMORYOBJ)
@@ -108,6 +111,7 @@ libsimulator_d.a:$(MEMORYOBJ)
 	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) DEBUG && cd ../../
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) DEBUG && cd ../../ 
 	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
+	mv ./include/data_struct/*.o ./object/
 	$(AR) r $(@) ./object/*
 
 mem_libsimulator.a:$(MEMORYOBJ)
@@ -115,6 +119,7 @@ mem_libsimulator.a:$(MEMORYOBJ)
 	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) LEAK && cd ../../
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
 	mv ./interface/*.o ./object/ & mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
+	mv ./include/data_struct/*.o ./object/
 	$(AR) r $(@) ./object/*
 
 %_mem.o: %.c

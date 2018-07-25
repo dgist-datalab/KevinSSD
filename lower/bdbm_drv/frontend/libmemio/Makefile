@@ -77,7 +77,24 @@ SRCS := \
 	$(DM_COMMON)/dev_main.c \
 	$(DM_COMMON)/dev_params.c \
 	$(DM_NOHOST)/dm_nohost.cpp \
-	$(PWD)/libmemio.cpp \
+	../../../../include/data_struct/hash.c\
+
+ifeq ($(priority), "true")
+ SRCS+=$(PWD)/libmemio_priority.cpp\
+
+else
+
+  ifeq ($(non_test), "true")
+   SRCS+=$(PWD)/libmemio.cpp\
+
+  else
+   SRCS+=$(PWD)/libmemio.cpp\
+
+  endif
+
+endif
+
+
 
 OBJS := \
 	$(SRCS:.c=.o) $(SRCS:.cpp=.o)

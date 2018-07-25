@@ -62,6 +62,8 @@ static void __memio_free_llm_req (memio_t* mio, bdbm_llm_req_t* r);
 
 pthread_mutex_t proc;
 int req_cnt=0;
+uint64_t dm_intr_cnt;
+MeasureTime _mt;
 static void __dm_intr_handler (
 	bdbm_drv_info_t* bdi, 
 	bdbm_llm_req_t* r)
@@ -88,11 +90,23 @@ static void __dm_intr_handler (
 		break;
 	}*/
 	if(r->req_type!=REQTYPE_GC_ERASE){
+		dm_intr_cnt++;
 		algo_req *my_algo_req=(algo_req*)r->req;
 		if(my_algo_req->parents){
 			bench_lower_end(my_algo_req->parents);
+		}/*
+		MC(&my_algo_req->lower_latency_checker);
+		my_algo_req->lower_latency_data=my_algo_req->lower_latency_checker.micro_time;
+		my_algo_req->lower_path_flag=r->path_type+4;
+	//	printf("test-time:%ld type:%u\n",my_algo_req->lower_latency_data,my_algo_req->lower_path_flag);*/
+		if(r->req_type==REQTYPE_READ){
+	//		MS(&_mt);
+			my_algo_req->end_req(my_algo_req);
+	//		MT(&_mt);
 		}
-		my_algo_req->end_req(my_algo_req);
+		else{
+			my_algo_req->end_req(my_algo_req);
+		}
 	}
 	else{
 		if(r->bad_seg_func!=NULL){
@@ -118,6 +132,7 @@ static void __dm_intr_handler (
 
 static int __memio_init_llm_reqs (memio_t* mio)
 {
+	measure_init(&_mt);
 	int ret = 0;
 	if ((mio->rr = (bdbm_llm_req_t*)bdbm_zmalloc (
 			sizeof (bdbm_llm_req_t) * mio->nr_tags)) == NULL) {
@@ -217,6 +232,7 @@ static bdbm_llm_req_t* __memio_alloc_llm_req (memio_t* mio)
 	// using std::queue & event
 	bdbm_mutex_lock(&mio->tagQMutex);
 	while (mio->tagQ->empty()) {
+		mio->req_flag+=1;
 		bdbm_cond_wait(&mio->tagQCond, &mio->tagQMutex);
 	}
 	r = (bdbm_llm_req_t*)&mio->rr[mio->tagQ->front()];
@@ -274,12 +290,13 @@ static void __memio_check_alignment (uint64_t length, uint64_t alignment)
 		exit (-1);
 	}
 }
-
+uint64_t do_io_cnt;
 bool flag=false;
 //static int __memio_do_io (memio_t* mio, int dir, uint64_t lba, uint64_t len, uint8_t* data, int async, lsmtree_req_t *req, int dmaTag) // async == 0 : sync,  == 1 : async
 static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uint8_t* data, int async, void *req, int dmaTag) // async == 0 : sync,  == 1 : async
 //static int __memio_do_io (memio_t* mio, int dir, uint64_t lba, uint64_t len, uint8_t* data, int async, int dmaTag, void (*end_req)(void)) // async == 0 : sync,  == 1 : async
 {
+	do_io_cnt++;
 	bdbm_llm_req_t* r = NULL;
 	bdbm_dm_inf_t* dm = mio->bdi.ptr_dm_inf;
 	uint8_t* cur_buf = data;
@@ -295,12 +312,16 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 	/* see if LBA alignment is correct */
 	__memio_check_alignment (len, mio->io_size);
 
+	mio->req_flag=0;
 	/* fill up logaddr; note that phyaddr is not used here */
 	while (cur_lba < lba + (len/mio->io_size)) {
 		/* get an empty llm_req */
 		r = __memio_alloc_llm_req (mio);
-		bdbm_bug_on (!r);
 
+		bdbm_bug_on (!r);
+	
+		r->path_type=0;
+		r->path_type+=mio->req_flag;
 		/* setup llm_req */
 		switch(dir) {
 		case 0:/*
@@ -344,7 +365,10 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 		
 	//	printf("[%d] before locked!\n",cnt++);
 		/* send I/O requets to the device */
-		
+
+		measure_init(&my_algo_req->lower_latency_checker);
+		MS(&my_algo_req->lower_latency_checker);
+
 		if ((ret = dm->make_req (&mio->bdi, r)) != 0) {
 			bdbm_error ("dm->make_req() failed (ret = %d)", ret);
 			bdbm_bug_on (1);
@@ -354,9 +378,9 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 		cur_buf += mio->io_size;
 		sent += mio->io_size;
 	}
+
 	//FIXME: if write, just return. if read, wait until my read request finishes	
 	if ( dir == 0 && async == 0) {
-
 		bdbm_mutex_lock(&mio->tagQMutex);
 		while (counter > 0) {
 			bdbm_cond_wait(&readCond, &mio->tagQMutex);

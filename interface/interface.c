@@ -32,7 +32,7 @@ master_processor mp;
 
 //pthread_mutex_t inf_lock;
 void *p_main(void*);
-
+int req_cnt_test=0;
 #ifdef interface
 static void assign_req(request* req){
 	bool flag=false;
@@ -82,7 +82,7 @@ bool inf_assign_try(request *req){
 	}
 	return flag;
 }
-
+uint64_t inter_cnt;
 void *p_main(void *__input){
 	void *_inf_req;
 	request *inf_req;
@@ -105,10 +105,13 @@ void *p_main(void *__input){
 			continue;
 		}
 		inf_req=(request*)_inf_req;
-
+		inter_cnt++;
 #ifdef CDF
-		measure_init(&inf_req->latency_checker);
-		measure_start(&inf_req->latency_checker);
+		if(!inf_req->isstart){
+			inf_req->isstart=true;
+			measure_init(&inf_req->latency_checker);
+			measure_start(&inf_req->latency_checker);
+		}
 #endif
 		switch(inf_req->type){
 			case FS_GET_T:
@@ -119,6 +122,9 @@ void *p_main(void *__input){
 				break;
 			case FS_DELETE_T:
 				mp.algo->remove(inf_req);
+				break;
+			default:
+				printf("wtf??\n");
 				break;
 		}
 		//inf_req->end_req(inf_req);
@@ -456,6 +462,7 @@ void inf_init(){
 
 	bb_checker_start(mp.li);
 }
+
 #ifndef USINGAPP
 bool inf_make_req(const FSTYPE type, const KEYT key, value_set *value,int mark)
 #else
@@ -481,7 +488,9 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value)
 	req->lower.isused=false;
 	req->mark=mark;
 #endif
-
+#ifdef CDF
+	req->isstart=false;
+#endif
 	switch(type){
 		case FS_GET_T:
 			break;
@@ -540,8 +549,8 @@ bool inf_end_req( request * const req){
 			inf_free_valueset(req->value, FS_MALLOC_W);
 		}
 	}
+	req_cnt_test++;
 	if(!req->isAsync){
-
 		pthread_mutex_unlock(&req->async_mutex);	
 	}
 	else{

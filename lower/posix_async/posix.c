@@ -6,7 +6,7 @@
 #include "../../bench/measurement.h"
 #include "../../interface/queue.h"
 #include "../../interface/bb_checker.h"
-//#include "../../algorithm/lsmtree/lsmtree.h"
+#include "../../algorithm/lsmtree/lsmtree.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -194,14 +194,14 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		bench_lower_start(req->parents);
 	pthread_mutex_lock(&fd_lock);
 
-//	if(((lsm_params*)req->params)->lsm_type!=5){
+	if(((lsm_params*)req->params)->lsm_type < 6){
 	if(lseek64(_fd,((off64_t)my_posix.SOP)*PPA,SEEK_SET)==-1){
 		printf("lseek error in write\n");
 	}//
 	if(!write(_fd,value->value,size)){
 		printf("write none!\n");
 	}	
-//	}
+	}
 	pthread_mutex_unlock(&fd_lock);
 	if(req->parents)
 		bench_lower_end(req->parents);
@@ -221,7 +221,7 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 
 	pthread_mutex_lock(&fd_lock);
 
-//	if(((lsm_params*)req->params)->lsm_type!=4){
+	if(((lsm_params*)req->params)->lsm_type < 6){
 	if(lseek64(_fd,((off64_t)my_posix.SOP)*PPA,SEEK_SET)==-1){
 		printf("lseek error in read\n");
 	}
@@ -229,7 +229,7 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	if(!(res=read(_fd,value->value,size))){
 		printf("%d:read none!\n",res);
 	}
-//	}
+	}
 	pthread_mutex_unlock(&fd_lock);
 
 	if(req->parents)

@@ -25,6 +25,7 @@ int epc_check=0;
 compM compactor;
 pthread_mutex_t compaction_wait;
 //pthread_mutex_t compaction_assign_lock;//for interrunpt in compaction main
+bool compaction_idle;
 int compactino_target_cnt;
 
 void compaction_sub_pre(){
@@ -135,6 +136,7 @@ void compaction_assign(compR* req){
 			compP* proc=&compactor.processors[i];
 			req->seq=seq_num++;
 			if(q_enqueue((void*)req,proc->q)){
+				compaction_idle=false;
 				flag=true;
 				//pthread_mutex_unlock(&compaction_assign_lock);
 				break;
@@ -198,6 +200,7 @@ htable *compaction_data_write(skiplist *mem){
 
 KEYT compaction_htable_write(htable *input){
 	KEYT ppa=getPPA(HEADER,input->sets[0].lpa,true);//set ppa;
+
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 	areq->parents=NULL;
@@ -215,6 +218,9 @@ KEYT compaction_htable_write(htable *input){
 }
 
 bool compaction_force(){
+	static int cnt=0;
+	/*printf("\nbefore :%d\n",cnt++);
+	level_summary();*/
 	for(int i=LEVELN-2; i>=0; i--){
 		if(LSM.disk[i]->n_num){
 			if(LSM.disk[LEVELN-1]->isTiering){
@@ -223,15 +229,17 @@ bool compaction_force(){
 			else{
 				leveling(i,LEVELN-1,NULL);
 			}
-			level_summary();
+			/*
+			printf("\n true after \n");
+			level_summary();*/
 			return true;
 		}
-	}
-	level_summary();
+	}/*
+	printf("\n false after \n");
+	level_summary();*/
 	return false;
 }
 
-bool compaction_idle;
 void *compaction_main(void *input){
 	void *_req;
 	compR*req;
@@ -253,7 +261,6 @@ void *compaction_main(void *input){
 			//pthread_mutex_lock(&compaction_assign_lock);
 			continue;
 		}
-		compaction_idle=false;
 		req=(compR*)_req;
 		//printf("seq num: %d -",req->seq);
 		if(req->fromL==-1){
@@ -322,9 +329,9 @@ void compaction_check(){
 			LSM.memtable=skiplist_init();
 		}
 		compaction_assign(req);
-#ifdef ONETHREAD
+//#ifdef ONETHREAD
 		while(!compaction_idle){}
-#endif
+//#endif
 	}
 }
 
@@ -622,6 +629,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 			}
 		}
 	}*/
+
 	return 1;
 }	
 #ifdef MONKEY
@@ -755,14 +763,15 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 	else start=data[0]->key;
 
 	int headerSize;
-	//not overlap processing failed
-	/*
+	
+#ifndef MONKEY
 	int headerSize=level_range_unmatch(origin,start,&target_s,true);
 	for(int i=0; i<headerSize; i++){
 		level_insert(t,target_s[i]);
 	}
 	free(target_s);
-	*/
+#endif
+	
 
 	if(!data){
 		end=origin->end;
@@ -790,6 +799,10 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 #ifdef CACHE
 				}
 #endif
+				if(!target_s[idx]->iscompactioning){
+					target_s[idx]->iscompactioning=true;
+				}
+
 				table[j]->bitset=target_s[idx]->bitset;
 				idx++;
 				if(target_s[idx]==NULL) break;
@@ -819,8 +832,12 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 	else{
 		KEYT endcheck=UINT_MAX;
 		for(int i=0; data[i]!=NULL; i++){
-			Entry *origin_ent=data[i];	
-			start=origin_ent->key;
+			Entry *origin_ent=data[i];
+#ifdef MONKEY
+			start=i==0?0:end;
+#else
+			start=i==0?origin_ent->key:end;
+#endif
 			if(data[i+1]==NULL){
 				endcheck=data[i]->end;
 				end=(origin->end>origin_ent->end?origin->end:origin_ent->end);
@@ -865,7 +882,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 				for(int k=j; k<EPC; k++){
 
 					if(target_s[idx]==NULL)break;
-
 #ifdef CACHE
 					if(target_s[idx]->c_entry){
 						memcpy_cnt++;
@@ -878,6 +894,9 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 #ifdef CACHE
 					}
 #endif
+					if(!target_s[idx]->iscompactioning){
+						target_s[idx]->iscompactioning=true;
+					}
 					table[k]->bitset=target_s[idx]->bitset;
 					idx++;
 				}
@@ -913,7 +932,9 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 			}
 			free(target_s);
 		}
+		//level_check(origin);
 	}
+
 	return 1;
 }
 int tiering_compaction=0;

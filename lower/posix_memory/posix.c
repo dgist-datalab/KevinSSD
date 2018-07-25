@@ -5,6 +5,7 @@
 #include "../../bench/bench.h"
 #include "../../bench/measurement.h"
 #include "../../interface/queue.h"
+#include "../../interface/bb_checker.h"
 #include "../../algorithm/lsmtree/lsmtree.h"
 #ifdef dftl
 #include "../../algorithm/dftl/dftl.h"

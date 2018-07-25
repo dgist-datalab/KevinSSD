@@ -55,9 +55,9 @@ libmemio.a:
 
 libbdbm_drv.a : $(TARGETOBJ)
 	$(AR) r $(@) $(TARGETOBJ)
-	
-ttttt: test_main.c bb_checker.c
-	gcc -g -DSLC -o test test_main.c bb_checker.c
+
+bdbm_test: libmemio.a test_main.c
+	g++ $(INCLUDES) $(CFLAGS_LOWER) -o $@ test_main.c ../../include/FS.c ../../bench/measurement.c ../../object/libmemio.a
 
 .c.o :
 	$(CC) $(INCLUDES) $(CFLAGS_LOWER) -c $< -o $@
