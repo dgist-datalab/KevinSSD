@@ -103,7 +103,9 @@ libsimulator.a: $(TARGETOBJ)
 	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) clean && $(MAKE) && cd ../../
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
 	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
+ifeq ($(TARGET_LOWER), bdbm_drv)
 	mv ./include/data_struct/*.o ./object/
+endif
 	$(AR) r $(@) ./object/*
 
 libsimulator_d.a:$(MEMORYOBJ)
@@ -111,7 +113,9 @@ libsimulator_d.a:$(MEMORYOBJ)
 	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) DEBUG && cd ../../
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) DEBUG && cd ../../ 
 	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
+ifeq ($(TARGET_LOWER), bdbm_drv)
 	mv ./include/data_struct/*.o ./object/
+endif
 	$(AR) r $(@) ./object/*
 
 mem_libsimulator.a:$(MEMORYOBJ)
@@ -119,7 +123,9 @@ mem_libsimulator.a:$(MEMORYOBJ)
 	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) LEAK && cd ../../
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
 	mv ./interface/*.o ./object/ & mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
+ifeq ($(TARGET_LOWER), bdbm_drv)
 	mv ./include/data_struct/*.o ./object/
+endif
 	$(AR) r $(@) ./object/*
 
 %_mem.o: %.c
