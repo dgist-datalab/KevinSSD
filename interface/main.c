@@ -10,6 +10,7 @@
 #include "../bench/bench.h"
 #include "interface.h"
 extern int req_cnt_test;
+extern uint64_t dm_intr_cnt;
 int main(){/*
 	int Input_cycle;
 	int Input_type;
@@ -102,7 +103,7 @@ int main(){/*
 		printf("dpne!\n");
 	}
 	else{
-		printf("fuck\n");
+		printf("req_cnt_test:cnt -> %d:%d fuck\n",req_cnt_test,cnt);
 	}
 
 	while(!bench_is_finish()){

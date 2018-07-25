@@ -1,32 +1,73 @@
 #include <stdio.h>
 #include "../../include/container.h"
-#include "bb_checker.h"
+#include "../../include/types.h"
+#include "../../include/utils.h"
+#include "frontend/libmemio/libmemio.h"
+#include "../../include/FS.h"
+#include "../../include/settings.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+memio_t *mio;
+#define TESTSET 1000000
+#define A_SYNC 1
+typedef struct temp_params{
+	int type;
+	value_set *value;
+}tp;
 
-char testbit[(REALSIZE/PAGESIZE)/8];
+
+value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
+	value_set *res=(value_set*)malloc(sizeof(value_set));
+	//check dma alloc type
+	if(length==8192)
+		res->dmatag=F_malloc((void**)&(res->value),8192,type);
+	else{
+		res->dmatag=-1;
+		res->value=(PTR)malloc(length);
+	}
+	res->length=length;
+
+	if(in_v){
+		memcpy(res->value,in_v,length);
+	}
+	else
+		memset(res->value,0,length);
+	return res;
+}
+
+void inf_free_valueset(value_set *in, int type){
+	if(in->dmatag==-1){
+		free(in->value);
+	}
+	else{
+		F_free((void*)in->value,in->dmatag,type);
+	}
+	free(in);
+}
+
+void *t_end_req(struct algo_req *const t){
+	tp *params=(tp*)t->params;
+	inf_free_valueset(params->value,params->type);
+	free(params);
+	free(t);
+	return NULL;
+}
+
+MeasureTime tt;
 int main(){
-	KEYT bad, changed;
-
-	bb_checker_start();
-	for(int i=0; i<89;i++){
-		scanf("%d%d",&bad,&changed);
-		bb_checker_process(bad/_PPS,1);
+	measure_init(&tt);
+	mio=memio_open();
+	MS(&tt);
+	for(int i=0; i<TESTSET; i++){
+		algo_req *req=(algo_req*)malloc(sizeof(algo_req));
+		tp *params=(tp*)malloc(sizeof(tp));
+		params->type=FS_MALLOC_W;
+		params->value=inf_get_valueset(NULL,FS_MALLOC_W,8192);
+		req->params=params;
+		req->end_req=t_end_req;
+		memio_write(mio,i,8192,(uint8_t *)params->value->value,A_SYNC,req,params->value->dmatag);
 	}
-
-	printf("bad checking\n");
-	
-	bb_checker_fixing();
-	printf("\n\n RNAGE:%d\n",2*RANGE/8);
-	for(KEYT i=0; i<RANGE; i++){
-		KEYT res=bb_checker_fix_ppa(i);
-		KEYT num=res/8;	
-		KEYT offset=res%8;
-		if(testbit[num]&(1<<offset)){
-			printf("wtf origin:%u changed:%d\n",i,res);
-			KEYT res=bb_checker_fix_ppa(i);
-			exit(1);
-		}
-		else{
-			testbit[num]|=(1<<offset);
-		}
-	}
+	MC(&tt);
+	printf("test:%lu\n",tt.micro_time);
 }

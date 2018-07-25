@@ -575,7 +575,6 @@ uint32_t dm_nohost_make_req (
 			block = (r->logaddr.lpa[0] >> 14);
 			device->eraseBlock(bus, chip, block, r->tag);
 			break;
-
 		default:
 			//		bdbm_sema_unlock (&global_lock);
 			break;

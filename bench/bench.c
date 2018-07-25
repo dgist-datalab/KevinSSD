@@ -1,5 +1,6 @@
 #include "bench.h"
 #include "../include/types.h"
+#include "../include/settings.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -80,7 +81,7 @@ void bench_add(bench_type type, KEYT start, KEYT end, uint64_t number){
 	_master->meta[idx].start=start;
 	_master->meta[idx].end=end;
 	_master->meta[idx].type=type;
-	_master->meta[idx].number=number;
+	_master->meta[idx].number=number%2?(number/2)*2:number;
 	idx++;
 }
 
@@ -146,7 +147,9 @@ void bench_print(){
 		printf("\n\n");
 		_m=&_master->m[i];
 		bdata=&_master->datas[i];
+#ifdef CDF
 		bench_cdf_print(_m->m_num,_m->type,bdata);
+#endif
 		printf("--------------------------------------------\n");
 		printf("|            bench type:                   |\n");
 		printf("--------------------------------------------\n");
@@ -415,7 +418,8 @@ void seqset(KEYT start, KEYT end,monitor *m){
 
 void seqrw(KEYT start, KEYT end, monitor *m){
 	printf("making seq Set and Get bench!\n");
-	for(KEYT i=0; i<m->m_num/2; i++){
+	KEYT i=0;
+	for(i=0; i<m->m_num/2; i++){
 		m->body[i].key=start+(i%(end-start));
 		m->body[i].type=FS_SET_T;
 #ifdef DVALUE

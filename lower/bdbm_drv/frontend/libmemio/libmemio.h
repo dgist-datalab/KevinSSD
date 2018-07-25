@@ -5,6 +5,16 @@
 #include "debug.h" /* bdbm_msg */
 #include <queue>
 //#include "LR_inter.h"
+typedef struct memio_q_req{
+	void *req;
+	int type;
+	uint32_t lba;
+	uint64_t len;
+	uint8_t *data;
+	int async;
+	int dma_tag;
+	void *__hash_node;
+}memio_q_req;
 
 typedef struct memio {
 	bdbm_drv_info_t bdi;
@@ -18,8 +28,10 @@ typedef struct memio {
 	uint64_t trim_size;
 	uint64_t trim_lbas;
 	std::queue<int>* tagQ;
+
 	bdbm_mutex_t tagQMutex;
 	bdbm_cond_t  tagQCond;
+
 } memio_t;
 
 memio_t* memio_open ();
@@ -32,5 +44,4 @@ int memio_comp_write (memio_t* mio, uint32_t lba, uint64_t len, uint8_t* data, i
 //int memio_write (memio_t* mio, uint64_t lba, uint64_t len, uint8_t* data, int async, int dmaTag, void (*end_req)(void));
 int memio_trim (memio_t* mio, uint32_t lba, uint64_t len, void *(*end_req)(uint64_t,uint8_t));
 void memio_close (memio_t* mio);
-int memio_alloc_dma (int type, char** buf);
-void memio_free_dma (int type, int dmaTag);
+int memio_alloc_dma (int type, char** buf);void memio_free_dma (int type, int dmaTag);

@@ -64,7 +64,6 @@ static void assign_req(request* req){
 		pthread_mutex_lock(&req->async_mutex);	
 		pthread_mutex_destroy(&req->async_mutex);
 		free(req);
-		req_cnt_test++;
 	}
 }
 
@@ -83,7 +82,7 @@ bool inf_assign_try(request *req){
 	}
 	return flag;
 }
-
+uint64_t inter_cnt;
 void *p_main(void *__input){
 	void *_inf_req;
 	request *inf_req;
@@ -106,7 +105,7 @@ void *p_main(void *__input){
 			continue;
 		}
 		inf_req=(request*)_inf_req;
-
+		inter_cnt++;
 #ifdef CDF
 		if(!inf_req->isstart){
 			inf_req->isstart=true;
@@ -123,6 +122,9 @@ void *p_main(void *__input){
 				break;
 			case FS_DELETE_T:
 				mp.algo->remove(inf_req);
+				break;
+			default:
+				printf("wtf??\n");
 				break;
 		}
 		//inf_req->end_req(inf_req);
@@ -547,8 +549,8 @@ bool inf_end_req( request * const req){
 			inf_free_valueset(req->value, FS_MALLOC_W);
 		}
 	}
+	req_cnt_test++;
 	if(!req->isAsync){
-
 		pthread_mutex_unlock(&req->async_mutex);	
 	}
 	else{

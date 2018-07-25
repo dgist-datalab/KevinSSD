@@ -764,13 +764,13 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 
 	int headerSize;
 	
-	//not overlap processing failed
-	/*
+#ifndef MONKEY
 	int headerSize=level_range_unmatch(origin,start,&target_s,true);
 	for(int i=0; i<headerSize; i++){
 		level_insert(t,target_s[i]);
 	}
-	free(target_s);*/
+	free(target_s);
+#endif
 	
 
 	if(!data){
@@ -833,7 +833,11 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 		KEYT endcheck=UINT_MAX;
 		for(int i=0; data[i]!=NULL; i++){
 			Entry *origin_ent=data[i];
+#ifdef MONKEY
+			start=i==0?0:end;
+#else
 			start=i==0?origin_ent->key:end;
+#endif
 			if(data[i+1]==NULL){
 				endcheck=data[i]->end;
 				end=(origin->end>origin_ent->end?origin->end:origin_ent->end);
@@ -847,9 +851,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 
 			int prev_idx=0;
 			int idx=0;
-			if(headerSize==0){
-				printf("??\n");
-			}
+
 			for(int round=0; round<target_round; round++){
 				compaction_sub_pre();
 				int j=0;

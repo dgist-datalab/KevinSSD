@@ -267,6 +267,7 @@ uint32_t lsm_set(request * const req){
 }
 extern bool compaction_idle;
 int nor;
+MeasureTime lsm_mt;
 uint32_t lsm_get(request *const req){
 	void *re_q;
 	static bool temp=false;
@@ -274,6 +275,7 @@ uint32_t lsm_get(request *const req){
 	uint32_t res_type=0;
 	if(!level_show){
 		level_show=true;
+		measure_init(&lsm_mt);
 		//level_all_print();
 	}
 	//printf("seq: %d, key:%u\n",nor++,req->key);

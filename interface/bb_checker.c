@@ -64,7 +64,7 @@ KEYT bb_checker_fix_ppa(KEYT ppa){
 		}
 	}
 
-	if(shouldchg){
+	if(shouldchg){	
 		block+=_NOS;
 	}
 	res=bus+(chip<<3)+(page<<6)+(block<<14);
@@ -88,8 +88,7 @@ KEYT bb_checker_fixed_segment(KEYT ppa){
 }
 
 KEYT bb_checker_paired_segment(KEYT ppa){
-	KEYT res=bb_checker_fixed_segment(ppa);
-	return bb_checker_fixed_segment(res+_NOS*(1<<14));
+	return bb_checker_fixed_segment((ppa/(1<<14)+_NOS)*(1<<14));
 }
 
 void bb_checker_fixing(){/*
