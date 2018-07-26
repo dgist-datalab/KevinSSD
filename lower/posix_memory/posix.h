@@ -15,6 +15,7 @@ void* posix_trim_block(KEYT ppa, bool async);
 void *posix_make_trim(KEYT ppa, bool async);
 void *posix_refresh(lower_info*);
 void posix_stop();
+void posix_flying_req_wait();
 
 typedef struct posix_request {
 	FSTYPE type;

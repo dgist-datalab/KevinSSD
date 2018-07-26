@@ -22,7 +22,8 @@ lower_info memio_info={
 	.refresh=memio_info_refresh,
 	.stop=memio_info_stop,
 	.lower_alloc=memio_alloc_dma,
-	.lower_free=memio_free_dma
+	.lower_free=memio_free_dma,
+	.lower_flying_req_wait=memio_flying_req_wait
 };
 
 uint32_t memio_info_create(lower_info *li){
@@ -107,3 +108,7 @@ void *memio_badblock_checker(KEYT ppa,uint32_t size, void*(*process)(uint64_t,ui
 }
 
 void memio_info_stop(){}
+
+void memio_flying_req_wait(){
+	while(!memio_is_clean(mio));
+}

@@ -100,7 +100,7 @@ int main(){/*
 	}
 
 	if(req_cnt_test==cnt){
-		printf("dpne!\n");
+		printf("done!\n");
 	}
 	else{
 		printf("req_cnt_test:cnt -> %d:%d fuck\n",req_cnt_test,cnt);

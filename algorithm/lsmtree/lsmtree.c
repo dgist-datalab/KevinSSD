@@ -18,6 +18,7 @@
 #ifdef DEBUG
 #endif
 
+#define LOWERTYPE 10
 struct algorithm algo_lsm={
 	.create=lsm_create,
 	.destroy=lsm_destroy,
@@ -28,8 +29,30 @@ struct algorithm algo_lsm={
 extern OOBT *oob;
 lsmtree LSM;
 int save_fd;
+
+//[algor_type][lower_type]
+lsm_cdf l_cdfs[LEVELN+1][LOWERTYPE];
+
+void lsm_cdf_print(){
+	printf("a_type\tl_type\tmax\tmin\tavg\t\tcnt\n");
+	for(int i=0; i<LEVELN+1; i++){
+		for(int j=0;j<LOWERTYPE; j++){
+			if(!l_cdfs[i][j].cnt)continue;
+			printf("%d\t%d\t%lu\t%lu\t%f\t%d\n",i,j,l_cdfs[i][j].max,l_cdfs[i][j].min,(float)l_cdfs[i][j].total_micro/l_cdfs[i][j].cnt,l_cdfs[i][j].cnt);
+		}
+	}
+	printf("\n");
+}
+
 uint32_t __lsm_get(request *const);
 uint32_t lsm_create(lower_info *li, algorithm *lsm){
+
+	for(int i=0; i<LEVELN+1; i++){
+		for(int j=0;j<LOWERTYPE; j++){
+			l_cdfs[i][j].min=UINT_MAX;
+		}
+	}
+
 	/*
 	if(save_fd!=-1){
 		lsmtree *temp_lsm=lsm_load();
@@ -90,6 +113,8 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 
 extern uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
 void lsm_destroy(lower_info *li, algorithm *lsm){
+	lsm_cdf_print();
+
 	compaction_free();
 #ifdef DVALUE
 	factory_free();
@@ -124,6 +149,7 @@ void* lsm_end_req(algo_req* const req){
 	PTR target=NULL;
 	htable **t_table=NULL;
 	htable *table=NULL;
+	lsm_cdf *t_lcdfs;
 	//htable mapinfo;
 #ifdef DVALUE
 	block *bl=NULL;
@@ -200,6 +226,21 @@ void* lsm_end_req(algo_req* const req){
 		case DATAR:
 			pthread_mutex_destroy(&params->lock);
 			req_temp_params=parents->params;
+			MC(&parents->latency_ftl);
+			if(req_temp_params!=NULL){
+				parents->type_ftl=((int*)req_temp_params)[0];
+				t_lcdfs=&l_cdfs[parents->type_ftl+1][req->type_lower];
+			}
+			else{
+				t_lcdfs=&l_cdfs[0][req->type_lower];
+			}
+
+			t_lcdfs->total_micro+=parents->latency_ftl.micro_time;
+			t_lcdfs->max=t_lcdfs->max<parents->latency_ftl.micro_time?parents->latency_ftl.micro_time:t_lcdfs->max;
+			t_lcdfs->min=t_lcdfs->min>parents->latency_ftl.micro_time?parents->latency_ftl.micro_time:t_lcdfs->min;
+			t_lcdfs->cnt++;
+
+
 			free(req_temp_params);
 #ifdef DVALUE
 			if(!PBITFULL(parents->value->ppa,false)){//small data
@@ -265,7 +306,6 @@ uint32_t lsm_set(request * const req){
 	req->end_req(req); //end write
 	return 1;
 }
-extern bool compaction_idle;
 int nor;
 MeasureTime lsm_mt;
 uint32_t lsm_get(request *const req){
@@ -279,6 +319,12 @@ uint32_t lsm_get(request *const req){
 		//level_all_print();
 	}
 	//printf("seq: %d, key:%u\n",nor++,req->key);
+	
+	if(req->params==NULL){
+		measure_init(&req->latency_ftl);
+		MS(&req->latency_ftl);
+	}
+
 	while(1){
 		if((re_q=q_dequeue(LSM.re_q))){
 			request *tmp_req=(request*)re_q;

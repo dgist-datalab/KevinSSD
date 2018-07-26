@@ -136,7 +136,6 @@ void compaction_assign(compR* req){
 			compP* proc=&compactor.processors[i];
 			req->seq=seq_num++;
 			if(q_enqueue((void*)req,proc->q)){
-				compaction_idle=false;
 				flag=true;
 				//pthread_mutex_unlock(&compaction_assign_lock);
 				break;
@@ -161,7 +160,6 @@ htable *compaction_data_write(skiplist *mem){
 		LSM.li->push_data(data_sets[i]->ppa/(PAGESIZE/PIECE),PAGESIZE,params->value,ASYNC,lsm_req);
 #else
 		LSM.li->push_data(data_sets[i]->ppa,PAGESIZE,params->value,ASYNC,lsm_req);
-
 #endif
 	}
 	free(data_sets);

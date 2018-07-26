@@ -585,3 +585,10 @@ void memio_free_dma (int type, int dmaTag) {
 	free_dmaQ_tag(type,dmaTag);
 	return ;
 }
+
+bool memio_is_clean(memio_t *mio){
+	if(mio->tagQ->size()==mio->nr_tags)
+		return true;
+	else
+		return false;
+}
