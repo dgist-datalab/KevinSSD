@@ -43,7 +43,7 @@ extern TABLE *page_TABLE;  // mapping Table.
 extern uint8_t *VBM;	   //valid bitmap.
 extern P_OOB *page_OOB;	   // Page level OOB.
 
-extern Block *block_array;
+extern BM_T *BM;
 extern Block *reserved;
 
 extern int32_t _g_nop;
