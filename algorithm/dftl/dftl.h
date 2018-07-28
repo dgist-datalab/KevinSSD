@@ -75,13 +75,6 @@ typedef struct mem_table{
 	D_TABLE *mem_p;
 } mem_table;
 
-typedef struct dftltime{
-	uint64_t total_micro;
-	uint64_t cnt;
-	uint64_t max;
-	uint64_t min;
-} dftl_time;
-
 /* extern variables */
 extern algorithm __demand;
 

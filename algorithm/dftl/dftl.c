@@ -1,8 +1,6 @@
 #include "dftl.h"
 #include "../../bench/bench.h"
 
-#define ALGOTYPE 7
-#define LOWERTYPE 10
 algorithm __demand = {
 	.create = demand_create,
 	.destroy = demand_destroy,
@@ -30,9 +28,6 @@ C_TABLE *CMT; // Cached Mapping Table
 D_OOB *demand_OOB; // Page OOB
 mem_table* mem_arr;
 b_queue *mem_q; // for p_table allocation. please change allocate and free function.
-//[algor_type][lower_type]
-dftl_time dftl_poll[ALGOTYPE][LOWERTYPE];
-dftl_time dftl_npoll[ALGOTYPE][LOWERTYPE];
 
 BM_T *bm;
 Block *t_reserved; // pointer of reserved block for translation gc
@@ -119,13 +114,6 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 		mem_arr[i].mem_p = (D_TABLE*)malloc(PAGESIZE);
 	}
 
-	for(int i = 0; i < ALGOTYPE; i++){
-		for(int j = 0; j < LOWERTYPE; j++){
-			dftl_poll[i][j].min = UINT64_MAX;
-			dftl_npoll[i][j].min = UINT64_MAX;
-		}
-	}
-
  	num_caching = 0;
 	bm = BM_Init(num_block, p_p_b, 2, 2);
 	t_reserved = &bm->barray[num_block - 2];
@@ -154,49 +142,6 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	return 0;
 }
 
-void dftl_cdf_print(){
-	printf("H:hit, R: read, MC: memcpy, MG: merge, E: eviction, GC: garbage collection\n");
-	printf("a_type--->>> 0: H, 1: R & MC\n");
-	printf("2: R & MG, 3: R & E & MC\n");
-	printf("4: R & E & MG & MC, 5: R & E & GC & MC\n");
-	printf("6: R & E & MG & GC & MC\n");
-	printf("polling\n");
-	printf("a_type\tl_type\tmax\tmin\tavg\t\tcnt\n");
-	for(int i = 0; i < ALGOTYPE; i++){
-		for(int j = 0; j < LOWERTYPE; j++){
-			if(!dftl_poll[i][j].cnt)
-				continue;
-			printf("%d\t%d\t%lu\t%lu\t%f\t%lu\n",i,j,dftl_poll[i][j].max,dftl_poll[i][j].min,(float)dftl_poll[i][j].total_micro/dftl_poll[i][j].cnt,dftl_poll[i][j].cnt);
-		}
-	}
-	printf("subtract polling\n");
-	printf("a_type\tl_type\tmax\tmin\tavg\t\tcnt\n");
-	for(int i = 0; i < ALGOTYPE; i++){
-		for(int j = 0; j < LOWERTYPE; j++){
-			if(!dftl_npoll[i][j].cnt)
-				continue;
-			printf("%d\t%d\t%lu\t%lu\t%f\t%lu\n",i,j,dftl_npoll[i][j].max,dftl_npoll[i][j].min,(float)dftl_npoll[i][j].total_micro/dftl_npoll[i][j].cnt,dftl_npoll[i][j].cnt);
-		}
-	}
-}
-
-void time_dftl(request *const req, int lower_type){
-	dftl_time *temp;
-	measure_calc(&req->latency_ftl);
-	temp = &dftl_poll[req->type_ftl][lower_type];
-	req->latency_ftl.micro_time += req->latency_ftl.adding.tv_sec*1000000 + req->latency_ftl.adding.tv_usec;
-	temp->total_micro += req->latency_ftl.micro_time;
-	temp->max = temp->max < req->latency_ftl.micro_time ? req->latency_ftl.micro_time : temp->max;
-	temp->min = temp->min > req->latency_ftl.micro_time ? req->latency_ftl.micro_time : temp->min;
-	temp->cnt++;
-	temp = &dftl_npoll[req->type_ftl][lower_type];
-	req->latency_ftl.micro_time -= req->latency_poll.adding.tv_sec*1000000 + req->latency_poll.adding.tv_usec;
-	temp->total_micro += req->latency_ftl.micro_time;
-	temp->max = temp->max < req->latency_ftl.micro_time ? req->latency_ftl.micro_time : temp->max;
-	temp->min = temp->min > req->latency_ftl.micro_time ? req->latency_ftl.micro_time : temp->min;
-	temp->cnt++;
-}
-
 void demand_destroy(lower_info *li, algorithm *algo){
 	printf("# of gc: %d\n", tgc_count + dgc_count);
 	printf("# of translation page gc: %d\n", tgc_count);
@@ -208,7 +153,11 @@ void demand_destroy(lower_info *li, algorithm *algo){
 	printf("# of buf hit: %d\n", buf_hit);
 	skiplist_free(mem_buf);
 #endif
-	dftl_cdf_print();
+	printf("H:hit, R: read, MC: memcpy, MG: merge, E: eviction, GC: garbage collection\n");
+	printf("a_type--->>> 0: H, 1: R & MC\n");
+	printf("2: R & MG, 3: R & E & MC\n");
+	printf("4: R & E & MG & MC, 5: R & E & GC & MC\n");
+	printf("6: R & E & MG & GC & MC\n");
 	q_free(dftl_q);
 	lru_free(lru);
 	BM_Free(bm);
@@ -227,7 +176,7 @@ void *demand_end_req(algo_req* input){
 
 	switch(params->type){
 		case DATA_R:
-			time_dftl(res, input->type_lower);
+			res->type_lower = input->type_lower;
 			break;
 		case DATA_W:
 #if W_BUFF
@@ -329,9 +278,8 @@ uint32_t __demand_set(request *const req){
 	snode *temp;
 	sk_iter *iter;
 #endif
+
 	bench_algo_start(req);
-	measure_init(&req->latency_ftl);
-	measure_init(&req->latency_poll);
 	gc_flag = false;
 	m_flag = false;
 	lpa = req->key;
@@ -457,9 +405,6 @@ uint32_t __demand_get(request *const req){
 #endif
 
 	bench_algo_start(req);
-	measure_init(&req->latency_ftl);
-	measure_init(&req->latency_poll);
-	MS(&req->latency_ftl);
 	gc_flag = false;
 	m_flag = false;
 	lpa = req->key;
@@ -472,7 +417,7 @@ uint32_t __demand_get(request *const req){
 	if((temp = skiplist_find(mem_buf, lpa))){
 		buf_hit++;
 		memcpy(req->value->value, temp->value->value, PAGESIZE);
-		time_dftl(req, 0);
+		req->type_lower = 0;
 		bench_algo_end(req);
 		req->end_req(req);
 		return 1;

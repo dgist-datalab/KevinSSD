@@ -13,6 +13,7 @@ algo_req* assign_pseudo_req(TYPE type, value_set *temp_v, request *req){
 #endif
 		dl_sync_init(&params->dftl_mutex, 1);
 	}
+	pseudo_my_req->type_lower = 0;
 	pseudo_my_req->end_req = demand_end_req;
 	pseudo_my_req->params = (void*)params;
 	return pseudo_my_req;
