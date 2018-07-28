@@ -19,6 +19,7 @@ extern struct lower_info my_posix;
 extern struct algorithm __normal;
 extern struct algorithm __badblock;
 extern struct algorithm __demand;
+
 extern struct algorithm algo_pbase;
 #ifdef lsmtree
 extern struct algorithm algo_lsm;
@@ -449,10 +450,6 @@ void inf_init(){
 	mp.algo=&__badblock;
 #endif
 
-#ifdef dftl
-	mp.algo=&__demand;
-#endif
-
 #ifdef pftl
 	mp.algo=&algo_pbase;
 #endif
@@ -483,6 +480,8 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value)
 	req->end_req=inf_end_req;
 	req->isAsync=ASYNC;
 	req->params=NULL;
+	req->type_ftl = 0;
+	req->type_lower = 0;
 #ifndef USINGAPP
 	req->algo.isused=false;
 	req->lower.isused=false;
