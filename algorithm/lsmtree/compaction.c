@@ -136,6 +136,7 @@ void compaction_assign(compR* req){
 			compP* proc=&compactor.processors[i];
 			req->seq=seq_num++;
 			if(q_enqueue((void*)req,proc->q)){
+				//compaction_idle=false;
 				flag=true;
 				//pthread_mutex_unlock(&compaction_assign_lock);
 				break;

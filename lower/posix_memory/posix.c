@@ -229,6 +229,9 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		}
 
 void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){	
+			if(req->type_lower!=1 && req->type_lower!=0){
+				req->type_lower=0;
+			}
 			if(value->dmatag==-1){
 				printf("dmatag -1 error!\n");
 				exit(1);
