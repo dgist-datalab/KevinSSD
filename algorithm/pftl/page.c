@@ -18,7 +18,6 @@ P_OOB *page_OOB;   //OOB area.
 
 //blockmanager globals.
 BM_T *BM;
-Block *block_array; //empty array.
 Block *reserved;    //reserved.
 
 //global for macro.
@@ -57,11 +56,10 @@ uint32_t pbase_create(lower_info* li, algorithm *algo){
 	//BM_Init(&block_array);
 	BM = BM_Init(1, 1);
 
-	block_array = BM->barray;
-	reserved = &block_array[0];
+	reserved = &BM->barray[0];
 	BM_Queue_Init(&free_b);
 	for(int i=1;i<_g_nob;i++){
-		BM_Enqueue(free_b, &block_array[i]);
+		BM_Enqueue(free_b, &BM->barray[i]);
 	}
 	b_heap = BM_Heap_Init(_g_nob - 1);//total size == NOB - 1.
 	
@@ -153,13 +151,10 @@ uint32_t pbase_set(request* const req){
 	bench_algo_end(req);
 	algo_pbase.li->push_data(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_W, NULL, req));
 	if(page_TABLE[lpa].ppa != -1){//already mapped case.(update)
-		BM_InvalidatePage(block_array,page_TABLE[lpa].ppa);
-		//VBM[page_TABLE[lpa].ppa] = 0;
-		//block_array[page_TABLE[lpa].ppa/_g_ppb].Invalid++;
+		BM_InvalidatePage(BM,page_TABLE[lpa].ppa);
 	}
 	page_TABLE[lpa].ppa = ppa;
-	BM_ValidatePage(block_array,ppa);
-	//VBM[ppa] = 1;
+	BM_ValidatePage(BM,ppa);
 	page_OOB[ppa].lpa = lpa;
 	return 0;
 }
