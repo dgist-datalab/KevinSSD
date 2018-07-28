@@ -136,6 +136,7 @@ void compaction_assign(compR* req){
 			compP* proc=&compactor.processors[i];
 			req->seq=seq_num++;
 			if(q_enqueue((void*)req,proc->q)){
+				compaction_idle=false;
 				flag=true;
 				//pthread_mutex_unlock(&compaction_assign_lock);
 				break;
@@ -379,6 +380,7 @@ void compaction_htable_read(Entry *ent,PTR* value){
 	areq->parents=NULL;
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
+	areq->type_lower=0;
 	//printf("R %u\n",ent->pbn);
 	LSM.li->pull_data(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
 	return;
