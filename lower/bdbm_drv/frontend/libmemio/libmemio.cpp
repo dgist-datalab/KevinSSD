@@ -94,14 +94,20 @@ static void __dm_intr_handler (
 		algo_req *my_algo_req=(algo_req*)r->req;
 		if(my_algo_req->parents){
 			bench_lower_end(my_algo_req->parents);
-		}/*
-		MC(&my_algo_req->lower_latency_checker);
-		my_algo_req->lower_latency_data=my_algo_req->lower_latency_checker.micro_time;
-		my_algo_req->lower_path_flag=r->path_type+4;
+		}
+		
+
 	//	printf("test-time:%ld type:%u\n",my_algo_req->lower_latency_data,my_algo_req->lower_path_flag);*/
 		if(r->req_type==REQTYPE_READ){
-	//		MS(&_mt);
+			r->path_type+=4;
+			//my_algo_req->type_lower=r->path_type+4;
+			my_algo_req->type_lower=r->path_type>r->before_path_type?r->path_type:r->before_path_type;
+			if(my_algo_req->type_lower>8){
+				printf("??\n");
+			}
+			MC(&my_algo_req->latency_lower);
 			my_algo_req->end_req(my_algo_req);
+	//		MS(&_mt);
 	//		MT(&_mt);
 		}
 		else{
@@ -319,7 +325,6 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 		r = __memio_alloc_llm_req (mio);
 
 		bdbm_bug_on (!r);
-	
 		r->path_type=0;
 		r->path_type+=mio->req_flag;
 		/* setup llm_req */
@@ -354,6 +359,10 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 		if(my_algo_req->parents){
 			bench_lower_start(my_algo_req->parents);
 		}
+		/*before path type*/
+		
+
+		
 		/*kukania*/
 		r->req = req;
 		//r->dmaTag = req->req->dmaTag;
@@ -365,9 +374,16 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 		
 	//	printf("[%d] before locked!\n",cnt++);
 		/* send I/O requets to the device */
-
-		measure_init(&my_algo_req->lower_latency_checker);
-		MS(&my_algo_req->lower_latency_checker);
+		if(r->req_type==REQTYPE_READ){
+			if(my_algo_req->type_lower!=0){
+				if(my_algo_req->type_lower>10){
+					printf("wtf!\n");
+				}
+				r->before_path_type=my_algo_req->type_lower;
+			}
+			measure_init(&my_algo_req->latency_lower);
+			MS(&my_algo_req->latency_lower);
+		}
 
 		if ((ret = dm->make_req (&mio->bdi, r)) != 0) {
 			bdbm_error ("dm->make_req() failed (ret = %d)", ret);
@@ -587,7 +603,7 @@ void memio_free_dma (int type, int dmaTag) {
 }
 
 bool memio_is_clean(memio_t *mio){
-	if(mio->tagQ->size()==mio->nr_tags)
+	if(mio->tagQ->size()==(uint32_t)mio->nr_tags)
 		return true;
 	else
 		return false;

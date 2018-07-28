@@ -230,6 +230,7 @@ void block_load(block *b){
 	lsm_req->parents=NULL;
 	lsm_req->end_req=lsm_end_req;
 	lsm_req->params=(void*)params;
+	lsm_req->type_lower=0;
 
 	pthread_mutex_init(&b->lock,NULL);
 	pthread_mutex_lock(&b->lock);
@@ -316,6 +317,7 @@ void gc_data_read(KEYT ppa,htable_t *value,bool isdata){
 	areq->parents=NULL;
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
+	areq->type_lower=0;
 
 	algo_lsm.li->pull_data(ppa,PAGESIZE,params->value,ASYNC,areq);
 	return;
