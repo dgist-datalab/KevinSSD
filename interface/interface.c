@@ -19,7 +19,6 @@ extern struct lower_info my_posix;
 extern struct algorithm __normal;
 extern struct algorithm __badblock;
 extern struct algorithm __demand;
-
 extern struct algorithm algo_pbase;
 #ifdef lsmtree
 extern struct algorithm algo_lsm;
@@ -448,6 +447,10 @@ void inf_init(){
 
 #ifdef badblock
 	mp.algo=&__badblock;
+#endif
+
+#ifdef dftl
+	mp.algo=&__demand;
 #endif
 
 #ifdef pftl

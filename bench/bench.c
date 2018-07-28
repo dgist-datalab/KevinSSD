@@ -36,7 +36,6 @@ void bench_init(int benchnum){
 	_master->n_num=0; _master->m_num=benchnum;
 	pthread_mutex_init(&bench_lock,NULL);
 
-
 	for(int i=0;i<benchnum;i++){
 		for(int j=0;j<ALGOTYPE;j++){
 			for(int k=0;k<LOWERTYPE;k++){
