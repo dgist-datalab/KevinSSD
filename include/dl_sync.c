@@ -1,5 +1,5 @@
 #include "dl_sync.h"
-
+#include "settings.h"
 void dl_sync_init(dl_sync *s, uint64_t cnt){
 #ifdef SPINSYNC
 	s->target_cnt=cnt;

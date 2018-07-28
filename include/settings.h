@@ -46,7 +46,7 @@
 #define QSIZE (1)
 #define THREADSIZE (1)
 
-//#define SPINSYNC
+#define SPINSYNC
 
 #ifndef __GNUG__
 typedef enum{false,true} bool;

@@ -2,6 +2,7 @@
 #define __H_DL_SYNC
 #include <stdint.h>
 #include <pthread.h>
+#include "settings.h"
 typedef struct dl_syncronizer{
 #ifdef SPINSYNC
 	uint64_t target_cnt;
