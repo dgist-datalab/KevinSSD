@@ -13,6 +13,7 @@ void measure_init(MeasureTime *m){
 	m->adding.tv_sec=0;
 	m->adding.tv_usec=0;
 	m->isused=true;
+	m->max=0;
 }
 void measure_start(MeasureTime *m){
 	m->isused=true;
@@ -73,6 +74,14 @@ void measure_calc(MeasureTime *m){
 	m->header=m->header->next;
 	free(t);
 }
+
+void measure_calc_max(MeasureTime *m){
+	measure_calc(m);
+	if(m->max<m->micro_time){
+		m->max=m->micro_time;
+	}
+}
+
 #ifdef DCPP
 void measure_end(MeasureTime *m,std::string input ){
 	char format[200];

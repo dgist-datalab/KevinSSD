@@ -1,5 +1,6 @@
 #include "dl_sync.h"
 #include "settings.h"
+#include <stdio.h>
 void dl_sync_init(dl_sync *s, uint64_t cnt){
 #ifdef SPINSYNC
 	s->target_cnt=cnt;
@@ -9,14 +10,24 @@ void dl_sync_init(dl_sync *s, uint64_t cnt){
 	pthread_mutex_lock(&s->mutex_sync);
 #endif
 }
+static int max_cnt, cnt;
 void dl_sync_wait(dl_sync*s){
 #ifdef SPINSYNC
-	while(s->target_cnt!=s->now_cnt){}
+//	cnt=0;
+	while(s->target_cnt!=s->now_cnt){
+		cnt++;
+	}
+	/*
+	if(max_cnt<cnt){
+		printf("%d\n",cnt);
+		max_cnt=cnt;
+	}*/
 	s->now_cnt=0;
 #else
 	pthread_mutex_lock(&s->mutex_sync);
 #endif
 }
+
 void dl_sync_arrive(dl_sync*s){
 #ifdef SPINSYNC
 	s->now_cnt++;
