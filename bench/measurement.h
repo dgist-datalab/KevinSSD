@@ -11,16 +11,19 @@ typedef struct MeasureTime{
 	linktime *header;
 	struct timeval adding;
 	uint64_t micro_time;
+	uint64_t max;
 	bool isused;
 	int call;
 	int cnt;
 }MeasureTime;
+
 
 void measure_init(MeasureTime *);
 void measure_start(MeasureTime *);
 void measure_pop(MeasureTime *);
 void measure_stamp(MeasureTime *);
 void measure_adding(MeasureTime *);
+void measure_calc_max(MeasureTime *);
 struct timeval measure_res(MeasureTime *);
 #ifdef DCPP
 #include<string>
