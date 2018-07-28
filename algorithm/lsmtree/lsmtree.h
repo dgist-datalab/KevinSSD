@@ -9,6 +9,7 @@
 #include "../../include/container.h"
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
+#include "../../include/dl_sync.h"
 
 #define OLDDATA 1
 #define HEADERR 2
@@ -60,7 +61,7 @@ typedef struct htable_t{
 }htable_t;
 
 typedef struct lsm_params{
-	pthread_mutex_t lock;
+	dl_sync lock;
 	uint8_t lsm_type;
 	KEYT ppa;
 	PTR test;

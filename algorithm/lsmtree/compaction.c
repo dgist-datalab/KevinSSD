@@ -218,8 +218,9 @@ KEYT compaction_htable_write(htable *input){
 }
 
 bool compaction_force(){
+	/*
 	static int cnt=0;
-	/*printf("\nbefore :%d\n",cnt++);
+	printf("\nbefore :%d\n",cnt++);
 	level_summary();*/
 	for(int i=LEVELN-2; i>=0; i--){
 		if(LSM.disk[i]->n_num){

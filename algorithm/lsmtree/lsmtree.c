@@ -186,7 +186,7 @@ void* lsm_end_req(algo_req* const req){
 				printf("tag:%d\n",parents->value->dmatag);
 				htable_print(&mapinfo,params->ppa);*/
 				if(!parents->isAsync){ // end_req for lsm_get
-					pthread_mutex_unlock(&params->lock);
+					dl_sync_arrive(&params->lock);
 					havetofree=false;
 				}
 				else{
@@ -198,7 +198,7 @@ void* lsm_end_req(algo_req* const req){
 								break;
 						}
 					}
-					pthread_mutex_destroy(&params->lock);
+					//pthread_mutex_destroy(&params->lock);
 				}
 				parents=NULL;
 			}
@@ -227,12 +227,12 @@ void* lsm_end_req(algo_req* const req){
 			inf_free_valueset(params->value,FS_MALLOC_W);
 			break;
 		case DATAR:
-			pthread_mutex_destroy(&params->lock);
+			//pthread_mutex_destroy(&params->lock);
 			req_temp_params=parents->params;
 			MC(&parents->latency_ftl);
 			if(req_temp_params!=NULL){
 				parents->type_ftl=((int*)req_temp_params)[2];
-				t_lcdfs=&l_cdfs[parents->type_ftl+1][req->type_lower];
+				t_lcdfs=&l_cdfs[parents->type_ftl][req->type_lower];
 			}
 			else{
 				t_lcdfs=&l_cdfs[0][req->type_lower];
@@ -367,7 +367,7 @@ uint32_t __lsm_get(request *const req){
 	//if(req->mark!=0){
 	//	printf("key : %d??????\n",req->key);
 	//}
-	static int tt=0;
+//	astatic int tt=0;
 //	printf("test:%d %d\n",tt++,req->key);
 
 	snode *target_node=skiplist_find(LSM.memtable,req->key);//checking in memtable
@@ -397,8 +397,10 @@ uint32_t __lsm_get(request *const req){
 	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 	lsm_req->parents=req;
+	dl_sync_init(&params->lock,1);
+	/*
 	pthread_mutex_init(&params->lock,NULL);
-	pthread_mutex_lock(&params->lock);
+	pthread_mutex_lock(&params->lock);*/
 	lsm_req->end_req=lsm_end_req;
 	lsm_req->params=(void*)params;
 	lsm_req->type_lower=0;
@@ -556,7 +558,7 @@ uint32_t __lsm_get(request *const req){
 			MS(&__get_mt);
 			LSM.li->pull_data(entry->pbn,PAGESIZE,req->value,ASYNC,lsm_req);
 			if(!req->isAsync){
-				pthread_mutex_lock(&params->lock); // wait until read table data;
+				dl_sync_wait(&params->lock); // wait until read table data;
 				MC(&__get_mt);
 				if(__get_max_value<__get_mt.micro_time){
 					__get_max_value=__get_mt.micro_time;

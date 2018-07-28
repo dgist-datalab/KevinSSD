@@ -51,7 +51,6 @@ struct request {
 
 struct algo_req{
 	request * parents;
-
 	MeasureTime latency_lower;
 	int type_lower;
 

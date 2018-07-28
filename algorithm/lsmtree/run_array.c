@@ -574,7 +574,7 @@ int level_range_unmatch(level *input, KEYT start,Entry ***res,bool compactioning
 }
 
 void level_check(level *input){
-	int cnt=0;
+	//int cnt=0;
 	for(int i=0; i<=input->n_run; i++){
 		Node *temp_run=ns_run(input,i);
 		if(!temp_run) continue;
