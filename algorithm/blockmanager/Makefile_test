@@ -1,0 +1,18 @@
+test : BM_Main.o BM_Block.o BM_Heap.o BM_Interface.o
+		gcc -o test BM_Main.o BM_Block.o BM_Heap.o BM_Interface.o
+
+BM_Main.o : BM_Main.c
+		gcc -DSLC -c BM_Main.c
+
+BM_Block.o : BM_Block.c
+		gcc -DSLC -c BM_Block.c
+
+BM_Heap.o : BM_Heap.c
+		gcc -c  BM_Heap.c
+
+BM_Interface.o : BM_Interface.c
+		gcc -c BM_Interface.c
+
+clean :
+		rm -rf *.o
+		rm test

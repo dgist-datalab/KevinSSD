@@ -6,12 +6,17 @@
 #include <stdint.h>
 #include <string.h>
 #include <pthread.h>
+#include <unistd.h>
 #include "../../interface/interface.h"
 #include "../../interface/queue.h"
 #include "../../include/container.h"
+#include "../../include/dftl_settings.h"
+#include "../../include/dl_sync.h"
+#ifdef W_BUFF
+#include "../lsmtree/skiplist.h"
+#endif
+#include "../blockmanager/BM.h"
 #include "lru_list.h"
-#include "block_heap.h"
-#include "dftl_queue.h"
 
 #define TYPE uint8_t
 #define DATA_R 0
@@ -19,8 +24,11 @@
 #define MAPPING_R 2
 #define MAPPING_W 3
 #define MAPPING_M 4
-#define GC_R 5
-#define GC_W 6
+#define GC_MAPPING_W 5
+#define TGC_R 6
+#define TGC_W 7
+#define DGC_R 8
+#define DGC_W 9
 
 #define EPP (PAGESIZE / 4) //Number of table entries per page
 #define D_IDX (lpa / EPP)	// Idx of directory table
@@ -54,7 +62,7 @@ typedef struct demand_SRAM{
 
 typedef struct demand_params{
 	value_set *value;
-	pthread_mutex_t dftl_mutex;
+	dl_sync dftl_mutex;
 	TYPE type;
 } demand_params;
 
@@ -65,26 +73,33 @@ typedef struct read_params{
 
 typedef struct mem_table{
 	D_TABLE *mem_p;
-	unsigned char flag;
 } mem_table;
+
+typedef struct dftltime{
+	uint64_t total_micro;
+	uint64_t cnt;
+	uint64_t max;
+	uint64_t min;
+} dftl_time;
 
 /* extern variables */
 extern algorithm __demand;
 
-extern f_queue *free_b;
-extern heap *data_b;
-extern heap *trans_b;
+extern b_queue *free_b;
+extern Heap *data_b;
+extern Heap *trans_b;
 
 extern C_TABLE *CMT; // Cached Mapping Table
 extern uint8_t *VBM;
-extern mem_table *mem_all;
+extern b_queue *mem_q;
 extern D_OOB *demand_OOB; // Page level OOB
 
-extern b_node **block_array;
-extern b_node *t_reserved;
-extern b_node *d_reserved;
+extern BM_T *bm;
+extern Block *t_reserved;
+extern Block *d_reserved;
 
-extern int32_t gc_load;
+extern int32_t trans_gc_poll;
+extern int32_t data_gc_poll;
 
 extern int32_t num_page;
 extern int32_t num_block;
@@ -99,6 +114,7 @@ extern int32_t num_max_cache;
 extern int32_t tgc_count;
 extern int32_t dgc_count;
 extern int32_t read_tgc_count;
+extern int32_t tgc_w_dgc_count;
 /* extern variables */
 
 //dftl.c
@@ -110,19 +126,18 @@ uint32_t demand_get(request *const);
 uint32_t __demand_set(request *const);
 uint32_t __demand_get(request *const);
 uint32_t demand_remove(request *const);
-uint32_t demand_eviction(char req_t);
+uint32_t demand_eviction(request *const, char, bool*, bool*);
 
 //dftl_utils.c
 algo_req* assign_pseudo_req(TYPE type, value_set *temp_v, request *req);
-D_TABLE* mem_alloc();
-void mem_free(D_TABLE *input);
+D_TABLE* mem_deq(b_queue *q);
+void mem_enq(b_queue *q, D_TABLE *input);
 void merge_w_origin(D_TABLE *src, D_TABLE *dst);
-void update_b_heap(uint32_t b_idx, char type);
 int lpa_compare(const void *a, const void *b);
-int32_t tp_alloc(char req_t);
+int32_t tp_alloc(char, bool*);
 int32_t dp_alloc();
-value_set* SRAM_load(D_SRAM* d_sram, int32_t ppa, int idx);
-void SRAM_unload(D_SRAM* d_sram, int32_t ppa, int idx);
+value_set* SRAM_load(D_SRAM* d_sram, int32_t ppa, int idx, char t);
+void SRAM_unload(D_SRAM* d_sram, int32_t ppa, int idx, char t);
 void cache_show(char* dest);
 
 //garbage_collection.c

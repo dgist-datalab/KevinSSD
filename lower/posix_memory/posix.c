@@ -211,43 +211,43 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		if(req_type == 3 || req_type == 5 || req_type == 7){
 #endif
 #ifdef normal
-			if(0){
+	if(0){
 #endif
-				if(!seg_table[PPA/my_posix.PPS].alloc){
-					seg_table[PPA/my_posix.PPS].storage = (PTR)malloc(my_posix.SOB);
-					seg_table[PPA/my_posix.PPS].alloc = 1;
-				}
-				PTR loc = seg_table[PPA/my_posix.PPS].storage;
-				memcpy(&loc[(PPA%my_posix.PPS)*my_posix.SOP],value->value,size);
-			}
-
-			pthread_mutex_unlock(&fd_lock);
-			if(req->parents)
-				bench_lower_end(req->parents);
-			bench_lower_w_end(&my_posix);
-			req->end_req(req);
-			return NULL;
+		if(!seg_table[PPA/my_posix.PPS].alloc){
+			seg_table[PPA/my_posix.PPS].storage = (PTR)malloc(my_posix.SOB);
+			seg_table[PPA/my_posix.PPS].alloc = 1;
 		}
+		PTR loc = seg_table[PPA/my_posix.PPS].storage;
+		memcpy(&loc[(PPA%my_posix.PPS)*my_posix.SOP],value->value,size);
+	}
+
+	pthread_mutex_unlock(&fd_lock);
+	if(req->parents)
+		bench_lower_end(req->parents);
+	bench_lower_w_end(&my_posix);
+	req->end_req(req);
+	return NULL;
+}
 
 void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){	
-			if(req->type_lower!=1 && req->type_lower!=0){
-				req->type_lower=0;
-			}
-			if(value->dmatag==-1){
-				printf("dmatag -1 error!\n");
-				exit(1);
-			}
-			bench_lower_r_start(&my_posix);
-			if(req->parents)
-				bench_lower_start(req->parents);
+	if(req->type_lower!=1 && req->type_lower!=0){
+		req->type_lower=0;
+	}
+	if(value->dmatag==-1){
+		printf("dmatag -1 error!\n");
+		exit(1);
+	}
+	bench_lower_r_start(&my_posix);
+	if(req->parents)
+		bench_lower_start(req->parents);
 
-			pthread_mutex_lock(&fd_lock);
+	pthread_mutex_lock(&fd_lock);
 
-			if(my_posix.SOP*PPA >= my_posix.TS){
-				printf("\nread error\n");
-				exit(3);
-			}
-			if(((lsm_params*)req->params)->lsm_type<=5){
+	if(my_posix.SOP*PPA >= my_posix.TS){
+		printf("\nread error\n");
+		exit(3);
+	}
+	if(((lsm_params*)req->params)->lsm_type<=5){
 #ifdef dftl
 	uint8_t req_type = ((demand_params*)req->params)->type;
 	if(req_type == 2 || req_type == 4 || req_type == 6){
@@ -257,6 +257,7 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 #endif
 		PTR loc = seg_table[PPA/my_posix.PPS].storage;
 		memcpy(value->value,&loc[(PPA%my_posix.PPS)*my_posix.SOP],size);
+		req->type_lower=1;
 	}
 
 	pthread_mutex_unlock(&fd_lock);

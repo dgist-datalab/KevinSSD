@@ -44,6 +44,7 @@ struct request {
 	MeasureTime algo;
 	MeasureTime lower;
 	MeasureTime latency_ftl;
+	MeasureTime latency_poll;
 	uint8_t type_ftl;
 	bool isstart;
 	MeasureTime latency_checker;
