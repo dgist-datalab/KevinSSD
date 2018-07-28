@@ -18,6 +18,7 @@
 #ifdef DEBUG
 #endif
 
+#define LOWERTYPE 10
 struct algorithm algo_lsm={
 	.create=lsm_create,
 	.destroy=lsm_destroy,
@@ -28,8 +29,33 @@ struct algorithm algo_lsm={
 extern OOBT *oob;
 lsmtree LSM;
 int save_fd;
+
+//[algor_type][lower_type]
+lsm_cdf l_cdfs[LEVELN+1][LOWERTYPE];
+MeasureTime __get_mt;
+uint64_t __get_max_value;
+
+void lsm_cdf_print(){
+	printf("a_type\tl_type\tmax\tmin\tavg\t\tcnt\n");
+	for(int i=0; i<LEVELN+1; i++){
+		for(int j=0;j<LOWERTYPE; j++){
+			if(!l_cdfs[i][j].cnt)continue;
+			printf("%d\t%d\t%lu\t%lu\t%f\t%lu\n",i,j,l_cdfs[i][j].max,l_cdfs[i][j].min,(float)l_cdfs[i][j].total_micro/l_cdfs[i][j].cnt,l_cdfs[i][j].cnt);
+		}
+	}
+	printf("___get_mt:%lu\n",__get_max_value);
+	printf("\n");
+}
+
 uint32_t __lsm_get(request *const);
 uint32_t lsm_create(lower_info *li, algorithm *lsm){
+	measure_init(&__get_mt);
+	for(int i=0; i<LEVELN+1; i++){
+		for(int j=0;j<LOWERTYPE; j++){
+			l_cdfs[i][j].min=UINT_MAX;
+		}
+	}
+
 	/*
 	if(save_fd!=-1){
 		lsmtree *temp_lsm=lsm_load();
@@ -90,6 +116,8 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 
 extern uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
 void lsm_destroy(lower_info *li, algorithm *lsm){
+	lsm_cdf_print();
+
 	compaction_free();
 #ifdef DVALUE
 	factory_free();
@@ -124,6 +152,7 @@ void* lsm_end_req(algo_req* const req){
 	PTR target=NULL;
 	htable **t_table=NULL;
 	htable *table=NULL;
+	lsm_cdf *t_lcdfs;
 	//htable mapinfo;
 #ifdef DVALUE
 	block *bl=NULL;
@@ -200,6 +229,21 @@ void* lsm_end_req(algo_req* const req){
 		case DATAR:
 			pthread_mutex_destroy(&params->lock);
 			req_temp_params=parents->params;
+			MC(&parents->latency_ftl);
+			if(req_temp_params!=NULL){
+				parents->type_ftl=((int*)req_temp_params)[2];
+				t_lcdfs=&l_cdfs[parents->type_ftl+1][req->type_lower];
+			}
+			else{
+				t_lcdfs=&l_cdfs[0][req->type_lower];
+			}
+
+			t_lcdfs->total_micro+=parents->latency_ftl.micro_time;
+			t_lcdfs->max=t_lcdfs->max<parents->latency_ftl.micro_time?parents->latency_ftl.micro_time:t_lcdfs->max;
+			t_lcdfs->min=t_lcdfs->min>parents->latency_ftl.micro_time?parents->latency_ftl.micro_time:t_lcdfs->min;
+			t_lcdfs->cnt++;
+
+
 			free(req_temp_params);
 #ifdef DVALUE
 			if(!PBITFULL(parents->value->ppa,false)){//small data
@@ -265,7 +309,6 @@ uint32_t lsm_set(request * const req){
 	req->end_req(req); //end write
 	return 1;
 }
-extern bool compaction_idle;
 int nor;
 MeasureTime lsm_mt;
 uint32_t lsm_get(request *const req){
@@ -279,6 +322,12 @@ uint32_t lsm_get(request *const req){
 		//level_all_print();
 	}
 	//printf("seq: %d, key:%u\n",nor++,req->key);
+	
+	if(req->params==NULL){
+		measure_init(&req->latency_ftl);
+		MS(&req->latency_ftl);
+	}
+
 	while(1){
 		if((re_q=q_dequeue(LSM.re_q))){
 			request *tmp_req=(request*)re_q;
@@ -286,6 +335,7 @@ uint32_t lsm_get(request *const req){
 			res_type=__lsm_get(tmp_req);
 			if(res_type==3){
 				printf("from req not found seq: %d, key:%u\n",nor++,req->key);
+				level_all_print();
 				tmp_req->type=FS_NOTFOUND_T;
 				tmp_req->end_req(tmp_req);
 				exit(1);
@@ -305,6 +355,7 @@ uint32_t lsm_get(request *const req){
 	res_type=__lsm_get(req);
 	if(res_type==3){
 		printf("not found seq: %d, key:%u\n",nor++,req->key);
+		level_all_print();
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
 		exit(1);
@@ -316,8 +367,8 @@ uint32_t __lsm_get(request *const req){
 	//if(req->mark!=0){
 	//	printf("key : %d??????\n",req->key);
 	//}
-	//static int tt=0;
-	//printf("test:%d %d\n",tt++,req->key);
+	static int tt=0;
+//	printf("test:%d %d\n",tt++,req->key);
 
 	snode *target_node=skiplist_find(LSM.memtable,req->key);//checking in memtable
 	if(target_node !=NULL){
@@ -340,6 +391,7 @@ uint32_t __lsm_get(request *const req){
 
 	int level;
 	int run;
+	int round;
 	Entry** entries;
 	htable mapinfo;
 	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
@@ -349,6 +401,7 @@ uint32_t __lsm_get(request *const req){
 	pthread_mutex_lock(&params->lock);
 	lsm_req->end_req=lsm_end_req;
 	lsm_req->params=(void*)params;
+	lsm_req->type_lower=0;
 
 	pthread_mutex_lock(&LSM.templock);
 	if(LSM.temptable){
@@ -399,10 +452,11 @@ uint32_t __lsm_get(request *const req){
 	
 	bool comback_req=false;
 	if(req->params==NULL){
-		int *_temp_data=(int *)malloc(sizeof(int)*2);
+		int *_temp_data=(int *)malloc(sizeof(int)*3);
 		req->params=(void*)_temp_data;
 		level=0;
 		run=0;
+		round=0;
 	}
 	else{
 		//check_sktable
@@ -417,7 +471,9 @@ uint32_t __lsm_get(request *const req){
 		run=temp_req[1];
 #else
 		run=temp_req[1]+1;
-#endif
+#endif	
+		round=temp_req[2];
+
 		if(target){
 #if defined(CACHE) && !defined(FLASHCHECK)
 			//Node *t_node=ns_run(LSM.disk[level],run);
@@ -457,6 +513,8 @@ uint32_t __lsm_get(request *const req){
 			int *temp_data=(int*)req->params;
 			temp_data[0]=i;
 			temp_data[1]=j;
+			round++;
+			temp_data[2]=round;
 #ifdef FLASHCHECK
 			if(comback_req && entry->c_entry){
 				keyset *target=htable_find(entry->t_table->sets,req->key);
@@ -493,11 +551,16 @@ uint32_t __lsm_get(request *const req){
 				continue;
 			}
 #endif
-			//printf("header read!\n");
 			params->ppa=entry->pbn;
+			
+			MS(&__get_mt);
 			LSM.li->pull_data(entry->pbn,PAGESIZE,req->value,ASYNC,lsm_req);
 			if(!req->isAsync){
 				pthread_mutex_lock(&params->lock); // wait until read table data;
+				MC(&__get_mt);
+				if(__get_max_value<__get_mt.micro_time){
+					__get_max_value=__get_mt.micro_time;
+				}
 				mapinfo.sets=(keyset*)req->value->value;
 				keyset *target=htable_find(mapinfo.sets,req->key);//check_sktable
 				if(!target){

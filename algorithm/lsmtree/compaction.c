@@ -161,7 +161,6 @@ htable *compaction_data_write(skiplist *mem){
 		LSM.li->push_data(data_sets[i]->ppa/(PAGESIZE/PIECE),PAGESIZE,params->value,ASYNC,lsm_req);
 #else
 		LSM.li->push_data(data_sets[i]->ppa,PAGESIZE,params->value,ASYNC,lsm_req);
-
 #endif
 	}
 	free(data_sets);
@@ -381,6 +380,7 @@ void compaction_htable_read(Entry *ent,PTR* value){
 	areq->parents=NULL;
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
+	areq->type_lower=0;
 	//printf("R %u\n",ent->pbn);
 	LSM.li->pull_data(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
 	return;

@@ -52,7 +52,7 @@ CFLAGS +=\
 -DCDF\
 
 SRCS +=\
-	./interface/queue.c\
+	./interface/lfqueue.c\
 	./interface/interface.c\
 	./interface/bb_checker.c\
 	./include/FS.c\

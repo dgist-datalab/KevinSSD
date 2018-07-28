@@ -22,7 +22,8 @@ lower_info memio_info={
 	.refresh=memio_info_refresh,
 	.stop=memio_info_stop,
 	.lower_alloc=memio_alloc_dma,
-	.lower_free=memio_free_dma
+	.lower_free=memio_free_dma,
+	.lower_flying_req_wait=memio_flying_req_wait
 };
 
 uint32_t memio_info_create(lower_info *li){
@@ -85,7 +86,6 @@ void *memio_info_pull_data(KEYT ppa, uint32_t size, value_set *value, bool async
 
 void *memio_info_trim_block(KEYT ppa, bool async){
 	//int value=memio_trim(mio,bb_checker_fix_ppa(ppa),(1<<14)*PAGESIZE,NULL);
-
 	int value=memio_trim(mio,bb_checker_fixed_segment(ppa),(1<<14)*PAGESIZE,NULL);
 	value=memio_trim(mio,bb_checker_paired_segment(ppa),(1<<14)*PAGESIZE,NULL);
 	if(value==0){
@@ -107,3 +107,7 @@ void *memio_badblock_checker(KEYT ppa,uint32_t size, void*(*process)(uint64_t,ui
 }
 
 void memio_info_stop(){}
+
+void memio_flying_req_wait(){
+	while(!memio_is_clean(mio));
+}
