@@ -1,13 +1,14 @@
-#include "dftl_queue.h"
+/* Queue Internal Functions */
+#include "BM.h"
 
-void initqueue(f_queue **q){
-	*q=(f_queue*)malloc(sizeof(f_queue));
+void initqueue(b_queue **q){
+	*q=(b_queue*)malloc(sizeof(b_queue));
 	(*q)->size=0;
 	(*q)->head=(*q)->tail=NULL;
 }
 
-void fb_enqueue(f_queue* q, void* data){
-	fb_node *new_node=(fb_node*)malloc(sizeof(fb_node));
+void enqueue(b_queue* q, void* data){
+	b_node *new_node=(b_node*)malloc(sizeof(b_node));
 	new_node->data = data;
 	new_node->next=NULL;
 	if(q->size==0){
@@ -20,11 +21,11 @@ void fb_enqueue(f_queue* q, void* data){
 	q->size++;
 }
 
-void* fb_dequeue(f_queue *q){
+void* dequeue(b_queue *q){
 	if(!q->head || q->size==0){
 		return NULL;
 	}
-	fb_node *target_node;
+	b_node *target_node;
 	target_node=q->head;
 	q->head=q->head->next;
 
@@ -34,7 +35,7 @@ void* fb_dequeue(f_queue *q){
 	return res;
 }
 
-void freequeue(f_queue* q){
-	while(fb_dequeue(q)){}
+void freequeue(b_queue* q){
+	while(dequeue(q)){}
 	free(q);
 }

@@ -11,6 +11,7 @@
 #define MC(t) measure_calc((t))
 #define MR(t) measure_res((t))
 #define MA(t) measure_adding((t))
+#define MCM(t) measure_calc_max((t))
 #else
 #define MS(t) donothing(t)
 #define ME(t,s) donothing2((t),(s))

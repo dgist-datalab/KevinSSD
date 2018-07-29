@@ -180,6 +180,7 @@ void *posix_destroy(lower_info *li){
 	close(_fd);
 #if (ASYNC==1)
 	stopflag = true;
+	q_free(p_q);
 #endif
 	return NULL;
 }

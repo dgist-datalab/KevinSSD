@@ -13,13 +13,16 @@ void dl_sync_init(dl_sync *s, uint64_t cnt){
 static int max_cnt, cnt;
 void dl_sync_wait(dl_sync*s){
 #ifdef SPINSYNC
+
+//	cnt=0;
 	while(s->target_cnt!=s->now_cnt){
 		cnt++;
-	}   
+	}
+	/*
 	if(max_cnt<cnt){
 		printf("%d\n",cnt);
 		max_cnt=cnt;
-	}   
+	}*/
 	s->now_cnt=0;
 #else
 	pthread_mutex_lock(&s->mutex_sync);

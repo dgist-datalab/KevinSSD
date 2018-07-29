@@ -1,17 +1,13 @@
 CC = g++
 
-CFLAGS_ALGO +=\
-
 SRCS +=\
-	   dftl.c\
-	   garbage_collection.c\
-	   dftl_utils.c\
-	   lru_list.c\
+		BM_Block.c\
+		BM_Heap.c\
+		BM_Queue.c\
+		BM_Interface.c\
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\
-
-OBJS+=skiplist.o
 
 TARGETOBJ:=\
 	$(addprefix ../../object/,$(OBJS))\
@@ -19,10 +15,7 @@ TARGETOBJ:=\
 LEAK: all
 all: $(TARGETOBJ) 
 
-../../object/skiplist.o: ../lsmtree/skiplist.c
-	$(CC) $(CFLAGS_ALGO) -c $< -o $@
-
-libnom.a : $(TARGETOBJ)
+libbm.a : $(TARGETOBJ)
 	$(AR) r $(@) $(TARGETOBJ)
 
 .c.o :
@@ -32,5 +25,5 @@ libnom.a : $(TARGETOBJ)
 	$(CC) $(CFLAGS_ALGO) -c $< -o $@
 
 clean : 
-	@$(RM) libnom.a
+	@$(RM) libbm.a
 	@$(RM) *.o
