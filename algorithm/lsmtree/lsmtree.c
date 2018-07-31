@@ -18,7 +18,6 @@
 #ifdef DEBUG
 #endif
 
-#define LOWERTYPE 10
 struct algorithm algo_lsm={
 	.create=lsm_create,
 	.destroy=lsm_destroy,
@@ -30,93 +29,82 @@ extern OOBT *oob;
 lsmtree LSM;
 int save_fd;
 
-//[algor_type][lower_type]
-lsm_cdf l_cdfs[LEVELN+1][LOWERTYPE];
 MeasureTime __get_mt;
+MeasureTime __get_mt2;
 uint64_t __get_max_value;
 
-void lsm_cdf_print(){
-	printf("a_type\tl_type\tmax\tmin\tavg\t\tcnt\n");
-	for(int i=0; i<LEVELN+1; i++){
-		for(int j=0;j<LOWERTYPE; j++){
-			if(!l_cdfs[i][j].cnt)continue;
-			printf("%d\t%d\t%lu\t%lu\t%f\t%lu\n",i,j,l_cdfs[i][j].max,l_cdfs[i][j].min,(float)l_cdfs[i][j].total_micro/l_cdfs[i][j].cnt,l_cdfs[i][j].cnt);
-		}
-	}
-	printf("___get_mt:%lu\n",__get_max_value);
+void lsm_debug_print(){
+	printf("___get_mt:%lu\n",__get_mt.max);
+	printf("___get_mt2:%lu\n",__get_mt2.max);
 	printf("\n");
 }
 
 uint32_t __lsm_get(request *const);
 uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	measure_init(&__get_mt);
-	for(int i=0; i<LEVELN+1; i++){
-		for(int j=0;j<LOWERTYPE; j++){
-			l_cdfs[i][j].min=UINT_MAX;
-		}
-	}
+	measure_init(&__get_mt2);
 
 	/*
-	if(save_fd!=-1){
-		lsmtree *temp_lsm=lsm_load();
-		LSM=*temp_lsm;
-		close(save_fd);
-		save_fd=open("data/lsm_save.data",O_RDWR|O_CREAT|O_TRUNC,0666);
-	}else{
-		printf("save file not exist\n");
-		save_fd=open("data/lsm_save.data",O_RDWR|O_CREAT|O_TRUNC,0666);
-		*/
-		LSM.memtable=skiplist_init();
-		unsigned long long sol=SIZEFACTOR;
+	   if(save_fd!=-1){
+	   lsmtree *temp_lsm=lsm_load();
+	   LSM=*temp_lsm;
+	   close(save_fd);
+	   save_fd=open("data/lsm_save.data",O_RDWR|O_CREAT|O_TRUNC,0666);
+	   }else{
+	   printf("save file not exist\n");
+	   save_fd=open("data/lsm_save.data",O_RDWR|O_CREAT|O_TRUNC,0666);
+	   */
+LSM.memtable=skiplist_init();
+unsigned long long sol=SIZEFACTOR;
 #ifdef MONKEY
-		float ffpr=RAF*(1-SIZEFACTOR)/(1-pow(SIZEFACTOR,LEVELN+0));
+float ffpr=RAF*(1-SIZEFACTOR)/(1-pow(SIZEFACTOR,LEVELN+0));
 #endif
-		float target_fpr=0;	
+float target_fpr=0;	
 
-		for(int i=0; i<LEVELN; i++){
-			LSM.disk[i]=(level*)malloc(sizeof(level));
-#ifdef BLOOM
-#ifdef MONKEY
+	for(int i=0; i<LEVELN; i++){
+		LSM.disk[i]=(level*)malloc(sizeof(level));
+		#ifdef BLOOM
+			#ifdef MONKEY
 			target_fpr=pow(SIZEFACTOR,i)*ffpr;
-#else
+			#else
 			target_fpr=(float)RAF/LEVELN;
-#endif
+			#endif
 			LSM.disk[i]->fpr=target_fpr;
-#endif
+		#endif
 
-#ifdef TIERING
-			level_init(LSM.disk[i],sol,i,target_fpr,true);
+	#ifdef TIERING
+		level_init(LSM.disk[i],sol,i,target_fpr,true);
 #else
-			level_init(LSM.disk[i],sol,i,target_fpr,false);
+	level_init(LSM.disk[i],sol,i,target_fpr,false);
 #endif
-			sol*=SIZEFACTOR;
-			LSM.level_addr[i]=(PTR)LSM.disk[i];
-		}
-	//}
-	pthread_mutex_init(&LSM.templock,NULL);
-	pthread_mutex_init(&LSM.memlock,NULL);
-	pthread_mutex_init(&LSM.entrylock,NULL);
-	pthread_mutex_init(&LSM.valueset_lock,NULL);
-	//compactor start
-	compaction_init();
+	sol*=SIZEFACTOR;
+	LSM.level_addr[i]=(PTR)LSM.disk[i];
+}
+//}
+pthread_mutex_init(&LSM.templock,NULL);
+pthread_mutex_init(&LSM.memlock,NULL);
+pthread_mutex_init(&LSM.entrylock,NULL);
+pthread_mutex_init(&LSM.valueset_lock,NULL);
+//compactor start
+compaction_init();
 #ifdef DVALUE
-	factory_init();
+factory_init();
 #endif
-	q_init(&LSM.re_q,RQSIZE);
+q_init(&LSM.re_q,RQSIZE);
 
 #ifdef CACHE
-	LSM.lsm_cache=cache_init();
+LSM.lsm_cache=cache_init();
 #endif
-	LSM.caching_value=NULL;
-	LSM.li=li;
-	algo_lsm.li=li;
-	pm_init();
-	return 0;
+LSM.caching_value=NULL;
+LSM.li=li;
+algo_lsm.li=li;
+pm_init();
+return 0;
 }
 
 extern uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
 void lsm_destroy(lower_info *li, algorithm *lsm){
-	lsm_cdf_print();
+	lsm_debug_print();
 
 	compaction_free();
 #ifdef DVALUE
@@ -152,7 +140,6 @@ void* lsm_end_req(algo_req* const req){
 	PTR target=NULL;
 	htable **t_table=NULL;
 	htable *table=NULL;
-	lsm_cdf *t_lcdfs;
 	//htable mapinfo;
 #ifdef DVALUE
 	block *bl=NULL;
@@ -172,527 +159,512 @@ void* lsm_end_req(algo_req* const req){
 #ifdef CACHE
 				if(epc_check==comp_target_get_cnt+memcpy_cnt){
 #else
-				if(epc_check==comp_target_get_cnt){
+					if(epc_check==comp_target_get_cnt){
 #endif
 #ifdef MUTEXLOCK
-					pthread_mutex_unlock(&compaction_wait);
+						pthread_mutex_unlock(&compaction_wait);
 #endif
-				}
-				//have to free
-				inf_free_valueset(params->value,FS_MALLOC_R);
-			}
-			else{/*
-				mapinfo.sets=(keyset*)parents->value->value;
-				printf("tag:%d\n",parents->value->dmatag);
-				htable_print(&mapinfo,params->ppa);*/
-				if(!parents->isAsync){ // end_req for lsm_get
-					dl_sync_arrive(&params->lock);
-					havetofree=false;
-				}
-				else{
-					while(1){
-						if(inf_assign_try(parents)){
-							break;
-						}else{
-							if(q_enqueue((void*)parents,LSM.re_q))
-								break;
-						}
 					}
-					//pthread_mutex_destroy(&params->lock);
+					//have to free
+					inf_free_valueset(params->value,FS_MALLOC_R);
 				}
-				parents=NULL;
-			}
-			break;
-		case HEADERW:
-			inf_free_valueset(params->value,FS_MALLOC_W);
-			free(params->htable_ptr);
-			break;
-		case GCDR:
-		case GCHR:
-			target=(PTR)params->target;//gc has malloc in gc function
-			memcpy(target,params->value->value,PAGESIZE);
+				else{/*
+						mapinfo.sets=(keyset*)parents->value->value;
+						printf("tag:%d\n",parents->value->dmatag);
+						htable_print(&mapinfo,params->ppa);*/
+					if(!parents->isAsync){ // end_req for lsm_get
+						dl_sync_arrive(&params->lock);
+						havetofree=false;
+					}
+					else{
+						while(1){
+							if(inf_assign_try(parents)){
+								break;
+							}else{
+								if(q_enqueue((void*)parents,LSM.re_q))
+									break;
+							}
+						}
+						//pthread_mutex_destroy(&params->lock);
+					}
+					parents=NULL;
+				}
+				break;
+				case HEADERW:
+				inf_free_valueset(params->value,FS_MALLOC_W);
+				free(params->htable_ptr);
+				break;
+				case GCDR:
+				case GCHR:
+				target=(PTR)params->target;//gc has malloc in gc function
+				memcpy(target,params->value->value,PAGESIZE);
 
-			if(gc_read_wait==gc_target_get_cnt){
+				if(gc_read_wait==gc_target_get_cnt){
 #ifdef MUTEXLOCK
-				pthread_mutex_unlock(&gc_wait);
+					pthread_mutex_unlock(&gc_wait);
 #elif defined(SPINLOCK)
 
 #endif
-			}
-			inf_free_valueset(params->value,FS_MALLOC_R);
-			gc_target_get_cnt++;
-			break;
-		case GCDW:
-		case GCHW:
-			inf_free_valueset(params->value,FS_MALLOC_W);
-			break;
-		case DATAR:
-			//pthread_mutex_destroy(&params->lock);
-			req_temp_params=parents->params;
-			MC(&parents->latency_ftl);
-			if(req_temp_params!=NULL){
-				parents->type_ftl=((int*)req_temp_params)[2];
-				t_lcdfs=&l_cdfs[parents->type_ftl][req->type_lower];
-			}
-			else{
-				t_lcdfs=&l_cdfs[0][req->type_lower];
-			}
-
-			t_lcdfs->total_micro+=parents->latency_ftl.micro_time;
-			t_lcdfs->max=t_lcdfs->max<parents->latency_ftl.micro_time?parents->latency_ftl.micro_time:t_lcdfs->max;
-			t_lcdfs->min=t_lcdfs->min>parents->latency_ftl.micro_time?parents->latency_ftl.micro_time:t_lcdfs->min;
-			t_lcdfs->cnt++;
-
-
-			free(req_temp_params);
-#ifdef DVALUE
-			if(!PBITFULL(parents->value->ppa,false)){//small data
-
-				pthread_mutex_lock(&LSM.valueset_lock);
-				if(!LSM.caching_value){
-					LSM.caching_value=(PTR)malloc(PAGESIZE);
 				}
-				memcpy(LSM.caching_value,parents->value->value,PAGESIZE);
-				pthread_mutex_unlock(&LSM.valueset_lock);
-				params->lsm_type=SDATAR;
-				ftry_assign(req); //return by factory thread
-				return NULL;
-			}
-#endif
-			break;
-		case DATAW:
-			inf_free_valueset(params->value,FS_MALLOC_W);
-			break;
+				inf_free_valueset(params->value,FS_MALLOC_R);
+				gc_target_get_cnt++;
+				break;
+				case GCDW:
+				case GCHW:
+				inf_free_valueset(params->value,FS_MALLOC_W);
+				break;
+				case DATAR:
+				//pthread_mutex_destroy(&params->lock);
+				req_temp_params=parents->params;
+				free(req_temp_params);
 #ifdef DVALUE
-		case BLOCKW:
-			bl=(block*)params->htable_ptr;
-			free(bl->length_data);
-			bl->length_data=NULL;
-			inf_free_valueset(params->value,FS_MALLOC_W);
-			break;
-		case BLOCKR:
-			bl=(block*)params->htable_ptr;
-			memcpy(bl->length_data,params->value->value,PAGESIZE);
-			inf_free_valueset(params->value,FS_MALLOC_R);
-			bl->isflying=false;
+				if(!PBITFULL(parents->value->ppa,false)){//small data
 
-			pthread_mutex_unlock(&bl->lock);
-			break;
+					pthread_mutex_lock(&LSM.valueset_lock);
+					if(!LSM.caching_value){
+						LSM.caching_value=(PTR)malloc(PAGESIZE);
+					}
+					memcpy(LSM.caching_value,parents->value->value,PAGESIZE);
+					pthread_mutex_unlock(&LSM.valueset_lock);
+					params->lsm_type=SDATAR;
+					ftry_assign(req); //return by factory thread
+					return NULL;
+				}
 #endif
-		default:
-			break;
-	}
-	if(parents)
-		parents->end_req(parents);
-	if(havetofree){
-		free(params);
-		free(req);
-	}
-	return NULL;
-}
+				break;
+				case DATAW:
+				inf_free_valueset(params->value,FS_MALLOC_W);
+				break;
+#ifdef DVALUE
+				case BLOCKW:
+				bl=(block*)params->htable_ptr;
+				free(bl->length_data);
+				bl->length_data=NULL;
+				inf_free_valueset(params->value,FS_MALLOC_W);
+				break;
+				case BLOCKR:
+				bl=(block*)params->htable_ptr;
+				memcpy(bl->length_data,params->value->value,PAGESIZE);
+				inf_free_valueset(params->value,FS_MALLOC_R);
+				bl->isflying=false;
 
-uint32_t lsm_set(request * const req){
-	bench_algo_start(req);
-#ifdef DEBUG
-	printf("lsm_set!\n");
-	printf("key : %u\n",req->key);//for debug
+				pthread_mutex_unlock(&bl->lock);
+				break;
 #endif
-	compaction_check();
-	if(req->type==FS_DELETE_T)
-		skiplist_insert(LSM.memtable,req->key,req->value,false);
-	else
-		skiplist_insert(LSM.memtable,req->key,req->value,true);
-
-	req->value=NULL;
-	//req->value will be ignored at free
-	bench_algo_end(req);
-	req->end_req(req); //end write
-	return 1;
-}
-int nor;
-MeasureTime lsm_mt;
-uint32_t lsm_get(request *const req){
-	void *re_q;
-	static bool temp=false;
-	static bool level_show=false;
-	uint32_t res_type=0;
-	if(!level_show){
-		level_show=true;
-		measure_init(&lsm_mt);
-		//level_all_print();
-	}
-	//printf("seq: %d, key:%u\n",nor++,req->key);
-	
-	if(req->params==NULL){
-		measure_init(&req->latency_ftl);
-		MS(&req->latency_ftl);
-	}
-
-	while(1){
-		if((re_q=q_dequeue(LSM.re_q))){
-			request *tmp_req=(request*)re_q;
-			bench_algo_start(tmp_req);
-			res_type=__lsm_get(tmp_req);
-			if(res_type==3){
-				printf("from req not found seq: %d, key:%u\n",nor++,req->key);
-				level_all_print();
-				tmp_req->type=FS_NOTFOUND_T;
-				tmp_req->end_req(tmp_req);
-				exit(1);
+				default:
+				break;
 			}
-		}
-		else 
-			break;
-	}
-	if(!temp){
-		for(int i=0; i<LEVELN; i++){
-			//printf("level : %d\n",i);
-			//level_print(LSM.disk[i]);
-		}
-		temp=true;
-	}
-	bench_algo_start(req);
-	res_type=__lsm_get(req);
-	if(res_type==3){
-		printf("not found seq: %d, key:%u\n",nor++,req->key);
-		level_all_print();
-		req->type=FS_NOTFOUND_T;
-		req->end_req(req);
-		exit(1);
-	}
-	return res_type;
-}
-
-uint32_t __lsm_get(request *const req){
-	//if(req->mark!=0){
-	//	printf("key : %d??????\n",req->key);
-	//}
-//	astatic int tt=0;
-//	printf("test:%d %d\n",tt++,req->key);
-
-	snode *target_node=skiplist_find(LSM.memtable,req->key);//checking in memtable
-	if(target_node !=NULL){
-#ifdef NOHOST
-		//inf_free_valuset(req->value,FS_MALLOC_R);
-		have to copy
-		//req->value=target_node->value;
-#else
-		memcpy(req->value->value,target_node->value->value,target_node->value->length*PIECE);
-#endif
-		bench_algo_end(req);
-		bench_cache_hit(req->mark);
-		req->end_req(req);
-		return 2;
-	}
-
-	//check cached data
-	pthread_mutex_lock(&LSM.valueset_lock);
-	pthread_mutex_unlock(&LSM.valueset_lock);
-
-	int level;
-	int run;
-	int round;
-	Entry** entries;
-	htable mapinfo;
-	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
-	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-	lsm_req->parents=req;
-	dl_sync_init(&params->lock,1);
-	/*
-	pthread_mutex_init(&params->lock,NULL);
-	pthread_mutex_lock(&params->lock);*/
-	lsm_req->end_req=lsm_end_req;
-	lsm_req->params=(void*)params;
-	lsm_req->type_lower=0;
-
-	pthread_mutex_lock(&LSM.templock);
-	if(LSM.temptable){
-		target_node=skiplist_find(LSM.temptable,req->key);
-		if(target_node){
-			pthread_mutex_unlock(&LSM.templock);
-			if(target_node->value){//if target_value null or valid
-				memcpy(req->value->value,target_node->value,PAGESIZE);
-				free(lsm_req);
+			if(parents)
+				parents->end_req(parents);
+			if(havetofree){
 				free(params);
+				free(req);
+			}
+			return NULL;
+	}
+
+	uint32_t lsm_set(request * const req){
+		bench_algo_start(req);
+#ifdef DEBUG
+		printf("lsm_set!\n");
+		printf("key : %u\n",req->key);//for debug
+#endif
+		compaction_check();
+		if(req->type==FS_DELETE_T)
+			skiplist_insert(LSM.memtable,req->key,req->value,false);
+		else
+			skiplist_insert(LSM.memtable,req->key,req->value,true);
+
+		req->value=NULL;
+		//req->value will be ignored at free
+		bench_algo_end(req);
+		req->end_req(req); //end write
+		return 1;
+	}
+	int nor;
+	MeasureTime lsm_mt;
+	uint32_t lsm_get(request *const req){
+		void *re_q;
+		static bool temp=false;
+		static bool level_show=false;
+		uint32_t res_type=0;
+		if(!level_show){
+			level_show=true;
+			measure_init(&lsm_mt);
+			//level_all_print();
+		}
+		//printf("seq: %d, key:%u\n",nor++,req->key);
+
+		if(req->params==NULL){
+			measure_init(&req->latency_ftl);
+			MS(&req->latency_ftl);
+		}
+
+		while(1){
+			if((re_q=q_dequeue(LSM.re_q))){
+				request *tmp_req=(request*)re_q;
+				bench_algo_start(tmp_req);
+				res_type=__lsm_get(tmp_req);
+				if(res_type==3){
+					printf("from req not found seq: %d, key:%u\n",nor++,req->key);
+					level_all_print();
+					tmp_req->type=FS_NOTFOUND_T;
+					tmp_req->end_req(tmp_req);
+					exit(1);
+				}
+			}
+			else 
+				break;
+		}
+		if(!temp){
+			for(int i=0; i<LEVELN; i++){
+				//printf("level : %d\n",i);
+				//level_print(LSM.disk[i]);
+			}
+			temp=true;
+		}
+		bench_algo_start(req);
+		res_type=__lsm_get(req);
+		if(res_type==3){
+			printf("not found seq: %d, key:%u\n",nor++,req->key);
+			level_all_print();
+			req->type=FS_NOTFOUND_T;
+			req->end_req(req);
+			exit(1);
+		}
+		return res_type;
+	}
+
+	uint32_t __lsm_get(request *const req){
+		//if(req->mark!=0){
+		//	printf("key : %d??????\n",req->key);
+		//}
+		//	astatic int tt=0;
+		//	printf("test:%d %d\n",tt++,req->key);
+
+		snode *target_node=skiplist_find(LSM.memtable,req->key);//checking in memtable
+		if(target_node !=NULL){
+#ifdef NOHOST
+			//inf_free_valuset(req->value,FS_MALLOC_R);
+			have to copy
+				//req->value=target_node->value;
+#else
+				memcpy(req->value->value,target_node->value->value,target_node->value->length*PIECE);
+#endif
+			bench_algo_end(req);
+			bench_cache_hit(req->mark);
+			req->end_req(req);
+			return 2;
+		}
+
+		//check cached data
+		pthread_mutex_lock(&LSM.valueset_lock);
+		pthread_mutex_unlock(&LSM.valueset_lock);
+
+		int level;
+		int run;
+		int round;
+		Entry** entries;
+		htable mapinfo;
+		algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
+		lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
+		lsm_req->parents=req;
+		dl_sync_init(&params->lock,1);
+		/*
+		   pthread_mutex_init(&params->lock,NULL);
+		   pthread_mutex_lock(&params->lock);*/
+		lsm_req->end_req=lsm_end_req;
+		lsm_req->params=(void*)params;
+		lsm_req->type_lower=0;
+
+		pthread_mutex_lock(&LSM.templock);
+		if(LSM.temptable){
+			target_node=skiplist_find(LSM.temptable,req->key);
+			if(target_node){
+				pthread_mutex_unlock(&LSM.templock);
+				if(target_node->value){//if target_value null or valid
+					memcpy(req->value->value,target_node->value,PAGESIZE);
+					free(lsm_req);
+					free(params);
+					bench_cache_hit(req->mark);
+					bench_algo_end(req);
+					req->end_req(req);
+					return 2;
+				}
+				params->lsm_type=DATAR;
+				req->value->ppa=target_node->ppa;
 				bench_cache_hit(req->mark);
 				bench_algo_end(req);
-				req->end_req(req);
-				return 2;
+#ifdef DVALUE
+				LSM.li->pull_data(target_node->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+#else
+				LSM.li->pull_data(target_node->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+#endif
+				return 4;
 			}
-			params->lsm_type=DATAR;
-			req->value->ppa=target_node->ppa;
-			bench_cache_hit(req->mark);
-			bench_algo_end(req);
-#ifdef DVALUE
-			LSM.li->pull_data(target_node->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
-#else
-			LSM.li->pull_data(target_node->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
-#endif
-			return 4;
 		}
-	}
-	pthread_mutex_unlock(&LSM.templock);
+		pthread_mutex_unlock(&LSM.templock);
 
-	pthread_mutex_lock(&LSM.entrylock);
-	if(LSM.tempent){
-		keyset *target=htable_find(LSM.tempent->t_table->sets,req->key);
-		if(target){
-			params->lsm_type=DATAR;
-			bench_cache_hit(req->mark);
-			bench_algo_end(req);
-			req->value->ppa=target->ppa;
+		pthread_mutex_lock(&LSM.entrylock);
+		if(LSM.tempent){
+			keyset *target=htable_find(LSM.tempent->t_table->sets,req->key);
+			if(target){
+				params->lsm_type=DATAR;
+				bench_cache_hit(req->mark);
+				bench_algo_end(req);
+				req->value->ppa=target->ppa;
 #ifdef DVALUE
-			LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+				LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
 #else
-			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+				LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 #endif
-			pthread_mutex_unlock(&LSM.entrylock);
-			return 4;
+				pthread_mutex_unlock(&LSM.entrylock);
+				return 4;
+			}
 		}
-	}
-	pthread_mutex_unlock(&LSM.entrylock);
-	
-	bool comback_req=false;
-	if(req->params==NULL){
-		int *_temp_data=(int *)malloc(sizeof(int)*3);
-		req->params=(void*)_temp_data;
-		level=0;
-		run=0;
-		round=0;
-	}
-	else{
-		//check_sktable
-		mapinfo.sets=(keyset*)req->value->value;
-		keyset *target=htable_find(mapinfo.sets,req->key);
-		//htable_print(&mapinfo,0);
-	//	printf("ppa %u lpa %u\n",mapinfo->sets[512].ppa,mapinfo->sets[512].lpa);
-		int *temp_req=(int*)req->params;
-		level=temp_req[0];
-		comback_req=true;
-#ifdef FLASHCHECK
-		run=temp_req[1];
-#else
-		run=temp_req[1]+1;
-#endif	
-		round=temp_req[2];
+		pthread_mutex_unlock(&LSM.entrylock);
 
-		if(target){
-#if defined(CACHE) && !defined(FLASHCHECK)
-			//Node *t_node=ns_run(LSM.disk[level],run);
-			Entry **_entry=level_find(LSM.disk[level],req->key);
-			_entry[run]->t_table=htable_copy(mapinfo);
-			cache_entry *c_entry=cache_insert(LSM.lsm_cache,_entry[run],0);
-			_entry[run]->c_entry=c_entry;
-			free(_entry);
-#endif
-			//read target data;
-			params->lsm_type=DATAR;
-			req->value->ppa=target->ppa;
-			bench_algo_end(req);
-#ifdef DVALUE
-			LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
-#else
-			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
-#endif
-			return 2;
-		}	
-//		htable_print(mapinfo);
-	}
-
-	for(int i=level; i<LEVELN; i++){
-		pthread_mutex_lock(&LSM.disk[i]->level_lock);
-		entries=level_find(LSM.disk[i],req->key);//checking bloomfilter inside this function
-		pthread_mutex_unlock(&LSM.disk[i]->level_lock);
-		if(!entries)continue;
-		if(comback_req && level!=i){
+		bool comback_req=false;
+		if(req->params==NULL){
+			int *_temp_data=(int *)malloc(sizeof(int)*3);
+			req->params=(void*)_temp_data;
+			level=0;
 			run=0;
+			round=0;
 		}
-		for(int j=run; entries[j]!=NULL; j++){
-			Entry *entry=entries[j];
-			params->lsm_type=HEADERR;
-
-			//read mapinfo
-			int *temp_data=(int*)req->params;
-			temp_data[0]=i;
-			temp_data[1]=j;
-			round++;
-			temp_data[2]=round;
+		else{
+			//check_sktable
+			mapinfo.sets=(keyset*)req->value->value;
+			keyset *target=htable_find(mapinfo.sets,req->key);
+			//htable_print(&mapinfo,0);
+			//	printf("ppa %u lpa %u\n",mapinfo->sets[512].ppa,mapinfo->sets[512].lpa);
+			int *temp_req=(int*)req->params;
+			level=temp_req[0];
+			comback_req=true;
 #ifdef FLASHCHECK
-			if(comback_req && entry->c_entry){
-				keyset *target=htable_find(entry->t_table->sets,req->key);
-				if(target){
-#ifdef DVALUE
-					LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+			run=temp_req[1];
 #else
-					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+			run=temp_req[1]+1;
+#endif	
+			round=temp_req[2];
+
+			if(target){
+#if defined(CACHE) && !defined(FLASHCHECK)
+				//Node *t_node=ns_run(LSM.disk[level],run);
+				Entry **_entry=level_find(LSM.disk[level],req->key);
+				_entry[run]->t_table=htable_copy(mapinfo);
+				cache_entry *c_entry=cache_insert(LSM.lsm_cache,_entry[run],0);
+				_entry[run]->c_entry=c_entry;
+				free(_entry);
 #endif
-					free(entries);
-					return 4;
-				}
-				continue;
+				//read target data;
+				params->lsm_type=DATAR;
+				req->value->ppa=target->ppa;
+				bench_algo_end(req);
+#ifdef DVALUE
+				LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+#else
+				LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+#endif
+				return 2;
+			}	
+			//		htable_print(mapinfo);
+		}
+
+		for(int i=level; i<LEVELN; i++){
+			pthread_mutex_lock(&LSM.disk[i]->level_lock);
+			entries=level_find(LSM.disk[i],req->key);//checking bloomfilter inside this function
+			pthread_mutex_unlock(&LSM.disk[i]->level_lock);
+			if(!entries)continue;
+			if(comback_req && level!=i){
+				run=0;
 			}
+			for(int j=run; entries[j]!=NULL; j++){
+				Entry *entry=entries[j];
+				params->lsm_type=HEADERR;
+
+				//read mapinfo
+				int *temp_data=(int*)req->params;
+				temp_data[0]=i;
+				temp_data[1]=j;
+				round++;
+				temp_data[2]=round;
+#ifdef FLASHCHECK
+				if(comback_req && entry->c_entry){
+					keyset *target=htable_find(entry->t_table->sets,req->key);
+					if(target){
+#ifdef DVALUE
+						LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+#else
+						LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+#endif
+						free(entries);
+						return 4;
+					}
+					continue;
+				}
 #endif
 
 #if defined(CACHE)&& !defined(FLASHCHECK)
-			if(entry->c_entry){
-				keyset *target=htable_find(entry->t_table->sets,req->key);
-				if(target){
-					params->lsm_type=DATAR;
-					req->value->ppa=target->ppa;
-					cache_update(LSM.lsm_cache,entry);
-					bench_algo_end(req);
-					bench_cache_hit(req->mark);
+				if(entry->c_entry){
+					keyset *target=htable_find(entry->t_table->sets,req->key);
+					if(target){
+						params->lsm_type=DATAR;
+						req->value->ppa=target->ppa;
+						cache_update(LSM.lsm_cache,entry);
+						bench_algo_end(req);
+						bench_cache_hit(req->mark);
 #ifdef DVALUE
-					LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+						LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
 #else
-					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+						LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 #endif
-					free(entries);
-					return 4;
+						free(entries);
+						return 4;
+					}
+					continue;
 				}
-				continue;
-			}
 #endif
-			params->ppa=entry->pbn;
-			
-			MS(&__get_mt);
-			LSM.li->pull_data(entry->pbn,PAGESIZE,req->value,ASYNC,lsm_req);
-			if(!req->isAsync){
-				dl_sync_wait(&params->lock); // wait until read table data;
-				MC(&__get_mt);
-				if(__get_max_value<__get_mt.micro_time){
-					__get_max_value=__get_mt.micro_time;
-				}
-				mapinfo.sets=(keyset*)req->value->value;
-				keyset *target=htable_find(mapinfo.sets,req->key);//check_sktable
-				if(!target){
-					continue; // check next entry
+				params->ppa=entry->pbn;
+
+				MS(&__get_mt);
+				LSM.li->pull_data(entry->pbn,PAGESIZE,req->value,ASYNC,lsm_req);	
+				MCM(&__get_mt);
+				if(!req->isAsync){
+					MS(&__get_mt2);
+					dl_sync_wait(&params->lock); // wait until read table data;
+					MCM(&__get_mt2);
+
+					mapinfo.sets=(keyset*)req->value->value;
+					keyset *target=htable_find(mapinfo.sets,req->key);//check_sktable
+					if(!target){
+						continue; // check next entry
+					}
+					else{
+						//read target data;
+#if defined(CACHE) && !defined(FLASHCHECK)
+						entry->t_table=(htable*)malloc(sizeof(htable));
+						memcpy(entry->t_table,mapinfo,PAGESIZE);
+						cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
+						entry->c_entry=c_entry;
+#endif
+						params->lsm_type=DATAR;
+						req->value->ppa=target->ppa;
+						bench_algo_end(req);
+#ifdef DVALUE
+						LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+#else
+						LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+#endif
+						free(entries);
+						return 1;
+					}
 				}
 				else{
-					//read target data;
-#if defined(CACHE) && !defined(FLASHCHECK)
-					entry->t_table=(htable*)malloc(sizeof(htable));
-					memcpy(entry->t_table,mapinfo,PAGESIZE);
-					cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
-					entry->c_entry=c_entry;
-#endif
-					params->lsm_type=DATAR;
-					req->value->ppa=target->ppa;
-					bench_algo_end(req);
-#ifdef DVALUE
-					LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
-#else
-					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
-#endif
 					free(entries);
-					return 1;
+					bench_algo_end(req);
+					return 2; //async
 				}
 			}
-			else{
-				free(entries);
-				bench_algo_end(req);
-				return 2; //async
-			}
+			free(entries);
 		}
-		free(entries);
+		bench_algo_end(req);
+		return 3;
 	}
-	bench_algo_end(req);
-	return 3;
-}
 
-uint32_t lsm_remove(request *const req){
-	return lsm_set(req);
-}
+	uint32_t lsm_remove(request *const req){
+		return lsm_set(req);
+	}
 
-keyset *htable_find(keyset *table, KEYT target){
-	keyset *sets=table;
+	keyset *htable_find(keyset *table, KEYT target){
+		keyset *sets=table;
 
-	if(sets[0].lpa>target || sets[KEYNUM-1].lpa<target)
-		return NULL;
-	int start=0, end=KEYNUM-1;
-	int mid;
-	while(1){
-		mid=(start+end)/2;
-		if(sets[mid].lpa==target)
-			return &sets[mid];
-
-		if(start>end)
+		if(sets[0].lpa>target || sets[KEYNUM-1].lpa<target)
 			return NULL;
-		else{
-			if(sets[mid].lpa<target){
-				start=mid+1;
-			}
+		int start=0, end=KEYNUM-1;
+		int mid;
+		while(1){
+			mid=(start+end)/2;
+			if(sets[mid].lpa==target)
+				return &sets[mid];
+
+			if(start>end)
+				return NULL;
 			else{
-				end=mid-1;
+				if(sets[mid].lpa<target){
+					start=mid+1;
+				}
+				else{
+					end=mid-1;
+				}
 			}
 		}
 	}
-}
 
-void lsm_kv_validset(uint8_t * bitset, int idx){
-	int block=idx/8;
-	int offset=idx%8;
-	uint8_t test=(1<<offset);
-	bitset[block]|=test;
-}
-bool lsm_kv_validcheck(uint8_t *bitset, int idx){
-	int block=idx/8;
-	int offset=idx%8;
-	uint8_t test=(1<<offset);
-	return test&bitset[block];
-}
+	void lsm_kv_validset(uint8_t * bitset, int idx){
+		int block=idx/8;
+		int offset=idx%8;
+		uint8_t test=(1<<offset);
+		bitset[block]|=test;
+	}
+	bool lsm_kv_validcheck(uint8_t *bitset, int idx){
+		int block=idx/8;
+		int offset=idx%8;
+		uint8_t test=(1<<offset);
+		return test&bitset[block];
+	}
 
-htable *htable_copy(htable *input){
-	htable *res=(htable*)malloc(sizeof(htable));
-	res->sets=(keyset*)malloc(PAGESIZE);
-	memcpy(res->sets,input->sets,PAGESIZE);
-	res->t_b=0;
-	res->origin=NULL;
-	return res;
-}
+	htable *htable_copy(htable *input){
+		htable *res=(htable*)malloc(sizeof(htable));
+		res->sets=(keyset*)malloc(PAGESIZE);
+		memcpy(res->sets,input->sets,PAGESIZE);
+		res->t_b=0;
+		res->origin=NULL;
+		return res;
+	}
 
-htable *htable_assign(){
-	htable *res=(htable*)malloc(sizeof(htable));
-	res->sets=(keyset*)malloc(PAGESIZE);
-	res->t_b=0;
-	res->origin=NULL;
-	return res;
-}
+	htable *htable_assign(){
+		htable *res=(htable*)malloc(sizeof(htable));
+		res->sets=(keyset*)malloc(PAGESIZE);
+		res->t_b=0;
+		res->origin=NULL;
+		return res;
+	}
 
-void htable_free(htable *input){
-	free(input->sets);
-	free(input);
-}
+	void htable_free(htable *input){
+		free(input->sets);
+		free(input);
+	}
 
-void htable_print(htable * input,KEYT ppa){
-	bool check=false;
-	int cnt=0;
-	for(int i=0; i<KEYNUM; i++){
-		if(input->sets[i].lpa>RANGE && input->sets[i].lpa!=UINT_MAX){
-			printf("bad reading %u\n",input->sets[i].lpa);
-			cnt++;
-			check=true;
+	void htable_print(htable * input,KEYT ppa){
+		bool check=false;
+		int cnt=0;
+		for(int i=0; i<KEYNUM; i++){
+			if(input->sets[i].lpa>RANGE && input->sets[i].lpa!=UINT_MAX){
+				printf("bad reading %u\n",input->sets[i].lpa);
+				cnt++;
+				check=true;
+			}
+			printf("[%d] %u %u\n",i, input->sets[i].lpa, input->sets[i].ppa);
 		}
-		printf("[%d] %u %u\n",i, input->sets[i].lpa, input->sets[i].ppa);
+		if(check){
+			printf("bad page at %d cnt:%d---------\n",ppa,cnt);
+			exit(1);
+		}
 	}
-	if(check){
-		printf("bad page at %d cnt:%d---------\n",ppa,cnt);
-		exit(1);
-	}
-}
 
-void lsm_save(lsmtree *input){
-	for(int i=0; i<LEVELN; i++){
-		level_save(input->disk[i]);
+	void lsm_save(lsmtree *input){
+		for(int i=0; i<LEVELN; i++){
+			level_save(input->disk[i]);
+		}
+		skiplist_save(input->memtable);
 	}
-	skiplist_save(input->memtable);
-}
 
-lsmtree* lsm_load(){
-	lsmtree *res=(lsmtree *)malloc(sizeof(lsmtree));
-	for(int i=0; i<LEVELN; i++){	
-		res->disk[i]=level_load();
+	lsmtree* lsm_load(){
+		lsmtree *res=(lsmtree *)malloc(sizeof(lsmtree));
+		for(int i=0; i<LEVELN; i++){	
+			res->disk[i]=level_load();
+		}
+		res->memtable=skiplist_load();
+		return res;
 	}
-	res->memtable=skiplist_load();
-	return res;
-}

@@ -5,10 +5,13 @@
 #include "measurement.h"
 
 #define PRINTPER 1
+#define ALGOTYPE 10
+#define LOWERTYPE 10
 
 #ifdef CDF
-#define TIMESLOT 100  //micro sec
+#define TIMESLOT 10 //micro sec
 #endif
+
 typedef struct{
 	FSTYPE type;
 	KEYT key;
@@ -25,6 +28,13 @@ typedef struct{
 }bench_meta;
 
 typedef struct{
+	uint64_t total_micro;
+	uint64_t cnt;
+	uint64_t max;
+	uint64_t min;
+}bench_ftl_time;
+
+typedef struct{
 	uint64_t algo_mic_per_u100[12];
 	uint64_t lower_mic_per_u100[12];
 	uint64_t algo_sec,algo_usec;
@@ -33,9 +43,11 @@ typedef struct{
 	uint64_t write_cdf[1000000/TIMESLOT+1];
 	uint64_t read_cdf[1000000/TIMESLOT+1];
 #endif
+	//[algor_type][lower_type]
+	bench_ftl_time ftl_poll[ALGOTYPE][LOWERTYPE];
+	bench_ftl_time ftl_npoll[ALGOTYPE][LOWERTYPE];
 	MeasureTime bench;
 }bench_data;
-
 
 typedef struct{
 	bench_value *body;
@@ -88,6 +100,8 @@ void bench_reap_data(request *const,lower_info *);
 #ifdef CDF
 void bench_cdf_print(uint64_t, uint8_t istype, bench_data*);
 #endif
+void bench_update_ftltime(bench_data *_d, request *const req);
+void bench_ftl_cdf_print(bench_data *_d);
 void free_bnech_all();
 void free_bench_one(bench_value *);
 #endif

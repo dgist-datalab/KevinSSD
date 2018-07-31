@@ -42,7 +42,7 @@ THE SOFTWARE.
 extern unsigned int* dstBuffer;
 extern unsigned int* srcBuffer;
 extern pthread_mutex_t endR;
-
+MeasureTime bdbm_mt;
 static void __dm_intr_handler (bdbm_drv_info_t* bdi, bdbm_llm_req_t* r);
 
 bdbm_llm_inf_t _bdbm_llm_inf = {
@@ -60,7 +60,6 @@ bdbm_llm_inf_t _bdbm_llm_inf = {
 static bdbm_llm_req_t* __memio_alloc_llm_req (memio_t* mio);
 static void __memio_free_llm_req (memio_t* mio, bdbm_llm_req_t* r);
 
-pthread_mutex_t proc;
 int req_cnt=0;
 uint64_t dm_intr_cnt;
 MeasureTime _mt;
@@ -68,7 +67,6 @@ static void __dm_intr_handler (
 	bdbm_drv_info_t* bdi, 
 	bdbm_llm_req_t* r)
 {
-	pthread_mutex_lock(&proc);
 	/*
 	lsmtree_req_t *lsm_req;
 	lsmtree_gc_req_t *lsm_gc_req;
@@ -133,7 +131,6 @@ static void __dm_intr_handler (
 	//printf("lsm_req :%p \n",r->req);
 	
 	//printf("free llm\n");
-	pthread_mutex_unlock(&proc);
 }
 
 static int __memio_init_llm_reqs (memio_t* mio)
@@ -160,12 +157,13 @@ static int __memio_init_llm_reqs (memio_t* mio)
 
 memio_t* memio_open ()
 {
+	measure_init(&bdbm_mt);
 	bdbm_drv_info_t* bdi = NULL;
 	bdbm_dm_inf_t* dm = NULL;
 	memio_t* mio = NULL;
 	int ret;
 	
-	pthread_mutex_init(&proc,NULL);
+	//pthread_mutex_init(&proc,NULL);
 	/* allocate a memio data structure */
 	if ((mio = (memio_t*)bdbm_zmalloc (sizeof (memio_t))) == NULL) {
 		bdbm_error ("bdbm_zmalloc() failed");
@@ -272,10 +270,11 @@ static bdbm_llm_req_t* __memio_alloc_llm_req (memio_t* mio)
 static void __memio_free_llm_req (memio_t* mio, bdbm_llm_req_t* r)
 {
 	bdbm_mutex_lock(&mio->tagQMutex);
+	/*
 	if ( r->req_type == REQTYPE_READ && r->async == 0) {
 		if( --(*r->counter) <= 0 )
 			bdbm_cond_broadcast(r->cond);
-	}
+	}*/
 //	bool wasEmpty = mio->tagQ->empty();
 	r->req=NULL;
 	mio->tagQ->push(r->tag);
@@ -298,6 +297,7 @@ static void __memio_check_alignment (uint64_t length, uint64_t alignment)
 }
 uint64_t do_io_cnt;
 bool flag=false;
+
 //static int __memio_do_io (memio_t* mio, int dir, uint64_t lba, uint64_t len, uint8_t* data, int async, lsmtree_req_t *req, int dmaTag) // async == 0 : sync,  == 1 : async
 static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uint8_t* data, int async, void *req, int dmaTag) // async == 0 : sync,  == 1 : async
 //static int __memio_do_io (memio_t* mio, int dir, uint64_t lba, uint64_t len, uint8_t* data, int async, int dmaTag, void (*end_req)(void)) // async == 0 : sync,  == 1 : async
@@ -319,6 +319,10 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 	__memio_check_alignment (len, mio->io_size);
 
 	mio->req_flag=0;
+
+	if(dir==0){
+		MS(&bdbm_mt);
+	}
 	/* fill up logaddr; note that phyaddr is not used here */
 	while (cur_lba < lba + (len/mio->io_size)) {
 		/* get an empty llm_req */
@@ -361,8 +365,6 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 		}
 		/*before path type*/
 		
-
-		
 		/*kukania*/
 		r->req = req;
 		//r->dmaTag = req->req->dmaTag;
@@ -385,16 +387,19 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 			MS(&my_algo_req->latency_lower);
 		}
 
+
 		if ((ret = dm->make_req (&mio->bdi, r)) != 0) {
 			bdbm_error ("dm->make_req() failed (ret = %d)", ret);
 			bdbm_bug_on (1);
 		}
+
 		/* go the next */
 		cur_lba += 1;
 		cur_buf += mio->io_size;
 		sent += mio->io_size;
 	}
 
+/*
 	//FIXME: if write, just return. if read, wait until my read request finishes	
 	if ( dir == 0 && async == 0) {
 		bdbm_mutex_lock(&mio->tagQMutex);
@@ -404,6 +409,10 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 		bdbm_mutex_unlock(&mio->tagQMutex);
 	}
 	bdbm_cond_free(&readCond);
+*/	
+	if(dir==0){
+		MCM(&bdbm_mt);
+	}
 
 	/* return the length of bytes transferred */
 	//ME(&mt,"memio test");
@@ -433,7 +442,7 @@ void memio_wait (memio_t* mio)
 ////			}
 //			continue;
 //		}
-//		bdbm_sema_unlock (mio->rr[i].done);
+//		edbm_sema_unlock (mio->rr[i].done);
 //		i++;
 //	}
 }
@@ -521,6 +530,8 @@ int memio_trim (memio_t* mio, uint32_t lba, uint64_t len, void *(*end_req)(uint6
 
 void memio_close (memio_t* mio)
 {
+
+	printf("bdbm_mt max: %lu\n",bdbm_mt.max);
 	bdbm_drv_info_t* bdi = NULL;
 	bdbm_dm_inf_t* dm = NULL;
 	int i;

@@ -483,6 +483,8 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value)
 	req->end_req=inf_end_req;
 	req->isAsync=ASYNC;
 	req->params=NULL;
+	req->type_ftl = 0;
+	req->type_lower = 0;
 #ifndef USINGAPP
 	req->algo.isused=false;
 	req->lower.isused=false;

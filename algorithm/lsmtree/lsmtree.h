@@ -26,12 +26,7 @@
 #define BLOCKR 13
 
 //lower type, algo type
-typedef struct lsm_cdf_struct{
-	uint64_t total_micro;
-	uint64_t cnt;
-	uint64_t max;
-	uint64_t min;
-}lsm_cdf;
+
 
 typedef struct keyset{
 	KEYT lpa;

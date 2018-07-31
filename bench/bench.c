@@ -7,6 +7,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+int32_t LOCALITY;
+float TARGETRATIO;
 
 master *_master;
 void seqget(KEYT, KEYT,monitor *);
@@ -17,6 +19,7 @@ void randset(KEYT,KEYT,monitor*);
 void randrw(KEYT,KEYT,monitor*);
 void mixed(KEYT,KEYT,int percentage,monitor*);
 
+KEYT keygenerator();
 
 pthread_mutex_t bench_lock;
 void bench_init(int benchnum){
@@ -35,6 +38,15 @@ void bench_init(int benchnum){
 
 	_master->n_num=0; _master->m_num=benchnum;
 	pthread_mutex_init(&bench_lock,NULL);
+
+	for(int i=0;i<benchnum;i++){
+		for(int j=0;j<ALGOTYPE;j++){
+			for(int k=0;k<LOWERTYPE;k++){
+				_master->datas[i].ftl_poll[j][k].min = UINT64_MAX;
+				_master->datas[i].ftl_npoll[j][k].min = UINT64_MAX;
+			}
+		}
+	}
 }
 void bench_make_data(){
 	int idx=_master->n_num;
@@ -150,6 +162,8 @@ void bench_print(){
 #ifdef CDF
 		bench_cdf_print(_m->m_num,_m->type,bdata);
 #endif
+		bench_ftl_cdf_print(bdata);
+		
 		printf("--------------------------------------------\n");
 		printf("|            bench type:                   |\n");
 		printf("--------------------------------------------\n");
@@ -226,6 +240,9 @@ void bench_print(){
 }
 void bench_algo_start(request *const req){
 	measure_init(&req->algo);
+	measure_init(&req->latency_ftl);
+	measure_init(&req->latency_poll);
+	MS(&req->latency_ftl);
 #ifdef BENCH
 	MS(&req->algo);
 #endif
@@ -247,6 +264,45 @@ void bench_lower_end(request *const req){
 #endif
 }
 
+void bench_update_ftltime(bench_data *_d, request *const req){
+	bench_ftl_time *temp;
+	MC(&req->latency_ftl);
+	temp = &_d->ftl_poll[req->type_ftl][req->type_lower];
+	req->latency_ftl.micro_time += req->latency_ftl.adding.tv_sec*1000000 + req->latency_ftl.adding.tv_usec;
+	temp->total_micro += req->latency_ftl.micro_time;
+	temp->max = temp->max < req->latency_ftl.micro_time ? req->latency_ftl.micro_time : temp->max;
+	temp->min = temp->min > req->latency_ftl.micro_time ? req->latency_ftl.micro_time : temp->min;
+	temp->cnt++;
+	/*
+	temp = &_d->ftl_npoll[req->type_ftl][req->type_lower];
+	req->latency_ftl.micro_time -= req->latency_poll.adding.tv_sec*1000000 + req->latency_poll.adding.tv_usec;
+	temp->total_micro += req->latency_ftl.micro_time;
+	temp->max = temp->max < req->latency_ftl.micro_time ? req->latency_ftl.micro_time : temp->max;
+	temp->min = temp->min > req->latency_ftl.micro_time ? req->latency_ftl.micro_time : temp->min;
+	temp->cnt++;*/
+}
+
+void bench_ftl_cdf_print(bench_data *_d){
+	printf("polling\n");
+	printf("a_type\tl_type\tmax\tmin\tavg\t\tcnt\n");
+	for(int i = 0; i < ALGOTYPE; i++){
+		for(int j = 0; j < LOWERTYPE; j++){
+			if(!_d->ftl_poll[i][j].cnt)
+				continue;
+			printf("%d\t%d\t%lu\t%lu\t%f\t%lu\n",i,j,_d->ftl_poll[i][j].max,_d->ftl_poll[i][j].min,(float)_d->ftl_poll[i][j].total_micro/_d->ftl_poll[i][j].cnt,_d->ftl_poll[i][j].cnt);
+		}
+	}
+	/*
+	printf("subtract polling\n");
+	printf("a_type\tl_type\tmax\tmin\tavg\t\tcnt\n");
+	for(int i = 0; i < ALGOTYPE; i++){
+		for(int j = 0; j < LOWERTYPE; j++){
+			if(!_d->ftl_npoll[i][j].cnt)
+				continue;
+			printf("%d\t%d\t%lu\t%lu\t%f\t%lu\n",i,j,_d->ftl_npoll[i][j].max,_d->ftl_npoll[i][j].min,(float)_d->ftl_npoll[i][j].total_micro/_d->ftl_npoll[i][j].cnt,_d->ftl_npoll[i][j].cnt);
+		}
+	}*/
+}
 
 void __bench_time_maker(MeasureTime mt, bench_data *datas,bool isalgo){
 	uint64_t *target=NULL;
@@ -337,6 +393,9 @@ void bench_reap_data(request *const req,lower_info *li){
 		}
 	}
 #endif
+	if(req->type==FS_GET_T){
+		bench_update_ftltime(_data, req);
+	}
 
 	if(_m->m_num==_m->r_num+1){
 		_data->bench=_m->benchTime;
@@ -388,6 +447,15 @@ void bench_li_print(lower_info* li,monitor *m){
 	sec+=usec/1000000;
 	usec%=1000000;
 	printf("[all read Time]:%ld.%ld\n",sec,usec);
+}
+
+KEYT keygenerator(){
+	if(rand()%100<LOCALITY){
+		return rand()%(int)(RANGE*TARGETRATIO);
+	}
+	else{
+		return (rand()%(int)(RANGE*(1-TARGETRATIO)))+(int)RANGE*TARGETRATIO;
+	}
 }
 
 void seqget(KEYT start, KEYT end,monitor *m){
@@ -451,7 +519,12 @@ void randget(KEYT start, KEYT end,monitor *m){
 void randset(KEYT start, KEYT end, monitor *m){
 	printf("making rand Set bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
+#ifdef KEYGEn
+		m->body[i].key=keygenerator();
+#else
 		m->body[i].key=start+rand()%(end-start);
+#endif
+
 #ifdef DVALUE
 		m->body[i].length=(rand()%16+1)*512;
 #else	
@@ -466,7 +539,12 @@ void randset(KEYT start, KEYT end, monitor *m){
 void randrw(KEYT start, KEYT end, monitor *m){
 	printf("making rand Set and Get bench!\n");
 	for(KEYT i=0; i<m->m_num/2; i++){
+#ifdef KEYGEN
+		m->body[i].key=keygenerator();
+#else
 		m->body[i].key=start+rand()%(end-start);
+#endif
+
 		m->body[i].type=FS_SET_T;
 #ifdef DVALUE
 		m->body[i].length=(rand()%16+1)*512;
@@ -486,7 +564,12 @@ void randrw(KEYT start, KEYT end, monitor *m){
 void mixed(KEYT start, KEYT end,int percentage, monitor *m){
 	printf("making mixed bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
+#ifdef KEYGEN
+		m->body[i].key=keygenerator();
+#else
 		m->body[i].key=start+rand()%(end-start);
+#endif
+
 		if(rand()%100<percentage){
 			m->body[i].type=FS_SET_T;
 #ifdef DVALUE

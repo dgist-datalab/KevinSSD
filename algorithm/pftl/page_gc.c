@@ -17,7 +17,6 @@ int32_t pbase_garbage_collection(){
 	all = 0;
 	gc_count++;
 	victim = BM_Heap_Get_Max(b_heap);
-	printf("invalid: %d\n", victim->Invalid);
 	if(victim->Invalid == _g_ppb){ // every page is invalid.
 		all = 1;
 	}
@@ -26,15 +25,13 @@ int32_t pbase_garbage_collection(){
 		exit(2);
 	}
 	//exchange block
-	victim->Invalid = 0;
-	for (int i=0; i<BM_GetnumItem(); i++)
-		victim->ValidP[i] = BM_INVALIDPAGE;//set bitmap to 0.
 	old_block = victim->PBA * _g_ppb;
 	new_block = reserved->PBA * _g_ppb;
 	reserved->hn_ptr = BM_Heap_Insert(b_heap, reserved);//current rsv goes into heap.
 	reserved = victim;//rsv ptr points to victim.
 	if(all){ // if all page is invalid, then just trim and return
 		algo_pbase.li->trim_block(old_block, false);
+		BM_InvalidZero_PBA(BM, victim->PBA);
 		return new_block;
 	}
 	valid_page_num = 0;
@@ -49,12 +46,14 @@ int32_t pbase_garbage_collection(){
 
 	/* read valid pages in block */
 	for(int i=old_block;i<old_block+_g_ppb;i++){
-		if(BM_IsValidPage(block_array,i)){ // read valid page
+		if(BM_IsValidPage(BM,i)){ // read valid page
 			temp_set[valid_page_num] = SRAM_load(d_sram, i, valid_page_num);
 			valid_page_num++;
 		}
 	}
 
+	BM_InitializeBlock(BM, victim->PBA);
+	
 	while(gc_load != valid_page_num){} // polling for reading all mapping data
 	
 	for(int i=0;i<valid_page_num;i++){ // copy data to memory and free dma valueset
@@ -64,7 +63,7 @@ int32_t pbase_garbage_collection(){
 
 	for(int i=0;i<valid_page_num;i++){ // write page into new block
 		SRAM_unload(d_sram, new_block + i, i);
-		BM_ValidatePage(block_array,new_block+i);
+		BM_ValidatePage(BM,new_block+i);
 	}
 
 	free(temp_set);

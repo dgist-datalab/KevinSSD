@@ -11,7 +11,11 @@
 #include "interface.h"
 extern int req_cnt_test;
 extern uint64_t dm_intr_cnt;
-int main(){/*
+extern int LOCALITY;
+extern float TARGETRATIO;
+extern master *_master;
+
+int main(int argc,char* argv[]){/*
 	int Input_cycle;
 	int Input_type;
 	int start;
@@ -58,6 +62,17 @@ int main(){/*
 
 	printf("benchmark setting done. starts now.\n");
 */
+	
+	if(argc==3){
+		LOCALITY=atoi(argv[1]);
+		TARGETRATIO=atof(argv[2]);
+	}
+	else{
+		printf("If you want locality test Usage : [%s (LOCALITY(%%)) (RATIO)]\n",argv[0]);
+		printf("defalut locality=50%% RATIO=0.5\n");
+		LOCALITY=50;
+		TARGETRATIO=0.5;
+	}
 
 	inf_init();
 	bench_init(2);
@@ -70,8 +85,8 @@ int main(){/*
 	//bench_add(RANDRW,0,128*1024,2*128*1024);
 	//bench_add(SEQSET,0,RANGE-(4*_PPS),RANGE-(4*_PPS));
 	//bench_add(MIXED,0,RANGE-(4*_PPS),RANGE-(4*_PPS));
-	bench_add(SEQSET,0,0.8*RANGE,0.8*RANGE);
-	bench_add(MIXED,0,0.8*RANGE,0.8*RANGE);
+	bench_add(SEQSET,0,RANGE,RANGE);
+	bench_add(MIXED,0,RANGE,RANGE);
 //	bench_add(RANDRW,0,RANGE,2*RANGE);
 //	bench_add(RANDSET,0,15*1024,15*1024);
 //	bench_add(RANDGET,0,15*1024,15*1024);
@@ -83,8 +98,11 @@ int main(){/*
 	temp.dmatag=-1;
 	temp.length=0;
 	int cnt=0;
+
+	int locality_check=0,locality_check2=0;
 	while((value=get_bench())){
 		temp.length=value->length;
+
 		/*
 		if(cnt==RANGE){ //for trim test
 			KEYT t_ppa=(rand()%RANGE)/(1<<14);
@@ -97,8 +115,15 @@ int main(){/*
 		}*/
 		inf_make_req(value->type,value->key,&temp,value->mark);
 		cnt++;
+		if(_master->m[_master->n_num].type<=SEQRW) continue;
+		if(value->key<RANGE*TARGETRATIO){
+			locality_check++;
+		}
+		else{
+			locality_check2++;
+		}
 	}
-
+	
 	if(req_cnt_test==cnt){
 		printf("done!\n");
 	}
@@ -111,9 +136,11 @@ int main(){/*
 		sleep(1);
 #endif
 	}
-	bench_print();
 
+	bench_print();
 	bench_free();
 	inf_free();
+	
+	printf("locality check:%f\n",(float)locality_check/(locality_check+locality_check2));
 	return 0;
 }
