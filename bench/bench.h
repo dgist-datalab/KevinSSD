@@ -43,9 +43,8 @@ typedef struct{
 	uint64_t write_cdf[1000000/TIMESLOT+1];
 	uint64_t read_cdf[1000000/TIMESLOT+1];
 #endif
-	//[algor_type][lower_type]
+	uint64_t read_cnt,write_cnt;
 	bench_ftl_time ftl_poll[ALGOTYPE][LOWERTYPE];
-	//bench_ftl_time ftl_npoll[ALGOTYPE][LOWERTYPE];
 	MeasureTime bench;
 }bench_data;
 
