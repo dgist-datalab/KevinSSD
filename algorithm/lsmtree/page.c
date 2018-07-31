@@ -498,7 +498,7 @@ void gc_check(uint8_t type, bool force){
 					header_gc_cnt++; 
 					break;
 				case DATA:
-					compaction_force();
+					//compaction_force();
 					target_p=&data_m;
 					data_gc_cnt++; 
 					break;
