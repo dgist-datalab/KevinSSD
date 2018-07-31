@@ -61,7 +61,6 @@ void skiplist_free(skiplist *list);  //free skiplist
 void skiplist_clear(skiplist *list); //clear all snode in skiplist and  reinit skiplist
 sk_iter* skiplist_get_iterator(skiplist *list); //get read only iterator
 snode *skiplist_get_next(sk_iter* iter); //get next snode by iterator
-snode *skiplist_pop(skiplist *);
 #ifdef DVALUE
 int bucket_page_cnt(l_bucket *);
 #endif
