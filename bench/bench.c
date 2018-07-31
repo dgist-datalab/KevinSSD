@@ -43,7 +43,7 @@ void bench_init(int benchnum){
 		for(int j=0;j<ALGOTYPE;j++){
 			for(int k=0;k<LOWERTYPE;k++){
 				_master->datas[i].ftl_poll[j][k].min = UINT64_MAX;
-				_master->datas[i].ftl_npoll[j][k].min = UINT64_MAX;
+				//_master->datas[i].ftl_npoll[j][k].min = UINT64_MAX;
 			}
 		}
 	}

@@ -45,7 +45,7 @@ typedef struct{
 #endif
 	//[algor_type][lower_type]
 	bench_ftl_time ftl_poll[ALGOTYPE][LOWERTYPE];
-	bench_ftl_time ftl_npoll[ALGOTYPE][LOWERTYPE];
+	//bench_ftl_time ftl_npoll[ALGOTYPE][LOWERTYPE];
 	MeasureTime bench;
 }bench_data;
 

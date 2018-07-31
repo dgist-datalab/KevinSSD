@@ -71,8 +71,9 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	max_cache_entry = (num_page / EPP) + ((num_page % EPP != 0) ? 1 : 0);
 	// you can control amount of max number of ram reside cache entry
 	//num_max_cache = max_cache_entry;
-	num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2;
+	//num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2;
 	//num_max_cache = 1;
+	num_max_cache = max_cache_entry/4;
 
 	printf("!!! print info !!!\n");
 	printf("Async status: %d\n", ASYNC);
@@ -153,11 +154,13 @@ void demand_destroy(lower_info *li, algorithm *algo){
 	printf("# of buf hit: %d\n", buf_hit);
 	skiplist_free(mem_buf);
 #endif
+	printf("!!! print info !!!\n");
 	printf("H:hit, R: read, MC: memcpy, MG: merge, E: eviction, GC: garbage collection\n");
 	printf("a_type--->>> 0: H, 1: R & MC\n");
 	printf("2: R & MG, 3: R & E & MC\n");
 	printf("4: R & E & MG & MC, 5: R & E & GC & MC\n");
 	printf("6: R & E & MG & GC & MC\n");
+	printf("!!! print info !!!\n");
 	q_free(dftl_q);
 	lru_free(lru);
 	BM_Free(bm);
@@ -489,10 +492,10 @@ uint32_t __demand_get(request *const req){
 			if(gc_flag == false && m_flag == true){
 				req->type_ftl = 4;
 			}
-			else if(m_flag == true && m_flag == false){
+			else if(gc_flag == true && m_flag == false){
 				req->type_ftl = 5;
 			}
-			else if(m_flag == true && m_flag == true){
+			else if(gc_flag == true && m_flag == true){
 				req->type_ftl = 6;
 			}
 		}
