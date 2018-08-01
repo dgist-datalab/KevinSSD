@@ -214,8 +214,11 @@ void* lsm_end_req(algo_req* const req){
 				inf_free_valueset(params->value,FS_MALLOC_W);
 				break;
 				case DATAR:
-				//pthread_mutex_destroy(&params->lock);
 				req_temp_params=parents->params;
+				if(req_temp_params){
+					parents->type_ftl=((int*)req_temp_params)[2];
+				}
+				parents->type_lower=req->type_lower;
 				free(req_temp_params);
 #ifdef DVALUE
 				if(!PBITFULL(parents->value->ppa,false)){//small data
