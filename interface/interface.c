@@ -425,36 +425,20 @@ void inf_init(){
 #if defined(posix) || defined(posix_async) || defined(posix_memory)
 	mp.li=&my_posix;
 #endif
-
 #ifdef bdbm_drv
 	mp.li=&memio_info;
 #endif
-#ifdef posix_async
-	mp.li=&my_posix;
-#endif
 
-
-#ifdef lsmtree
-	mp.algo=&algo_lsm;
-#endif
 #ifdef normal
 	mp.algo=&__normal;
+#elif defined(pftl)
+	mp.algo=&algo_pbase;
 #elif defined(dftl)
 	mp.algo=&__demand;
 #elif defined(lsmtree)
 	mp.algo=&algo_lsm;
-#endif
-
-#ifdef badblock
+#elif defined(badblock)
 	mp.algo=&__badblock;
-#endif
-
-#ifdef dftl
-	mp.algo=&__demand;
-#endif
-
-#ifdef pftl
-	mp.algo=&algo_pbase;
 #endif
 
 	mp.li->create(mp.li);
