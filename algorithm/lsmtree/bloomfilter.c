@@ -106,15 +106,23 @@ void MurmurHash3_x86_32( const void * key, int len,uint32_t seed, void * out )
 } 
 
 KEYT hashfunction(KEYT key){
+	key ^= key >> 15;
+	key *= UINT32_C(0x2c1b3c6d);
+	key ^= key >> 12;
+	key *= UINT32_C(0x297a2d39);
+	key ^= key >> 15;
+	/*
 	key = ~key + (key << 15); // key = (key << 15) - key - 1;
 	key = key ^ (key >> 12);
 	key = key + (key << 2);
 	key = key ^ (key >> 4);
 	key = key * 2057; // key = (key + (key << 3)) + (key << 11);
-	key = key ^ (key >> 16);
+	key = key ^ (key >> 16);*/
 	return key;
 }
 BF* bf_init(int entry, float fpr){
+	if(fpr>1)
+		return NULL;
 	BF *res=(BF*)malloc(sizeof(BF));
 	res->n=entry;
 	res->m=ceil((res->n * log(fpr)) / log(1.0 / (pow(2.0, log(2.0)))));
@@ -130,15 +138,16 @@ BF* bf_init(int entry, float fpr){
 }
 
 BF* bf_cpy(BF *src){
+	if(src==NULL) return NULL;
 	BF* res=(BF*)malloc(sizeof(BF));
 	memcpy(res,src,sizeof(BF));
-
 	res->body=(char *)malloc(res->targetsize);
 	memcpy(res->body,src->body,res->targetsize);
 	return res;
 }
 
 uint64_t bf_bits(int entry, float fpr){
+	if(fpr>1) return 0;
 	uint64_t n=entry;
 	uint64_t m=ceil((n * log(fpr)) / log(1.0 / (pow(2.0, log(2.0)))));
 	int targetsize=m/8;
@@ -148,25 +157,29 @@ uint64_t bf_bits(int entry, float fpr){
 }
 
 void bf_set(BF *input, KEYT key){
+	if(input==NULL) return;
 	KEYT h;
 	int block;
 	int offset;
-	for(int i=0; i<input->k; i++){
+	//printf("%u:",key);
+	for(uint32_t i=0; i<input->k; i++){
 		//MurmurHash3_x86_32(&key,sizeof(key),i,&h);
-		h=hashfunction(key+i);
+		h=hashfunction((key<<19) | (i<<7));
 		h%=input->m;
 		block=h/8;
 		offset=h%8;
 		BITSET(&input->body[block],offset);
 	}
+	//printf("\n");
 }
 
 bool bf_check(BF* input, KEYT key){
 	KEYT h;
 	int block,offset;
-	for(int i=0; i<input->k; i++){
+	if(input==NULL) return true;
+	for(uint32_t i=0; i<input->k; i++){
 		//MurmurHash3_x86_32(&key,sizeof(key),i,&h);
-		h=hashfunction(key+i);
+		h=hashfunction((key<<19) | (i<<7));
 		h%=input->m;
 		block=h/8;
 		offset=h%8;

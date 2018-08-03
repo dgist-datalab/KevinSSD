@@ -19,7 +19,7 @@ void randset(KEYT,KEYT,monitor*);
 void randrw(KEYT,KEYT,monitor*);
 void mixed(KEYT,KEYT,int percentage,monitor*);
 
-KEYT keygenerator();
+KEYT keygenerator(uint32_t range);
 
 pthread_mutex_t bench_lock;
 void bench_init(int benchnum){
@@ -82,7 +82,7 @@ void bench_make_data(){
 			randset(start,end,_m);
 			break;
 		case MIXED:
-			mixed(start,end,50,_m);
+			mixed(start,end,10,_m);
 			break;
 	}
 	_d->read_cnt=_m->read_cnt;
@@ -163,7 +163,7 @@ void bench_print(){
 		_m=&_master->m[i];
 		bdata=&_master->datas[i];
 #ifdef CDF
-		bench_cdf_print(_m->m_num,_m->type,bdata);
+		//bench_cdf_print(_m->m_num,_m->type,bdata);
 #endif
 		bench_ftl_cdf_print(bdata);
 		
@@ -243,9 +243,10 @@ void bench_print(){
 }
 void bench_algo_start(request *const req){
 	measure_init(&req->algo);
-	measure_init(&req->latency_ftl);
-	measure_init(&req->latency_poll);
-	MS(&req->latency_ftl);
+	if(req->params==NULL){
+		measure_init(&req->latency_ftl);
+		MS(&req->latency_ftl);
+	}
 #ifdef BENCH
 	MS(&req->algo);
 #endif
@@ -287,12 +288,12 @@ void bench_update_ftltime(bench_data *_d, request *const req){
 
 void bench_ftl_cdf_print(bench_data *_d){
 	printf("polling\n");
-	printf("a_type\tl_type\tmax\tmin\tavg\t\tcnt\n");
+	printf("a_type\tl_type\tmax\tmin\tavg\tcnt\tpercentage\n");
 	for(int i = 0; i < ALGOTYPE; i++){
 		for(int j = 0; j < LOWERTYPE; j++){
 			if(!_d->ftl_poll[i][j].cnt)
 				continue;
-			printf("%d\t%d\t%lu\t%lu\t%f\t%lu\n",i,j,_d->ftl_poll[i][j].max,_d->ftl_poll[i][j].min,(float)_d->ftl_poll[i][j].total_micro/_d->ftl_poll[i][j].cnt,_d->ftl_poll[i][j].cnt);
+			printf("%d\t%d\t%lu\t%lu\t%.3f\t%lu\t%.5f%%\n",i,j,_d->ftl_poll[i][j].max,_d->ftl_poll[i][j].min,(float)_d->ftl_poll[i][j].total_micro/_d->ftl_poll[i][j].cnt,_d->ftl_poll[i][j].cnt,(float)_d->ftl_poll[i][j].cnt/_d->read_cnt*100);
 		}
 	}
 	/*
@@ -452,12 +453,12 @@ void bench_li_print(lower_info* li,monitor *m){
 	printf("[all read Time]:%ld.%ld\n",sec,usec);
 }
 
-KEYT keygenerator(){
+KEYT keygenerator(uint32_t range){
 	if(rand()%100<LOCALITY){
-		return rand()%(int)(RANGE*TARGETRATIO);
+		return rand()%(int)(range*TARGETRATIO);
 	}
 	else{
-		return (rand()%(int)(RANGE*(1-TARGETRATIO)))+(int)RANGE*TARGETRATIO;
+		return (rand()%(int)(range*(1-TARGETRATIO)))+(int)RANGE*TARGETRATIO;
 	}
 }
 
@@ -523,7 +524,7 @@ void randset(KEYT start, KEYT end, monitor *m){
 	printf("making rand Set bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
 #ifdef KEYGEn
-		m->body[i].key=keygenerator();
+		m->body[i].key=keygenerator(end);
 #else
 		m->body[i].key=start+rand()%(end-start);
 #endif
@@ -543,7 +544,7 @@ void randrw(KEYT start, KEYT end, monitor *m){
 	printf("making rand Set and Get bench!\n");
 	for(KEYT i=0; i<m->m_num/2; i++){
 #ifdef KEYGEN
-		m->body[i].key=keygenerator();
+		m->body[i].key=keygenerator(end);
 #else
 		m->body[i].key=start+rand()%(end-start);
 #endif
@@ -568,7 +569,7 @@ void mixed(KEYT start, KEYT end,int percentage, monitor *m){
 	printf("making mixed bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
 #ifdef KEYGEN
-		m->body[i].key=keygenerator();
+		m->body[i].key=keygenerator(end);
 #else
 		m->body[i].key=start+rand()%(end-start);
 #endif

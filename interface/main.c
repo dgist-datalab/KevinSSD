@@ -14,8 +14,11 @@ extern uint64_t dm_intr_cnt;
 extern int LOCALITY;
 extern float TARGETRATIO;
 extern master *_master;
-
-int main(int argc,char* argv[]){/*
+#ifdef lsmtree
+int skiplist_hit;
+#endif
+int main(int argc,char* argv[]){
+	/*
 	int Input_cycle;
 	int Input_type;
 	int start;
@@ -86,6 +89,7 @@ int main(int argc,char* argv[]){/*
 	//bench_add(SEQSET,0,RANGE-(4*_PPS),RANGE-(4*_PPS));
 	//bench_add(MIXED,0,RANGE-(4*_PPS),RANGE-(4*_PPS));
 	bench_add(SEQSET,0,RANGE,RANGE);
+//	bench_add(RANDSET,0,RANGE/2,RANGE);
 	bench_add(MIXED,0,RANGE,RANGE);
 //	bench_add(RANDRW,0,RANGE,2*RANGE);
 //	bench_add(RANDSET,0,15*1024,15*1024);
@@ -102,17 +106,6 @@ int main(int argc,char* argv[]){/*
 	int locality_check=0,locality_check2=0;
 	while((value=get_bench())){
 		temp.length=value->length;
-
-		/*
-		if(cnt==RANGE){ //for trim test
-			KEYT t_ppa=(rand()%RANGE)/(1<<14);
-			KEYT t_ppa2=(rand()%RANGE)/(1<<14);
-			while(t_ppa==t_ppa2){
-				t_ppa2=(rand()%RANGE)/(1<<14);
-			}
-			inf_make_req(FS_DELETE_T,t_ppa*(1<<14),NULL,0);
-			inf_make_req(FS_DELETE_T,t_ppa2*(1<<14),NULL,0);
-		}*/
 		inf_make_req(value->type,value->key,&temp,value->mark);
 		cnt++;
 		if(_master->m[_master->n_num].type<=SEQRW) continue;
@@ -136,11 +129,13 @@ int main(int argc,char* argv[]){/*
 		sleep(1);
 #endif
 	}
-
 	bench_print();
 	bench_free();
+	//printf("locality: 0~%.0f\n",RANGE*TARGETRATIO);
 	inf_free();
-	
+#ifdef lsmtree
+	printf("skiplist hit:%d\n",skiplist_hit);
+#endif
 	printf("locality check:%f\n",(float)locality_check/(locality_check+locality_check2));
 	return 0;
 }

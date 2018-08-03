@@ -3,6 +3,7 @@
 #include "../../include/container.h"
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
+#include <math.h>
 #include "log_list.h"
 #include "cache.h"
 #include "lsmtree.h"
@@ -44,6 +45,7 @@ typedef struct level{
 #else
 	llog *h;
 #endif
+	//llog *seg_log;
 	block *now_block;
 	int level_idx;
 	int r_m_num;//max # of run
@@ -60,7 +62,7 @@ typedef struct level{
 	KEYT end;
 	bool iscompactioning;
 	struct skiplist *remain;
-	pthread_mutex_t level_lock;
+//	pthread_mutex_t *level_lock;
 	char *body;
 }level;
 

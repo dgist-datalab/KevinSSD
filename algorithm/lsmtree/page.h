@@ -51,7 +51,6 @@ typedef struct{
 	uint32_t invalid_n;
 	KEYT trimed_block;
 	KEYT segment_idx; //next reserved block
-	uint8_t now_gc_level_n;
 	KEYT ppa;
 }segment;
 
@@ -61,6 +60,8 @@ typedef struct page_manager{
 	llog_node *n_log;
 	segment *target;//gc_target;
 	segment *reserve; //no reserve block ->null
+	segment *temp;
+	bool force_flag;
 	block *rblock;
 	uint32_t used_blkn;
 	uint32_t rused_blkn;
@@ -95,7 +96,8 @@ bool PBITFULL(KEYT input,bool isrealppa);
 int gc_header(KEYT tbn);
 int gc_data(KEYT tbn);
 void gc_check(uint8_t,bool);
-KEYT gc_victim_segment(uint8_t type);
+bool gc_segment_force();
+KEYT gc_victim_segment(uint8_t type,bool);
 void gc_trim_segment(KEYT pbn);
 block *gc_getrblock_fromseg(uint8_t type);
 #endif

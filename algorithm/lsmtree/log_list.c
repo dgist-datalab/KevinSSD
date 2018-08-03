@@ -12,6 +12,7 @@ llog* llog_init(){
 	return res;
 }
 
+extern pm data_m;
 llog_node* llog_insert(llog *l,void *data){
 	llog_node *new_l=(llog_node*)malloc(sizeof(llog_node));
 	new_l->data=data;
@@ -134,7 +135,37 @@ void llog_print(llog *b){
 		if(cnt>b->size) break;
 	}
 	printf("cnt:%d ecnt:%d\n",cnt,ecnt);
-}	
+}
+
+int llog_erase_cnt(llog *b){
+	//printf("size: %d\n",b->size);
+	llog_node *head=b->head;
+	int cnt=0;
+	int ecnt=0;
+	while(head){
+		block* target=(block*)head->data;
+		if(target->erased){
+	//		printf("%d\n",target->ppa/256);
+			ecnt++;
+		}
+		head=head->next;
+		cnt++;
+		if(cnt>b->size) break;
+	}
+	return ecnt;
+}
+
+bool llog_isthere(llog *b,KEYT pba){
+	//printf("size: %d\n",b->size);
+	llog_node *head=b->head;
+	while(head){
+		block* target=(block*)head->data;
+		if(target->ppa/256==pba)
+			return true;
+		head=head->next;
+	}
+	return false;
+}
 
 void llog_free(llog *l){
 	llog_node *temp=l->tail;

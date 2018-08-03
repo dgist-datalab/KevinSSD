@@ -5,7 +5,7 @@
 #include<stdlib.h>
 #include<stdint.h>
 typedef struct{
-	int k;
+	uint32_t k;
 	int m;
 	int targetsize;
 	int n;

@@ -63,16 +63,16 @@ set_check:../../include/lsm_settings.h
 	make test_clean
 
 .c.o :  ../../include/lsm_settings.h ../../include/settings.h
-	$(CC) $(CFLAGS_ALGO) -c $< -o $@
+	$(CC) $(CFLAGS_ALGO) -c $< -o $@ -lm
 
 ../../object/%_d.o: %.c ../../include/lsm_settigs.h ../../include/settings.h
-	$(CC) $(CFLAGS_ALGO) -DDEBUG -c $< -o $@
+	$(CC) $(CFLAGS_ALGO) -DDEBUG -c $< -o $@ -lm
 
 ../../object/%_m.o: %.c ../../include/lsm_settings.h ../../include/settings.h
-	$(CC) $(CFLAGS_ALGO) -DLEAKCHECK -c $< -o $@
+	$(CC) $(CFLAGS_ALGO) -DLEAKCHECK -c $< -o $@ -lm
 
 ../../object/%.o: %.c  ../../include/lsm_settings.h ../../include/settings.h
-	$(CC) $(CFLAGS) $(CFLAGS_ALGO) -c $< -o $@
+	$(CC) $(CFLAGS) $(CFLAGS_ALGO) -c $< -o $@ -lm
 
 run_test:run_array.c
 	$(CC) $(CFLAGS_ALGO) -o $@ $^

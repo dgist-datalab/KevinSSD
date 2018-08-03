@@ -21,8 +21,10 @@ bool q_enqueue(void *val,struct queue* q){
 	
 	while (1) {
 		n = q->tail;
-		if(__sync_bool_compare_and_swap((&q->size),q->m_size,q->m_size))
+		if(__sync_bool_compare_and_swap((&q->size),q->m_size,q->m_size)){
+			free(_node);
 			return false;
+		}
 		if (__sync_bool_compare_and_swap(&(n->next), NULL, _node)) {
 			break;
 		} else {

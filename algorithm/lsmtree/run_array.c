@@ -1,15 +1,17 @@
 #include"run_array.h"
 #include "../../interface/interface.h"
+#include<math.h>
 #include<string.h>
 #include<stdio.h>
 #include<stdlib.h>
 #include<limits.h>
 #include<string.h>
 #include<unistd.h>
-
+extern int32_t SIZEFACTOR;
 extern int save_fd;
 extern lsmtree LSM;
 extern block bl[_NOB];
+extern segment segs[_NOS];
 void level_free_entry_inside(Entry *);
 Node *ns_run(level*input ,int n){
 	if(n>=input->r_m_num) return NULL;
@@ -112,7 +114,6 @@ level *level_init(level *input,int all_entry,int idx,float fpr, bool isTiering){
 	else{
 		input->r_m_num=1;
 	}
-	pthread_mutex_init(&input->level_lock,NULL);
 	input->isTiering=isTiering;
 	int entry_p_run=all_entry/input->r_m_num;
 	if(all_entry%input->r_m_num) entry_p_run++;
@@ -157,7 +158,9 @@ level *level_init(level *input,int all_entry,int idx,float fpr, bool isTiering){
 	input->h=heap_init(all_entry*(KEYNUM/_PPB));
 #else
 	input->h=llog_init();
+	//input->seg_log=llog_init();
 #endif
+
 	return input;
 }
 
@@ -196,8 +199,12 @@ Entry *level_find_fromR(Node *run, KEYT key){
 	int end=run->n_num-1;
 	if(run->n_num==0) return NULL;
 	int mid;
+
 	while(1){
 		mid=(start+end)/2;
+		if(start<0 || end<0){
+			printf("find ??\n");
+		}
 		Entry *mid_e=ns_entry(run,mid);
 		if(mid_e==NULL) break;
 		if(mid_e->key <=key && mid_e->end>=key){
@@ -368,13 +375,15 @@ Iter *level_get_Iter(level *input){
 void level_summary(){
 	for(int i=0; i<LEVELN; i++){
 		level *t=LSM.disk[i];
-		printf("[%d(%s)] n_num:%d, m_num:%d, r_num:%d\n",i,t->isTiering?"tier":"level",t->n_num,t->m_num,t->n_run);
+		if(t->n_num==0) continue;
+	//	printf("[%d(%s) %u~%u] n_num:%d, m_num:%d, r_num:%d\n",i,t->isTiering?"tier":"level",t->start,t->end,t->n_num,t->m_num,t->n_run);
 	}
 }
 void level_all_print(){
 	for(int i=0; i<LEVELN; i++){
 		if(LSM.disk[i]->n_num==0)
 			continue;
+	//	if(LSM.disk[i+1]->n_num==0) continue;
 		level_print(LSM.disk[i]);
 		printf("------\n");
 	}
@@ -434,6 +443,11 @@ void level_free(level *input){
 		llog_free(input->h);
 #endif
 	}
+	/*
+	if(input->seg_log){
+		llog_free(input->seg_log);
+	}*/
+
 	free(input->body);
 	free(input);
 }
@@ -645,7 +659,6 @@ level* level_load(){
 	}
 	free(level_iter);
 #endif
-	pthread_mutex_init(&res->level_lock,NULL);
 	return res;
 }
 
@@ -733,6 +746,7 @@ void level_move_next_page(level *in){
 }
 #endif
 void level_move_heap(level *des, level *src){
+//	char segnum[_NOS]={0,};
 #ifdef LEVELUSINGHEAP
 	heap *des_h=des->h;
 	heap *h=src->h;
@@ -741,6 +755,7 @@ void level_move_heap(level *des, level *src){
 		block *bl=(block*)data;
 		bl->level=des->level_idx;
 		bl->hn_ptr=heap_insert(des_h,data);
+		segnum[bl->ppa/_PPS]=1;
 	}
 #else
 	llog *des_h=des->h;
@@ -754,9 +769,15 @@ void level_move_heap(level *des, level *src){
 		block *bl=(block*)data;
 		bl->level=des->level_idx;
 		bl->hn_ptr=llog_insert(des_h,data);
+		//segnum[bl->ppa/_PPS]=1;
 		ptr=ptr->next;
 	}
 #endif
+	/*
+	for(int i=0; i<_NOS; i++){
+		if(segnum[i])
+			llog_insert(des->seg_log,(void*)&segs[i]);
+	}*/
 }
 
 #ifdef DVALUE

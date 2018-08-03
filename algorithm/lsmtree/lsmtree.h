@@ -75,6 +75,7 @@ typedef struct lsmtree{
 	pthread_mutex_t entrylock;
 
 	pthread_mutex_t valueset_lock;
+	pthread_mutex_t level_lock[LEVELN];
 	PTR caching_value;
 
 	struct skiplist *memtable;
