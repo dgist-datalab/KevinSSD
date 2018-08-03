@@ -5,7 +5,7 @@
 /*lsmtree structure*/
 #define KEYNUM 1024
 #define RAF 0.01
-#define LEVELN 4
+#define LEVELN 6
 #define BLOOM
 #define MONKEY
 #define PIECE 512

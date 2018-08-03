@@ -82,7 +82,7 @@ void bench_make_data(){
 			randset(start,end,_m);
 			break;
 		case MIXED:
-			mixed(start,end,10,_m);
+			mixed(start,end,50,_m);
 			break;
 	}
 	_d->read_cnt=_m->read_cnt;
