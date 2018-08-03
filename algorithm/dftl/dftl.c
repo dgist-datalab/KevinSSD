@@ -160,6 +160,7 @@ void demand_destroy(lower_info *li, algorithm *algo){
 	printf("2: R & MG, 3: R & E & MC\n");
 	printf("4: R & E & MG & MC, 5: R & E & GC & MC\n");
 	printf("6: R & E & MG & GC & MC\n");
+	printf("7: Buffer Hit\n");
 	printf("!!! print info !!!\n");
 	q_free(dftl_q);
 	lru_free(lru);
@@ -420,6 +421,7 @@ uint32_t __demand_get(request *const req){
 	if((temp = skiplist_find(mem_buf, lpa))){
 		buf_hit++;
 		memcpy(req->value->value, temp->value->value, PAGESIZE);
+		req->type_ftl = 7;
 		req->type_lower = 0;
 		bench_algo_end(req);
 		req->end_req(req);
