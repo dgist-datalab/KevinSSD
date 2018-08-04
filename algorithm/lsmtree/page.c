@@ -159,7 +159,7 @@ void block_meta_init(block *b){
 }
 #endif
 
-void gc_change_reserve(pm *target_p, segment *seg){
+void gc_change_reserve(pm *target_p, segment *seg,uint8_t type){
 	segment *reserve=target_p->reserve;
 	for(int i=reserve->segment_idx; i<BPS; i++){
 		bl[reserve->ppa/_PPB+i].erased=true;
@@ -185,7 +185,11 @@ void gc_change_reserve(pm *target_p, segment *seg){
 
 	target_p->rused_blkn=0;
 	target_p->reserve=seg;
-
+	if(type!=DATA){
+		target_p->rblock=NULL;
+		//printf("target->reserve : %u ~ %u\n",target_p->reserve->ppa,target_p->reserve->ppa+16383);
+		target_p->n_log=target_p->blocks->head;
+	}
 	//llog_print(data_m.blocks);
 }
 
@@ -209,7 +213,7 @@ void gc_trim_segment(uint8_t type, KEYT pbn){
 		/*trim segment*/
 		algo_lsm.li->trim_block(seg->ppa,0);
 		if(!target_p->force_flag){
-			gc_change_reserve(target_p,seg);
+			gc_change_reserve(target_p,seg,type);
 		}
 		else{	
 			seg->invalid_n=0;
@@ -377,7 +381,7 @@ void pm_a_init(pm *m,KEYT size,KEYT *_idx,bool isblock){
 	m->used_blkn=0;
 	m->max_blkn=size;
 	m->segnum=size/BPS;
-	
+	m->rblock=NULL;
 	m->n_log=m->blocks->head;
 	m->reserve=WHICHSEG(bl[idx].ppa);
 	m->temp=NULL;
@@ -509,8 +513,10 @@ void gc_check(uint8_t type, bool force){
 		target_block=gc_victim_segment(type,false);
 		if(once){
 			once=false;
+	//		static int header_cnt=0;
 			switch(type){
 				case HEADER:
+				//	printf("header gc:%d\n",header_cnt++);
 					target_p=&header_m;
 					header_gc_cnt++; 
 					break;
@@ -546,8 +552,7 @@ void gc_check(uint8_t type, bool force){
 					target_block=gc_victim_segment(type,false);
 				}
 				else{
-	//				int tttt=llog_erase_cnt(data_m.blocks);
-	//				printf("b]%d:%d:%d:%d(erased_blkn:%d)\n",data_m.max_blkn,data_m.used_blkn,data_m.max_blkn-data_m.used_blkn,tttt,erased_blkn);
+					
 					if(gc_segment_force()){
 						if(type==DATA){
 							for(int i=0; i<erased_blkn; i++){
@@ -556,15 +561,6 @@ void gc_check(uint8_t type, bool force){
 							free(erased_blks);
 						}
 						data_m.used_blkn-=erased_blkn;
-	//					tttt=llog_erase_cnt(data_m.blocks);
-	//					printf("b]%d:%d:%d:%d(erased_blkn:%d)\n",data_m.max_blkn,data_m.used_blkn,data_m.max_blkn-data_m.used_blkn,tttt,erased_blkn);
-						/*
-						if(tttt!=data_m.max_blkn-data_m.used_blkn){
-							printf("erased_blkn:%d\n",erased_blkn);
-							llog_print(data_m.blocks);
-							exit(1);
-						}*/
-						//target_p->n_log=target_p->blocks->head;
 						return;
 					}
 					//segment_all_print();
@@ -609,6 +605,7 @@ void gc_check(uint8_t type, bool force){
 	target_p->target=NULL;//when not used block don't exist in target_segment;
 	if(type==DATA){
 		for(int i=0; i<erased_blkn; i++){
+	//llog_print(data_m.blocks);
 			erased_blks[i]->l_node=llog_insert(data_m.blocks,erased_blks[i]);
 		}
 		free(erased_blks);
@@ -687,19 +684,25 @@ void invalidate_PPA(KEYT _ppa){
 	bl[bn].invalid_n++;
 	segment *segs=WHICHSEG(bl[bn].ppa);
 	segs->invalid_n++;
-
-	/*
-	if(_ppa/256==31998/256){
+/*	
+	if(_ppa==4996878){
+		printf("here!\n");
+	}*/
+/*
+	static uint64_t temp_ppa=4997099;
+	if(_ppa/256==temp_ppa/256){
 		if(test__[_ppa%256]){
 			printf("%d\n",_ppa);
 			printf("fuck\n");
 			exit(1);
 		}
 		test__[_ppa%256]=true;	
-	}*/
-
-	if(bl[bn].invalid_n>algo_lsm.li->PPB){ 
+	}
+*/
+	if(bl[bn].invalid_n>algo_lsm.li->PPB){
+//		temp_ppa=_ppa;
 		printf("invalidate:??\n");
+		exit(1);
 	}
 #ifdef LEVEUSINGHEAP
 	level *l=LSM.disk[bl[bn].level];
@@ -1011,7 +1014,7 @@ int gc_header(KEYT tbn){
 		}
 		KEYT t_ppa=start+i;
 		KEYT lpa=PBITGET(t_ppa);
-		
+
 		Entry **entries=NULL;
 		bool checkdone=false;
 	//	level_all_print();
@@ -1298,7 +1301,7 @@ bool gc_segment_force(){
 	if(data_m.temp==NULL){
 		printf("%d\n",created_page);
 	}
-	gc_change_reserve(&data_m,data_m.temp);
+	gc_change_reserve(&data_m,data_m.temp,1);
 	
 	data_m.force_flag=false;
 	data_m.target=NULL;

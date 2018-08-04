@@ -25,7 +25,7 @@
 //#define NOGC
 
 /*compaction*/
-#define EPC 20 //size factor have to be multiple of SIZEFACTOR
+#define EPC 50 //size factor have to be multiple of SIZEFACTOR
 
 /*block,header,data area variable*/
 #define HEADERSEG 4

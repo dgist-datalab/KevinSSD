@@ -552,7 +552,7 @@ int level_range_find(level *input,KEYT start,KEYT end, Entry ***res, bool compac
 	temp=(Entry **)malloc(sizeof(Entry *)*(input->m_num+1));
 	Entry *value;
 	while((value=level_get_next(level_iter))){
-		if(value->iscompactioning==1) continue;
+		if(value->iscompactioning==1 || value->iscompactioning==3) continue;
 		if(!(value->key >=end || value->end<=start)){
 			temp[rev++]=value;/*
 			if(compactioning){

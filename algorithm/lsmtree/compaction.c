@@ -214,7 +214,7 @@ KEYT compaction_htable_write(htable *input){
 	areq->params=(void*)params;
 	params->ppa=ppa;
 	LSM.li->push_data(ppa,PAGESIZE,params->value,ASYNC,areq);
-
+	
 	return ppa;
 }
 
@@ -738,8 +738,6 @@ uint64_t partial_tiering(level *des,level *src, int size){
 	return 1;
 }
 uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
-	//static int cnt=0;
-	//printf("%d\n",cnt++);
 	KEYT start=0;
 	KEYT end=0;
 	Entry **target_s=NULL;
@@ -817,7 +815,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 		}
 		free(target_s);
 	}
-	else{
+	else{	
 		KEYT endcheck=UINT_MAX;
 		for(int i=0; data[i]!=NULL; i++){
 			Entry *origin_ent=data[i];
@@ -859,7 +857,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 					else{
 #endif
 						table[j]=htable_assign();
-						compaction_htable_read(origin_ent,(PTR*)&table[0]);
+						compaction_htable_read(origin_ent,(PTR*)&table[j]);
 #ifdef CACHE
 					}
 #endif
@@ -882,6 +880,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 #ifdef CACHE
 					}
 #endif
+					
 					if(!target_s[idx]->iscompactioning){
 						target_s[idx]->iscompactioning=true;
 					}
