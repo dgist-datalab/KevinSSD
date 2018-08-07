@@ -207,8 +207,9 @@ typedef struct {
 	void *(*bad_seg_func)(uint64_t,uint8_t);
 	uint64_t segnum;
 	uint8_t isbad;
-	int path_type;
-	int before_path_type;
+	
+	uint8_t path_type;
+//	uint8_t before_path_type;
 
 	bdbm_cond_t* cond;
 	int* counter;
