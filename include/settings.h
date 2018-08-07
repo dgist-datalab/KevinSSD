@@ -43,7 +43,7 @@
 #define V_PTR char * const
 #define PTR char*
 #define ASYNC 1
-#define QSIZE (1)
+#define QSIZE (64)
 #define THREADSIZE (1)
 
 #define KEYGEN
