@@ -5,6 +5,7 @@ simulator_memory_check
 duma_*
 data/
 object/
+test_file/
 data/
 tags
 *log

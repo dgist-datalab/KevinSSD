@@ -181,9 +181,6 @@ void *demand_end_req(algo_req* input){
 	switch(params->type){
 		case DATA_R:
 			res->type_lower = input->type_lower;
-			if(res){
-				res->end_req(res);
-			}
 			break;
 		case DATA_W:
 #if W_BUFF
@@ -192,9 +189,6 @@ void *demand_end_req(algo_req* input){
 			w_poll++;
 #endif
 #endif
-			if(res){
-				res->end_req(res);
-			}
 			break;
 		case MAPPING_R: // only used in async
 			((read_params*)res->params)->read = 1;
@@ -238,11 +232,9 @@ void *demand_end_req(algo_req* input){
 #endif
 			break;
 	}
-	/*
 	if(res){
 		res->end_req(res);
 	}
-	*/
 	free(params);
 	free(input);
 	return NULL;

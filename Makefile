@@ -1,8 +1,8 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=posix_memory
-TARGET_ALGO=dftl
+TARGET_LOWER=bdbm_drv
+TARGET_ALGO=lsmtree
 PWD=$(pwd)
 
 COMMONFLAGS=\
@@ -21,7 +21,7 @@ export CFLAGS_LOWER=\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\
 
-export priority="tru"
+export priority="true"
 
 
 #CFLAGS_ALGO+=-DCOMPACTIONLOG\
@@ -29,7 +29,6 @@ export priority="tru"
 CFLAGS_ALGO+=$(COMMONFLAGS)\
 
 CFLAGS_LOWER+=$(COMMONFLAGS)\
-			 -D$(TARGET_ALGO)\
 
 ifeq ($(TARGET_ALGO), lsmtree)
  CFLAGS_ALGO+=-DLSM_SKIP

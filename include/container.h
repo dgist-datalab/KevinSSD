@@ -46,6 +46,7 @@ struct request {
 	MeasureTime latency_ftl;
 	uint8_t type_ftl;
 	uint8_t type_lower;
+	uint8_t before_type_lower;
 	MeasureTime latency_poll;
 	bool isstart;
 	MeasureTime latency_checker;
@@ -54,6 +55,7 @@ struct request {
 struct algo_req{
 	request * parents;
 	MeasureTime latency_lower;
+	bool rapid;
 	uint8_t type_lower;
 
 	void *(*end_req)(struct algo_req *const);

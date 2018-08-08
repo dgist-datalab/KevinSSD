@@ -99,7 +99,9 @@ static void __dm_intr_handler (
 		if(r->req_type==REQTYPE_READ){
 			r->path_type+=4;
 			//my_algo_req->type_lower=r->path_type+4;
-			my_algo_req->type_lower=r->path_type>r->before_path_type?r->path_type:r->before_path_type;
+			//my_algo_req->type_lower=r->path_type>r->before_path_type?r->path_type:r->before_path_type;
+			if(my_algo_req->type_lower>r->path_type)
+				my_algo_req->type_lower=r->path_type;
 			if(my_algo_req->type_lower>8){
 				printf("??\n");
 			}
@@ -381,7 +383,6 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 				if(my_algo_req->type_lower>10){
 					printf("wtf!\n");
 				}
-				r->before_path_type=my_algo_req->type_lower;
 			}
 			measure_init(&my_algo_req->latency_lower);
 			MS(&my_algo_req->latency_lower);
@@ -411,7 +412,7 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 	bdbm_cond_free(&readCond);
 */	
 	if(dir==0){
-		MCM(&bdbm_mt);
+		//MCM(&bdbm_mt);
 	}
 
 	/* return the length of bytes transferred */

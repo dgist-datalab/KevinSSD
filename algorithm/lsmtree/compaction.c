@@ -24,6 +24,7 @@ extern int comp_target_get_cnt;
 int epc_check=0;
 compM compactor;
 pthread_mutex_t compaction_wait;
+pthread_mutex_t compaction_flush_wait;
 //pthread_mutex_t compaction_assign_lock;//for interrunpt in compaction main
 bool compaction_idle;
 int compactino_target_cnt;
@@ -48,6 +49,9 @@ void compaction_sub_wait(){
 		while(comp_target_get_cnt!=epc_check){}
 	#endif
 #endif
+
+	//printf("%u:%u\n",comp_target_get_cnt,epc_check);
+
 
 #ifdef CACHE
 	memcpy_cnt=0;
@@ -90,6 +94,8 @@ bool compaction_init(){
 	}
 	compactor.stopflag=false;
 	pthread_mutex_init(&compaction_wait,NULL);
+	pthread_mutex_init(&compaction_flush_wait,NULL);
+	pthread_mutex_lock(&compaction_flush_wait);
 	//pthread_mutex_init(&compaction_assign_lock,NULL);
 	//pthread_mutex_lock(&compaction_assign_lock);
 	return true;
@@ -158,6 +164,7 @@ htable *compaction_data_write(skiplist *mem){
 		params->value=data_sets[i];
 		lsm_req->params=(void*)params;
 		lsm_req->end_req=lsm_end_req;
+		lsm_req->rapid=true;
 #ifdef DVALUE
 		LSM.li->push_data(data_sets[i]->ppa/(PAGESIZE/PIECE),PAGESIZE,params->value,ASYNC,lsm_req);
 #else
@@ -204,6 +211,7 @@ KEYT compaction_htable_write(htable *input){
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 	areq->parents=NULL;
+	areq->rapid=false;
 	params->lsm_type=HEADERW;
 
 	params->value=input->origin;
@@ -289,6 +297,7 @@ void *compaction_main(void *input){
 			pthread_mutex_lock(&LSM.entrylock);
 			LSM.tempent=entry;
 			pthread_mutex_unlock(&LSM.entrylock);
+			pthread_mutex_unlock(&compaction_flush_wait);
 			if(LSM.disk[0]->isTiering){
 				tiering(-1,0,entry);
 			}
@@ -338,9 +347,7 @@ void compaction_check(){
 			LSM.memtable=skiplist_init();
 		}
 		compaction_assign(req);
-#ifdef ONETHREAD
-		while(!compaction_idle){}
-#endif
+		pthread_mutex_lock(&compaction_flush_wait);
 	}
 }
 
@@ -391,6 +398,7 @@ void compaction_htable_read(Entry *ent,PTR* value){
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
 	areq->type_lower=0;
+	areq->rapid=false;
 	//printf("R %u\n",ent->pbn);
 	LSM.li->pull_data(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
 	return;
@@ -460,8 +468,10 @@ void compaction_subprocessing(skiplist *target,level *t, htable** datas,bool fin
 void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 #ifdef MONKEY
 	if(src->m_num!=des->m_num){
+	//	printf("monkey!\n");
 		compaction_seq_MONKEY(src,headerSize,des);
 		level_tier_align(des);
+	//	printf("done(%d:%d)\n",src->level_idx,des->level_idx);
 		return;
 	}
 #endif

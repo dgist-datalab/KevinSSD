@@ -162,29 +162,35 @@ void bf_set(BF *input, KEYT key){
 	int block;
 	int offset;
 	//printf("%u:",key);
+
 	for(uint32_t i=0; i<input->k; i++){
 		//MurmurHash3_x86_32(&key,sizeof(key),i,&h);
 		h=hashfunction((key<<19) | (i<<7));
 		h%=input->m;
 		block=h/8;
 		offset=h%8;
+
 		BITSET(&input->body[block],offset);
 	}
-	//printf("\n");
+	
 }
 
 bool bf_check(BF* input, KEYT key){
 	KEYT h;
 	int block,offset;
 	if(input==NULL) return true;
+
 	for(uint32_t i=0; i<input->k; i++){
 		//MurmurHash3_x86_32(&key,sizeof(key),i,&h);
 		h=hashfunction((key<<19) | (i<<7));
 		h%=input->m;
 		block=h/8;
 		offset=h%8;
-		if(!BITGET(input->body[block],offset))
+
+		if(!BITGET(input->body[block],offset)){
+
 			return false;
+		}
 	}
 	return true;
 }

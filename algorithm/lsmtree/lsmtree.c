@@ -235,8 +235,8 @@ void* lsm_end_req(algo_req* const req){
 			inf_free_valueset(params->value,FS_MALLOC_W);
 			break;
 		case DATAR:
-			req_temp_params=parents->params;
-			if(req_temp_params){
+				req_temp_params=parents->params;
+				if(req_temp_params){
 				parents->type_ftl=((int*)req_temp_params)[2];
 			}
 			parents->type_lower=req->type_lower;
@@ -289,6 +289,7 @@ void* lsm_end_req(algo_req* const req){
 
 uint32_t lsm_set(request * const req){
 	bench_algo_start(req);
+
 #ifdef DEBUG
 	printf("lsm_set!\n");
 	printf("key : %u\n",req->key);//for debug
@@ -318,6 +319,7 @@ uint32_t lsm_get(request *const req){
 		measure_init(&lsm_mt);
 		//level_all_print();
 	}
+
 	//printf("seq: %d, key:%u\n",nor++,req->key);
 	while(1){
 		if((re_q=q_dequeue(LSM.re_q))){
@@ -329,6 +331,7 @@ uint32_t lsm_get(request *const req){
 				measure_init(&req->latency_ftl);
 				MS(&req->latency_ftl);
 			}*/
+
 			res_type=__lsm_get(tmp_req);
 			if(res_type==3){
 				printf("from req not found seq: %d, key:%u\n",nor++,req->key);
@@ -408,6 +411,7 @@ uint32_t __lsm_get(request *const req){
 	lsm_req->end_req=lsm_end_req;
 	lsm_req->params=(void*)params;
 	lsm_req->type_lower=0;
+	lsm_req->rapid=true;
 
 	pthread_mutex_lock(&LSM.templock);
 	if(LSM.temptable){

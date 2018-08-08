@@ -62,6 +62,7 @@ void* __hash_delete_by_key(__hash *h,int64_t key){
 	void *res=node->inter_ptr;
 	node->inter_ptr=node->data=NULL;
 	node->key=0;
+	h->n_size--;
 	return res;
 }
 
@@ -70,6 +71,7 @@ void* __hash_delete_by_idx(__hash *h,uint32_t idx){
 	void *res=node->inter_ptr;
 	node->inter_ptr=node->data=NULL;
 	node->key=0;
+	h->n_size--;
 	return res;
 }
 
