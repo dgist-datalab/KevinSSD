@@ -2,7 +2,7 @@ export CC=g++
 
 TARGET_INF=interface
 TARGET_LOWER=posix_memory
-TARGET_ALGO=Lsmtree
+TARGET_ALGO=dftl_fm
 PWD=$(pwd)
 
 COMMONFLAGS=\
@@ -30,6 +30,7 @@ CFLAGS_ALGO+=$(COMMONFLAGS)\
 			 -D$(TARGET_ALGO)\
 
 CFLAGS_LOWER+=$(COMMONFLAGS)\
+			  -D$(TARGET_ALGO)\
 
 ifeq ($(TARGET_ALGO), lsmtree)
  CFLAGS_ALGO+=-DLSM_SKIP

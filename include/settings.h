@@ -19,7 +19,7 @@
 
 #elif defined(SLC)
 
-#define TOTALSIZE (10L*G)
+#define TOTALSIZE (100L*G)
 #define REALSIZE (512L*G)
 #define PAGESIZE (8*K)
 #define _PPB (256)

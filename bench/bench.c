@@ -243,10 +243,11 @@ void bench_print(){
 }
 void bench_algo_start(request *const req){
 	measure_init(&req->algo);
-	if(req->params==NULL){
+	//if(req->params==NULL){
+		measure_init(&req->latency_poll);
 		measure_init(&req->latency_ftl);
 		MS(&req->latency_ftl);
-	}
+	//}
 #ifdef BENCH
 	MS(&req->algo);
 #endif
