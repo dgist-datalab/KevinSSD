@@ -24,6 +24,7 @@ extern int comp_target_get_cnt;
 int epc_check=0;
 compM compactor;
 pthread_mutex_t compaction_wait;
+pthread_mutex_t compaction_flush_wait;
 //pthread_mutex_t compaction_assign_lock;//for interrunpt in compaction main
 bool compaction_idle;
 int compactino_target_cnt;
@@ -90,6 +91,8 @@ bool compaction_init(){
 	}
 	compactor.stopflag=false;
 	pthread_mutex_init(&compaction_wait,NULL);
+	pthread_mutex_init(&compaction_flush_wait,NULL);
+	pthread_mutex_lock(&compaction_flush_wait);
 	//pthread_mutex_init(&compaction_assign_lock,NULL);
 	//pthread_mutex_lock(&compaction_assign_lock);
 	return true;
@@ -289,6 +292,7 @@ void *compaction_main(void *input){
 			pthread_mutex_lock(&LSM.entrylock);
 			LSM.tempent=entry;
 			pthread_mutex_unlock(&LSM.entrylock);
+			pthread_mutex_unlock(&compaction_flush_wait);
 			if(LSM.disk[0]->isTiering){
 				tiering(-1,0,entry);
 			}
@@ -326,7 +330,7 @@ void compaction_check(){
 		req=(compR*)malloc(sizeof(compR));
 		req->fromL=-1;
 		req->toL=0;
-
+		
 		if(LSM.temptable==NULL){
 			LSM.temptable=LSM.memtable;
 			LSM.memtable=skiplist_init();
@@ -338,9 +342,7 @@ void compaction_check(){
 			LSM.memtable=skiplist_init();
 		}
 		compaction_assign(req);
-#ifdef ONETHREAD
-		while(!compaction_idle){}
-#endif
+		pthread_mutex_lock(&compaction_flush_wait);
 	}
 }
 

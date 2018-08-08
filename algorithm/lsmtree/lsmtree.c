@@ -289,6 +289,9 @@ void* lsm_end_req(algo_req* const req){
 
 uint32_t lsm_set(request * const req){
 	bench_algo_start(req);
+	if(req->key==1047391){
+		printf("heere\n");
+	}
 #ifdef DEBUG
 	printf("lsm_set!\n");
 	printf("key : %u\n",req->key);//for debug
@@ -330,6 +333,9 @@ uint32_t lsm_get(request *const req){
 				MS(&req->latency_ftl);
 			}*/
 			res_type=__lsm_get(tmp_req);
+			if(req->key==1047391){
+				level_all_print();
+			}
 			if(res_type==3){
 				printf("from req not found seq: %d, key:%u\n",nor++,req->key);
 				level_all_print();

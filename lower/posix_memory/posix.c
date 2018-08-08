@@ -203,9 +203,10 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		printf("\nwrite error\n");
 		exit(2);
 	}
+	
 	if(((lsm_params*)req->params)->lsm_type<=5){
-	//uint8_t req_type = ((demand_params*)req->params)->type;
-	//if(req_type == 3 || req_type == 5 || req_type == 7){
+/*	uint8_t req_type = ((demand_params*)req->params)->type;
+	if(req_type == 3 || req_type == 5 || req_type == 7){*/
 #ifdef normal
 	if(0){
 #endif
@@ -244,8 +245,8 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		exit(3);
 	}
 	if(((lsm_params*)req->params)->lsm_type<=5){
-	//uint8_t req_type = ((demand_params*)req->params)->type;
-	//if(req_type == 2 || req_type == 4 || req_type == 6){
+/*	uint8_t req_type = ((demand_params*)req->params)->type;
+	if(req_type == 2 || req_type == 4 || req_type == 6){*/
 #ifdef normal
 	if(0){
 #endif
