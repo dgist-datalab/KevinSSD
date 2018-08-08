@@ -11,6 +11,7 @@ typedef struct memio_q_req{
 	uint32_t lba;
 	uint64_t len;
 	uint8_t *data;
+	uint8_t q_path_type;
 	int async;
 	int dma_tag;
 	void *__hash_node;
