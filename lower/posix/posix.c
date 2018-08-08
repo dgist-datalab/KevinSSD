@@ -4,7 +4,7 @@
 #include "../../include/settings.h"
 #include "../../bench/bench.h"
 #include "../../bench/measurement.h"
-#include "../../algorithm/lsmtree/lsmtree.h"
+#include "../../algorithm/Lsmtree/lsmtree.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>

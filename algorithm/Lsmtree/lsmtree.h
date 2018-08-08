@@ -65,7 +65,6 @@ typedef struct lsm_params{
 	PTR htable_ptr;
 }lsm_params;
 
-
 typedef struct lsmtree{
 	struct level *disk[LEVELN];
 	struct level *c_level;

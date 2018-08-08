@@ -6,7 +6,7 @@
 #include<sys/types.h>
 #include"skiplist.h"
 #include"../../interface/interface.h"
-#ifdef LSM_SKIP
+#ifdef Lsmtree
 #include"page.h"
 #include "footer.h"
 
@@ -51,7 +51,7 @@ static int getLevel(){
 	return level;
 }
 
-#ifdef LSM_SKIP
+#ifdef Lsmtree
 snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
 	if(key>RANGE){
 		printf("bad page read\n");
@@ -235,7 +235,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 	return x;
 }
 
-#ifdef LSM_SKIP
+#ifdef Lsmtree
 //static int make_value_cnt=0;
 value_set **skiplist_make_valueset(skiplist *input, level *from){
 	//printf("make_value_cnt:%d\n",++make_value_cnt);
@@ -463,7 +463,7 @@ snode *skiplist_pop(skiplist *list){
 	return NULL;	
 }
 
-#ifdef LSM_SKIP
+#ifdef Lsmtree
 skiplist *skiplist_cut(skiplist *list, KEYT num,KEYT limit){
 	if(num==0) return NULL;
 	if(list->size<num) return NULL;

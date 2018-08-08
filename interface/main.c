@@ -14,7 +14,7 @@ extern uint64_t dm_intr_cnt;
 extern int LOCALITY;
 extern float TARGETRATIO;
 extern master *_master;
-#ifdef lsmtree
+#ifdef Lsmtree
 int skiplist_hit;
 #endif
 int main(int argc,char* argv[]){
@@ -133,7 +133,7 @@ int main(int argc,char* argv[]){
 	bench_free();
 	//printf("locality: 0~%.0f\n",RANGE*TARGETRATIO);
 	inf_free();
-#ifdef lsmtree
+#ifdef Lsmtree
 	printf("skiplist hit:%d\n",skiplist_hit);
 #endif
 	printf("locality check:%f\n",(float)locality_check/(locality_check+locality_check2));

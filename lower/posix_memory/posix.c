@@ -6,8 +6,11 @@
 #include "../../bench/measurement.h"
 #include "../../interface/queue.h"
 #include "../../interface/bb_checker.h"
-#include "../../algorithm/lsmtree/lsmtree.h"
-//#include "../../algorithm/dftl/dftl.h"
+#ifdef dftl
+#include "../../algorithm/dftl/dftl.h"
+#else
+#include "../../algorithm/Lsmtree/lsmtree.h"
+#endif
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -203,11 +206,14 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		printf("\nwrite error\n");
 		exit(2);
 	}
-	if(((lsm_params*)req->params)->lsm_type<=5){
-	//uint8_t req_type = ((demand_params*)req->params)->type;
-	//if(req_type == 3 || req_type == 5 || req_type == 7){
-#ifdef normal
+
+#ifdef dftl
+	uint8_t req_type = ((demand_params*)(req->params))->type;
+	if(req_type == 3 || req_type == 5 || req_type == 7){
+#elif defined(normal)
 	if(0){
+#else
+	if(((lsm_params*)req->params)->lsm_type<=5){
 #endif
 		if(!seg_table[PPA/my_posix.PPS].alloc){
 			seg_table[PPA/my_posix.PPS].storage = (PTR)malloc(my_posix.SOB);
@@ -243,11 +249,14 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		printf("\nread error\n");
 		exit(3);
 	}
-	if(((lsm_params*)req->params)->lsm_type<=5){
-	//uint8_t req_type = ((demand_params*)req->params)->type;
-	//if(req_type == 2 || req_type == 4 || req_type == 6){
-#ifdef normal
+
+#ifdef dftl
+	uint8_t req_type = ((demand_params*)req->params)->type;
+	if(req_type == 2 || req_type == 4 || req_type == 6){
+#elif defined(normal)
 	if(0){
+#else
+	if(((lsm_params*)req->params)->lsm_type<=5){
 #endif
 		PTR loc = seg_table[PPA/my_posix.PPS].storage;
 		memcpy(value->value,&loc[(PPA%my_posix.PPS)*my_posix.SOP],size);

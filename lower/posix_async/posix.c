@@ -6,7 +6,7 @@
 #include "../../bench/measurement.h"
 #include "../../interface/queue.h"
 #include "../../interface/bb_checker.h"
-#include "../../algorithm/lsmtree/lsmtree.h"
+#include "../../algorithm/Lsmtree/lsmtree.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>

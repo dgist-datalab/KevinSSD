@@ -1,8 +1,8 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=bdbm_drv
-TARGET_ALGO=lsmtree
+TARGET_LOWER=posix_memory
+TARGET_ALGO=Lsmtree
 PWD=$(pwd)
 
 COMMONFLAGS=\
@@ -27,6 +27,7 @@ export priority="true"
 #CFLAGS_ALGO+=-DCOMPACTIONLOG\
 	
 CFLAGS_ALGO+=$(COMMONFLAGS)\
+			 -D$(TARGET_ALGO)\
 
 CFLAGS_LOWER+=$(COMMONFLAGS)\
 

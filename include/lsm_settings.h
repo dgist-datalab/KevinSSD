@@ -5,9 +5,13 @@
 /*lsmtree structure*/
 #define KEYNUM 1024
 #define RAF 0.01
-#define LEVELN 6
+#define LEVELN 1
+
+#if LEVELN!=1
 #define BLOOM
 #define MONKEY
+#endif
+
 #define PIECE 512
 //#define LEVELUSINGHEAP
 //#define TIERING
@@ -17,7 +21,7 @@
 /*lsmtree flash thread*/
 #define KEYSIZE ()
 #define CTHREAD 1
-#define CQSIZE 2
+#define CQSIZE 10
 #define FTHREAD 1
 #define FQSIZE 2
 #define RQSIZE 1024

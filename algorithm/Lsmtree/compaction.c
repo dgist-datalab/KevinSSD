@@ -335,7 +335,7 @@ void compaction_check(){
 		req=(compR*)malloc(sizeof(compR));
 		req->fromL=-1;
 		req->toL=0;
-
+		
 		if(LSM.temptable==NULL){
 			LSM.temptable=LSM.memtable;
 			LSM.memtable=skiplist_init();

@@ -405,7 +405,7 @@ void level_print(level *input){
 #ifdef SNU_TEST
 			printf("[%d]Key: %d, End: %d, Pbn: %d iscompt: %d, id:%u\n",j,temp_ent->key,temp_ent->end,temp_ent->pbn,temp_ent->iscompactioning,temp_ent->id);
 #else
-			printf("pointer:%p [%d]Key: %d, End: %d, Pbn: %d iscompt: %d\n",temp_ent->filter,j,temp_ent->key,temp_ent->end,temp_ent->pbn,temp_ent->iscompactioning);
+			printf("pointer:%p [%d]Key: %d, End: %d, Pbn: %d iscompt: %d\n",temp_ent,j,temp_ent->key,temp_ent->end,temp_ent->pbn,temp_ent->iscompactioning);
 #endif
 			if(temp_ent->iscompactioning)
 				continue;
