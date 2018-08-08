@@ -20,7 +20,7 @@ extern struct algorithm __normal;
 extern struct algorithm __badblock;
 extern struct algorithm __demand;
 extern struct algorithm algo_pbase;
-#ifdef lsmtree
+#ifdef Lsmtree
 extern struct algorithm algo_lsm;
 #endif
 
@@ -435,7 +435,7 @@ void inf_init(){
 	mp.algo=&algo_pbase;
 #elif defined(dftl)
 	mp.algo=&__demand;
-#elif defined(lsmtree)
+#elif defined(Lsmtree)
 	mp.algo=&algo_lsm;
 #elif defined(badblock)
 	mp.algo=&__badblock;

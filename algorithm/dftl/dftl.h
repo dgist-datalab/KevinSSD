@@ -13,7 +13,7 @@
 #include "../../include/dftl_settings.h"
 #include "../../include/dl_sync.h"
 #ifdef W_BUFF
-#include "../lsmtree/skiplist.h"
+#include "../Lsmtree/skiplist.h"
 #endif
 #include "../blockmanager/BM.h"
 #include "lru_list.h"

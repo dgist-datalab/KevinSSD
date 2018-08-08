@@ -5,9 +5,13 @@
 /*lsmtree structure*/
 #define KEYNUM 1024
 #define RAF 0.01
-#define LEVELN 6
+#define LEVELN 1
+
+#if LEVELN!=1
 #define BLOOM
 #define MONKEY
+#endif
+
 #define PIECE 512
 //#define LEVELUSINGHEAP
 //#define TIERING
