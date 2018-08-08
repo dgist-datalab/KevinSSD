@@ -1,8 +1,8 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=posix_async
-TARGET_ALGO=lsmtree
+TARGET_LOWER=posix_memory
+TARGET_ALGO=dftl
 PWD=$(pwd)
 
 COMMONFLAGS=\
@@ -29,6 +29,7 @@ export priority="tru"
 CFLAGS_ALGO+=$(COMMONFLAGS)\
 
 CFLAGS_LOWER+=$(COMMONFLAGS)\
+			 -D$(TARGET_ALGO)\
 
 ifeq ($(TARGET_ALGO), lsmtree)
  CFLAGS_ALGO+=-DLSM_SKIP

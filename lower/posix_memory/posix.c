@@ -6,8 +6,13 @@
 #include "../../bench/measurement.h"
 #include "../../interface/queue.h"
 #include "../../interface/bb_checker.h"
+#ifdef lsmtree
 #include "../../algorithm/lsmtree/lsmtree.h"
-//#include "../../algorithm/dftl/dftl.h"
+#endif
+#ifdef dftl
+#include "../../algorithm/dftl/dftl.h"
+#endif
+
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -106,9 +111,7 @@ void *posix_make_pull(KEYT PPA, uint32_t size, value_set* value, bool async, alg
 	p_req->value=value;
 	p_req->upper_req=req;
 	p_req->isAsync=async;
-	p_req->size=size;
-	req->type_lower=0;
-	bool once=true;
+	p_req->size=size; req->type_lower=0; bool once=true;
 	while(!flag){
 		if(q_enqueue((void*)p_req,p_q)){
 			flag=true;
@@ -203,9 +206,13 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		printf("\nwrite error\n");
 		exit(2);
 	}
+#ifdef lsmtree
 	if(((lsm_params*)req->params)->lsm_type<=5){
-	//uint8_t req_type = ((demand_params*)req->params)->type;
-	//if(req_type == 3 || req_type == 5 || req_type == 7){
+#endif
+#ifdef dftl
+	uint8_t req_type = ((demand_params*)(req->params))->type;
+	if(req_type == 3 || req_type == 5 || req_type == 7){
+#endif
 #ifdef normal
 	if(0){
 #endif
@@ -243,9 +250,13 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		printf("\nread error\n");
 		exit(3);
 	}
+#ifdef lsmtree
 	if(((lsm_params*)req->params)->lsm_type<=5){
-	//uint8_t req_type = ((demand_params*)req->params)->type;
-	//if(req_type == 2 || req_type == 4 || req_type == 6){
+#endif
+#ifdef dftl
+	uint8_t req_type = ((demand_params*)req->params)->type;
+	if(req_type == 2 || req_type == 4 || req_type == 6){
+#endif
 #ifdef normal
 	if(0){
 #endif
