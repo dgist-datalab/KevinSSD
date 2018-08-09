@@ -6,6 +6,38 @@ algo_req* assign_pseudo_req(TYPE type, value_set *temp_v, request *req){
 	pseudo_my_req->parents = req;
 	params->type = type;
 	params->value = temp_v;
+	switch(type){
+		case DATA_R:
+			pseudo_my_req->rapid = true;
+			break;
+		case DATA_W:
+			pseudo_my_req->rapid = true;
+			break;
+		case MAPPING_R:
+			pseudo_my_req->rapid = true;
+			break;
+		case MAPPING_W:
+			pseudo_my_req->rapid = true;
+			break;
+		case MAPPING_M:
+			pseudo_my_req->rapid = true;
+			break;
+		case GC_MAPPING_W:
+			pseudo_my_req->rapid = false;
+			break;
+		case TGC_R:
+			pseudo_my_req->rapid = false;
+			break;
+		case TGC_W:
+			pseudo_my_req->rapid = false;
+			break;
+		case DGC_R:
+			pseudo_my_req->rapid = false;
+			break;
+		case DGC_W:
+			pseudo_my_req->rapid = false;
+			break;
+	}
 #if EVICT_POLL
 	if(type == MAPPING_M || type == MAPPING_W){
 #else

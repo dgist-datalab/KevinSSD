@@ -19,7 +19,7 @@ TARGETOBJ:=\
 LEAK: all
 all: $(TARGETOBJ) 
 
-../../object/skiplist.o: ../lsmtree/skiplist.c
+../../object/skiplist.o: ../Lsmtree/skiplist.c
 	$(CC) $(CFLAGS_ALGO) -c $< -o $@
 
 libnom.a : $(TARGETOBJ)

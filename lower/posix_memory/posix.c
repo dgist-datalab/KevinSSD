@@ -8,6 +8,8 @@
 #include "../../interface/bb_checker.h"
 #ifdef dftl
 #include "../../algorithm/dftl/dftl.h"
+#elif defined(dftl_fm)
+#include "../../algorithm/dftl_fm/dftl.h"
 #else
 #include "../../algorithm/Lsmtree/lsmtree.h"
 #endif
@@ -207,7 +209,7 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		exit(2);
 	}
 
-#ifdef dftl
+#if defined(dftl) || defined(dftl_fm)
 	uint8_t req_type = ((demand_params*)(req->params))->type;
 	if(req_type == 3 || req_type == 5 || req_type == 7){
 #elif defined(normal)
@@ -250,7 +252,7 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		exit(3);
 	}
 
-#ifdef dftl
+#if defined(dftl) || defined(dftl_fm)
 	uint8_t req_type = ((demand_params*)req->params)->type;
 	if(req_type == 2 || req_type == 4 || req_type == 6){
 #elif defined(normal)
