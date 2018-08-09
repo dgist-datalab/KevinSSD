@@ -87,12 +87,16 @@ int lpa_compare(const void *a, const void *b){
 int32_t tp_alloc(char req_t, bool *flag){
 	static int32_t ppa = -1; // static for ppa
 	Block *block;
+	pthread_t t_id;
+	void* retval;
 	if(ppa != -1 && ppa % p_p_b == 0){
 		ppa = -1; // initialize that this need new block
 	}
 	if(ppa == -1){
 		if(trans_b->idx == trans_b->max_size){ // to maintain heap struct
-			ppa = tpage_GC();
+			pthread_create(&t_id,NULL,&tpage_GC,NULL);
+			pthread_join(t_id,&retval);
+			ppa = (int32_t)(intptr_t)retval;
 			if(req_t == 'R'){
 				read_tgc_count++;
 			}
@@ -111,7 +115,9 @@ int32_t tp_alloc(char req_t, bool *flag){
 			ppa = block->PBA * p_p_b;
 		}
 		else{
-			ppa = tpage_GC();
+			pthread_create(&t_id,NULL,&tpage_GC,NULL);
+			pthread_join(t_id,&retval);
+			ppa = (int32_t)(intptr_t)retval;
 			if(req_t == 'R'){
 				read_tgc_count++;
 			}
@@ -129,12 +135,16 @@ int32_t tp_alloc(char req_t, bool *flag){
 int32_t dp_alloc(){ // Data page allocation
 	static int32_t ppa = -1; // static for ppa
 	Block *block;
+	pthread_t t_id;
+	void* retval;
 	if(ppa != -1 && ppa % p_p_b == 0){
 		ppa = -1; // initialize that this need new block
 	}
 	if(ppa == -1){
 		if(data_b->idx == data_b->max_size){ // to maintain heap struct
-			ppa = dpage_GC();
+			pthread_create(&t_id,NULL,&dpage_GC,NULL);
+			pthread_join(t_id,&retval);
+			ppa = (int32_t)(intptr_t)retval;
 			return ppa++;
 		}
 		block = BM_Dequeue(free_b); // dequeue block from free block queue
@@ -144,7 +154,9 @@ int32_t dp_alloc(){ // Data page allocation
 			ppa = block->PBA * p_p_b;
 		}
 		else{
-			ppa = dpage_GC();
+			pthread_create(&t_id,NULL,&dpage_GC,NULL);
+			pthread_join(t_id,&retval);
+			ppa = (int32_t)(intptr_t)retval;
 		}
 	}
 	return ppa++;

@@ -72,8 +72,8 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	// you can control amount of max number of ram reside cache entry
 	//num_max_cache = max_cache_entry;
 	//num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2;
-	num_max_cache = 1;
-	//num_max_cache = max_cache_entry/4;
+	//num_max_cache = 1;
+	num_max_cache = max_cache_entry/4;
 
 	printf("!!! print info !!!\n");
 	printf("Async status: %d\n", ASYNC);
