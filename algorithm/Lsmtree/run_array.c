@@ -553,14 +553,8 @@ int level_range_find(level *input,KEYT start,KEYT end, Entry ***res, bool compac
 	Entry *value;
 	while((value=level_get_next(level_iter))){
 		if(value->iscompactioning==1 || value->iscompactioning==3) continue;
-		if(!(value->key >=end || value->end<=start)){
-			temp[rev++]=value;/*
-			if(compactioning){
-				if(!value->iscompactioning){
-					value->iscompactioning=true;
-				}
-			}
-			*/
+		if(!(value->key >end || value->end<start)){
+			temp[rev++]=value;
 		}
 	}
 	free(level_iter);
@@ -576,7 +570,7 @@ int level_range_unmatch(level *input, KEYT start,Entry ***res,bool compactioning
 	temp=(Entry **)malloc(sizeof(Entry *)*input->m_num);
 	Entry *value;
 	while((value=level_get_next(level_iter))){
-		if(value->end<=start){
+		if(value->end<start){
 			temp[rev++]=value;
 		}
 	}

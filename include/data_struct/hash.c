@@ -28,18 +28,17 @@ __hash* __hash_init(uint32_t size){
 int __hash_insert(__hash *h,uint32_t key,void *data, void* inter_ptr, void** updated){
 	if(h->n_size==h->m_size)
 		return 0;
-
-	uint32_t h_key;
+	uint32_t h_key,org_key=key;
 	int res=0;
 	for(int i=0; i<2*MULTIFACTOR; i++){
 		h_key=function(key);
 		res=h_key%(h->m_size*MULTIFACTOR);
 		__hash_node* node=&h->table[res];
 		if(node->data){
-			if(node->key==key){	
+			if(node->key==org_key){	
 				*updated=(void*)node->data;
 				node->data=data;
-				node->key=key;
+				node->key=org_key;
 				node->inter_ptr=inter_ptr;
 				return h->table_size+res;
 			}
@@ -48,7 +47,7 @@ int __hash_insert(__hash *h,uint32_t key,void *data, void* inter_ptr, void** upd
 		}
 		else{
 			node->data=data;
-			node->key=key;
+			node->key=org_key;
 			node->inter_ptr=inter_ptr;
 			break;
 		}
@@ -83,13 +82,13 @@ void* __hash_find_data(__hash *h, uint32_t key){
 }
 
 __hash_node* __hash_find_node(__hash *h,uint32_t key){
-	uint32_t h_key;
+	uint32_t h_key,org_key=key;
 	__hash_node *node=NULL;
 
 	for(int i=0; i<2*MULTIFACTOR; i++){
 		h_key=function(key);
 		node=&h->table[h_key%(h->m_size*MULTIFACTOR)];
-		if(node->key==key)
+		if(node->key==org_key)
 			return node;
 		else if(!node->data) return NULL;
 		key=h_key;

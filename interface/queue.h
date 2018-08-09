@@ -17,6 +17,7 @@ typedef struct queue{
 }queue;
 void q_init(queue**,int);
 bool q_enqueue(void *,queue*);
+bool q_enqueue_front(void *,queue*);
 void *q_dequeue(queue*);
 void q_free(queue*);
 #endif

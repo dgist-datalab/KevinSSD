@@ -1094,6 +1094,9 @@ int gc_header(KEYT tbn){
 		KEYT t_ppa=start+i;
 		KEYT lpa=PBITGET(t_ppa);
 		KEYT n_ppa=getRPPA(HEADER,lpa,true);
+		if(n_ppa==49661 && lpa==10485759){
+			printf("here! in page\n");
+		}
 		test=target_ent[i];
 		table=tables[i];
 		test->pbn=n_ppa;

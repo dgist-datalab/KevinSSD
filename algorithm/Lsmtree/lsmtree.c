@@ -290,7 +290,6 @@ void* lsm_end_req(algo_req* const req){
 
 uint32_t lsm_set(request * const req){
 	bench_algo_start(req);
-
 #ifdef DEBUG
 	printf("lsm_set!\n");
 	printf("key : %u\n",req->key);//for debug
@@ -306,7 +305,10 @@ uint32_t lsm_set(request * const req){
 	MP(&req->latency_ftl);
 	bench_algo_end(req);
 	req->end_req(req); //end write
-	return 1;
+	if(LSM.memtable->size<KEYNUM-1)
+		return 0;
+	else
+		return 1;
 }
 int nor;
 MeasureTime lsm_mt;
@@ -334,9 +336,6 @@ uint32_t lsm_get(request *const req){
 			}*/
 
 			res_type=__lsm_get(tmp_req);
-			if(req->key==1047391){
-				level_all_print();
-			}
 			if(res_type==3){
 				printf("from req not found seq: %d, key:%u\n",nor++,req->key);
 				level_all_print();

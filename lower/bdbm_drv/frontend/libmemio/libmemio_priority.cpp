@@ -464,7 +464,9 @@ static bdbm_llm_req_t* __memio_alloc_llm_req (memio_t* mio,int type, void *req,b
 					__memio_inter_end_req(m_req);
 					write_hash_res-=write_hash->table_size;
 				}
-				_req->__hash_node=(void*)__hash_get_node(write_hash,write_hash_res);
+				else{
+					_req->__hash_node=(void*)__hash_get_node(write_hash,write_hash_res);
+				}
 
 				if(rapid){
 					pthread_mutex_unlock(&write_tagQMutex);

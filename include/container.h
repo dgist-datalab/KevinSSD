@@ -31,12 +31,14 @@ struct request {
 	FSTYPE type;
 	KEYT key;
 	//KEYT ppa;
+	KEYT seq;
 	value_set *value;
 	void *upper_req;
 	void *(*upper_end)(void *);
 	bool (*end_req)(struct request *const);
 	bool isAsync;
 	void *params;
+	void *__hash_node;
 	pthread_mutex_t async_mutex;
 
 	int mark;

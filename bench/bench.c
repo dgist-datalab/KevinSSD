@@ -367,6 +367,14 @@ void bench_cdf_print(uint64_t nor, uint8_t type, bench_data *_d){//number of req
 	}
 }
 #endif
+void bench_reap_nostart(request *const req){
+	pthread_mutex_lock(&bench_lock);
+	int idx=req->mark;
+	monitor *_m=&_master->m[idx];
+	_m->r_num++;
+	//static int cnt=0;
+	pthread_mutex_unlock(&bench_lock);
+}
 
 void bench_reap_data(request *const req,lower_info *li){
 	pthread_mutex_lock(&bench_lock);

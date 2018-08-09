@@ -2,7 +2,7 @@ export CC=g++
 
 TARGET_INF=interface
 TARGET_LOWER=posix_memory
-TARGET_ALGO=dftl_fm
+TARGET_ALGO=Lsmtree
 PWD=$(pwd)
 
 COMMONFLAGS=\
@@ -59,6 +59,7 @@ SRCS +=\
 	./interface/bb_checker.c\
 	./include/FS.c\
 	./include/dl_sync.c\
+	./include/data_struct/hash.c\
 	./bench/measurement.c\
 	./bench/bench.c\
 
@@ -106,6 +107,7 @@ libsimulator.a: $(TARGETOBJ)
 	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) clean && $(MAKE) && cd ../../
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
 	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
+	mv ./include/data_struct/*.o ./object/
 	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
 ifeq ($(TARGET_LOWER), bdbm_drv)
 	mv ./include/data_struct/*.o ./object/

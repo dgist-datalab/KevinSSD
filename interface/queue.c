@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "queue.h"
 #include "../include/FS.h"
+#include "../include/container.h"
 #include "../include/settings.h"
 
 void q_init(queue **q,int qsize){
@@ -36,6 +37,28 @@ bool q_enqueue(void* req, queue* q){
 	return true;
 }
 
+bool q_enqueue_front(void *req, queue*q){
+	pthread_mutex_lock(&q->q_lock);
+	if(q->size==q->m_size){	
+		pthread_mutex_unlock(&q->q_lock);
+		return false;
+	}
+	node *new_node=(node*)malloc(sizeof(node));
+	new_node->req=req;
+	new_node->next=NULL;
+	if(q->size==0){
+		q->head=q->tail=new_node;
+	}
+	else{
+		new_node->next=q->head;
+		q->head=new_node;
+	}
+//	printf("ef-key:%u\n",((request*)req)->key);
+	q->size++;
+	pthread_mutex_unlock(&q->q_lock);
+	return true;
+}
+
 void* q_dequeue(queue *q){
 	pthread_mutex_lock(&q->q_lock);
 	if(!q->head || q->size==0){
@@ -48,6 +71,7 @@ void* q_dequeue(queue *q){
 
 	void *res=target_node->req;
 	q->size--;
+//	printf("of-key:%u\n",((request*)res)->key);
 	free(target_node);
 	pthread_mutex_unlock(&q->q_lock);
 	return res;
