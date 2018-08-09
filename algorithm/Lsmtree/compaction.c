@@ -762,12 +762,14 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 	headerSize=level_range_unmatch(origin,start,&target_s,true);
 	for(int i=0; i<headerSize; i++){
 		level_insert(t,target_s[i]);
+		target_s[i]->iscompactioning=4;
 	}
 	free(target_s);
 #endif
 	
 
 	if(!data){
+
 		end=origin->end;
 		headerSize=level_range_find(origin,start,end,&target_s,true);
 		int target_round=headerSize/EPC+(headerSize%EPC?1:0);
@@ -827,6 +829,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 	}
 	else{	
 		KEYT endcheck=UINT_MAX;
+
 		for(int i=0; data[i]!=NULL; i++){
 			Entry *origin_ent=data[i];
 #ifdef MONKEY

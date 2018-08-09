@@ -578,7 +578,6 @@ int level_range_unmatch(level *input, KEYT start,Entry ***res,bool compactioning
 	while((value=level_get_next(level_iter))){
 		if(value->end<=start){
 			temp[rev++]=value;
-			if(compactioning) value->iscompactioning=true;
 		}
 	}
 	free(level_iter);

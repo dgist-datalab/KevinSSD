@@ -187,7 +187,7 @@ void gc_change_reserve(pm *target_p, segment *seg,uint8_t type){
 	target_p->reserve=seg;
 	if(type!=DATA){
 		target_p->rblock=NULL;
-		//printf("target->reserve : %u ~ %u\n",target_p->reserve->ppa,target_p->reserve->ppa+16383);
+	//	printf("target->reserve : %u ~ %u\n",target_p->reserve->ppa,target_p->reserve->ppa+16383);
 		target_p->n_log=target_p->blocks->head;
 	}
 	//llog_print(data_m.blocks);
@@ -520,7 +520,7 @@ void gc_check(uint8_t type, bool force){
 	//		static int header_cnt=0;
 			switch(type){
 				case HEADER:
-				//	printf("header gc:%d\n",header_cnt++);
+	//				printf("header gc:%d\n",header_cnt++);
 					target_p=&header_m;
 					header_gc_cnt++; 
 					break;
@@ -988,8 +988,8 @@ KEYT gc_victim_segment(uint8_t type,bool isforcegc){ //gc for segment
 }
 
 int gc_header(KEYT tbn){
-	static int gc_cnt=0;
-	gc_cnt++;
+	//static int gc_cnt=0;
+
 	//llog_print(header_m.blocks);
 	//printf("[%d]gc_header start -> block:%u\n",gc_cnt,tbn);
 	block *target=&bl[tbn];
@@ -1033,13 +1033,14 @@ int gc_header(KEYT tbn){
 						/*in this situation ftl should change c_level entry*/
 						break;
 					}
-					checkdone=true;
+					if(entries[k]->iscompactioning==4)break;
 					if(entries[k]->iscompactioning){
 						tables[i]=NULL;
 						target_ent[i]=NULL;
 						entries[k]->iscompactioning=3;
 						break;
 					}
+					checkdone=true;
 					tables[i]=(htable_t*)malloc(sizeof(htable_t));
 					target_ent[i]=entries[k];
 #ifdef CACHE
