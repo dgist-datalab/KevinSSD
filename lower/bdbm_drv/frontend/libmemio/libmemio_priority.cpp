@@ -74,6 +74,7 @@ pthread_mutex_t read_tagQMutex;
 pthread_mutex_t write_tagQMutex;
 pthread_mutex_t read_gc_tagQMutex;
 pthread_mutex_t write_gc_tagQMutex;
+pthread_mutex_t hash_lock;
 
 
 pthread_mutex_t do_io_sublock;
@@ -180,7 +181,11 @@ static void* __dm_get_next_req(){
 		
 		t_m_req=(memio_q_req*)res;
 		t_h_node=(__hash_node*)t_m_req->__hash_node;
+
+		pthread_mutex_lock(&hash_lock);
 		__hash_delete_by_idx(write_hash,t_h_node->t_idx);
+		pthread_mutex_unlock(&hash_lock);
+
 		bdbm_cond_broadcast(&write_gc_full_cond);
 		pthread_mutex_unlock(&write_gc_tagQMutex);
 		return res;
@@ -194,7 +199,11 @@ static void* __dm_get_next_req(){
 		
 		t_m_req=(memio_q_req*)res;
 		t_h_node=(__hash_node*)t_m_req->__hash_node;
+
+		pthread_mutex_lock(&hash_lock);
 		__hash_delete_by_idx(write_hash,t_h_node->t_idx);
+		pthread_mutex_unlock(&hash_lock);
+
 		pthread_mutex_unlock(&write_gc_tagQMutex);
 		return res;
 	}
@@ -206,7 +215,11 @@ static void* __dm_get_next_req(){
 		
 		t_m_req=(memio_q_req*)res;
 		t_h_node=(__hash_node*)t_m_req->__hash_node;
+
+		pthread_mutex_lock(&hash_lock);
 		__hash_delete_by_idx(write_hash,t_h_node->t_idx);
+		pthread_mutex_unlock(&hash_lock);
+
 		bdbm_cond_broadcast(&write_full_cond);
 		pthread_mutex_unlock(&write_tagQMutex);
 		return res;
@@ -220,7 +233,11 @@ static void* __dm_get_next_req(){
 		
 		t_m_req=(memio_q_req*)res;
 		t_h_node=(__hash_node*)t_m_req->__hash_node;
+
+		pthread_mutex_lock(&hash_lock);
 		__hash_delete_by_idx(write_hash,t_h_node->t_idx);
+		pthread_mutex_unlock(&hash_lock);
+
 		pthread_mutex_unlock(&write_tagQMutex);
 		return res;
 	}
@@ -292,6 +309,7 @@ static int __memio_init_llm_reqs (memio_t* mio)
 		bdbm_mutex_init (&write_tagQMutex);
 		bdbm_mutex_init (&read_gc_tagQMutex);
 		bdbm_mutex_init (&write_gc_tagQMutex);
+		bdbm_mutex_init (&hash_lock);
 
 		bdbm_mutex_init (&do_io_sublock);
 		
@@ -406,6 +424,7 @@ static bdbm_llm_req_t* __memio_alloc_llm_req (memio_t* mio,int type, void *req,b
 {
 	bdbm_llm_req_t* r = NULL;
 	memio_q_req *m_req=NULL,*_req=(memio_q_req*)req;
+	algo_req *t_data;
 	bdbm_mutex_lock(&mio->tagQMutex);
 
 	if(type==0 && rapid){
@@ -445,6 +464,17 @@ static bdbm_llm_req_t* __memio_alloc_llm_req (memio_t* mio,int type, void *req,b
 				}
 				break;
 			case 1:
+				pthread_mutex_lock(&hash_lock);
+				if((m_req=(memio_q_req*)__hash_find_data(write_hash, ((memio_q_req*)req)->lba))){
+					t_data=(algo_req*)m_req->req;
+					m_req->req=(void*)_req->req;
+					_req->req=(void*)t_data;
+					pthread_mutex_unlock(&hash_lock);
+					__memio_inter_end_req(_req);
+					return NULL;
+				}
+				pthread_mutex_lock(&hash_lock);
+
 				if(rapid){
 					pthread_mutex_lock(&write_tagQMutex);	
 					if(write_tagQ->size()==TAGMAX){
@@ -459,14 +489,20 @@ static bdbm_llm_req_t* __memio_alloc_llm_req (memio_t* mio,int type, void *req,b
 					}
 					write_gc_tagQ->push(req);
 				}
+				
+				pthrea_mutex_lock(&hash_lock);
+				write_hash_res=__hash_insert(write_hash,((memio_q_req*)req)->lba,req,NULL,(void**)&m_req);
+				_req->__hash_node=(void*)__hash_get_node(write_hash,write_hash_res);
+				pthrea_mutex_unlock(&hash_lock);
 
+/*
 				if((write_hash_res=__hash_insert(write_hash,((memio_q_req*)req)->lba,req,NULL,(void**)&m_req)) >= write_hash->table_size){
 					__memio_inter_end_req(m_req);
 					write_hash_res-=write_hash->table_size;
 				}
 				else{
 					_req->__hash_node=(void*)__hash_get_node(write_hash,write_hash_res);
-				}
+				}*/
 
 				if(rapid){
 					pthread_mutex_unlock(&write_tagQMutex);
