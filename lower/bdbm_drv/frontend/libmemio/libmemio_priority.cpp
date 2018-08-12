@@ -438,106 +438,106 @@ static bdbm_llm_req_t* __memio_alloc_llm_req (memio_t* mio,int type, void *req,b
 	}
 	if(mio->tagQ->empty()){
 		bdbm_mutex_unlock(&mio->tagQMutex);
-		if(_req!=NULL){
+		if(_req!=NULL)
 			_req->q_path_type=1;
-			//printf("empty!!\n");
-			/*insert read, write queue*/
-			int write_hash_res=0;
-			switch(type){
-				case 0:
-					//checking request from write
-					if(__memio_queue_check(req)){
-						//printf("read hit from write queue\n");
-						__memio_inter_end_req((memio_q_req*)req);
-						return NULL;
-					}
-					if(rapid){
-						pthread_mutex_lock(&read_tagQMutex);	
-						if(read_tagQ->size()==TAGMAX){
-							bdbm_cond_wait(&read_full_cond,&read_tagQMutex);
-						}
-						read_tagQ->push(req);
-						pthread_mutex_unlock(&read_tagQMutex);
-					}
-					else{
-						pthread_mutex_lock(&read_gc_tagQMutex);	
-						if(read_gc_tagQ->size()==TAGMAX){
-							//					printf("gc sleep!\n");
-							bdbm_cond_wait(&read_gc_full_cond,&read_gc_tagQMutex);
-						}
-						read_gc_tagQ->push(req);
-						pthread_mutex_unlock(&read_gc_tagQMutex);				
-					}
-					break;
-				case 1:
-					pthread_mutex_lock(&hash_lock);
-					if((m_req=(memio_q_req*)__hash_find_data(write_hash, ((memio_q_req*)req)->lba))){
-						t_data=(algo_req*)m_req->req;
-						m_req->req=(void*)_req->req;
-						_req->req=(void*)t_data;
-						pthread_mutex_unlock(&hash_lock);
-						__memio_inter_end_req(_req);
-						return NULL;
-					}
-					pthread_mutex_unlock(&hash_lock);
-
-					if(rapid){
-						pthread_mutex_lock(&write_tagQMutex);	
-						if(write_tagQ->size()==TAGMAX){
-							bdbm_cond_wait(&write_full_cond,&write_tagQMutex);
-						}
-						write_tagQ->push(req);
-					}
-					else{
-						pthread_mutex_lock(&write_gc_tagQMutex);
-						if(write_gc_tagQ->size()==TAGMAX){
-							bdbm_cond_wait(&write_gc_full_cond,&write_gc_tagQMutex);
-						}
-						write_gc_tagQ->push(req);
-					}
-
-					pthread_mutex_lock(&hash_lock);
-					write_hash_res=__hash_insert(write_hash,((memio_q_req*)req)->lba,req,NULL,(void**)&m_req);
-					_req->__hash_node=(void*)__hash_get_node(write_hash,write_hash_res);
-					pthread_mutex_unlock(&hash_lock);
-
-					/*
-					   if((write_hash_res=__hash_insert(write_hash,((memio_q_req*)req)->lba,req,NULL,(void**)&m_req)) >= write_hash->table_size){
-					   __memio_inter_end_req(m_req);
-					   write_hash_res-=write_hash->table_size;
-					   }
-					   else{
-					   _req->__hash_node=(void*)__hash_get_node(write_hash,write_hash_res);
-					   }*/
-
-					if(rapid){
-						pthread_mutex_unlock(&write_tagQMutex);
-					}else{
-						pthread_mutex_unlock(&write_gc_tagQMutex);
-					}
-					break;
-				default:
-					bdbm_mutex_lock(&mio->tagQMutex);
-					while(mio->tagQ->empty()){
-						bdbm_cond_wait(&mio->tagQCond,&mio->tagQMutex);
-					}
-					r = (bdbm_llm_req_t*)&mio->rr[mio->tagQ->front()];
-					mio->tagQ->pop();
-					bdbm_mutex_unlock(&mio->tagQMutex);
-					return r;
-			}
-
-			if(type==1){
-				if(_req->__hash_node==NULL){
-					printf("fuckyou!\n");
+		//printf("empty!!\n");
+		/*insert read, write queue*/
+		int write_hash_res=0;
+		switch(type){
+			case 0:
+				//checking request from write
+				if(__memio_queue_check(req)){
+					//printf("read hit from write queue\n");
+					__memio_inter_end_req((memio_q_req*)req);
+					return NULL;
 				}
-			}
+				if(rapid){
+					pthread_mutex_lock(&read_tagQMutex);	
+					if(read_tagQ->size()==TAGMAX){
+						bdbm_cond_wait(&read_full_cond,&read_tagQMutex);
+					}
+					read_tagQ->push(req);
+					pthread_mutex_unlock(&read_tagQMutex);
+				}
+				else{
+					pthread_mutex_lock(&read_gc_tagQMutex);	
+					if(read_gc_tagQ->size()==TAGMAX){
+						//					printf("gc sleep!\n");
+						bdbm_cond_wait(&read_gc_full_cond,&read_gc_tagQMutex);
+					}
+					read_gc_tagQ->push(req);
+					pthread_mutex_unlock(&read_gc_tagQMutex);				
+				}
+				break;
+			case 1:
+				pthread_mutex_lock(&hash_lock);
+				if((m_req=(memio_q_req*)__hash_find_data(write_hash, ((memio_q_req*)req)->lba))){
+					t_data=(algo_req*)m_req->req;
+					m_req->req=(void*)_req->req;
+					_req->req=(void*)t_data;
+					pthread_mutex_unlock(&hash_lock);
+					__memio_inter_end_req(_req);
+					return NULL;
+				}
+				pthread_mutex_unlock(&hash_lock);
 
-			if(type==0 || type==1){
+				if(rapid){
+					pthread_mutex_lock(&write_tagQMutex);	
+					if(write_tagQ->size()==TAGMAX){
+						bdbm_cond_wait(&write_full_cond,&write_tagQMutex);
+					}
+					write_tagQ->push(req);
+				}
+				else{
+					pthread_mutex_lock(&write_gc_tagQMutex);
+					if(write_gc_tagQ->size()==TAGMAX){
+						bdbm_cond_wait(&write_gc_full_cond,&write_gc_tagQMutex);
+					}
+					write_gc_tagQ->push(req);
+				}
+
+				pthread_mutex_lock(&hash_lock);
+				write_hash_res=__hash_insert(write_hash,((memio_q_req*)req)->lba,req,NULL,(void**)&m_req);
+				_req->__hash_node=(void*)__hash_get_node(write_hash,write_hash_res);
+				pthread_mutex_unlock(&hash_lock);
+
+				/*
+				   if((write_hash_res=__hash_insert(write_hash,((memio_q_req*)req)->lba,req,NULL,(void**)&m_req)) >= write_hash->table_size){
+				   __memio_inter_end_req(m_req);
+				   write_hash_res-=write_hash->table_size;
+				   }
+				   else{
+				   _req->__hash_node=(void*)__hash_get_node(write_hash,write_hash_res);
+				   }*/
+
+				if(rapid){
+					pthread_mutex_unlock(&write_tagQMutex);
+				}else{
+					pthread_mutex_unlock(&write_gc_tagQMutex);
+				}
+				break;
+			default:
+				bdbm_mutex_lock(&mio->tagQMutex);
+				while(mio->tagQ->empty()){
+					bdbm_cond_wait(&mio->tagQCond,&mio->tagQMutex);
+				}
+				r = (bdbm_llm_req_t*)&mio->rr[mio->tagQ->front()];
+				mio->tagQ->pop();
 				bdbm_mutex_unlock(&mio->tagQMutex);
-				return NULL;	
+				return r;
+		}
+
+		if(type==1){
+			if(_req->__hash_node==NULL){
+				printf("fuckyou!\n");
 			}
 		}
+
+		if(type==0 || type==1){
+			bdbm_mutex_unlock(&mio->tagQMutex);
+			return NULL;	
+		}
+
 	}
 	else{
 		r = (bdbm_llm_req_t*)&mio->rr[mio->tagQ->front()];
