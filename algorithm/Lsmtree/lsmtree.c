@@ -305,7 +305,7 @@ uint32_t lsm_set(request * const req){
 	MP(&req->latency_ftl);
 	bench_algo_end(req);
 	req->end_req(req); //end write
-	if(LSM.memtable->size<KEYNUM-1)
+	if(LSM.memtable->size==KEYNUM)
 		return 0;
 	else
 		return 1;

@@ -146,22 +146,22 @@ bool inf_assign_try(request *req){
 	for(int i=0; i<THREADSIZE; i++){
 		processor *t=&mp.processors[i];
 	//	if(t->req_q->size==0){
-#ifdef interface_pq
-			if(q_enqueue_front((void*)req,t->req_rq)){
+/*#ifdef interface_pq
+	if(q_enqueue_front((void*)req,t->req_rq)){
 				flag=true;
 				break;
 			}
-#else	
-			if(q_enqueue((void*)req,t->req_q)){
+#else	*/
+			while(q_enqueue((void*)req,t->retry_q)){
 				flag=true;
 				break;
 			}
 
-#endif
-			else{
+//#endif
+			/*else{
 				continue;
 			}
-	/*	}
+		}
 		else{
 			continue;
 		}*/
@@ -179,15 +179,17 @@ void *p_main(void *__input){
 		}
 	}
 	int write_stop=false;
+	__hash_node *t_h_node;
 	while(1){
 #ifdef LEAKCHECK
 		sleep(1);
 #endif
 		if(mp.stopflag)
 			break;
+		if((_inf_req=q_dequeue(_this->retry_q))){
+		}
 #ifdef interface_pq
-		__hash_node *t_h_node;
-		if(!(_inf_req=q_dequeue(_this->req_rq))){
+		else if(!(_inf_req=q_dequeue(_this->req_rq))){
 			bool req_flag=false;
 			pthread_mutex_lock(&wq_lock);
 			if(_this->req_rq->size==0){
@@ -195,9 +197,9 @@ void *p_main(void *__input){
 			}
 #endif
 #ifndef interface_pq
-			if(!(_inf_req=q_dequeue(_this->req_q))){
+		else if(!(_inf_req=q_dequeue(_this->req_q))){
 #else
-			if(!(_inf_req=q_dequeue(_this->req_q)) && !write_stop){
+			if(_this->retry_q->size || write_stop || !(_inf_req=q_dequeue(_this->req_q)) && !write_stop){
 				pthread_mutex_unlock(&wq_lock);
 #endif
 				continue;
@@ -217,17 +219,13 @@ void *p_main(void *__input){
 			if(!req_flag)continue;
 		}
 #endif
-		
+
 
 		inf_req=(request*)_inf_req;
 		inter_cnt++;
 		//printf("inf:%u\n",inf_req->seq);
 #ifdef CDF
-		if(!inf_req->isstart){
-			inf_req->isstart=true;
-			measure_init(&inf_req->latency_checker);
-			measure_start(&inf_req->latency_checker);
-		}
+		inf_req->isstart=true;
 #endif
 		switch(inf_req->type){
 			case FS_GET_T:
@@ -261,6 +259,7 @@ void inf_init(){
 #ifdef interface_pq
 		q_init(&t->req_q,QSIZE/2);
 		q_init(&t->req_rq,QSIZE/2);
+		q_init(&t->retry_q,QSIZE/2);
 		app_hash=__hash_init(QSIZE/2);
 #else
 		q_init(&t->req_q,QSIZE);
@@ -331,9 +330,7 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value)
 	req->lower.isused=false;
 	req->mark=mark;
 #endif
-#ifdef CDF
-	req->isstart=false;
-#endif
+
 	switch(type){
 		case FS_GET_T:
 			break;
@@ -342,6 +339,11 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value)
 		case FS_DELETE_T:
 			break;
 	}
+#ifdef CDF
+	req->isstart=false;
+	measure_init(&req->latency_checker);
+	measure_start(&req->latency_checker);
+#endif
 	assign_req(req);
 	return true;
 }

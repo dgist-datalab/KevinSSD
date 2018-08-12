@@ -14,6 +14,7 @@ typedef struct processor{
 	pthread_mutex_t flag;
 	master_processor *master;
 	queue *req_q;
+	queue *retry_q;
 #ifdef interface_pq
 	queue *req_rq;
 #endif
