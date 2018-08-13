@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=posix_memory
+TARGET_LOWER=bdbm_drv
 TARGET_ALGO=Lsmtree
 PWD=$(pwd)
 
@@ -109,9 +109,6 @@ libsimulator.a: $(TARGETOBJ)
 	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
 	mv ./include/data_struct/*.o ./object/
 	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
-ifeq ($(TARGET_LOWER), bdbm_drv)
-	mv ./include/data_struct/*.o ./object/
-endif
 	$(AR) r $(@) ./object/*
 
 libsimulator_d.a:$(MEMORYOBJ)
@@ -120,9 +117,6 @@ libsimulator_d.a:$(MEMORYOBJ)
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) DEBUG && cd ../../ 
 	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
 	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
-ifeq ($(TARGET_LOWER), bdbm_drv)
-	mv ./include/data_struct/*.o ./object/
-endif
 	$(AR) r $(@) ./object/*
 
 mem_libsimulator.a:$(MEMORYOBJ)
@@ -131,9 +125,6 @@ mem_libsimulator.a:$(MEMORYOBJ)
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
 	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
 	mv ./interface/*.o ./object/ & mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
-ifeq ($(TARGET_LOWER), bdbm_drv)
-	mv ./include/data_struct/*.o ./object/
-endif
 	$(AR) r $(@) ./object/*
 
 %_mem.o: %.c
