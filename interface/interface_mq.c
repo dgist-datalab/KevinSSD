@@ -39,10 +39,7 @@ KEYT retry_hit;
 //pthread_mutex_t inf_lock;
 void *p_main(void*);
 int req_cnt_test=0;
-int write_stop;
-static int flying_req_cnt;
-pthread_mutex_t flying_req_lock;
-pthread_cond_t flying_req_cond;
+//int write_stop;
 #ifdef interface_pq
 pthread_mutex_t wq_lock;
 static __hash * app_hash;
@@ -57,6 +54,7 @@ static bool inf_queue_check(request *req){
 		return false;
 }
 #endif
+int assign_cnt;
 static void assign_req(request* req){
 	bool flag=false;
 	if(!req->isAsync){
@@ -68,12 +66,11 @@ static void assign_req(request* req){
 	void *m_req=NULL;
 #endif
 	while(!flag){
-		for(int i=0; i<THREADSIZE; i++){
-			processor *t=&mp.processors[i];
 #ifdef interface_pq
 			if(req->type==FS_SET_T){
+				processor *t=&mp.processors[0];
 				pthread_mutex_lock(&wq_lock);
-				if(t->req_q->size<QSIZE){
+				if(t->req_q->size<QSIZE/2){
 					if((m_req=__hash_find_data(app_hash,req->key))){
 						request *t_req=(request*)m_req;
 						value_set *t_value=t_req->value;
@@ -113,6 +110,7 @@ static void assign_req(request* req){
 				break;
 			}
 			else{
+				processor *t=&mp.processors[1];
 				if(inf_queue_check(req)){
 					if(req->isstart==false){
 						req->type_ftl=10;
@@ -131,7 +129,6 @@ static void assign_req(request* req){
 				}
 			}
 #endif
-		}
 #ifdef LEAKCHECK
 		sleep(1);
 #endif
@@ -184,44 +181,22 @@ void *p_main(void *__input){
 	}
 	__hash_node *t_h_node;
 	while(1){
-#ifdef LEAKCHECK
-		sleep(1);
-#endif
 		if(mp.stopflag)
 			break;
-		if((_inf_req=q_dequeue(_this->retry_q))){
+		pthread_mutex_lock(&wq_lock);
+		if((_inf_req=q_dequeue(_this->req_q))){
+			inf_req=(request*)_inf_req;
+			t_h_node=(__hash_node*)inf_req->__hash_node;
+			__hash_delete_by_idx(app_hash,t_h_node->t_idx);
+			inter_cnt++;
 		}
-#ifdef interface_pq
-		else if(!(_inf_req=q_dequeue(_this->req_rq))){
-			bool req_flag=false;
-			pthread_mutex_lock(&wq_lock);
-#endif
-#ifndef interface_pq
-		else if(!(_inf_req=q_dequeue(_this->req_q))){
-#else
-			if(_this->retry_q->size || write_stop || !(_inf_req=q_dequeue(_this->req_q))){
-				pthread_mutex_unlock(&wq_lock);
-				if(_this->req_rq->size==0 && _this->retry_q->size==0) write_stop=false;
-#endif
-				continue;
-			}
-#ifdef interface_pq
-			else{
-				req_flag=true;
-			}
-			if(req_flag){
-				inf_req=(request*)_inf_req;
-				if(inf_req->type==FS_SET_T){
-					t_h_node=(__hash_node*)inf_req->__hash_node;
-					__hash_delete_by_idx(app_hash,t_h_node->t_idx);
-				}
-			}
+		else{
 			pthread_mutex_unlock(&wq_lock);
-			if(!req_flag)continue;
+			continue;
 		}
-#endif
-		inf_req=(request*)_inf_req;
-		inter_cnt++;
+		pthread_mutex_unlock(&wq_lock);
+
+		//inf_req=(request*)_inf_req;
 		//printf("inf:%u\n",inf_req->seq);
 #ifdef CDF
 		inf_req->isstart=true;
@@ -231,7 +206,7 @@ void *p_main(void *__input){
 				mp.algo->get(inf_req);
 				break;
 			case FS_SET_T:
-				write_stop=mp.algo->set(inf_req);
+				mp.algo->set(inf_req);
 				break;
 			case FS_DELETE_T:
 				mp.algo->remove(inf_req);
@@ -247,6 +222,55 @@ void *p_main(void *__input){
 	return NULL;
 }
 
+void *r_main(void *__input){
+	void *_inf_req;
+	request *inf_req;
+	processor *_this=NULL;
+	for(int i=0; i<THREADSIZE; i++){
+		if(pthread_self()==mp.processors[i].t_id){
+			_this=&mp.processors[i];
+		}
+	}
+	while(1){
+		if(mp.stopflag)
+			break;
+	
+		if((_inf_req=q_dequeue(_this->retry_q))){
+			
+		}
+		else if((_inf_req=q_dequeue(_this->req_rq))){
+			
+		}
+		else{
+			continue;
+		}
+
+		inf_req=(request*)_inf_req;
+		inter_cnt++;
+		//printf("inf:%u\n",inf_req->seq);
+#ifdef CDF
+		inf_req->isstart=true;
+#endif
+		switch(inf_req->type){
+			case FS_GET_T:
+				mp.algo->get(inf_req);
+				break;
+			case FS_SET_T:
+				mp.algo->set(inf_req);
+				break;
+			case FS_DELETE_T:
+				mp.algo->remove(inf_req);
+				break;
+			default:
+				printf("wtf??\n");
+				break;
+		}
+
+		//inf_req->end_req(inf_req);
+	}
+	printf("bye bye!\n");
+	return NULL;
+}
 void inf_init(){
 	mp.processors=(processor*)malloc(sizeof(processor)*THREADSIZE);
 	for(int i=0; i<THREADSIZE; i++){
@@ -256,20 +280,18 @@ void inf_init(){
 		t->master=&mp;
 
 #ifdef interface_pq
-		q_init(&t->req_q,QSIZE);
-		q_init(&t->req_rq,QSIZE);
-		q_init(&t->retry_q,QSIZE);
-		app_hash=__hash_init(QSIZE);
+		q_init(&t->req_q,QSIZE/2);
+		q_init(&t->req_rq,QSIZE/2);
+		q_init(&t->retry_q,QSIZE/2);
+		app_hash=__hash_init(QSIZE/2);
 #else
 		q_init(&t->req_q,QSIZE);
 #endif
-		
-		pthread_create(&t->t_id,NULL,&p_main,NULL);
+		if(i==0)
+			pthread_create(&t->t_id,NULL,&p_main,NULL);
+		else
+			pthread_create(&t->t_id,NULL,&r_main,NULL);
 	}
-
-	pthread_mutex_init(&flying_req_lock,NULL);
-	pthread_cond_init(&flying_req_cond,NULL);
-
 	pthread_mutex_init(&mp.flag,NULL);
 #ifdef interface_pq
 	pthread_mutex_init(&wq_lock,NULL);
@@ -333,7 +355,6 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value)
 	req->lower.isused=false;
 	req->mark=mark;
 #endif
-	while(write_stop){}
 	switch(type){
 		case FS_GET_T:
 			break;
@@ -342,14 +363,6 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value)
 		case FS_DELETE_T:
 			break;
 	}
-
-	pthread_mutex_lock(&flying_req_lock);
-	while(flying_req_cnt==QSIZE){
-		pthread_cond_wait(&flying_req_cond,&flying_req_lock);
-	}
-	flying_req_cnt++;
-	pthread_mutex_unlock(&flying_req_lock);
-
 #ifdef CDF
 	req->isstart=false;
 	measure_init(&req->latency_checker);
@@ -391,7 +404,6 @@ bool inf_end_req( request * const req){
 	}
 #endif
 
-
 #ifdef DEBUG
 	printf("inf_end_req!\n");
 #endif
@@ -417,20 +429,6 @@ bool inf_end_req( request * const req){
 	else{
 		free(req);
 	}
-
-	pthread_mutex_lock(&flying_req_lock);
-	if(flying_req_cnt==QSIZE){
-		flying_req_cnt--;
-		pthread_cond_broadcast(&flying_req_cond);
-	}
-	else{
-		flying_req_cnt--;
-	}
-	if(flying_req_cnt<0){
-		printf("here!\n");
-	}
-	pthread_mutex_unlock(&flying_req_lock);
-
 	return true;
 }
 void inf_free(){

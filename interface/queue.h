@@ -5,6 +5,7 @@
 #include <pthread.h>
 typedef struct node{
 	void *req;
+	struct node *prev;
 	struct node *next;
 }node;
 typedef struct queue{
@@ -19,5 +20,6 @@ void q_init(queue**,int);
 bool q_enqueue(void *,queue*);
 bool q_enqueue_front(void *,queue*);
 void *q_dequeue(queue*);
+void q_desize(queue*);
 void q_free(queue*);
 #endif

@@ -77,6 +77,7 @@ void* q_dequeue(queue *q){
 	return res;
 }
 
+
 void q_free(queue* q){
 	while(q_dequeue(q)){}
 	pthread_mutex_destroy(&q->q_lock);

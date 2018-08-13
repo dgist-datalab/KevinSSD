@@ -17,5 +17,4 @@ void inf_free();
 void inf_print_debug();
 value_set *inf_get_valueset(PTR,int,uint32_t length);//NULL is uninitial, non-NULL is memcpy
 void inf_free_valueset(value_set*, int);
-
 #endif

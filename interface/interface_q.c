@@ -40,9 +40,6 @@ KEYT retry_hit;
 void *p_main(void*);
 int req_cnt_test=0;
 int write_stop;
-static int flying_req_cnt;
-pthread_mutex_t flying_req_lock;
-pthread_cond_t flying_req_cond;
 #ifdef interface_pq
 pthread_mutex_t wq_lock;
 static __hash * app_hash;
@@ -73,7 +70,7 @@ static void assign_req(request* req){
 #ifdef interface_pq
 			if(req->type==FS_SET_T){
 				pthread_mutex_lock(&wq_lock);
-				if(t->req_q->size<QSIZE){
+				if(t->req_q->size<QSIZE/2){
 					if((m_req=__hash_find_data(app_hash,req->key))){
 						request *t_req=(request*)m_req;
 						value_set *t_value=t_req->value;
@@ -144,7 +141,6 @@ static void assign_req(request* req){
 		free(req);
 	}
 }
-
 bool inf_assign_try(request *req){
 	bool flag=false;
 	for(int i=0; i<THREADSIZE; i++){
@@ -256,20 +252,16 @@ void inf_init(){
 		t->master=&mp;
 
 #ifdef interface_pq
-		q_init(&t->req_q,QSIZE);
-		q_init(&t->req_rq,QSIZE);
-		q_init(&t->retry_q,QSIZE);
-		app_hash=__hash_init(QSIZE);
+		q_init(&t->req_q,QSIZE/2);
+		q_init(&t->req_rq,QSIZE/2);
+		q_init(&t->retry_q,QSIZE/2);
+		app_hash=__hash_init(QSIZE/2);
 #else
 		q_init(&t->req_q,QSIZE);
 #endif
 		
 		pthread_create(&t->t_id,NULL,&p_main,NULL);
 	}
-
-	pthread_mutex_init(&flying_req_lock,NULL);
-	pthread_cond_init(&flying_req_cond,NULL);
-
 	pthread_mutex_init(&mp.flag,NULL);
 #ifdef interface_pq
 	pthread_mutex_init(&wq_lock,NULL);
@@ -342,14 +334,6 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value)
 		case FS_DELETE_T:
 			break;
 	}
-
-	pthread_mutex_lock(&flying_req_lock);
-	while(flying_req_cnt==QSIZE){
-		pthread_cond_wait(&flying_req_cond,&flying_req_lock);
-	}
-	flying_req_cnt++;
-	pthread_mutex_unlock(&flying_req_lock);
-
 #ifdef CDF
 	req->isstart=false;
 	measure_init(&req->latency_checker);
@@ -391,7 +375,6 @@ bool inf_end_req( request * const req){
 	}
 #endif
 
-
 #ifdef DEBUG
 	printf("inf_end_req!\n");
 #endif
@@ -417,20 +400,6 @@ bool inf_end_req( request * const req){
 	else{
 		free(req);
 	}
-
-	pthread_mutex_lock(&flying_req_lock);
-	if(flying_req_cnt==QSIZE){
-		flying_req_cnt--;
-		pthread_cond_broadcast(&flying_req_cond);
-	}
-	else{
-		flying_req_cnt--;
-	}
-	if(flying_req_cnt<0){
-		printf("here!\n");
-	}
-	pthread_mutex_unlock(&flying_req_lock);
-
 	return true;
 }
 void inf_free(){
@@ -466,8 +435,9 @@ void inf_print_debug(){
 value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
 	value_set *res=(value_set*)malloc(sizeof(value_set));
 	//check dma alloc type
-	if(length==PAGESIZE)
+	if(length==PAGESIZE){
 		res->dmatag=F_malloc((void**)&(res->value),PAGESIZE,type);
+	}
 	else{
 		res->dmatag=-1;
 		res->value=(PTR)malloc(length);

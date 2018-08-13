@@ -9,7 +9,7 @@
 #define LOWERTYPE 10
 
 #ifdef CDF
-#define TIMESLOT 100 //micro sec
+#define TIMESLOT 10 //micro sec
 #endif
 
 typedef struct{

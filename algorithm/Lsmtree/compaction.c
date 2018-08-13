@@ -153,8 +153,10 @@ void compaction_assign(compR* req){
 	}
 }
 
+bool isflushing;
 htable *compaction_data_write(skiplist *mem){
 	//for data
+	isflushing=true;
 	value_set **data_sets=skiplist_make_valueset(mem,LSM.disk[0]);
 	for(int i=0; data_sets[i]!=NULL; i++){	
 		algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
@@ -202,6 +204,7 @@ htable *compaction_data_write(skiplist *mem){
 	}
 	free(iter);
 	res->bitset=bitset;
+	isflushing=false;
 	return res;
 }
 
