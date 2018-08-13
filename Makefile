@@ -55,7 +55,7 @@ CFLAGS +=\
 
 SRCS +=\
 	./interface/queue.c\
-	./interface/interface.c\
+	./interface/interface_mq.c\
 	./interface/bb_checker.c\
 	./include/FS.c\
 	./include/dl_sync.c\

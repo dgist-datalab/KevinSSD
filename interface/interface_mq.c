@@ -40,6 +40,9 @@ KEYT retry_hit;
 void *p_main(void*);
 int req_cnt_test=0;
 //int write_stop;
+static int flying_req_cnt;
+pthread_mutex_t flying_req_lock;
+pthread_cond_t flying_req_cond;
 #ifdef interface_pq
 pthread_mutex_t wq_lock;
 static __hash * app_hash;
@@ -292,6 +295,10 @@ void inf_init(){
 		else
 			pthread_create(&t->t_id,NULL,&r_main,NULL);
 	}
+
+	pthread_mutex_init(&flying_req_lock,NULL);
+	pthread_cond_init(&flying_req_cond,NULL);
+
 	pthread_mutex_init(&mp.flag,NULL);
 #ifdef interface_pq
 	pthread_mutex_init(&wq_lock,NULL);
@@ -363,6 +370,14 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value)
 		case FS_DELETE_T:
 			break;
 	}
+
+	pthread_mutex_lock(&flying_req_lock);
+	while(flying_req_cnt==QSIZE){
+		pthread_cond_wait(&flying_req_cond,&flying_req_lock);
+	}
+	flying_req_cnt++;
+	pthread_mutex_unlock(&flying_req_lock);
+
 #ifdef CDF
 	req->isstart=false;
 	measure_init(&req->latency_checker);
@@ -429,6 +444,20 @@ bool inf_end_req( request * const req){
 	else{
 		free(req);
 	}
+
+	pthread_mutex_lock(&flying_req_lock);
+	if(flying_req_cnt==QSIZE){
+		flying_req_cnt--;
+		pthread_cond_broadcast(&flying_req_cond);
+	}
+	else{
+		flying_req_cnt--;
+	}
+	if(flying_req_cnt<0){
+		printf("here!\n");
+	}
+	pthread_mutex_unlock(&flying_req_lock);
+
 	return true;
 }
 void inf_free(){

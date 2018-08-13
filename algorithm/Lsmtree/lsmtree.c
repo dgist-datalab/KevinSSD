@@ -327,7 +327,7 @@ uint32_t lsm_get(request *const req){
 	while(1){
 		if((re_q=q_dequeue(LSM.re_q))){
 			request *tmp_req=(request*)re_q;
-//			bench_algo_start(tmp_req);
+			bench_algo_start(tmp_req);
 			/*
 			if(req->params==NULL){
 				MP(&req->latency_ftl);

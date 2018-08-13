@@ -152,7 +152,7 @@ void compaction_assign(compR* req){
 		if(flag) break;
 	}
 }
-
+extern master_processor mp;
 bool isflushing;
 htable *compaction_data_write(skiplist *mem){
 	//for data
@@ -167,6 +167,7 @@ htable *compaction_data_write(skiplist *mem){
 		lsm_req->params=(void*)params;
 		lsm_req->end_req=lsm_end_req;
 		lsm_req->rapid=true;
+		////while(mp.processors[0].retry_q->size){}
 #ifdef DVALUE
 		LSM.li->push_data(data_sets[i]->ppa/(PAGESIZE/PIECE),PAGESIZE,params->value,ASYNC,lsm_req);
 #else
@@ -345,10 +346,10 @@ void compaction_check(){
 		if(LSM.temptable==NULL){
 			LSM.temptable=LSM.memtable;
 			LSM.memtable=skiplist_init();
-			pthread_mutex_lock(&LSM.templock);
+			//pthread_mutex_lock(&LSM.templock);
 		}
 		else{
-			pthread_mutex_lock(&LSM.templock);
+			//pthread_mutex_lock(&LSM.templock);
 			LSM.temptable=LSM.memtable;
 			LSM.memtable=skiplist_init();
 		}
@@ -520,7 +521,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 	if(from==-1){
 		body=LSM.temptable;
 		LSM.temptable=NULL;
-		pthread_mutex_unlock(&LSM.templock); // unlock
+////		pthread_mutex_unlock(&LSM.templock); // unlock
 		//llog_print(LSM.disk[0]->h);
 		if(!level_check_overlap(target_origin,body->start,body->end)){
 			compaction_heap_setting(target,target_origin);
