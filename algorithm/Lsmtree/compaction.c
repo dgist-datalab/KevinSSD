@@ -515,8 +515,9 @@ uint32_t leveling(int from, int to, Entry *entry){
 	level *src=NULL;
 	if(from==-1){
 		body=LSM.temptable;
+		pthread_mutex_lock(&LSM.templock);
 		LSM.temptable=NULL;
-	//	pthread_mutex_unlock(&LSM.templock); // unlock
+		pthread_mutex_unlock(&LSM.templock);
 		//llog_print(LSM.disk[0]->h);
 		if(!level_check_overlap(target_origin,body->start,body->end)){
 			compaction_heap_setting(target,target_origin);

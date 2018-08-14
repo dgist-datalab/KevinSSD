@@ -1038,6 +1038,7 @@ int gc_header(KEYT tbn){
 						tables[i]=NULL;
 						target_ent[i]=NULL;
 						entries[k]->iscompactioning=3;
+						checkdone=true;
 						break;
 					}
 					checkdone=true;
