@@ -186,10 +186,16 @@ void *p_main(void *__input){
 		}
 	}
 	__hash_node *t_h_node;
+	//int control_cnt=0;
+	void *flush_req=NULL;
 	while(1){
 #ifdef LEAKCHECK
 		sleep(1);
 #endif
+		if(write_stop && _this->req_q->size==QDEPTH){
+			write_stop=false;
+		}
+
 		if(mp.stopflag)
 			break;
 		if((_inf_req=q_dequeue(_this->retry_q))){
@@ -204,7 +210,6 @@ void *p_main(void *__input){
 #else
 			if(_this->retry_q->size || write_stop || !(_inf_req=q_dequeue(_this->req_q))){
 				pthread_mutex_unlock(&wq_lock);
-				if(_this->req_rq->size==0 && _this->retry_q->size==0) write_stop=false;
 #endif
 				continue;
 			}
@@ -336,7 +341,6 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value)
 	req->lower.isused=false;
 	req->mark=mark;
 #endif
-	while(write_stop){}
 	switch(type){
 		case FS_GET_T:
 			break;
@@ -347,7 +351,7 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value)
 	}
 
 	pthread_mutex_lock(&flying_req_lock);
-	while(flying_req_cnt==QSIZE){
+	while(flying_req_cnt==QDEPTH){
 		pthread_cond_wait(&flying_req_cond,&flying_req_lock);
 	}
 	flying_req_cnt++;
@@ -428,7 +432,7 @@ bool inf_end_req( request * const req){
 		pthread_cond_broadcast(&flying_req_cond);
 	}*/
 	
-	if(flying_req_cnt==QSIZE){
+	if(flying_req_cnt==QDEPTH){
 		flying_req_cnt--;
 		pthread_cond_broadcast(&flying_req_cond);
 	}

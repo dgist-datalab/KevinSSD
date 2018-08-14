@@ -73,7 +73,7 @@ static void assign_req(request* req){
 			if(req->type==FS_SET_T){
 				processor *t=&mp.processors[0];
 				pthread_mutex_lock(&wq_lock);
-				if(t->req_q->size<QSIZE/2){
+				if(t->req_q->size<QSIZE){
 					if((m_req=__hash_find_data(app_hash,req->key))){
 						request *t_req=(request*)m_req;
 						value_set *t_value=t_req->value;
@@ -283,10 +283,10 @@ void inf_init(){
 		t->master=&mp;
 
 #ifdef interface_pq
-		q_init(&t->req_q,QSIZE/2);
-		q_init(&t->req_rq,QSIZE/2);
-		q_init(&t->retry_q,QSIZE/2);
-		app_hash=__hash_init(QSIZE/2);
+		q_init(&t->req_q,QSIZE);
+		q_init(&t->req_rq,QSIZE);
+		q_init(&t->retry_q,QSIZE);
+		app_hash=__hash_init(QSIZE);
 #else
 		q_init(&t->req_q,QSIZE);
 #endif
@@ -372,7 +372,7 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value)
 	}
 
 	pthread_mutex_lock(&flying_req_lock);
-	while(flying_req_cnt==QSIZE){
+	while(flying_req_cnt==QDEPTH){
 		pthread_cond_wait(&flying_req_cond,&flying_req_lock);
 	}
 	flying_req_cnt++;
@@ -446,7 +446,7 @@ bool inf_end_req( request * const req){
 	}
 
 	pthread_mutex_lock(&flying_req_lock);
-	if(flying_req_cnt==QSIZE){
+	if(flying_req_cnt==QDEPTH){
 		flying_req_cnt--;
 		pthread_cond_broadcast(&flying_req_cond);
 	}
