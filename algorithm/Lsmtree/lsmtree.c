@@ -305,6 +305,7 @@ uint32_t lsm_set(request * const req){
 	MP(&req->latency_ftl);
 	bench_algo_end(req);
 	req->end_req(req); //end write
+
 	if(LSM.memtable->size==KEYNUM)
 		return 1;
 	else
@@ -320,7 +321,6 @@ uint32_t lsm_get(request *const req){
 	if(!level_show){
 		level_show=true;
 		measure_init(&lsm_mt);
-		//level_all_print();
 	}
 
 	//printf("seq: %d, key:%u\n",nor++,req->key);

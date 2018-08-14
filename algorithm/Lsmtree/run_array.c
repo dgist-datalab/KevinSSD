@@ -383,7 +383,7 @@ void level_all_print(){
 	for(int i=0; i<LEVELN; i++){
 		if(LSM.disk[i]->n_num==0)
 			continue;
-		if(LSM.disk[i+1]->n_num==0) continue;
+	//	if(LSM.disk[i+1]->n_num==0) continue;
 		level_print(LSM.disk[i]);
 		printf("------\n");
 	}

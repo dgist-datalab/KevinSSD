@@ -422,15 +422,18 @@ bool inf_end_req( request * const req){
 	}
 
 	pthread_mutex_lock(&flying_req_lock);
+	/*
+	flying_req_cnt--;
+	if(flying_req_cnt==0){
+		pthread_cond_broadcast(&flying_req_cond);
+	}*/
+	
 	if(flying_req_cnt==QSIZE){
 		flying_req_cnt--;
 		pthread_cond_broadcast(&flying_req_cond);
 	}
 	else{
 		flying_req_cnt--;
-	}
-	if(flying_req_cnt<0){
-		printf("here!\n");
 	}
 	pthread_mutex_unlock(&flying_req_lock);
 

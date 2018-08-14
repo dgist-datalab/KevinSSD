@@ -225,9 +225,6 @@ KEYT compaction_htable_write(htable *input){
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
 	params->ppa=ppa;
-	if(ppa==49661 && input->sets[0].lpa==10485759){
-		printf("here! in comp\n");
-	}
 	LSM.li->push_data(ppa,PAGESIZE,params->value,ASYNC,areq);
 
 	return ppa;
@@ -454,9 +451,7 @@ void compaction_subprocessing(skiplist *target,level *t, htable** datas,bool fin
 		limit=table->sets[0].lpa;
 		for(int j=0; j<KEYNUM; j++){
 			if(table->sets[j].lpa==UINT_MAX) break;
-			if(table->sets[j].lpa==5242797){
-				printf("[%d]this is sub to %d\n",cnt++,t->level_idx);
-			}
+
 			if(existIgnore){
 				check_node=skiplist_insert_existIgnore(target,table->sets[j].lpa,table->sets[j].ppa,lsm_kv_validcheck(table->bitset,j));
 			}
@@ -521,7 +516,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 	if(from==-1){
 		body=LSM.temptable;
 		LSM.temptable=NULL;
-////		pthread_mutex_unlock(&LSM.templock); // unlock
+	//	pthread_mutex_unlock(&LSM.templock); // unlock
 		//llog_print(LSM.disk[0]->h);
 		if(!level_check_overlap(target_origin,body->start,body->end)){
 			compaction_heap_setting(target,target_origin);

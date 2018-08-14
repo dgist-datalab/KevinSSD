@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=bdbm_drv
+TARGET_LOWER=posix_memory
 TARGET_ALGO=Lsmtree
 PWD=$(pwd)
 
@@ -55,7 +55,7 @@ CFLAGS +=\
 
 SRCS +=\
 	./interface/queue.c\
-	./interface/interface_mq.c\
+	./interface/interface.c\
 	./interface/bb_checker.c\
 	./include/FS.c\
 	./include/dl_sync.c\
