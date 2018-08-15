@@ -302,7 +302,6 @@ void *compaction_main(void *input){
 			pthread_mutex_lock(&LSM.entrylock);
 			LSM.tempent=entry;
 			pthread_mutex_unlock(&LSM.entrylock);
-			pthread_mutex_unlock(&compaction_flush_wait);
 			if(LSM.disk[0]->isTiering){
 				tiering(-1,0,entry);
 			}
@@ -328,6 +327,7 @@ void *compaction_main(void *input){
 				break;
 			}
 		}
+		pthread_mutex_unlock(&compaction_flush_wait);
 		free(req);
 	}
 	

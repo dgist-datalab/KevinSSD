@@ -386,6 +386,10 @@ void bench_reap_data(request *const req,lower_info *li){
 	monitor *_m=&_master->m[idx];
 
 	bench_data *_data=&_master->datas[idx];
+
+	if(req->type==FS_GET_T){
+		bench_update_ftltime(_data, req);
+	}
 #ifdef CDF
 	measure_calc(&req->latency_checker);
 	int slot_num=req->latency_checker.micro_time/TIMESLOT;
@@ -406,9 +410,7 @@ void bench_reap_data(request *const req,lower_info *li){
 		}
 	}
 #endif
-	if(req->type==FS_GET_T){
-		bench_update_ftltime(_data, req);
-	}
+
 
 	if(_m->m_num==_m->r_num+1){
 		_data->bench=_m->benchTime;

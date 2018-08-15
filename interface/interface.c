@@ -156,7 +156,7 @@ bool inf_assign_try(request *req){
 				break;
 			}
 #else	*/
-			while(q_enqueue((void*)req,t->retry_q)){
+			while(q_enqueue_front((void*)req,t->retry_q)){
 				if(isflushing){
 					printf("here!\n");
 				}

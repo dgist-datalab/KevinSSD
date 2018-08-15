@@ -57,6 +57,8 @@ pthread_mutex_t readDmaQ_mutx = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t writeDmaQ_cond = PTHREAD_COND_INITIALIZER;
 pthread_cond_t readDmaQ_cond = PTHREAD_COND_INITIALIZER;
 
+pthread_mutex_t bus_lock=PTHREAD_MUTEX_INITIALIZER;
+
 
 extern pthread_mutex_t endR;
 struct timespec reqtime;
@@ -127,6 +129,7 @@ bdbm_sema_t ftl_table_lock;
 /***/
 
 uint32_t bus_history[128];
+uint32_t bus_rqtype[128];
 
 /* interface for dm */
 bdbm_dm_inf_t _bdbm_dm_inf = {
@@ -472,7 +475,7 @@ void dm_nohost_close (bdbm_drv_info_t* bdi)
 	pthread_mutex_destroy(&req_mutx);
 	//
 }
-
+int readlockbywrite;
 uint32_t dm_nohost_make_req (
 		bdbm_drv_info_t* bdi, 
 		bdbm_llm_req_t* r) 
@@ -506,10 +509,17 @@ uint32_t dm_nohost_make_req (
 	uint32_t bus, chip, block, page;
 	/*bus check*/
 	bus  = r->logaddr.lpa[0] & 0x7;
+
+	pthread_mutex_lock(&bus_lock);
 	if(bus_history[bus]){
 		r->path_type+=2;
+		if(r->req_type==REQTYPE_READ &&bus_rqtype[bus]==REQTYPE_WRITE){
+			r->path_type+=4;
+		}
 	}
 	bus_history[bus]=r->logaddr.lpa[0];
+	bus_rqtype[bus]=r->req_type;
+	pthread_mutex_unlock(&bus_lock);
 
 	switch (r->req_type) {
 		case REQTYPE_WRITE:
@@ -593,9 +603,11 @@ void dm_nohost_end_req (
 {
 	bdbm_bug_on (r == NULL);
 	
+	pthread_mutex_lock(&bus_lock);
 	if(bus_history[r->logaddr.lpa[0]&0x7] == r->logaddr.lpa[0]){
 		bus_history[r->logaddr.lpa[0]&0x7]=0;
 	}
+	pthread_mutex_unlock(&bus_lock);
 
 	if (r->req_type == REQTYPE_META_READ) {
 		bdbm_memcpy (r->fmain.kp_ptr[0], readBuffers[r->tag], 8192);

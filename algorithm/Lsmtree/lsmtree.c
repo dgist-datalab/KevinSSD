@@ -35,10 +35,12 @@ MeasureTime __get_mt2;
 uint64_t bloomfilter_memory;
 uint64_t __get_max_value;
 int __header_read_cnt;
+extern int readlockbywrite;
 void lsm_debug_print(){
 	printf("___get_mt:%lu\n",__get_mt.max);
 	printf("___get_mt2:%lu\n",__get_mt2.max);
 	printf("header_read_cnt:%d\n",__header_read_cnt);
+	printf("r lock by w:%d\n",readlockbywrite);
 	printf("\n");
 }
 
@@ -321,6 +323,7 @@ uint32_t lsm_get(request *const req){
 	if(!level_show){
 		level_show=true;
 		measure_init(&lsm_mt);
+		readlockbywrite=0;
 	}
 
 	//printf("seq: %d, key:%u\n",nor++,req->key);
