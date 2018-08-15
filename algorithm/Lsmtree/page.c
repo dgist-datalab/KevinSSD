@@ -1028,20 +1028,22 @@ int gc_header(KEYT tbn){
 			if(entries==NULL) continue;
 
 			for(int k=0; entries[k]!=NULL ;k++){
+				if(t_ppa==45668){
+					printf("here!\n");
+				}
 				if(entries[k]->pbn==t_ppa){
 					if(LSM.disk[j]->isTiering && LSM.disk[j]->m_num==LSM.c_level->m_num){
 						/*in this situation ftl should change c_level entry*/
 						break;
 					}
 					if(entries[k]->iscompactioning==4)break;
+					checkdone=true;
 					if(entries[k]->iscompactioning){
 						tables[i]=NULL;
 						target_ent[i]=NULL;
 						entries[k]->iscompactioning=3;
-						checkdone=true;
 						break;
 					}
-					checkdone=true;
 					tables[i]=(htable_t*)malloc(sizeof(htable_t));
 					target_ent[i]=entries[k];
 #ifdef CACHE

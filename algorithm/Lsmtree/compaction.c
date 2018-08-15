@@ -225,6 +225,9 @@ KEYT compaction_htable_write(htable *input){
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
 	params->ppa=ppa;
+	if(input->sets[0].lpa==8 && ppa==45668){
+		printf("here!\n");
+	}
 	LSM.li->push_data(ppa,PAGESIZE,params->value,ASYNC,areq);
 
 	return ppa;
@@ -403,6 +406,9 @@ void compaction_htable_read(Entry *ent,PTR* value){
 	areq->params=(void*)params;
 	areq->type_lower=0;
 	areq->rapid=false;
+	if(ent->key==8&&ent->pbn==45668){
+		printf("here2!\n");
+	}
 	//printf("R %u\n",ent->pbn);
 	LSM.li->pull_data(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
 	return;
@@ -760,7 +766,13 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 	Entry **target_s=NULL;
 	htable **table=NULL;
 
-	if(!data) start=skip->start;
+	if(!data){
+#ifndef MONKEY
+		start=skip->start;
+#else
+		start=0;
+#endif
+	}
 	else start=data[0]->key;
 
 	int headerSize;
