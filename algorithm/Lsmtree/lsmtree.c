@@ -688,6 +688,9 @@ void htable_print(htable * input,KEYT ppa){
 			cnt++;
 			check=true;
 		}
+		else{
+			continue;
+		}
 		printf("[%d] %u %u\n",i, input->sets[i].lpa, input->sets[i].ppa);
 	}
 	if(check){
