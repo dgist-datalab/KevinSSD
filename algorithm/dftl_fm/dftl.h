@@ -134,7 +134,7 @@ void SRAM_unload(D_SRAM* d_sram, int32_t ppa, int idx, char t);
 void cache_show(char* dest);
 
 //garbage_collection.c
-void* tpage_GC(void* __input);
-void* dpage_GC(void* __input);
+int32_t tpage_GC();
+int32_t dpage_GC();
 
 #endif

@@ -125,6 +125,7 @@ int main(int argc,char* argv[]){
 		printf("req_cnt_test:cnt -> %d:%d fuck\n",req_cnt_test,cnt);
 	}
 
+	force_write_start=true;
 	while(!bench_is_finish()){
 #ifdef LEAKCHECK
 		sleep(1);
@@ -134,7 +135,6 @@ int main(int argc,char* argv[]){
 	bench_free();
 	//printf("locality: 0~%.0f\n",RANGE*TARGETRATIO);
 	inf_free();
-	force_write_start=true;
 #ifdef Lsmtree
 	printf("skiplist hit:%d\n",skiplist_hit);
 #endif

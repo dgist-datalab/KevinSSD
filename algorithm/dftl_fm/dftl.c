@@ -33,6 +33,9 @@ BM_T *bm;
 Block *t_reserved; // pointer of reserved block for translation gc
 Block *d_reserved; // pointer of reserved block for data gc
 
+MeasureTime ftl;
+uint64_t ftl_cnt;
+
 int32_t num_caching; // Number of translation page on cache
 int32_t trans_gc_poll;
 int32_t data_gc_poll;
@@ -64,16 +67,16 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	num_page = _NOP;
 	num_block = _NOS;
 	p_p_b = _PPS;
-	num_tblock = ((num_block / EPP) + ((num_block % EPP != 0) ? 1 : 0)) * 2;
+	num_tblock = ((num_block / EPP) + ((num_block % EPP != 0) ? 1 : 0)) * 4;
 	num_tpage = num_tblock * p_p_b;
 	num_dblock = num_block - num_tblock - 2;
 	num_dpage = num_dblock * p_p_b;
 	max_cache_entry = (num_page / EPP) + ((num_page % EPP != 0) ? 1 : 0);
 	// you can control amount of max number of ram reside cache entry
-	//num_max_cache = max_cache_entry;
-	//num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2;
-	//num_max_cache = 1;
-	num_max_cache = max_cache_entry/4;
+	num_max_cache = max_cache_entry; // max cache
+	//num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2; // 1/2 cache
+	//num_max_cache = 1; // 1 cache
+	//num_max_cache = max_cache_entry/4; // 1/4 cache
 
 	printf("!!! print info !!!\n");
 	printf("Async status: %d\n", ASYNC);
@@ -134,6 +137,8 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	for(int i = 0; i < num_block - 2; i++){
 		BM_Enqueue(free_b, &bm->barray[i]);
 	}
+	measure_init(&ftl);
+	ftl_cnt = 0;
 	data_b = BM_Heap_Init(num_dblock);
 	trans_b = BM_Heap_Init(num_tblock);
 	bm->harray[0] = data_b;
@@ -162,6 +167,7 @@ void demand_destroy(lower_info *li, algorithm *algo){
 	printf("6: R & E & MG & GC & MC\n");
 	printf("7: Buffer Hit\n");
 	printf("!!! print info !!!\n");
+	printf("average ftl latency : %lu\n", (ftl.adding.tv_sec*1000000 + ftl.adding.tv_usec)/ftl_cnt);
 	q_free(dftl_q);
 	lru_free(lru);
 	BM_Free(bm);
@@ -257,6 +263,11 @@ uint32_t demand_set(request *const req){
 		}
 	}
 	__demand_set(req);
+#ifdef W_BUFF
+	if(mem_buf->size == MAX_SL){
+		return 1;
+	}
+#endif
 	return 0;
 }
 
@@ -447,6 +458,8 @@ uint32_t __demand_get(request *const req){
 	read_params *checker; // used for async 
 #endif
 
+	MS(&ftl);
+	ftl_cnt++;
 	bench_algo_start(req);
 	gc_flag = false;
 	m_flag = false;
@@ -463,6 +476,7 @@ uint32_t __demand_get(request *const req){
 		req->type_ftl = 7;
 		req->type_lower = 0;
 		bench_algo_end(req);
+		MA(&ftl);
 		req->end_req(req);
 		return 1;
 	}
@@ -477,11 +491,13 @@ uint32_t __demand_get(request *const req){
 		ppa = p_table[P_IDX].ppa;
 		if(ppa == -1){ // no mapping data -> not found
 			bench_algo_end(req);
+			MA(&ftl);
 			return UINT32_MAX;
 		}
 		else{ /* Cache hit */
 			lru_update(lru, c_table->queue_ptr);
 			bench_algo_end(req);
+			MA(&ftl);
 			__demand.li->pull_data(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req)); // Get data in ppa
 			return 1;
 		}
@@ -489,6 +505,7 @@ uint32_t __demand_get(request *const req){
 	/* Cache miss */
 	if(t_ppa == -1){ // no mapping table -> not found
 		bench_algo_end(req);
+		MA(&ftl);
 		return UINT32_MAX;
 	}
 	/* Load tpage to cache */
@@ -499,18 +516,20 @@ uint32_t __demand_get(request *const req){
 		checker->t_ppa = t_ppa;
 		req->params = (void*)checker;
 		my_req = assign_pseudo_req(MAPPING_R, NULL, req); // need to read mapping data
-		MA(&req->latency_ftl);
+		//MA(&req->latency_ftl);
 		bench_algo_end(req);
 		__demand.li->pull_data(t_ppa, PAGESIZE, req->value, ASYNC, my_req);
+		MA(&ftl);
 		return 1;
 	}
 	if(((read_params*)req->params)->t_ppa != t_ppa){ 		// mapping has changed in data gc
 		((read_params*)req->params)->read = 0; 				// read value is invalid now
 		((read_params*)req->params)->t_ppa = t_ppa; 		// these could mapping to reserved area
 		my_req = assign_pseudo_req(MAPPING_R, NULL, req); 	// send req read mapping table again.
-		MA(&req->latency_ftl);
+		//MA(&req->latency_ftl);
 		bench_algo_end(req);
 		__demand.li->pull_data(t_ppa, PAGESIZE, req->value, ASYNC, my_req);
+		MA(&ftl);
 		return 1; // very inefficient way, change after
 	}
 	// mapping data is vaild
@@ -551,10 +570,12 @@ uint32_t __demand_get(request *const req){
 	if(ppa == -1){ // no mapping data -> not found
 		printf("lpa2: %d\n", lpa);
 		bench_algo_end(req);
+		MA(&ftl);
 		return UINT32_MAX;
 	}
 	bench_algo_end(req);
 	__demand.li->pull_data(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req)); // Get data in ppa
+	MA(&ftl);
 	return 1;
 }
 
