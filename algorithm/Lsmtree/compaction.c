@@ -25,7 +25,9 @@ int epc_check=0;
 compM compactor;
 pthread_mutex_t compaction_wait;
 pthread_mutex_t compaction_flush_wait;
-//pthread_mutex_t compaction_assign_lock;//for interrunpt in compaction main
+pthread_mutex_t compaction_req_lock;
+pthread_cond_t compaction_req_cond;
+int compaction_req_cnt;
 bool compaction_idle;
 int compactino_target_cnt;
 
@@ -96,8 +98,9 @@ bool compaction_init(){
 	pthread_mutex_init(&compaction_wait,NULL);
 	pthread_mutex_init(&compaction_flush_wait,NULL);
 	pthread_mutex_lock(&compaction_flush_wait);
-	//pthread_mutex_init(&compaction_assign_lock,NULL);
-	//pthread_mutex_lock(&compaction_assign_lock);
+
+	pthread_mutex_init(&compaction_req_lock,NULL);
+	pthread_cond_init(&compaction_req_cond,NULL);
 	return true;
 }
 
@@ -271,6 +274,13 @@ void *compaction_main(void *input){
 #endif
 		if(compactor.stopflag)
 			break;
+
+		pthread_mutex_lock(&compaction_req_lock);
+		while(compaction_req_cnt==0){
+			pthread_cond_wait(&compaction_req_cond,&compaction_req_lock);
+		}
+		pthread_mutex_unlock(&compaction_req_lock);
+
 		if(!(_req=q_dequeue(_this->q))){
 			//sleep or nothing
 			compaction_idle=true;
@@ -351,7 +361,16 @@ void compaction_check(){
 			LSM.temptable=LSM.memtable;
 			LSM.memtable=skiplist_init();
 		}
+
+
 		compaction_assign(req);
+		pthread_mutex_lock(&compaction_req_lock);
+		if(compaction_req_cnt==0){
+			pthread_cond_broadcast(&compaction_req_cond);
+		}
+		compaction_req_cnt++;
+		pthread_mutex_unlock(&compaction_req_lock);
+
 		pthread_mutex_lock(&compaction_flush_wait);
 	}
 }

@@ -2,7 +2,7 @@
 
 //#define LEAKCHECK
 
-void* tpage_GC(void* __input){
+int32_t tpage_GC(){
 	int32_t old_block;
 	int32_t new_block;
 	uint8_t all;
@@ -32,7 +32,7 @@ void* tpage_GC(void* __input){
 	if(all){ // if all page is invalid, then just trim and return
 		__demand.li->trim_block(old_block, false);
 		BM_InitializeBlock(bm, victim->PBA);
-		return (void*)(intptr_t)(new_block);
+		return new_block;
 	}
 	valid_page_num = 0;
 	trans_gc_poll = 0;
@@ -85,10 +85,10 @@ void* tpage_GC(void* __input){
 	/* Trim block */
 	__demand.li->trim_block(old_block, false);
 
-	return (void*)(intptr_t)(new_block + valid_page_num);
+	return new_block + valid_page_num;
 }
 
-void* dpage_GC(void* __input){
+int32_t dpage_GC(){
 	uint8_t all;
 	int32_t lpa;
 	int32_t tce; // temp_cache_entry index
@@ -130,7 +130,7 @@ void* dpage_GC(void* __input){
 	d_reserved = victim;
 	if(all){ // if all page is invalid, then just trim and return
 		__demand.li->trim_block(old_block, false);
-		return (void*)(intptr_t)(new_block);
+		return new_block;
 	}
 	valid_num = 0;
 	real_valid = 0;
@@ -290,6 +290,6 @@ void* dpage_GC(void* __input){
 
 	/* Trim data block */
 	__demand.li->trim_block(old_block, false);
-	return (void*)(intptr_t)(new_block + real_valid);
+	return new_block + real_valid;
 }
 
