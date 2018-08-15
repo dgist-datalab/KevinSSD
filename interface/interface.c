@@ -144,7 +144,7 @@ static void assign_req(request* req){
 		free(req);
 	}
 }
-extern bool isflushing;
+//extern bool isflushing;
 bool inf_assign_try(request *req){
 	bool flag=false;
 	for(int i=0; i<THREADSIZE; i++){
@@ -157,9 +157,11 @@ bool inf_assign_try(request *req){
 			}
 #else	*/
 			while(q_enqueue((void*)req,t->retry_q)){
+				/*
 				if(isflushing){
 					printf("here!\n");
 				}
+				*/
 				flag=true;
 				break;
 			}

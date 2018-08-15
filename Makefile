@@ -2,7 +2,7 @@ export CC=g++
 
 TARGET_INF=interface
 TARGET_LOWER=bdbm_drv
-TARGET_ALGO=Lsmtree
+TARGET_ALGO=dftl_fm
 PWD=$(pwd)
 
 COMMONFLAGS=\
