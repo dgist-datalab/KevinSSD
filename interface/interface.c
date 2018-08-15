@@ -176,6 +176,7 @@ bool inf_assign_try(request *req){
 	return flag;
 }
 uint64_t inter_cnt;
+bool force_write_stop;
 void *p_main(void *__input){
 	void *_inf_req;
 	request *inf_req;
@@ -192,7 +193,7 @@ void *p_main(void *__input){
 #ifdef LEAKCHECK
 		sleep(1);
 #endif
-		if(write_stop && _this->req_q->size==QDEPTH){
+		if(force_write_stop ||(write_stop && _this->req_q->size==QDEPTH)){
 			write_stop=false;
 		}
 

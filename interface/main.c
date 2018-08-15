@@ -17,6 +17,7 @@ extern master *_master;
 #ifdef Lsmtree
 int skiplist_hit;
 #endif
+bool force_write_start;
 int main(int argc,char* argv[]){
 	/*
 	int Input_cycle;
@@ -133,6 +134,7 @@ int main(int argc,char* argv[]){
 	bench_free();
 	//printf("locality: 0~%.0f\n",RANGE*TARGETRATIO);
 	inf_free();
+	force_write_start=true;
 #ifdef Lsmtree
 	printf("skiplist hit:%d\n",skiplist_hit);
 #endif
