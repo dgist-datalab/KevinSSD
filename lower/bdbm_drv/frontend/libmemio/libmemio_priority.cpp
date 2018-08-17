@@ -902,3 +902,7 @@ bool memio_is_clean(memio_t *mio){
 	else
 		return false;
 }
+void memio_show_info(){
+	printf("r\trgc\tw\twgc\n");
+	printf("%d\t%d\t%d\t%d\n",read_tagQ->size(),read_gc_tagQ->size(),write_tagQ->size(),write_gc_tagQ->size());
+}

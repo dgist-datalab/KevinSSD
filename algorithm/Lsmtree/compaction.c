@@ -337,6 +337,8 @@ void *compaction_main(void *input){
 				break;
 			}
 		}
+		LSM.li->lower_flying_req_wait();
+		//LSM.li->lower_show_info();
 		pthread_mutex_unlock(&compaction_flush_wait);
 		free(req);
 	}

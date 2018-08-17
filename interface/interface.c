@@ -187,12 +187,14 @@ void *p_main(void *__input){
 	__hash_node *t_h_node;
 	//int control_cnt=0;
 	void *flush_req=NULL;
+	bool device_clean=false;
 	while(1){
 #ifdef LEAKCHECK
 		sleep(1);
 #endif
 		if(force_write_stop ||(write_stop && _this->req_q->size==QDEPTH)){
 			write_stop=false;
+			device_clean=true;
 		}
 
 		if(mp.stopflag)

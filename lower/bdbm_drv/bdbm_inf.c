@@ -23,7 +23,8 @@ lower_info memio_info={
 	.stop=memio_info_stop,
 	.lower_alloc=memio_alloc_dma,
 	.lower_free=memio_free_dma,
-	.lower_flying_req_wait=memio_flying_req_wait
+	.lower_flying_req_wait=memio_flying_req_wait,
+	.lower_show_info=memio_show_info_
 };
 
 uint32_t memio_info_create(lower_info *li){
@@ -110,4 +111,7 @@ void memio_info_stop(){}
 
 void memio_flying_req_wait(){
 	while(!memio_is_clean(mio));
+}
+void memio_show_info_(){
+	memio_show_info();
 }
