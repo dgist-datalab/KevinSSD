@@ -54,6 +54,7 @@ lower_info my_posix={
 	.lower_free=NULL,
 	.lower_flying_req_wait=posix_flying_req_wait
 };
+static uint32_t d_write_cnt, m_write_cnt, gcd_write_cnt, gcm_write_cnt;
 
 #if (ASYNC==1)
 void *l_main(void *__input){
@@ -191,6 +192,7 @@ void *posix_destroy(lower_info *li){
 	stopflag = true;
 	q_free(p_q);
 #endif
+	printf("d_wriet:%u m_write:%u gc_d_write:%u gc_m_write:%u\n",d_write_cnt,m_write_cnt,gcd_write_cnt,gcm_write_cnt);
 	return NULL;
 }
 
@@ -209,13 +211,23 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		exit(2);
 	}
 
+	
 #if defined(dftl) || defined(dftl_fm)
-	uint8_t req_type = ((demand_params*)(req->params))->type;
+	uint8_t req_type = ((demand_params*)(req->params))->type;	
+	if(req_type==1){d_write_cnt++;}
+	else if(req_type==3){m_write_cnt++;}
+	else if(req_type==9){gcd_write_cnt++;}
+	else if(req_type==7){gcm_write_cnt++;}
 	if(req_type == 3 || req_type == 5 || req_type == 7){
 #elif defined(normal)
 	if(0){
 #else
-	if(((lsm_params*)req->params)->lsm_type<=5){
+	uint8_t req_type=((lsm_params*)req->params)->lsm_type;
+	if(req_type==7){d_write_cnt++;}
+	else if(req_type==3){m_write_cnt++;}
+	else if(req_type==9){gcd_write_cnt++;}
+	else if(req_type==5){gcm_write_cnt++;}
+	if(req_type<=5){
 #endif
 		if(!seg_table[PPA/my_posix.PPS].alloc){
 			seg_table[PPA/my_posix.PPS].storage = (PTR)malloc(my_posix.SOB);
@@ -255,7 +267,7 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 #if defined(dftl) || defined(dftl_fm)
 	uint8_t req_type = ((demand_params*)req->params)->type;
 	if(req_type == 2 || req_type == 4 || req_type == 6){
-#elif defined(normal)
+		#elif defined(normal)
 	if(0){
 #else
 	if(((lsm_params*)req->params)->lsm_type<=5){
