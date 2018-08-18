@@ -102,9 +102,7 @@ static void __dm_intr_handler (
 			//my_algo_req->type_lower=r->path_type>r->before_path_type?r->path_type:r->before_path_type;
 			if(my_algo_req->type_lower>r->path_type)
 				my_algo_req->type_lower=r->path_type;
-			if(my_algo_req->type_lower>8){
-				printf("??\n");
-			}
+
 			MC(&my_algo_req->latency_lower);
 			my_algo_req->end_req(my_algo_req);
 	//		MS(&_mt);

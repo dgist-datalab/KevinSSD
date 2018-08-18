@@ -47,3 +47,4 @@ int memio_trim (memio_t* mio, uint32_t lba, uint64_t len, void *(*end_req)(uint6
 void memio_close (memio_t* mio);
 int memio_alloc_dma (int type, char** buf);void memio_free_dma (int type, int dmaTag);
 bool memio_is_clean(memio_t *mio);
+void memio_show_info();

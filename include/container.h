@@ -76,6 +76,7 @@ struct lower_info {
 	int (*lower_alloc) (int type, char** buf);
 	void (*lower_free) (int type, int dmaTag);
 	void (*lower_flying_req_wait) ();
+	void (*lower_show_info)();
 
 	lower_status (*statusOfblock)(BLOCKT);
 	pthread_mutex_t lower_lock;

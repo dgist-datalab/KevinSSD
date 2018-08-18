@@ -261,7 +261,6 @@ static void __dm_intr_handler (
 		MA(&my_algo_req->latency_lower);
 		my_algo_req->lower_latency_data=my_algo_req->lower_latency_checker.adding.tv_usec+my_algo_req->lower_latency_checker.adding.tv_sec*1000000;*/
 	
-		r->path_type+=4;
 		if(my_algo_req->type_lower <r->path_type){
 			my_algo_req->type_lower=r->path_type;	
 		}
@@ -902,4 +901,8 @@ bool memio_is_clean(memio_t *mio){
 		return true;
 	else
 		return false;
+}
+void memio_show_info(){
+	printf("r\trgc\tw\twgc\n");
+	printf("%d\t%d\t%d\t%d\n",read_tagQ->size(),read_gc_tagQ->size(),write_tagQ->size(),write_gc_tagQ->size());
 }

@@ -1028,9 +1028,7 @@ int gc_header(KEYT tbn){
 			if(entries==NULL) continue;
 
 			for(int k=0; entries[k]!=NULL ;k++){
-				if(t_ppa==45668){
-					printf("here!\n");
-				}
+
 				if(entries[k]->pbn==t_ppa){
 					if(LSM.disk[j]->isTiering && LSM.disk[j]->m_num==LSM.c_level->m_num){
 						/*in this situation ftl should change c_level entry*/

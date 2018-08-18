@@ -160,12 +160,11 @@ void demand_destroy(lower_info *li, algorithm *algo){
 	skiplist_free(mem_buf);
 #endif
 	printf("!!! print info !!!\n");
-	printf("H:hit, R: read, MC: memcpy, MG: merge, E: eviction, GC: garbage collection\n");
-	printf("a_type--->>> 0: H, 1: R & MC\n");
-	printf("2: R & MG, 3: R & E & MC\n");
-	printf("4: R & E & MG & MC, 5: R & E & GC & MC\n");
-	printf("6: R & E & MG & GC & MC\n");
-	printf("7: Buffer Hit\n");
+	printf("BH: buffer hit, H: hit, R: read, MC: memcpy, CE: clean eviction, DE: dirty eviction, GC: garbage collection\n");
+	printf("a_type--->>> 0: BH, 1: H\n");
+	printf("2: R & MC, 3: R & CE & MC\n");
+	printf("4: R & DE & MC, 5: R & CE & GC & MC\n");
+	printf("6: R & DE & GC & MC\n");
 	printf("!!! print info !!!\n");
 	printf("average ftl latency : %lu\n", (ftl.adding.tv_sec*1000000 + ftl.adding.tv_usec)/ftl_cnt);
 	q_free(dftl_q);
@@ -296,7 +295,8 @@ uint32_t __demand_set(request *const req){
 	D_TABLE *p_table; // pointer of p_table on cme
 	algo_req *my_req; // pseudo request pointer
 	bool gc_flag;
-	bool m_flag;
+	//bool m_flag;
+	bool d_flag;
 	value_set *temp_value_set;
 	algo_req *temp_req;
 	demand_params *params; // pseudo request's params
@@ -307,7 +307,8 @@ uint32_t __demand_set(request *const req){
 
 	bench_algo_start(req);
 	gc_flag = false;
-	m_flag = false;
+	//m_flag = false;
+	d_flag = false;
 	lpa = req->key;
 	if(lpa > RANGE){ // range check
 		printf("range error\n");
@@ -336,7 +337,7 @@ uint32_t __demand_set(request *const req){
 			}
 			else{ /* Cache miss */
 				if(num_caching == num_max_cache){
-					demand_eviction(req, 'W', &gc_flag, &m_flag);
+					demand_eviction(req, 'W', &gc_flag, &d_flag);
 				}
 				t_ppa = c_table->t_ppa;
 				p_table = mem_deq(mem_q);
@@ -401,7 +402,7 @@ uint32_t __demand_set(request *const req){
 	}
 	else{ /* Cache miss */
 		if(num_caching == num_max_cache){
-			demand_eviction(req, 'W', &gc_flag, &m_flag);
+			demand_eviction(req, 'W', &gc_flag, &d_flag);
 		}
 		p_table = mem_deq(mem_q);
 		if(t_ppa != -1){ //translation page is existing
@@ -448,7 +449,8 @@ uint32_t __demand_get(request *const req){
 	D_TABLE* p_table; // pointer of p_table on cme
 	algo_req *my_req; // pseudo request pointer
 	bool gc_flag;
-	bool m_flag;
+	//bool m_flag;
+	bool d_flag;
 #if W_BUFF
 	snode *temp;
 #endif
@@ -462,7 +464,8 @@ uint32_t __demand_get(request *const req){
 	ftl_cnt++;
 	bench_algo_start(req);
 	gc_flag = false;
-	m_flag = false;
+	//m_flag = false;
+	d_flag = false;
 	lpa = req->key;
 	if(lpa > RANGE){ // range check
 		printf("range error\n");
@@ -473,7 +476,7 @@ uint32_t __demand_get(request *const req){
 	if((temp = skiplist_find(mem_buf, lpa))){
 		buf_hit++;
 		memcpy(req->value->value, temp->value->value, PAGESIZE);
-		req->type_ftl = 7;
+		req->type_ftl = 0;
 		req->type_lower = 0;
 		bench_algo_end(req);
 		MA(&ftl);
@@ -496,6 +499,7 @@ uint32_t __demand_get(request *const req){
 		}
 		else{ /* Cache hit */
 			lru_update(lru, c_table->queue_ptr);
+			req->type_ftl += 1;
 			bench_algo_end(req);
 			MA(&ftl);
 			__demand.li->pull_data(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req)); // Get data in ppa
@@ -545,10 +549,17 @@ uint32_t __demand_get(request *const req){
 	free(my_req);
 #endif
 	if(!p_table){ // there is no dirty mapping table on cache
-		req->type_ftl = 1;
+		req->type_ftl += 2;
 		if(num_caching == num_max_cache){
-			req->type_ftl = 3;
-			demand_eviction(req, 'R', &gc_flag, &m_flag);
+			req->type_ftl += 1;
+			demand_eviction(req, 'R', &gc_flag, &d_flag);
+			if(d_flag){
+				req->type_ftl += 1;
+			}
+			if(gc_flag){
+				req->type_ftl += 2;
+			}
+			/*
 			if(gc_flag == false && m_flag == true){
 				req->type_ftl = 4;
 			}
@@ -558,6 +569,7 @@ uint32_t __demand_get(request *const req){
 			else if(gc_flag == true && m_flag == true){
 				req->type_ftl = 6;
 			}
+			*/
 		}
 		p_table = mem_deq(mem_q);
 		memcpy(p_table, req->value->value, PAGESIZE); // just copy mapping data into memory
@@ -565,6 +577,14 @@ uint32_t __demand_get(request *const req){
 		c_table->queue_ptr = lru_push(lru, (void*)c_table);
 		num_caching++;
 	}
+	/*
+	else{
+		req->type_ftl = 2;
+		merge_w_origin((D_TABLE*)req->value->value, p_table);
+		c_table->flag = 2;
+		BM_InvalidatePage(bm, t_ppa);
+	}
+	*/
 	ppa = p_table[P_IDX].ppa;
 	lru_update(lru, c_table->queue_ptr);
 	if(ppa == -1){ // no mapping data -> not found
@@ -579,7 +599,7 @@ uint32_t __demand_get(request *const req){
 	return 1;
 }
 
-uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *mflag){
+uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag){
 	int32_t t_ppa; // Translation page address
 	C_TABLE *cache_ptr; // Cache mapping entry pointer
 	D_TABLE *p_table; // pointer of p_table on cme
@@ -610,6 +630,7 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *mflag
 			BM_InvalidatePage(bm, t_ppa);
 		}
 		*/
+		*dflag = true;
 		/* Write translation page */
 		t_ppa = tp_alloc(req_t, flag);
 		temp_value_set = inf_get_valueset((PTR)p_table, FS_MALLOC_W, PAGESIZE);

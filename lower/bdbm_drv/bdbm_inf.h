@@ -11,3 +11,4 @@ void *memio_info_refresh(struct lower_info* li);
 void *memio_badblock_checker(KEYT ppa, uint32_t size, void *(*process)(uint64_t,uint8_t));
 void memio_flying_req_wait();
 void memio_info_stop();
+void memio_show_info_();
