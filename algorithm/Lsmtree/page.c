@@ -58,6 +58,13 @@ bool PBITFULL(KEYT input,bool isrealppa){
 		return oob[input/(PAGESIZE/PIECE)]&1;
 }
 #endif
+uint32_t all_invalid_num(){
+	uint32_t res=0;
+	for(int i=0; i<_NOS; i++){
+		res+=segs[i].invalid_n;
+	}
+	return res;
+}
 
 void block_print(KEYT ppa){
 	block* b=&bl[ppa/_PPB];
@@ -464,6 +471,76 @@ KEYT getRPPA(uint8_t type,KEYT lpa,bool isfull){
 
 //static int gc_check_num;
 uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
+extern uint32_t m_write_cnt;
+void gc_compaction_checking(){
+	int32_t invalidate_page,write_page;
+//	int32_t t_write_page;
+	uint32_t target_from=LEVELN+1, target_to=LEVELN+1;
+	int32_t max=0;
+	//uint32_t t_type;
+	uint32_t type=0;
+	static int cumulate_expect=0;
+	for(int i=0; i<LEVELN; i++){
+		if(LSM.disk[i]->n_num==0) continue;
+		write_page=invalidate_page=0;
+		float p=1.0f/((LSM.disk[i]->end-LSM.disk[i]->start)/(LSM.disk[i]->n_num*1024));
+		for(int j=i+1; j<LEVELN; j++){
+			if(!LSM.disk[j]->n_num) continue;
+			write_page=(LSM.disk[i]->m_num+LSM.disk[j]->m_num)*2;
+			uint32_t start, end;
+			if(LSM.disk[i]->end<LSM.disk[j]->start || LSM.disk[i]->start>LSM.disk[j]->end){ invalidate_page=0;
+				continue;
+			}
+			else if(LSM.disk[i]->end<LSM.disk[j]->end && LSM.disk[i]->start>LSM.disk[j]->start){
+				type=1;
+				start=LSM.disk[i]->start;
+				end=LSM.disk[i]->end;
+			}
+			else if(LSM.disk[j]->end<LSM.disk[i]->end && LSM.disk[j]->start>LSM.disk[i]->start){	
+				type=2;
+				start=LSM.disk[j]->start;
+				end=LSM.disk[j]->end;
+			}
+			else if(LSM.disk[i]->start<LSM.disk[j]->start){
+				type=3;
+				start=LSM.disk[j]->start;
+				end=LSM.disk[i]->end;
+			}
+			else{
+				type=4;
+				start=LSM.disk[i]->start;
+				end=LSM.disk[j]->end;
+			}
+			invalidate_page=(end-start)*p;
+			if(max<invalidate_page-write_page){
+				max=invalidate_page-write_page;
+				target_from=i;
+				target_to=j;
+				//t_type=type;
+				//t_write_page=write_page;
+			}
+		}
+	}
+	static int r_pay=0,r_back=0,c_max=0;
+	if(target_from!=LEVELN+1 && target_to!=LEVELN+1){
+		uint32_t before=all_invalid_num();
+		int before_meta_write=m_write_cnt;
+
+		compaction_force_target(target_from,target_to);
+		c_max+=max;
+		int after_meta_write=m_write_cnt;
+		uint32_t after=all_invalid_num();
+		static int cnt=0;
+	
+		r_back+=after-before;
+		r_pay+=after_meta_write-before_meta_write;
+		printf("[%d] pay:%d back:%d benefit:%d e_ben:%d\n",cnt++,r_pay,r_back,r_back-r_pay,c_max);
+
+		//if(before>=after){
+		//	printf("wtf!\n");
+		//}
+	}
+}
 void gc_check(uint8_t type, bool force){
 	block **erased_blks=NULL;
 	int e_blk_idx=0;
@@ -514,7 +591,6 @@ void gc_check(uint8_t type, bool force){
 	for(int i=0; i<BPS; i++){
 		KEYT target_block=0;
 		
-		target_block=gc_victim_segment(type,false);
 		if(once){
 			once=false;
 	//		static int header_cnt=0;
@@ -525,6 +601,7 @@ void gc_check(uint8_t type, bool force){
 					header_gc_cnt++; 
 					break;
 				case DATA:
+					gc_compaction_checking();
 					//compaction_force();
 					target_p=&data_m;
 					data_gc_cnt++; 
@@ -549,6 +626,7 @@ void gc_check(uint8_t type, bool force){
 		//printf("%d -",i);
 		//printf("target block %d\n",target_block);
 
+		target_block=gc_victim_segment(type,false);
 		if(target_block==UINT_MAX){
 			while(target_block==UINT_MAX && type==DATA){
 				if(compaction_force()){

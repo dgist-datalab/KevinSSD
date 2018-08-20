@@ -35,7 +35,8 @@ typedef struct keyset{
 
 typedef struct htable{
 	keyset *sets;
-	uint8_t *bitset;
+//	uint8_t *bitset;
+
 #ifdef BLOOM
 	BF* filter;
 #endif
@@ -100,6 +101,9 @@ htable *htable_copy(htable *);
 htable *htable_assign();
 void htable_free(htable*);
 void htable_print(htable*,KEYT);
+/*
 void lsm_save(lsmtree *);
-lsmtree* lsm_load();
+void lsm_trim_set(value_set* ,uint8_t *);
+uint8_t *lsm_trim_get(PTR);
+lsmtree* lsm_load();*/
 #endif

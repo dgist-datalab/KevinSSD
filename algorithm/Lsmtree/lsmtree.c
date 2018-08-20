@@ -35,12 +35,12 @@ MeasureTime __get_mt2;
 uint64_t bloomfilter_memory;
 uint64_t __get_max_value;
 int __header_read_cnt;
-extern int readlockbywrite;
+//extern int readlockbywrite;
 void lsm_debug_print(){
 	printf("___get_mt:%lu\n",__get_mt.max);
 	printf("___get_mt2:%lu\n",__get_mt2.max);
 	printf("header_read_cnt:%d\n",__header_read_cnt);
-	printf("r lock by w:%d\n",readlockbywrite);
+//	printf("r lock by w:%d\n",readlockbywrite);
 	printf("\n");
 }
 
@@ -323,7 +323,7 @@ uint32_t lsm_get(request *const req){
 	if(!level_show){
 		level_show=true;
 		measure_init(&lsm_mt);
-		readlockbywrite=0;
+		//readlockbywrite=0;
 	}
 
 	//printf("seq: %d, key:%u\n",nor++,req->key);
@@ -438,6 +438,9 @@ uint32_t __lsm_get(request *const req){
 			req->value->ppa=target_node->ppa;
 			bench_cache_hit(req->mark);
 			bench_algo_end(req);
+			if(target_node->ppa==UINT_MAX){
+				return 5;
+			}
 #ifdef DVALUE
 			LSM.li->pull_data(target_node->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
 #else
@@ -456,6 +459,9 @@ uint32_t __lsm_get(request *const req){
 			bench_cache_hit(req->mark);
 			bench_algo_end(req);
 			req->value->ppa=target->ppa;
+			if(target->ppa==UINT_MAX){
+				return 5;
+			}
 #ifdef DVALUE
 			LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
 #else
@@ -497,6 +503,9 @@ uint32_t __lsm_get(request *const req){
 			params->lsm_type=DATAR;
 			req->value->ppa=target->ppa;
 			bench_algo_end(req);
+			if(target->ppa==UINT_MAX){
+				return 5;
+			}
 #ifdef DVALUE
 			LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
 #else
@@ -537,7 +546,10 @@ uint32_t __lsm_get(request *const req){
 #ifdef FLASHCHECK
 			if(comback_req && entry->c_entry){
 				keyset *target=htable_find(entry->t_table->sets,req->key);
-				if(target){
+				if(target){	
+					if(target->ppa==UINT_MAX){
+						return 5;
+					}
 #ifdef DVALUE
 					LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
 #else
@@ -558,7 +570,10 @@ uint32_t __lsm_get(request *const req){
 					req->value->ppa=target->ppa;
 					cache_update(LSM.lsm_cache,entry);
 					bench_algo_end(req);
-					bench_cache_hit(req->mark);
+					bench_cache_hit(req->mark);	
+					if(target->ppa==UINT_MAX){
+						return 5;
+					}
 #ifdef DVALUE
 					LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
 #else
@@ -596,7 +611,10 @@ uint32_t __lsm_get(request *const req){
 #endif
 					params->lsm_type=DATAR;
 					req->value->ppa=target->ppa;
-					bench_algo_end(req);
+					bench_algo_end(req);	
+					if(target->ppa==UINT_MAX){
+						return 5;
+					}
 #ifdef DVALUE
 					LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
 #else
@@ -653,21 +671,7 @@ void lsm_kv_validset(uint8_t * bitset, int idx){
 	uint8_t test=(1<<offset);
 	bitset[block]|=test;
 }
-bool lsm_kv_validcheck(uint8_t *bitset, int idx){
-	int block=idx/8;
-	int offset=idx%8;
-	uint8_t test=(1<<offset);
-	return test&bitset[block];
-}
 
-htable *htable_copy(htable *input){
-	htable *res=(htable*)malloc(sizeof(htable));
-	res->sets=(keyset*)malloc(PAGESIZE);
-	memcpy(res->sets,input->sets,PAGESIZE);
-	res->t_b=0;
-	res->origin=NULL;
-	return res;
-}
 
 htable *htable_assign(){
 	htable *res=(htable*)malloc(sizeof(htable));
@@ -717,3 +721,30 @@ lsmtree* lsm_load(){
 	res->memtable=skiplist_load();
 	return res;
 }
+/*
+void lsm_trim_set(value_set* d,uint8_t * bitset){
+	memcpy(&d->value[KEYNUM*2*sizeof(KEYT)],bitset,KEYNUM/8);
+}
+
+uint8_t *lsm_trim_get(PTR d){
+	uint8_t *res=(uint8_t*)malloc(KEYNUM/8);
+	memcpy(res,&d[KEYNUM*2*sizeof(KEYT)],KEYNUM/8);
+	return res;
+}
+ 
+bool lsm_kv_validcheck(uint8_t *bitset, int idx){
+	int block=idx/8;
+	int offset=idx%8;
+	uint8_t test=(1<<offset);
+	return test&bitset[block];
+}
+
+htable *htable_copy(htable *input){
+	htable *res=(htable*)malloc(sizeof(htable));
+	res->sets=(keyset*)malloc(PAGESIZE);
+	memcpy(res->sets,input->sets,PAGESIZE);
+	res->t_b=0;
+	res->origin=NULL;
+	return res;
+}
+ */

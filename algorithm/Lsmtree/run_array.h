@@ -18,8 +18,6 @@ typedef struct Entry{
 	KEYT key;
 	KEYT end;
 	KEYT pbn;
-	uint8_t bitset[KEYNUM/8];
-	//uint64_t version; version == order by input;
 #ifdef BLOOM
 	BF *filter;
 #endif

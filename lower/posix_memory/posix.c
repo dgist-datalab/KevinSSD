@@ -54,7 +54,7 @@ lower_info my_posix={
 	.lower_free=NULL,
 	.lower_flying_req_wait=posix_flying_req_wait
 };
-static uint32_t d_write_cnt, m_write_cnt, gcd_write_cnt, gcm_write_cnt;
+ uint32_t d_write_cnt, m_write_cnt, gcd_write_cnt, gcm_write_cnt;
 
 #if (ASYNC==1)
 void *l_main(void *__input){

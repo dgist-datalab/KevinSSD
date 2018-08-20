@@ -186,15 +186,12 @@ void *p_main(void *__input){
 	}
 	__hash_node *t_h_node;
 	//int control_cnt=0;
-	void *flush_req=NULL;
-	bool device_clean=false;
 	while(1){
 #ifdef LEAKCHECK
 		sleep(1);
 #endif
 		if(force_write_stop ||(write_stop && _this->req_q->size==QDEPTH)){
 			write_stop=false;
-			device_clean=true;
 		}
 
 		if(mp.stopflag)
@@ -205,12 +202,11 @@ void *p_main(void *__input){
 		else if(!(_inf_req=q_dequeue(_this->req_rq))){
 			bool req_flag=false;
 			pthread_mutex_lock(&wq_lock);
-#endif
-#ifndef interface_pq
-		else if(!(_inf_req=q_dequeue(_this->req_q))){
-#else
+
 			if(_this->retry_q->size || write_stop || !(_inf_req=q_dequeue(_this->req_q))){
 				pthread_mutex_unlock(&wq_lock);
+#else
+		else if(!(_inf_req=q_dequeue(_this->req_q))){
 #endif
 				continue;
 			}

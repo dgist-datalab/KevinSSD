@@ -187,7 +187,6 @@ htable *compaction_data_write(skiplist *mem){
 	res->origin=temp;
 	snode *target;
 	sk_iter* iter=skiplist_get_iterator(mem);
-	uint8_t *bitset=(uint8_t*)malloc(sizeof(uint8_t)*(KEYNUM/8));
 #ifdef BLOOM
 	BF *filter=bf_init(KEYNUM,LSM.disk[0]->fpr);
 	res->filter=filter;
@@ -200,14 +199,13 @@ htable *compaction_data_write(skiplist *mem){
 #ifdef BLOOM
 		bf_set(filter,res->sets[idx].lpa);
 #endif
-		if(target->isvalid)
-			lsm_kv_validset(bitset,idx);
-		/*target->value=NULL;
-		  target->req=NULL;*/
+		if(!target->isvalid){
+			res->sets[idx].ppa=UINT_MAX;
+		}
 		idx++;
 	}
 	free(iter);
-	res->bitset=bitset;
+
 	isflushing=false;
 	return res;
 }
@@ -248,13 +246,23 @@ bool compaction_force(){
 				leveling(i,LEVELN-1,NULL);
 			}
 	//		printf("\n\n");
-			level_summary();
+	//		level_summary();
 			return true;
 		}
 	}/*
 	printf("\n false after \n");
 	level_summary();*/
 	return false;
+}
+bool compaction_force_target(int from, int to){
+	if(!LSM.disk[from]->n_num) return false;
+	if(LSM.disk[to]->isTiering){
+		tiering(from,to,NULL);
+	}
+	else{
+		leveling(from,to,NULL);
+	}
+	return true;
 }
 
 extern pm data_m;
@@ -274,12 +282,12 @@ void *compaction_main(void *input){
 #endif
 		if(compactor.stopflag)
 			break;
-
+/*
 		pthread_mutex_lock(&compaction_req_lock);
 		while(compaction_req_cnt==0){
 			pthread_cond_wait(&compaction_req_cond,&compaction_req_lock);
 		}
-		pthread_mutex_unlock(&compaction_req_lock);
+		pthread_mutex_unlock(&compaction_req_lock);*/
 
 		if(!(_req=q_dequeue(_this->q))){
 			//sleep or nothing
@@ -302,9 +310,6 @@ void *compaction_main(void *input){
 			KEYT end=table->sets[KEYNUM-1].lpa;
 			//		KEYT ppa=compaction_htable_write(table);
 			Entry *entry=level_make_entry(start,end,-1);
-			
-			memcpy(entry->bitset,table->bitset,KEYNUM/8);
-			free(table->bitset);
 			entry->t_table=table;
 #ifdef BLOOM
 			entry->filter=table->filter;
@@ -366,12 +371,13 @@ void compaction_check(){
 
 
 		compaction_assign(req);
+		/*
 		pthread_mutex_lock(&compaction_req_lock);
 		if(compaction_req_cnt==0){
 			pthread_cond_broadcast(&compaction_req_cond);
 		}
 		compaction_req_cnt++;
-		pthread_mutex_unlock(&compaction_req_lock);
+		pthread_mutex_unlock(&compaction_req_lock);*/
 
 		pthread_mutex_lock(&compaction_flush_wait);
 	}
@@ -385,8 +391,6 @@ htable *compaction_htable_convert(skiplist *input,float fpr){
 	res->origin=temp;
 
 	sk_iter *iter=skiplist_get_iterator(input);
-	uint8_t *bitset=(uint8_t*)malloc(sizeof(uint8_t)*(KEYNUM/8));
-
 #ifdef BLOOM
 	BF *filter=bf_init(KEYNUM,fpr);	
 	res->filter=filter;
@@ -398,17 +402,19 @@ htable *compaction_htable_convert(skiplist *input,float fpr){
 #ifdef BLOOM
 		bf_set(filter,snode_t->key);
 #endif
-		lsm_kv_validset(bitset,idx);
+		if(!snode_t->isvalid){
+			res->sets[idx].ppa=UINT_MAX;
+		}
 		idx++;
 	}
 	for(int i=idx; i<KEYNUM; i++){
 		res->sets[i].lpa=UINT_MAX;
 		res->sets[i].ppa=UINT_MAX;
 	}
+
 	//free skiplist too;
 	free(iter);
 	skiplist_free(input);
-	res->bitset=bitset;
 	return res;
 }
 void compaction_htable_read(Entry *ent,PTR* value){
@@ -441,8 +447,6 @@ void compaction_subprocessing_CMI(skiplist * target,level * t,bool final,KEYT li
 		end_idx=write_t->size;
 		table=compaction_htable_convert(write_t,t->fpr);
 		res=level_make_entry(table->sets[0].lpa,table->sets[end_idx-1].lpa,ppa);
-		memcpy(res->bitset,table->bitset,KEYNUM/8);
-		free(table->bitset);
 #ifdef BLOOM
 		res->filter=table->filter;
 #endif
@@ -468,18 +472,21 @@ void compaction_subprocessing(skiplist *target,level *t, htable** datas,bool fin
 	compaction_sub_wait();
 	snode *check_node;
 	KEYT limit=0;
-	static int cnt=0;
+	//static int cnt=0;
 	for(int i=0; i<epc_check; i++){//insert htable into target
 		htable *table=datas[i];
 		limit=table->sets[0].lpa;
 		for(int j=0; j<KEYNUM; j++){
 			if(table->sets[j].lpa==UINT_MAX) break;
+			bool valid_flag=true;
+			
+			if(table->sets[j].ppa==UINT_MAX) valid_flag=false;
 
 			if(existIgnore){
-				check_node=skiplist_insert_existIgnore(target,table->sets[j].lpa,table->sets[j].ppa,lsm_kv_validcheck(table->bitset,j));
+				check_node=skiplist_insert_existIgnore(target,table->sets[j].lpa,table->sets[j].ppa,valid_flag);
 			}
 			else{
-				check_node=skiplist_insert_wP(target,table->sets[j].lpa,table->sets[j].ppa,lsm_kv_validcheck(table->bitset,j));
+				check_node=skiplist_insert_wP(target,table->sets[j].lpa,table->sets[j].ppa,valid_flag);
 			}
 			if(check_node==NULL){
 				level_all_print();
@@ -751,7 +758,6 @@ uint64_t partial_tiering(level *des,level *src, int size){
 #ifdef CACHE
 			}
 #endif
-			table[table_cnt]->bitset=temp_ent->bitset;
 			table_cnt++;
 		}
 	}
@@ -835,7 +841,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 					target_s[idx]->iscompactioning=true;
 				}
 
-				table[j]->bitset=target_s[idx]->bitset;
 				idx++;
 				if(target_s[idx]==NULL) break;
 			}
@@ -910,7 +915,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 #ifdef CACHE
 					}
 #endif
-					table[0]->bitset=origin_ent->bitset;
 					j++;
 				}
 
@@ -933,7 +937,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 					if(!target_s[idx]->iscompactioning){
 						target_s[idx]->iscompactioning=true;
 					}
-					table[k]->bitset=target_s[idx]->bitset;
 					idx++;
 				}
 

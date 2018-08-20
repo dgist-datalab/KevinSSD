@@ -3,9 +3,14 @@
 #include "settings.h"
 
 /*lsmtree structure*/
+#ifndef EEMODE
 #define KEYNUM 1024
+#else
+#define KEYNUM 1000
+#endif
+
 #define RAF 0.01
-#define LEVELN 2
+#define LEVELN 3
 
 #if LEVELN!=1
 #define BLOOM

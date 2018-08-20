@@ -102,7 +102,6 @@ Entry *level_entry_copy(Entry *input){
 #else
 	res->t_table=NULL;
 #endif
-	memcpy(res->bitset,input->bitset,sizeof(res->bitset));
 	res->iscompactioning=false;
 	return res;
 }
@@ -469,7 +468,6 @@ Entry *level_make_entry(KEYT key,KEYT end,KEYT pbn){
 	ent->key=key;
 	ent->end=end;
 	ent->pbn=pbn;
-	memset(ent->bitset,0,KEYNUM/8);
 	ent->t_table=NULL;
 	ent->iscompactioning=false;
 #ifdef CACHE
@@ -607,9 +605,6 @@ void level_check(level *input){
 				if(temp_ent->t_table->sets[10].lpa>10){
 					printf("\r");
 				}
-			}
-			if(temp_ent->bitset[10]){
-				printf("\r");
 			}
 		}
 		cnt++;*/
