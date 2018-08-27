@@ -344,7 +344,7 @@ uint32_t lsm_get(request *const req){
 				level_all_print();
 				tmp_req->type=FS_NOTFOUND_T;
 				tmp_req->end_req(tmp_req);
-				exit(1);
+				//exit(1);
 			}
 		}
 		else 
@@ -370,7 +370,7 @@ uint32_t lsm_get(request *const req){
 		level_all_print();
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
-		exit(1);
+//		exit(1);
 	}
 	return res_type;
 }

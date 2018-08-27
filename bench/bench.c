@@ -84,6 +84,8 @@ void bench_make_data(){
 		case MIXED:
 			mixed(start,end,50,_m);
 			break;
+		default:
+			break;
 	}
 	_d->read_cnt=_m->read_cnt;
 	_d->write_cnt=_m->write_cnt;

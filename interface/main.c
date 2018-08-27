@@ -79,7 +79,7 @@ int main(int argc,char* argv[]){
 	}
 
 	inf_init();
-	bench_init(1);
+	bench_init(2);
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
 	/*
@@ -89,7 +89,7 @@ int main(int argc,char* argv[]){
 	//bench_add(RANDRW,0,128*1024,2*128*1024);
 	//bench_add(SEQSET,0,RANGE-(4*_PPS),RANGE-(4*_PPS));
 	//bench_add(MIXED,0,RANGE-(4*_PPS),RANGE-(4*_PPS));
-//	bench_add(SEQSET,0,RANGE,RANGE);
+	bench_add(SEQSET,0,RANGE,RANGE);
 //	bench_add(RANDSET,0,RANGE/2,RANGE);
 	bench_add(RANDRW,0,RANGE,RANGE);
 //	bench_add(RANDRW,0,RANGE,2*RANGE);

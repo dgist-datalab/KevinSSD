@@ -7,6 +7,7 @@
 #define FS_AGAIN_R_T 4
 #define FS_NOTFOUND_T 5
 #define FS_CACHE_HIT_T 6
+#define FS_RMF_T 7
 
 #define FS_MALLOC_W 1
 #define FS_MALLOC_R 2

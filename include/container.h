@@ -36,6 +36,7 @@ struct request {
 	void *upper_req;
 	void *(*upper_end)(void *);
 	bool (*end_req)(struct request *const);
+	void *(*special_func)(void *);
 	bool isAsync;
 	void *params;
 	void *__hash_node;
