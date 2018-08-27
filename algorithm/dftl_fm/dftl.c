@@ -346,6 +346,7 @@ uint32_t __demand_set(request *const req){
             lpa = temp->key;
             c_table = &CMT[D_IDX];
             p_table = c_table->p_table;
+            t_ppa   = c_table->t_ppa;
 
             if(p_table){ /* Cache hit */
                 if(!c_table->flag){ // clean hit
@@ -537,7 +538,6 @@ uint32_t __demand_get(request *const req){
     // initialization
     c_table = &CMT[D_IDX];
     p_table = c_table->p_table;
-    t_ppa = c_table->t_ppa;
 
     // p_table
     if(p_table){
