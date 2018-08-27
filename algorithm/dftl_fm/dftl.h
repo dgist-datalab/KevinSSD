@@ -44,7 +44,8 @@ typedef struct cached_table{
 	int32_t t_ppa;
 	int32_t idx;
 	D_TABLE *p_table;
-	NODE *queue_ptr;
+	NODE *queue_ptr; // for dirty pages (or general use)
+    NODE *clean_ptr; // for clean pages
 	unsigned char flag; // 0: unchanged, 1: dirty, need to merge, 2: changed but all data on cache
 } C_TABLE;
 
