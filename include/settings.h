@@ -22,6 +22,7 @@
 #define TOTALSIZE (100L*G)
 #define REALSIZE (512L*G)
 #define PAGESIZE (8*K)
+#define VALUESIZE (4*K)
 #define _PPB (256)
 #define _PPS (1<<14)
 #define BPS (64)

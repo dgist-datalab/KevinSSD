@@ -9,6 +9,7 @@
 #include "../include/types.h"
 #include "../bench/bench.h"
 #include "interface.h"
+#include "queue.h"
 
 #include "../include/kuk_socket_lib/kuk_sock.h"
 #ifdef Lsmtree
@@ -20,26 +21,40 @@ kuk_sock *net_worker;
 #define REQSIZE (sizeof(uint64_t)*3+sizeof(uint8_t))
 #define PACKETSIZE 4096
 bool force_write_start;
+queue *ret_q;
+
+void *flash_returner(void *param){
+	while(1){
+		static int cnt=0;
+		void *req;
+		if(!(req=q_dequeue(ret_q))){
+			continue;
+		}
+		printf("send_cnt:%d\n",cnt++);
+		kuk_send(net_worker,(char*)req,sizeof(uint32_t));
+		free(req);
+	}
+	return NULL;
+}
 
 void *flash_ack2clnt(void *param){
 	void **params=(void**)param;
 	uint8_t type=*((uint8_t*)params[0]);
-	uint32_t seq=*((uint32_t*)params[1]);
-	static int cnt=0;
+	//uint32_t seq=*((uint32_t*)params[1]);
 	switch(type){
 		case FS_NOTFOUND_T:
 		case FS_GET_T:
 			/*
 			kuk_ack2clnt(net_worker);*/
-			printf("send_cnt:%d\n",cnt++);
-			kuk_send(net_worker,(char*)&seq,sizeof(seq));
+			//kuk_send(net_worker,(char*)&seq,sizeof(seq));
+			while(!q_enqueue((void*)params[1],ret_q)){}
 			break;
 		default:
 			break;
 	}
 
 	free(params[0]);
-	free(params[1]);
+	//free(params[1]);
 	free(params);
 	return NULL;
 }
@@ -93,6 +108,9 @@ int main(int argc,char* argv[]){
 	bench_init(1);
 	bench_add(NOR,0,-1,-1);
 	
+	q_init(&ret_q,1024);
+	pthread_t rt_thread;
+	pthread_create(&rt_thread,NULL,&flash_returner,NULL);
 	/*network initialize*/
 	net_worker=kuk_sock_init((PACKETSIZE/REQSIZE)*REQSIZE,flash_decoder,flash_ad);
 	kuk_open(net_worker,IP,PORT);

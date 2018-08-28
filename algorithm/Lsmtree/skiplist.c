@@ -307,11 +307,6 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 			target=b.bucket[target_length][b.idx[target_length]-1];
 			target->ppa=level_get_page(from,target->value->length);
 
-
-			/*checking new ppa in skiplist_valuset*//*
-			if(target->ppa==1068256)
-				printf("-----lpa:%d length:%d\n",target->key,target->value->length);*/
-
 			used_piece+=target_length;
 			f_insert(foot,target->key,target->ppa,target_length);
 
