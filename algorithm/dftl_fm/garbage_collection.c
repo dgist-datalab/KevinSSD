@@ -2,12 +2,6 @@
 
 //#define LEAKCHECK
 
-extern int32_t num_dirty;
-extern int32_t max_dirty_cache;
-
-extern LRU *c_lru;
-extern LRU *d_lru;
-
 int32_t tpage_GC(){
 	int32_t old_block;
 	int32_t new_block;
@@ -199,14 +193,15 @@ int32_t dpage_GC(){
 				if(c_table->flag == 0){
 					c_table->flag = 2;
 					BM_InvalidatePage(bm, t_ppa);
-
+#if C_CACHE
                     if (num_dirty == max_dirty_cache) {
                         bool gc_flag, d_flag;
                         demand_eviction(NULL, 'D', &gc_flag, &d_flag);
                     }
 
-                    c_table->queue_ptr = lru_push(d_lru, (void *)c_table);
+                    c_table->queue_ptr = lru_push(lru, (void *)c_table);
                     num_dirty++;
+#endif
 				}
 			}
 			continue;
@@ -243,7 +238,6 @@ int32_t dpage_GC(){
 			__demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(GC_MAPPING_W, temp_value_set, NULL));	// Unload page to ppa
 			demand_OOB[t_ppa].lpa = c_table->idx;
 			BM_ValidatePage(bm, t_ppa);
-
 			c_table->t_ppa = t_ppa; // Update CMT t_ppa
 		}
 	}
@@ -270,7 +264,6 @@ int32_t dpage_GC(){
 
 	/* Trim data block */
 	__demand.li->trim_block(old_block, false);
-
 	return new_block + real_valid;
 }
 

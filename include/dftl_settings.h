@@ -1,6 +1,9 @@
 #ifndef __H_SETDFTL__
 #define __H_SETDFTL__
 
+// clean cache flag
+#define C_CACHE 1
+
 // write buffering flag
 #define W_BUFF 1
 

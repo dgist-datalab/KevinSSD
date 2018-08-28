@@ -45,7 +45,9 @@ typedef struct cached_table{
 	int32_t idx;
 	D_TABLE *p_table;
 	NODE *queue_ptr; // for dirty pages (or general use)
+#if C_CACHE
     NODE *clean_ptr; // for clean pages
+#endif
 	unsigned char flag; // 0: unchanged, 1: dirty, need to merge, 2: changed but all data on cache
 } C_TABLE;
 
@@ -79,6 +81,8 @@ typedef struct mem_table{
 /* extern variables */
 extern algorithm __demand;
 
+extern LRU *lru;
+
 extern b_queue *free_b;
 extern Heap *data_b;
 extern Heap *trans_b;
@@ -104,6 +108,10 @@ extern int32_t num_dpage;
 extern int32_t num_dblock;
 extern int32_t max_cache_entry;
 extern int32_t num_max_cache;
+extern int32_t max_clean_cache;
+extern int32_t max_dirty_cache;
+
+extern int32_t num_dirty;
 
 extern int32_t tgc_count;
 extern int32_t dgc_count;
