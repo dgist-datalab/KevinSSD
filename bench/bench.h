@@ -54,6 +54,7 @@ typedef struct{
 	uint64_t m_num;
 	uint64_t r_num;//request end num
 	bool finish;
+	bool empty;
 	int mark;
 	uint64_t notfound;
 	uint64_t write_cnt;

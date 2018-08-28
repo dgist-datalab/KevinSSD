@@ -39,6 +39,10 @@ void bench_init(int benchnum){
 	_master->n_num=0; _master->m_num=benchnum;
 	pthread_mutex_init(&bench_lock,NULL);
 
+	for(int i=0; i<benchnum; i++){
+		_master->m[i].empty=true;
+	}
+
 	for(int i=0;i<benchnum;i++){
 		for(int j=0;j<ALGOTYPE;j++){
 			for(int k=0;k<LOWERTYPE;k++){
@@ -57,6 +61,7 @@ void bench_make_data(){
 	_m->body=(bench_value*)malloc(sizeof(bench_value)*_meta->number);
 	_m->n_num=0;
 	_m->r_num=0;
+	_m->empty=false;
 	_m->m_num=_meta->number;
 	_m->type=_meta->type;
 	KEYT start=_meta->start;
@@ -389,12 +394,12 @@ void bench_reap_data(request *const req,lower_info *li){
 	}
 	int idx=req->mark;
 	monitor *_m=&_master->m[idx];
-
 	bench_data *_data=&_master->datas[idx];
 
 	if(req->type==FS_GET_T){
 		bench_update_ftltime(_data, req);
 	}
+
 #ifdef CDF
 	measure_calc(&req->latency_checker);
 	int slot_num=req->latency_checker.micro_time/TIMESLOT;
@@ -415,7 +420,11 @@ void bench_reap_data(request *const req,lower_info *li){
 		}
 	}
 #endif
-
+	if(_m->empty){
+		_m->m_num++;
+		pthread_mutex_unlock(&bench_lock);
+		return;
+	}
 
 	if(_m->m_num==_m->r_num+1){
 		_data->bench=_m->benchTime;

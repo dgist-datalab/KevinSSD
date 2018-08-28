@@ -366,9 +366,8 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value){
 	return true;
 }
 
-bool inf_make_req_special(const FSTYPE type, const KEYT key, value_set* value, int mark, void*(*special)(void*)){
-	
-	request *req=inf_get_req_instance(type,key,value,mark);
+bool inf_make_req_special(const FSTYPE type, const KEYT key, value_set* value, KEYT seq, void*(*special)(void*)){
+	request *req=inf_get_req_instance(type,key,value,0);
 	req->special_func=special;
 	pthread_mutex_lock(&flying_req_lock);
 	while(flying_req_cnt==QDEPTH){
@@ -376,7 +375,8 @@ bool inf_make_req_special(const FSTYPE type, const KEYT key, value_set* value, i
 	}
 	flying_req_cnt++;
 	pthread_mutex_unlock(&flying_req_lock);
-
+	//set sequential
+	req->seq=seq;
 #ifdef CDF
 	req->isstart=false;
 	measure_init(&req->latency_checker);
@@ -402,15 +402,22 @@ bool inf_end_req( request * const req){
 #ifdef DEBUG
 	printf("inf_end_req!\n");
 #endif
-
-	uint8_t *type=(uint8_t*)malloc(sizeof(uint8_t));
-	*type=req->type;
+	void *(*special)(void*);
+	special=req->special_func;
+	void **params;
+	uint8_t *type;
+	uint32_t *seq;
+	if(special){
+		params=(void**)malloc(sizeof(void*)*2);
+		type=(uint8_t*)malloc(sizeof(uint8_t));
+		seq=(uint32_t*)malloc(sizeof(uint32_t));
+		*type=req->type;
+		*seq=req->seq;
+		params[0]=(void*)type;
+		params[1]=(void*)seq;
+	}
 	if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){
-		//int check;
-		//memcpy(&check,req->value,sizeof(check));
-		/*
-		   if((++end_req_num)%1024==0)
-		   printf("get:%d, number: %d\n",check,end_req_num);*/
+	
 	}
 	if(req->value){
 		if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){
@@ -421,8 +428,7 @@ bool inf_end_req( request * const req){
 		}
 	}
 	req_cnt_test++;
-	void *(*special)(void*);
-	special=req->special_func;
+
 	if(!req->isAsync){
 		pthread_mutex_unlock(&req->async_mutex);	
 	}
@@ -438,11 +444,11 @@ bool inf_end_req( request * const req){
 	}*/
 	if(flying_req_cnt==QDEPTH){
 		flying_req_cnt--;
-		if(special) special((void*)type);
+		if(special) special((void*)params);
 		pthread_cond_broadcast(&flying_req_cond);
 	}
 	else{
-		if(special) special((void*)type);
+		if(special) special((void*)params);
 		flying_req_cnt--;
 	}
 	pthread_mutex_unlock(&flying_req_lock);

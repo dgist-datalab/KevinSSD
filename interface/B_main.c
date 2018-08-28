@@ -17,27 +17,37 @@ int skiplist_hit;
 kuk_sock *net_worker;
 #define IP "127.0.0.1"
 #define PORT 8888
-#define REQSIZE (sizeof(uint64_t)*2+sizeof(uint8_t))
+#define REQSIZE (sizeof(uint64_t)*3+sizeof(uint8_t))
 #define PACKETSIZE 4096
 bool force_write_start;
 
 void *flash_ack2clnt(void *param){
-	uint8_t type=*((uint8_t*)param);
+	void **params=(void**)param;
+	uint8_t type=*((uint8_t*)params[0]);
+	uint32_t seq=*((uint32_t*)params[1]);
+	static int cnt=0;
 	switch(type){
 		case FS_NOTFOUND_T:
 		case FS_GET_T:
-			kuk_ack2clnt(net_worker);
+			/*
+			kuk_ack2clnt(net_worker);*/
+			printf("send_cnt:%d\n",cnt++);
+			kuk_send(net_worker,(char*)&seq,sizeof(seq));
 			break;
 		default:
 			break;
 	}
-	free(param);
+
+	free(params[0]);
+	free(params[1]);
+	free(params);
 	return NULL;
 }
 void *flash_ad(kuk_sock* ks){
 	uint8_t type=*((uint8_t*)ks->p_data[0]);
 	uint64_t key=*((uint64_t*)ks->p_data[1]);
 	uint64_t len=*((uint64_t*)ks->p_data[2]);
+	uint64_t seq=*((uint64_t*)ks->p_data[3]);
 		
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
@@ -48,24 +58,26 @@ void *flash_ad(kuk_sock* ks){
 	temp.length=(uint32_t)len;
 	static int cnt=0;
 	printf("make cnt:%d\n",cnt++);
-	inf_make_req_special(type,(uint32_t)key,&temp,0,flash_ack2clnt);
+	inf_make_req_special(type,(uint32_t)key,&temp,seq,flash_ack2clnt);
 	return NULL;
 }
 void *flash_decoder(kuk_sock *ks, void*(*ad)(kuk_sock*)){
 	char **parse=ks->p_data;
 	if(parse==NULL){
-		parse=(char**)malloc(3*sizeof(char*)+1);
+		parse=(char**)malloc(4*sizeof(char*)+1);
 		parse[0]=(char*)malloc(sizeof(uint8_t));//type
 		parse[1]=(char*)malloc(sizeof(uint32_t));//key
 		parse[2]=(char*)malloc(sizeof(uint32_t));//length
-		parse[3]=NULL;
+		parse[3]=(char*)malloc(sizeof(uint32_t));//seq
+		parse[4]=NULL;
 		ks->p_data=parse;
 	}
 
 	char *dd=&ks->data[ks->data_idx];
 	memcpy(parse[0],&dd[0],sizeof(uint8_t));
 	memcpy(parse[1],&dd[sizeof(uint8_t)],sizeof(uint64_t));
-	memcpy(parse[2],&dd[REQSIZE-sizeof(uint64_t)],sizeof(uint64_t));
+	memcpy(parse[2],&dd[sizeof(uint8_t)+sizeof(uint64_t)],sizeof(uint64_t));
+	memcpy(parse[3],&dd[REQSIZE-sizeof(uint64_t)],sizeof(uint64_t));
 	
 	if((*(int*)parse[0])==ENDFLAG){
 		return NULL;
