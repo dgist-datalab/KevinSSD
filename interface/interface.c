@@ -241,6 +241,9 @@ void *p_main(void *__input){
 			case FS_DELETE_T:
 				mp.algo->remove(inf_req);
 				break;
+			case FS_RMW_T:
+				mp.algo->get(inf_req);
+				break;
 			default:
 				printf("wtf??\n");
 				inf_req->end_req(inf_req);
@@ -389,6 +392,11 @@ bool inf_make_req_special(const FSTYPE type, const KEYT key, value_set* value, K
 
 //static int end_req_num=0;
 bool inf_end_req( request * const req){
+	if(req->type==FS_RMW_T){
+		req->type=FS_SET_T;
+		assign_req(req);
+		return 1;
+	}
 #ifdef SNU_TEST
 #else
 	if(req->isstart){
@@ -416,6 +424,7 @@ bool inf_end_req( request * const req){
 		params[0]=(void*)type;
 		params[1]=(void*)seq;
 	}
+
 	if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){
 	
 	}
