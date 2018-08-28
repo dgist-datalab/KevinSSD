@@ -2,6 +2,12 @@
 
 //#define LEAKCHECK
 
+extern int32_t num_dirty;
+extern int32_t max_dirty_cache;
+
+extern LRU *c_lru;
+extern LRU *d_lru;
+
 int32_t tpage_GC(){
 	int32_t old_block;
 	int32_t new_block;
@@ -181,45 +187,8 @@ int32_t dpage_GC(){
 		c_table = &CMT[D_IDX];
 		t_ppa = c_table->t_ppa;
 		p_table = c_table->p_table;
-		
-		if(p_table){
-			/*
-			if(c_table->flag == 1){
-				if(p_table[P_IDX].ppa == -1){ // dirty cache, need merge
-					temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
-					temp_req = assign_pseudo_req(MAPPING_M, temp_value_set, NULL);
-					params = (demand_params*)temp_req->params;
-					__demand.li->pull_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req);
-					dl_sync_wait(&params->dftl_mutex);
-					on_dma = (D_TABLE*)temp_value_set->value;
-					for(int i = 0; i < EPP; i++){
-						if(p_table[i].ppa == -1){
-							p_table[i].ppa = on_dma[i].ppa;
-						}
-						else if(on_dma[i].ppa != -1){
-							// !!! if prev ppa was in victim block, then do nothing !!! 
-							if(on_dma[i].ppa/p_p_b != d_reserved->PBA){ 	// this mean that this ppa was on victim block
-								BM_InvalidatePage(bm, on_dma[i].ppa);       // it doesn't need update
-							}
-						}
-					}
-					c_table->flag = 2;
-					BM_InvalidatePage(bm, t_ppa);
-					free(params);
-					free(temp_req);
-					inf_free_valueset(temp_value_set, FS_MALLOC_R);
-				}
-				if(p_table[P_IDX].ppa != d_sram[i].origin_ppa){ // if not same as origin, it mean this is actually invalid data
-					d_sram[i].origin_ppa = -1;
-					continue;
-				}
-				else{
-					p_table[P_IDX].ppa = new_block + real_valid;
-					real_valid++;
-				}
-				continue;
-			}
-			*/
+
+		if(p_table){ // cache hit
 			if(c_table->flag == 2 && p_table[P_IDX].ppa != d_sram[i].origin_ppa){
 				d_sram[i].origin_ppa = -1; // if not same as origin, it mean this is actually invalid data
 				continue;
@@ -230,10 +199,20 @@ int32_t dpage_GC(){
 				if(c_table->flag == 0){
 					c_table->flag = 2;
 					BM_InvalidatePage(bm, t_ppa);
+
+                    if (num_dirty == max_dirty_cache) {
+                        bool gc_flag, d_flag;
+                        demand_eviction(NULL, 'D', &gc_flag, &d_flag);
+                    }
+
+                    c_table->queue_ptr = lru_push(d_lru, (void *)c_table);
+                    num_dirty++;
 				}
 			}
 			continue;
 		}
+
+        // cache miss
 		if(tce == INT32_MAX){ // read t_page into temp_table
 			tce = D_IDX;
 			temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
@@ -264,12 +243,13 @@ int32_t dpage_GC(){
 			__demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(GC_MAPPING_W, temp_value_set, NULL));	// Unload page to ppa
 			demand_OOB[t_ppa].lpa = c_table->idx;
 			BM_ValidatePage(bm, t_ppa);
+
 			c_table->t_ppa = t_ppa; // Update CMT t_ppa
 		}
 	}
 
 
-	/* Write dpages */ 
+	/* Write dpages */
 	real_valid = 0;
 	for(int i = 0; i < valid_num; i++){
 		if(d_sram[i].origin_ppa != -1){
@@ -290,6 +270,7 @@ int32_t dpage_GC(){
 
 	/* Trim data block */
 	__demand.li->trim_block(old_block, false);
+
 	return new_block + real_valid;
 }
 
