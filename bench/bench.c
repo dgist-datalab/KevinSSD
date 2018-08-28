@@ -239,6 +239,9 @@ void bench_print(){
 			printf("[SUCCESS RATIO] %lf\n",sr);
 			printf("[throughput] %lf(kb/s)\n",throughput);
 			printf("             %lf(mb/s)\n",throughput/1024);
+			if(_m->read_cnt){
+				printf("[cache hit cnt,ratio] %ld, %lf\n",_m->cache_hit,(double)_m->cache_hit/(_m->read_cnt));
+			}
 			printf("[READ WRITE CNT] %ld %ld\n",_m->read_cnt,_m->write_cnt);
 		}
 	}
@@ -638,7 +641,7 @@ void bench_lower_t(lower_info *li){
 }
 
 void bench_cache_hit(int mark){
-	/*
+	
 	monitor *_m=&_master->m[mark];
-	_m->cache_hit++;*/
+	_m->cache_hit++;
 }

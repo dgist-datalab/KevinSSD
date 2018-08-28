@@ -282,27 +282,14 @@ void *compaction_main(void *input){
 #endif
 		if(compactor.stopflag)
 			break;
-/*
-		pthread_mutex_lock(&compaction_req_lock);
-		while(compaction_req_cnt==0){
-			pthread_cond_wait(&compaction_req_cond,&compaction_req_lock);
-		}
-		pthread_mutex_unlock(&compaction_req_lock);*/
+
 
 		if(!(_req=q_dequeue(_this->q))){
 			//sleep or nothing
 			compaction_idle=true;
-			//pthread_mutex_lock(&compaction_assign_lock);
 			continue;
 		}
 		req=(compR*)_req;
-		//printf("seq num: %d -",req->seq);
-/*
-		if(ccnt++%100==0){
-			printf("\n");
-		//	level_summary();
-			printf("\n");
-		}*/
 		if(req->fromL==-1){
 			gc_check(DATA,false);
 			htable *table=compaction_data_write(LSM.temptable);
@@ -380,6 +367,7 @@ void compaction_check(){
 		pthread_mutex_unlock(&compaction_req_lock);*/
 
 		pthread_mutex_lock(&compaction_flush_wait);
+		//cache_print(LSM.lsm_cache);
 	}
 }
 
@@ -672,6 +660,7 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 	int headerSize=level_range_find(t,t->start,t->end,&target_s,true);
 	int target_round=headerSize/EPC+(headerSize%EPC ? 1:0);
 	int idx=0,pr_idx=0;
+	//static int cnt=0;
 	for(int round=0; round<target_round; round++){
 		compaction_sub_pre();
 		table=(htable**)malloc(sizeof(htable*)*EPC);
@@ -680,8 +669,8 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 		for(int j=0; j<EPC; j++){
 #ifdef CACHE
 			if(target_s[idx]->c_entry){
-				//		memcpy(&table[j],target_s[idx]->t_table,sizeof(htable));
-				table[j]=target_s[idx]->t_table;
+//				table[j]=target_s[idx]->t_table;
+				table[j]=htable_copy(target_s[idx]->t_table);
 				memcpy_cnt++;
 			}
 			else{
@@ -704,13 +693,15 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 			for(int q=0; q<KEYNUM; q++){
 				bf_set(filter,ttable->sets[q].lpa);
 			}
-#ifdef CACHE
+
+			htable_free(table[k]);
+/*#ifdef CACHE
 			if(!target_s[pr_idx]->c_entry){
 #endif
 				htable_free(table[k]);
 #ifdef CACHE
 			}
-#endif
+#endif*/
 			Entry *new_ent=level_entry_copy(target_s[pr_idx]);
 			new_ent->filter=filter;
 			pr_idx++;
@@ -748,8 +739,9 @@ uint64_t partial_tiering(level *des,level *src, int size){
 			temp_entries[entries_idx++]=temp_ent;
 #ifdef CACHE
 			if(temp_ent->c_entry){
+//				table[table_cnt]=temp_ent->t_table;
+			//	table[table_cnt]=htable_copy(temp_ent->t_table);
 				memcpy_cnt++;
-				table[table_cnt]=temp_ent->t_table;
 			}
 			else{
 #endif
@@ -774,8 +766,12 @@ uint64_t partial_tiering(level *des,level *src, int size){
 	}
 
 	for(int i=0; temp_entries[i]!=NULL; i++){
-		if(temp_entries[i]->iscompactioning!=3)
+		if(temp_entries[i]->iscompactioning!=3){
 			invalidate_PPA(temp_entries[i]->pbn);
+		}
+		if(table[i]){
+			htable_free(table[i]);
+		}
 	}
 	//level_all_print();
 	free(temp_entries);
@@ -828,7 +824,8 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 #ifdef CACHE
 				if(target_s[idx]->c_entry){
 					memcpy_cnt++;
-					table[j]=target_s[idx]->t_table;
+//					table[j]=target_s[idx]->t_table;
+					table[j]=htable_copy(target_s[idx]->t_table);
 				}
 				else{
 #endif
@@ -853,11 +850,12 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 					}
 				}
 				if(table[z]){
+/*					
 #ifdef CACHE
 					if(target_s[i]->c_entry){
 						continue;
 					}
-#endif
+#endif*/
 					htable_free(table[z]);
 				}
 				else
@@ -906,7 +904,8 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 #ifdef CACHE
 					if(origin_ent->c_entry){
 						memcpy_cnt++;
-						table[0]=origin_ent->t_table;
+						table[0]=htable_copy(origin_ent->t_table);
+	//					table[0]=origin_ent->t_table;
 					}
 					else{
 #endif
@@ -924,7 +923,8 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 #ifdef CACHE
 					if(target_s[idx]->c_entry){
 						memcpy_cnt++;
-						table[k]=target_s[idx]->t_table;
+//						table[k]=target_s[idx]->t_table;
+						table[k]=htable_copy(target_s[idx]->t_table);
 					}
 					else{
 #endif
@@ -953,11 +953,12 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 					}
 
 					if(table[z]){
+						/*
 #ifdef CACHE
 						if((z==0 && origin_ent->c_entry) || target_s[z-1]->c_entry){
 							continue;
 						}
-#endif
+#endif*/
 						htable_free(table[z]);
 					}
 					else 

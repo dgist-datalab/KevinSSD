@@ -10,7 +10,7 @@
 #endif
 
 #define RAF 0.01
-#define LEVELN 3
+#define LEVELN 7
 
 #if LEVELN!=1
 #define BLOOM
@@ -20,8 +20,8 @@
 #define PIECE 512
 //#define LEVELUSINGHEAP
 //#define TIERING
-//#define CACHE
-//#define CACHESIZE (128*8*100)//1*128==1M
+#define CACHE
+#define CACHESIZE 1//(128*8*1)//1*128==1M
 
 /*lsmtree flash thread*/
 #define KEYSIZE ()

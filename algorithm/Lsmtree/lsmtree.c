@@ -192,10 +192,7 @@ void* lsm_end_req(algo_req* const req){
 					//have to free
 					inf_free_valueset(params->value,FS_MALLOC_R);
 			}
-			else{/*
-					mapinfo.sets=(keyset*)parents->value->value;
-					printf("tag:%d\n",parents->value->dmatag);
-					htable_print(&mapinfo,params->ppa);*/
+			else{
 				if(!parents->isAsync){ // end_req for lsm_get
 					dl_sync_arrive(&params->lock);
 					havetofree=false;
@@ -323,6 +320,9 @@ uint32_t lsm_get(request *const req){
 	if(!level_show){
 		level_show=true;
 		measure_init(&lsm_mt);
+#ifdef CACHE
+//		cache_print(LSM.lsm_cache);
+#endif
 		//readlockbywrite=0;
 	}
 
@@ -331,17 +331,10 @@ uint32_t lsm_get(request *const req){
 		if((re_q=q_dequeue(LSM.re_q))){
 			request *tmp_req=(request*)re_q;
 			bench_algo_start(tmp_req);
-			/*
-			if(req->params==NULL){
-				MP(&req->latency_ftl);
-				measure_init(&req->latency_ftl);
-				MS(&req->latency_ftl);
-			}*/
-
 			res_type=__lsm_get(tmp_req);
 			if(res_type==3){
 				printf("from req not found seq: %d, key:%u\n",nor++,req->key);
-				level_all_print();
+			//	level_all_print();
 				tmp_req->type=FS_NOTFOUND_T;
 				tmp_req->end_req(tmp_req);
 				//exit(1);
@@ -358,16 +351,10 @@ uint32_t lsm_get(request *const req){
 		temp=true;
 	}
 	bench_algo_start(req);
-	/*
-	if(req->params==NULL){
-		MP(&req->latency_ftl);
-		measure_init(&req->latency_ftl);
-		MS(&req->latency_ftl);
-	}*/
 	res_type=__lsm_get(req);
 	if(res_type==3){
 		printf("not found seq: %d, key:%u\n",nor++,req->key);
-		level_all_print();
+	//	level_all_print();
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
 //		exit(1);
@@ -381,7 +368,6 @@ uint32_t __lsm_get(request *const req){
 	//}
 	//	static int tt=0;
 	//	printf("test:%d %d\n",tt++,req->key);
-
 	snode *target_node=skiplist_find(LSM.memtable,req->key);//checking in memtable
 	if(target_node !=NULL){
 #ifdef NOHOST
@@ -482,21 +468,24 @@ uint32_t __lsm_get(request *const req){
 		round=0;
 	}
 	else{
-		//check_sktable
+		int *temp_req=(int*)req->params;
+		level=temp_req[0];
+		run=temp_req[1];
+		round=temp_req[2];
+
 		mapinfo.sets=(keyset*)req->value->value;
 		keyset *target=htable_find(mapinfo.sets,req->key);
-		//htable_print(&mapinfo,0);
-		//	printf("ppa %u lpa %u\n",mapinfo->sets[512].ppa,mapinfo->sets[512].lpa);
 		comback_req=true;
 		if(target){
 #if defined(CACHE) && !defined(FLASHCHECK)
-			//Node *t_node=ns_run(LSM.disk[level],run);
 			pthread_mutex_lock(&LSM.level_lock[level]);
 			Entry **_entry=level_find(LSM.disk[level],req->key);
+			if(!_entry[run]->t_table){
+				_entry[run]->t_table=htable_copy(&mapinfo);
+				cache_entry *c_entry=cache_insert(LSM.lsm_cache,_entry[run],0);
+				_entry[run]->c_entry=c_entry;
+			}
 			pthread_mutex_unlock(&LSM.level_lock[level]);
-			_entry[run]->t_table=htable_copy(mapinfo);
-			cache_entry *c_entry=cache_insert(LSM.lsm_cache,_entry[run],0);
-			_entry[run]->c_entry=c_entry;
 			free(_entry);
 #endif
 			//read target data;
@@ -513,16 +502,10 @@ uint32_t __lsm_get(request *const req){
 #endif
 			return 2;
 		}
+#ifndef FLASHCHCK
+		run+=1;
+#endif
 
-		int *temp_req=(int*)req->params;
-		level=temp_req[0];
-#ifdef FLASHCHECK
-		run=temp_req[1];
-#else
-		run=temp_req[1]+1;
-#endif	
-		round=temp_req[2];
-		//		htable_print(mapinfo);
 	}
 
 	for(int i=level; i<LEVELN; i++){
@@ -605,7 +588,7 @@ uint32_t __lsm_get(request *const req){
 					//read target data;
 #if defined(CACHE) && !defined(FLASHCHECK)
 					entry->t_table=(htable*)malloc(sizeof(htable));
-					memcpy(entry->t_table,mapinfo,PAGESIZE);
+					memcpy(entry->t_table,&mapinfo,PAGESIZE);
 					cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
 					entry->c_entry=c_entry;
 #endif
@@ -665,14 +648,6 @@ keyset *htable_find(keyset *table, KEYT target){
 	}
 }
 
-void lsm_kv_validset(uint8_t * bitset, int idx){
-	int block=idx/8;
-	int offset=idx%8;
-	uint8_t test=(1<<offset);
-	bitset[block]|=test;
-}
-
-
 htable *htable_assign(){
 	htable *res=(htable*)malloc(sizeof(htable));
 	res->sets=(keyset*)malloc(PAGESIZE);
@@ -684,6 +659,15 @@ htable *htable_assign(){
 void htable_free(htable *input){
 	free(input->sets);
 	free(input);
+}
+
+htable *htable_copy(htable *input){
+	htable *res=(htable*)malloc(sizeof(htable));
+	res->sets=(keyset*)malloc(PAGESIZE);
+	memcpy(res->sets,input->sets,PAGESIZE);
+	res->t_b=0;
+	res->origin=NULL;
+	return res;
 }
 
 void htable_print(htable * input,KEYT ppa){
@@ -738,13 +722,12 @@ bool lsm_kv_validcheck(uint8_t *bitset, int idx){
 	uint8_t test=(1<<offset);
 	return test&bitset[block];
 }
-
-htable *htable_copy(htable *input){
-	htable *res=(htable*)malloc(sizeof(htable));
-	res->sets=(keyset*)malloc(PAGESIZE);
-	memcpy(res->sets,input->sets,PAGESIZE);
-	res->t_b=0;
-	res->origin=NULL;
-	return res;
+void lsm_kv_validset(uint8_t * bitset, int idx){
+	int block=idx/8;
+	int offset=idx%8;
+	uint8_t test=(1<<offset);
+	bitset[block]|=test;
 }
- */
+*/
+
+ 

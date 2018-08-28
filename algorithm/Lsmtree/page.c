@@ -471,6 +471,7 @@ KEYT getRPPA(uint8_t type,KEYT lpa,bool isfull){
 
 //static int gc_check_num;
 uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
+/*
 extern uint32_t m_write_cnt;
 void gc_compaction_checking(){
 	int32_t invalidate_page,write_page;
@@ -540,7 +541,7 @@ void gc_compaction_checking(){
 		//	printf("wtf!\n");
 		//}
 	}
-}
+}*/
 void gc_check(uint8_t type, bool force){
 	block **erased_blks=NULL;
 	int e_blk_idx=0;
@@ -601,7 +602,7 @@ void gc_check(uint8_t type, bool force){
 					header_gc_cnt++; 
 					break;
 				case DATA:
-					gc_compaction_checking();
+					//gc_compaction_checking();
 					//compaction_force();
 					target_p=&data_m;
 					data_gc_cnt++; 
@@ -850,12 +851,15 @@ void gc_data_header_update(gc_node **gn,int size, int target_level){
 
 		if(entries==NULL){
 			printf("entry null!\n");
-		//	level_all_print();
 		}
 
 		for(int j=0; entries[j]!=NULL;j++){
 			datas[htable_idx]=(htable_t*)malloc(sizeof(htable_t));
-			//reading header
+#ifdef CACHE
+			if(entries[j]->c_entry){
+				memcpy(datas[htable_idx]->sets,entries[j]->t_table->sets,PAGESIZE);
+			}
+#endif
 			gc_data_read(entries[j]->pbn,datas[htable_idx],false);
 			htable_idx++;
 		}
@@ -1178,6 +1182,7 @@ int gc_header(KEYT tbn){
 		test->pbn=n_ppa;
 		gc_data_write(n_ppa,table,false);
 		free(tables[i]);
+
 	}
 	free(tables);
 	free(target_ent);

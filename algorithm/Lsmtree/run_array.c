@@ -96,8 +96,11 @@ Entry *level_entry_copy(Entry *input){
 		res->t_table=input->t_table;
 		res->c_entry=input->c_entry;
 		res->c_entry->entry=res;
-		input->t_table=NULL;
 		input->c_entry=NULL;
+		input->t_table=NULL;
+	}else{
+		res->c_entry=NULL;
+		res->t_table=NULL;
 	}
 #else
 	res->t_table=NULL;
@@ -256,8 +259,8 @@ Node *level_insert_seq(level *input, Entry *entry){
 		temp_entry->t_table=entry->t_table;
 		temp_entry->c_entry=entry->c_entry;
 		temp_entry->c_entry->entry=temp_entry;
-		entry->t_table=NULL;
 		entry->c_entry=NULL;
+		entry->t_table=NULL;
 	}
 #endif
 	temp_entry->iscompactioning=false;
