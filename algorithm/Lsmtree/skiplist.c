@@ -370,7 +370,7 @@ int skiplist_delete(skiplist* list, KEYT key){
 			list->level--;
 	}
 
-	free(x->value);
+    inf_free_valueset(x->value, FS_MALLOC_W);
 	free(x->list);
 	free(x);
 	list->size--;

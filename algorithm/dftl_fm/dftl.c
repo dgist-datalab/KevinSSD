@@ -458,7 +458,7 @@ uint32_t __demand_set(request *const req){
 #endif
     }
     lpa = req->key;
-    skiplist_insert(mem_buf, lpa, req->value, false);
+    skiplist_insert(mem_buf, lpa, req->value, true);
     req->value = NULL;
     bench_algo_end(req);
     req->end_req(req);
@@ -751,6 +751,14 @@ uint32_t __demand_remove(requset *const req) {
     c_table = &CMT[D_IDX];
     p_table = c_table->p_table;
     t_ppa   = c_table->t_ppa;
+
+#if W_BUFF
+    if (skiplist_delete(mem_buf, lpa) == 0) { // deleted!
+        bench_algo_end(req);
+        req->end_req(req);
+        return 0;
+    }
+#endif
 
     /* Get cache page from cache table */
     if (p_table) { // Cache hit
