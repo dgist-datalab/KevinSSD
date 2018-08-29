@@ -753,7 +753,7 @@ uint32_t __demand_remove(requset *const req) {
     t_ppa   = c_table->t_ppa;
 
 #if W_BUFF
-    if (skiplist_delete(mem_buf, lpa) == 0) { // deleted!
+    if (skiplist_delete(mem_buf, lpa) == 0) { // Deleted on skiplist
         bench_algo_end(req);
         req->end_req(req);
         return 0;
@@ -762,7 +762,19 @@ uint32_t __demand_remove(requset *const req) {
 
     /* Get cache page from cache table */
     if (p_table) { // Cache hit
+#if C_CACHE
+        if (!c_table->flag) { // Clean hit
+            lru_update(c_lru, c_table->clean_ptr);
+
+        } else { // Dirty hit
+            if (c_table->clean_ptr) {
+                lru_update(c_lru, c_table->clean_ptr);
+            }
+            lru_update(lru, c_table->queue_ptr);
+        }
+#else
         lru_update(lru, c_table->queue_ptr);
+#endif
 
     } else { // Cache miss
 
@@ -772,7 +784,12 @@ uint32_t __demand_remove(requset *const req) {
             return UINT32_MAX;
         }
 
-        if (num_caching == num_max_cache) {
+#if C_CACHE
+        if (num_dirty == max_dirty_cache)
+#else
+        if (num_caching == num_max_cache)
+#endif
+        {
             demand_eviction(req, 'X', &gc_flag, &d_flag);
         }
 
@@ -796,7 +813,11 @@ uint32_t __demand_remove(requset *const req) {
 
         c_table->p_table = p_table;
         c_table->queue_ptr = lru_push(lru, (void *)c_table);
+#if C_CACHE
+        num_dirty++;
+#else
         num_caching++;
+#endif
     }
 
     /* Invalidate the page */
@@ -815,6 +836,17 @@ uint32_t __demand_remove(requset *const req) {
     if (!c_table->flag) {
         c_table->flag = 2;
         BM_InvalidatePage(bm, t_ppa);
+
+#if C_CACHE
+        if (!c_table->queue_ptr) {
+            // migrate
+            if (num_dirty == max_num_dirty) {
+                demnd_eviction(req, 'X', &gc_flag, &d_flag);
+            }
+            c_table->queue_ptr = lru_push(lru, (void *)c_table);
+            num_dirty++;
+        }
+#endif
     }
 
     bench_algo_end(req);
