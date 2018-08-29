@@ -125,9 +125,10 @@ void demand_destroy(lower_info*, algorithm*);
 void *demand_end_req(algo_req*);
 uint32_t demand_set(request *const);
 uint32_t demand_get(request *const);
+uint32_t demand_remove(request *const);
 uint32_t __demand_set(request *const);
 uint32_t __demand_get(request *const);
-uint32_t demand_remove(request *const);
+uint32_t __demand_remove(request *const);
 uint32_t demand_eviction(request *const, char, bool*, bool*);
 
 //dftl_utils.c

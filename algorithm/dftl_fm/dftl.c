@@ -318,7 +318,7 @@ uint32_t demand_get(request *const req){
 
 uint32_t demand_remove(request *const req) {
     request *temp_req;
-    while ((temp_req = (request *)q_dequeue(dftl.q))) {
+    while ((temp_req = (request *)q_dequeue(dftl_q))) {
         if (__demand_get(temp_req) == UINT32_MAX) {
             temp_req->type = FS_NOTFOUND_T;
             temp_req->end_req(temp_req);
@@ -724,7 +724,7 @@ uint32_t __demand_get(request *const req){
     return 1;
 }
 
-uint32_t __demand_remove(requset *const req) {
+uint32_t __demand_remove(request *const req) {
     int32_t lpa;
     int32_t ppa;
     int32_t t_ppa;
@@ -796,7 +796,7 @@ uint32_t __demand_remove(requset *const req) {
         t_ppa = c_table->t_ppa;
         p_table = mem_deq(mem_q);
 
-        temp_value_set = inf_get_valueset(NULL, FA_MALLOC_R, PAGESIZE);
+        temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
         temp_req       = assign_pseudo_req(MAPPING_M, NULL, NULL);
         params = (demand_params *)temp_req->params;
 
@@ -821,7 +821,7 @@ uint32_t __demand_remove(requset *const req) {
     }
 
     /* Invalidate the page */
-    ppa = p_talbe[P_IDX].ppa;
+    ppa = p_table[P_IDX].ppa;
 
     // Validity check by ppa
     if (ppa == -1) { // case of no data written
@@ -829,8 +829,8 @@ uint32_t __demand_remove(requset *const req) {
         return UINT32_MAX;
     }
 
-    p_table[P_IDX].ppa = -1;
-    demand_OOB[ppa]    = -1;
+    p_table[P_IDX].ppa  = -1;
+    demand_OOB[ppa].lpa = -1;
     BM_InvalidatePage(bm, ppa);
 
     if (!c_table->flag) {
@@ -840,8 +840,8 @@ uint32_t __demand_remove(requset *const req) {
 #if C_CACHE
         if (!c_table->queue_ptr) {
             // migrate
-            if (num_dirty == max_num_dirty) {
-                demnd_eviction(req, 'X', &gc_flag, &d_flag);
+            if (num_dirty == max_dirty_cache) {
+                demand_eviction(req, 'X', &gc_flag, &d_flag);
             }
             c_table->queue_ptr = lru_push(lru, (void *)c_table);
             num_dirty++;
