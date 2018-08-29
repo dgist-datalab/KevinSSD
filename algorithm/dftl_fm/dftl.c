@@ -583,7 +583,6 @@ uint32_t __demand_get(request *const req){
     // initialization
     c_table = &CMT[D_IDX];
     p_table = c_table->p_table;
-    t_ppa = c_table->t_ppa;
 
     // Cache Hit
     if(p_table){
