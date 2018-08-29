@@ -316,6 +316,19 @@ uint32_t demand_get(request *const req){
     return 0;
 }
 
+uint32_t demand_remove(request *const req) {
+    request *temp_req;
+    while ((temp_req = (request *)q_dequeue(dftl.q))) {
+        if (__demand_get(temp_req) == UINT32_MAX) {
+            temp_req->type = FS_NOTFOUND_T;
+            temp_req->end_req(temp_req);
+        }
+    }
+
+    __demand_remove(req);
+    return 0;
+}
+
 uint32_t __demand_set(request *const req){
     /* !!! you need to print error message and exit program, when you set more valid
     data than number of data page !!! */
@@ -593,7 +606,7 @@ uint32_t __demand_get(request *const req){
             MA(&ftl);
             return UINT32_MAX;
         }
-        else{ /* Cache hit */
+        else{
 #if C_CACHE
             if (c_table->clean_ptr) lru_update(c_lru, c_table->clean_ptr);
             if (c_table->queue_ptr) lru_update(lru, c_table->queue_ptr);
@@ -709,6 +722,96 @@ uint32_t __demand_get(request *const req){
     __demand.li->pull_data(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req)); // Get data in ppa
     MA(&ftl);
     return 1;
+}
+
+uint32_t __demand_remove(requset *const req) {
+    int32_t lpa;
+    int32_t ppa;
+    int32_t t_ppa;
+    C_TABLE *c_table;
+    D_TABLE *p_table;
+    bool gc_flag;
+    bool d_flag;
+
+    value_set *temp_value_set;
+    algo_req *temp_req;
+    demand_params *params;
+
+
+    bench_algo_start(req);
+
+    // Range check
+    lpa = req->key;
+    if (lpa > RANGE) {
+        printf("range error\n");
+        printf("lpa : %d\n", lpa);
+        exit(3);
+    }
+
+    c_table = &CMT[D_IDX];
+    p_table = c_table->p_table;
+    t_ppa   = c_table->t_ppa;
+
+    /* Get cache page from cache table */
+    if (p_table) { // Cache hit
+        lru_update(lru, c_table->queue_ptr);
+
+    } else { // Cache miss
+
+        // Validity check by t_ppa
+        if (t_ppa == -1) {
+            bench_algo_end(req);
+            return UINT32_MAX;
+        }
+
+        if (num_caching == num_max_cache) {
+            demand_eviction(req, 'X', &gc_flag, &d_flag);
+        }
+
+        t_ppa = c_table->t_ppa;
+        p_table = mem_deq(mem_q);
+
+        temp_value_set = inf_get_valueset(NULL, FA_MALLOC_R, PAGESIZE);
+        temp_req       = assign_pseudo_req(MAPPING_M, NULL, NULL);
+        params = (demand_params *)temp_req->params;
+
+        __demand.li->pull_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req);
+        MS(&req->latency_poll);
+        dl_sync_wait(&params->dftl_mutex);
+        MA(&req->latency_poll);
+
+        memcpy(p_table, (D_TABLE *)temp_value_set->value, PAGESIZE);
+
+        free(params);
+        free(temp_req);
+        inf_free_valueset(temp_value_set, FS_MALLOC_R);
+
+        c_table->p_table = p_table;
+        c_table->queue_ptr = lru_push(lru, (void *)c_table);
+        num_caching++;
+    }
+
+    /* Invalidate the page */
+    ppa = p_talbe[P_IDX].ppa;
+
+    // Validity check by ppa
+    if (ppa == -1) { // case of no data written
+        bench_algo_end(req);
+        return UINT32_MAX;
+    }
+
+    p_table[P_IDX].ppa = -1;
+    demand_OOB[ppa]    = -1;
+    BM_InvalidatePage(bm, ppa);
+
+    if (!c_table->flag) {
+        c_table->flag = 2;
+        BM_InvalidatePage(bm, t_ppa);
+    }
+
+    bench_algo_end(req);
+
+    return 0;
 }
 
 #if C_CACHE
@@ -831,78 +934,3 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
 	return 1;
 }
 #endif
-
-uint32_t demand_remove(request *const req){
-    /*
-    bench_algo_start(req);
-    int32_t lpa;
-    int32_t ppa;
-    int32_t t_ppa;
-    D_TABLE *p_table;
-    value_set *temp_value_set;
-    request *temp_req = NULL;
-
-    lpa = req->key;
-    p_table = CMT[D_IDX].p_table;
-    if(!p_table){
-        if(dftl_q->size == 0){
-            q_enqueue(req, dftl_q);
-            return 0;
-        }
-        else{
-            q_enqueue(req, dftl_q);
-            temp_req = (request*)q_dequeue(dftl_q);
-            lpa = temp_req->key;
-        }
-    }
-    
-    // algo_req allocation, initialization
-    algo_req *my_req = (algo_req*)malloc(sizeof(algo_req));
-    if(temp_req){
-        my_req->parents = temp_req;
-    }
-    else{
-        my_req->parents = req;
-    }
-    my_req->end_req = demand_end_req;
-
-    // Cache hit
-    if(p_table){
-        ppa = p_table[P_IDX].ppa;
-        demand_OOB[ppa].valid_checker = 0; // Invalidate data page
-        p_table[P_IDX].ppa = -1; // Erase mapping in cache
-        CMT[D_IDX].flag = 1;
-    }
-    // Cache miss
-    else{
-        t_ppa = CMT[D_IDX].t_ppa; // Get t_ppa
-        if(t_ppa != -1){
-            if(n_tpage_onram >= MAXTPAGENUM){
-                demand_eviction();
-            }
-            // Load tpage to cache
-            p_table = mem_alloc();
-            CMT[D_IDX].p_table = p_table;
-            temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
-            __demand.li->pull_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(MAPPING_R, temp_value_set, req));
-            memcpy(p_table, temp_value_set->value, PAGESIZE); // Load page table to CMT
-            inf_free_valueset(temp_value_set, FS_MALLOC_R);
-            CMT[D_IDX].flag = 0;
-            CMT[D_IDX].queue_ptr = lru_push(lru, (void*)(CMT + D_IDX));
-            n_tpage_onram++;
-            // Remove mapping data
-            ppa = p_table[P_IDX].ppa;
-            if(ppa != -1){
-                demand_OOB[ppa].valid_checker = 0; // Invalidate data page
-                p_table[P_IDX].ppa = -1; // Remove mapping data
-                demand_OOB[t_ppa].valid_checker = 0; // Invalidate tpage on flash
-                CMT[D_IDX].flag = 1; // Set CMT flag 1 (mapping changed)
-            }
-        }
-        if(t_ppa == -1 || ppa == -1){
-            printf("Error : No such data");
-        }
-        bench_algo_end(req);
-    }*/
-    return 0;
-}
