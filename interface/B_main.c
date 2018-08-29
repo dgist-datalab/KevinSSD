@@ -61,7 +61,7 @@ void *flash_ack2clnt(void *param){
 void *flash_ad(kuk_sock* ks){
 	uint8_t type=*((uint8_t*)ks->p_data[0]);
 	uint64_t key=*((uint64_t*)ks->p_data[1]);
-	uint64_t len=*((uint64_t*)ks->p_data[2]);
+	//uint64_t len=*((uint64_t*)ks->p_data[2]);
 	uint64_t seq=*((uint64_t*)ks->p_data[3]);
 		
 	char t_value[PAGESIZE];
@@ -70,9 +70,10 @@ void *flash_ad(kuk_sock* ks){
 	value_set temp;
 	temp.value=t_value;
 	temp.dmatag=-1;
-	temp.length=(uint32_t)len;
+	temp.length=PAGESIZE;
 	static int cnt=0;
-	printf("make cnt:%d\n",cnt++);
+	if(cnt++%1024==0)
+		printf("make cnt:%d\n",cnt);
 	inf_make_req_special(type,(uint32_t)key,&temp,seq,flash_ack2clnt);
 	return NULL;
 }
