@@ -53,6 +53,7 @@ static int getLevel(){
 
 #ifdef Lsmtree
 snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
+
 	if(key>RANGE){
 		printf("bad page read\n");
 		return NULL;
@@ -220,11 +221,8 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		x->isvalid=deletef;
 
 		x->ppa=UINT_MAX;
-		if(value !=NULL){
-			//x->value=(char *)malloc(VALUESIZE);
-			//memcpy(x->value,value,VALUESIZE);
-			x->value=value;
-		}
+		x->value=value;
+
 		for(int i=1; i<=level; i++){
 			x->list[i]=update[i]->list[i];
 			update[i]->list[i]=x;

@@ -79,11 +79,11 @@ void *flash_ad(kuk_sock* ks){
 void *flash_decoder(kuk_sock *ks, void*(*ad)(kuk_sock*)){
 	char **parse=ks->p_data;
 	if(parse==NULL){
-		parse=(char**)malloc(4*sizeof(char*)+1);
+		parse=(char**)malloc((4+1)*sizeof(char*));
 		parse[0]=(char*)malloc(sizeof(uint8_t));//type
-		parse[1]=(char*)malloc(sizeof(uint32_t));//key
-		parse[2]=(char*)malloc(sizeof(uint32_t));//length
-		parse[3]=(char*)malloc(sizeof(uint32_t));//seq
+		parse[1]=(char*)malloc(sizeof(uint64_t));//key
+		parse[2]=(char*)malloc(sizeof(uint64_t));//length
+		parse[3]=(char*)malloc(sizeof(uint64_t));//seq
 		parse[4]=NULL;
 		ks->p_data=parse;
 	}
@@ -94,7 +94,7 @@ void *flash_decoder(kuk_sock *ks, void*(*ad)(kuk_sock*)){
 	memcpy(parse[2],&dd[sizeof(uint8_t)+sizeof(uint64_t)],sizeof(uint64_t));
 	memcpy(parse[3],&dd[REQSIZE-sizeof(uint64_t)],sizeof(uint64_t));
 	
-	if((*(int*)parse[0])==ENDFLAG){
+	if((*(uint8_t*)parse[0])==ENDFLAG){
 		return NULL;
 	}
 	ks->data_idx+=REQSIZE;

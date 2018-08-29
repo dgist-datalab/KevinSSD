@@ -292,12 +292,14 @@ uint32_t lsm_set(request * const req){
 #ifdef DEBUG
 	printf("lsm_set!\n");
 #endif
-	printf("key : %u\n",req->key);//for debug
 	compaction_check();
-	if(req->type==FS_DELETE_T)
+	if(req->type==FS_DELETE_T){
 		skiplist_insert(LSM.memtable,req->key,req->value,false);
-	else
+	}
+	else{
+		printf("key : %u\n",req->key);//for debug
 		skiplist_insert(LSM.memtable,req->key,req->value,true);
+	}
 
 	req->value=NULL;
 	//req->value will be ignored at free
@@ -620,6 +622,10 @@ uint32_t __lsm_get(request *const req){
 }
 
 uint32_t lsm_remove(request *const req){
+	if(!level_all_check_ext(req->key)){
+		req->end_req(req);
+		return 0;
+	}
 	return lsm_set(req);
 }
 
