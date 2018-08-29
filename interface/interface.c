@@ -322,7 +322,12 @@ static request *inf_get_req_instance(const FSTYPE type, const KEYT key, value_se
 		req->value=NULL;
 	}
 	else{
-		req->value=inf_get_valueset(value->value,req->type,value->length);
+		if(type==FS_RMW_T){
+			req->value=inf_get_valueset(value->value,FS_GET_T,value->length);	
+		}
+		else{
+			req->value=inf_get_valueset(value->value,req->type,value->length);
+		}
 	}
 	req->end_req=inf_end_req;
 	req->isAsync=ASYNC;
@@ -370,6 +375,9 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value){
 }
 
 bool inf_make_req_special(const FSTYPE type, const KEYT key, value_set* value, KEYT seq, void*(*special)(void*)){
+	if(type==FS_RMW_T){
+		printf("here!\n");
+	}
 	request *req=inf_get_req_instance(type,key,value,0);
 	req->special_func=special;
 	pthread_mutex_lock(&flying_req_lock);
@@ -394,6 +402,9 @@ bool inf_make_req_special(const FSTYPE type, const KEYT key, value_set* value, K
 bool inf_end_req( request * const req){
 	if(req->type==FS_RMW_T){
 		req->type=FS_SET_T;
+		value_set *temp=inf_get_valueset(req->value->value,FS_SET_T,req->value->length);
+		inf_free_valueset(req->value,FS_MALLOC_R);
+		req->value=temp;
 		assign_req(req);
 		return 1;
 	}

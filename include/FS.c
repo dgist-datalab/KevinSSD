@@ -7,6 +7,10 @@ extern lower_info memio_info;
 #endif
 int F_malloc(void **ptr, int size,int rw){
 	int dmatag=0;
+	if(rw!=FS_SET_T && rw!=FS_GET_T){
+		printf("type error! in F_MALLOC\n");
+		exit(1);
+	}
 #ifdef bdbm_drv
 	dmatag=memio_info.lower_alloc(rw,(char**)ptr);
 #else

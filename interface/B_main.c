@@ -19,7 +19,7 @@ kuk_sock *net_worker;
 #define IP "10.42.0.2"
 #define PORT 8888
 #define REQSIZE (sizeof(uint64_t)*3+sizeof(uint8_t))
-#define PACKETSIZE 4096
+#define PACKETSIZE REQSIZE
 bool force_write_start;
 queue *ret_q;
 

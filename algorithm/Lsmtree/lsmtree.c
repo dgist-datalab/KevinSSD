@@ -291,13 +291,13 @@ uint32_t lsm_set(request * const req){
 	bench_algo_start(req);
 #ifdef DEBUG
 	printf("lsm_set!\n");
+		printf("key : %u\n",req->key);//for debug
 #endif
 	compaction_check();
 	if(req->type==FS_DELETE_T){
 		skiplist_insert(LSM.memtable,req->key,req->value,false);
 	}
 	else{
-		printf("key : %u\n",req->key);//for debug
 		skiplist_insert(LSM.memtable,req->key,req->value,true);
 	}
 
