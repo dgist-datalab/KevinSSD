@@ -771,6 +771,23 @@ void level_move_heap(level *des, level *src){
 	}*/
 }
 
+bool level_all_check_ext(KEYT lpa){
+	bool res=false;
+	for(int i=0; i<LEVELN; i++){
+		Entry **entry=level_find(LSM.disk[i],lpa);
+		if(!entry){
+			free(entry);
+			continue;
+		}
+		else{
+			free(entry);
+			return true;
+		}
+	}
+	return res;
+}
+
+
 #ifdef DVALUE
 void level_save_blocks(level *in){
 #ifdef LEVELUSINGHEAP
