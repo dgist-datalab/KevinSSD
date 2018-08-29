@@ -79,12 +79,12 @@ int main(int argc,char* argv[]){
 	}
 
 	inf_init();
-	bench_init(2);
+	bench_init(1);
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
-	bench_add(SEQSET,0,RANGE,RANGE);
-//	bench_add(RANDRW,0,RANGE,RANGE);
-	bench_add(MIXED,0,RANGE,RANGE);
+//	bench_add(SEQSET,0,RANGE,RANGE);
+	bench_add(RANDRW,0,RANGE,RANGE);
+///	bench_add(MIXED,0,RANGE,RANGE);
 	bench_value *value;
 
 	value_set temp;

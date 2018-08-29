@@ -406,6 +406,7 @@ uint32_t __lsm_get(request *const req){
 	lsm_req->params=(void*)params;
 	lsm_req->type_lower=0;
 	lsm_req->rapid=true;
+	lsm_req->type=DATAR;
 
 	pthread_mutex_lock(&LSM.templock);
 	if(LSM.temptable){

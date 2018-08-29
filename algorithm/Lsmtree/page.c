@@ -261,6 +261,7 @@ void block_load(block *b){
 	lsm_req->params=(void*)params;
 	lsm_req->type_lower=0;
 	lsm_req->rapid=false;
+	lsm_req->type=BLOCKR;
 
 	pthread_mutex_init(&b->lock,NULL);
 	pthread_mutex_lock(&b->lock);
@@ -313,6 +314,7 @@ void block_save(block *b){
 	lsm_req->end_req=lsm_end_req;
 	lsm_req->params=(void*)params;
 	lsm_req->rapid=false;
+	lsm_req->type=BLOCKW;
 
 	block_apply_log(b);
 
@@ -321,6 +323,7 @@ void block_save(block *b){
 
 	params->value=inf_get_valueset((PTR)b->length_data,FS_MALLOC_W,PAGESIZE);
 	KEYT ldp=getPPA(BLOCK,b->ppa,true);
+	
 	LSM.li->push_data(ldp,PAGESIZE,params->value,ASYNC,lsm_req);
 	b->length_data=NULL;
 	if(b->ldp!=UINT_MAX){
@@ -346,6 +349,7 @@ void gc_data_read(KEYT ppa,htable_t *value,bool isdata){
 	areq->params=(void*)params;
 	areq->type_lower=0;
 	areq->rapid=false;
+	areq->type=params->lsm_type;
 
 	algo_lsm.li->pull_data(ppa,PAGESIZE,params->value,ASYNC,areq);
 	return;
@@ -361,7 +365,7 @@ void gc_data_write(KEYT ppa,htable_t *value,bool isdata){
 	areq->parents=NULL;
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
-	
+	areq->type=params->lsm_type;
 	areq->rapid=false;
 	algo_lsm.li->push_data(ppa,PAGESIZE,params->value,ASYNC,areq);
 	return;

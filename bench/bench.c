@@ -41,6 +41,7 @@ void bench_init(int benchnum){
 
 	for(int i=0; i<benchnum; i++){
 		_master->m[i].empty=true;
+		_master->m[i].type=NOR;
 	}
 
 	for(int i=0;i<benchnum;i++){
@@ -298,7 +299,7 @@ void bench_update_ftltime(bench_data *_d, request *const req){
 }
 
 void bench_ftl_cdf_print(bench_data *_d){
-	printf("polling\n");
+	//printf("polling\n");
 	printf("a_type\tl_type\tmax\tmin\tavg\tcnt\tpercentage\n");
 	for(int i = 0; i < ALGOTYPE; i++){
 		for(int j = 0; j < LOWERTYPE; j++){
@@ -354,7 +355,7 @@ void bench_cdf_print(uint64_t nor, uint8_t type, bench_data *_d){//number of req
 	uint64_t cumulate_number=0;
 	if(type>RANDSET)
 		nor/=2;
-	if(type>RANDSET || type%2==1){
+	if((type>RANDSET || type%2==1) || type==NOR){
 		printf("\n[cdf]write---\n");
 		for(int i=0; i<1000000/TIMESLOT+1; i++){
 			cumulate_number+=_d->write_cdf[i];
@@ -365,7 +366,7 @@ void bench_cdf_print(uint64_t nor, uint8_t type, bench_data *_d){//number of req
 		}	
 	}
 	cumulate_number=0;
-	if(type>RANDSET || type%2==0){
+	if((type>RANDSET || type%2==0) || type==NOR){
 		printf("\n[cdf]read---\n");
 		for(int i=0; i<1000000/TIMESLOT+1; i++){
 			cumulate_number+=_d->read_cdf[i];
@@ -396,7 +397,7 @@ void bench_reap_data(request *const req,lower_info *li){
 	monitor *_m=&_master->m[idx];
 	bench_data *_data=&_master->datas[idx];
 
-	if(req->type==FS_GET_T){
+	if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){
 		bench_update_ftltime(_data, req);
 	}
 
@@ -422,6 +423,14 @@ void bench_reap_data(request *const req,lower_info *li){
 #endif
 	if(_m->empty){
 		_m->m_num++;
+		if(req->type==FS_GET_T){
+			_m->read_cnt++;
+			_data->read_cnt++;
+		}
+		else if(req->type==FS_SET_T){
+			_m->write_cnt++;
+			_data->write_cnt++;
+		}
 		pthread_mutex_unlock(&bench_lock);
 		return;
 	}

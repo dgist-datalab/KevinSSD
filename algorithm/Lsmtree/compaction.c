@@ -171,6 +171,7 @@ htable *compaction_data_write(skiplist *mem){
 		lsm_req->end_req=lsm_end_req;
 		lsm_req->rapid=true;
 		////while(mp.processors[0].retry_q->size){}
+		lsm_req->type=DATAW;
 #ifdef DVALUE
 		LSM.li->push_data(data_sets[i]->ppa/(PAGESIZE/PIECE),PAGESIZE,params->value,ASYNC,lsm_req);
 #else
@@ -225,8 +226,9 @@ KEYT compaction_htable_write(htable *input){
 	//htable_print(input);
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
+	areq->type=HEADERW;
 	params->ppa=ppa;
-
+	
 	LSM.li->push_data(ppa,PAGESIZE,params->value,ASYNC,areq);
 
 	return ppa;
@@ -419,7 +421,7 @@ void compaction_htable_read(Entry *ent,PTR* value){
 	areq->params=(void*)params;
 	areq->type_lower=0;
 	areq->rapid=false;
-
+	areq->type=HEADERR;
 	//printf("R %u\n",ent->pbn);
 	LSM.li->pull_data(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
 	return;

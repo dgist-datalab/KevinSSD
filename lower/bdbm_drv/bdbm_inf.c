@@ -42,7 +42,8 @@ uint32_t memio_info_create(lower_info *li){
 	measure_init(&li->readTime);
 	pthread_mutex_init(&test_lock, 0);
 	pthread_mutex_lock(&test_lock);
-
+	
+	memset(li->req_type_cnt,0,sizeof(li->req_type_cnt));
 	mio=memio_open();
 	
 	return 1;
@@ -53,6 +54,10 @@ void *memio_info_destroy(lower_info *li){
 	measure_init(&li->readTime);
 	li->write_op=li->read_op=li->trim_op=0;
 	memio_close(mio);
+	for(int i=0; i<LREQ_TYPE_NUM; i++){
+	//	if(!li->req_type_cnt[i]) continue;
+		printf("%d %d\n",i,li->req_type_cnt[i]);
+	}
 	return NULL;
 }
 
@@ -62,6 +67,9 @@ void *memio_info_push_data(KEYT ppa, uint32_t size, value_set *value, bool async
 		exit(1);
 	}
 	
+	if(req->type < LREQ_TYPE_NUM){
+		memio_info.req_type_cnt[req->type]++;
+	}
 	//bench_lower_w_start(&memio_info);
 	//req->parents->ppa=bb_checker_fix_ppa(ppa);
 	//bench_lower_w_end(&memio_info);
@@ -75,6 +83,9 @@ void *memio_info_pull_data(KEYT ppa, uint32_t size, value_set *value, bool async
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
 		exit(1);
+	}	
+	if(req->type < LREQ_TYPE_NUM){
+		memio_info.req_type_cnt[req->type]++;
 	}
 	//bench_lower_r_start(&memio_info);
 	//req->parents->ppa=bb_checker_fix_ppa(ppa);
@@ -89,6 +100,8 @@ void *memio_info_trim_block(KEYT ppa, bool async){
 	//int value=memio_trim(mio,bb_checker_fix_ppa(ppa),(1<<14)*PAGESIZE,NULL);
 	int value=memio_trim(mio,bb_checker_fixed_segment(ppa),(1<<14)*PAGESIZE,NULL);
 	value=memio_trim(mio,bb_checker_paired_segment(ppa),(1<<14)*PAGESIZE,NULL);
+	
+	memio_info.req_type_cnt[TRIM]++;
 	if(value==0){
 		return (void*)-1;
 	}

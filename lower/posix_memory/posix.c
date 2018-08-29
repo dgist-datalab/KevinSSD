@@ -169,6 +169,8 @@ uint32_t posix_create(lower_info *li){
 	q_init(&p_q, 1024);
 	pthread_create(&t_id,NULL,&l_main,NULL);
 #endif
+
+	memset(li->req_type_cnt,0,sizeof(li->req_type_cnt));
 	return 1;
 }
 
@@ -192,7 +194,10 @@ void *posix_destroy(lower_info *li){
 	stopflag = true;
 	q_free(p_q);
 #endif
-	printf("d_wriet:%u m_write:%u gc_d_write:%u gc_m_write:%u\n",d_write_cnt,m_write_cnt,gcd_write_cnt,gcm_write_cnt);
+	for(int i=0; i<LREQ_TYPE_NUM; i++){
+	//	if(!li->req_type_cnt[i]) continue;
+		printf("%d %lu\n",i,my_posix.req_type_cnt[i]);
+	}
 	return NULL;
 }
 
@@ -210,25 +215,13 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		printf("\nwrite error\n");
 		exit(2);
 	}
+	if(req->type < LREQ_TYPE_NUM){
+		my_posix.req_type_cnt[req->type]++;
+	}
+
 
 	
-#if defined(dftl) || defined(dftl_fm)
-	uint8_t req_type = ((demand_params*)(req->params))->type;	
-	if(req_type==1){d_write_cnt++;}
-	else if(req_type==3){m_write_cnt++;}
-	else if(req_type==9){gcd_write_cnt++;}
-	else if(req_type==7){gcm_write_cnt++;}
-	if(req_type == 3 || req_type == 5 || req_type == 7){
-#elif defined(normal)
-	if(0){
-#else
-	uint8_t req_type=((lsm_params*)req->params)->lsm_type;
-	if(req_type==7){d_write_cnt++;}
-	else if(req_type==3){m_write_cnt++;}
-	else if(req_type==9){gcd_write_cnt++;}
-	else if(req_type==5){gcm_write_cnt++;}
-	if(req_type<=5){
-#endif
+	if(req->type<=GCMR){
 		if(!seg_table[PPA/my_posix.PPS].alloc){
 			seg_table[PPA/my_posix.PPS].storage = (PTR)malloc(my_posix.SOB);
 			seg_table[PPA/my_posix.PPS].alloc = 1;
@@ -263,15 +256,12 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		printf("\nread error\n");
 		exit(3);
 	}
+	if(req->type < LREQ_TYPE_NUM){
+		my_posix.req_type_cnt[req->type]++;
+	}
 
-#if defined(dftl) || defined(dftl_fm)
-	uint8_t req_type = ((demand_params*)req->params)->type;
-	if(req_type == 2 || req_type == 4 || req_type == 6){
-		#elif defined(normal)
-	if(0){
-#else
-	if(((lsm_params*)req->params)->lsm_type<=5){
-#endif
+
+	if(req->type <=GCMW){
 		PTR loc = seg_table[PPA/my_posix.PPS].storage;
 		memcpy(value->value,&loc[(PPA%my_posix.PPS)*my_posix.SOP],size);
 		req->type_lower=1;
@@ -302,6 +292,10 @@ void *posix_trim_block(KEYT PPA, bool async){
 		printf("\ntrim error\n");
 		exit(4);
 	}
+	
+	my_posix.req_type_cnt[TRIM]++;
+
+
 	if(seg_table[PPA/my_posix.PPS].alloc){
 		free(seg_table[PPA/my_posix.PPS].storage);
 		seg_table[PPA/my_posix.PPS].storage = NULL;

@@ -16,7 +16,8 @@
 int skiplist_hit;
 #endif
 kuk_sock *net_worker;
-#define IP "10.42.0.2"
+#define IP "127.0.0.1"
+//#define IP "10.42.0.2"
 #define PORT 8888
 #define REQSIZE (sizeof(uint64_t)*3+sizeof(uint8_t))
 #define PACKETSIZE REQSIZE
@@ -30,7 +31,9 @@ void *flash_returner(void *param){
 		if(!(req=q_dequeue(ret_q))){
 			continue;
 		}
-		printf("send_cnt:%d\n",cnt++);
+		if(++cnt%10240==0){
+			printf("send_cnt:%d\n",cnt);
+		}
 		kuk_send(net_worker,(char*)req,sizeof(uint32_t));
 		free(req);
 	}
@@ -72,7 +75,7 @@ void *flash_ad(kuk_sock* ks){
 	temp.dmatag=-1;
 	temp.length=PAGESIZE;
 	static int cnt=0;
-	if(cnt++%1024==0)
+	if(++cnt%10240==0)
 		printf("make cnt:%d\n",cnt);
 	inf_make_req_special(type,(uint32_t)key,&temp,seq,flash_ack2clnt);
 	return NULL;
