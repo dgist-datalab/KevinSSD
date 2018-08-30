@@ -326,6 +326,7 @@ uint32_t demand_remove(request *const req) {
     }
 
     __demand_remove(req);
+    req->end_req(req);
     return 0;
 }
 
@@ -414,7 +415,6 @@ uint32_t __demand_set(request *const req){
                 if(t_ppa != -1){ //translation page is existing
                     temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
                     temp_req = assign_pseudo_req(MAPPING_M, NULL, NULL);
-                    //printf("W_BUFF MAPPING_M\n");
                     params = (demand_params*)temp_req->params;
                     __demand.li->pull_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req);
                     MS(&req->latency_poll);
@@ -755,7 +755,6 @@ uint32_t __demand_remove(request *const req) {
 #if W_BUFF
     if (skiplist_delete(mem_buf, lpa) == 0) { // Deleted on skiplist
         bench_algo_end(req);
-        req->end_req(req);
         return 0;
     }
 #endif
@@ -781,7 +780,6 @@ uint32_t __demand_remove(request *const req) {
         // Validity check by t_ppa
         if (t_ppa == -1) {
             bench_algo_end(req);
-            req->end_req(req);
             return UINT32_MAX;
         }
 
@@ -827,7 +825,6 @@ uint32_t __demand_remove(request *const req) {
     // Validity check by ppa
     if (ppa == -1) { // case of no data written
         bench_algo_end(req);
-        req->end_req(req);
         return UINT32_MAX;
     }
 
@@ -852,7 +849,6 @@ uint32_t __demand_remove(request *const req) {
     }
 
     bench_algo_end(req);
-    req->end_req(req);
 
     return 0;
 }
