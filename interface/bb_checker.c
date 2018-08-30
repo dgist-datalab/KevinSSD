@@ -23,9 +23,11 @@ void bb_checker_start(lower_info *li){
 
 	while(target_cnt!=_cnt){}
 	printf("\n");
+//	bb_checker_process(0,true);
 	printf("badblock_cnt: %lu\n",badblock_cnt);
 	bb_checker_fixing();
 	printf("checking done!\n");
+
 	//exit(1);
 	return;
 }
