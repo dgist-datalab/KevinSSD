@@ -781,6 +781,7 @@ uint32_t __demand_remove(request *const req) {
         // Validity check by t_ppa
         if (t_ppa == -1) {
             bench_algo_end(req);
+            req->end_req(req);
             return UINT32_MAX;
         }
 
@@ -826,6 +827,7 @@ uint32_t __demand_remove(request *const req) {
     // Validity check by ppa
     if (ppa == -1) { // case of no data written
         bench_algo_end(req);
+        req->end_req(req);
         return UINT32_MAX;
     }
 
@@ -850,6 +852,7 @@ uint32_t __demand_remove(request *const req) {
     }
 
     bench_algo_end(req);
+    req->end_req(req);
 
     return 0;
 }
