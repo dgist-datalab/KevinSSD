@@ -201,6 +201,10 @@ void *posix_destroy(lower_info *li){
 	return NULL;
 }
 
+static uint8_t convert_type(uint8_t type) {
+	return (type & 0x7f);
+}
+
 void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
@@ -216,7 +220,7 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		exit(2);
 	}
 	if(req->type < LREQ_TYPE_NUM){
-		my_posix.req_type_cnt[req->type]++;
+		my_posix.req_type_cnt[convert_type(req->type)]++;
 	}
 
 
