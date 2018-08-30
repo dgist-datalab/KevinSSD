@@ -249,12 +249,6 @@ void *demand_end_req(algo_req* input){
             dl_sync_arrive(&params->dftl_mutex);
             return NULL;
             break;
-        case GC_MAPPING_W:
-            inf_free_valueset(temp_v, FS_MALLOC_W);
-#if GC_POLL
-            data_gc_poll++;
-#endif
-            break;
         case TGC_R:
             trans_gc_poll++;
             break;
@@ -263,6 +257,13 @@ void *demand_end_req(algo_req* input){
 #if GC_POLL
             trans_gc_poll++;
 #endif
+            break;
+        case TGC_M:
+            dl_sync_arrive(&params->dftl_mutex);
+#if GC_POLL
+            trans_gc_poll++;
+#endif
+            return NULL;
             break;
         case DGC_R:
             data_gc_poll++;

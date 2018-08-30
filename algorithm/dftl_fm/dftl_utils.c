@@ -23,15 +23,15 @@ algo_req* assign_pseudo_req(TYPE type, value_set *temp_v, request *req){
 		case MAPPING_M:
 			pseudo_my_req->rapid = true;
 			break;
-		case GC_MAPPING_W:
-			pseudo_my_req->rapid = false;
-			break;
 		case TGC_R:
 			pseudo_my_req->rapid = false;
 			break;
 		case TGC_W:
 			pseudo_my_req->rapid = false;
 			break;
+        case TGC_M:
+            pseudo_my_req->rapid = true;
+            break;
 		case DGC_R:
 			pseudo_my_req->rapid = false;
 			break;
@@ -40,9 +40,9 @@ algo_req* assign_pseudo_req(TYPE type, value_set *temp_v, request *req){
 			break;
 	}
 #if EVICT_POLL
-	if(type == MAPPING_M || type == MAPPING_W){
+	if(type == MAPPING_M || type == TGC_M || type == MAPPING_W){
 #else
-	if(type == MAPPING_M){
+	if(type == MAPPING_M || type == TGC_M){
 #endif
 		dl_sync_init(&params->dftl_mutex, 1);
 	}

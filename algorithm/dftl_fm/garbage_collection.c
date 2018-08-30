@@ -211,7 +211,7 @@ int32_t dpage_GC(){
 		if(tce == INT32_MAX){ // read t_page into temp_table
 			tce = D_IDX;
 			temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
-			temp_req = assign_pseudo_req(MAPPING_M, temp_value_set, NULL);
+			temp_req = assign_pseudo_req(TGC_M, temp_value_set, NULL);
 			params = (demand_params*)temp_req->params;
 			__demand.li->pull_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req);
 			dl_sync_wait(&params->dftl_mutex);
@@ -235,7 +235,7 @@ int32_t dpage_GC(){
 			twrite++;
 			t_ppa = tp_alloc('D', NULL);
 			temp_value_set = inf_get_valueset((PTR)temp_table, FS_MALLOC_W, PAGESIZE); // Make valueset to WRITEMODE
-			__demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(GC_MAPPING_W, temp_value_set, NULL));	// Unload page to ppa
+			__demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(TGC_W, temp_value_set, NULL));	// Unload page to ppa
 			demand_OOB[t_ppa].lpa = c_table->idx;
 			BM_ValidatePage(bm, t_ppa);
 			c_table->t_ppa = t_ppa; // Update CMT t_ppa

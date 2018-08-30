@@ -12,7 +12,7 @@
 #include "../../include/container.h"
 #include "../../include/dftl_settings.h"
 #include "../../include/dl_sync.h"
-#include "../../include/type.h"
+#include "../../include/types.h"
 #ifdef W_BUFF
 #include "../Lsmtree/skiplist.h"
 #endif
@@ -24,10 +24,10 @@
 #define DATA_W DATAW
 #define MAPPING_R MAPPINGR  // async
 #define MAPPING_W MAPPINGW
-#define MAPPING_M ( MAPPINGR + (1 << 7) )  // polling
-#define GC_MAPPING_W ( GCMW + (1 << 7) )
+#define MAPPING_M ( MAPPINGR | 0x80 )  // polling
 #define TGC_R GCMR
 #define TGC_W GCMW
+#define TGC_M ( GCMR | 0x80 )
 #define DGC_R GCDR
 #define DGC_W GCDW
 
