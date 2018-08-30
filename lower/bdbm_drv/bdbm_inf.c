@@ -56,12 +56,12 @@ static uint8_t test_type(uint8_t type){
 void *memio_info_destroy(lower_info *li){
 	measure_init(&li->writeTime);
 	measure_init(&li->readTime);
-	li->write_op=li->read_op=li->trim_op=0;
-	memio_close(mio);
 	for(int i=0; i<LREQ_TYPE_NUM; i++){
-	//	if(!li->req_type_cnt[i]) continue;
 		printf("%d %d\n",i,li->req_type_cnt[i]);
 	}
+	li->write_op=li->read_op=li->trim_op=0;
+	memio_close(mio);
+
 	return NULL;
 }
 

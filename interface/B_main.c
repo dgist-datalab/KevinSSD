@@ -78,6 +78,10 @@ void *flash_ad(kuk_sock* ks){
 	if(++cnt%10240==0)
 		printf("make cnt:%d\n",cnt);
 	inf_make_req_special(type,(uint32_t)key,&temp,seq,flash_ack2clnt);
+	/*
+	if(type==FS_GET_T){
+		kuk_send(net_worker,(char*)&cnt,sizeof(cnt));
+	}*/
 	return NULL;
 }
 void *flash_decoder(kuk_sock *ks, void*(*ad)(kuk_sock*)){
