@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <limits.h>
-
+#include <string.h>
 pthread_mutex_t test_lock;
 
 memio_t *mio;
