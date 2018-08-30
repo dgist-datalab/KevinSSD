@@ -12,6 +12,7 @@
 #include "../../include/container.h"
 #include "../../include/dftl_settings.h"
 #include "../../include/dl_sync.h"
+#include "../../include/type.h"
 #ifdef W_BUFF
 #include "../Lsmtree/skiplist.h"
 #endif
@@ -19,16 +20,16 @@
 #include "lru_list.h"
 
 #define TYPE uint8_t
-#define DATA_R 0
-#define DATA_W 1
-#define MAPPING_R 2
-#define MAPPING_W 3
-#define MAPPING_M 4
-#define GC_MAPPING_W 5
-#define TGC_R 6
-#define TGC_W 7
-#define DGC_R 8
-#define DGC_W 9
+#define DATA_R DATAR
+#define DATA_W DATAW
+#define MAPPING_R MAPPINGR  // async
+#define MAPPING_W MAPPINGW
+#define MAPPING_M ( MAPPINGR + (1 << 7) )  // polling
+#define GC_MAPPING_W ( GCMW + (1 << 7) )
+#define TGC_R GCMR
+#define TGC_W GCMW
+#define DGC_R GCDR
+#define DGC_W GCDW
 
 #define EPP (PAGESIZE / 4) //Number of table entries per page
 #define D_IDX (lpa / EPP)	// Idx of directory table

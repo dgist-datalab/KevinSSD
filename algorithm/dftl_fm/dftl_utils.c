@@ -4,6 +4,7 @@ algo_req* assign_pseudo_req(TYPE type, value_set *temp_v, request *req){
 	algo_req *pseudo_my_req = (algo_req*)malloc(sizeof(algo_req));
 	demand_params *params = (demand_params*)malloc(sizeof(demand_params));
 	pseudo_my_req->parents = req;
+    pseudo_my_req->type    = type;
 	params->type = type;
 	params->value = temp_v;
 	switch(type){
