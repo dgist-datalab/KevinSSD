@@ -202,10 +202,12 @@ void *posix_destroy(lower_info *li){
 }
 
 static uint8_t convert_type(uint8_t type) {
-	return (type & 0x7f);
+	return (type & (0xff >> 1));
 }
 
 void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
+	uint8_t test_type;
+
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
 		exit(1);
@@ -219,8 +221,10 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		printf("\nwrite error\n");
 		exit(2);
 	}
-	if(req->type < LREQ_TYPE_NUM){
-		my_posix.req_type_cnt[convert_type(req->type)]++;
+
+	test_type = convert_type(req->type);
+	if(test_type < LREQ_TYPE_NUM){
+		my_posix.req_type_cnt[test_type]++;
 	}
 
 
@@ -243,6 +247,7 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 }
 
 void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){	
+	uint8_t test_type;
 	if(req->type_lower!=1 && req->type_lower!=0){
 		req->type_lower=0;
 	}
@@ -260,8 +265,10 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		printf("\nread error\n");
 		exit(3);
 	}
-	if(req->type < LREQ_TYPE_NUM){
-		my_posix.req_type_cnt[req->type]++;
+
+	test_type = convert_type(req->type);
+	if(test_type < LREQ_TYPE_NUM){
+		my_posix.req_type_cnt[test_type]++;
 	}
 
 
