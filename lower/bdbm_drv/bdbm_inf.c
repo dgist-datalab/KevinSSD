@@ -49,6 +49,10 @@ uint32_t memio_info_create(lower_info *li){
 	return 1;
 }
 
+static uint8_t test_type(uint8_t type){
+	uint8_t t_type=0xff>>1;
+	return type&t_type;
+}
 void *memio_info_destroy(lower_info *li){
 	measure_init(&li->writeTime);
 	measure_init(&li->readTime);
@@ -67,8 +71,9 @@ void *memio_info_push_data(KEYT ppa, uint32_t size, value_set *value, bool async
 		exit(1);
 	}
 	
-	if(req->type < LREQ_TYPE_NUM){
-		memio_info.req_type_cnt[req->type]++;
+	uint8_t t_type=test_type(req->type);
+	if(t_type < LREQ_TYPE_NUM){
+		memio_info.req_type_cnt[t_type]++;
 	}
 	//bench_lower_w_start(&memio_info);
 	//req->parents->ppa=bb_checker_fix_ppa(ppa);
@@ -83,9 +88,10 @@ void *memio_info_pull_data(KEYT ppa, uint32_t size, value_set *value, bool async
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
 		exit(1);
-	}	
-	if(req->type < LREQ_TYPE_NUM){
-		memio_info.req_type_cnt[req->type]++;
+	}
+	uint8_t t_type=test_type(req->type);
+	if(t_type < LREQ_TYPE_NUM){
+		memio_info.req_type_cnt[t_type]++;
 	}
 	//bench_lower_r_start(&memio_info);
 	//req->parents->ppa=bb_checker_fix_ppa(ppa);
