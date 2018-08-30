@@ -164,7 +164,7 @@ void cache_print(cache *c){
 	Entry *tent;
 	while(start!=NULL){
 		tent=start->entry;
-		printf("[%d]c->entry->key:%d c->entry->pbn:%d\n",print_number++,tent->key,tent->pbn);
+		printf("[%d]c->entry->key:%d c->entry->pbn:%d d:%p\n",print_number++,tent->key,tent->pbn,tent->t_table);
 		start=start->down;
 	}
 }

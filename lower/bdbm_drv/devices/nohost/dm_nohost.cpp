@@ -77,7 +77,7 @@ struct timespec reqtime;
 #define NUM_PAGES_PER_BLK 256
 
 //koo
-#define DMASIZE (196*(1024/8))
+#define DMASIZE (64*(1024/8))
 #define METANUM 0
 typedef enum {
 	UNINIT,

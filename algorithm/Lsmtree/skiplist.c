@@ -53,6 +53,7 @@ static int getLevel(){
 
 #ifdef Lsmtree
 snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
+
 	if(key>RANGE){
 		printf("bad page read\n");
 		return NULL;
@@ -220,11 +221,8 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		x->isvalid=deletef;
 
 		x->ppa=UINT_MAX;
-		if(value !=NULL){
-			//x->value=(char *)malloc(VALUESIZE);
-			//memcpy(x->value,value,VALUESIZE);
-			x->value=value;
-		}
+		x->value=value;
+
 		for(int i=1; i<=level; i++){
 			x->list[i]=update[i]->list[i];
 			update[i]->list[i]=x;
@@ -248,6 +246,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 	sk_iter* iter=skiplist_get_iterator(input);
 	int total_size=0;
 	while((target=skiplist_get_next(iter))){
+		if(target->value==0) continue;
 		b.bucket[target->value->length][b.idx[target->value->length]++]=target;
 		total_size+=target->value->length;
 	}
@@ -260,9 +259,6 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 		level_moveTo_front_page(from);
 		res[res_idx]->ppa=level_get_page(from,(PAGESIZE/PIECE));
 		/*checking new ppa in skiplist_valuset*/
-		if(res[res_idx]->ppa==31998){
-			printf("55\n");
-		}
 #ifdef DVALUE
 		oob[res[res_idx]->ppa/(PAGESIZE/PIECE)]=PBITSET(target->key,true);//OOB setting
 #else
@@ -276,7 +272,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 	b.idx[PAGESIZE/PIECE]=0;
 	
 	//level_moveTo_front_page(from);//setting to erased block started;
-	for(int i=0; i<PAGESIZE/PIECE+1; i++){
+	for(int i=1; i<PAGESIZE/PIECE+1; i++){
 		if(b.idx[i]!=0)
 			break;
 		if(i==PAGESIZE/PIECE){
@@ -308,11 +304,6 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 			}
 			target=b.bucket[target_length][b.idx[target_length]-1];
 			target->ppa=level_get_page(from,target->value->length);
-
-
-			/*checking new ppa in skiplist_valuset*//*
-			if(target->ppa==1068256)
-				printf("-----lpa:%d length:%d\n",target->key,target->value->length);*/
 
 			used_piece+=target_length;
 			f_insert(foot,target->key,target->ppa,target_length);

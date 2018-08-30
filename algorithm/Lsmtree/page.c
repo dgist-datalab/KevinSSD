@@ -58,6 +58,13 @@ bool PBITFULL(KEYT input,bool isrealppa){
 		return oob[input/(PAGESIZE/PIECE)]&1;
 }
 #endif
+uint32_t all_invalid_num(){
+	uint32_t res=0;
+	for(int i=0; i<_NOS; i++){
+		res+=segs[i].invalid_n;
+	}
+	return res;
+}
 
 void block_print(KEYT ppa){
 	block* b=&bl[ppa/_PPB];
@@ -254,6 +261,7 @@ void block_load(block *b){
 	lsm_req->params=(void*)params;
 	lsm_req->type_lower=0;
 	lsm_req->rapid=false;
+	lsm_req->type=BLOCKR;
 
 	pthread_mutex_init(&b->lock,NULL);
 	pthread_mutex_lock(&b->lock);
@@ -306,6 +314,7 @@ void block_save(block *b){
 	lsm_req->end_req=lsm_end_req;
 	lsm_req->params=(void*)params;
 	lsm_req->rapid=false;
+	lsm_req->type=BLOCKW;
 
 	block_apply_log(b);
 
@@ -314,6 +323,7 @@ void block_save(block *b){
 
 	params->value=inf_get_valueset((PTR)b->length_data,FS_MALLOC_W,PAGESIZE);
 	KEYT ldp=getPPA(BLOCK,b->ppa,true);
+	
 	LSM.li->push_data(ldp,PAGESIZE,params->value,ASYNC,lsm_req);
 	b->length_data=NULL;
 	if(b->ldp!=UINT_MAX){
@@ -339,6 +349,7 @@ void gc_data_read(KEYT ppa,htable_t *value,bool isdata){
 	areq->params=(void*)params;
 	areq->type_lower=0;
 	areq->rapid=false;
+	areq->type=params->lsm_type;
 
 	algo_lsm.li->pull_data(ppa,PAGESIZE,params->value,ASYNC,areq);
 	return;
@@ -354,7 +365,7 @@ void gc_data_write(KEYT ppa,htable_t *value,bool isdata){
 	areq->parents=NULL;
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
-	
+	areq->type=params->lsm_type;
 	areq->rapid=false;
 	algo_lsm.li->push_data(ppa,PAGESIZE,params->value,ASYNC,areq);
 	return;
@@ -464,6 +475,77 @@ KEYT getRPPA(uint8_t type,KEYT lpa,bool isfull){
 
 //static int gc_check_num;
 uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
+/*
+extern uint32_t m_write_cnt;
+void gc_compaction_checking(){
+	int32_t invalidate_page,write_page;
+//	int32_t t_write_page;
+	uint32_t target_from=LEVELN+1, target_to=LEVELN+1;
+	int32_t max=0;
+	//uint32_t t_type;
+	uint32_t type=0;
+	static int cumulate_expect=0;
+	for(int i=0; i<LEVELN; i++){
+		if(LSM.disk[i]->n_num==0) continue;
+		write_page=invalidate_page=0;
+		float p=1.0f/((LSM.disk[i]->end-LSM.disk[i]->start)/(LSM.disk[i]->n_num*1024));
+		for(int j=i+1; j<LEVELN; j++){
+			if(!LSM.disk[j]->n_num) continue;
+			write_page=(LSM.disk[i]->m_num+LSM.disk[j]->m_num)*2;
+			uint32_t start, end;
+			if(LSM.disk[i]->end<LSM.disk[j]->start || LSM.disk[i]->start>LSM.disk[j]->end){ invalidate_page=0;
+				continue;
+			}
+			else if(LSM.disk[i]->end<LSM.disk[j]->end && LSM.disk[i]->start>LSM.disk[j]->start){
+				type=1;
+				start=LSM.disk[i]->start;
+				end=LSM.disk[i]->end;
+			}
+			else if(LSM.disk[j]->end<LSM.disk[i]->end && LSM.disk[j]->start>LSM.disk[i]->start){	
+				type=2;
+				start=LSM.disk[j]->start;
+				end=LSM.disk[j]->end;
+			}
+			else if(LSM.disk[i]->start<LSM.disk[j]->start){
+				type=3;
+				start=LSM.disk[j]->start;
+				end=LSM.disk[i]->end;
+			}
+			else{
+				type=4;
+				start=LSM.disk[i]->start;
+				end=LSM.disk[j]->end;
+			}
+			invalidate_page=(end-start)*p;
+			if(max<invalidate_page-write_page){
+				max=invalidate_page-write_page;
+				target_from=i;
+				target_to=j;
+				//t_type=type;
+				//t_write_page=write_page;
+			}
+		}
+	}
+	static int r_pay=0,r_back=0,c_max=0;
+	if(target_from!=LEVELN+1 && target_to!=LEVELN+1){
+		uint32_t before=all_invalid_num();
+		int before_meta_write=m_write_cnt;
+
+		compaction_force_target(target_from,target_to);
+		c_max+=max;
+		int after_meta_write=m_write_cnt;
+		uint32_t after=all_invalid_num();
+		static int cnt=0;
+	
+		r_back+=after-before;
+		r_pay+=after_meta_write-before_meta_write;
+		printf("[%d] pay:%d back:%d benefit:%d e_ben:%d\n",cnt++,r_pay,r_back,r_back-r_pay,c_max);
+
+		//if(before>=after){
+		//	printf("wtf!\n");
+		//}
+	}
+}*/
 void gc_check(uint8_t type, bool force){
 	block **erased_blks=NULL;
 	int e_blk_idx=0;
@@ -514,7 +596,6 @@ void gc_check(uint8_t type, bool force){
 	for(int i=0; i<BPS; i++){
 		KEYT target_block=0;
 		
-		target_block=gc_victim_segment(type,false);
 		if(once){
 			once=false;
 	//		static int header_cnt=0;
@@ -525,6 +606,7 @@ void gc_check(uint8_t type, bool force){
 					header_gc_cnt++; 
 					break;
 				case DATA:
+					//gc_compaction_checking();
 					//compaction_force();
 					target_p=&data_m;
 					data_gc_cnt++; 
@@ -549,6 +631,7 @@ void gc_check(uint8_t type, bool force){
 		//printf("%d -",i);
 		//printf("target block %d\n",target_block);
 
+		target_block=gc_victim_segment(type,false);
 		if(target_block==UINT_MAX){
 			while(target_block==UINT_MAX && type==DATA){
 				if(compaction_force()){
@@ -772,12 +855,15 @@ void gc_data_header_update(gc_node **gn,int size, int target_level){
 
 		if(entries==NULL){
 			printf("entry null!\n");
-		//	level_all_print();
 		}
 
 		for(int j=0; entries[j]!=NULL;j++){
 			datas[htable_idx]=(htable_t*)malloc(sizeof(htable_t));
-			//reading header
+#ifdef CACHE
+			if(entries[j]->c_entry){
+				memcpy(datas[htable_idx]->sets,entries[j]->t_table->sets,PAGESIZE);
+			}
+#endif
 			gc_data_read(entries[j]->pbn,datas[htable_idx],false);
 			htable_idx++;
 		}
@@ -1100,6 +1186,7 @@ int gc_header(KEYT tbn){
 		test->pbn=n_ppa;
 		gc_data_write(n_ppa,table,false);
 		free(tables[i]);
+
 	}
 	free(tables);
 	free(target_ent);

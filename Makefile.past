@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=bdbm_drv
+TARGET_LOWER=posix_memory
 TARGET_ALGO=Lsmtree
 PWD=$(pwd)
 
@@ -85,15 +85,20 @@ all: simulator
 
 DEBUG: debug_simulator
 
+memory_leak: simulator_memory_check
+
 duma_sim: duma_simulator
+	
+simulator_memory_check: ./interface/main.c mem_libsimulator.a
+	$(CC) $(CFLAGS) -DLEAKCHECK -o $@ $^ $(ARCH) $(LIBS)
 
 debug_simulator: ./interface/main.c libsimulator_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
 
 simulator: ./interface/main.c libsimulator.a
-	$(CC) $(CFLAGS) -o $@ $^  $(ARCH) $(LIBS)
+	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
-duma_simulator: ./interface/B_main.c libsimulator.a
+duma_simulator: ./interface/main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ -lduma $(ARCH) $(LIBS)
 	
 
@@ -105,6 +110,22 @@ libsimulator.a: $(TARGETOBJ)
 	cd ./include/kuk_socket_lib/ && $(MAKE) && mv ./*.o ../../object/ && cd ../../
 	mv ./include/data_struct/*.o ./object/
 	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
+	$(AR) r $(@) ./object/*
+
+libsimulator_d.a:$(MEMORYOBJ)
+	mkdir -p object && mkdir -p data
+	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) DEBUG && cd ../../
+	cd ./lower/$(TARGET_LOWER) && $(MAKE) DEBUG && cd ../../ 
+	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
+	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
+	$(AR) r $(@) ./object/*
+
+mem_libsimulator.a:$(MEMORYOBJ)
+	mkdir -p object && mkdir -p data
+	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) LEAK && cd ../../
+	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
+	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
+	mv ./interface/*.o ./object/ & mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
 	$(AR) r $(@) ./object/*
 
 %_mem.o: %.c

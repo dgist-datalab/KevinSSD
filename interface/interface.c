@@ -186,15 +186,12 @@ void *p_main(void *__input){
 	}
 	__hash_node *t_h_node;
 	//int control_cnt=0;
-	void *flush_req=NULL;
-	bool device_clean=false;
 	while(1){
 #ifdef LEAKCHECK
 		sleep(1);
 #endif
 		if(force_write_stop ||(write_stop && _this->req_q->size==QDEPTH)){
 			write_stop=false;
-			device_clean=true;
 		}
 
 		if(mp.stopflag)
@@ -205,12 +202,11 @@ void *p_main(void *__input){
 		else if(!(_inf_req=q_dequeue(_this->req_rq))){
 			bool req_flag=false;
 			pthread_mutex_lock(&wq_lock);
-#endif
-#ifndef interface_pq
-		else if(!(_inf_req=q_dequeue(_this->req_q))){
-#else
+
 			if(_this->retry_q->size || write_stop || !(_inf_req=q_dequeue(_this->req_q))){
 				pthread_mutex_unlock(&wq_lock);
+#else
+		else if(!(_inf_req=q_dequeue(_this->req_q))){
 #endif
 				continue;
 			}
@@ -245,8 +241,12 @@ void *p_main(void *__input){
 			case FS_DELETE_T:
 				mp.algo->remove(inf_req);
 				break;
+			case FS_RMW_T:
+				mp.algo->get(inf_req);
+				break;
 			default:
 				printf("wtf??\n");
+				inf_req->end_req(inf_req);
 				break;
 		}
 
@@ -312,24 +312,23 @@ void inf_init(){
 	bb_checker_start(mp.li);
 }
 
-#ifndef USINGAPP
-bool inf_make_req(const FSTYPE type, const KEYT key, value_set *value,int mark)
-#else
-bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value)
-#endif
-{
+static request *inf_get_req_instance(const FSTYPE type, const KEYT key, value_set *value, int mark){
 	request *req=(request*)malloc(sizeof(request));
 	req->upper_req=NULL;
 	req->type=type;
-	req->key=key;
+	req->key=key;	
 	static KEYT seq_num=0;
 	if(type==FS_DELETE_T){
 		req->value=NULL;
 	}
 	else{
-		req->value=inf_get_valueset(value->value,req->type,value->length);
+		if(type==FS_RMW_T){
+			req->value=inf_get_valueset(value->value,FS_GET_T,value->length);	
+		}
+		else{
+			req->value=inf_get_valueset(value->value,req->type,value->length);
+		}
 	}
-
 	req->end_req=inf_end_req;
 	req->isAsync=ASYNC;
 	req->params=NULL;
@@ -337,6 +336,7 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value)
 	req->type_lower = 0;
 	req->before_type_lower=0;
 	req->seq=seq_num++;
+	req->special_func=NULL;
 #ifndef USINGAPP
 	req->algo.isused=false;
 	req->lower.isused=false;
@@ -350,14 +350,21 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value)
 		case FS_DELETE_T:
 			break;
 	}
+	return req;
+}
+#ifndef USINGAPP
+bool inf_make_req(const FSTYPE type, const KEYT key, value_set *value,int mark){
+#else
+bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value){
+#endif
 
+	request *req=inf_get_req_instance(type,key,value,mark);
 	pthread_mutex_lock(&flying_req_lock);
 	while(flying_req_cnt==QDEPTH){
 		pthread_cond_wait(&flying_req_cond,&flying_req_lock);
 	}
 	flying_req_cnt++;
 	pthread_mutex_unlock(&flying_req_lock);
-
 #ifdef CDF
 	req->isstart=false;
 	measure_init(&req->latency_checker);
@@ -367,29 +374,40 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value)
 	return true;
 }
 
-bool inf_make_req_Async(void *ureq, void *(*end_req)(void*)){
-	request *req=(request*)malloc(sizeof(request));
-	req->upper_req=ureq;
-	req->upper_end=end_req;
-	upper_request *u_req=(upper_request*)ureq;
-	req->type=u_req->type;
-	req->key=u_req->key;
-	req->value=inf_get_valueset(u_req->value,req->type,u_req->length);
-	req->isAsync=true;
-	switch(req->type){
-		case FS_GET_T:
-			break;
-		case FS_SET_T:
-			break;
-		case FS_DELETE_T:
-			break;
+bool inf_make_req_special(const FSTYPE type, const KEYT key, value_set* value, KEYT seq, void*(*special)(void*)){
+	if(type==FS_RMW_T){
+		printf("here!\n");
 	}
+	request *req=inf_get_req_instance(type,key,value,0);
+	req->special_func=special;
+	pthread_mutex_lock(&flying_req_lock);
+	while(flying_req_cnt==QDEPTH){
+		pthread_cond_wait(&flying_req_cond,&flying_req_lock);
+	}
+	flying_req_cnt++;
+	pthread_mutex_unlock(&flying_req_lock);
+	//set sequential
+	req->seq=seq;
+#ifdef CDF
+	req->isstart=false;
+	measure_init(&req->latency_checker);
+	measure_start(&req->latency_checker);
+#endif
+
 	assign_req(req);
 	return true;
 }
 
 //static int end_req_num=0;
 bool inf_end_req( request * const req){
+	if(req->type==FS_RMW_T){
+		req->type=FS_SET_T;
+		value_set *temp=inf_get_valueset(req->value->value,FS_SET_T,req->value->length);
+		inf_free_valueset(req->value,FS_MALLOC_R);
+		req->value=temp;
+		assign_req(req);
+		return 1;
+	}
 #ifdef SNU_TEST
 #else
 	if(req->isstart){
@@ -403,12 +421,23 @@ bool inf_end_req( request * const req){
 #ifdef DEBUG
 	printf("inf_end_req!\n");
 #endif
+	void *(*special)(void*);
+	special=req->special_func;
+	void **params;
+	uint8_t *type;
+	uint32_t *seq;
+	if(special){
+		params=(void**)malloc(sizeof(void*)*2);
+		type=(uint8_t*)malloc(sizeof(uint8_t));
+		seq=(uint32_t*)malloc(sizeof(uint32_t));
+		*type=req->type;
+		*seq=req->seq;
+		params[0]=(void*)type;
+		params[1]=(void*)seq;
+	}
+
 	if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){
-		//int check;
-		//memcpy(&check,req->value,sizeof(check));
-		/*
-		   if((++end_req_num)%1024==0)
-		   printf("get:%d, number: %d\n",check,end_req_num);*/
+	
 	}
 	if(req->value){
 		if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){
@@ -419,6 +448,7 @@ bool inf_end_req( request * const req){
 		}
 	}
 	req_cnt_test++;
+
 	if(!req->isAsync){
 		pthread_mutex_unlock(&req->async_mutex);	
 	}
@@ -432,12 +462,13 @@ bool inf_end_req( request * const req){
 	if(flying_req_cnt==0){
 		pthread_cond_broadcast(&flying_req_cond);
 	}*/
-	
 	if(flying_req_cnt==QDEPTH){
 		flying_req_cnt--;
+		if(special) special((void*)params);
 		pthread_cond_broadcast(&flying_req_cond);
 	}
 	else{
+		if(special) special((void*)params);
 		flying_req_cnt--;
 	}
 	pthread_mutex_unlock(&flying_req_lock);

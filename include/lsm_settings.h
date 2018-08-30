@@ -3,9 +3,14 @@
 #include "settings.h"
 
 /*lsmtree structure*/
+#ifndef EEMODE
 #define KEYNUM 1024
+#else
+#define KEYNUM 1000
+#endif
+
 #define RAF 0.01
-#define LEVELN 3
+#define LEVELN 7
 
 #if LEVELN!=1
 #define BLOOM
@@ -16,7 +21,7 @@
 //#define LEVELUSINGHEAP
 //#define TIERING
 //#define CACHE
-//#define CACHESIZE (128*8*100)//1*128==1M
+//#define CACHESIZE 1//(128*8*1)//1*128==1M
 
 /*lsmtree flash thread*/
 #define KEYSIZE ()

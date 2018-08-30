@@ -10,20 +10,17 @@
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
 #include "../../include/dl_sync.h"
+#include "../../include/types.h"
 
-#define OLDDATA 1
-#define HEADERR 2
-#define HEADERW 3
-#define GCHR 4
-#define GCHW 5
-#define DATAR 6
-#define DATAW 7
-#define GCDR 8
-#define GCDW 9
-#define SDATAR 10
-#define RANGER 11
-#define BLOCKW 12
-#define BLOCKR 13
+#define HEADERR MAPPINGR
+#define HEADERW MAPPINGW
+#define GCHR GCMR
+#define GCHW GCMW
+#define SDATAR 9
+#define RANGER 10
+#define BLOCKW 11
+#define BLOCKR 12
+#define OLDDATA 13
 
 //lower type, algo type
 
@@ -35,7 +32,8 @@ typedef struct keyset{
 
 typedef struct htable{
 	keyset *sets;
-	uint8_t *bitset;
+//	uint8_t *bitset;
+
 #ifdef BLOOM
 	BF* filter;
 #endif
@@ -100,6 +98,9 @@ htable *htable_copy(htable *);
 htable *htable_assign();
 void htable_free(htable*);
 void htable_print(htable*,KEYT);
+/*
 void lsm_save(lsmtree *);
-lsmtree* lsm_load();
+void lsm_trim_set(value_set* ,uint8_t *);
+uint8_t *lsm_trim_get(PTR);
+lsmtree* lsm_load();*/
 #endif

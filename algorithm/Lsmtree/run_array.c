@@ -96,13 +96,15 @@ Entry *level_entry_copy(Entry *input){
 		res->t_table=input->t_table;
 		res->c_entry=input->c_entry;
 		res->c_entry->entry=res;
-		input->t_table=NULL;
 		input->c_entry=NULL;
+		input->t_table=NULL;
+	}else{
+		res->c_entry=NULL;
+		res->t_table=NULL;
 	}
 #else
 	res->t_table=NULL;
 #endif
-	memcpy(res->bitset,input->bitset,sizeof(res->bitset));
 	res->iscompactioning=false;
 	return res;
 }
@@ -257,8 +259,8 @@ Node *level_insert_seq(level *input, Entry *entry){
 		temp_entry->t_table=entry->t_table;
 		temp_entry->c_entry=entry->c_entry;
 		temp_entry->c_entry->entry=temp_entry;
-		entry->t_table=NULL;
 		entry->c_entry=NULL;
+		entry->t_table=NULL;
 	}
 #endif
 	temp_entry->iscompactioning=false;
@@ -469,7 +471,6 @@ Entry *level_make_entry(KEYT key,KEYT end,KEYT pbn){
 	ent->key=key;
 	ent->end=end;
 	ent->pbn=pbn;
-	memset(ent->bitset,0,KEYNUM/8);
 	ent->t_table=NULL;
 	ent->iscompactioning=false;
 #ifdef CACHE
@@ -607,9 +608,6 @@ void level_check(level *input){
 				if(temp_ent->t_table->sets[10].lpa>10){
 					printf("\r");
 				}
-			}
-			if(temp_ent->bitset[10]){
-				printf("\r");
 			}
 		}
 		cnt++;*/
@@ -772,6 +770,23 @@ void level_move_heap(level *des, level *src){
 			llog_insert(des->seg_log,(void*)&segs[i]);
 	}*/
 }
+
+bool level_all_check_ext(KEYT lpa){
+	bool res=false;
+	for(int i=0; i<LEVELN; i++){
+		Entry **entry=level_find(LSM.disk[i],lpa);
+		if(!entry){
+			free(entry);
+			continue;
+		}
+		else{
+			free(entry);
+			return true;
+		}
+	}
+	return res;
+}
+
 
 #ifdef DVALUE
 void level_save_blocks(level *in){

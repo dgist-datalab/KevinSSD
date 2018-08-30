@@ -36,6 +36,7 @@ struct request {
 	void *upper_req;
 	void *(*upper_end)(void *);
 	bool (*end_req)(struct request *const);
+	void *(*special_func)(void *);
 	bool isAsync;
 	void *params;
 	void *__hash_node;
@@ -57,6 +58,7 @@ struct request {
 struct algo_req{
 	request * parents;
 	MeasureTime latency_lower;
+	uint8_t type;
 	bool rapid;
 	uint8_t type_lower;
 
@@ -96,6 +98,8 @@ struct lower_info {
 	uint32_t PPB;
 	uint32_t PPS;
 	uint64_t TS;
+
+	uint64_t req_type_cnt[LREQ_TYPE_NUM];
 	//anything
 };
 

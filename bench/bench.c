@@ -39,6 +39,11 @@ void bench_init(int benchnum){
 	_master->n_num=0; _master->m_num=benchnum;
 	pthread_mutex_init(&bench_lock,NULL);
 
+	for(int i=0; i<benchnum; i++){
+		_master->m[i].empty=true;
+		_master->m[i].type=NOR;
+	}
+
 	for(int i=0;i<benchnum;i++){
 		for(int j=0;j<ALGOTYPE;j++){
 			for(int k=0;k<LOWERTYPE;k++){
@@ -57,6 +62,7 @@ void bench_make_data(){
 	_m->body=(bench_value*)malloc(sizeof(bench_value)*_meta->number);
 	_m->n_num=0;
 	_m->r_num=0;
+	_m->empty=false;
 	_m->m_num=_meta->number;
 	_m->type=_meta->type;
 	KEYT start=_meta->start;
@@ -83,6 +89,8 @@ void bench_make_data(){
 			break;
 		case MIXED:
 			mixed(start,end,50,_m);
+			break;
+		default:
 			break;
 	}
 	_d->read_cnt=_m->read_cnt;
@@ -237,6 +245,9 @@ void bench_print(){
 			printf("[SUCCESS RATIO] %lf\n",sr);
 			printf("[throughput] %lf(kb/s)\n",throughput);
 			printf("             %lf(mb/s)\n",throughput/1024);
+			if(_m->read_cnt){
+				printf("[cache hit cnt,ratio] %ld, %lf\n",_m->cache_hit,(double)_m->cache_hit/(_m->read_cnt));
+			}
 			printf("[READ WRITE CNT] %ld %ld\n",_m->read_cnt,_m->write_cnt);
 		}
 	}
@@ -288,7 +299,7 @@ void bench_update_ftltime(bench_data *_d, request *const req){
 }
 
 void bench_ftl_cdf_print(bench_data *_d){
-	printf("polling\n");
+	//printf("polling\n");
 	printf("a_type\tl_type\tmax\tmin\tavg\tcnt\tpercentage\n");
 	for(int i = 0; i < ALGOTYPE; i++){
 		for(int j = 0; j < LOWERTYPE; j++){
@@ -344,7 +355,7 @@ void bench_cdf_print(uint64_t nor, uint8_t type, bench_data *_d){//number of req
 	uint64_t cumulate_number=0;
 	if(type>RANDSET)
 		nor/=2;
-	if(type>RANDSET || type%2==1){
+	if((type>RANDSET || type%2==1) || type==NOR){
 		printf("\n[cdf]write---\n");
 		for(int i=0; i<1000000/TIMESLOT+1; i++){
 			cumulate_number+=_d->write_cdf[i];
@@ -355,7 +366,7 @@ void bench_cdf_print(uint64_t nor, uint8_t type, bench_data *_d){//number of req
 		}	
 	}
 	cumulate_number=0;
-	if(type>RANDSET || type%2==0){
+	if((type>RANDSET || type%2==0) || type==NOR){
 		printf("\n[cdf]read---\n");
 		for(int i=0; i<1000000/TIMESLOT+1; i++){
 			cumulate_number+=_d->read_cdf[i];
@@ -384,12 +395,12 @@ void bench_reap_data(request *const req,lower_info *li){
 	}
 	int idx=req->mark;
 	monitor *_m=&_master->m[idx];
-
 	bench_data *_data=&_master->datas[idx];
 
-	if(req->type==FS_GET_T){
+	if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){
 		bench_update_ftltime(_data, req);
 	}
+
 #ifdef CDF
 	measure_calc(&req->latency_checker);
 	int slot_num=req->latency_checker.micro_time/TIMESLOT;
@@ -410,7 +421,19 @@ void bench_reap_data(request *const req,lower_info *li){
 		}
 	}
 #endif
-
+	if(_m->empty){
+		_m->m_num++;
+		if(req->type==FS_GET_T){
+			_m->read_cnt++;
+			_data->read_cnt++;
+		}
+		else if(req->type==FS_SET_T){
+			_m->write_cnt++;
+			_data->write_cnt++;
+		}
+		pthread_mutex_unlock(&bench_lock);
+		return;
+	}
 
 	if(_m->m_num==_m->r_num+1){
 		_data->bench=_m->benchTime;
@@ -636,7 +659,7 @@ void bench_lower_t(lower_info *li){
 }
 
 void bench_cache_hit(int mark){
-	/*
+	
 	monitor *_m=&_master->m[mark];
-	_m->cache_hit++;*/
+	_m->cache_hit++;
 }

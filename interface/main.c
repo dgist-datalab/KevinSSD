@@ -79,22 +79,12 @@ int main(int argc,char* argv[]){
 	}
 
 	inf_init();
-	bench_init(2);
+	bench_init(1);
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
-	/*
-	for(int i=0; i<PAGESIZE;i++){
-		t_value2[i]=rand()%256;
-	}*/
-	//bench_add(RANDRW,0,128*1024,2*128*1024);
-	//bench_add(SEQSET,0,RANGE-(4*_PPS),RANGE-(4*_PPS));
-	//bench_add(MIXED,0,RANGE-(4*_PPS),RANGE-(4*_PPS));
-	bench_add(SEQSET,0,RANGE,RANGE);
-//	bench_add(RANDSET,0,RANGE/2,RANGE);
-	bench_add(MIXED,0,RANGE,RANGE);
-//	bench_add(RANDRW,0,RANGE,2*RANGE);
-//	bench_add(RANDSET,0,15*1024,15*1024);
-//	bench_add(RANDGET,0,15*1024,15*1024);
+//	bench_add(SEQSET,0,RANGE,RANGE);
+	bench_add(RANDRW,0,RANGE,RANGE);
+///	bench_add(MIXED,0,RANGE,RANGE);
 	bench_value *value;
 
 	value_set temp;

@@ -18,8 +18,6 @@ typedef struct Entry{
 	KEYT key;
 	KEYT end;
 	KEYT pbn;
-	uint8_t bitset[KEYNUM/8];
-	//uint64_t version; version == order by input;
 #ifdef BLOOM
 	BF *filter;
 #endif
@@ -94,6 +92,7 @@ KEYT level_get_page(level *,uint8_t plength);
 void level_moveTo_front_page(level*);
 void level_move_heap(level * des, level *src);
 bool level_now_block_fchk(level *in);
+bool level_all_check(KEYT);
 #ifdef DVALUE
 void level_move_next_page(level *);
 void level_save_blocks(level *);
@@ -107,7 +106,7 @@ void level_tier_align(level *);
 
 void level_print(level *);//
 void level_all_print();//
-void level_all_check();
+bool level_all_check_ext(KEYT lpa);
 void level_free(level *);//
 void level_free_entry(Entry *);//
 void level_save(level *);
