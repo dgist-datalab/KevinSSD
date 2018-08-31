@@ -82,10 +82,10 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     num_dpage = num_dblock * p_p_b;
     max_cache_entry = (num_page / EPP) + ((num_page % EPP != 0) ? 1 : 0);
     // you can control amount of max number of ram reside cache entry
-    num_max_cache = max_cache_entry; // max cache
+    //num_max_cache = max_cache_entry; // max cache
     //num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2; // 1/2 cache
     //num_max_cache = 1; // 1 cache
-    //num_max_cache = max_cache_entry/4; // 1/4 cache
+    num_max_cache = max_cache_entry/4; // 1/4 cache
 #if C_CACHE
     max_clean_cache = num_max_cache / 2;
     max_dirty_cache = num_max_cache - max_clean_cache;
@@ -129,6 +129,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
         CMT[i].clean_ptr = NULL;
 #endif
         CMT[i].flag = 0;
+        CMT[i].flying = false;
     }
 
     memset(demand_OOB, -1, num_page * sizeof(D_OOB));
@@ -213,6 +214,7 @@ void *demand_end_req(algo_req* input){
     demand_params *params = (demand_params*)input->params;
     value_set *temp_v = params->value;
     request *res = input->parents;
+    int32_t lpa;
 
     switch(params->type){
         case DATA_R:
@@ -237,6 +239,8 @@ void *demand_end_req(algo_req* input){
             if(!inf_assign_try(res)){ //assign 안돼면??
                 q_enqueue((void*)res, dftl_q);
             }
+            lpa = res->key;
+            CMT[D_IDX].flying = false;
             break;
         case MAPPING_W:
             inf_free_valueset(temp_v, FS_MALLOC_W);
@@ -631,16 +635,25 @@ uint32_t __demand_get(request *const req){
     /* Load tpage to cache */
 #if ASYNC
     if(req->params == NULL){ // this is cache miss and request come into get first time
-        checker = (read_params*)malloc(sizeof(read_params));
-        checker->read = 0;
-        checker->t_ppa = t_ppa;
-        req->params = (void*)checker;
-        my_req = assign_pseudo_req(MAPPING_R, NULL, req); // need to read mapping data
-        //MA(&req->latency_ftl);
-        bench_algo_end(req);
-        __demand.li->pull_data(t_ppa, PAGESIZE, req->value, ASYNC, my_req);
-        MA(&ftl);
-        return 1;
+        if (c_table->flying) {
+            while (c_table->flying) {}
+            if(!inf_assign_try(req)){ //assign 안돼면??
+                q_enqueue((void*)req, dftl_q);
+            }
+            return 1;
+        } else {
+            checker = (read_params*)malloc(sizeof(read_params));
+            checker->read = 0;
+            checker->t_ppa = t_ppa;
+            req->params = (void*)checker;
+            my_req = assign_pseudo_req(MAPPING_R, NULL, req); // need to read mapping data
+            c_table->flying = true;
+            //MA(&req->latency_ftl);
+            bench_algo_end(req);
+            __demand.li->pull_data(t_ppa, PAGESIZE, req->value, ASYNC, my_req);
+            MA(&ftl);
+            return 1;
+        }
     }
     if(((read_params*)req->params)->t_ppa != t_ppa){        // mapping has changed in data gc
         ((read_params*)req->params)->read = 0;              // read value is invalid now
