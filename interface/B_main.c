@@ -137,8 +137,8 @@ int main(int argc,char* argv[]){
 	kuk_sock_destroy(net_worker);
 	force_write_start=true;
 
-	inf_free();
 	bench_print();
 	bench_free();
+	inf_free();
 	return 0;
 }

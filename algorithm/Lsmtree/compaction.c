@@ -293,7 +293,10 @@ void *compaction_main(void *input){
 		}
 		req=(compR*)_req;
 		if(req->fromL==-1){
-			gc_check(DATA,false);
+			int round=0;
+			while(!gc_check(DATA,false)){
+	//			printf("round:%d\n",round++);
+			}
 			htable *table=compaction_data_write(LSM.temptable);
 			KEYT start=table->sets[0].lpa;
 			KEYT end=table->sets[KEYNUM-1].lpa;

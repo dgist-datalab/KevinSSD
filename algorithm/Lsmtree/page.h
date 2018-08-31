@@ -1,6 +1,7 @@
 #ifndef __PAGE_H__
 #define __PAGE_H__
 #include "../../include/settings.h"
+#include "../../include/lsm_settings.h"
 #include "heap.h"
 #include "footer.h"
 #include "log_list.h"
@@ -19,6 +20,11 @@ typedef struct{
 	uint8_t plength;
 	uint8_t level;
 }gc_node;
+typedef struct{
+	gc_node** datas[LEVELN][BPS+1];
+	int size[LEVELN][BPS+1];
+	int cnt[LEVELN];
+}gc_node_wrapper;
 
 typedef struct{
 	/*genearal pard*/
@@ -51,6 +57,7 @@ typedef struct{
 	uint32_t invalid_n;
 	KEYT trimed_block;
 	KEYT segment_idx; //next reserved block
+	KEYT cost;
 	KEYT ppa;
 }segment;
 
@@ -95,7 +102,7 @@ int get_victim_block(pm *);
 bool PBITFULL(KEYT input,bool isrealppa);
 int gc_header(KEYT tbn);
 int gc_data(KEYT tbn);
-void gc_check(uint8_t,bool);
+bool gc_check(uint8_t,bool);
 bool gc_segment_force();
 KEYT gc_victim_segment(uint8_t type,bool);
 void gc_trim_segment(KEYT pbn);

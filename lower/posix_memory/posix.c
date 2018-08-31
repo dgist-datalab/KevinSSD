@@ -226,10 +226,8 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	if(test_type < LREQ_TYPE_NUM){
 		my_posix.req_type_cnt[test_type]++;
 	}
-
-
 	
-	if(req->type<=GCMR){
+	if(req->type<=GCMW){
 		if(!seg_table[PPA/my_posix.PPS].alloc){
 			seg_table[PPA/my_posix.PPS].storage = (PTR)malloc(my_posix.SOB);
 			seg_table[PPA/my_posix.PPS].alloc = 1;

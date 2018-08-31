@@ -31,6 +31,14 @@ segment* WHICHSEG(KEYT ppa){
 	return &segs[ppa/(_PPS)];
 }
 
+uint8_t BLOCKTYPE(KEYT ppa){
+	if(ppa<HEADERSEG*_PPS){
+		return HEADER;
+	}
+	else 
+		return DATA;
+}
+
 OOBT PBITSET(KEYT input,bool isFull){
 #ifdef DVALUE
 	input<<=1;
@@ -186,6 +194,7 @@ void gc_change_reserve(pm *target_p, segment *seg,uint8_t type){
 	seg->invalid_n=0;
 	seg->trimed_block=0;
 	seg->segment_idx=0;
+	seg->cost=0;
 
 	target_p->used_blkn-=BPS; // trimed new block
 	target_p->used_blkn+=target_p->rused_blkn; // add using in reserved block
@@ -226,6 +235,7 @@ void gc_trim_segment(uint8_t type, KEYT pbn){
 			seg->invalid_n=0;
 			seg->trimed_block=0;
 			seg->segment_idx=0;
+			seg->cost=0;
 			target_p->temp=seg;
 			target_p->target=NULL;
 		}	
@@ -362,6 +372,7 @@ void gc_data_write(KEYT ppa,htable_t *value,bool isdata){
 	params->lsm_type=isdata?GCDW:GCHW;
 	params->value=inf_get_valueset((PTR)(value)->sets,FS_MALLOC_W,PAGESIZE);
 
+
 	areq->parents=NULL;
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
@@ -411,6 +422,7 @@ void segs_init(){
 		segs[i].invalid_n=0;
 		segs[i].segment_idx=0;
 		segs[i].ppa=i*(_PPS);
+		segs[i].cost=0;
 	}
 };
 
@@ -546,14 +558,14 @@ void gc_compaction_checking(){
 		//}
 	}
 }*/
-void gc_check(uint8_t type, bool force){
+bool gc_check(uint8_t type, bool force){
 	block **erased_blks=NULL;
 	int e_blk_idx=0;
 	int erased_blkn=0;
 	if(!force){
 		if(type==DATA){
 			if(data_m.max_blkn-data_m.used_blkn>=KEYNUM/_PPB){
-				return;
+				return true;
 			}
 			else{
 				//static int c_cnt=0;
@@ -601,11 +613,12 @@ void gc_check(uint8_t type, bool force){
 	//		static int header_cnt=0;
 			switch(type){
 				case HEADER:
-	//				printf("header gc:%d\n",header_cnt++);
+					//printf("header gc:%d\n",header_gc_cnt++);
 					target_p=&header_m;
 					header_gc_cnt++; 
 					break;
 				case DATA:
+					//printf("data gc:%d\n",data_gc_cnt);
 					//gc_compaction_checking();
 					//compaction_force();
 					target_p=&data_m;
@@ -635,7 +648,7 @@ void gc_check(uint8_t type, bool force){
 		if(target_block==UINT_MAX){
 			while(target_block==UINT_MAX && type==DATA){
 				if(compaction_force()){
-					//printf("force_compaction\n");
+					printf("force_compaction\n");
 					target_block=gc_victim_segment(type,false);
 				}
 				else{
@@ -648,7 +661,7 @@ void gc_check(uint8_t type, bool force){
 							free(erased_blks);
 						}
 						data_m.used_blkn-=erased_blkn;
-						return;
+						return true;
 					}
 					//segment_all_print();
 					printf("device full at data\n");
@@ -700,8 +713,10 @@ void gc_check(uint8_t type, bool force){
 	}
 
 	if(type==DATA && data_m.max_blkn-data_m.used_blkn<KEYNUM/_PPB){
-		printf("??: data_m.used_blkn:%d\n",data_m.used_blkn);
+		//printf("??: data_m.used_blkn:%d\n",data_m.used_blkn);
+		return false;
 	}
+	return true;
 	//if(erased_blkn)
 		//llog_print(target_p->blocks);
 		//printf("after free block:%d\n",data_m.max_blkn-data_m.used_blkn);
@@ -771,37 +786,27 @@ void invalidate_PPA(KEYT _ppa){
 	bl[bn].invalid_n++;
 	segment *segs=WHICHSEG(bl[bn].ppa);
 	segs->invalid_n++;
-/*	
-	if(_ppa==4996878){
-		printf("here!\n");
-	}*/
-/*
-	static uint64_t temp_ppa=4997099;
-	if(_ppa/256==temp_ppa/256){
-		if(test__[_ppa%256]){
-			printf("%d\n",_ppa);
-			printf("fuck\n");
-			exit(1);
-		}
-		test__[_ppa%256]=true;	
-	}
-*/
+
 	if(bl[bn].invalid_n>algo_lsm.li->PPB){
-//		temp_ppa=_ppa;
 		printf("invalidate:??\n");
 		exit(1);
 	}
+	
+	if(BLOCKTYPE(ppa)==DATA){
+		segs->cost+=bl[bn].level;
+	}
+
 #ifdef LEVEUSINGHEAP
 	level *l=LSM.disk[bl[bn].level];
 	heap_update_from(l->h,bl[bn].hn_ptr);
 #endif
 }
+
 #ifdef DVALUE
 void invalidate_BPPA(KEYT ppa){
 	invalidate_PPA(ppa);
 }
 void invalidate_DPPA(KEYT ppa){
-
 	KEYT pn=ppa/(PAGESIZE/PIECE);
 	KEYT bn=pn/_PPB;	
 	if(bl[bn].length_data==NULL && !bl[bn].isflying){
@@ -839,8 +844,8 @@ int gc_node_compare(const void *a, const void *b){
 	else if(v1->lpa == v2->lpa) return 0;
 	else return -1;
 }
-void gc_data_header_update(gc_node **gn,int size, int target_level){
-	qsort(gn,size,sizeof(gc_node**),gc_node_compare);//sort
+
+void gc_data_header_update(gc_node **gn, int size,int target_level){
 	level *in=LSM.disk[target_level];
 	htable_t **datas=(htable_t**)malloc(sizeof(htable_t*)*in->m_num);
 	Entry **entries;
@@ -874,8 +879,10 @@ void gc_data_header_update(gc_node **gn,int size, int target_level){
 		pthread_mutex_lock(&LSM.level_lock[in->level_idx]);
 		for(int j=0; j<htable_idx; j++){
 			htable_t *data=datas[j];
-			for(int k=i; k<size; k++){
+			int temp_i=i;
+			for(int k=temp_i; k<size; k++){
 				target=gn[k];
+
 				if(target==NULL) continue;
 				keyset *finded=htable_find(data->sets,target->lpa);
 
@@ -891,14 +898,18 @@ void gc_data_header_update(gc_node **gn,int size, int target_level){
 					finded->ppa=target->nppa;
 					free(target);
 					gn[k]=NULL;
+					i++;
 				}
 				else{
-					if(k==i){
+					if(k==temp_i){
 						if(!in->isTiering || j==htable_idx-1){
+							level_print(in);
+							printf("lpa:%d-ppa:%d\n",target->lpa,target->ppa);
 							printf("what the fuck?\n"); //not founded in level
 							exit(1);
 						}
 					}
+					i--;
 					if(!in->isTiering) break;
 				}
 			}
@@ -914,8 +925,64 @@ void gc_data_header_update(gc_node **gn,int size, int target_level){
 	}
 	free(datas);
 }
+void gc_data_header_update_add(gc_node **gn,int size, int target_level, char order){
+	static gc_node_wrapper *wrapper;
+	if(order==0){
+		wrapper=(gc_node_wrapper*)malloc(sizeof(gc_node_wrapper));
+		memset(wrapper,0,sizeof(gc_node_wrapper));
+	}
 
-int gc_data_write_using_bucket(l_bucket *b,int target_level){
+	qsort(gn,size,sizeof(gc_node**),gc_node_compare);//sort
+	wrapper->datas[target_level][wrapper->cnt[target_level]]=gn;
+	wrapper->size[target_level][wrapper->cnt[target_level]++]=size;
+
+	if(order==2){
+		for(int i=0; i<LEVELN; i++){
+			if(wrapper->cnt[i]==0) continue;
+			int total_size=0;
+			for(int j=0; j<wrapper->cnt[i]; j++){
+				total_size+=wrapper->size[i][j];
+			}
+			
+			gc_node **total_gc=(gc_node**)malloc(sizeof(gc_node*)*total_size);
+			int *level_cnt=(int*)malloc(sizeof(int)*wrapper->cnt[i]);
+			memset(level_cnt,0,sizeof(int)*wrapper->cnt[i]);
+			int idx=0;
+
+			while(idx<total_size){
+				gc_node* min=NULL;
+				int picked=0;
+				for(int j=0; j<wrapper->cnt[i]; j++){
+					if(wrapper->size[i][j] <=level_cnt[j]) continue;
+					gc_node *temp=wrapper->datas[i][j][level_cnt[j]];
+					if(!min){
+						min=temp;
+						picked=j;
+					}else{
+						if(min->lpa>temp->lpa){;
+							min=temp;
+							picked=j;
+						}
+					}
+				}
+				level_cnt[picked]++;
+				total_gc[idx++]=min;
+			}
+			
+
+			gc_data_header_update(total_gc,total_size,i);
+
+			for(int j=0; j<wrapper->cnt[i];j++){
+				free(wrapper->datas[i][j]);
+			}
+			free(total_gc);
+			free(level_cnt);
+		}
+		free(wrapper);
+	}
+}
+
+int gc_data_write_using_bucket(l_bucket *b,int target_level,char order){
 	int res=0;
 	gc_node **gc_container=(gc_node**)malloc(sizeof(gc_node*)*b->contents_num);
 	memset(gc_container,0,sizeof(gc_node*)*b->contents_num);
@@ -981,7 +1048,7 @@ int gc_data_write_using_bucket(l_bucket *b,int target_level){
 		if(stop) break;
 	}
 #endif
-	gc_data_header_update(gc_container,b->contents_num,target_level);
+	gc_data_header_update_add(gc_container,b->contents_num,target_level,order);
 	return res;
 }
 
@@ -1048,24 +1115,23 @@ KEYT gc_victim_segment(uint8_t type,bool isforcegc){ //gc for segment
 		target=&segs[start];
 		cnt=target->invalid_n;
 		for(int i=start+1; i<=end; i++){
-			if(segs[i].invalid_n>cnt){
+			if(segs[i].invalid_n>=_PPB && segs[i].invalid_n+segs[i].cost>cnt){
 				target=&segs[i];
-				cnt=target->invalid_n;
+				cnt=target->invalid_n+segs[i].cost;
 			}
 			accumulate_cnt+=target->invalid_n;
 		}
+
 		if(cnt==0)
 			return UINT_MAX;
 		else if(type==DATA && cnt<KEYNUM && !isforcegc){
 			return UINT_MAX;
 		}
+
 	}else if(target && target->invalid_n==0){
-		//printf("segment trim done\n");
 		target_p->target=NULL;
 		return UINT_MAX-1;
 	}
-	//static int ucnt=0;
-	//printf("victim_cnt:%d\n",ucnt++);
 	target_p->target=target;
 	if(isforcegc && accumulate_cnt<KEYNUM+_PPB)
 		return UINT_MAX;
@@ -1079,7 +1145,9 @@ int gc_header(KEYT tbn){
 	//llog_print(header_m.blocks);
 	//printf("[%d]gc_header start -> block:%u\n",gc_cnt,tbn);
 	block *target=&bl[tbn];
-
+	if(tbn==2139){
+		printf("here!\n");
+	}
 	if(target->invalid_n==algo_lsm.li->PPB){
 		gc_trim_segment(HEADER,target->ppa);
 		return 1;
@@ -1202,6 +1270,7 @@ int gc_data(KEYT tbn){//
 	//gc_data_cnt++;
 	//printf("gc_data_cnt : %d\n",gc_data_cnt);
 	block *target=&bl[tbn];
+	
 #ifdef DVALUE
 	if(target->invalid_n==algo_lsm.li->PPB*(PAGESIZE/PIECE)){
 #else
@@ -1249,6 +1318,7 @@ int gc_data(KEYT tbn){//
 	/*data read request phase*/
 #ifndef DVALUE	 
 	for(KEYT i=0; i<target->ppage_idx; i++){
+
 		if(target->bitset[i/8]&(1<<(i%8))){
 			continue;
 		}
@@ -1314,6 +1384,7 @@ int gc_data(KEYT tbn){//
 			bucket.contents_num++;
 #ifndef DVALUE
 			temp_g->ppa=d_ppa;
+
 #else
 			temp_g->ppa=d_ppa*(PAGESIZE/PIECE);
 		}
@@ -1350,7 +1421,12 @@ int gc_data(KEYT tbn){//
 #endif
 	}
 	free(tables);
-	gc_data_write_using_bucket(&bucket,target_level);
+	char order;
+	if(tbn%BPS==0)	order=0;
+	else if(tbn%BPS==BPS-1) order=2;
+	else order=1;
+
+	gc_data_write_using_bucket(&bucket,target_level,order);
 	gc_trim_segment(DATA,target->ppa);
 //	level_print(in);
 	return 1;
