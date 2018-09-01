@@ -21,7 +21,6 @@ kuk_sock *net_worker;
 #define PORT 8888
 #define REQSIZE (sizeof(uint64_t)*3+sizeof(uint8_t))
 #define PACKETSIZE REQSIZE
-bool force_write_start;
 queue *ret_q;
 
 void *flash_returner(void *param){
@@ -135,7 +134,6 @@ int main(int argc,char* argv[]){
 	}
 	
 	kuk_sock_destroy(net_worker);
-	force_write_start=true;
 
 	bench_print();
 	bench_free();

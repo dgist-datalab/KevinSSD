@@ -17,7 +17,6 @@ extern master *_master;
 #ifdef Lsmtree
 int skiplist_hit;
 #endif
-bool force_write_start;
 int main(int argc,char* argv[]){
 	/*
 	int Input_cycle;
@@ -115,7 +114,6 @@ int main(int argc,char* argv[]){
 		printf("req_cnt_test:cnt -> %d:%d fuck\n",req_cnt_test,cnt);
 	}
 
-	force_write_start=true;
 	while(!bench_is_finish()){
 #ifdef LEAKCHECK
 		sleep(1);

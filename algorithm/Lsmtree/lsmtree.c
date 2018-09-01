@@ -198,6 +198,9 @@ void* lsm_end_req(algo_req* const req){
 					havetofree=false;
 				}
 				else{
+#ifdef CACHE
+					((Entry*)params->entry_ptr)->isflying=2;
+#endif
 					while(1){
 						if(inf_assign_try(parents)){
 							break;
@@ -334,7 +337,7 @@ uint32_t lsm_get(request *const req){
 			request *tmp_req=(request*)re_q;
 			bench_algo_start(tmp_req);
 			res_type=__lsm_get(tmp_req);
-			if(res_type==3){
+			if(res_type==0){
 				//printf("from req not found seq: %d, key:%u\n",nor++,req->key);
 			//	level_all_print();
 				tmp_req->type=FS_NOTFOUND_T;
@@ -354,7 +357,7 @@ uint32_t lsm_get(request *const req){
 	}
 	bench_algo_start(req);
 	res_type=__lsm_get(req);
-	if(res_type==3){
+	if(res_type==0){
 //		printf("not found seq: %d, key:%u\n",nor++,req->key);
 	//	level_all_print();
 		req->type=FS_NOTFOUND_T;
@@ -363,104 +366,126 @@ uint32_t lsm_get(request *const req){
 	}
 	return res_type;
 }
+
+algo_req* lsm_get_req_factory(request *parents){
+	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
+	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
+	params->lsm_type=DATAR;
+	lsm_req->params=params;
+	lsm_req->parents=parents;
+	dl_sync_init(&params->lock,1);
+	lsm_req->end_req=lsm_end_req;
+	lsm_req->type_lower=0;
+	lsm_req->rapid=true;
+	lsm_req->type=DATAR;
+	return lsm_req;
+}
 extern int skiplist_hit;
-uint32_t __lsm_get(request *const req){
-	//if(req->mark!=0){
-	//	printf("key : %d??????\n",req->key);
-	//}
-	//	static int tt=0;
-	//	printf("test:%d %d\n",tt++,req->key);
-	snode *target_node=skiplist_find(LSM.memtable,req->key);//checking in memtable
-	if(target_node !=NULL){
-#ifdef NOHOST
-		//inf_free_valuset(req->value,FS_MALLOC_R);
-		have to copy
-			//req->value=target_node->value;
-#else
-			memcpy(req->value->value,target_node->value->value,target_node->value->length*PIECE);
-#endif
-		skiplist_hit++;
-		bench_algo_end(req);
-		bench_cache_hit(req->mark);
-		req->end_req(req);
-		return 2;
+int __lsm_get_sub(request *req,Entry *entry, keyset *table,skiplist *list){
+	int res=0;
+	if(!entry && !table && !list){
+		return 0;
 	}
+	KEYT ppa;
+	algo_req *lsm_req=NULL;
+	snode *target_node;
+	keyset *target_set;
+	if(list){//skiplist check for memtable and temp_table;
+		target_node=skiplist_find(list,req->key);
+		if(!target_node) return 0;
+		bench_cache_hit(req->mark);
+		if(target_node->value){
+			skiplist_hit++;
+			memcpy(req->value->value,target_node->value->value,PAGESIZE);
+			bench_algo_end(req);
+			req->end_req(req);
+			return 2;
+		}
+		else{
+			lsm_req=lsm_get_req_factory(req);
+			req->value->ppa=target_node->ppa;
+			ppa=target_node->ppa;
+			res=4;
+		}
+	}
+
+	if(entry && !table){ //tempent check
+		target_set=htable_find(entry->t_table->sets,req->key);
+		if(target_set){
+			lsm_req=lsm_get_req_factory(req);
+			bench_cache_hit(req->mark);	
+			req->value->ppa=target_node->ppa;
+			ppa=target_node->ppa;
+			res=4;
+		}
+	}
+	
+	if(table){//retry check or cache hit check
+		target_set=htable_find(table,req->key);
+		if(target_set){
+#if defined(CACHE) && !defined(FLASHCECK)
+			if(entry && !entry->t_table){
+				htable temp; temp.sets=table;
+				entry->t_table=htable_copy(&temp);
+				cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
+				entry->c_entry=c_entry;
+			}
+#endif
+			lsm_req=lsm_get_req_factory(req);
+			req->value->ppa=target_set->ppa;
+			ppa=target_set->ppa;
+			res=4;
+		}
+	}
+
+	if(lsm_req==NULL){
+		return 0;
+	}
+	bench_algo_end(req);
+	if(ppa==UINT_MAX){
+		free(lsm_req->params);
+		free(lsm_req);
+		req->end_req(req);
+		return 5;
+	}
+
+	if(lsm_req){
+#ifdef DVALUE
+		LSM.li->pull_data(ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+#else
+		LSM.li->pull_data(ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+#endif
+	}
+	return res;
+}
+
+uint32_t __lsm_get(request *const req){
+
+	/*memtable*/
+	int res=__lsm_get_sub(req,NULL,NULL,LSM.memtable);
+	if(res)return res;
 
 	//check cached data
 	pthread_mutex_lock(&LSM.valueset_lock);
 	pthread_mutex_unlock(&LSM.valueset_lock);
+
+
+	pthread_mutex_lock(&LSM.templock);
+	res=__lsm_get_sub(req,NULL,NULL,LSM.temptable);
+	pthread_mutex_unlock(&LSM.templock);
+	if(res) return res;
+
+	pthread_mutex_lock(&LSM.entrylock);
+	res=__lsm_get_sub(req,LSM.tempent,NULL,NULL);
+	pthread_mutex_unlock(&LSM.entrylock);
+	if(res) return res;
+
 
 	int level;
 	int run;
 	int round;
 	Entry** entries;
 	htable mapinfo;
-	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
-	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-	lsm_req->parents=req;
-	dl_sync_init(&params->lock,1);
-	/*
-	   pthread_mutex_init(&params->lock,NULL);
-	   pthread_mutex_lock(&params->lock);*/
-	lsm_req->end_req=lsm_end_req;
-	lsm_req->params=(void*)params;
-	lsm_req->type_lower=0;
-	lsm_req->rapid=true;
-	lsm_req->type=DATAR;
-
-	pthread_mutex_lock(&LSM.templock);
-	if(LSM.temptable){
-		target_node=skiplist_find(LSM.temptable,req->key);
-		if(target_node){
-			skiplist_hit++;
-			pthread_mutex_unlock(&LSM.templock);
-			if(target_node->value){//if target_value null or valid
-				memcpy(req->value->value,target_node->value,PAGESIZE);
-				free(lsm_req);
-				free(params);
-				bench_cache_hit(req->mark);
-				bench_algo_end(req);
-				req->end_req(req);
-				return 2;
-			}
-			params->lsm_type=DATAR;
-			req->value->ppa=target_node->ppa;
-			bench_cache_hit(req->mark);
-			bench_algo_end(req);
-			if(target_node->ppa==UINT_MAX){
-				return 5;
-			}
-#ifdef DVALUE
-			LSM.li->pull_data(target_node->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
-#else
-			LSM.li->pull_data(target_node->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
-#endif
-			return 4;
-		}
-	}
-	pthread_mutex_unlock(&LSM.templock);
-
-	pthread_mutex_lock(&LSM.entrylock);
-	if(LSM.tempent){
-		keyset *target=htable_find(LSM.tempent->t_table->sets,req->key);
-		if(target){
-			params->lsm_type=DATAR;
-			bench_cache_hit(req->mark);
-			bench_algo_end(req);
-			req->value->ppa=target->ppa;
-			if(target->ppa==UINT_MAX){
-				return 5;
-			}
-#ifdef DVALUE
-			LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
-#else
-			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
-#endif
-			pthread_mutex_unlock(&LSM.entrylock);
-			return 4;
-		}
-	}
-	pthread_mutex_unlock(&LSM.entrylock);
 
 	bool comback_req=false;
 	if(req->params==NULL){
@@ -477,34 +502,12 @@ uint32_t __lsm_get(request *const req){
 		round=temp_req[2];
 
 		mapinfo.sets=(keyset*)req->value->value;
-		keyset *target=htable_find(mapinfo.sets,req->key);
-		comback_req=true;
-		if(target){
-#if defined(CACHE) && !defined(FLASHCHECK)
-			pthread_mutex_lock(&LSM.level_lock[level]);
-			Entry **_entry=level_find(LSM.disk[level],req->key);
-			if(!_entry[run]->t_table){
-				_entry[run]->t_table=htable_copy(&mapinfo);
-				cache_entry *c_entry=cache_insert(LSM.lsm_cache,_entry[run],0);
-				_entry[run]->c_entry=c_entry;
-			}
-			pthread_mutex_unlock(&LSM.level_lock[level]);
-			free(_entry);
-#endif
-			//read target data;
-			params->lsm_type=DATAR;
-			req->value->ppa=target->ppa;
-			bench_algo_end(req);
-			if(target->ppa==UINT_MAX){
-				return 5;
-			}
-#ifdef DVALUE
-			LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
-#else
-			LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
-#endif
-			return 2;
-		}
+		pthread_mutex_lock(&LSM.level_lock[level]);
+		Entry **_entry=level_find(LSM.disk[level],req->key);
+		res=__lsm_get_sub(req,_entry[run],mapinfo.sets,NULL);
+		pthread_mutex_unlock(&LSM.level_lock[level]);
+		free(_entry);
+		if(res)return res;
 #ifndef FLASHCHCK
 		run+=1;
 #endif
@@ -521,8 +524,6 @@ uint32_t __lsm_get(request *const req){
 		}
 		for(int j=run; entries[j]!=NULL; j++){
 			Entry *entry=entries[j];
-			params->lsm_type=HEADERR;
-
 			//read mapinfo
 			int *temp_data=(int*)req->params;
 			temp_data[0]=i;
@@ -531,95 +532,66 @@ uint32_t __lsm_get(request *const req){
 			temp_data[2]=round;
 #ifdef FLASHCHECK
 			if(comback_req && entry->c_entry){
-				keyset *target=htable_find(entry->t_table->sets,req->key);
-				if(target){	
-					if(target->ppa==UINT_MAX){
-						return 5;
-					}
-#ifdef DVALUE
-					LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
-#else
-					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
-#endif
-					free(entries);
-					return 4;
-				}
+				res=__lsm_get_sub(req,NULL,entry->t_table->sets);
+				free(entries);
+				if(res) return res;
 				continue;
 			}
-#endif
-
-#if defined(CACHE)&& !defined(FLASHCHECK)
+#elif defined(CACHE)
 			if(entry->c_entry){
-				keyset *target=htable_find(entry->t_table->sets,req->key);
-				if(target){
-					params->lsm_type=DATAR;
-					req->value->ppa=target->ppa;
+				res=__lsm_get_sub(req,NULL,entry->t_table->sets,NULL);
+				free(entries);
+				if(res){
 					cache_update(LSM.lsm_cache,entry);
-					bench_algo_end(req);
-					bench_cache_hit(req->mark);	
-					if(target->ppa==UINT_MAX){
-						return 5;
-					}
-#ifdef DVALUE
-					LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
-#else
-					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
-#endif
-					free(entries);
-					return 4;
+					return res;
 				}
 				continue;
 			}
 #endif
+			algo_req *lsm_req=lsm_get_req_factory(req);
+			lsm_params* params=(lsm_params*)lsm_req->params;
+			lsm_req->type=HEADERR;
+			params->lsm_type=HEADERR;
 			params->ppa=entry->pbn;
 
-			MS(&__get_mt);
+#ifdef CACHE
+			if(entry->isflying==1 || entry->isflying==2){
+				while(entry->isflying!=2){}//wait for mapping
+				request *__req=(request*)entry->req;
+				mapinfo.sets=(keyset*)__req->value->value;
+				res=__lsm_get_sub(req,entry,mapinfo.sets,NULL);
+				free(entries);
+				entry->isflying=0;
+				if(res) return res;
+			}
+			else{
+				entry->isflying=1;
+				entry->req=(void*)req;
+				params->entry_ptr=(void*)entry;
+			}
+#endif
+
 			LSM.li->pull_data(entry->pbn,PAGESIZE,req->value,ASYNC,lsm_req);
 			__header_read_cnt++;
-			MCM(&__get_mt);
 			if(!req->isAsync){
-				MS(&__get_mt2);
 				dl_sync_wait(&params->lock); // wait until read table data;
-				MCM(&__get_mt2);
-
 				mapinfo.sets=(keyset*)req->value->value;
-				keyset *target=htable_find(mapinfo.sets,req->key);//check_sktable
-				if(!target){
+				res=__lsm_get_sub(req,NULL,mapinfo.sets,NULL);
+				free(entries);
+				if(!res){
 					continue; // check next entry
-				}
-				else{
-					//read target data;
-#if defined(CACHE) && !defined(FLASHCHECK)
-					entry->t_table=(htable*)malloc(sizeof(htable));
-					memcpy(entry->t_table,&mapinfo,PAGESIZE);
-					cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
-					entry->c_entry=c_entry;
-#endif
-					params->lsm_type=DATAR;
-					req->value->ppa=target->ppa;
-					bench_algo_end(req);	
-					if(target->ppa==UINT_MAX){
-						return 5;
-					}
-#ifdef DVALUE
-					LSM.li->pull_data(target->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
-#else
-					LSM.li->pull_data(target->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
-#endif
-					free(entries);
-					return 1;
 				}
 			}
 			else{
 				free(entries);
 				bench_algo_end(req);
-				return 2; //async
+				return 3; //async
 			}
 		}
 		free(entries);
 	}
 	bench_algo_end(req);
-	return 3;
+	return res;
 }
 
 uint32_t lsm_remove(request *const req){
@@ -712,29 +684,3 @@ lsmtree* lsm_load(){
 	res->memtable=skiplist_load();
 	return res;
 }
-/*
-void lsm_trim_set(value_set* d,uint8_t * bitset){
-	memcpy(&d->value[KEYNUM*2*sizeof(KEYT)],bitset,KEYNUM/8);
-}
-
-uint8_t *lsm_trim_get(PTR d){
-	uint8_t *res=(uint8_t*)malloc(KEYNUM/8);
-	memcpy(res,&d[KEYNUM*2*sizeof(KEYT)],KEYNUM/8);
-	return res;
-}
- 
-bool lsm_kv_validcheck(uint8_t *bitset, int idx){
-	int block=idx/8;
-	int offset=idx%8;
-	uint8_t test=(1<<offset);
-	return test&bitset[block];
-}
-void lsm_kv_validset(uint8_t * bitset, int idx){
-	int block=idx/8;
-	int offset=idx%8;
-	uint8_t test=(1<<offset);
-	bitset[block]|=test;
-}
-*/
-
- 

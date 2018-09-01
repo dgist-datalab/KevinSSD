@@ -293,11 +293,12 @@ void *compaction_main(void *input){
 		}
 		req=(compR*)_req;
 		if(req->fromL==-1){
-			int round=0;
+			//int round=0;
 			while(!gc_check(DATA,false)){
 	//			printf("round:%d\n",round++);
 			}
 			htable *table=compaction_data_write(LSM.temptable);
+			pthread_mutex_unlock(&compaction_flush_wait);
 			KEYT start=table->sets[0].lpa;
 			KEYT end=table->sets[KEYNUM-1].lpa;
 			//		KEYT ppa=compaction_htable_write(table);
@@ -334,9 +335,8 @@ void *compaction_main(void *input){
 				break;
 			}
 		}
-		LSM.li->lower_flying_req_wait();
+	//	LSM.li->lower_flying_req_wait();
 		//LSM.li->lower_show_info();
-		pthread_mutex_unlock(&compaction_flush_wait);
 		free(req);
 	}
 	

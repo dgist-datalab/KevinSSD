@@ -20,8 +20,8 @@
 #define PIECE 512
 //#define LEVELUSINGHEAP
 //#define TIERING
-//#define CACHE
-//#define CACHESIZE 1//(128*8*1)//1*128==1M
+#define CACHE
+#define CACHESIZE 1//(128*8*1)//1*128==1M
 
 /*lsmtree flash thread*/
 #define KEYSIZE ()

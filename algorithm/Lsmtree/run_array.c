@@ -102,6 +102,8 @@ Entry *level_entry_copy(Entry *input){
 		res->c_entry=NULL;
 		res->t_table=NULL;
 	}
+	res->isflying=0;
+	res->req=NULL;
 #else
 	res->t_table=NULL;
 #endif
@@ -475,6 +477,8 @@ Entry *level_make_entry(KEYT key,KEYT end,KEYT pbn){
 	ent->iscompactioning=false;
 #ifdef CACHE
 	ent->c_entry=NULL;
+	ent->isflying=0;
+	ent->req=NULL;
 #endif
 	return ent;
 }

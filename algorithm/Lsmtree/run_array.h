@@ -23,10 +23,13 @@ typedef struct Entry{
 #endif
 #ifdef CACHE
 	cache_entry *c_entry;
+	char isflying;
+	void *req;
 #endif
 	struct htable *t_table;
 	char iscompactioning; //0->nocomfaction, 1->iscompactioning, 2->already read, 3->the pbn was erased by gc process 
 	//4-> move to c_level by level_range_unmatch
+
 }Entry;
 
 typedef struct Node{

@@ -57,6 +57,7 @@ typedef struct lsm_params{
 	dl_sync lock;
 	uint8_t lsm_type;
 	KEYT ppa;
+	void *entry_ptr;
 	PTR test;
 	PTR* target;
 	value_set* value;
