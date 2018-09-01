@@ -293,15 +293,11 @@ void *compaction_main(void *input){
 		}
 		req=(compR*)_req;
 		if(req->fromL==-1){
-			//int round=0;
 			while(!gc_check(DATA,false)){
-	//			printf("round:%d\n",round++);
 			}
 			htable *table=compaction_data_write(LSM.temptable);
-			pthread_mutex_unlock(&compaction_flush_wait);
 			KEYT start=table->sets[0].lpa;
 			KEYT end=table->sets[KEYNUM-1].lpa;
-			//		KEYT ppa=compaction_htable_write(table);
 			Entry *entry=level_make_entry(start,end,-1);
 			entry->t_table=table;
 #ifdef BLOOM
@@ -310,6 +306,7 @@ void *compaction_main(void *input){
 			pthread_mutex_lock(&LSM.entrylock);
 			LSM.tempent=entry;
 			pthread_mutex_unlock(&LSM.entrylock);
+
 			if(LSM.disk[0]->isTiering){
 				tiering(-1,0,entry);
 			}
@@ -335,7 +332,10 @@ void *compaction_main(void *input){
 				break;
 			}
 		}
-	//	LSM.li->lower_flying_req_wait();
+#ifdef WRITEWAIT
+		LSM.li->lower_flying_req_wait();
+		pthread_mutex_unlock(&compaction_flush_wait);
+#endif
 		//LSM.li->lower_show_info();
 		free(req);
 	}
@@ -349,30 +349,14 @@ void compaction_check(){
 		req=(compR*)malloc(sizeof(compR));
 		req->fromL=-1;
 		req->toL=0;
-		
-		if(LSM.temptable==NULL){
-			LSM.temptable=LSM.memtable;
-			LSM.memtable=skiplist_init();
-			//pthread_mutex_lock(&LSM.templock);
-		}
-		else{
-			//pthread_mutex_lock(&LSM.templock);
-			LSM.temptable=LSM.memtable;
-			LSM.memtable=skiplist_init();
-		}
+		while(LSM.temptable){}
 
-
+		LSM.temptable=LSM.memtable;
+		LSM.memtable=skiplist_init();
 		compaction_assign(req);
-		/*
-		pthread_mutex_lock(&compaction_req_lock);
-		if(compaction_req_cnt==0){
-			pthread_cond_broadcast(&compaction_req_cond);
-		}
-		compaction_req_cnt++;
-		pthread_mutex_unlock(&compaction_req_lock);*/
-
+#ifdef WRITEWAIT
 		pthread_mutex_lock(&compaction_flush_wait);
-		//cache_print(LSM.lsm_cache);
+#endif
 	}
 }
 
@@ -538,6 +522,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 	level *src=NULL;
 	if(from==-1){
 		body=LSM.temptable;
+		
 		pthread_mutex_lock(&LSM.templock);
 		LSM.temptable=NULL;
 		pthread_mutex_unlock(&LSM.templock);

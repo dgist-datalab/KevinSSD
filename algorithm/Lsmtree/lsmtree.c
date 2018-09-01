@@ -607,6 +607,30 @@ keyset *htable_find(keyset *table, KEYT target){
 
 	if(sets[0].lpa>target || sets[KEYNUM-1].lpa<target)
 		return NULL;
+
+	if(sets[0].lpa>target || sets[KEYNUM-1].lpa<target)
+		return NULL;
+	int mid=512;
+	int array[]={256,128,64,32,16,8,4,2,1,1,1};
+	int idx=0;
+	while(1){
+		if(sets[mid].lpa==target)
+			return &sets[mid];
+
+		if(sets[mid].lpa<target){
+			mid+=array[idx];
+		}
+		else{
+			mid-=array[idx];
+		}
+
+		idx++;
+		if(idx>10)
+			return NULL;
+	}   
+
+
+	/*
 	int start=0, end=KEYNUM-1;
 	int mid;
 	while(1){
@@ -624,7 +648,7 @@ keyset *htable_find(keyset *table, KEYT target){
 				end=mid-1;
 			}
 		}
-	}
+	}*/
 }
 
 htable *htable_assign(){
