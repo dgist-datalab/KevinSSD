@@ -50,6 +50,7 @@ typedef struct cached_table{
     NODE *clean_ptr; // for clean pages
 #endif
 	unsigned char flag; // 0: unchanged, 1: dirty, need to merge, 2: changed but all data on cache
+    bool flying;
 } C_TABLE;
 
 // OOB data structure
