@@ -196,7 +196,7 @@ void gc_change_reserve(pm *target_p, segment *seg,uint8_t type){
 	seg->trimed_block=0;
 	seg->segment_idx=0;
 	seg->cost=0;
-
+	
 	target_p->used_blkn-=BPS; // trimed new block
 	target_p->used_blkn+=target_p->rused_blkn; // add using in reserved block
 
@@ -208,6 +208,7 @@ void gc_change_reserve(pm *target_p, segment *seg,uint8_t type){
 		target_p->n_log=target_p->blocks->head;
 	}
 	//llog_print(data_m.blocks);
+	//printf("old reserve:%d new reserve:%d~%d\n",target_p->reserve->ppa,target_p->target->ppa,target_p->target->ppa+_PPS);
 }
 
 void gc_trim_segment(uint8_t type, KEYT pbn){
@@ -619,7 +620,7 @@ bool gc_check(uint8_t type, bool force){
 					header_gc_cnt++; 
 					break;
 				case DATA:
-					//printf("data gc:%d\n",data_gc_cnt);
+					printf("data gc:%d\n",data_gc_cnt);
 					//gc_compaction_checking();
 					//compaction_force();
 					target_p=&data_m;
@@ -653,7 +654,6 @@ bool gc_check(uint8_t type, bool force){
 					target_block=gc_victim_segment(type,false);
 				}
 				else{
-					
 					if(gc_segment_force()){
 						if(type==DATA){
 							for(int i=0; i<erased_blkn; i++){
@@ -705,12 +705,16 @@ bool gc_check(uint8_t type, bool force){
 	//printf("[gc_check] max: %u used:%u\n",data_m.max_blkn,data_m.used_blkn);
 	target_p->target=NULL;//when not used block don't exist in target_segment;
 	if(type==DATA){
+		int ignored_cnt=0;
 		for(int i=0; i<erased_blkn; i++){
-	//llog_print(data_m.blocks);
+			if(erased_blks[i]->ppa/_PPS*_PPS==data_m.reserve->ppa){
+				ignored_cnt++;
+				continue;
+			}
 			erased_blks[i]->l_node=llog_insert(data_m.blocks,erased_blks[i]);
 		}
 		free(erased_blks);
-		data_m.used_blkn-=erased_blkn;
+		data_m.used_blkn-=erased_blkn-ignored_cnt;
 	}
 
 	if(type==DATA && data_m.max_blkn-data_m.used_blkn<KEYNUM/_PPB){
@@ -746,7 +750,9 @@ KEYT getPPA(uint8_t type, KEYT lpa,bool isfull){
 #else
 	if(active_block->ppage_idx==_PPB || (type==DATA && !active_block->erased)){
 #endif
+
 		llog_move_back(target->blocks,target->n_log);
+
 		target->n_log=target->blocks->head;
 		active_block=(block*)target->n_log->data;
 
@@ -860,6 +866,8 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 		gc_general_wait_init();
 
 		if(entries==NULL){
+			level_all_print();
+			printf("lpa:%d-ppa:%d\n",target->lpa,target->ppa);
 			printf("entry null!\n");
 		}
 
@@ -1119,11 +1127,11 @@ KEYT gc_victim_segment(uint8_t type,bool isforcegc){ //gc for segment
 		target=&segs[start];
 		cnt=target->invalid_n;
 		for(int i=start+1; i<=end; i++){
-			if(segs[i].invalid_n>=_PPB && segs[i].invalid_n+segs[i].cost>cnt){
+			if(segs[i].invalid_n>=_PPB && segs[i].invalid_n/*+segs[i].cost*/>cnt){
 				target=&segs[i];
 				cnt=target->invalid_n+segs[i].cost;
 			}
-			accumulate_cnt+=target->invalid_n;
+			accumulate_cnt+=segs[i].invalid_n;
 		}
 
 		if(cnt==0)
@@ -1443,9 +1451,9 @@ int gc_data(KEYT tbn){//
 bool gc_segment_force(){
 	KEYT target_pba=gc_victim_segment(1,true);
 	if(target_pba==UINT_MAX) return false;
-	
-	//static int cnt=0;
-	//printf("gc_segment_cnt:%d\n",cnt++);
+	return false;
+	static int cnt=0;
+	printf("gc_segment_cnt:%d\n",cnt++);
 //	segment_all_print();
 	data_m.force_flag=true;
 	segment *target=&segs[target_pba/BPS];
@@ -1472,6 +1480,7 @@ bool gc_segment_force(){
 			break;
 		}
 		target_pba=gc_victim_segment(1,true);
+
 		target=&segs[target_pba/BPS];
 	}while(created_page<=KEYNUM+_PPB);
 

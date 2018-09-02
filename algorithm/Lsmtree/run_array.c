@@ -703,7 +703,6 @@ void level_moveTo_front_page(level *in){
 		}
 #endif
 		KEYT blockn=getPPA(DATA,UINT_MAX,true);//get data block
-		
 		in->now_block=&bl[blockn/_PPB];
 		in->now_block->level=in->level_idx;
 #ifdef LEVELUSINGHEAP
