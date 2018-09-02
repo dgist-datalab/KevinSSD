@@ -666,7 +666,7 @@ bool gc_check(uint8_t type, bool force){
 					}
 					//segment_all_print();
 					printf("device full at data\n");
-					exit(1);
+					abort();
 				}
 			}
 
@@ -676,7 +676,7 @@ bool gc_check(uint8_t type, bool force){
 				}
 				if(type==HEADER) printf("haeder\n");
 				else printf("block\n");
-				exit(1);
+				abort();
 			}
 		}
 
@@ -773,7 +773,7 @@ KEYT getPPA(uint8_t type, KEYT lpa,bool isfull){
 	else{
 		if(!active_block->erased){
 			printf("can't be at %d\n",active_block->ppa/_PPB);
-			exit(1);
+			abort();
 		}
 		active_block->erased=false;
 		target->used_blkn++;
@@ -789,6 +789,11 @@ void invalidate_PPA(KEYT _ppa){
 	bn=ppa/algo_lsm.li->PPB;
 	idx=ppa%algo_lsm.li->PPB;
 
+	KEYT lpa=PBITGET(ppa);
+	if(lpa>=67250 && lpa<67300){
+		printf("invalidate:%d,%d!\n",lpa,ppa);
+	}
+
 	bl[bn].bitset[idx/8]|=(1<<(idx%8));
 	bl[bn].invalid_n++;
 	segment *segs=WHICHSEG(bl[bn].ppa);
@@ -796,7 +801,7 @@ void invalidate_PPA(KEYT _ppa){
 
 	if(bl[bn].invalid_n>algo_lsm.li->PPB){
 		printf("invalidate:??\n");
-		exit(1);
+		abort();
 	}
 	
 	if(BLOCKTYPE(ppa)==DATA){
@@ -918,7 +923,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 							level_print(in);
 							printf("lpa:%d-ppa:%d\n",target->lpa,target->ppa);
 							printf("what the fuck?\n"); //not founded in level
-							exit(1);
+							abort();
 						}
 					}
 					i--;
@@ -1252,7 +1257,7 @@ int gc_header(KEYT tbn){
 		if(checkdone==false){
 			level_all_print();
 			printf("[%u : %u]error!\n",t_ppa,lpa);
-			exit(1);
+			abort();
 		}
 	}
 
@@ -1430,7 +1435,7 @@ int gc_data(KEYT tbn){//
 			}
 			if(!idx){
 				printf("footer error!!\n");
-				exit(1);
+				abort();
 			}
 			free(tables[i]);
 		}

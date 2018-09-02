@@ -301,7 +301,9 @@ uint32_t lsm_set(request * const req){
 	printf("lsm_set!\n");
 		printf("key : %u\n",req->key);//for debug
 #endif
-	
+	if(req->key>=67250 && req->key<67300){
+		printf("input! %d\n",req->key);
+	}
 	compaction_check();
 	if(req->type==FS_DELETE_T){
 		skiplist_insert(LSM.memtable,req->key,req->value,false);
@@ -344,8 +346,8 @@ uint32_t lsm_get(request *const req){
 			bench_algo_start(tmp_req);
 			res_type=__lsm_get(tmp_req);
 			if(res_type==0){
-				printf("from req not found seq: %d, key:%u\n",nor++,tmp_req->key);
-				level_all_print();
+				//printf("from req not found seq: %d, key:%u\n",nor++,req->key);
+				//level_all_print();
 				tmp_req->type=FS_NOTFOUND_T;
 				tmp_req->end_req(tmp_req);
 				exit(1);
@@ -364,9 +366,8 @@ uint32_t lsm_get(request *const req){
 	bench_algo_start(req);
 	res_type=__lsm_get(req);
 	if(res_type==0){
-		printf("not found seq: %d, key:%u\n",nor++,req->key);
+//		printf("not found seq: %d, key:%u\n",nor++,req->key);
 //		level_all_print();
-//		__lsm_get(req);
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
 //		exit(1);
