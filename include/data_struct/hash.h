@@ -1,7 +1,7 @@
 #ifndef _DATA_STRUCT_HASH_H__
 #define _DATA_STRUCT_HASH_H__
 #include<stdint.h>
-#define MULTIFACTOR 10
+#define MULTIFACTOR 5
 typedef struct __hash_node{
 	void *inter_ptr;
 	void *data;

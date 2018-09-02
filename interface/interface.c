@@ -211,6 +211,8 @@ void *p_main(void *__input){
 		}
 #endif
 		inf_req=(request*)_inf_req;
+	
+
 		inter_cnt++;
 		//printf("inf:%u\n",inf_req->seq);
 #ifdef CDF

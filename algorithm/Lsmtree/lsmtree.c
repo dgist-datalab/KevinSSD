@@ -110,9 +110,9 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	pthread_mutex_init(&LSM.entrylock,NULL);
 	pthread_mutex_init(&LSM.valueset_lock,NULL);
 	for(int i=0; i< LEVELN; i++){
-//		pthread_mutex_init(&LSM.level_lock[i],NULL);
+		pthread_mutex_init(&LSM.level_lock[i],NULL);
 //		pthread_rwlock_init(&LSM.level_rwlock[i],NULL);
-		rwlock_init(&LSM.level_rwlock[i]);
+		//rwlock_init(&LSM.level_rwlock[i]);
 	}
 	//compactor start
 	compaction_init();
@@ -301,9 +301,8 @@ uint32_t lsm_set(request * const req){
 	printf("lsm_set!\n");
 		printf("key : %u\n",req->key);//for debug
 #endif
-
-	if(req->key==51430 || req->key==75675){
-		printf("lsm set here\n");
+	if(req->key>=67250 && req->key<67300){
+		printf("input! %d\n",req->key);
 	}
 	compaction_check();
 	if(req->type==FS_DELETE_T){
@@ -351,7 +350,7 @@ uint32_t lsm_get(request *const req){
 				//level_all_print();
 				tmp_req->type=FS_NOTFOUND_T;
 				tmp_req->end_req(tmp_req);
-				//exit(1);
+				exit(1);
 			}
 		}
 		else 
@@ -469,9 +468,7 @@ int __lsm_get_sub(request *req,Entry *entry, keyset *table,skiplist *list){
 }
 
 uint32_t __lsm_get(request *const req){
-	if(req->key==51430 || req->key==75675){
-		printf("lsm_get here\n");
-	}
+
 	/*memtable*/
 	int res=__lsm_get_sub(req,NULL,NULL,LSM.memtable);
 	if(res)return res;
@@ -514,31 +511,33 @@ uint32_t __lsm_get(request *const req){
 	
 		mapinfo.sets=(keyset*)req->value->value;
 		Entry **_entry=level_find(LSM.disk[level],req->key);
-		rwlock_read_unlock(&LSM.level_rwlock[level]);
+		//rwlock_read_unlock(&LSM.level_rwlock[level]);
 #ifdef CACHE
 		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 #endif
 		res=__lsm_get_sub(req,_entry[run],mapinfo.sets,NULL);	
 #ifdef CACHE
 		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-#endif
-
 		_entry[run]->req=NULL;
 		_entry[run]->isflying=0;
+#endif
+
 		free(_entry);
 		if(res)return res;
 #ifndef FLASHCHCK
 		run+=1;
 #endif
-
+		comback_req=true;
 	}
-
+	
 	for(int i=level; i<LEVELN; i++){
 		bool checking=false;
-		rwlock_read_lock(&LSM.level_rwlock[i]);
+		//rwlock_read_lock(&LSM.level_rwlock[i]);
+		pthread_mutex_lock(&LSM.level_lock[i]);
 		entries=level_find(LSM.disk[i],req->key);
+		pthread_mutex_unlock(&LSM.level_lock[i]);
 		if(!entries){
-			rwlock_read_unlock(&LSM.level_rwlock[i]);
+			//rwlock_read_unlock(&LSM.level_rwlock[i]);
 			continue;
 		}
 		if(comback_req && level!=i){
@@ -558,7 +557,7 @@ uint32_t __lsm_get(request *const req){
 			if(comback_req && entry->c_entry){
 				res=__lsm_get_sub(req,NULL,entry->t_table->sets,NULL);
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-				rwlock_read_unlock(&LSM.level_rwlock[i]);
+				//rwlock_read_unlock(&LSM.level_rwlock[i]);
 				if(res){ 
 					free(entries);
 					return res;
@@ -574,11 +573,11 @@ uint32_t __lsm_get(request *const req){
 					cache_update(LSM.lsm_cache,entry);
 					free(entries);
 					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-					rwlock_read_unlock(&LSM.level_rwlock[i]);
+					//rwlock_read_unlock(&LSM.level_rwlock[i]);
 					return res;
 				}
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-				rwlock_read_unlock(&LSM.level_rwlock[i]);
+				//rwlock_read_unlock(&LSM.level_rwlock[i]);
 				continue;
 			}
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
@@ -586,7 +585,7 @@ uint32_t __lsm_get(request *const req){
 
 #ifdef BLOOM
 			if(!bf_check(entry->filter,req->key)){
-				rwlock_read_unlock(&LSM.level_rwlock[i]);
+				//rwlock_read_unlock(&LSM.level_rwlock[i]);
 				continue;
 			}
 #endif
@@ -606,7 +605,7 @@ uint32_t __lsm_get(request *const req){
 				res=__lsm_get_sub(req,entry,mapinfo.sets,NULL);
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 				entry->isflying=0;
-				rwlock_read_unlock(&LSM.level_rwlock[i]);
+				//rwlock_read_unlock(&LSM.level_rwlock[i]);
 				if(res){ 
 					free(entries);
 					return res;
@@ -629,7 +628,7 @@ uint32_t __lsm_get(request *const req){
 				dl_sync_wait(&params->lock); // wait until read table data;
 				mapinfo.sets=(keyset*)req->value->value;
 				res=__lsm_get_sub(req,NULL,mapinfo.sets,NULL);
-				rwlock_read_unlock(&LSM.level_rwlock[i]);
+				//rwlock_read_unlock(&LSM.level_rwlock[i]);
 				if(!res){
 					continue; // check next entry
 				}else{
@@ -643,7 +642,7 @@ uint32_t __lsm_get(request *const req){
 			}
 		}
 		if(!checking){
-			rwlock_read_unlock(&LSM.level_rwlock[i]);
+			//rwlock_read_unlock(&LSM.level_rwlock[i]);
 		}
 		free(entries);
 	}
