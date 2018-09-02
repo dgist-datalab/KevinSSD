@@ -26,6 +26,7 @@ __hash* __hash_init(uint32_t size){
 }
 
 int __hash_insert(__hash *h,uint32_t key,void *data, void* inter_ptr, void** updated){
+
 	if(h->n_size==h->m_size)
 		return 0;
 	uint32_t h_key,org_key=key;
@@ -53,6 +54,7 @@ int __hash_insert(__hash *h,uint32_t key,void *data, void* inter_ptr, void** upd
 		}
 	}
 	h->n_size++;
+
 	return res;
 }
 

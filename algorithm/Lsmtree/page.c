@@ -878,7 +878,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 
 		gc_general_waiting();
 
-		rwlock_read_lock(&LSM.level_rwlock[in->level_idx]);
+		//rwlock_read_lock(&LSM.level_rwlock[in->level_idx]);
 		for(int j=0; j<htable_idx; j++){
 			htable_t *data=datas[j];
 			int temp_i=i;
@@ -925,7 +925,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			free(data);
 		}
 		free(entries);
-		rwlock_read_unlock(&LSM.level_rwlock[in->level_idx]);
+		//rwlock_read_unlock(&LSM.level_rwlock[in->level_idx]);
 	}
 	free(datas);
 }

@@ -222,13 +222,13 @@ KEYT compaction_htable_write(htable *input){
 
 	params->value=input->origin;
 	params->htable_ptr=(PTR)input;
+	
 
 	//htable_print(input);
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
 	areq->type=HEADERW;
 	params->ppa=ppa;
-	
 	LSM.li->push_data(ppa,PAGESIZE,params->value,ASYNC,areq);
 
 	return ppa;
@@ -383,6 +383,7 @@ htable *compaction_htable_convert(skiplist *input,float fpr){
 		if(!snode_t->isvalid){
 			res->sets[idx].ppa=UINT_MAX;
 		}
+		
 		idx++;
 	}
 	for(int i=idx; i<KEYNUM; i++){
@@ -454,7 +455,7 @@ void compaction_subprocessing(skiplist *target,level *t, htable** datas,bool fin
 		for(int j=0; j<KEYNUM; j++){
 			if(table->sets[j].lpa==UINT_MAX) break;
 			bool valid_flag=true;
-			
+					
 			if(table->sets[j].ppa==UINT_MAX) valid_flag=false;
 
 			if(existIgnore){
@@ -620,25 +621,29 @@ uint32_t leveling(int from, int to, Entry *entry){
 	level **src_ptr=NULL;
 	if(from!=-1){ 
 		temp=src;
-		rwlock_write_lock(&LSM.level_rwlock[from]);
+		//rwlock_write_lock(&LSM.level_rwlock[from]);
 //		pthread_rwlock_wrlock(&LSM.level_rwlock[from]);
+		pthread_mutex_lock(&LSM.level_lock[from]);
 		src_ptr=&LSM.disk[src->level_idx];
 		(*src_ptr)=(level*)malloc(sizeof(level));
 		level_init(*(src_ptr),src->m_num,src->level_idx,src->fpr,src->isTiering);
 		(*src_ptr)->fpr=src->fpr;
 		level_free(src);
+		pthread_mutex_unlock(&LSM.level_lock[from]);
 		//pthread_rwlock_unlock(&LSM.level_rwlock[from]);
-		rwlock_write_unlock(&LSM.level_rwlock[from]);
+		//rwlock_write_unlock(&LSM.level_rwlock[from]);
 	}
 
 	temp=*des_ptr;
-	rwlock_write_lock(&LSM.level_rwlock[to]);
+	//rwlock_write_lock(&LSM.level_rwlock[to]);
 	//pthread_rwlock_wrlock(&LSM.level_rwlock[to]);
+	pthread_mutex_lock(&LSM.level_lock[to]);
 	target->iscompactioning=target_origin->iscompactioning;
 	(*des_ptr)=target;
 	level_free(temp);
+	pthread_mutex_unlock(&LSM.level_lock[to]);
 	//pthread_rwlock_unlock(&LSM.level_rwlock[to]);
-	rwlock_write_unlock(&LSM.level_rwlock[to]);
+	//rwlock_write_unlock(&LSM.level_rwlock[to]);
 #ifdef DVALUE
 	if(from!=-1){
 		level_save_blocks(target);
@@ -1057,20 +1062,20 @@ uint32_t tiering(int from, int to, Entry *entry){
 	level **src_ptr=NULL;
 	if(from!=-1){
 		src_ptr=&LSM.disk[src_origin_level->level_idx];
-		rwlock_write_lock(&LSM.level_rwlock[from]);
+		//rwlock_write_lock(&LSM.level_rwlock[from]);
 		temp=src_level;
 		(*src_ptr)=src_level;
 		level_free(src_origin_level);
-		rwlock_write_unlock(&LSM.level_rwlock[from]);
+		//rwlock_write_unlock(&LSM.level_rwlock[from]);
 	}
 
 	temp=*des_ptr;
-	rwlock_write_lock(&LSM.level_rwlock[to]);
+	//rwlock_write_lock(&LSM.level_rwlock[to]);
 	des_level->iscompactioning=des_origin_level->iscompactioning;
 	(*des_ptr)=des_level;
 	LSM.c_level=NULL;
 	level_free(temp);
-	rwlock_write_unlock(&LSM.level_rwlock[to]);
+	//rwlock_write_unlock(&LSM.level_rwlock[to]);
 
 	//block_print();
 	//level_all_print();
