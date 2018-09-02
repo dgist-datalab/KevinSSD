@@ -92,6 +92,7 @@ Entry *level_entry_copy(Entry *input){
 	res->end=input->end;
 	res->pbn=input->pbn;
 #ifdef CACHE
+	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(input->c_entry){
 		res->t_table=input->t_table;
 		res->c_entry=input->c_entry;
@@ -102,6 +103,7 @@ Entry *level_entry_copy(Entry *input){
 		res->c_entry=NULL;
 		res->t_table=NULL;
 	}
+	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 	res->isflying=0;
 	res->req=NULL;
 #else
@@ -212,11 +214,6 @@ Entry *level_find_fromR(Node *run, KEYT key){
 		Entry *mid_e=ns_entry(run,mid);
 		if(mid_e==NULL) break;
 		if(mid_e->key <=key && mid_e->end>=key){
-#ifdef BLOOM
-			if(!bf_check(mid_e->filter,key)){
-				return NULL;
-			}
-#endif
 			return mid_e;
 		}
 		if(mid_e->key>key){
@@ -257,6 +254,7 @@ Node *level_insert_seq(level *input, Entry *entry){
 	temp_entry->filter=bf_cpy(entry->filter);
 #endif
 #ifdef CACHE
+	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(entry->c_entry){
 		temp_entry->t_table=entry->t_table;
 		temp_entry->c_entry=entry->c_entry;
@@ -264,6 +262,7 @@ Node *level_insert_seq(level *input, Entry *entry){
 		entry->c_entry=NULL;
 		entry->t_table=NULL;
 	}
+	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
 	temp_entry->iscompactioning=false;
 	temp_run->n_num++;
@@ -313,6 +312,7 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 	entry->filter=NULL;
 #endif
 #ifdef CACHE
+	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(entry->c_entry){
 		temp_entry->t_table=entry->t_table;
 		temp_entry->c_entry=entry->c_entry;
@@ -320,6 +320,7 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 		entry->t_table=NULL;
 		entry->c_entry=NULL;
 	}
+	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
 	temp_entry->iscompactioning=false;
 	temp_run->n_num++;
@@ -489,6 +490,7 @@ void level_free_entry(Entry *entry){
 		bf_free(entry->filter);
 #endif
 #ifdef CACHE
+	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(entry->c_entry){
 		cache_delete_entry_only(LSM.lsm_cache,entry);
 		entry->c_entry=NULL;
@@ -503,6 +505,10 @@ void level_free_entry(Entry *entry){
 			free(temp_table->sets);
 		}
 	}
+#ifdef CACHE
+	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+#endif
+	//printf("entry key:%d ptr:%p\n",entry->key,entry);
 	free(entry);
 }
 void level_free_entry_inside(Entry * entry){
@@ -511,10 +517,12 @@ void level_free_entry_inside(Entry * entry){
 		bf_free(entry->filter);
 #endif
 #ifdef CACHE
+	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(entry->c_entry){
 		cache_delete_entry_only(LSM.lsm_cache,entry);
 		entry->c_entry=NULL;
 	}
+	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
 	if(entry->t_table){
 		if(entry->t_table->t_b){

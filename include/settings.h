@@ -34,7 +34,7 @@
 #define _NOS (TOTALSIZE/(_PPS*PAGESIZE))
 #define _NOB (BPS*_NOS)
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
-#define RANGE (64*128*1024L*(0.93))
+#define RANGE (1*128*1024L*(0.5))
 
 
 #define FSTYPE uint8_t

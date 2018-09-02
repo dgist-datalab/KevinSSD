@@ -149,27 +149,11 @@ bool inf_assign_try(request *req){
 	bool flag=false;
 	for(int i=0; i<THREADSIZE; i++){
 		processor *t=&mp.processors[i];
-	//	if(t->req_q->size==0){
-/*#ifdef interface_pq
-	if(q_enqueue_front((void*)req,t->req_rq)){
-				flag=true;
-				break;
-			}
-#else	*/
-
-			while(q_enqueue((void*)req,t->retry_q)){
-				flag=true;
-				break;
-			}
-
-//#endif
-			/*else{
-				continue;
-			}
+		if(t->req_rq->size!=0) break;
+		while(q_enqueue((void*)req,t->retry_q)){
+			flag=true;
+			break;
 		}
-		else{
-			continue;
-		}*/
 	}
 	return flag;
 }

@@ -332,6 +332,7 @@ void *compaction_main(void *input){
 				break;
 			}
 		}
+		//printf("compaction_done!\n");
 #ifdef WRITEWAIT
 		LSM.li->lower_flying_req_wait();
 		pthread_mutex_unlock(&compaction_flush_wait);
@@ -428,14 +429,12 @@ void compaction_subprocessing_CMI(skiplist * target,level * t,bool final,KEYT li
 		res->filter=table->filter;
 #endif
 #ifdef CACHE
-		res->t_table=htable_copy(table); 
 		/*
-		   speed check needed
-		   1. copy from dma : table to cache_table
-		   2. make new skiplist to htable for cache
-		 */
+		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+		res->t_table=htable_copy(table); 
 		cache_entry *c_entry=cache_insert(LSM.lsm_cache,res,0);
 		res->c_entry=c_entry;
+		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);*/
 #endif
 		res->pbn=compaction_htable_write(table);
 
@@ -541,11 +540,16 @@ uint32_t leveling(int from, int to, Entry *entry){
 			pthread_mutex_lock(&LSM.entrylock);
 #ifdef CACHE
 			//cache must be inserted befor level insert
-			htable *temp_table=htable_copy(entry->t_table);
+			
+	//		htable *temp_table=htable_copy(entry->t_table);
 			entry->pbn=compaction_htable_write(entry->t_table);//write table & free allocated htable by inf_get_valueset
-			entry->t_table=temp_table;
+	//		entry->t_table=temp_table;
+			entry->t_table=NULL;
+			/*
+			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
 			entry->c_entry=c_entry;
+			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);*/
 #else
 			entry->pbn=compaction_htable_write(entry->t_table);//write table
 			entry->t_table=NULL;
@@ -618,21 +622,25 @@ uint32_t leveling(int from, int to, Entry *entry){
 	level **src_ptr=NULL;
 	if(from!=-1){ 
 		temp=src;
+		rwlock_write_lock(&LSM.level_rwlock[from]);
+//		pthread_rwlock_wrlock(&LSM.level_rwlock[from]);
 		src_ptr=&LSM.disk[src->level_idx];
-
-		pthread_mutex_lock(&LSM.level_lock[src->level_idx]);
 		(*src_ptr)=(level*)malloc(sizeof(level));
 		level_init(*(src_ptr),src->m_num,src->level_idx,src->fpr,src->isTiering);
 		(*src_ptr)->fpr=src->fpr;
-		pthread_mutex_unlock(&LSM.level_lock[src->level_idx]);
 		level_free(src);
+		//pthread_rwlock_unlock(&LSM.level_rwlock[from]);
+		rwlock_write_unlock(&LSM.level_rwlock[from]);
 	}
 
 	temp=*des_ptr;
-	pthread_mutex_lock(&LSM.level_lock[target->level_idx]);
+	rwlock_write_lock(&LSM.level_rwlock[to]);
+	//pthread_rwlock_wrlock(&LSM.level_rwlock[to]);
 	target->iscompactioning=target_origin->iscompactioning;
 	(*des_ptr)=target;
-	pthread_mutex_unlock(&LSM.level_lock[target->level_idx]);
+	level_free(temp);
+	//pthread_rwlock_unlock(&LSM.level_rwlock[to]);
+	rwlock_write_unlock(&LSM.level_rwlock[to]);
 #ifdef DVALUE
 	if(from!=-1){
 		level_save_blocks(target);
@@ -640,7 +648,6 @@ uint32_t leveling(int from, int to, Entry *entry){
 	}
 #endif
 	LSM.c_level=NULL;
-	level_free(temp);
 	return 1;
 }	
 #ifdef MONKEY
@@ -658,12 +665,15 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 		if(!epc_check) epc_check=EPC;
 		for(int j=0; j<EPC; j++){
 #ifdef CACHE
+			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(target_s[idx]->c_entry){
 //				table[j]=target_s[idx]->t_table;
 				table[j]=htable_copy(target_s[idx]->t_table);
+				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 				memcpy_cnt++;
 			}
 			else{
+				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
 				table[j]=htable_assign();
 				compaction_htable_read(target_s[idx],(PTR*)&table[j]);
@@ -685,13 +695,6 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 			}
 
 			htable_free(table[k]);
-/*#ifdef CACHE
-			if(!target_s[pr_idx]->c_entry){
-#endif
-				htable_free(table[k]);
-#ifdef CACHE
-			}
-#endif*/
 			Entry *new_ent=level_entry_copy(target_s[pr_idx]);
 			new_ent->filter=filter;
 			pr_idx++;
@@ -728,12 +731,15 @@ uint64_t partial_tiering(level *des,level *src, int size){
 			temp_ent->iscompactioning=true;
 			temp_entries[entries_idx++]=temp_ent;
 #ifdef CACHE
+			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(temp_ent->c_entry){
+				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 //				table[table_cnt]=temp_ent->t_table;
 			//	table[table_cnt]=htable_copy(temp_ent->t_table);
 				memcpy_cnt++;
 			}
 			else{
+				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
 				table[table_cnt]=htable_assign();
 				compaction_htable_read(temp_ent,(PTR*)&table[table_cnt]);
@@ -812,12 +818,15 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 
 			for(int j=0; j<EPC; j++){
 #ifdef CACHE
+				pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 				if(target_s[idx]->c_entry){
 					memcpy_cnt++;
 //					table[j]=target_s[idx]->t_table;
 					table[j]=htable_copy(target_s[idx]->t_table);
+					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 				}
 				else{
+					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
 					table[j]=htable_assign();
 					compaction_htable_read(target_s[idx],(PTR*)&table[j]);
@@ -840,12 +849,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 					}
 				}
 				if(table[z]){
-/*					
-#ifdef CACHE
-					if(target_s[i]->c_entry){
-						continue;
-					}
-#endif*/
 					htable_free(table[z]);
 				}
 				else
@@ -892,12 +895,15 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 				if(round==0){
 					origin_ent->iscompactioning=true;
 #ifdef CACHE
+					pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 					if(origin_ent->c_entry){
 						memcpy_cnt++;
 						table[0]=htable_copy(origin_ent->t_table);
+						pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 	//					table[0]=origin_ent->t_table;
 					}
 					else{
+						pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
 						table[j]=htable_assign();
 						compaction_htable_read(origin_ent,(PTR*)&table[j]);
@@ -911,12 +917,15 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 
 					if(target_s[idx]==NULL)break;
 #ifdef CACHE
+					pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 					if(target_s[idx]->c_entry){
 						memcpy_cnt++;
 //						table[k]=target_s[idx]->t_table;
 						table[k]=htable_copy(target_s[idx]->t_table);
+						pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 					}
 					else{
+						pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
 						table[k]=htable_assign();
 						compaction_htable_read(target_s[idx],(PTR*)&table[k]);
@@ -943,12 +952,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 					}
 
 					if(table[z]){
-						/*
-#ifdef CACHE
-						if((z==0 && origin_ent->c_entry) || target_s[z-1]->c_entry){
-							continue;
-						}
-#endif*/
 						htable_free(table[z]);
 					}
 					else 
@@ -998,11 +1001,15 @@ uint32_t tiering(int from, int to, Entry *entry){
 		compaction_lev_seq_processing(des_origin_level,des_level,des_origin_level->n_num);
 #ifdef CACHE
 		//cache must be inserted befor level insert
+		
 		htable *temp_table=htable_copy(entry->t_table);
 		entry->pbn=compaction_htable_write(entry->t_table);//write table & free allocated htable by inf_get_valueset
 		entry->t_table=temp_table;
+/*
+		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 		cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
 		entry->c_entry=c_entry;
+		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);*/
 #else
 		entry->pbn=compaction_htable_write(entry->t_table);//write table
 		entry->t_table=NULL;
@@ -1052,20 +1059,20 @@ uint32_t tiering(int from, int to, Entry *entry){
 	level **src_ptr=NULL;
 	if(from!=-1){
 		src_ptr=&LSM.disk[src_origin_level->level_idx];
+		rwlock_write_lock(&LSM.level_rwlock[from]);
 		temp=src_level;
-		pthread_mutex_lock(&LSM.level_lock[src_origin_level->level_idx]);
 		(*src_ptr)=src_level;
-		pthread_mutex_unlock(&LSM.level_lock[src_origin_level->level_idx]);
 		level_free(src_origin_level);
+		rwlock_write_unlock(&LSM.level_rwlock[from]);
 	}
 
 	temp=*des_ptr;
-	pthread_mutex_lock(&LSM.level_lock[des_origin_level->level_idx]);
+	rwlock_write_lock(&LSM.level_rwlock[to]);
 	des_level->iscompactioning=des_origin_level->iscompactioning;
 	(*des_ptr)=des_level;
-	pthread_mutex_lock(&LSM.level_lock[des_origin_level->level_idx]);
 	LSM.c_level=NULL;
 	level_free(temp);
+	rwlock_write_unlock(&LSM.level_rwlock[to]);
 
 	//block_print();
 	//level_all_print();

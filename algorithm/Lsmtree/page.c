@@ -5,6 +5,7 @@
 #include "footer.h"
 #include "skiplist.h"
 #include "run_array.h"
+#include "../../include/rwlock.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -865,9 +866,11 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 		for(int j=0; entries[j]!=NULL;j++){
 			datas[htable_idx]=(htable_t*)malloc(sizeof(htable_t));
 #ifdef CACHE
+			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(entries[j]->c_entry){
 				memcpy(datas[htable_idx]->sets,entries[j]->t_table->sets,PAGESIZE);
 			}
+			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
 			gc_data_read(entries[j]->pbn,datas[htable_idx],false);
 			htable_idx++;
@@ -875,8 +878,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 
 		gc_general_waiting();
 
-		//pthread_mutex_lock(&in->level_lock);
-		pthread_mutex_lock(&LSM.level_lock[in->level_idx]);
+		rwlock_read_lock(&LSM.level_rwlock[in->level_idx]);
 		for(int j=0; j<htable_idx; j++){
 			htable_t *data=datas[j];
 			int temp_i=i;
@@ -888,12 +890,14 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 
 				if(finded && finded->ppa==target->ppa){
 #ifdef CACHE
+					pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 					if(entries[j]->c_entry){
 						keyset *c_finded=htable_find(entries[j]->t_table->sets,target->lpa);
 						if(c_finded){
 							c_finded->ppa=target->nppa;
 						}
 					}
+					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
 					finded->ppa=target->nppa;
 					free(target);
@@ -921,7 +925,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			free(data);
 		}
 		free(entries);
-		pthread_mutex_unlock(&LSM.level_lock[in->level_idx]);
+		rwlock_read_unlock(&LSM.level_rwlock[in->level_idx]);
 	}
 	free(datas);
 }
@@ -1199,10 +1203,12 @@ int gc_header(KEYT tbn){
 					tables[i]=(htable_t*)malloc(sizeof(htable_t));
 					target_ent[i]=entries[k];
 #ifdef CACHE
+					pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 					if(entries[k]->c_entry){
 						memcpy(tables[i]->sets,entries[k]->t_table->sets,PAGESIZE);
 						continue;
 					}
+					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
 					gc_data_read(t_ppa,tables[i],false);
 					break;
@@ -1222,10 +1228,12 @@ int gc_header(KEYT tbn){
 						tables[i]=(htable_t*)malloc(sizeof(htable_t));
 						target_ent[i]=entries[k];
 #ifdef CACHE
+						pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 						if(entries[k]->c_entry){
 							memcpy(tables[i]->sets,entries[k]->t_table->sets,PAGESIZE);
 							break;
 						}
+						pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
 						gc_data_read(t_ppa,tables[i],false);
 					}

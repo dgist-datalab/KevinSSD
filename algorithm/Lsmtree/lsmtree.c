@@ -35,6 +35,8 @@ MeasureTime __get_mt2;
 uint64_t bloomfilter_memory;
 uint64_t __get_max_value;
 int __header_read_cnt;
+//pthread_mutex_t rwlock_test;
+//int rwlock_cnt;
 //extern int readlockbywrite;
 void lsm_debug_print(){
 	printf("___get_mt:%lu\n",__get_mt.max);
@@ -48,6 +50,7 @@ uint32_t __lsm_get(request *const);
 uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	measure_init(&__get_mt);
 	measure_init(&__get_mt2);
+	//pthread_mutex_init(&rwlock_test,NULL);
 	/*
 	   if(save_fd!=-1){
 	   lsmtree *temp_lsm=lsm_load();
@@ -107,7 +110,9 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	pthread_mutex_init(&LSM.entrylock,NULL);
 	pthread_mutex_init(&LSM.valueset_lock,NULL);
 	for(int i=0; i< LEVELN; i++){
-		pthread_mutex_init(&LSM.level_lock[i],NULL);
+//		pthread_mutex_init(&LSM.level_lock[i],NULL);
+//		pthread_rwlock_init(&LSM.level_rwlock[i],NULL);
+		rwlock_init(&LSM.level_rwlock[i]);
 	}
 	//compactor start
 	compaction_init();
@@ -238,8 +243,8 @@ void* lsm_end_req(algo_req* const req){
 			inf_free_valueset(params->value,FS_MALLOC_W);
 			break;
 		case DATAR:
-				req_temp_params=parents->params;
-				if(req_temp_params){
+			req_temp_params=parents->params;
+			if(req_temp_params){
 				parents->type_ftl=((int*)req_temp_params)[2];
 			}
 			parents->type_lower=req->type_lower;
@@ -338,8 +343,9 @@ uint32_t lsm_get(request *const req){
 			bench_algo_start(tmp_req);
 			res_type=__lsm_get(tmp_req);
 			if(res_type==0){
-				//printf("from req not found seq: %d, key:%u\n",nor++,req->key);
-			//	level_all_print();
+				printf("from req not found seq: %d, key:%u\n",nor++,req->key);
+				__lsm_get(tmp_req);
+				level_all_print();
 				tmp_req->type=FS_NOTFOUND_T;
 				tmp_req->end_req(tmp_req);
 				//exit(1);
@@ -358,8 +364,9 @@ uint32_t lsm_get(request *const req){
 	bench_algo_start(req);
 	res_type=__lsm_get(req);
 	if(res_type==0){
-//		printf("not found seq: %d, key:%u\n",nor++,req->key);
-	//	level_all_print();
+		printf("not found seq: %d, key:%u\n",nor++,req->key);
+		level_all_print();
+		__lsm_get(req);
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
 //		exit(1);
@@ -414,8 +421,8 @@ int __lsm_get_sub(request *req,Entry *entry, keyset *table,skiplist *list){
 		if(target_set){
 			lsm_req=lsm_get_req_factory(req);
 			bench_cache_hit(req->mark);	
-			req->value->ppa=target_node->ppa;
-			ppa=target_node->ppa;
+			req->value->ppa=target_set->ppa;
+			ppa=target_set->ppa;
 			res=4;
 		}
 	}
@@ -460,7 +467,6 @@ int __lsm_get_sub(request *req,Entry *entry, keyset *table,skiplist *list){
 }
 
 uint32_t __lsm_get(request *const req){
-
 	/*memtable*/
 	int res=__lsm_get_sub(req,NULL,NULL,LSM.memtable);
 	if(res)return res;
@@ -500,12 +506,20 @@ uint32_t __lsm_get(request *const req){
 		level=temp_req[0];
 		run=temp_req[1];
 		round=temp_req[2];
-
+	
 		mapinfo.sets=(keyset*)req->value->value;
-		pthread_mutex_lock(&LSM.level_lock[level]);
 		Entry **_entry=level_find(LSM.disk[level],req->key);
-		res=__lsm_get_sub(req,_entry[run],mapinfo.sets,NULL);
-		pthread_mutex_unlock(&LSM.level_lock[level]);
+		rwlock_read_unlock(&LSM.level_rwlock[level]);
+#ifdef CACHE
+		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+#endif
+		res=__lsm_get_sub(req,_entry[run],mapinfo.sets,NULL);	
+#ifdef CACHE
+		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+#endif
+
+		_entry[run]->req=NULL;
+		_entry[run]->isflying=0;
 		free(_entry);
 		if(res)return res;
 #ifndef FLASHCHCK
@@ -515,14 +529,18 @@ uint32_t __lsm_get(request *const req){
 	}
 
 	for(int i=level; i<LEVELN; i++){
-		pthread_mutex_lock(&LSM.level_lock[i]);
-		entries=level_find(LSM.disk[i],req->key);//checking bloomfilter inside this function
-		pthread_mutex_unlock(&LSM.level_lock[i]);
-		if(!entries)continue;
+		bool checking=false;
+		rwlock_read_lock(&LSM.level_rwlock[i]);
+		entries=level_find(LSM.disk[i],req->key);
+		if(!entries){
+			rwlock_read_unlock(&LSM.level_rwlock[i]);
+			continue;
+		}
 		if(comback_req && level!=i){
 			run=0;
 		}
 		for(int j=run; entries[j]!=NULL; j++){
+			checking=true;
 			Entry *entry=entries[j];
 			//read mapinfo
 			int *temp_data=(int*)req->params;
@@ -531,23 +549,44 @@ uint32_t __lsm_get(request *const req){
 			round++;
 			temp_data[2]=round;
 #ifdef FLASHCHECK
+			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(comback_req && entry->c_entry){
-				res=__lsm_get_sub(req,NULL,entry->t_table->sets);
-				free(entries);
-				if(res) return res;
-				continue;
-			}
-#elif defined(CACHE)
-			if(entry->c_entry){
 				res=__lsm_get_sub(req,NULL,entry->t_table->sets,NULL);
-				free(entries);
-				if(res){
-					cache_update(LSM.lsm_cache,entry);
+				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+				rwlock_read_unlock(&LSM.level_rwlock[i]);
+				if(res){ 
+					free(entries);
 					return res;
 				}
 				continue;
 			}
+			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+#elif defined(CACHE)
+			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+			if(entry->c_entry){
+				if(LSM.lsm_cache->n_size==0) printf("???!\n");
+				res=__lsm_get_sub(req,NULL,entry->t_table->sets,NULL);
+				if(res){
+					cache_update(LSM.lsm_cache,entry);
+					free(entries);
+					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+					rwlock_read_unlock(&LSM.level_rwlock[i]);
+					return res;
+				}
+				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+				rwlock_read_unlock(&LSM.level_rwlock[i]);
+				continue;
+			}
+			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
+
+#ifdef BLOOM
+			if(!bf_check(entry->filter,req->key)){
+				rwlock_read_unlock(&LSM.level_rwlock[i]);
+				continue;
+			}
+#endif
+
 			algo_req *lsm_req=lsm_get_req_factory(req);
 			lsm_params* params=(lsm_params*)lsm_req->params;
 			lsm_req->type=HEADERR;
@@ -559,10 +598,20 @@ uint32_t __lsm_get(request *const req){
 				while(entry->isflying!=2){}//wait for mapping
 				request *__req=(request*)entry->req;
 				mapinfo.sets=(keyset*)__req->value->value;
+				pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 				res=__lsm_get_sub(req,entry,mapinfo.sets,NULL);
-				free(entries);
+				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 				entry->isflying=0;
-				if(res) return res;
+				rwlock_read_unlock(&LSM.level_rwlock[i]);
+				if(res){ 
+					free(entries);
+					return res;
+				}
+				else{
+					free(params);
+					free(lsm_req);
+					continue;
+				}
 			}
 			else{
 				entry->isflying=1;
@@ -570,16 +619,17 @@ uint32_t __lsm_get(request *const req){
 				params->entry_ptr=(void*)entry;
 			}
 #endif
-
 			LSM.li->pull_data(entry->pbn,PAGESIZE,req->value,ASYNC,lsm_req);
 			__header_read_cnt++;
 			if(!req->isAsync){
 				dl_sync_wait(&params->lock); // wait until read table data;
 				mapinfo.sets=(keyset*)req->value->value;
 				res=__lsm_get_sub(req,NULL,mapinfo.sets,NULL);
-				free(entries);
+				rwlock_read_unlock(&LSM.level_rwlock[i]);
 				if(!res){
 					continue; // check next entry
+				}else{
+					free(entries);
 				}
 			}
 			else{
@@ -587,6 +637,9 @@ uint32_t __lsm_get(request *const req){
 				bench_algo_end(req);
 				return 3; //async
 			}
+		}
+		if(!checking){
+			rwlock_read_unlock(&LSM.level_rwlock[i]);
 		}
 		free(entries);
 	}
@@ -604,9 +657,6 @@ uint32_t lsm_remove(request *const req){
 
 keyset *htable_find(keyset *table, KEYT target){
 	keyset *sets=table;
-
-	if(sets[0].lpa>target || sets[KEYNUM-1].lpa<target)
-		return NULL;
 
 	if(sets[0].lpa>target || sets[KEYNUM-1].lpa<target)
 		return NULL;

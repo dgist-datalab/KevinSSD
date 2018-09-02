@@ -5,6 +5,7 @@
 #include "skiplist.h"
 #include "bloomfilter.h"
 #include "cache.h"
+#include "../../include/rwlock.h"
 #include "../../interface/queue.h"
 #include "../../include/container.h"
 #include "../../include/settings.h"
@@ -73,7 +74,9 @@ typedef struct lsmtree{
 	pthread_mutex_t entrylock;
 
 	pthread_mutex_t valueset_lock;
-	pthread_mutex_t level_lock[LEVELN];
+	//pthread_mutex_t level_lock[LEVELN];
+	//pthread_rwlock_t level_rwlock[LEVELN];
+	rwlock level_rwlock[LEVELN];
 	PTR caching_value;
 
 	struct skiplist *memtable;

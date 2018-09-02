@@ -81,8 +81,8 @@ int main(int argc,char* argv[]){
 	bench_init(1);
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
-	bench_add(SEQRW,0,RANGE,RANGE);
-//	bench_add(RANDRW,0,RANGE,RANGE);
+//	bench_add(SEQSET,0,RANGE,2*RANGE);
+	bench_add(RANDRW,0,RANGE,2*RANGE);
 //	bench_add(MIXED,0,RANGE,RANGE);
 	bench_value *value;
 
@@ -119,7 +119,7 @@ int main(int argc,char* argv[]){
 		sleep(1);
 #endif
 	}
-	bench_print();
+	//bench_print();
 	bench_free();
 	//printf("locality: 0~%.0f\n",RANGE*TARGETRATIO);
 	inf_free();

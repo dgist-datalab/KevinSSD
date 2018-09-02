@@ -59,6 +59,7 @@ SRCS +=\
 	./interface/bb_checker.c\
 	./include/FS.c\
 	./include/dl_sync.c\
+	./include/rwlock.c\
 	./include/data_struct/hash.c\
 	./bench/measurement.c\
 	./bench/bench.c\
