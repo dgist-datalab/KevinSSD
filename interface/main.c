@@ -98,6 +98,7 @@ int main(int argc,char* argv[]){
 		temp.length=value->length;
 		inf_make_req(value->type,value->key,&temp,value->mark);
 		cnt++;
+
 		if(_master->m[_master->n_num].type<=SEQRW) continue;
 		if(value->key<RANGE*TARGETRATIO){
 			locality_check++;
@@ -119,7 +120,7 @@ int main(int argc,char* argv[]){
 		sleep(1);
 #endif
 	}
-	//bench_print();
+	bench_print();
 	bench_free();
 	//printf("locality: 0~%.0f\n",RANGE*TARGETRATIO);
 	inf_free();

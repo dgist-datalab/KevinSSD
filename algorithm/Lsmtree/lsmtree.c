@@ -301,6 +301,10 @@ uint32_t lsm_set(request * const req){
 	printf("lsm_set!\n");
 		printf("key : %u\n",req->key);//for debug
 #endif
+
+	if(req->key==51430 || req->key==75675){
+		printf("lsm set here\n");
+	}
 	compaction_check();
 	if(req->type==FS_DELETE_T){
 		skiplist_insert(LSM.memtable,req->key,req->value,false);
@@ -343,8 +347,7 @@ uint32_t lsm_get(request *const req){
 			bench_algo_start(tmp_req);
 			res_type=__lsm_get(tmp_req);
 			if(res_type==0){
-				printf("from req not found seq: %d, key:%u\n",nor++,req->key);
-				__lsm_get(tmp_req);
+				//printf("from req not found seq: %d, key:%u\n",nor++,req->key);
 				level_all_print();
 				tmp_req->type=FS_NOTFOUND_T;
 				tmp_req->end_req(tmp_req);
@@ -364,9 +367,8 @@ uint32_t lsm_get(request *const req){
 	bench_algo_start(req);
 	res_type=__lsm_get(req);
 	if(res_type==0){
-		printf("not found seq: %d, key:%u\n",nor++,req->key);
+//		printf("not found seq: %d, key:%u\n",nor++,req->key);
 		level_all_print();
-		__lsm_get(req);
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
 //		exit(1);
@@ -467,6 +469,9 @@ int __lsm_get_sub(request *req,Entry *entry, keyset *table,skiplist *list){
 }
 
 uint32_t __lsm_get(request *const req){
+	if(req->key==51430 || req->key==75675){
+		printf("lsm_get here\n");
+	}
 	/*memtable*/
 	int res=__lsm_get_sub(req,NULL,NULL,LSM.memtable);
 	if(res)return res;
@@ -564,7 +569,6 @@ uint32_t __lsm_get(request *const req){
 #elif defined(CACHE)
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(entry->c_entry){
-				if(LSM.lsm_cache->n_size==0) printf("???!\n");
 				res=__lsm_get_sub(req,NULL,entry->t_table->sets,NULL);
 				if(res){
 					cache_update(LSM.lsm_cache,entry);

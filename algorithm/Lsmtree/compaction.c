@@ -429,12 +429,11 @@ void compaction_subprocessing_CMI(skiplist * target,level * t,bool final,KEYT li
 		res->filter=table->filter;
 #endif
 #ifdef CACHE
-		/*
 		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 		res->t_table=htable_copy(table); 
 		cache_entry *c_entry=cache_insert(LSM.lsm_cache,res,0);
 		res->c_entry=c_entry;
-		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);*/
+		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
 		res->pbn=compaction_htable_write(table);
 
@@ -541,15 +540,14 @@ uint32_t leveling(int from, int to, Entry *entry){
 #ifdef CACHE
 			//cache must be inserted befor level insert
 			
-	//		htable *temp_table=htable_copy(entry->t_table);
+			htable *temp_table=htable_copy(entry->t_table);
 			entry->pbn=compaction_htable_write(entry->t_table);//write table & free allocated htable by inf_get_valueset
-	//		entry->t_table=temp_table;
-			entry->t_table=NULL;
-			/*
+			entry->t_table=temp_table;
+			
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
 			entry->c_entry=c_entry;
-			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);*/
+			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #else
 			entry->pbn=compaction_htable_write(entry->t_table);//write table
 			entry->t_table=NULL;
@@ -1005,11 +1003,11 @@ uint32_t tiering(int from, int to, Entry *entry){
 		htable *temp_table=htable_copy(entry->t_table);
 		entry->pbn=compaction_htable_write(entry->t_table);//write table & free allocated htable by inf_get_valueset
 		entry->t_table=temp_table;
-/*
+
 		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 		cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
 		entry->c_entry=c_entry;
-		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);*/
+		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #else
 		entry->pbn=compaction_htable_write(entry->t_table);//write table
 		entry->t_table=NULL;

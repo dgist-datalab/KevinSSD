@@ -63,6 +63,7 @@ static void assign_req(request* req){
 		pthread_mutex_init(&req->async_mutex,NULL);
 		pthread_mutex_lock(&req->async_mutex);
 	}
+
 #ifdef interface_pq
 	int write_hash_res=0;
 	void *m_req=NULL;

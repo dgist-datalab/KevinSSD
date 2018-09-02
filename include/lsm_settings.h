@@ -30,7 +30,7 @@
 #define FTHREAD 1
 #define FQSIZE 2
 #define RQSIZE 1024
-//#define WRITEWAIT
+#define WRITEWAIT
 //#define NOGC
 
 /*compaction*/
