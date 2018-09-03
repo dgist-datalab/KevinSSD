@@ -301,9 +301,7 @@ uint32_t lsm_set(request * const req){
 	printf("lsm_set!\n");
 		printf("key : %u\n",req->key);//for debug
 #endif
-	if(req->key>=67250 && req->key<67300){
-		printf("input! %d\n",req->key);
-	}
+
 	compaction_check();
 	if(req->type==FS_DELETE_T){
 		skiplist_insert(LSM.memtable,req->key,req->value,false);
