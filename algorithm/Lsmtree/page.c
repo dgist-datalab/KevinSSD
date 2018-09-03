@@ -895,9 +895,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 				target=gn[k];
 				
 				if(target==NULL) continue;
-				if(target->lpa==376140){
-					printf("%d, old:%d->new:%d\n",target->lpa,target->ppa,target->nppa);
-				}
+
 				keyset *finded=htable_find(data->sets,target->lpa);
 
 				if(finded && finded->ppa==target->ppa){
@@ -1301,9 +1299,7 @@ int gc_data(KEYT tbn){//
 #else
 	if(target->invalid_n==algo_lsm.li->PPB){
 #endif
-		if(tbn==8639){
-			printf("this\n");
-		}
+
 		gc_data_header_update_add(NULL,0,0,order);
 		gc_trim_segment(DATA,target->ppa);
 		return 1;

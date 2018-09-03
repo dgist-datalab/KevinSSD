@@ -265,10 +265,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 		oob[res[res_idx]->ppa]=PBITSET(target->key,true);
 #endif
 		target->ppa=res[res_idx]->ppa;
-		if(target->key==376140){
-			static int ccc=0;
-			printf("[%d]376140:%d!\n",ccc++,target->ppa);
-		}
+
 		target->value=NULL;
 		res_idx++;
 	}

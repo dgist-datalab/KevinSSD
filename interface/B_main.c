@@ -22,7 +22,8 @@ kuk_sock *net_worker;
 #define REQSIZE (sizeof(uint64_t)*3+sizeof(uint8_t))
 #define PACKETSIZE (5*REQSIZE)
 queue *ret_q;
-
+pthread_mutex_t send_lock;
+static int global_value;
 void *flash_returner(void *param){
 	while(1){
 		static int cnt=0;
@@ -32,10 +33,12 @@ void *flash_returner(void *param){
 		}
 
 		if((*(int*)req)!=0){	
+			pthread_mutex_lock(&send_lock);
 			if(++cnt%10240==0){
-				printf("send_cnt:%d - len:%d\n",cnt++,*(int*)req);
+				printf("send_cnt:%d - len:%d\n",global_value++,*(int*)req);
 			}
 			kuk_send(net_worker,(char*)req,sizeof(uint32_t));
+			pthread_mutex_unlock(&send_lock);
 		}
 		free(req);
 	}
@@ -45,6 +48,7 @@ void *flash_returner(void *param){
 void *flash_ack2clnt(void *param){
 	void **params=(void**)param;
 	uint8_t type=*((uint8_t*)params[0]);
+	//uint32_t *tt;
 	//uint32_t seq=*((uint32_t*)params[1]);
 	switch(type){
 		case FS_NOTFOUND_T:
@@ -54,6 +58,13 @@ void *flash_ack2clnt(void *param){
 			//kuk_send(net_worker,(char*)&seq,sizeof(seq));
 			while(!q_enqueue((void*)params[1],ret_q)){}
 			break;
+			/*
+		case FS_SET_T:
+			tt=(uint32_t*)malloc(sizeof(uint32_t));
+			*tt=UINT_MAX;
+			while(!q_enqueue((void*)tt,ret_q))
+			free(params[1]);
+			break;*/
 		default:
 			break;
 	}
@@ -86,10 +97,15 @@ void *flash_ad(kuk_sock* ks){
 			inf_make_req_special(type,(uint32_t)key+i,&temp,len,flash_ack2clnt);
 		}
 	}	
-	/*
-	if(type==FS_GET_T){
-		kuk_send(net_worker,(char*)&cnt,sizeof(cnt));
-	}*/
+	
+	if(type==FS_SET_T){
+		uint32_t t=UINT_MAX;
+	//	static int set_cnt=0;
+		pthread_mutex_lock(&send_lock);
+//		printf("set:%d\n",global_value++);
+		kuk_send(net_worker,(char*)&t,sizeof(t));
+		pthread_mutex_unlock(&send_lock);
+	}
 	return NULL;
 }
 void *flash_decoder(kuk_sock *ks, void*(*ad)(kuk_sock*)){
