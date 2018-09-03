@@ -214,7 +214,7 @@ void *demand_end_req(algo_req* input){
     demand_params *params = (demand_params*)input->params;
     value_set *temp_v = params->value;
     request *res = input->parents;
-    int32_t lpa;
+    int32_t lpa = res->key;
 
     switch(params->type){
         case DATA_R:
@@ -239,8 +239,9 @@ void *demand_end_req(algo_req* input){
             if(!inf_assign_try(res)){ //assign 안돼면??
                 q_enqueue((void*)res, dftl_q);
             }
-            lpa = res->key;
+#if FLYING
             CMT[D_IDX].flying = false;
+#endif
             break;
         case MAPPING_W:
             inf_free_valueset(temp_v, FS_MALLOC_W);
@@ -647,7 +648,9 @@ uint32_t __demand_get(request *const req){
             checker->t_ppa = t_ppa;
             req->params = (void*)checker;
             my_req = assign_pseudo_req(MAPPING_R, NULL, req); // need to read mapping data
+#if FLYING
             c_table->flying = true;
+#endif
             //MA(&req->latency_ftl);
             bench_algo_end(req);
             __demand.li->pull_data(t_ppa, PAGESIZE, req->value, ASYNC, my_req);
