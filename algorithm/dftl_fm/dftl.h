@@ -44,7 +44,7 @@ typedef struct demand_mapping_table{
 typedef struct cached_table{
 	int32_t t_ppa;
 	int32_t idx;
-	D_TABLE *p_table;
+	value_set *p_table_vs;
 	NODE *queue_ptr; // for dirty pages (or general use)
 #if C_CACHE
     NODE *clean_ptr; // for clean pages

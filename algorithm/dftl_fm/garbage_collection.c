@@ -100,6 +100,7 @@ int32_t dpage_GC(){
 	int real_valid;
 	Block *victim;
 	C_TABLE *c_table;
+    value_set *p_table_vs;
 	D_TABLE* p_table;
 	//D_TABLE* on_dma;
 	D_TABLE* temp_table;
@@ -180,9 +181,10 @@ int32_t dpage_GC(){
 		lpa = d_sram[i].OOB_RAM.lpa; // Get lpa of a page
 		c_table = &CMT[D_IDX];
 		t_ppa = c_table->t_ppa;
-		p_table = c_table->p_table;
+		p_table_vs = c_table->p_table_vs;
 
-		if(p_table){ // cache hit
+		if(p_table_vs){ // cache hit
+            p_table = (D_TABLE *)p_table_vs->value;
 			if(c_table->flag == 2 && p_table[P_IDX].ppa != d_sram[i].origin_ppa){
 				d_sram[i].origin_ppa = -1; // if not same as origin, it mean this is actually invalid data
 				continue;
