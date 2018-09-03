@@ -1,6 +1,9 @@
 #ifndef __H_SETDFTL__
 #define __H_SETDFTL__
 
+// flying mapping page request waiting flag
+#define FLYING 0
+
 // clean cache flag
 #define C_CACHE 1
 
