@@ -620,7 +620,7 @@ bool gc_check(uint8_t type, bool force){
 					header_gc_cnt++; 
 					break;
 				case DATA:
-					printf("data gc:%d\n",data_gc_cnt);
+//					printf("data gc:%d\n",data_gc_cnt);
 					//gc_compaction_checking();
 					//compaction_force();
 					target_p=&data_m;
@@ -789,10 +789,6 @@ void invalidate_PPA(KEYT _ppa){
 	bn=ppa/algo_lsm.li->PPB;
 	idx=ppa%algo_lsm.li->PPB;
 
-	KEYT lpa=PBITGET(ppa);
-	if(lpa>=67250 && lpa<67300){
-		printf("invalidate:%d,%d!\n",lpa,ppa);
-	}
 
 	bl[bn].bitset[idx/8]|=(1<<(idx%8));
 	bl[bn].invalid_n++;
@@ -869,7 +865,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 		entries=level_find(in,target->lpa);
 		int htable_idx=0;
 		gc_general_wait_init();
-
+	
 		if(entries==NULL){
 			level_all_print();
 			printf("lpa:%d-ppa:%d\n",target->lpa,target->ppa);
@@ -897,8 +893,11 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			int temp_i=i;
 			for(int k=temp_i; k<size; k++){
 				target=gn[k];
-
+				
 				if(target==NULL) continue;
+				if(target->lpa==376140){
+					printf("%d, old:%d->new:%d\n",target->lpa,target->ppa,target->nppa);
+				}
 				keyset *finded=htable_find(data->sets,target->lpa);
 
 				if(finded && finded->ppa==target->ppa){
@@ -948,10 +947,12 @@ void gc_data_header_update_add(gc_node **gn,int size, int target_level, char ord
 		wrapper=(gc_node_wrapper*)malloc(sizeof(gc_node_wrapper));
 		memset(wrapper,0,sizeof(gc_node_wrapper));
 	}
-
-	qsort(gn,size,sizeof(gc_node**),gc_node_compare);//sort
-	wrapper->datas[target_level][wrapper->cnt[target_level]]=gn;
-	wrapper->size[target_level][wrapper->cnt[target_level]++]=size;
+	
+	if(gn!=NULL){
+		qsort(gn,size,sizeof(gc_node**),gc_node_compare);//sort
+		wrapper->datas[target_level][wrapper->cnt[target_level]]=gn;
+		wrapper->size[target_level][wrapper->cnt[target_level]++]=size;
+	}
 
 	if(order==2){
 		for(int i=0; i<LEVELN; i++){
@@ -1291,12 +1292,19 @@ int gc_data(KEYT tbn){//
 	//gc_data_cnt++;
 	//printf("gc_data_cnt : %d\n",gc_data_cnt);
 	block *target=&bl[tbn];
-	
+	char order;
+	if(tbn%BPS==0)	order=0;
+	else if(tbn%BPS==BPS-1) order=2;
+	else order=1;
 #ifdef DVALUE
 	if(target->invalid_n==algo_lsm.li->PPB*(PAGESIZE/PIECE)){
 #else
 	if(target->invalid_n==algo_lsm.li->PPB){
 #endif
+		if(tbn==8639){
+			printf("this\n");
+		}
+		gc_data_header_update_add(NULL,0,0,order);
 		gc_trim_segment(DATA,target->ppa);
 		return 1;
 	}
@@ -1442,10 +1450,7 @@ int gc_data(KEYT tbn){//
 #endif
 	}
 	free(tables);
-	char order;
-	if(tbn%BPS==0)	order=0;
-	else if(tbn%BPS==BPS-1) order=2;
-	else order=1;
+
 
 	gc_data_write_using_bucket(&bucket,target_level,order);
 	gc_trim_segment(DATA,target->ppa);

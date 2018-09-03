@@ -190,14 +190,14 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		value->length=(value->length/PIECE)+(value->length%PIECE?1:0);
 	}
 
-	if(key==x->key){
+	if(key==x->key){	
+
 #ifdef DEBUG
 
 #endif
 	//	algo_req * old_req=x->req;
 	//	lsm_params *old_params=(lsm_params*)old_req->params;
 	//	old_params->lsm_type=OLDDATA;
-
 		inf_free_valueset(x->value,FS_MALLOC_W);
 	//	old_req->end_req(old_req);
 
@@ -265,7 +265,10 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 		oob[res[res_idx]->ppa]=PBITSET(target->key,true);
 #endif
 		target->ppa=res[res_idx]->ppa;
-
+		if(target->key==376140){
+			static int ccc=0;
+			printf("[%d]376140:%d!\n",ccc++,target->ppa);
+		}
 		target->value=NULL;
 		res_idx++;
 	}

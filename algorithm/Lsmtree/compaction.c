@@ -457,7 +457,9 @@ void compaction_subprocessing(skiplist *target,level *t, htable** datas,bool fin
 			bool valid_flag=true;
 					
 			if(table->sets[j].ppa==UINT_MAX) valid_flag=false;
-
+			if(table->sets[j].lpa==376140){
+				printf("to %d, ppa=%d \n",t->level_idx,table->sets[j].ppa);
+			}
 			if(existIgnore){
 				check_node=skiplist_insert_existIgnore(target,table->sets[j].lpa,table->sets[j].ppa,valid_flag);
 			}

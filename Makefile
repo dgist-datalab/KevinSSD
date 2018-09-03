@@ -94,7 +94,7 @@ debug_simulator: ./interface/main.c libsimulator_d.a
 simulator: ./interface/B_main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^  $(ARCH) $(LIBS)
 
-duma_simulator: ./interface/main.c libsimulator.a
+duma_simulator: ./interface/B_main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ -lduma $(ARCH) $(LIBS)
 	
 

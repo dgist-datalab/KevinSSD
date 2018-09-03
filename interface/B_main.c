@@ -30,10 +30,13 @@ void *flash_returner(void *param){
 		if(!(req=q_dequeue(ret_q))){
 			continue;
 		}
-		if(++cnt%10240==0){
-			printf("send_cnt:%d\n",cnt);
+
+		if((*(int*)req)!=0){	
+			if(++cnt%10240==0){
+				printf("send_cnt:%d - len:%d\n",cnt++,*(int*)req);
+			}
+			kuk_send(net_worker,(char*)req,sizeof(uint32_t));
 		}
-		kuk_send(net_worker,(char*)req,sizeof(uint32_t));
 		free(req);
 	}
 	return NULL;
@@ -64,7 +67,7 @@ void *flash_ad(kuk_sock* ks){
 	uint8_t type=*((uint8_t*)ks->p_data[0]);
 	uint64_t key=*((uint64_t*)ks->p_data[1]);
 	uint64_t len=*((uint64_t*)ks->p_data[2]);
-	uint64_t seq=*((uint64_t*)ks->p_data[3]);
+	//uint64_t seq=*((uint64_t*)ks->p_data[3]);
 		
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
@@ -77,7 +80,11 @@ void *flash_ad(kuk_sock* ks){
 		static int cnt=0;
 		if(++cnt%10240==0)
 			printf("make cnt:%d\n",cnt);
-		inf_make_req_special(type,(uint32_t)key+i,&temp,seq,flash_ack2clnt);
+		if(i+1!=len){
+			inf_make_req_special(type,(uint32_t)key+i,&temp,0,flash_ack2clnt);
+		}else{
+			inf_make_req_special(type,(uint32_t)key+i,&temp,len,flash_ack2clnt);
+		}
 	}	
 	/*
 	if(type==FS_GET_T){
@@ -121,6 +128,7 @@ int main(int argc,char* argv[]){
 	pthread_t rt_thread;
 	pthread_create(&rt_thread,NULL,&flash_returner,NULL);
 	/*network initialize*/
+	
 	net_worker=kuk_sock_init((PACKETSIZE/REQSIZE)*REQSIZE,flash_decoder,flash_ad);
 	kuk_open(net_worker,IP,PORT);
 	kuk_bind(net_worker);
@@ -128,13 +136,31 @@ int main(int argc,char* argv[]){
 	kuk_accept(net_worker);
 	//while(kuk_service(net_worker,1)){}
 	uint32_t len=0;
+	
 	while((len=kuk_recv(net_worker,net_worker->data,net_worker->data_size))){
 		net_worker->data_idx=0;
 		while(len!=net_worker->data_idx){
 			net_worker->decoder(net_worker,net_worker->after_decode);
 		}
 	}
-	
+
+/*
+	value_set temp;
+	temp.value=t_value;
+	temp.dmatag=-1;
+	temp.length=PAGESIZE;
+	while(1){
+		uint32_t type,key,len;
+		scanf("%d%d%d",&type,&key,&len);
+		for(uint64_t i=0; i<len; i++){
+			static int cnt=0;
+			if(cnt++%10240==0){
+				printf("%d\n",cnt);
+			}
+			inf_make_req(type,(uint32_t)key+i,&temp,0);
+		}	
+	}
+*/
 	kuk_sock_destroy(net_worker);
 
 	bench_print();
