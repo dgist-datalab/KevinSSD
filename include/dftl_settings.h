@@ -5,7 +5,7 @@
 #define FLYING 0
 
 // clean cache flag
-#define C_CACHE 1
+#define C_CACHE 0
 
 // write buffering flag
 #define W_BUFF 1
