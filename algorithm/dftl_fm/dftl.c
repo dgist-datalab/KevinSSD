@@ -72,28 +72,38 @@ int32_t max_dirty_cache;
 #endif
 
 uint32_t demand_create(lower_info *li, algorithm *algo){
-    // initialize all value by using macro.
-    num_page = _NOP;
-    num_block = _NOS;
-    p_p_b = _PPS;
-    num_tblock = ((num_block / EPP) + ((num_block % EPP != 0) ? 1 : 0)) * 4;
-    num_tpage = num_tblock * p_p_b;
-    num_dblock = num_block - num_tblock - 2;
-    num_dpage = num_dblock * p_p_b;
+    /* Initialize pre-defined values by using macro */
+    num_page        = _NOP;
+    num_block       = _NOS;
+    p_p_b           = _PPS;
+    num_tblock      = ((num_block / EPP) + ((num_block % EPP != 0) ? 1 : 0)) * 4;
+    num_tpage       = num_tblock * p_p_b;
+    num_dblock      = num_block - num_tblock - 2;
+    num_dpage       = num_dblock * p_p_b;
     max_cache_entry = (num_page / EPP) + ((num_page % EPP != 0) ? 1 : 0);
-    // you can control amount of max number of ram reside cache entry
+
+
+    /* Max number of cache */
     //num_max_cache = max_cache_entry; // max cache
     //num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2; // 1/2 cache
     //num_max_cache = 1; // 1 cache
     num_max_cache = max_cache_entry/4; // 1/4 cache
+
+    num_caching = 0;
 #if C_CACHE
     max_clean_cache = num_max_cache / 2;
     max_dirty_cache = num_max_cache - max_clean_cache;
+
+    num_clean = 0;
+    num_dirty = 0;
 #endif
 
+
+    /* Print information */
     printf("!!! print info !!!\n");
     printf("Async status: %d\n", ASYNC);
     printf("use wirte buffer: %d\n", W_BUFF);
+    printf("Wait same mapping request(FLYING): %d\n", FLYING);
 #if W_BUFF
     printf("use wirte buffer polling: %d\n", W_BUFF_POLL);
 #endif
@@ -114,16 +124,18 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     printf("cache percentage: %0.3f%%\n", ((float)num_max_cache/max_cache_entry)*100);
     printf("!!! print info !!!\n");
 
-    // Table Allocation and global variables initialization
-    CMT = (C_TABLE*)malloc(sizeof(C_TABLE) * max_cache_entry);
-    //mem_arr = (mem_table*)malloc(sizeof(mem_table) * num_max_cache);
-    demand_OOB = (D_OOB*)malloc(sizeof(D_OOB) * num_page);
+
+    /* Map lower info */
     algo->li = li;
+
+
+    /* Table allocation & Init */
+    CMT = (C_TABLE*)malloc(sizeof(C_TABLE) * max_cache_entry);
+    demand_OOB = (D_OOB*)malloc(sizeof(D_OOB) * num_page);
 
     for(int i = 0; i < max_cache_entry; i++){
         CMT[i].t_ppa = -1;
         CMT[i].idx = i;
-        //CMT[i].p_table = NULL;
         CMT[i].p_table_vs = NULL;
         CMT[i].queue_ptr = NULL;
 #if C_CACHE
@@ -135,15 +147,8 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
     memset(demand_OOB, -1, num_page * sizeof(D_OOB));
 
-    //for(int i = 0; i < num_max_cache; i++){
-    //    mem_arr[i].mem_p = (D_TABLE*)malloc(PAGESIZE);
-    //}
 
-    num_caching = 0;
-#if C_CACHE
-    num_clean = 0;
-    num_dirty = 0;
-#endif
+    /* Module Init */
     bm = BM_Init(num_block, p_p_b, 2, 1);
     t_reserved = &bm->barray[num_block - 2];
     d_reserved = &bm->barray[num_block - 1];
@@ -158,10 +163,6 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 #endif
 
     q_init(&dftl_q, 1024);
-    //BM_Queue_Init(&mem_q);
-    //for(int i = 0; i < num_max_cache; i++){
-    //    mem_enq(mem_q, mem_arr[i].mem_p);
-    //}
     BM_Queue_Init(&free_b);
     for(int i = 0; i < num_block - 2; i++){
         BM_Enqueue(free_b, &bm->barray[i]);
@@ -173,7 +174,6 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     bm->harray[0] = data_b;
     bm->harray[1] = trans_b;
     bm->qarray[0] = free_b;
-    //bm->qarray[1] = mem_q;
     return 0;
 }
 
