@@ -149,14 +149,14 @@ bench_value* get_bench(){
 	}
 	return &_m->body[_m->n_num++];
 }
-extern bool force_write_stop;
+extern bool force_write_start;
 bool bench_is_finish_n(int n){
 	if(_master->m[n].r_num==_master->m[n].m_num){
 		_master->m[n].finish=true;
 		return true;
 	}
 	if(n+1==_master->m_num){
-		force_write_stop=true;	
+		force_write_start=true;	
 	}
 	return false;
 }
