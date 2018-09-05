@@ -62,7 +62,7 @@ typedef struct demand_OOB{
 typedef struct demand_SRAM{
 	int32_t origin_ppa;
 	D_OOB OOB_RAM;
-	D_TABLE *DATA_RAM;
+	int32_t *DATA_RAM;
 } D_SRAM;
 
 typedef struct demand_params{
