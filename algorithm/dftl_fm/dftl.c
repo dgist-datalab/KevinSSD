@@ -960,52 +960,52 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
 }
 #else // Eviction for normal mode
 uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag){
-	int32_t   t_ppa;            // Translation page address
-	C_TABLE   *cache_ptr;       // Cache mapping entry pointer
+    int32_t   t_ppa;            // Translation page address
+    C_TABLE   *cache_ptr;       // Cache mapping entry pointer
     value_set *p_table_vs;      // value_set of page table resides on FS_MALLOC_R area of DMA
-	int32_t   *p_table;         // physical page table on value_set
-	value_set *temp_value_set;  // valueset for write mapping table
-	algo_req  *temp_req;        // pseudo request pointer
+    int32_t   *p_table;         // physical page table on value_set
+    value_set *temp_value_set;  // valueset for write mapping table
+    algo_req  *temp_req;        // pseudo request pointer
 #if EVICT_POLL
     demand_params *params;
 #endif
 
-	/* Eviction */
-	evict_count++;
+    /* Eviction */
+    evict_count++;
 
-	cache_ptr  = (C_TABLE*)lru_pop(lru); // call pop to get least used cache
-	p_table_vs = cache_ptr->p_table_vs;
-	t_ppa      = cache_ptr->t_ppa;
+    cache_ptr  = (C_TABLE*)lru_pop(lru); // call pop to get least used cache
+    p_table_vs = cache_ptr->p_table_vs;
+    t_ppa      = cache_ptr->t_ppa;
 
-	if(cache_ptr->flag){ // When t_page on cache has changed
-		*dflag = true;
+    if(cache_ptr->flag){ // When t_page on cache has changed
+        *dflag = true;
 
-		/* Write translation page */
-		t_ppa = tp_alloc(req_t, flag);
+        /* Write translation page */
+        t_ppa = tp_alloc(req_t, flag);
         p_table = (int32_t *)p_table_vs->value;
-		temp_value_set = inf_get_valueset((PTR)p_table, FS_MALLOC_W, PAGESIZE);
-		temp_req = assign_pseudo_req(MAPPING_W, temp_value_set, NULL);
+        temp_value_set = inf_get_valueset((PTR)p_table, FS_MALLOC_W, PAGESIZE);
+        temp_req = assign_pseudo_req(MAPPING_W, temp_value_set, NULL);
 #if EVICT_POLL
-		params = (demand_params*)temp_req->params;
+        params = (demand_params*)temp_req->params;
 #endif
-		__demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req);
+        __demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req);
 #if EVICT_POLL
-		pthread_mutex_lock(&params->dftl_mutex);
-		pthread_mutex_destroy(&params->dftl_mutex);
-		free(params);
-		free(temp_req);
+        pthread_mutex_lock(&params->dftl_mutex);
+        pthread_mutex_destroy(&params->dftl_mutex);
+        free(params);
+        free(temp_req);
 #endif
-		demand_OOB[t_ppa].lpa = cache_ptr->idx;
-		BM_ValidatePage(bm, t_ppa);
-		cache_ptr->t_ppa = t_ppa;
-		cache_ptr->flag = 0;
+        demand_OOB[t_ppa].lpa = cache_ptr->idx;
+        BM_ValidatePage(bm, t_ppa);
+        cache_ptr->t_ppa = t_ppa;
+        cache_ptr->flag = 0;
     }
 
     inf_free_valueset(p_table_vs, FS_MALLOC_R);
-	cache_ptr->queue_ptr  = NULL;
-	cache_ptr->p_table_vs = NULL;
- 	num_caching--;
+    cache_ptr->queue_ptr  = NULL;
+    cache_ptr->p_table_vs = NULL;
+    num_caching--;
 
-	return 1;
+    return 1;
 }
 #endif

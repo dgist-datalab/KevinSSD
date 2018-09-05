@@ -32,52 +32,52 @@
 #define DGC_W GCDW
 
 #define EPP (PAGESIZE / 4) //Number of table entries per page
-#define D_IDX (lpa / EPP)	// Idx of directory table
-#define P_IDX (lpa % EPP)	// Idx of page table
+#define D_IDX (lpa / EPP)   // Idx of directory table
+#define P_IDX (lpa % EPP)   // Idx of page table
 
 // Page table data structure
 typedef struct demand_mapping_table{
-	int32_t ppa; //Index = lpa
+    int32_t ppa; //Index = lpa
 } D_TABLE;
 
 // Cache mapping table data strcuture
 typedef struct cached_table{
-	int32_t t_ppa;
-	int32_t idx;
-	value_set *p_table_vs;
-	NODE *queue_ptr; // for dirty pages (or general use)
+    int32_t t_ppa;
+    int32_t idx;
+    value_set *p_table_vs;
+    NODE *queue_ptr; // for dirty pages (or general use)
 #if C_CACHE
     NODE *clean_ptr; // for clean pages
 #endif
-	unsigned char flag; // 0: unchanged, 1: dirty, need to merge, 2: changed but all data on cache
+    unsigned char flag; // 0: unchanged, 1: dirty, need to merge, 2: changed but all data on cache
     bool flying;
 } C_TABLE;
 
 // OOB data structure
 typedef struct demand_OOB{
-	int32_t lpa;
+    int32_t lpa;
 } D_OOB;
 
 // SRAM data structure (used to hold pages temporarily when GC)
 typedef struct demand_SRAM{
-	int32_t origin_ppa;
-	D_OOB OOB_RAM;
-	int32_t *DATA_RAM;
+    int32_t origin_ppa;
+    D_OOB OOB_RAM;
+    int32_t *DATA_RAM;
 } D_SRAM;
 
 typedef struct demand_params{
-	value_set *value;
-	dl_sync dftl_mutex;
-	TYPE type;
+    value_set *value;
+    dl_sync dftl_mutex;
+    TYPE type;
 } demand_params;
 
 typedef struct read_params{
-	int32_t t_ppa;
-	uint8_t read;
+    int32_t t_ppa;
+    uint8_t read;
 } read_params;
 
 typedef struct mem_table{
-	D_TABLE *mem_p;
+    D_TABLE *mem_p;
 } mem_table;
 
 /* extern variables */
