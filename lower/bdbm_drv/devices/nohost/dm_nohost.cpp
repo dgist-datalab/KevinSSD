@@ -606,6 +606,7 @@ void dm_nohost_end_req (
 	pthread_mutex_lock(&bus_lock);
 	if(bus_history[r->logaddr.lpa[0]&0x7] == r->logaddr.lpa[0]){
 		bus_history[r->logaddr.lpa[0]&0x7]=0;
+		bus_rqtype[r->logaddr.lpa[0]&0x7]=0;
 	}
 	pthread_mutex_unlock(&bus_lock);
 
