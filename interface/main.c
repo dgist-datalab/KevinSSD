@@ -14,6 +14,7 @@ extern uint64_t dm_intr_cnt;
 extern int LOCALITY;
 extern float TARGETRATIO;
 extern master *_master;
+extern bool force_write_start;
 #ifdef Lsmtree
 int skiplist_hit;
 #endif
@@ -81,9 +82,9 @@ int main(int argc,char* argv[]){
 	bench_init(1);
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
-	bench_add(RANDSET,0,RANGE,2*RANGE);
+//	bench_add(RANDSET,0,RANGE,2*RANGE);
 //	bench_add(SEQSET,0,RANGE,RANGE);
-//	bench_add(SEQRW,0,RANGE,2*RANGE);
+	bench_add(SEQRW,0,RANGE,2*RANGE);
 //	bench_add(RANDRW,0,RANGE,2*RANGE);
 //	bench_add(MIXED,0,RANGE,RANGE);
 	bench_value *value;
@@ -116,7 +117,7 @@ int main(int argc,char* argv[]){
 	else{
 		printf("req_cnt_test:cnt -> %d:%d fuck\n",req_cnt_test,cnt);
 	}
-
+	force_write_start=true;
 	while(!bench_is_finish()){
 #ifdef LEAKCHECK
 		sleep(1);

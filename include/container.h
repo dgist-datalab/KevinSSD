@@ -61,6 +61,7 @@ struct algo_req{
 	uint8_t type;
 	bool rapid;
 	uint8_t type_lower;
+	//0: normal, 1 : no tag, 2: read delay 4:write delay
 
 	void *(*end_req)(struct algo_req *const);
 	void *params;

@@ -110,6 +110,7 @@ void compaction_free(){
 	int *temp;
 	for(int i=0; i<CTHREAD; i++){
 		compP *t=&compactor.processors[i];
+		pthread_cond_signal(&compaction_req_cond);
 		//pthread_mutex_unlock(&compaction_assign_lock);
 		pthread_join(t->t_id,(void**)&temp);
 		q_free(t->q);
@@ -144,13 +145,23 @@ void compaction_assign(compR* req){
 		for(int i=0; i<CTHREAD; i++){
 			compP* proc=&compactor.processors[i];
 			req->seq=seq_num++;
+
+			pthread_mutex_lock(&compaction_req_lock);
+			if(proc->q->size==0){
+				pthread_cond_signal(&compaction_req_cond);
+			}
+			q_enqueue((void*)req,proc->q);
+			flag=true;
+			pthread_mutex_unlock(&compaction_req_lock);
+
+			/* "before cond wait"
 			if(q_enqueue((void*)req,proc->q)){
 				//compaction_idle=false;
 				compaction_idle=false;
 				flag=true;
 				//pthread_mutex_unlock(&compaction_assign_lock);
 				break;
-			}
+			}*/
 		}
 		if(flag) break;
 	}
@@ -282,15 +293,23 @@ void *compaction_main(void *input){
 #ifdef LEAKCHECK
 		sleep(2);
 #endif
-		if(compactor.stopflag)
-			break;
-
-
+		pthread_mutex_lock(&compaction_req_lock);
+		if(_this->q->size==0){
+			pthread_cond_wait(&compaction_req_cond,&compaction_req_lock);
+		}
+		_req=q_dequeue(_this->q);
+		pthread_mutex_unlock(&compaction_req_lock);
+		/*
 		if(!(_req=q_dequeue(_this->q))){
 			//sleep or nothing
 			compaction_idle=true;
 			continue;
-		}
+		}*/
+
+		if(compactor.stopflag)
+			break;
+
+
 		req=(compR*)_req;
 		if(req->fromL==-1){
 			while(!gc_check(DATA,false)){
@@ -350,7 +369,7 @@ void compaction_check(){
 		req=(compR*)malloc(sizeof(compR));
 		req->fromL=-1;
 		req->toL=0;
-		while(LSM.temptable){}
+	//	while(LSM.temptable){}
 
 		LSM.temptable=LSM.memtable;
 		LSM.memtable=skiplist_init();

@@ -80,6 +80,11 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     max_cache_entry = (num_page / EPP) + ((num_page % EPP != 0) ? 1 : 0);
 
 
+    /* Max number of cache */
+    //num_max_cache = max_cache_entry; // max cache
+    //num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2; // 1/2 cache
+    //num_max_cache = 1; // 1 cache
+    //num_max_cache = max_cache_entry/4; // 1/4 cache
     /* Cache control & Init */
     //num_max_cache = max_cache_entry; // max cache
     //num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2; // 1/2 cache
