@@ -891,7 +891,170 @@ uint64_t partial_tiering(level *des,level *src, int size){
 	compaction_sub_post();
 	return 1;
 }
+
 uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
+	KEYT start=0;
+	KEYT end=0;
+	Entry **target_s=NULL;
+	htable **table=NULL;
+
+	if(!data){
+#ifndef MONKEY
+		start=skip->start;
+#else
+		start=0;
+#endif
+	}
+	else start=data[0]->key;
+
+	int headerSize;
+	
+#ifndef MONKEY
+	headerSize=level_range_unmatch(origin,start,&target_s,true);
+	for(int i=0; i<headerSize; i++){
+		level_insert(t,target_s[i]);
+		target_s[i]->iscompactioning=4;
+	}
+	free(target_s);
+#endif
+	
+
+	if(!data){
+		end=origin->end;
+		headerSize=level_range_find(origin,start,end,&target_s,true);
+		int target_round=headerSize/EPC+(headerSize%EPC?1:0);
+		int idx=0;
+		for(int round=0; round<target_round; round++){
+			compaction_sub_pre();
+			table=(htable**)malloc(sizeof(htable*)*EPC);
+			memset(table,0,sizeof(htable*)*EPC);
+
+			epc_check=(round+1==target_round? headerSize%EPC:EPC);
+			if(!epc_check) epc_check=EPC;
+
+			for(int j=0; j<EPC; j++){
+#ifdef CACHE
+				pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+				if(target_s[idx]->c_entry){
+					memcpy_cnt++;
+//					table[j]=target_s[idx]->t_table;
+					table[j]=htable_copy(target_s[idx]->t_table);
+					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+				}
+				else{
+					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+#endif
+					table[j]=htable_assign();
+					compaction_htable_read(target_s[idx],(PTR*)&table[j]);
+#ifdef CACHE
+				}
+#endif
+				if(!target_s[idx]->iscompactioning){
+					target_s[idx]->iscompactioning=true;
+				}
+
+				idx++;
+				if(target_s[idx]==NULL) break;
+			}
+			compaction_subprocessing(skip,t,table,(round==target_round-1?1:0),false);
+			for(int z=0; z<EPC; z++){
+				int i=z+round*EPC;
+				if(i<idx){
+					if(target_s[i]->iscompactioning!=3){
+						invalidate_PPA(target_s[i]->pbn);//invalidate_PPA
+					}
+				}
+				if(table[z]){
+					htable_free(table[z]);
+				}
+				else
+					break;
+			}
+			free(table);
+			compaction_sub_post();
+		}
+		free(target_s);
+	}
+	else{	
+		compaction_sub_pre();
+		table=(htable**)malloc(sizeof(htable*)*t->m_num*2);
+		epc_check=0;
+
+		int t_idx=0;
+		for(int i=0; data[i]!=NULL; i++){
+			Entry *temp=data[i];
+			temp->iscompactioning=true;
+#ifdef CACHE
+			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+			if(temp->c_entry){
+				table[t_idx]=htable_copy(temp->t_table);
+			//	memcpy_cnt++;
+				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+			}
+			else{
+				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+#endif
+				table[t_idx]=htable_assign();
+				epc_check++;
+				compaction_htable_read(temp,(PTR*)&table[t_idx]);
+#ifdef CACHE
+			}
+#endif
+			t_idx++;
+		}
+		
+		headerSize=level_range_find(origin,origin->start,origin->end,&target_s,true);
+		for(int i=0; i<headerSize; i++){
+			Entry *temp=target_s[i];
+			if(!temp->iscompactioning) temp->iscompactioning=true;
+#ifdef CACHE
+			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+			if(temp->c_entry){
+				table[t_idx]=htable_copy(temp->t_table);
+			//	memcpy_cnt++;
+				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+			}
+			else{
+				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+#endif
+				table[t_idx]=htable_assign();
+				epc_check++;
+				compaction_htable_read(temp,(PTR*)&table[t_idx]);
+#ifdef CACHE
+			}
+#endif
+			t_idx++;
+		}
+
+		compaction_subprocessing(skip,t,table,1,false);
+		
+		t_idx=0;
+		for(int i=0; data[i]!=NULL; i++){
+			Entry *temp=data[i];
+			if(temp->iscompactioning!=3)
+				invalidate_PPA(temp->pbn);
+			free(table[t_idx]);
+			t_idx++;
+		}
+
+		for(int i=0; i<headerSize; i++){	
+			Entry *temp=target_s[i];
+			if(temp->iscompactioning!=3)
+				invalidate_PPA(temp->pbn);
+			free(table[t_idx]);
+			t_idx++;
+		}
+
+		free(table);
+		free(target_s);
+		compaction_sub_post();
+	}
+
+	return 1;
+}
+
+
+uint32_t p_artial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 	KEYT start=0;
 	KEYT end=0;
 	Entry **target_s=NULL;
@@ -1085,6 +1248,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 
 	return 1;
 }
+
 int tiering_compaction=0;
 uint32_t tiering(int from, int to, Entry *entry){
 	level *src_level=NULL;

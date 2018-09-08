@@ -63,10 +63,10 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	 */
 	LSM.memtable=skiplist_init();
 	uint32_t _f=LEVELN;
-	SIZEFACTOR=_f?pow(10,log10(TOTALSIZE/PAGESIZE/KEYNUM)/(_f)):TOTALSIZE/PAGESIZE/KEYNUM;
+	SIZEFACTOR=_f?ceil(pow(10,log10(TOTALSIZE/PAGESIZE/KEYNUM)/(_f))):TOTALSIZE/PAGESIZE/KEYNUM;
 	unsigned long long sol=SIZEFACTOR;
 #ifdef MONKEY
-	int32_t SIZEFACTOR2=pow(10,log10(TOTALSIZE/PAGESIZE/KEYNUM/LEVELN)/(LEVELN-1));
+	int32_t SIZEFACTOR2=ceil(pow(10,log10(TOTALSIZE/PAGESIZE/KEYNUM/LEVELN)/(LEVELN-1)));
 	float ffpr=RAF*(1-SIZEFACTOR2)/(1-pow(SIZEFACTOR2,LEVELN-1));
 #endif
 	float target_fpr=0;
