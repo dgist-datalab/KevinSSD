@@ -605,7 +605,10 @@ uint32_t leveling(int from, int to, Entry *entry){
 			LSM.temptable=NULL;
 			pthread_mutex_unlock(&LSM.templock);		
 		}
-		skiplist *des=skiplist_copy(LSM.disk[to]->level_cache);
+		//skiplist *des=skiplist_copy(LSM.disk[to]->level_cache);
+		skiplist *des=LSM.disk[to]->level_cache;
+		LSM.disk[to]->level_cache=NULL;
+
 		skiplist_free(target->level_cache);
 		target->level_cache=skiplist_merge(body,des);
 		//set level

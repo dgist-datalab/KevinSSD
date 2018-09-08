@@ -444,6 +444,7 @@ skiplist *skiplist_merge(skiplist* src, skiplist *des){
 }
 #endif
 void skiplist_free(skiplist *list){
+	if(list==NULL) return;
 	skiplist_clear(list);
 	free(list->header->list);
 	free(list->header);

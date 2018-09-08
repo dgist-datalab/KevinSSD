@@ -445,6 +445,11 @@ void level_free(level *input){
 	else{
 		target=1;
 	}
+#ifdef LEVELCACHING
+	if(input->level_idx<LEVELCACHING){
+		skiplist_free(input->level_cache);
+	}
+#endif
 
 #if LEVELN!=1
 	for(int i=0; i<target; i++){
