@@ -20,6 +20,7 @@ typedef struct snode{ //skiplist's node
 	KEYT level;
 	value_set* value;
 	bool isvalid;
+    bool is_updated;
 	struct snode **list;
 }snode;
 

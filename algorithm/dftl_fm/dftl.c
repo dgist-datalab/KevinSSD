@@ -14,7 +14,7 @@ algorithm __demand = {
    128개의 channel이라서 128개를 한번에 처리가능
    1024개씩 한번에 쓰도록.(dynamic)->변수처리
    ppa는 1씩 증가해서 보내도됨. ---->>>>> bdbm_drv 에서는 없어도 된다!!!!
- */
+   */
 
 LRU *lru; // for lru cache
 queue *dftl_q; // for async get
@@ -68,6 +68,18 @@ int32_t max_clean_cache;
 int32_t max_dirty_cache;
 #endif
 
+int32_t pulling;
+int32_t pulled;
+
+int32_t cache_hit_on_write;
+int32_t cache_miss_on_write;
+int32_t clean_hit_on_write;
+int32_t dirty_hit_on_write;
+int32_t clean_eviction;
+int32_t dirty_eviction;
+int32_t dirty_evict_on_write;
+int32_t dirty_evict_on_read;
+
 uint32_t demand_create(lower_info *li, algorithm *algo){
     /* Initialize pre-defined values by using macro */
     num_page        = _NOP;
@@ -90,6 +102,9 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     //num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2; // 1/2 cache
     //num_max_cache = 1; // 1 cache
     num_max_cache = max_cache_entry / 4; // 1/4 cache
+    //num_max_cache = max_cache_entry / 20; // 5%
+    //num_max_cache = max_cache_entry / 10; // 10%
+    //num_max_cache = max_cache_entry / 8; // 16%
 
     num_caching = 0;
 #if C_CACHE
@@ -198,6 +213,13 @@ void demand_destroy(lower_info *li, algorithm *algo){
     printf("6: R & DE & GC & MC\n");
     printf("!!! print info !!!\n");
     //printf("average ftl latency : %lu\n", (ftl.adding.tv_sec*1000000 + ftl.adding.tv_usec)/ftl_cnt);
+    printf("Cache hit on write: %d\n", cache_hit_on_write);
+    printf("Cache miss on write: %d\n", cache_miss_on_write);
+    printf("Clean hit on write: %d\n", clean_hit_on_write);
+    printf("Dirty hit on write: %d\n", dirty_hit_on_write);
+    printf("# Clean eviction: %d\n", clean_eviction);
+    printf("# Dirty eviction: %d\n", dirty_eviction);
+    printf("Dirty eviction ratio: %.2f%\n", 100*((float)dirty_eviction/(clean_eviction+dirty_eviction)));
 
     /* Clear modules */
     q_free(dftl_q);
@@ -254,8 +276,8 @@ void *demand_end_req(algo_req* input){
 #endif
             break;
         case MAPPING_M: // unlock mutex lock for read mapping data completely
-            dl_sync_arrive(&params->dftl_mutex);
-            return NULL;
+            //dl_sync_arrive(&params->dftl_mutex);
+            pulled++;
             break;
         case TGC_R:
             trans_gc_poll++;
@@ -337,7 +359,7 @@ uint32_t demand_remove(request *const req) {
 
 uint32_t __demand_set(request *const req){
     /* !!! you need to print error message and exit program, when you set more valid
-    data than number of data page !!! */
+       data than number of data page !!! */
     int32_t lpa; // Logical data page address
     int32_t ppa; // Physical data page address
     int32_t t_ppa; // Translation page address
@@ -356,6 +378,10 @@ uint32_t __demand_set(request *const req){
     sk_iter *iter;
 #endif
 
+    bool have_to_do_more;
+    int32_t *pull_list;
+    int32_t pull_num;
+
     bench_algo_start(req);
     gc_flag = false;
     //m_flag = false;
@@ -365,78 +391,140 @@ uint32_t __demand_set(request *const req){
         printf("range error\n");
         exit(3);
     }
-#if W_BUFF
-    if(mem_buf->size == MAX_SL){
+
+    if (mem_buf->size == MAX_SL) {
+
+        /* Push all the data to lower */
         iter = skiplist_get_iterator(mem_buf);
-        for(int i = 0; i < MAX_SL; i++){
+        for (int i = 0;i < MAX_SL; i++) {
             temp = skiplist_get_next(iter);
 
-            lpa = temp->key;
-            c_table    = &CMT[D_IDX];
-            p_table_vs = c_table->p_table_vs;
-            t_ppa      = c_table->t_ppa;
+            /* Actual part of data pull */
+            ppa = dp_alloc();
+            my_req = assign_pseudo_req(DATA_W, temp->value, NULL);
+            __demand.li->push_data(ppa, PAGESIZE, temp->value, ASYNC, my_req);
 
-            if(p_table_vs){ /* Cache hit */
+            temp->ppa = ppa;
+            temp->value = NULL; // this memory area will be freed in end_req
+        }
+
+        have_to_do_more = true;
+        pull_list = (int32_t *)malloc(sizeof(int32_t) * num_max_cache);
+        pull_num = 0;
+
+        while (1) {
+            iter = skiplist_get_iterator(mem_buf);
+
+            /* Cache update */
+            for (int i = 0; i < MAX_SL; i++) {
+                temp = skiplist_get_next(iter);
+
+                lpa = temp->key;
+                c_table = &CMT[D_IDX];
+                p_table_vs = c_table->p_table_vs;
+                t_ppa = c_table->t_ppa;
+
+                if (p_table_vs) {
+                    temp->is_updated = true;
 #if C_CACHE
-                if(!c_table->flag){ // clean hit
-                    c_table->flag = 2;
-                    BM_InvalidatePage(bm, t_ppa);
-                    // this page is dirty after hit, but still lies on clean lru
-                    lru_update(c_lru, c_table->clean_ptr);
+                    if (!c_table->flag) { // Clean hit
+                        c_table->flag = 2;
+                        BM_InvalidatePage(bm, t_ppa);
 
-                    // migrate(copy) the lru element
-                    if (num_dirty == max_dirty_cache) {
-                        demand_eviction(req, 'W', &gc_flag, &d_flag);
+                        // this page is dirty after hit, but still lies on clean lru
+                        lru_update(c_lru, c-table->clean_ptr);
+
+                        // migrate(copy) the lru element
+                        if (num_dirty == max_dirty_cache) {
+                            demand_eviction(req, 'W', &gc_flag, &d_flag);
+                        }
+                        c_table->queue_ptr = lru(lru, (void *)c_table);
+                        num_dirty++;
+
+                    } else { // Dirty hit
+                        if (c_table->clean_ptr) {
+                            lru_update(c_lru, c_table->clean_ptr);
+                        }
+                        lru_update(lru, c_table->queue_ptr);
                     }
-                    c_table->queue_ptr = lru_push(lru, (void *)c_table);
-                    num_dirty++;
-
-                } else { // dirty hit
-                    if (c_table->clean_ptr) {
-                        lru_update(c_lru, c_table->clean_ptr);
+#else
+                    if (!c_table->flag) {
+                        c_table->flag = 2;
+                        BM_InvalidatePage(bm, t_ppa);
                     }
                     lru_update(lru, c_table->queue_ptr);
-                }
-#else
-                if (!c_table->flag) {
-                    c_table->flag = 2;
-                    BM_InvalidatePage(bm, t_ppa);
-                }
-                lru_update(lru, c_table->queue_ptr);
 #endif
+                    // if there is previous data with same lpa, then invalidate it
+                    p_table = (int32_t *)p_table_vs->value;
+                    if(p_table[P_IDX] != -1){
+                        BM_InvalidatePage(bm, p_table[P_IDX]);
+                    }
+
+                    // Update page table & OOB
+                    p_table[P_IDX] = temp->ppa;
+                    BM_ValidatePage(bm, temp->ppa);
+                    demand_OOB[temp->ppa].lpa = lpa;
+                }
             }
-            else{ /* Cache miss */
-#if C_CACHE
-                if (num_dirty == max_dirty_cache)
-#else
-                if (num_caching == num_max_cache)
-#endif
-                {
-                    demand_eviction(req, 'W', &gc_flag, &d_flag);
+
+            /* Exit status check */
+            if (have_to_do_more) {
+                have_to_do_more = false;
+            } else {
+                // EXIT POINT OF WHILE SCOPE
+                break;
+            }
+
+            /* Do eviction */
+            iter = skiplist_get_iterator(mem_buf);
+            temp = skiplist_get_next(iter);
+            lpa  = temp->key;
+            for (int i = 1; i < MAX_SL; i++) {
+                if (pull_num == num_max_cache) {
+                    have_to_do_more = true;
+                    break;
                 }
 
+                if (!temp->is_updated) {
+#if C_CACHE
+                    if (num_dirty > 0)
+#else
+                    if (num_caching > 0)
+#endif
+                    {
+                        demand_eviction(req, 'W', &gc_flag, &d_flag);
+                    }
+
+                    pull_list[pull_num++] = D_IDX;
+
+                    for (; i < MAX_SL; i++) {
+                        temp = skiplist_get_next(iter);
+                        lpa = temp->key;
+                        if (D_IDX != pull_list[pull_num-1] && !temp->is_updated) {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            /* Pull mapping pages */
+            for (int i = 0; i < pull_num; i++) {
+                c_table = &CMT[pull_list[i]];
                 t_ppa = c_table->t_ppa;
                 p_table_vs = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 
                 if(t_ppa != -1){ // If translation page is already existing -> pull from device
                     temp_req = assign_pseudo_req(MAPPING_M, NULL, NULL);
-                    params = (demand_params*)temp_req->params;
                     __demand.li->pull_data(t_ppa, PAGESIZE, p_table_vs, ASYNC, temp_req);
+                    pulling++;
 
-                    MS(&req->latency_poll);
-                    dl_sync_wait(&params->dftl_mutex);
-                    MA(&req->latency_poll);
-
-                    free(params);
-                    free(temp_req);
                     BM_InvalidatePage(bm, t_ppa);
 
-                } else{ // New translation page -> init ppa as -1
+                } else { // New translation page -> init ppa as -1
                     p_table = (int32_t *)p_table_vs->value;
-                    for (int i = 0; i < EPP; i++) {
-                        p_table[i] = -1;
-                    }
+                    memset(p_table, -1, PAGESIZE);
                 }
+
                 c_table->p_table_vs = p_table_vs;
                 c_table->queue_ptr = lru_push(lru, (void*)c_table);
                 c_table->flag = 2;
@@ -447,24 +535,11 @@ uint32_t __demand_set(request *const req){
 #endif
             }
 
-            /* Actual part of data pull */
-            ppa = dp_alloc();
-            my_req = assign_pseudo_req(DATA_W, temp->value, NULL);
-            __demand.li->push_data(ppa, PAGESIZE, temp->value, ASYNC, my_req);
-
-            temp->value = NULL; // this memory area will be freed in end_req
-
-            // if there is previous data with same lpa, then invalidate it
-            p_table = (int32_t *)p_table_vs->value;
-            if(p_table[P_IDX] != -1){
-                BM_InvalidatePage(bm, p_table[P_IDX]);
-            }
-
-            // Update page table & OOB
-            p_table[P_IDX] = ppa;
-            BM_ValidatePage(bm, ppa);
-            demand_OOB[ppa].lpa = lpa;
+            while (pulled != pulling) {}
+            pull_num = 0;
+            pulled = pulling = 0;
         }
+        free(pull_list);
 
         // Clear the skiplist
         free(iter);
@@ -481,7 +556,7 @@ uint32_t __demand_set(request *const req){
     req->value = NULL; // moved to value field of snode
     bench_algo_end(req);
     req->end_req(req);
-#endif
+
     return 1;
 }
 
@@ -804,6 +879,8 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
     evict_count++;
 
     if (req_t == 'R') { // Eviction on read -> only clean eviction
+        clean_eviction++;
+
         cache_ptr  = (C_TABLE *)lru_pop(c_lru);
         p_table_vs = cache_ptr->p_table_vs;
 
@@ -817,6 +894,8 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
         num_clean--;
 
     } else { // Eviction on write
+        dirty_eviction++;
+
         cache_ptr  = (C_TABLE *)lru_pop(lru);
         p_table_vs = cache_ptr->p_table_vs;
 
@@ -874,6 +953,13 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
     t_ppa      = cache_ptr->t_ppa;
 
     if(cache_ptr->flag){ // When t_page on cache has changed
+        dirty_eviction++;
+        if (req_t == 'W') {
+            dirty_evict_on_write++;
+        } else {
+            dirty_evict_on_read++;
+        }
+
         *dflag = true;
 
         /* Write translation page */
@@ -895,6 +981,8 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
         BM_ValidatePage(bm, t_ppa);
         cache_ptr->t_ppa = t_ppa;
         cache_ptr->flag = 0;
+    } else {
+        clean_eviction++;
     }
 
     inf_free_valueset(p_table_vs, FS_MALLOC_R);
