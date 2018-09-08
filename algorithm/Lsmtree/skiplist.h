@@ -48,9 +48,11 @@ typedef struct{
 } sk_iter;
 
 skiplist *skiplist_init(); //return initialized skiplist*
+skiplist *skiplist_copy(skiplist* input);
 snode *skiplist_find(skiplist*,KEYT); //find snode having key in skiplist, return NULL:no snode
 snode *skiplist_insert(skiplist*,KEYT,value_set *,bool); //insert skiplist, return inserted snode
 #ifdef Lsmtree
+skiplist *skiplist_merge(skiplist *src,skiplist *des);
 snode *skiplist_insert_wP(skiplist*,KEYT,KEYT,bool);//with ppa;
 snode *skiplist_insert_existIgnore(skiplist *, KEYT,KEYT,bool); //insert skiplist, if key exists, input data be ignored
 value_set **skiplist_make_valueset(skiplist*,struct level *from);

@@ -423,7 +423,30 @@ void skiplist_clear(skiplist *list){
 	list->header->key=INT_MAX;
 
 }
+skiplist *skiplist_copy(skiplist* src){
+	skiplist* des=skiplist_init();
+	snode *now=src->header->list[1];
+	snode *n_node;
+	while(now!=src->header){
+		n_node=skiplist_insert(des,now->key,now->value,now->isvalid);
+		n_node->ppa=now->ppa;
+		now=now->list[1];
+	}
+
+	return des;
+}
+#ifdef Lsmtree
+skiplist *skiplist_merge(skiplist* src, skiplist *des){
+	snode *now=src->header->list[1];
+	while(now!=src->header){
+		skiplist_insert_wP(des,now->key,now->ppa,now->isvalid);
+		now=now->list[1];
+	}
+	return des;
+}
+#endif
 void skiplist_free(skiplist *list){
+	if(list==NULL) return;
 	skiplist_clear(list);
 	free(list->header->list);
 	free(list->header);
