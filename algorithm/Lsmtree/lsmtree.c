@@ -71,6 +71,9 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 #endif
 	float target_fpr=0;
 	uint64_t sizeofall=0;
+#ifdef LEVELCACHING
+	uint64_t lev_caching_mem=0;
+#endif
 	for(int i=0; i<LEVELN-1; i++){//for lsmtree -1 level
 		LSM.disk[i]=(level*)malloc(sizeof(level));
 		#ifdef BLOOM
@@ -88,23 +91,36 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 		level_init(LSM.disk[i],sol,i,target_fpr,false);
 	#endif
 		printf("[%d] fpr:%lf bytes per entry:%lu noe:%d\n",i+1,target_fpr,bf_bits(1024,target_fpr), LSM.disk[i]->m_num);
-		bloomfilter_memory+=bf_bits(1024,target_fpr)*sol;
 		sizeofall+=LSM.disk[i]->m_num*8;
+#ifdef LEVELCACHING
+		if(i<LEVELCACHING){
+			sol*=SIZEFACTOR;
+			LSM.level_addr[i]=(PTR)LSM.disk[i];
+			lev_caching_mem+=LSM.disk[i]->m_num*8*K;
+			continue;
+		}
+#endif
+		bloomfilter_memory+=bf_bits(1024,target_fpr)*sol;
 		sol*=SIZEFACTOR;
 		LSM.level_addr[i]=(PTR)LSM.disk[i];
 	}
+
 	LSM.disk[LEVELN-1]=(level*)malloc(sizeof(level));
 #ifdef TIERING
 	level_init(LSM.disk[LEVELN-1],sol,LEVELN-1,1,true);
 #else
 	level_init(LSM.disk[LEVELN-1],sol,LEVELN-1,1,false);
 #endif
+
 	printf("[%d] fpr:1.0000 bytes per entry:%lu noe:%d\n",LEVELN,bf_bits(1024,1),LSM.disk[LEVELN-1]->m_num);
 	sizeofall+=LSM.disk[LEVELN-1]->m_num*8;
 	printf("level:%d sizefactor:%d\n",LEVELN,SIZEFACTOR);
 	printf("all level size:%lu(MB), %lf(GB)\n",sizeofall,(double)sizeofall/1024);
 	printf("top level size:%d(MB)\n",LSM.disk[0]->m_num*8);
 	printf("blommfileter : %fMB\n",(float)bloomfilter_memory/1024/1024);
+#ifdef LEVELCACHING
+	printf("level cache :%fMB\n",(float)lev_caching_mem/M);
+#endif
 	pthread_mutex_init(&LSM.templock,NULL);
 	pthread_mutex_init(&LSM.memlock,NULL);
 	pthread_mutex_init(&LSM.entrylock,NULL);
@@ -358,6 +374,13 @@ uint32_t lsm_get(request *const req){
 		for(int i=0; i<LEVELN; i++){
 			//printf("level : %d\n",i);
 			//level_print(LSM.disk[i]);
+#if (LEVELN==1)
+			/*
+			for(int j=0; j<TOTALSIZE/PAGESIZE/KEYNUM; j++){
+				o_entry *t=&LSM.disk[0]->o_ent[j];
+				printf("[%d]%d~%d at %d\n",j,t->start,t->end,t->pba);
+			}*/
+#endif
 		}
 		temp=true;
 	}
@@ -464,9 +487,7 @@ int __lsm_get_sub(request *req,Entry *entry, keyset *table,skiplist *list){
 	}
 	return res;
 }
-
 uint32_t __lsm_get(request *const req){
-
 	/*memtable*/
 	int res=__lsm_get_sub(req,NULL,NULL,LSM.memtable);
 	if(res)return res;
@@ -490,24 +511,33 @@ uint32_t __lsm_get(request *const req){
 	int level;
 	int run;
 	int round;
+#if (LEVELN!=1)
 	Entry** entries;
+	Entry *entry;
+	bool comback_req=false;
+#endif
 	htable mapinfo;
 
-	bool comback_req=false;
 	if(req->params==NULL){
 		int *_temp_data=(int *)malloc(sizeof(int)*3);
 		req->params=(void*)_temp_data;
-		level=0;
 		run=0;
 		round=0;
+		level=0;
 	}
 	else{
 		int *temp_req=(int*)req->params;
 		level=temp_req[0];
 		run=temp_req[1];
 		round=temp_req[2];
-	
+
 		mapinfo.sets=(keyset*)req->value->value;
+#if (LEVELN==1)
+		KEYT offset=req->key%KEYNUM;
+		algo_req *lsm_req=lsm_get_req_factory(req);
+		LSM.li->pull_data(mapinfo.sets[offset].ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+		return 1;
+#else
 		Entry **_entry=level_find(LSM.disk[level],req->key);
 		//rwlock_read_unlock(&LSM.level_rwlock[level]);
 #ifdef CACHE
@@ -525,12 +555,33 @@ uint32_t __lsm_get(request *const req){
 #ifndef FLASHCHCK
 		run+=1;
 #endif
+
 		comback_req=true;
+#endif
 	}
 	
 	for(int i=level; i<LEVELN; i++){
-		bool checking=false;
 		//rwlock_read_lock(&LSM.level_rwlock[i]);
+#ifdef LEVELCACHING
+		if(i<LEVELCACHING){
+			pthread_mutex_lock(&LSM.level_lock[i]);
+			res=__lsm_get_sub(req,NULL,NULL,LSM.disk[i]->level_cache);
+			pthread_mutex_unlock(&LSM.level_lock[i]);
+			if(res) return res;
+			else continue;
+		}
+#endif
+
+#if (LEVELN==1)
+		KEYT p=req->key/KEYNUM;
+		KEYT target_ppa=LSM.disk[i]->o_ent[p].pba;	
+		int *temp_data=(int*)req->params;
+		temp_data[0]=0;
+		temp_data[1]=0;
+		round++;
+		temp_data[2]=round;
+#else
+		bool checking=false;
 		pthread_mutex_lock(&LSM.level_lock[i]);
 		entries=level_find(LSM.disk[i],req->key);
 		pthread_mutex_unlock(&LSM.level_lock[i]);
@@ -543,7 +594,7 @@ uint32_t __lsm_get(request *const req){
 		}
 		for(int j=run; entries[j]!=NULL; j++){
 			checking=true;
-			Entry *entry=entries[j];
+			entry=entries[j];
 			//read mapinfo
 			int *temp_data=(int*)req->params;
 			temp_data[0]=i;
@@ -588,13 +639,16 @@ uint32_t __lsm_get(request *const req){
 			}
 #endif
 
+#endif
 			algo_req *lsm_req=lsm_get_req_factory(req);
 			lsm_params* params=(lsm_params*)lsm_req->params;
 			lsm_req->type=HEADERR;
 			params->lsm_type=HEADERR;
+#if (LEVELN==1)
+			params->ppa=target_ppa;
+#else
 			params->ppa=entry->pbn;
-
-#ifdef CACHE
+	#ifdef CACHE
 			if(entry->isflying==1 || entry->isflying==2){
 				while(entry->isflying!=2){}//wait for mapping
 				request *__req=(request*)entry->req;
@@ -619,9 +673,13 @@ uint32_t __lsm_get(request *const req){
 				entry->req=(void*)req;
 				params->entry_ptr=(void*)entry;
 			}
+	#endif
+
 #endif
-			LSM.li->pull_data(entry->pbn,PAGESIZE,req->value,ASYNC,lsm_req);
+			LSM.li->pull_data(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 			__header_read_cnt++;
+
+#if (LEVELN!=1)
 			if(!req->isAsync){
 				dl_sync_wait(&params->lock); // wait until read table data;
 				mapinfo.sets=(keyset*)req->value->value;
@@ -643,6 +701,9 @@ uint32_t __lsm_get(request *const req){
 			//rwlock_read_unlock(&LSM.level_rwlock[i]);
 		}
 		free(entries);
+#else
+		return 3;
+#endif
 	}
 	bench_algo_end(req);
 	return res;
@@ -705,6 +766,7 @@ keyset *htable_find(keyset *table, KEYT target){
 htable *htable_assign(){
 	htable *res=(htable*)malloc(sizeof(htable));
 	res->sets=(keyset*)malloc(PAGESIZE);
+	memset(res->sets,0,PAGESIZE);
 	res->t_b=0;
 	res->origin=NULL;
 	return res;

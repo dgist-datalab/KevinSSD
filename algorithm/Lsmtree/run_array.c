@@ -35,15 +35,14 @@ Entry *level_entcpy(Entry *src, char *des){
 }
 
 bool level_full_check(level *input){
-	/*
-	if(input->isTiering){
-		if(input->r_n_idx+1==input->r_num)
+#ifdef LEVELCACHING
+	if(input->level_idx<LEVELCACHING){
+		if(input->level_cache->size/KEYNUM >= (uint32_t)input->m_num-1){
 			return true;
+		}
+		return false;
 	}
-	else{
-		if(input->n_num>=input->m_num/SIZEFACTOR*(SIZEFACTOR-1))
-			return true;
-	}*/
+#endif
 	if(input->isTiering){
 		if(input->r_n_idx==input->r_m_num)
 			return true;
@@ -124,10 +123,12 @@ level *level_init(level *input,int all_entry,int idx,float fpr, bool isTiering){
 	int entry_p_run=all_entry/input->r_m_num;
 	if(all_entry%input->r_m_num) entry_p_run++;
 
+
+#if (LEVELN!=1)
+
 	uint64_t run_body_size=sizeof(Entry)*entry_p_run;
 	uint64_t run_size=sizeof(Node)+run_body_size;
 	uint64_t level_body_size=run_size*input->r_m_num;
-
 	input->body=(char*)malloc(level_body_size);
 	input->r_size=run_size;
 	input->m_num=input->r_m_num*entry_p_run;
@@ -142,6 +143,7 @@ level *level_init(level *input,int all_entry,int idx,float fpr, bool isTiering){
 		temp_run->start=UINT_MAX;
 		temp_run->end=0;
 	}
+#endif
 
 	input->entry_p_run=entry_p_run;
 	input->r_n_idx=0;
@@ -158,6 +160,9 @@ level *level_init(level *input,int all_entry,int idx,float fpr, bool isTiering){
 	input->remain=NULL;
 	//input->version_info=0;
 	input->level_idx=idx;
+#ifdef LEVELCACHING
+	input->level_cache=idx<LEVELCACHING? skiplist_init():NULL;
+#endif
 	//heap init
 	input->now_block=NULL;
 #ifdef LEVELUSINGHEAP
@@ -166,7 +171,15 @@ level *level_init(level *input,int all_entry,int idx,float fpr, bool isTiering){
 	input->h=llog_init();
 	//input->seg_log=llog_init();
 #endif
-
+	
+#if (LEVELN==1)
+	for(int i=0; i<TOTALSIZE/PAGESIZE/KEYNUM; i++){
+		input->o_ent[i].start=i*KEYNUM;
+		input->o_ent[i].end=(i+1)*KEYNUM;
+		input->o_ent[i].table=NULL;
+		input->o_ent[i].pba=UINT_MAX;
+	}
+#endif
 	return input;
 }
 
@@ -433,6 +446,7 @@ void level_free(level *input){
 		target=1;
 	}
 
+#if LEVELN!=1
 	for(int i=0; i<target; i++){
 		Node *temp_run=ns_run(input,i);
 		for(int j=0; j<temp_run->n_num; j++){
@@ -448,12 +462,9 @@ void level_free(level *input){
 		llog_free(input->h);
 #endif
 	}
-	/*
-	if(input->seg_log){
-		llog_free(input->seg_log);
-	}*/
 
 	free(input->body);
+#endif
 	free(input);
 }
 

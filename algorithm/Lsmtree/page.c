@@ -195,7 +195,9 @@ void gc_change_reserve(pm *target_p, segment *seg,uint8_t type){
 	seg->invalid_n=0;
 	seg->trimed_block=0;
 	seg->segment_idx=0;
+#ifdef COSTBENEFIT
 	seg->cost=0;
+#endif
 	
 	target_p->used_blkn-=BPS; // trimed new block
 	target_p->used_blkn+=target_p->rused_blkn; // add using in reserved block
@@ -237,7 +239,9 @@ void gc_trim_segment(uint8_t type, KEYT pbn){
 			seg->invalid_n=0;
 			seg->trimed_block=0;
 			seg->segment_idx=0;
+#ifdef COSTBENEFIT
 			seg->cost=0;
+#endif
 			target_p->temp=seg;
 			target_p->target=NULL;
 		}	
@@ -424,7 +428,9 @@ void segs_init(){
 		segs[i].invalid_n=0;
 		segs[i].segment_idx=0;
 		segs[i].ppa=i*(_PPS);
+#ifdef COSTBENEFIT
 		segs[i].cost=0;
+#endif
 	}
 };
 
@@ -620,7 +626,7 @@ bool gc_check(uint8_t type, bool force){
 					header_gc_cnt++; 
 					break;
 				case DATA:
-//					printf("data gc:%d\n",data_gc_cnt);
+					//printf("data gc:%d\n",data_gc_cnt);
 					//gc_compaction_checking();
 					//compaction_force();
 					target_p=&data_m;
@@ -799,10 +805,11 @@ void invalidate_PPA(KEYT _ppa){
 		printf("invalidate:??\n");
 		abort();
 	}
-	
+#ifdef COSTBENEFIT
 	if(BLOCKTYPE(ppa)==DATA){
 		segs->cost+=bl[bn].level;
 	}
+#endif
 
 #ifdef LEVEUSINGHEAP
 	level *l=LSM.disk[bl[bn].level];
@@ -853,7 +860,71 @@ int gc_node_compare(const void *a, const void *b){
 	else return -1;
 }
 
+#if (LEVELN==1)
+void gc_data_oneleveling(gc_node **gn, int size, int target_level){
+	gc_general_wait_init();
+	level *now=LSM.disk[target_level];
+	int num, temp=-1;
+	int t_idx=0;
+	KEYT *pbas=(KEYT*)malloc(sizeof(KEYT)*size);
+	htable_t *tables=(htable_t *)malloc(sizeof(htable_t)*size);
+	for(int i=0; i<size; i++){
+		gc_node *target=gn[i];
+
+		if(i==0){
+			num=target->lpa/KEYNUM;
+		}else{
+			temp=target->lpa/KEYNUM;
+		}
+	
+		if(i!=0 && num!=temp){
+			num=temp;
+		}
+		else if(i!=0) continue;
+
+		pbas[t_idx]=num;
+//		now->o_ent[num].table=htable_assign();
+
+		gc_data_read(now->o_ent[num].pba,&tables[t_idx++],false);
+	}
+
+	gc_general_waiting();
+
+	t_idx=0;
+	int offset=0;
+	for(int i=0; i<size; i++){
+		num=pbas[t_idx];
+		gc_node *target=gn[i];
+
+		if(now->o_ent[num].end>target->lpa){
+			offset=target->lpa%KEYNUM;
+			tables[t_idx].sets[offset].ppa=target->nppa;
+		}
+		else{
+			KEYT temp_header=now->o_ent[num].pba;
+			now->o_ent[num].pba=getPPA(HEADER,tables[t_idx].sets[0].lpa,true);
+			invalidate_PPA(temp_header);
+			gc_data_write(now->o_ent[num].pba,&tables[t_idx],false);
+			t_idx++;
+			i--;
+		}
+	}
+
+	KEYT temp_header=now->o_ent[num].pba;
+	now->o_ent[num].pba=getPPA(HEADER,tables->sets[0].lpa,true);
+	invalidate_PPA(temp_header);
+	gc_data_write(now->o_ent[num].pba,&tables[t_idx],false);
+
+	free(tables);
+	free(pbas);
+}
+#endif
+
 void gc_data_header_update(gc_node **gn, int size,int target_level){
+#if (LEVELN==1)
+	gc_data_oneleveling(gn,size,target_level);
+	return;
+#endif
 	level *in=LSM.disk[target_level];
 	htable_t **datas=(htable_t**)malloc(sizeof(htable_t*)*in->m_num);
 	Entry **entries;
@@ -861,7 +932,17 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 	for(int i=0; i<size; i++){
 		if(gn[i]==NULL) continue;
 		gc_node *target=gn[i];
-
+#ifdef LEVELCACHING
+		if(in->level_idx<LEVELCACHING){
+			snode *find=skiplist_find(in->level_cache,target->lpa);
+			if(find==NULL){
+				printf("can't be!\n");
+				abort();
+			}
+			find->ppa=target->nppa;
+			continue;
+		}
+#endif
 		entries=level_find(in,target->lpa);
 		int htable_idx=0;
 		gc_general_wait_init();
@@ -1133,7 +1214,11 @@ KEYT gc_victim_segment(uint8_t type,bool isforcegc){ //gc for segment
 		for(int i=start+1; i<=end; i++){
 			if(segs[i].invalid_n>=_PPB && segs[i].invalid_n/*+segs[i].cost*/>cnt){
 				target=&segs[i];
+#ifdef COSTBENEFIT
 				cnt=target->invalid_n+segs[i].cost;
+#else
+				cnt=target->invalid_n;
+#endif
 			}
 			accumulate_cnt+=segs[i].invalid_n;
 		}
@@ -1161,9 +1246,6 @@ int gc_header(KEYT tbn){
 	//llog_print(header_m.blocks);
 	//printf("[%d]gc_header start -> block:%u\n",gc_cnt,tbn);
 	block *target=&bl[tbn];
-	if(tbn==2139){
-		printf("here!\n");
-	}
 	if(target->invalid_n==algo_lsm.li->PPB){
 		gc_trim_segment(HEADER,target->ppa);
 		return 1;
@@ -1173,7 +1255,12 @@ int gc_header(KEYT tbn){
 
 	KEYT start=target->ppa;
 	htable_t **tables=(htable_t**)malloc(sizeof(htable_t*)*algo_lsm.li->PPB);
+#if (LEVELN==1)
+	level *now=LSM.disk[0];
+	o_entry **target_oent=(o_entry**)malloc(sizeof(o_entry*)*algo_lsm.li->PPB);
+#else
 	Entry **target_ent=(Entry**)malloc(sizeof(Entry*)*algo_lsm.li->PPB);
+#endif
 	//printf("2\n");
 	//level_all_print();
 	/*
@@ -1183,12 +1270,25 @@ int gc_header(KEYT tbn){
 	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
 		if(target->bitset[i/8]&(1<<(i%8))){
 			tables[i]=NULL;
+#if (LEVELN==1)
+			target_oent[i]=NULL;
+#else
 			target_ent[i]=NULL;
+#endif
 			continue;
 		}
 		KEYT t_ppa=start+i;
+#if (LEVELN==1)
+		for(int j=0; j<TOTALSIZE/PAGESIZE/KEYNUM;j++){
+			if(now->o_ent[j].pba==t_ppa){
+				tables[i]=(htable_t*)malloc(sizeof(htable_t));
+				target_oent[i]=&now->o_ent[j];
+				gc_data_read(t_ppa,tables[i],false);
+			}
+			else continue;
+		}
+#else
 		KEYT lpa=PBITGET(t_ppa);
-
 		Entry **entries=NULL;
 		bool checkdone=false;
 	//	level_all_print();
@@ -1218,6 +1318,7 @@ int gc_header(KEYT tbn){
 					pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 					if(entries[k]->c_entry){
 						memcpy(tables[i]->sets,entries[k]->t_table->sets,PAGESIZE);
+						pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 						continue;
 					}
 					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
@@ -1243,6 +1344,7 @@ int gc_header(KEYT tbn){
 						pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 						if(entries[k]->c_entry){
 							memcpy(tables[i]->sets,entries[k]->t_table->sets,PAGESIZE);
+							pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 							break;
 						}
 						pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
@@ -1258,26 +1360,38 @@ int gc_header(KEYT tbn){
 			printf("[%u : %u]error!\n",t_ppa,lpa);
 			abort();
 		}
+#endif
 	}
 
 	gc_general_waiting();
-
+#if (LEVELN==1)
+	o_entry *test;
+#else
 	Entry *test;
+#endif
+
 	htable_t *table;
 	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
 		if(tables[i]==NULL) continue;
 		KEYT t_ppa=start+i;
 		KEYT lpa=PBITGET(t_ppa);
 		KEYT n_ppa=getRPPA(HEADER,lpa,true);
+#if (LEVELN==1)
+		test=target_oent[i];
+		test->pba=n_ppa;
+#else
 		test=target_ent[i];
-		table=tables[i];
 		test->pbn=n_ppa;
+#endif
+		table=tables[i];
 		gc_data_write(n_ppa,table,false);
 		free(tables[i]);
 
 	}
 	free(tables);
+#if (LEVELN!=1)
 	free(target_ent);
+#endif
 	gc_trim_segment(HEADER,target->ppa);
 	//level_all_print();
 	/*

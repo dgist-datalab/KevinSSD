@@ -10,18 +10,21 @@
 #endif
 
 #define RAF 0.01
-#define LEVELN 5
+#define LEVELN 1
 
 #if LEVELN!=1
-//#define BLOOM
-//#define MONKEY
+#define BLOOM
+#define MONKEY
 #endif
 
 #define PIECE 512
 //#define LEVELUSINGHEAP
 //#define TIERING
-#define CACHE
-#define CACHESIZE (100*128*1)//1*128==1M
+//#define CACHE
+//#define CACHESIZE (100*128*1)//1*128==1M
+
+#define LEVELCACHING 0
+
 
 /*lsmtree flash thread*/
 #define KEYSIZE ()
@@ -32,6 +35,7 @@
 #define RQSIZE 1024
 #define WRITEWAIT
 //#define NOGC
+//#define COSTBENEFIT
 
 /*compaction*/
 #define EPC 50 //size factor have to be multiple of SIZEFACTOR

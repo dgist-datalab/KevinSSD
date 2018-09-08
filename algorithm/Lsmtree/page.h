@@ -57,7 +57,9 @@ typedef struct{
 	uint32_t invalid_n;
 	KEYT trimed_block;
 	KEYT segment_idx; //next reserved block
+#ifdef COSTBENEFIT
 	KEYT cost;
+#endif
 	KEYT ppa;
 }segment;
 

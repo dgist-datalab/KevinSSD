@@ -1,9 +1,9 @@
 #ifndef __RUN_A_H__
 #define __RUN_A_H__
+#include <math.h>
 #include "../../include/container.h"
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
-#include <math.h>
 #include "log_list.h"
 #include "cache.h"
 #include "lsmtree.h"
@@ -41,6 +41,15 @@ typedef struct Node{
 	char **body_addr;
 }Node;
 
+#if (LEVELN==1)
+typedef struct o_entry{
+	KEYT pba;
+	KEYT start;
+	KEYT end;
+	htable *table;
+}o_entry;
+#endif
+
 typedef struct level{
 #ifdef LEVELUSEINGHEAP
 	heap *h;
@@ -63,8 +72,14 @@ typedef struct level{
 	KEYT start;
 	KEYT end;
 	bool iscompactioning;
+#ifdef LEVELCACHING
+	skiplist *level_cache;
+#endif
 	struct skiplist *remain;
 //	pthread_mutex_t *level_lock;
+#if (LEVELN==1)
+	o_entry o_ent[TOTALSIZE/PAGESIZE/KEYNUM];
+#endif
 	char *body;
 }level;
 
