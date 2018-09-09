@@ -10,6 +10,8 @@
 int32_t LOCALITY;
 float TARGETRATIO;
 
+extern int32_t write_stop;
+
 master *_master;
 void seqget(KEYT, KEYT,monitor *);
 void seqset(KEYT,KEYT,monitor*);
@@ -123,7 +125,9 @@ bench_value* get_bench(){
 	}
 
 	if(_m->n_num==_m->m_num){
-		while(!bench_is_finish_n(_master->n_num)){}
+		while(!bench_is_finish_n(_master->n_num)){
+            write_stop = false;
+        }
 		printf("\rtesting...... [100%%] done!\n");
 		printf("\n");
 
