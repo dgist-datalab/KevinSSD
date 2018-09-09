@@ -71,14 +71,33 @@ int32_t max_dirty_cache;
 int32_t pulling;
 int32_t pulled;
 
+int32_t data_r;
+int32_t trig_data_r;
+int32_t data_w;
+int32_t trans_r;
+int32_t trans_w;
+int32_t dgc_r;
+int32_t dgc_w;
+int32_t tgc_r;
+int32_t tgc_w;
+
+int32_t cache_hit_on_read;
+int32_t cache_miss_on_read;
 int32_t cache_hit_on_write;
 int32_t cache_miss_on_write;
+
+int32_t clean_hit_on_read;
+int32_t dirty_hit_on_read;
 int32_t clean_hit_on_write;
 int32_t dirty_hit_on_write;
+
 int32_t clean_eviction;
 int32_t dirty_eviction;
-int32_t dirty_evict_on_write;
+
+int32_t clean_evict_on_read;
+int32_t clean_evict_on_write;
 int32_t dirty_evict_on_read;
+int32_t dirty_evict_on_write;
 
 uint32_t demand_create(lower_info *li, algorithm *algo){
     /* Initialize pre-defined values by using macro */
@@ -92,11 +111,6 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     max_cache_entry = (num_page / EPP) + ((num_page % EPP != 0) ? 1 : 0);
 
 
-    /* Max number of cache */
-    //num_max_cache = max_cache_entry; // max cache
-    //num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2; // 1/2 cache
-    //num_max_cache = 1; // 1 cache
-    //num_max_cache = max_cache_entry/4; // 1/4 cache
     /* Cache control & Init */
     //num_max_cache = max_cache_entry; // max cache
     //num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2; // 1/2 cache
@@ -213,13 +227,29 @@ void demand_destroy(lower_info *li, algorithm *algo){
     printf("6: R & DE & GC & MC\n");
     printf("!!! print info !!!\n");
     //printf("average ftl latency : %lu\n", (ftl.adding.tv_sec*1000000 + ftl.adding.tv_usec)/ftl_cnt);
+    printf("Cache hit on read: %d\n", cache_hit_on_read);
+    printf("Cache miss on read: %d\n", cache_miss_on_read);
     printf("Cache hit on write: %d\n", cache_hit_on_write);
-    printf("Cache miss on write: %d\n", cache_miss_on_write);
+    printf("Cache miss on write: %d\n\n", cache_miss_on_write);
+
+    printf("Clean hit on read: %d\n", clean_hit_on_read);
+    printf("Dirty hit on read: %d\n", dirty_hit_on_read);
     printf("Clean hit on write: %d\n", clean_hit_on_write);
-    printf("Dirty hit on write: %d\n", dirty_hit_on_write);
+    printf("Dirty hit on write: %d\n\n", dirty_hit_on_write);
+
     printf("# Clean eviction: %d\n", clean_eviction);
-    printf("# Dirty eviction: %d\n", dirty_eviction);
+    printf("# Dirty eviction: %d\n\n", dirty_eviction);
+
+    printf("Clean eviciton on read: %d\n", clean_evict_on_read);
+    printf("Dirty eviction on read: %d\n", dirty_evict_on_read);
+    printf("Clean eviction on write: %d\n", clean_evict_on_write);
+    printf("Dirty eviction on write: %d\n\n", dirty_evict_on_write);
+
     printf("Dirty eviction ratio: %.2f%\n", 100*((float)dirty_eviction/(clean_eviction+dirty_eviction)));
+    printf("Dirty eviction ratio on read: %.2f%\n", 100*((float)dirty_evict_on_read/(clean_evict_on_read+dirty_evict_on_read)));
+    printf("Dirty eviction ratio on write: %.2f%\n\n", 100*((float)dirty_evict_on_write/(clean_evict_on_write+dirty_evict_on_write)));
+
+    printf("WAF: %.2f\n\n", (float)(data_r+trans_w)/data_r);
 
     /* Clear modules */
     q_free(dftl_q);
@@ -245,12 +275,16 @@ void *demand_end_req(algo_req* input){
 
     switch(params->type){
         case DATA_R:
+            data_r++; trig_data_r++;
+
             res->type_lower = input->type_lower;
             if(res){
                 res->end_req(res);
             }
             break;
         case DATA_W:
+            data_w++;
+
 #if W_BUFF
             inf_free_valueset(temp_v, FS_MALLOC_W);
 #endif
@@ -259,6 +293,8 @@ void *demand_end_req(algo_req* input){
             }
             break;
         case MAPPING_R: // only used in async
+            trans_r++;
+
             ((read_params*)res->params)->read = 1;
             if(!inf_assign_try(res)){ //assign 안돼면??
                 q_enqueue((void*)res, dftl_q);
@@ -269,6 +305,8 @@ void *demand_end_req(algo_req* input){
 #endif
             break;
         case MAPPING_W:
+            trans_w++;
+
             inf_free_valueset(temp_v, FS_MALLOC_W);
 #if EVICT_POLL
             pthread_mutex_unlock(&params->dftl_mutex);
@@ -276,19 +314,26 @@ void *demand_end_req(algo_req* input){
 #endif
             break;
         case MAPPING_M: // unlock mutex lock for read mapping data completely
-            //dl_sync_arrive(&params->dftl_mutex);
+            trans_r++;
+
             pulled++;
             break;
         case TGC_R:
+            tgc_r++;
+
             trans_gc_poll++;
             break;
         case TGC_W:
+            tgc_w++;
+
             inf_free_valueset(temp_v, FS_MALLOC_W);
 #if GC_POLL
             trans_gc_poll++;
 #endif
             break;
         case TGC_M:
+            tgc_r++;
+
             dl_sync_arrive(&params->dftl_mutex);
 #if GC_POLL
             trans_gc_poll++;
@@ -296,9 +341,13 @@ void *demand_end_req(algo_req* input){
             return NULL;
             break;
         case DGC_R:
+            dgc_r++;
+
             data_gc_poll++;
             break;
         case DGC_W:
+            dgc_w++;
+
             inf_free_valueset(temp_v, FS_MALLOC_W);
 #if GC_POLL
             data_gc_poll++;
@@ -313,6 +362,12 @@ void *demand_end_req(algo_req* input){
 
 uint32_t demand_set(request *const req){
     request *temp_req;
+
+    if (trig_data_r > 100000) {
+        printf("\nWAF: %.2f\n", (float)(data_r+trans_w)/data_r);
+        trig_data_r = 0;
+    }
+
     while((temp_req = (request*)q_dequeue(dftl_q))){
         if(__demand_get(temp_req) == UINT32_MAX){
             temp_req->type = FS_NOTFOUND_T;
@@ -419,29 +474,36 @@ uint32_t __demand_set(request *const req){
             for (int i = 0; i < MAX_SL; i++) {
                 temp = skiplist_get_next(iter);
 
+                if (temp->is_updated) continue;
+
                 lpa = temp->key;
                 c_table = &CMT[D_IDX];
                 p_table_vs = c_table->p_table_vs;
                 t_ppa = c_table->t_ppa;
 
                 if (p_table_vs) {
+                    cache_hit_on_write++;
                     temp->is_updated = true;
 #if C_CACHE
                     if (!c_table->flag) { // Clean hit
+                        clean_hit_on_write++;
+
                         c_table->flag = 2;
                         BM_InvalidatePage(bm, t_ppa);
 
                         // this page is dirty after hit, but still lies on clean lru
-                        lru_update(c_lru, c-table->clean_ptr);
+                        lru_update(c_lru, c_table->clean_ptr);
 
                         // migrate(copy) the lru element
                         if (num_dirty == max_dirty_cache) {
                             demand_eviction(req, 'W', &gc_flag, &d_flag);
                         }
-                        c_table->queue_ptr = lru(lru, (void *)c_table);
+                        c_table->queue_ptr = lru_push(lru, (void *)c_table);
                         num_dirty++;
 
                     } else { // Dirty hit
+                        dirty_hit_on_write++;
+
                         if (c_table->clean_ptr) {
                             lru_update(c_lru, c_table->clean_ptr);
                         }
@@ -449,8 +511,12 @@ uint32_t __demand_set(request *const req){
                     }
 #else
                     if (!c_table->flag) {
+                        clean_hit_on_write++;
+
                         c_table->flag = 2;
                         BM_InvalidatePage(bm, t_ppa);
+                    } else {
+                        dirty_hit_on_write++;
                     }
                     lru_update(lru, c_table->queue_ptr);
 #endif
@@ -480,7 +546,12 @@ uint32_t __demand_set(request *const req){
             temp = skiplist_get_next(iter);
             lpa  = temp->key;
             for (int i = 1; i < MAX_SL; i++) {
-                if (pull_num == num_max_cache) {
+#if C_CACHE
+                if (pull_num == max_dirty_cache)
+#else
+                if (pull_num == num_max_cache)
+#endif
+                {
                     have_to_do_more = true;
                     break;
                 }
@@ -506,6 +577,10 @@ uint32_t __demand_set(request *const req){
                     }
                 }
             }
+
+            cache_miss_on_write += pull_num;
+            cache_hit_on_write -= pull_num;
+            dirty_hit_on_write -= pull_num;
 
             /* Pull mapping pages */
             for (int i = 0; i < pull_num; i++) {
@@ -610,6 +685,8 @@ uint32_t __demand_get(request *const req){
 
     /* Cache Hit */
     if(p_table_vs){
+        cache_hit_on_read++;
+
         p_table = (int32_t *)p_table_vs->value;
         ppa = p_table[P_IDX];
         if(ppa == -1){ // no mapping data -> not found
@@ -619,10 +696,19 @@ uint32_t __demand_get(request *const req){
         }
         else{
 #if C_CACHE
-            if (c_table->clean_ptr) lru_update(c_lru, c_table->clean_ptr);
-            if (c_table->queue_ptr) lru_update(lru, c_table->queue_ptr);
+            if (c_table->clean_ptr) {
+                clean_hit_on_read++;
+                lru_update(c_lru, c_table->clean_ptr);
+            }
+            if (c_table->queue_ptr) {
+                dirty_hit_on_read++;
+                lru_update(lru, c_table->queue_ptr);
+            }
 #else
             lru_update(lru, c_table->queue_ptr);
+
+            if (c_table->flag) dirty_hit_on_read++;
+            else clean_hit_on_read++;
 #endif
 
             req->type_ftl += 1;
@@ -694,6 +780,8 @@ uint32_t __demand_get(request *const req){
     /* Mapping data is valid from now on */
 
     if(!p_table_vs) {
+        cache_miss_on_read++;
+
         req->type_ftl += 2;
 #if C_CACHE
         if (num_clean == max_clean_cache)
@@ -880,6 +968,7 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
 
     if (req_t == 'R') { // Eviction on read -> only clean eviction
         clean_eviction++;
+        clean_evict_on_read++;
 
         cache_ptr  = (C_TABLE *)lru_pop(c_lru);
         p_table_vs = cache_ptr->p_table_vs;
@@ -895,6 +984,7 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
 
     } else { // Eviction on write
         dirty_eviction++;
+        dirty_evict_on_write++;
 
         cache_ptr  = (C_TABLE *)lru_pop(lru);
         p_table_vs = cache_ptr->p_table_vs;
@@ -983,6 +1073,11 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
         cache_ptr->flag = 0;
     } else {
         clean_eviction++;
+        if (req_t = 'W') {
+            clean_evict_on_write++;
+        } else {
+            clean_evict_on_read++;
+        }
     }
 
     inf_free_valueset(p_table_vs, FS_MALLOC_R);
