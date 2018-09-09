@@ -18,21 +18,21 @@
 #endif
 
 #ifdef CACHE
-int memcpy_cnt;
+volatile int memcpy_cnt;
 #endif
 extern lsmtree LSM;
 extern block bl[_NOB];
-extern int comp_target_get_cnt;
-int epc_check=0;
+extern volatile int comp_target_get_cnt;
+volatile int epc_check=0;
 int upper_table=0;
 compM compactor;
 pthread_mutex_t compaction_wait;
 pthread_mutex_t compaction_flush_wait;
 pthread_mutex_t compaction_req_lock;
 pthread_cond_t compaction_req_cond;
-int compaction_req_cnt;
+volatile int compaction_req_cnt;
 bool compaction_idle;
-int compactino_target_cnt;
+volatile int compactino_target_cnt;
 MeasureTime compaction_timer[5];
 #if (LEVELN==1)
 void onelevel_processing(Entry *);

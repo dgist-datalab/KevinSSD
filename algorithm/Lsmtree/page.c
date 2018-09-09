@@ -461,7 +461,7 @@ void pm_init(){
 }
 
 KEYT getRPPA(uint8_t type,KEYT lpa,bool isfull){
-	pm *target_p;
+	pm *target_p=NULL;
 	switch(type){
 		case HEADER:
 			target_p=&header_m;
@@ -611,7 +611,7 @@ bool gc_check(uint8_t type, bool force){
 	}*/
 	bool once=true;
 	//static int cnt=0;
-	pm *target_p;
+	pm *target_p=NULL;
 	//		int t,n;
 	for(int i=0; i<BPS; i++){
 		KEYT target_block=0;
@@ -737,7 +737,7 @@ KEYT getPPA(uint8_t type, KEYT lpa,bool isfull){
 #ifdef NOGC
 	return __ppa++;
 #endif
-	pm *target;
+	pm *target=NULL;
 	switch(type){
 		case HEADER:
 			target=&header_m;
@@ -1178,10 +1178,10 @@ void gc_data_now_block_chg(level *in, block *reserve_block){
 
 int gc_data_cnt;
 KEYT gc_victim_segment(uint8_t type,bool isforcegc){ //gc for segment
-	int start,end;
+	int start=0,end=0;
 	KEYT cnt=0;
 	KEYT accumulate_cnt=0;
-	pm *target_p;
+	pm *target_p=NULL;
 	switch(type){
 		case 0://for header
 			target_p=&header_m;
@@ -1615,7 +1615,7 @@ bool gc_segment_force(){
 }
 
 block* getRBLOCK(uint8_t type){
-	pm *target;
+	pm *target=NULL;
 	switch(type){
 		case HEADER:
 			target=&header_m;

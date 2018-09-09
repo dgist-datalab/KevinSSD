@@ -50,9 +50,9 @@ typedef struct{
 
 typedef struct{
 	bench_value *body;
-	uint64_t n_num;//request throw num
-	uint64_t m_num;
-	uint64_t r_num;//request end num
+	volatile uint64_t n_num;//request throw num
+	volatile uint64_t m_num;
+	volatile uint64_t r_num;//request end num
 	bool finish;
 	bool empty;
 	int mark;

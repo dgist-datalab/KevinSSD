@@ -9,7 +9,7 @@ typedef struct node{
 	struct node *next;
 }node;
 typedef struct queue{
-	int size;
+	volatile int size;
 	int m_size;
 	pthread_mutex_t q_lock;
 	bool firstFlag;

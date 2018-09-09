@@ -198,6 +198,7 @@ void bf_free(BF *input){
 	free(input->body);
 	free(input);
 }
+/*
 void bf_save(BF* input){
 	write(save_fd,input,sizeof(BF));
 	write(save_fd,input->body,input->targetsize);
@@ -209,7 +210,7 @@ BF* bf_load(){
 	res->body=(char*)malloc(res->targetsize);
 	read(save_fd,res->body,res->targetsize);
 	return res;
-}
+}*/
 /*
    int main(){
    int check=0;

@@ -649,7 +649,7 @@ void level_all_check(){
 			level_check(LSM.disk[i]);
 	}
 }
-
+/*
 void level_save(level* input){
 	write(save_fd,input,sizeof(level));
 	uint64_t level_body_size=(sizeof(Node)+sizeof(Entry)*(input->m_num/input->r_m_num))*input->r_m_num;
@@ -679,7 +679,7 @@ level* level_load(){
 	free(level_iter);
 #endif
 	return res;
-}
+}*/
 
 extern pm data_m;
 KEYT level_get_page(level *in,uint8_t plength){

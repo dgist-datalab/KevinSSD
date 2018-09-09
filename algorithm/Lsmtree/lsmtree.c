@@ -175,7 +175,7 @@ extern int epc_check,gc_read_wait;
 #ifdef CACHE
 extern int memcpy_cnt;
 #endif
-int comp_target_get_cnt=0,gc_target_get_cnt;
+volatile int comp_target_get_cnt=0,gc_target_get_cnt;
 extern pthread_cond_t factory_cond;
 void* lsm_end_req(algo_req* const req){
 	lsm_params *params=(lsm_params*)req->params;
@@ -809,7 +809,7 @@ void htable_print(htable * input,KEYT ppa){
 		exit(1);
 	}
 }
-
+/*
 void lsm_save(lsmtree *input){
 	for(int i=0; i<LEVELN; i++){
 		level_save(input->disk[i]);
@@ -824,4 +824,4 @@ lsmtree* lsm_load(){
 	}
 	res->memtable=skiplist_load();
 	return res;
-}
+}*/
