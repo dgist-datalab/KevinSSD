@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=bdbm_drv
+TARGET_LOWER=posix_memory
 TARGET_ALGO=Lsmtree
 PWD=$(pwd)
 
@@ -61,6 +61,7 @@ SRCS +=\
 	./include/dl_sync.c\
 	./include/rwlock.c\
 	./include/data_struct/hash.c\
+	./include/data_struct/list.c\
 	./bench/measurement.c\
 	./bench/bench.c\
 
