@@ -5,6 +5,7 @@
 #include "skiplist.h"
 #include "bloomfilter.h"
 #include "cache.h"
+#include "lsmtree.h"
 #include "../../include/rwlock.h"
 #include "../../interface/queue.h"
 #include "../../include/container.h"

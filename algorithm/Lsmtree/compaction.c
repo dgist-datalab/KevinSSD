@@ -3,6 +3,7 @@
 #include "skiplist.h"
 #include "page.h"
 #include "run_array.h"
+#include "bloomfilter.h"
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,6 +31,7 @@ pthread_cond_t compaction_req_cond;
 int compaction_req_cnt;
 bool compaction_idle;
 int compactino_target_cnt;
+MeasureTime compaction_timer[3];
 #if (LEVELN==1)
 void onelevel_processing(Entry *);
 #endif
@@ -87,6 +89,9 @@ void compaction_heap_setting(level *a, level* b){
 }
 
 bool compaction_init(){
+	for(int i=0; i<3; i++){
+		measure_init(&compaction_timer[i]);
+	}
 	compactor.processors=(compP*)malloc(sizeof(compP)*CTHREAD);
 	memset(compactor.processors,0,sizeof(compP)*CTHREAD);
 
@@ -110,6 +115,9 @@ bool compaction_init(){
 
 
 void compaction_free(){
+	for(int i=0; i<3; i++){
+		printf("%ld %.6f\n",compaction_timer[i].adding.tv_sec,(float)compaction_timer[i].adding.tv_usec/1000000);
+	}
 	compactor.stopflag=true;
 	int *temp;
 	for(int i=0; i<CTHREAD; i++){
@@ -466,15 +474,88 @@ void compaction_htable_read(Entry *ent,PTR* value){
 	return;
 }
 
+void CMI_sub(htable *t_table, level *t,int end_idx){
+	Entry *res;
+	value_set *temp=inf_get_valueset((char*)t_table->sets,FS_MALLOC_W,PAGESIZE);
+	htable *table=(htable*)malloc(sizeof(htable));
+	table->t_b=FS_MALLOC_W;
+	table->sets=(keyset*)temp->value;
+	table->origin=temp;
+	table->filter=t_table->filter;
+
+	res=level_make_entry(table->sets[0].lpa,table->sets[end_idx-1].lpa,UINT_MAX);
+#ifdef BLOOM
+	res->filter=table->filter;
+#endif
+
+#ifdef CACHE
+	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+	res->t_table=htable_copy(table); 
+	cache_entry *c_entry=cache_insert(LSM.lsm_cache,res,0);
+	res->c_entry=c_entry;
+	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+#endif
+	res->pbn=compaction_htable_write(table);
+
+	level_insert(t,res);
+	level_free_entry(res);
+}
 void compaction_subprocessing_CMI(skiplist * target,level * t,bool final,KEYT limit){
+	snode *n=target->header->list[1];
+	htable *t_table;
+	int idx=0;
+	while(n!=target->header){
+		if(idx==0){
+			t_table=htable_assign();
+#ifdef BLOOM
+			BF *filter=bf_init(KEYNUM,t->fpr);
+			t_table->filter=filter;
+#endif
+		}
+
+		t_table->sets[idx].lpa=n->key;
+		t_table->sets[idx].ppa=n->ppa;
+#ifdef BLOOM
+		bf_set(t_table->filter,n->key);
+#endif
+		idx++;
+
+		if(idx==1024){ //write table
+			CMI_sub(t_table,t,idx);
+			htable_free(t_table);
+			idx=0;
+		}
+		n=n->list[1];
+	}
+	if(idx!=0){
+		int t_idx=idx;
+		for(int i=idx; i<KEYNUM; i++){
+			t_table->sets[i].lpa=UINT_MAX;
+			t_table->sets[i].ppa=UINT_MAX;
+		}
+		CMI_sub(t_table,t,t_idx);
+		htable_free(t_table);
+	}
+}
+
+void c_ompaction_subprocessing_CMI(skiplist * target,level * t,bool final,KEYT limit){
 	KEYT ppa=UINT_MAX;
 	Entry *res=NULL;
-	htable *table=NULL;
 	skiplist *write_t=NULL;
 	int end_idx=0;
-	while((write_t=skiplist_cut(target, (final? (KEYNUM < target->size? KEYNUM : target->size):(KEYNUM)),limit))){
+
+	
+	htable *t_table=htable_assign();
+	while((write_t=skiplist_cut(target, (final? (KEYNUM < target->size? KEYNUM : target->size):(KEYNUM)),limit,t_table,t->fpr))){
 		end_idx=write_t->size;
-		table=compaction_htable_convert(write_t,t->fpr);
+		
+		value_set *temp=inf_get_valueset((char*)t_table->sets,FS_MALLOC_W,PAGESIZE);
+		htable *table=(htable*)malloc(sizeof(htable));
+		table->t_b=FS_MALLOC_W;
+		table->sets=(keyset*)temp->value;
+		table->origin=temp;
+		table->filter=t_table->filter;
+
 		res=level_make_entry(table->sets[0].lpa,table->sets[end_idx-1].lpa,ppa);
 #ifdef BLOOM
 		res->filter=table->filter;
@@ -490,15 +571,24 @@ void compaction_subprocessing_CMI(skiplist * target,level * t,bool final,KEYT li
 
 		level_insert(t,res);
 		level_free_entry(res);
+
+		htable_free(t_table);
+		t_table=htable_assign();
 	}
+	htable_free(t_table);
+
 }
 
 void compaction_subprocessing(skiplist *target,level *t, htable** datas,bool final,bool existIgnore){
 	//wait all header read
+	
+//	MS(&compaction_timer[0]);
 	compaction_sub_wait();
+//	MA(&compaction_timer[0]);
 	snode *check_node;
 	KEYT limit=0;
 	//static int cnt=0;
+//	MS(&compaction_timer[1]);
 	for(int i=0; i<epc_check; i++){//insert htable into target
 		htable *table=datas[i];
 		limit=table->sets[0].lpa;
@@ -521,10 +611,14 @@ void compaction_subprocessing(skiplist *target,level *t, htable** datas,bool fin
 			}
 		}
 	}
+//	MA(&compaction_timer[1]);
+
+//	MS(&compaction_timer[2]);
 	if(final)
 		compaction_subprocessing_CMI(target,t,final,UINT_MAX);
 	else
 		compaction_subprocessing_CMI(target,t,final,limit);
+//	MA(&compaction_timer[2]);
 }
 
 void compaction_lev_seq_processing(level *src, level *des, int headerSize){
@@ -980,6 +1074,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 		table=(htable**)malloc(sizeof(htable*)*t->m_num*2);
 		epc_check=0;
 
+	//	MS(&compaction_timer[0]);
 		int t_idx=0;
 		for(int i=0; data[i]!=NULL; i++){
 			Entry *temp=data[i];
@@ -1026,6 +1121,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 			t_idx++;
 		}
 
+//		MA(&compaction_timer[0]);
 		compaction_subprocessing(skip,t,table,1,false);
 		
 		t_idx=0;

@@ -1,0 +1,20 @@
+Initializing Connectal & DMA...
+If you want locality test Usage : [./simulator (LOCALITY(%)) (RATIO)]
+defalut locality=50% RATIO=0.5
+mutex_t : 0x3341af18 q:0x3341af10, size:1024
+mutex_t : 0x3341af78 q:0x3341af70, size:1024
+mutex_t : 0x3341afd8 q:0x3341afd0, size:1024
+nohost: [dm_nohost_probe] PROBE STARTED
+subprocess pid 23110 completed status=0 0
+[initPortalHardwareOnce:270] fd 5 len 0
+[checkSignature:167] read status from '/dev/connectal' was only 0 bytes long
+checkSignature: driver 'zynqportal.c' signature mismatch 9cb8a9a9ef0ddab3be8d562856f6edad e059016ac411386d6e2597d43bc49e15
+checkSignature: driver 'portalmem.c' signature mismatch fb32e7958b7727e4c40e2a4e90066ef8 eef0fb3bacb31283d694f7aef3d380b3
+Main::allocating memory...
+USE_ACP = FALSE
+USE_ACP = FALSE
+Main::allocating memory finished!
+[dmaManagerOnce:44]
+Requested FCLK[0]=200000000 actually 200000000
+Requested Freq: 200.00, Actual Freq: 200.00, status=0
+LOG: DEBUG DUMP: gearSend = -314376370, gearRec = 866795231, aurSend = 1934927769, aurRec = -620131907, readSend=-1827543496, writeSend=-1572243554
