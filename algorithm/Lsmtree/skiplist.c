@@ -222,6 +222,8 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		x->key=key;
 		x->isvalid=deletef;
 
+        x->is_updated = false;
+
 		x->ppa=UINT_MAX;
 		x->value=value;
 
