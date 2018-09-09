@@ -13,6 +13,7 @@
 
 #ifdef Lsmtree
 struct level;
+typedef struct htable htable;
 #endif
 typedef struct snode{ //skiplist's node
 	KEYT key;

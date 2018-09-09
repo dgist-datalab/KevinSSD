@@ -61,6 +61,7 @@ SRCS +=\
 	./include/dl_sync.c\
 	./include/rwlock.c\
 	./include/data_struct/hash.c\
+	./include/data_struct/list.c\
 	./bench/measurement.c\
 	./bench/bench.c\
 
