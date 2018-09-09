@@ -525,9 +525,9 @@ uint32_t __lsm_get(request *const req){
 	if(req->params==NULL){
 		int *_temp_data=(int *)malloc(sizeof(int)*3);
 		req->params=(void*)_temp_data;
-		run=0;
-		round=0;
-		level=0;
+		_temp_data[0]=run=0;
+		_temp_data[1]=round=0;
+		_temp_data[2]=level=0;
 	}
 	else{
 		int *temp_req=(int*)req->params;
