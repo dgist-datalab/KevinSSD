@@ -39,8 +39,8 @@ int __header_read_cnt;
 //int rwlock_cnt;
 //extern int readlockbywrite;
 void lsm_debug_print(){
-	printf("___get_mt:%lu\n",__get_mt.max);
-	printf("___get_mt2:%lu\n",__get_mt2.max);
+	printf("mt:%ld %.6f\n",__get_mt.adding.tv_sec,(float)__get_mt.adding.tv_usec/1000000);
+	printf("mt2:%ld %.6f\n",__get_mt2.adding.tv_sec,(float)__get_mt2.adding.tv_usec/1000000);
 	printf("header_read_cnt:%d\n",__header_read_cnt);
 //	printf("r lock by w:%d\n",readlockbywrite);
 	printf("\n");
@@ -312,6 +312,7 @@ void* lsm_end_req(algo_req* const req){
 }
 
 uint32_t lsm_set(request * const req){
+	MS(&__get_mt);
 	bench_algo_start(req);
 #ifdef DEBUG
 	printf("lsm_set!\n");
@@ -319,12 +320,14 @@ uint32_t lsm_set(request * const req){
 #endif
 
 	compaction_check();
+	MS(&__get_mt2);
 	if(req->type==FS_DELETE_T){
 		skiplist_insert(LSM.memtable,req->key,req->value,false);
 	}
 	else{
 		skiplist_insert(LSM.memtable,req->key,req->value,true);
 	}
+	MA(&__get_mt2);
 
 	req->value=NULL;
 	//req->value will be ignored at free
@@ -332,6 +335,7 @@ uint32_t lsm_set(request * const req){
 	bench_algo_end(req);
 	req->end_req(req); //end write
 
+	MA(&__get_mt);
 	if(LSM.memtable->size==KEYNUM)
 		return 1;
 	else
@@ -360,8 +364,8 @@ uint32_t lsm_get(request *const req){
 			bench_algo_start(tmp_req);
 			res_type=__lsm_get(tmp_req);
 			if(res_type==0){
-				//printf("from req not found seq: %d, key:%u\n",nor++,req->key);
-				//level_all_print();
+				printf("from req not found seq: %d, key:%u\n",nor++,req->key);
+				level_all_print();
 				tmp_req->type=FS_NOTFOUND_T;
 				tmp_req->end_req(tmp_req);
 				exit(1);
@@ -521,9 +525,9 @@ uint32_t __lsm_get(request *const req){
 	if(req->params==NULL){
 		int *_temp_data=(int *)malloc(sizeof(int)*3);
 		req->params=(void*)_temp_data;
-		run=0;
-		round=0;
-		level=0;
+		_temp_data[0]=run=0;
+		_temp_data[1]=round=0;
+		_temp_data[2]=level=0;
 	}
 	else{
 		int *temp_req=(int*)req->params;

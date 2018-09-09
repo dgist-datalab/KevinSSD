@@ -800,7 +800,6 @@ void invalidate_PPA(KEYT _ppa){
 	bl[bn].invalid_n++;
 	segment *segs=WHICHSEG(bl[bn].ppa);
 	segs->invalid_n++;
-
 	if(bl[bn].invalid_n>algo_lsm.li->PPB){
 		printf("invalidate:??\n");
 		abort();

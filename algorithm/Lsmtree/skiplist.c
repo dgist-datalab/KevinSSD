@@ -7,10 +7,11 @@
 #include"skiplist.h"
 #include"../../interface/interface.h"
 #ifdef Lsmtree
+#include "lsmtree.h"
 #include"page.h"
 #include "footer.h"
 
-
+extern MeasureTime compaction_timer[3];
 extern OOBT *oob;
 #endif
 
@@ -53,19 +54,20 @@ static int getLevel(){
 
 #ifdef Lsmtree
 snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
-
 	if(key>RANGE){
-		printf("bad page read\n");
+		printf("bad page read key:%u\n",key);
 		return NULL;
 	}
 	snode *update[MAX_L+1];
 	snode *x=list->header;
+
 
 	for(int i=list->level; i>=1; i--){
 		while(x->list[i]->key<key)
 			x=x->list[i];
 		update[i]=x;
 	}
+	
 	x=x->list[1];
 	if(key<list->start) list->start=key;
 	if(key>list->end) list->end=key;
@@ -198,7 +200,8 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 	//	algo_req * old_req=x->req;
 	//	lsm_params *old_params=(lsm_params*)old_req->params;
 	//	old_params->lsm_type=OLDDATA;
-		inf_free_valueset(x->value,FS_MALLOC_W);
+		if(x->value)
+			inf_free_valueset(x->value,FS_MALLOC_W);
 	//	old_req->end_req(old_req);
 
 		x->value=value;
@@ -480,17 +483,24 @@ snode *skiplist_pop(skiplist *list){
 }
 
 #ifdef Lsmtree
-skiplist *skiplist_cut(skiplist *list, KEYT num,KEYT limit){
+skiplist *skiplist_cut(skiplist *list, KEYT num,KEYT limit,htable *table, float fpr){
 	if(num==0) return NULL;
 	if(list->size<num) return NULL;
 	skiplist* res=NULL;
 	res=skiplist_init();
 	snode *h=res->header;
 	snode *temp;
+#ifdef BLOOM
+	BF *filter=bf_init(KEYNUM,fpr);
+	table->filter=filter;
+#endif
 	for(KEYT i=0; i<num; i++){
 		temp=skiplist_pop(list);
 		temp->value=NULL;
-		if(temp==NULL) return NULL;
+		if(temp==NULL){
+			return NULL;
+		}
+		
 		if(temp->key>=limit){
 			snode *temp_header=res->header->list[1];
 			snode *temp_s;
@@ -510,6 +520,12 @@ skiplist *skiplist_cut(skiplist *list, KEYT num,KEYT limit){
 			skiplist_free(res);
 			return NULL;
 		}
+		
+		table->sets[i].ppa=temp->ppa;
+		table->sets[i].lpa=temp->key;	
+#ifdef BLOOM
+		bf_set(table->filter,temp->key);
+#endif
 
 		res->start=temp->key>res->start?res->start:temp->key;
 		res->end=temp->key>res->end?temp->key:res->end;
@@ -518,6 +534,10 @@ skiplist *skiplist_cut(skiplist *list, KEYT num,KEYT limit){
 		h=temp;
 	}
 	res->size=num;
+	for(int i=num; i<KEYNUM; i++){
+		table->sets[i].ppa=UINT_MAX;
+		table->sets[i].lpa=UINT_MAX;
+	}
 	//error check
 	/*
 	   sk_iter* iter=skiplist_get_iterator(res);

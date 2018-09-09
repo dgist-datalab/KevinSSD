@@ -3,6 +3,7 @@
 #include "skiplist.h"
 #include "page.h"
 #include "run_array.h"
+#include "bloomfilter.h"
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +13,7 @@
 
 #include "../../interface/interface.h"
 #include "../../include/types.h"
+#include "../../include/data_struct/list.h"
 #ifdef DEBUG
 #endif
 
@@ -22,6 +24,7 @@ extern lsmtree LSM;
 extern block bl[_NOB];
 extern int comp_target_get_cnt;
 int epc_check=0;
+int upper_table=0;
 compM compactor;
 pthread_mutex_t compaction_wait;
 pthread_mutex_t compaction_flush_wait;
@@ -30,6 +33,7 @@ pthread_cond_t compaction_req_cond;
 int compaction_req_cnt;
 bool compaction_idle;
 int compactino_target_cnt;
+MeasureTime compaction_timer[5];
 #if (LEVELN==1)
 void onelevel_processing(Entry *);
 #endif
@@ -87,6 +91,9 @@ void compaction_heap_setting(level *a, level* b){
 }
 
 bool compaction_init(){
+	for(int i=0; i<5; i++){
+		measure_init(&compaction_timer[i]);
+	}
 	compactor.processors=(compP*)malloc(sizeof(compP)*CTHREAD);
 	memset(compactor.processors,0,sizeof(compP)*CTHREAD);
 
@@ -110,6 +117,9 @@ bool compaction_init(){
 
 
 void compaction_free(){
+	for(int i=0; i<5; i++){
+		printf("%ld %.6f\n",compaction_timer[i].adding.tv_sec,(float)compaction_timer[i].adding.tv_usec/1000000);
+	}
 	compactor.stopflag=true;
 	int *temp;
 	for(int i=0; i<CTHREAD; i++){
@@ -334,12 +344,16 @@ void *compaction_main(void *input){
 			break;
 
 
+		MS(&compaction_timer[0]);
 		int start_level=0,des_level;
 		req=(compR*)_req;
 		if(req->fromL==-1){
 			while(!gc_check(DATA,false)){
 			}
+			MS(&compaction_timer[3]);
 			htable *table=compaction_data_write(LSM.temptable);
+			MA(&compaction_timer[3]);
+
 			KEYT start=table->sets[0].lpa;
 			KEYT end=table->sets[KEYNUM-1].lpa;
 			Entry *entry=level_make_entry(start,end,-1);
@@ -384,11 +398,14 @@ void *compaction_main(void *input){
 #endif
 
 #ifdef WRITEWAIT
+		MS(&compaction_timer[4]);
 		LSM.li->lower_flying_req_wait();
 		pthread_mutex_unlock(&compaction_flush_wait);
+		MA(&compaction_timer[4]);
 #endif
 		//LSM.li->lower_show_info();
 		free(req);
+		MA(&compaction_timer[0]);
 	}
 	
 	return NULL;
@@ -466,18 +483,91 @@ void compaction_htable_read(Entry *ent,PTR* value){
 	return;
 }
 
+void CMI_sub(htable *t_table, level *t,int end_idx){
+	Entry *res;
+	value_set *temp=inf_get_valueset((char*)t_table->sets,FS_MALLOC_W,PAGESIZE);
+	htable *table=(htable*)malloc(sizeof(htable));
+	table->t_b=FS_MALLOC_W;
+	table->sets=(keyset*)temp->value;
+	table->origin=temp;
+
+	res=level_make_entry(table->sets[0].lpa,table->sets[end_idx-1].lpa,UINT_MAX);
+#ifdef BLOOM
+	res->filter=t_table->filter;
+#endif
+
+#ifdef CACHE
+	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+	res->t_table=htable_copy(table); 
+	cache_entry *c_entry=cache_insert(LSM.lsm_cache,res,0);
+	res->c_entry=c_entry;
+	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+#endif
+	res->pbn=compaction_htable_write(table);
+
+	level_insert(t,res);
+	level_free_entry(res);
+}
+
+
 void compaction_subprocessing_CMI(skiplist * target,level * t,bool final,KEYT limit){
+	snode *n=target->header->list[1];
+	htable *t_table;
+	int idx=0;
+	while(n!=target->header){
+		if(idx==0){
+			t_table=htable_assign();
+#ifdef BLOOM
+			BF *filter=bf_init(KEYNUM,t->fpr);
+			t_table->filter=filter;
+#endif
+		}
+
+		t_table->sets[idx].lpa=n->key;
+		t_table->sets[idx].ppa=n->ppa;
+#ifdef BLOOM
+		bf_set(t_table->filter,n->key);
+#endif
+		idx++;
+
+		if(idx==1024){ //write table
+			CMI_sub(t_table,t,idx);
+			htable_free(t_table);
+			idx=0;
+		}
+		n=n->list[1];
+	}
+	if(idx!=0){
+		int t_idx=idx;
+		for(int i=idx; i<KEYNUM; i++){
+			t_table->sets[i].lpa=UINT_MAX;
+			t_table->sets[i].ppa=UINT_MAX;
+		}
+		CMI_sub(t_table,t,t_idx);
+		htable_free(t_table);
+	}
+}
+
+void c_ompaction_subprocessing_CMI(skiplist * target,level * t,bool final,KEYT limit){
 	KEYT ppa=UINT_MAX;
 	Entry *res=NULL;
-	htable *table=NULL;
 	skiplist *write_t=NULL;
 	int end_idx=0;
-	while((write_t=skiplist_cut(target, (final? (KEYNUM < target->size? KEYNUM : target->size):(KEYNUM)),limit))){
+
+	
+	htable *t_table=htable_assign();
+	while((write_t=skiplist_cut(target, (final? (KEYNUM < target->size? KEYNUM : target->size):(KEYNUM)),limit,t_table,t->fpr))){
 		end_idx=write_t->size;
-		table=compaction_htable_convert(write_t,t->fpr);
+		
+		value_set *temp=inf_get_valueset((char*)t_table->sets,FS_MALLOC_W,PAGESIZE);
+		htable *table=(htable*)malloc(sizeof(htable));
+		table->t_b=FS_MALLOC_W;
+		table->sets=(keyset*)temp->value;
+		table->origin=temp;
+
 		res=level_make_entry(table->sets[0].lpa,table->sets[end_idx-1].lpa,ppa);
 #ifdef BLOOM
-		res->filter=table->filter;
+		res->filter=t_table->filter;
 #endif
 #ifdef CACHE
 		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
@@ -490,15 +580,360 @@ void compaction_subprocessing_CMI(skiplist * target,level * t,bool final,KEYT li
 
 		level_insert(t,res);
 		level_free_entry(res);
+
+		htable_free(t_table);
+		t_table=htable_assign();
 	}
+	htable_free(t_table);
+
+}
+
+bool check_bf(void *_a, void *_b){
+	keyset *a=(keyset*)_a;
+	keyset *b=(keyset*)_b;
+	if(a->lpa==b->lpa){
+		invalidate_PPA(a->ppa);
+		a->ppa=b->ppa;
+		return false;
+	}
+	return true;
+}
+
+bool check_af(void *_a, void *_b){
+	keyset *a=(keyset*)_a;
+	keyset *b=(keyset*)_b;
+	if(a->lpa==b->lpa){
+		invalidate_PPA(b->ppa);
+		return false;
+	}
+	return true;
+}
+
+bool cmp(__sli_node *_a, __sli_node *_b){
+	keyset *a=(keyset*)_a->data;
+	keyset *b=(keyset*)_b->data;
+	if(a->lpa<b->lpa){
+		return true;
+	}
+	return false;
+}
+_s_list *compaction_table_sort_list(_s_list *a, _s_list *b,bool existIgnore){
+	_s_list *res=__list_init();
+	bool is_a,done;
+	int a_idx=0,b_idx=0;
+	__sli_node* a_min=a->head, *b_min=b->head;
+	while(1){
+		is_a=done=false;
+		__sli_node *min;
+		if(cmp(a_min,b_min)){
+			is_a=true;
+			min=a_min;
+		}else{
+			min=b_min;
+		}
+		
+		if(((keyset*)min->data)->lpa>RANGE){
+			printf("error in sort\n");
+		}
+		if(existIgnore){
+			__list_insert(res,min->data,check_bf);
+		}else{
+			__list_insert(res,min->data,check_af);
+		}
+
+		if(is_a) {a_min=a_min->nxt; a_idx++;}
+		else {b_min=b_min->nxt;b_idx++;}
+
+		if(a_min==NULL){
+			
+			__sli_node *ptr=b_min;
+			__sli_node *nxt=b_min->nxt;
+			b_idx++;
+			if(existIgnore){
+				__list_insert(res,b_min->data,check_bf);
+			}else{
+				__list_insert(res,b_min->data,check_af);
+			}
+
+			ptr->nxt=NULL;
+			res->tail->nxt=nxt;
+			res->size+=b->size-b_idx;
+			/*
+			while(b_min){
+				if(((keyset*)b_min->data)->lpa>RANGE){
+					printf("error in sort\n");
+				}
+				if(existIgnore){
+					__list_insert(res,b_min->data,check_bf);
+				}else{
+					__list_insert(res,b_min->data,check_af);
+				}
+				b_min=b_min->nxt;
+			}*/	
+			done=true;
+		}else if(b_min==NULL){
+			
+			__sli_node *ptr=a_min;
+			__sli_node *nxt=a_min->nxt;
+			a_idx++;
+			if(existIgnore){
+				__list_insert(res,a_min->data,check_bf);
+			}else{
+				__list_insert(res,a_min->data,check_af);
+			}
+
+			ptr->nxt=NULL;
+			res->tail->nxt=nxt;
+			res->size+=a->size-a_idx;
+			/*
+			while(a_min){
+				if(((keyset*)a_min->data)->lpa>RANGE){
+					printf("error in sort\n");
+				}
+				if(existIgnore){
+					__list_insert(res,a_min->data,check_bf);
+				}else{
+					__list_insert(res,a_min->data,check_af);
+				}
+				a_min=a_min->nxt;
+			}*/	
+			done=true;	
+		}
+		if(done)break;
+	}
+
+	__list_free(a);
+	__list_free(b);
+	return res;
+}
+
+_s_list *compaction_table_sort_table(htable *a, htable *b,bool existIgnore){
+	_s_list *res=__list_init();
+	htable *nn=NULL;
+	bool is_a, done;
+	if(a==NULL || b==NULL) nn=a?a:b;
+	if(nn){
+		int idx=0;
+		while(idx<KEYNUM){
+			if(nn->sets[idx].lpa==UINT_MAX) break;
+			if(existIgnore){
+				__list_insert(res,(void*)&nn->sets[idx],check_bf);
+			}else{
+				__list_insert(res,(void*)&nn->sets[idx],check_af);
+			}
+			idx++;
+		}
+		return res;
+	}
+	int a_idx=0, b_idx=0;
+	keyset *a_min=&a->sets[a_idx], *b_min=&b->sets[b_idx];
+
+
+	while(1){
+		is_a=done=false;
+		keyset *min;
+		if(a_min->lpa< b_min->lpa){
+			is_a=true;
+			min=a_min;
+		}else{
+			min=b_min;
+		}
+		
+		__list_insert(res,(void*)min,existIgnore?check_bf:check_af);
+
+		is_a?a_idx++:b_idx++;
+		a_min=a_idx==KEYNUM? NULL:&a->sets[a_idx];	
+		b_min=b_idx==KEYNUM? NULL:&b->sets[b_idx];
+
+		if(a_idx>=KEYNUM || a_min->lpa==UINT_MAX){
+			while(b_idx<KEYNUM){
+				if(b_min->lpa==UINT_MAX) break;
+	
+
+				__list_insert(res,(void*)b_min,existIgnore?check_bf:check_af);
+
+				b_min=&b->sets[++b_idx];
+			}
+			done=true;
+		}else if(b_idx>=KEYNUM || b_min->lpa==UINT_MAX){	
+			while(a_idx<KEYNUM){
+				if(a_min->lpa==UINT_MAX) break;
+
+				__list_insert(res,(void*)a_min,existIgnore?check_bf:check_af);
+
+				a_min=&a->sets[++a_idx];
+			}
+			done=true;
+		}
+
+		if(done)break;
+	}
+	return res;
+}
+
+void __list_checking(_s_list *li){
+	__sli_node* ptr=li->head;
+	keyset *before=NULL;
+	//int idx=0;
+	while(ptr){
+		keyset *now=(keyset*)ptr->data;
+	//	printf("[%d] lpa:%d\n",idx++,now->lpa);
+		if(before && now->lpa <  before->lpa){
+			printf("error! sort\n");	
+		}else if(now->lpa>RANGE){
+			printf("error! over range\n");	
+		}
+		before=now;
+		ptr=ptr->nxt;
+	}
+}
+_s_list *compaction_table_merge_sort(int size, htable **t,bool existIgnore){
+	int target=size;
+	_s_list *res;
+	bool first=true;
+	if(target==1){
+		return compaction_table_sort_table(t[0],NULL,existIgnore);
+	}
+	_s_list** list=(_s_list**)malloc(sizeof(_s_list*)*target);
+	//MS(&compaction_timer[1]);
+	while(target!=1){
+		bool isodd=target%2; int i=0,t_idx=0;
+
+		for(i=0; i<target/2; i++){
+		//	MS(&compaction_timer[0]);
+			if(first){
+				list[i]=compaction_table_sort_table(t[t_idx],t[t_idx+1],existIgnore);
+		//		printf("total size:2048 ");
+			}else{
+		//		printf("total size:%d ",list[t_idx]->size+list[t_idx+1]->size);
+				list[i]=compaction_table_sort_list(list[t_idx],list[t_idx+1],existIgnore);
+			}
+		//	MT(&compaction_timer[0]);
+		//	__list_checking(list[i]);
+			t_idx+=2;
+		}
+		if(isodd){
+			if(first) list[i]=compaction_table_sort_table(t[t_idx],NULL,existIgnore);
+			else list[i]=list[t_idx];
+		}
+		first=false;
+		
+		target=target/2+target%2;
+	}
+	//printf("all %d:",size*KEYNUM);
+//	MT(&compaction_timer[1]);
+	res=list[0];
+	free(list);
+	return res;
+}
+
+htable *compaction_ht_convert_list(_s_list *data, float fpr, int *size){
+	value_set *temp=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
+	htable *res=(htable*)malloc(sizeof(htable));
+	res->t_b=FS_MALLOC_W;
+	res->sets=(keyset*)temp->value;
+	res->origin=temp;
+
+#ifdef BLOOM 
+	BF *filter=bf_init(KEYNUM,fpr);
+	res->filter=filter;
+#endif
+
+	__sli_node *ptr=data->head;
+	__sli_node *nxt=ptr->nxt;
+	for(int i=0; i<KEYNUM; i++){
+		res->sets[i].lpa=((keyset*)ptr->data)->lpa;
+		res->sets[i].ppa=((keyset*)ptr->data)->ppa;
+
+#ifdef BLOOM
+		bf_set(filter,res->sets[i].lpa);
+#endif
+		free(ptr);
+		ptr=nxt;
+		data->size--;
+		if(!ptr){
+			*size=i;
+			for(int j=i+1; j<KEYNUM; j++){
+				res->sets[j].lpa=UINT_MAX;
+				res->sets[j].ppa=UINT_MAX;
+			}
+			break;
+		}
+		nxt=ptr->nxt;
+		*size=i;
+	}
+	data->head=ptr;
+	return res;
+}
+void c_ompaction_subprocessing(skiplist *target,level *t, htable** datas,bool final,bool existIgnore){
+	//wait all header read
+	compaction_sub_wait();
+	//snode *check_node;
+	//KEYT limit=0;
+	htable **new_datas=(htable**)malloc(sizeof(htable**)*(epc_check+1));
+	if(target->size!=0){
+		new_datas[0]=(htable*)malloc(sizeof(htable));
+		new_datas[0]->sets=(keyset*)malloc(sizeof(keyset)*KEYNUM);
+		snode *now=target->header->list[1];
+		int idx=0;
+		while(now!=target->header){
+			new_datas[0]->sets[idx].lpa=now->key;
+			new_datas[0]->sets[idx].ppa=now->ppa;
+			now=now->list[1];
+			idx++;
+		}
+		memcpy(&new_datas[1],datas,sizeof(htable*)*epc_check);
+		epc_check++;
+	}else{
+		memcpy(&new_datas[0],datas,sizeof(htable*)*epc_check);
+	}
+
+	_s_list *sorted_table=compaction_table_merge_sort(epc_check,new_datas,existIgnore);
+	//__list_checking(sorted_table);
+
+
+	htable *table=NULL;
+	Entry *res=NULL;
+	KEYT ppa=UINT_MAX;
+	int end_idx=0;
+	//int idx=0;
+	while(sorted_table->size){
+		table=compaction_ht_convert_list(sorted_table,t->fpr,&end_idx);	
+		res=level_make_entry(table->sets[0].lpa,table->sets[end_idx].lpa,ppa);
+//		printf("[%d]res s:%d e:%d end_idx:%d size:%d\n",idx++,res->key,res->end,end_idx);
+#ifdef BLOOM
+		res->filter=table->filter;
+#endif
+#ifdef CACHE
+		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+		res->t_table=htable_copy(table);
+		cache_entry *c_entry=cache_insert(LSM.lsm_caceh,res,0);
+		res->c_entry=c_entry;
+		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+#endif
+		res->pbn=compaction_htable_write(table);
+		level_insert(t,res);
+		level_free_entry(res);
+	}
+	
+	if(target->size!=0){
+		free(new_datas[0]->sets);
+		free(new_datas[0]);
+	}
+
+	free(new_datas);
+	__list_free(sorted_table);
 }
 
 void compaction_subprocessing(skiplist *target,level *t, htable** datas,bool final,bool existIgnore){
 	//wait all header read
+	
 	compaction_sub_wait();
+
 	snode *check_node;
 	KEYT limit=0;
 	//static int cnt=0;
+	MS(&compaction_timer[1]);
 	for(int i=0; i<epc_check; i++){//insert htable into target
 		htable *table=datas[i];
 		limit=table->sets[0].lpa;
@@ -521,10 +956,14 @@ void compaction_subprocessing(skiplist *target,level *t, htable** datas,bool fin
 			}
 		}
 	}
+	MA(&compaction_timer[1]);
+
+	MS(&compaction_timer[2]);
 	if(final)
 		compaction_subprocessing_CMI(target,t,final,UINT_MAX);
 	else
 		compaction_subprocessing_CMI(target,t,final,limit);
+	MA(&compaction_timer[2]);
 }
 
 void compaction_lev_seq_processing(level *src, level *des, int headerSize){
@@ -672,7 +1111,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 			printf("-1 2 .... ttt\n");
 #endif
 			partial_leveling(target,target_origin,body,NULL);
-			skiplist_free(body);
+			skiplist_free(body);// free at compaction_subprocessing;
 			pthread_mutex_lock(&LSM.entrylock);
 			LSM.tempent=NULL;
 			pthread_mutex_unlock(&LSM.entrylock);
@@ -714,7 +1153,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 			}
 #endif
 			compaction_heap_setting(target,target_origin);
-			skiplist_free(body);
+			skiplist_free(body);// free at compaction_subprocessing
 			free(target_s);
 		}
 
@@ -924,6 +1363,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 		headerSize=level_range_find(origin,start,end,&target_s,true);
 		int target_round=headerSize/EPC+(headerSize%EPC?1:0);
 		int idx=0;
+		upper_table=0;
 		for(int round=0; round<target_round; round++){
 			compaction_sub_pre();
 			table=(htable**)malloc(sizeof(htable*)*EPC);
@@ -988,21 +1428,21 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(temp->c_entry){
 				table[t_idx]=htable_copy(temp->t_table);
-			//	memcpy_cnt++;
+				memcpy_cnt++;
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			}
 			else{
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
 				table[t_idx]=htable_assign();
-				epc_check++;
 				compaction_htable_read(temp,(PTR*)&table[t_idx]);
 #ifdef CACHE
 			}
 #endif
+			epc_check++;
 			t_idx++;
 		}
-		
+		upper_table=epc_check;
 		headerSize=level_range_find(origin,origin->start,origin->end,&target_s,true);
 		for(int i=0; i<headerSize; i++){
 			Entry *temp=target_s[i];
@@ -1011,18 +1451,18 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(temp->c_entry){
 				table[t_idx]=htable_copy(temp->t_table);
-			//	memcpy_cnt++;
+				memcpy_cnt++;
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			}
 			else{
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
 				table[t_idx]=htable_assign();
-				epc_check++;
 				compaction_htable_read(temp,(PTR*)&table[t_idx]);
 #ifdef CACHE
 			}
 #endif
+			epc_check++;
 			t_idx++;
 		}
 

@@ -13,6 +13,7 @@
 
 #ifdef Lsmtree
 struct level;
+typedef struct htable htable;
 #endif
 typedef struct snode{ //skiplist's node
 	KEYT key;
@@ -56,7 +57,7 @@ skiplist *skiplist_merge(skiplist *src,skiplist *des);
 snode *skiplist_insert_wP(skiplist*,KEYT,KEYT,bool);//with ppa;
 snode *skiplist_insert_existIgnore(skiplist *, KEYT,KEYT,bool); //insert skiplist, if key exists, input data be ignored
 value_set **skiplist_make_valueset(skiplist*,struct level *from);
-skiplist *skiplist_cut(skiplist*,KEYT size,KEYT limit);
+skiplist *skiplist_cut(skiplist*,KEYT size,KEYT limit, htable *,float fpr);
 #endif
 snode *skiplist_at(skiplist *,int idx);
 int skiplist_delete(skiplist*,KEYT); //delete by key, return 0:normal -1:empty -2:no key

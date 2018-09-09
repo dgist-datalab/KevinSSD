@@ -10,11 +10,11 @@
 #endif
 
 #define RAF 0.01
-#define LEVELN 4
+#define LEVELN 2
 
 #if LEVELN!=1
-#define BLOOM
-#define MONKEY
+//#define BLOOM
+//#define MONKEY
 #endif
 
 #define PIECE 512
@@ -23,7 +23,7 @@
 //#define CACHE
 //#define CACHESIZE 1//(100*128*1)//1*128==1M
 
-#define LEVELCACHING 0
+#define LEVELCACHING 1
 
 
 /*lsmtree flash thread*/
@@ -38,7 +38,7 @@
 //#define COSTBENEFIT
 
 /*compaction*/
-#define EPC 50 //size factor have to be multiple of SIZEFACTOR
+#define EPC 100000 //size factor have to be multiple of SIZEFACTOR
 
 /*block,header,data area variable*/
 #define HEADERSEG 4
