@@ -21,7 +21,7 @@ export CFLAGS_LOWER=\
 			 -lpthread\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\
-			 -O2\
+-O2\
 
 export priority="true"
 

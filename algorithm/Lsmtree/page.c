@@ -12,10 +12,10 @@
 #include <limits.h>
 extern algorithm algo_lsm;
 extern lsmtree LSM;
-extern int gc_target_get_cnt;
+extern volatile int gc_target_get_cnt;
 KEYT getRPPA(uint8_t type,KEYT lpa,bool);
 block* getRBLOCK(uint8_t type);
-int gc_read_wait;
+volatile int gc_read_wait;
 pthread_mutex_t gc_wait;
 #ifdef NOGC
 KEYT __ppa;

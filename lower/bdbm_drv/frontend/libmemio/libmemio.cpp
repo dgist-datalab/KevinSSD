@@ -618,3 +618,6 @@ bool memio_is_clean(memio_t *mio){
 	else
 		return false;
 }
+void memio_show_info(){
+	printf("m\n");
+}
