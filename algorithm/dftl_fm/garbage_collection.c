@@ -100,7 +100,7 @@ int32_t dpage_GC(){
     int real_valid;
     Block *victim;
     C_TABLE *c_table;
-    value_set *p_table_vs;
+    //value_set *p_table_vs;
     int32_t *p_table;
     //D_TABLE* on_dma;
     int32_t *temp_table;
@@ -109,6 +109,7 @@ int32_t dpage_GC(){
     demand_params *params;
     value_set *temp_value_set;
     value_set **temp_set;
+    value_set *dummy_vs;
 
     /* Load valid pages to SRAM */
     all = 0;
@@ -181,10 +182,10 @@ int32_t dpage_GC(){
         lpa = d_sram[i].OOB_RAM.lpa; // Get lpa of a page
         c_table = &CMT[D_IDX];
         t_ppa = c_table->t_ppa;
-        p_table_vs = c_table->p_table_vs;
+        p_table = c_table->p_table;
 
-        if(p_table_vs){ // cache hit
-            p_table = (int32_t *)p_table_vs->value;
+        if(p_table){ // cache hit
+            //p_table = (int32_t *)p_table_vs->value;
             if(c_table->flag == 2 && p_table[P_IDX] != d_sram[i].origin_ppa){
                 d_sram[i].origin_ppa = -1; // if not same as origin, it mean this is actually invalid data
                 continue;
@@ -217,7 +218,8 @@ int32_t dpage_GC(){
             params = (demand_params*)temp_req->params;
             __demand.li->pull_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req);
             dl_sync_wait(&params->dftl_mutex);
-            memcpy(temp_table, temp_value_set->value, PAGESIZE);
+            //memcpy(temp_table, temp_value_set->value, PAGESIZE);
+            temp_table = mem_arr[tce].mem_p;
             free(params);
             free(temp_req);
             inf_free_valueset(temp_value_set, FS_MALLOC_R);
@@ -236,8 +238,9 @@ int32_t dpage_GC(){
             BM_InvalidatePage(bm, t_ppa);
             twrite++;
             t_ppa = tp_alloc('D', NULL);
-            temp_value_set = inf_get_valueset((PTR)temp_table, FS_MALLOC_W, PAGESIZE); // Make valueset to WRITEMODE
-            __demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(TGC_W, temp_value_set, NULL)); // Unload page to ppa
+            //temp_value_set = inf_get_valueset((PTR)temp_table, FS_MALLOC_W, PAGESIZE); // Make valueset to WRITEMODE
+            dummy_vs = inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
+            __demand.li->push_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, assign_pseudo_req(TGC_W, dummy_vs, NULL)); // Unload page to ppa
             demand_OOB[t_ppa].lpa = c_table->idx;
             BM_ValidatePage(bm, t_ppa);
             c_table->t_ppa = t_ppa; // Update CMT t_ppa

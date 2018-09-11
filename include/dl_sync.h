@@ -5,8 +5,8 @@
 #include "settings.h"
 typedef struct dl_syncronizer{
 #ifdef SPINSYNC
-	uint64_t target_cnt;
-	uint64_t now_cnt;
+	volatile uint64_t target_cnt;
+	volatile uint64_t now_cnt;
 #else
 	pthread_mutex_t mutex_sync;
 #endif

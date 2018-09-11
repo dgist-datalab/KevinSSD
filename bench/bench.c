@@ -126,7 +126,7 @@ bench_value* get_bench(){
 
 	if(_m->n_num==_m->m_num){
 		while(!bench_is_finish_n(_master->n_num)){
-            //write_stop = false;
+            write_stop = false;
         }
 		printf("\rtesting...... [100%%] done!\n");
 		printf("\n");
