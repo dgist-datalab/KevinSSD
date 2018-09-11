@@ -23,7 +23,8 @@
 //#define CACHE
 //#define CACHESIZE 1//(100*128*1)//1*128==1M
 
-#define LEVELCACHING 1
+//#define LEVELCACHING 1
+//#define MERGECOMPACTION 1
 
 
 /*lsmtree flash thread*/
