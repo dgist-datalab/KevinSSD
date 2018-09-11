@@ -116,8 +116,8 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     //num_max_cache = max_cache_entry; // max cache
     //num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2; // 1/2 cache
     //num_max_cache = 1; // 1 cache
-    //num_max_cache = max_cache_entry / 4; // 1/4 cache
-    num_max_cache = max_cache_entry / 20; // 5%
+    num_max_cache = max_cache_entry / 4; // 1/4 cache
+    //num_max_cache = max_cache_entry / 20; // 5%
     //num_max_cache = max_cache_entry / 10; // 10%
     //num_max_cache = max_cache_entry / 8; // 16%
 
@@ -164,14 +164,12 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
     /* Table allocation & Init */
     CMT = (C_TABLE*)malloc(sizeof(C_TABLE) * max_cache_entry);
-    mem_arr = (mem_table *)malloc(sizeof(mem_table) * max_cache_entry);
     demand_OOB = (D_OOB*)malloc(sizeof(D_OOB) * num_page);
 
     for(int i = 0; i < max_cache_entry; i++){
         CMT[i].t_ppa = -1;
         CMT[i].idx = i;
-        CMT[i].p_table = NULL;
-        //CMT[i].p_table_vs = NULL;
+        CMT[i].p_table_vs = NULL;
         CMT[i].queue_ptr = NULL;
 #if C_CACHE
         CMT[i].clean_ptr = NULL;
@@ -181,11 +179,6 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     }
 
     memset(demand_OOB, -1, num_page * sizeof(D_OOB));
-
-    for (int i = 0; i < max_cache_entry; i++) {
-        mem_arr[i].mem_p = (int32_t *)malloc(PAGESIZE);
-        memset(mem_arr[i].mem_p, -1, PAGESIZE);
-    }
 
 
     /* Module Init */
@@ -204,9 +197,6 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
     q_init(&dftl_q, 1024);
     BM_Queue_Init(&free_b);
-    //for (int i = 0; i < max_cache_entry; i++) {
-    //    mem_enq(mem_q, mem_arr[i].mem_p);
-    //}
     for(int i = 0; i < num_block - 2; i++){
         BM_Enqueue(free_b, &bm->barray[i]);
     }
@@ -258,18 +248,15 @@ void demand_destroy(lower_info *li, algorithm *algo){
     printf("Clean eviction on write: %d\n", clean_evict_on_write);
     printf("Dirty eviction on write: %d\n\n", dirty_evict_on_write);
 
-    printf("Dirty eviction ratio: %.2f%%\n", 100*((float)dirty_eviction/(clean_eviction+dirty_eviction)));
-    printf("Dirty eviction ratio on read: %.2f%%\n", 100*((float)dirty_evict_on_read/(clean_evict_on_read+dirty_evict_on_read)));
-    printf("Dirty eviction ratio on write: %.2f%%\n\n", 100*((float)dirty_evict_on_write/(clean_evict_on_write+dirty_evict_on_write)));
+    printf("Dirty eviction ratio: %.2f%\n", 100*((float)dirty_eviction/(clean_eviction+dirty_eviction)));
+    printf("Dirty eviction ratio on read: %.2f%\n", 100*((float)dirty_evict_on_read/(clean_evict_on_read+dirty_evict_on_read)));
+    printf("Dirty eviction ratio on write: %.2f%\n\n", 100*((float)dirty_evict_on_write/(clean_evict_on_write+dirty_evict_on_write)));
 
     printf("WAF: %.2f\n\n", (float)(data_r+dirty_evict_on_write)/data_r);
 
     /* Clear modules */
     q_free(dftl_q);
     BM_Free(bm);
-    for (int i = 0; i < max_cache_entry; i++) {
-        free(mem_arr[i].mem_p);
-    }
 
     lru_free(lru);
 #if C_CACHE
@@ -277,7 +264,6 @@ void demand_destroy(lower_info *li, algorithm *algo){
 #endif
 
     /* Clear tables */
-    free(mem_arr);
     free(demand_OOB);
     free(CMT);
 }
@@ -333,7 +319,6 @@ void *demand_end_req(algo_req* input){
         case MAPPING_M: // unlock mutex lock for read mapping data completely
             trans_r++;
 
-            inf_free_valueset(temp_v, FS_MALLOC_R);
             pulled++;
             break;
         case TGC_R:
@@ -437,20 +422,23 @@ uint32_t __demand_set(request *const req){
     int32_t ppa; // Physical data page address
     int32_t t_ppa; // Translation page address
     C_TABLE *c_table; // Cache mapping entry pointer
-    //value_set *p_table_vs;
+    value_set *p_table_vs;
     int32_t *p_table; // pointer of p_table on cme
     algo_req *my_req; // pseudo request pointer
     bool gc_flag;
     //bool m_flag;
     bool d_flag;
-    //value_set *temp_value_set;
+    value_set *temp_value_set;
     algo_req *temp_req;
-    //demand_params *params; // pseudo request's params
-    value_set *dummy_vs;
+    demand_params *params; // pseudo request's params
 #if W_BUFF
     snode *temp;
     sk_iter *iter;
 #endif
+
+    bool have_to_do_more;
+    int32_t *pull_list;
+    int32_t pull_num;
 
     bench_algo_start(req);
     gc_flag = false;
@@ -462,6 +450,7 @@ uint32_t __demand_set(request *const req){
     }
 
     if (mem_buf->size == max_sl) {
+
         /* Push all the data to lower */
         iter = skiplist_get_iterator(mem_buf);
         for (int i = 0;i < max_sl; i++) {
@@ -482,11 +471,10 @@ uint32_t __demand_set(request *const req){
 
             lpa = temp->key;
             c_table = &CMT[D_IDX];
-            p_table = c_table->p_table;
-            //p_table_vs = c_table->p_table_vs;
+            p_table_vs = c_table->p_table_vs;
             t_ppa = c_table->t_ppa;
 
-            if (p_table) {
+            if (p_table_vs) {
                 cache_hit_on_write++;
 #if C_CACHE
                 if (!c_table->flag) { // Clean hit
@@ -535,23 +523,21 @@ uint32_t __demand_set(request *const req){
                     demand_eviction(req, 'W', &gc_flag, &d_flag);
                 }
 
-                dummy_vs = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
-                //p_table_vs = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
+                p_table_vs = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 
                 if(t_ppa != -1){ // If translation page is already existing -> pull from device
-                    temp_req = assign_pseudo_req(MAPPING_M, dummy_vs, NULL);
-                    __demand.li->pull_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+                    temp_req = assign_pseudo_req(MAPPING_M, NULL, NULL);
+                    __demand.li->pull_data(t_ppa, PAGESIZE, p_table_vs, ASYNC, temp_req);
                     pulling++;
 
                     BM_InvalidatePage(bm, t_ppa);
 
-                //} else { // New translation page -> init ppa as -1
-                    //p_table = (int32_t *)p_table_vs->value;
-                //    memset(p_table, -1, PAGESIZE);
+                } else { // New translation page -> init ppa as -1
+                    p_table = (int32_t *)p_table_vs->value;
+                    memset(p_table, -1, PAGESIZE);
                 }
 
-                //c_table->p_table_vs = p_table_vs;
-                c_table->p_table = mem_arr[D_IDX].mem_p;
+                c_table->p_table_vs = p_table_vs;
                 c_table->queue_ptr = lru_push(lru, (void*)c_table);
                 c_table->flag = 2;
 #if C_CACHE
@@ -570,9 +556,8 @@ uint32_t __demand_set(request *const req){
             // if there is previous data with same lpa, then invalidate it
             lpa = temp->key;
             c_table = &CMT[D_IDX];
-            //p_table_vs = c_table->p_table_vs;
-            //p_table = (int32_t *)p_table_vs->value;
-            p_table = c_table->p_table;
+            p_table_vs = c_table->p_table_vs;
+            p_table = (int32_t *)p_table_vs->value;
             if(p_table[P_IDX] != -1){
                 BM_InvalidatePage(bm, p_table[P_IDX]);
             }
@@ -607,7 +592,7 @@ uint32_t __demand_get(request *const req){
     int32_t ppa; // Physical data page address
     int32_t t_ppa; // Translation page address
     C_TABLE* c_table; // Cache mapping entry pointer
-    //value_set *p_table_vs;
+    value_set *p_table_vs;
     int32_t * p_table; // pointer of p_table on cme
     algo_req *my_req; // pseudo request pointer
     bool gc_flag;
@@ -647,15 +632,14 @@ uint32_t __demand_get(request *const req){
 #endif
     /* Assign values from cache table */
     c_table    = &CMT[D_IDX];
-    //p_table_vs = c_table->p_table_vs;
-    p_table    = c_table->p_table;
+    p_table_vs = c_table->p_table_vs;
     t_ppa      = c_table->t_ppa;
 
     /* Cache Hit */
-    if(p_table){
+    if(p_table_vs){
         cache_hit_on_read++;
 
-        //p_table = (int32_t *)p_table_vs->value;
+        p_table = (int32_t *)p_table_vs->value;
         ppa = p_table[P_IDX];
         if(ppa == -1){ // no mapping data -> not found
             bench_algo_end(req);
@@ -747,7 +731,7 @@ uint32_t __demand_get(request *const req){
 
     /* Mapping data is valid from now on */
 
-    if(!p_table) {
+    if(!p_table_vs) {
         cache_miss_on_read++;
 
         req->type_ftl += 2;
@@ -768,14 +752,11 @@ uint32_t __demand_get(request *const req){
         }
 
         // Give its own valueset (mapping page)
-        //c_table->p_table_vs = req->value;
+        c_table->p_table_vs = req->value;
 
         // Get new valueset (for actual data)
-        //req->value = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
+        req->value = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 
-        //p_table = mem_deq(mem_q);
-        p_table = mem_arr[D_IDX].mem_p;
-        c_table->p_table = p_table;
 #if C_CACHE
         c_table->clean_ptr = lru_push(c_lru, (void*)c_table);
         num_clean++;
@@ -786,7 +767,7 @@ uint32_t __demand_get(request *const req){
     }
 
     /* Get actual data from device */
-    //p_table = (int32_t *)(c_table->p_table_vs->value);
+    p_table = (int32_t *)(c_table->p_table_vs->value);
     ppa = p_table[P_IDX];
     if(ppa == -1){ // no mapping data -> not found
         bench_algo_end(req);
@@ -805,13 +786,12 @@ uint32_t __demand_remove(request *const req) {
     int32_t ppa;
     int32_t t_ppa;
     C_TABLE *c_table;
-    //value_set *p_table_vs;
+    value_set *p_table_vs;
     int32_t *p_table;
     bool gc_flag;
     bool d_flag;
-    value_set *dummy_vs;
 
-    //value_set *temp_value_set;
+    value_set *temp_value_set;
     algo_req *temp_req;
     demand_params *params;
 
@@ -826,7 +806,7 @@ uint32_t __demand_remove(request *const req) {
     }
 
     c_table = &CMT[D_IDX];
-    p_table = c_table->p_table;
+    p_table_vs = c_table->p_table_vs;
     t_ppa   = c_table->t_ppa;
 
 #if W_BUFF
@@ -837,7 +817,7 @@ uint32_t __demand_remove(request *const req) {
 #endif
 
     /* Get cache page from cache table */
-    if (p_table) { // Cache hit
+    if (p_table_vs) { // Cache hit
 #if C_CACHE
         if (!c_table->flag) { // Clean hit
             lru_update(c_lru, c_table->clean_ptr);
@@ -871,11 +851,11 @@ uint32_t __demand_remove(request *const req) {
 
         t_ppa = c_table->t_ppa;
 
-        dummy_vs = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
-        temp_req = assign_pseudo_req(MAPPING_M, NULL, NULL);
+        p_table_vs = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
+        temp_req   = assign_pseudo_req(MAPPING_M, NULL, NULL);
         params = (demand_params *)temp_req->params;
 
-        __demand.li->pull_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+        __demand.li->pull_data(t_ppa, PAGESIZE, p_table_vs, ASYNC, temp_req);
         MS(&req->latency_poll);
         dl_sync_wait(&params->dftl_mutex);
         MA(&req->latency_poll);
@@ -883,7 +863,7 @@ uint32_t __demand_remove(request *const req) {
         free(params);
         free(temp_req);
 
-        c_table->p_table = p_table;
+        c_table->p_table_vs = p_table_vs;
         c_table->queue_ptr = lru_push(lru, (void *)c_table);
 #if C_CACHE
         num_dirty++;
@@ -893,7 +873,7 @@ uint32_t __demand_remove(request *const req) {
     }
 
     /* Invalidate the page */
-    //p_table = (int32_t *)p_table_vs->value;
+    p_table = (int32_t *)p_table_vs->value;
     ppa = p_table[P_IDX];
 
     // Validity check by ppa
@@ -934,7 +914,6 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
     int32_t   *p_table;
     value_set *temp_value_set;
     algo_req  *temp_req;
-    value_set *dummy_vs;
 
     /* Eviction */
     evict_count++;
@@ -943,16 +922,15 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
         clean_eviction++;
         clean_evict_on_read++;
 
-        cache_ptr = (C_TABLE *)lru_pop(c_lru);
-        p_table   = cache_ptr->p_table;
+        cache_ptr  = (C_TABLE *)lru_pop(c_lru);
+        p_table_vs = cache_ptr->p_table_vs;
 
         cache_ptr->clean_ptr = NULL;
 
         // clear only when the victim page isn't still on the dirty cache
         if (cache_ptr->queue_ptr == NULL) {
-            //inf_free_valueset(p_table_vs, FS_MALLOC_R);
-            //cache_ptr->p_table_vs = NULL;
-            cache_ptr->p_table = NULL;
+            inf_free_valueset(p_table_vs, FS_MALLOC_R);
+            cache_ptr->p_table_vs = NULL;
         }
         num_clean--;
 
@@ -960,21 +938,20 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
         dirty_eviction++;
         dirty_evict_on_write++;
 
-        cache_ptr = (C_TABLE *)lru_pop(lru);
-        //p_table_vs = cache_ptr->p_table_vs;
+        cache_ptr  = (C_TABLE *)lru_pop(lru);
+        p_table_vs = cache_ptr->p_table_vs;
 
         *dflag = true;
 
         /* Write translation page */
         t_ppa = tp_alloc(req_t, flag);
-        //p_table = (int32_t *)p_table_vs->value;
-        //temp_value_set = inf_get_valueset((PTR)p_table, FS_MALLOC_W, PAGESIZE);
-        dummy_vs = inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
-        temp_req = assign_pseudo_req(MAPPING_W, dummy_vs, NULL);
+        p_table = (int32_t *)p_table_vs->value;
+        temp_value_set = inf_get_valueset((PTR)p_table, FS_MALLOC_W, PAGESIZE);
+        temp_req = assign_pseudo_req(MAPPING_W, temp_value_set, NULL);
 #if EVICT_POLL
         params = (demand_params *)temp_req->params;
 #endif
-        __demand.li->push_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+        __demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req);
 #if EVICT_POLL
         pthread_mutex_lock(&params->dftl_mutex);
         pthread_mutex_destory(&params->dftl_mutex);
@@ -991,9 +968,8 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
 
         // clear only when the victim page isn't on the clean cache
         if (cache_ptr->clean_ptr == NULL) {
-            //inf_free_valueset(p_table_vs, FS_MALLOC_R);
-            //cache_ptr->p_table_vs = NULL;
-            cache_ptr->p_table = NULL;
+            inf_free_valueset(p_table_vs, FS_MALLOC_R);
+            cache_ptr->p_table_vs = NULL;
         }
         num_dirty--;
     }
@@ -1003,11 +979,10 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
 uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag){
     int32_t   t_ppa;            // Translation page address
     C_TABLE   *cache_ptr;       // Cache mapping entry pointer
-    //value_set *p_table_vs;      // value_set of page table resides on FS_MALLOC_R area of DMA
+    value_set *p_table_vs;      // value_set of page table resides on FS_MALLOC_R area of DMA
     int32_t   *p_table;         // physical page table on value_set
-    //value_set *temp_value_set;  // valueset for write mapping table
+    value_set *temp_value_set;  // valueset for write mapping table
     algo_req  *temp_req;        // pseudo request pointer
-    value_set *dummy_vs;
 #if EVICT_POLL
     demand_params *params;
 #endif
@@ -1015,9 +990,9 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
     /* Eviction */
     evict_count++;
 
-    cache_ptr = (C_TABLE*)lru_pop(lru); // call pop to get least used cache
-    p_table   = cache_ptr->p_table;
-    t_ppa     = cache_ptr->t_ppa;
+    cache_ptr  = (C_TABLE*)lru_pop(lru); // call pop to get least used cache
+    p_table_vs = cache_ptr->p_table_vs;
+    t_ppa      = cache_ptr->t_ppa;
 
     if(cache_ptr->flag){ // When t_page on cache has changed
         dirty_eviction++;
@@ -1031,14 +1006,13 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
 
         /* Write translation page */
         t_ppa = tp_alloc(req_t, flag);
-        //p_table = (int32_t *)p_table_vs->value;
-        //temp_value_set = inf_get_valueset((PTR)p_table, FS_MALLOC_W, PAGESIZE);
-        dummy_vs = inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
-        temp_req = assign_pseudo_req(MAPPING_W, dummy_vs, NULL);
+        p_table = (int32_t *)p_table_vs->value;
+        temp_value_set = inf_get_valueset((PTR)p_table, FS_MALLOC_W, PAGESIZE);
+        temp_req = assign_pseudo_req(MAPPING_W, temp_value_set, NULL);
 #if EVICT_POLL
         params = (demand_params*)temp_req->params;
 #endif
-        __demand.li->push_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+        __demand.li->push_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req);
 #if EVICT_POLL
         pthread_mutex_lock(&params->dftl_mutex);
         pthread_mutex_destroy(&params->dftl_mutex);
@@ -1058,9 +1032,9 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
         }
     }
 
-    //inf_free_valueset(p_table_vs, FS_MALLOC_R);
-    cache_ptr->queue_ptr = NULL;
-    cache_ptr->p_table   = NULL;
+    inf_free_valueset(p_table_vs, FS_MALLOC_R);
+    cache_ptr->queue_ptr  = NULL;
+    cache_ptr->p_table_vs = NULL;
     num_caching--;
 
     return 1;

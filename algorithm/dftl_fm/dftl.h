@@ -44,7 +44,8 @@ typedef struct demand_mapping_table{
 typedef struct cached_table{
     int32_t t_ppa;
     int32_t idx;
-    value_set *p_table_vs;
+    int32_t *p_table;
+    //value_set *p_table_vs;
     NODE *queue_ptr; // for dirty pages (or general use)
 #if C_CACHE
     NODE *clean_ptr; // for clean pages
@@ -77,7 +78,7 @@ typedef struct read_params{
 } read_params;
 
 typedef struct mem_table{
-    D_TABLE *mem_p;
+    int32_t *mem_p;
 } mem_table;
 
 /* extern variables */
@@ -91,6 +92,7 @@ extern Heap *trans_b;
 
 extern C_TABLE *CMT; // Cached Mapping Table
 extern uint8_t *VBM;
+extern mem_table *mem_arr;
 extern b_queue *mem_q;
 extern D_OOB *demand_OOB; // Page level OOB
 
