@@ -41,14 +41,12 @@ typedef struct Node{
 	char **body_addr;
 }Node;
 
-#if (LEVELN==1)
 typedef struct o_entry{
 	KEYT pba;
 	KEYT start;
 	KEYT end;
 	htable *table;
 }o_entry;
-#endif
 
 typedef struct level{
 #ifdef LEVELUSEINGHEAP
@@ -72,8 +70,12 @@ typedef struct level{
 	KEYT start;
 	KEYT end;
 	bool iscompactioning;
-#ifdef LEVELCACHING
+#if defined(LEVELCACHING) || defined(LEVELEMUL)
 	skiplist *level_cache;
+#endif
+#ifdef LEVELEMUL
+	//KEYT *pbn_list;
+	o_entry *o_ent;
 #endif
 	struct skiplist *remain;
 //	pthread_mutex_t *level_lock;
@@ -125,6 +127,7 @@ void level_tier_align(level *);
 void level_print(level *);//
 void level_all_print();//
 bool level_all_check_ext(KEYT lpa);
+void level_oent_print(level *);
 void level_free(level *);//
 void level_free_entry(Entry *);//
 void level_save(level *);

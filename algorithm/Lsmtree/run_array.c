@@ -37,11 +37,18 @@ Entry *level_entcpy(Entry *src, char *des){
 bool level_full_check(level *input){
 #ifdef LEVELCACHING
 	if(input->level_idx<LEVELCACHING){
-		if(input->level_cache->size/KEYNUM >= (uint32_t)input->m_num-1){
+		if(input->level_cache->size/KEYNUM>=(uint32_t)(input->m_num/(SIZEFACTOR)*(SIZEFACTOR-1))){
 			return true;
 		}
 		return false;
 	}
+#endif
+
+#ifdef LEVELEMUL
+	if(input->level_cache->size/KEYNUM >=(uint32_t)(input->m_num/(SIZEFACTOR)*(SIZEFACTOR-1))){
+		return true;
+	}
+	return false;
 #endif
 	if(input->isTiering){
 		if(input->r_n_idx==input->r_m_num)
@@ -160,9 +167,27 @@ level *level_init(level *input,int all_entry,int idx,float fpr, bool isTiering){
 	input->remain=NULL;
 	//input->version_info=0;
 	input->level_idx=idx;
-#ifdef LEVELCACHING
-	input->level_cache=idx<LEVELCACHING? skiplist_init():NULL;
+#ifdef LEVELEMUL
+		input->level_cache=NULL;
 #endif
+
+#ifdef LEVELCACHING
+		input->level_cache=idx<LEVELCACHING? skiplist_init():NULL;
+#endif
+
+#ifdef LEVELEMUL
+	#ifdef LEVELCACHING
+	if(idx>=LEVELCACHING){
+	#endif
+		input->o_ent=(o_entry*)malloc(sizeof(o_entry)*input->m_num);
+		for(int i=0; i<input->m_num; i++){
+			input->o_ent[i].pba=UINT_MAX;
+		}
+	#ifdef LEVELCACHING
+	}
+	#endif
+#endif
+
 	//heap init
 	input->now_block=NULL;
 #ifdef LEVELUSINGHEAP
@@ -251,7 +276,7 @@ Node *level_insert_seq(level *input, Entry *entry){
 	if(input->n_num==input->m_num){ 
 		printf("level full!!\n");
 		level_print(input);
-		exit(1);
+		abort();
 		return NULL;
 	}
 	
@@ -307,7 +332,7 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 	if(input->n_num==input->m_num){ 
 		printf("level full!!\n");
 		level_print(input);
-		exit(1);
+		abort();
 		return NULL;
 	}
 
@@ -451,6 +476,15 @@ void level_free(level *input){
 	}
 #endif
 
+
+
+#ifdef LEVELEMUL
+	#ifdef LEVELCACHING
+	if(input->level_idx>LEVELCACHING)
+	#endif
+		free(input->o_ent);
+#endif
+
 #if LEVELN!=1
 	for(int i=0; i<target; i++){
 		Node *temp_run=ns_run(input,i);
@@ -498,6 +532,15 @@ Entry *level_make_entry(KEYT key,KEYT end,KEYT pbn){
 	ent->req=NULL;
 #endif
 	return ent;
+}
+
+void level_oent_print(level *l){
+#ifdef LEVELEMUL
+	for(int i=0; i<l->m_num; i++){
+		if(l->o_ent[i].pba==UINT_MAX) break;
+			printf("[%d] %d ~ %d, pbn:%d\n",i,l->o_ent[i].start, l->o_ent[i].end,l->o_ent[i].pba);
+	}
+#endif
 }
 
 void level_free_entry(Entry *entry){

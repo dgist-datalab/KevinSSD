@@ -97,7 +97,6 @@ _s_list *compaction_table_sort_list(_s_list *a, _s_list *b,bool existIgnore){
 		}
 		if(done)break;
 	}
-
 	//printf("res[%p] size:%d  before:%d after:%d\n",res,res->size,a->size+b->size,res->size);
 	__list_free(a);
 	__list_free(b);

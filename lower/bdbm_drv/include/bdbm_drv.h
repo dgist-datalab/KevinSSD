@@ -209,7 +209,7 @@ typedef struct {
 	uint8_t isbad;
 	
 	uint8_t path_type;
-//	uint8_t before_path_type;
+	//uint8_t before_path_type;
 
 	bdbm_cond_t* cond;
 	int* counter;

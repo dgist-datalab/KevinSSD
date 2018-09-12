@@ -19,6 +19,8 @@
 #ifdef DEBUG
 #endif
 
+#define ISIN(a,b,c) ((a)<=(b) && (b)<=(c))
+
 struct algorithm algo_lsm={
 	.create=lsm_create,
 	.destroy=lsm_destroy,
@@ -379,10 +381,10 @@ uint32_t lsm_get(request *const req){
 			res_type=__lsm_get(tmp_req);
 			if(res_type==0){
 				printf("from req not found seq: %d, key:%u\n",nor++,req->key);
-				level_all_print();
+		//		level_all_print();
 				tmp_req->type=FS_NOTFOUND_T;
 				tmp_req->end_req(tmp_req);
-				exit(1);
+				abort();
 			}
 		}
 		else 
@@ -392,6 +394,8 @@ uint32_t lsm_get(request *const req){
 		for(int i=0; i<LEVELN; i++){
 			//printf("level : %d\n",i);
 			//level_print(LSM.disk[i]);
+			printf("level :%d\n",i);
+			level_oent_print(LSM.disk[i]);
 #if (LEVELN==1)
 			/*
 			for(int j=0; j<TOTALSIZE/PAGESIZE/KEYNUM; j++){
@@ -409,6 +413,7 @@ uint32_t lsm_get(request *const req){
 //		level_all_print();
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
+		abort();
 //		exit(1);
 	}
 	return res_type;
@@ -507,6 +512,35 @@ int __lsm_get_sub(request *req,Entry *entry, keyset *table,skiplist *list){
 	}
 	return res;
 }
+#ifdef LEVELEMUL
+KEYT find_O_ent(level *input, KEYT key){
+	int s=0, e=input->n_num;
+	int m=(s+e)/2;
+	o_entry *t=&input->o_ent[m];
+	if(ISIN(t->start,key,t->end))
+		return t->pba;
+	while(s<=e){
+		if(ISIN(t->start,key,t->end))
+			return t->pba;
+		if(t->start>key)
+			e=m-1;
+		if(t->end<key)
+			s=m+1;
+		m=(s+e)/2;
+		t=&input->o_ent[m];
+	}
+
+	return UINT_MAX;
+}
+#endif
+void dummy_htable_read(KEYT pbn,request *req){
+	algo_req *lsm_req=lsm_get_req_factory(req);
+	lsm_params *params=(lsm_params*)lsm_req->params;
+	lsm_req->type=HEADERR;
+	params->lsm_type=HEADERR;
+	params->ppa=pbn;
+	LSM.li->pull_data(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+}
 uint32_t __lsm_get(request *const req){
 	/*memtable*/
 	int res=__lsm_get_sub(req,NULL,NULL,LSM.memtable);
@@ -558,20 +592,27 @@ uint32_t __lsm_get(request *const req){
 		LSM.li->pull_data(mapinfo.sets[offset].ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 		return 1;
 #else
+
+#ifdef LEVELEMUL
+		res=__lsm_get_sub(req,NULL,NULL,LSM.disk[level]->level_cache);
+		if(res) return res;
+		level++;
+#else
 		Entry **_entry=level_find(LSM.disk[level],req->key);
 		//rwlock_read_unlock(&LSM.level_rwlock[level]);
-#ifdef CACHE
+	#ifdef CACHE
 		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-#endif
+	#endif
 		res=__lsm_get_sub(req,_entry[run],mapinfo.sets,NULL);	
-#ifdef CACHE
+	#ifdef CACHE
 		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 		_entry[run]->req=NULL;
 		_entry[run]->isflying=0;
-#endif
-
+	#endif
 		free(_entry);
 		if(res)return res;
+#endif
+
 #ifndef FLASHCHCK
 		run+=1;
 #endif
@@ -590,6 +631,21 @@ uint32_t __lsm_get(request *const req){
 			if(res) return res;
 			else continue;
 		}
+#endif
+
+#ifdef LEVELEMUL
+		KEYT pbn;
+		int *temp_data=(int*)req->params;
+		temp_data[0]=i;
+		temp_data[1]=0;
+		round++;
+		temp_data[2]=round;
+		if((pbn=find_O_ent(LSM.disk[i],req->key))!=UINT_MAX){
+			bench_algo_end(req);
+			dummy_htable_read(pbn,req);
+			return 3;
+		}
+		else continue;
 #endif
 
 #if (LEVELN==1)
