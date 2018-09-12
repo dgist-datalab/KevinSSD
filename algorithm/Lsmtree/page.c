@@ -5,6 +5,7 @@
 #include "footer.h"
 #include "skiplist.h"
 #include "run_array.h"
+#include "nocpy.h"
 #include "../../include/rwlock.h"
 #include <string.h>
 #include <stdlib.h>
@@ -358,6 +359,7 @@ void gc_data_read(KEYT ppa,htable_t *value,bool isdata){
 	params->lsm_type=isdata?GCDR:GCHR;
 	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
 	params->target=(PTR*)value->sets;
+	params->ppa=ppa;
 	value->origin=params->value;
 
 	areq->parents=NULL;
@@ -376,7 +378,12 @@ void gc_data_write(KEYT ppa,htable_t *value,bool isdata){
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 
 	params->lsm_type=isdata?GCDW:GCHW;
+#ifdef NOCPY
+	params->value=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
+	nocpy_copy_from((char*)value->sets,ppa);
+#else
 	params->value=inf_get_valueset((PTR)(value)->sets,FS_MALLOC_W,PAGESIZE);
+#endif
 
 
 	areq->parents=NULL;

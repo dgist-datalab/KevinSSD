@@ -9,6 +9,7 @@
 #include "run_array.h"
 #include "lsmtree.h"
 #include "page.h"
+#include "nocpy.h"
 #include "factory.h"
 #include<stdio.h>
 #include <unistd.h>
@@ -143,6 +144,9 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	LSM.li=li;
 	algo_lsm.li=li;
 	pm_init();
+#ifdef NOCPY
+	nocpy_init();
+#endif
 	return 0;
 }
 
@@ -168,6 +172,7 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	printf("data gc: %d\n",data_gc_cnt);
 	printf("header gc: %d\n",header_gc_cnt);
 	printf("block gc: %d\n",block_gc_cnt);
+	nocpy_free();
 }
 
 extern pthread_mutex_t compaction_wait,gc_wait;
@@ -198,7 +203,12 @@ void* lsm_end_req(algo_req* const req){
 				//mem cpy for compaction
 				t_table=(htable**)params->target;
 				table=*t_table;
+#ifdef NOCPY
+				nocpy_copy_to((char*)table->sets,params->ppa);
+#else
 				memcpy(table->sets,params->value->value,PAGESIZE);
+#endif
+
 				//htable_print(table,params->ppa);
 				comp_target_get_cnt++;
 #ifdef CACHE
@@ -242,7 +252,11 @@ void* lsm_end_req(algo_req* const req){
 		case GCDR:
 		case GCHR:
 			target=(PTR)params->target;//gc has malloc in gc function
+#ifdef NOCPY
+			nocpy_copy_to((char*)target,params->ppa);
+#else
 			memcpy(target,params->value->value,PAGESIZE);
+#endif
 
 			if(gc_read_wait==gc_target_get_cnt){
 #ifdef MUTEXLOCK
@@ -452,8 +466,10 @@ int __lsm_get_sub(request *req,Entry *entry, keyset *table,skiplist *list){
 			res=4;
 		}
 	}
-	
-	if(table){//retry check or cache hit check
+	if(!res && table){//retry check or cache hit check
+#ifdef NOCPY
+		table=(keyset*)nocpy_pick(entry->pbn);
+#endif
 		target_set=htable_find(table,req->key);
 		if(target_set){
 #if defined(CACHE) && !defined(FLASHCECK)

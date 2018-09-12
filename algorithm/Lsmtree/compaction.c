@@ -5,6 +5,7 @@
 #include "run_array.h"
 #include "bloomfilter.h"
 #include "merge_compaction.h"
+#include "nocpy.h"
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -233,7 +234,12 @@ htable *compaction_data_write(skiplist *mem){
 	value_set *temp=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
 	htable *res=(htable*)malloc(sizeof(htable));
 	res->t_b=FS_MALLOC_W;
+#ifdef NOCPY
+	res->sets=(keyset*)malloc(PAGESIZE);
+#else
 	res->sets=(keyset*)temp->value;
+#endif
+
 	res->origin=temp;
 	snode *target;
 	sk_iter* iter=skiplist_get_iterator(mem);
@@ -255,7 +261,6 @@ htable *compaction_data_write(skiplist *mem){
 		idx++;
 	}
 	free(iter);
-
 	isflushing=false;
 	return res;
 }
@@ -268,10 +273,13 @@ KEYT compaction_htable_write(htable *input){
 	areq->parents=NULL;
 	areq->rapid=false;
 	params->lsm_type=HEADERW;
-
 	params->value=input->origin;
 	params->htable_ptr=(PTR)input;
-	
+
+#ifdef NOCPY
+	nocpy_copy_from((char*)input->sets,ppa);
+	free(input->sets);
+#endif
 	
 	//htable_print(input);
 	areq->end_req=lsm_end_req;
@@ -483,10 +491,22 @@ void compaction_htable_read(Entry *ent,PTR* value){
 
 void CMI_sub(htable *t_table, level *t,int end_idx){
 	Entry *res;
+#ifdef NOCPY
+	value_set *temp=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
+#else
 	value_set *temp=inf_get_valueset((char*)t_table->sets,FS_MALLOC_W,PAGESIZE);
+#endif
+
 	htable *table=(htable*)malloc(sizeof(htable));
 	table->t_b=FS_MALLOC_W;
+
+#ifdef NOCPY
+	table->sets=(keyset*)malloc(PAGESIZE);
+	memcpy(table->sets,t_table->sets,PAGESIZE);
+#else
 	table->sets=(keyset*)temp->value;
+#endif
+
 	table->origin=temp;
 
 	res=level_make_entry(table->sets[0].lpa,table->sets[end_idx-1].lpa,UINT_MAX);
@@ -1209,7 +1229,8 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 			Entry *temp=data[i];
 			if(temp->iscompactioning!=3)
 				invalidate_PPA(temp->pbn);
-			free(table[t_idx]);
+			//free(table[t_idx]);
+			htable_free(table[t_idx]);
 			t_idx++;
 		}
 
@@ -1217,7 +1238,8 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 			Entry *temp=target_s[i];
 			if(temp->iscompactioning!=3)
 				invalidate_PPA(temp->pbn);
-			free(table[t_idx]);
+			//free(table[t_idx]);
+			htable_free(table[t_idx]);
 			t_idx++;
 		}
 
