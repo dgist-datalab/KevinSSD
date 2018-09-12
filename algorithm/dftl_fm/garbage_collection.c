@@ -6,7 +6,7 @@ int32_t tpage_GC(){
     int32_t old_block;
     int32_t new_block;
     uint8_t all;
-    int valid_page_num;
+    volatile int valid_page_num;
     Block *victim;
     value_set **temp_set;
     D_SRAM *d_sram; // SRAM for contain block data temporarily
@@ -95,9 +95,9 @@ int32_t dpage_GC(){
     int32_t t_ppa;
     int32_t old_block;
     int32_t new_block;
-    int32_t twrite;
-    int valid_num;
-    int real_valid;
+    volatile int32_t twrite;
+    volatile int valid_num;
+    volatile int real_valid;
     Block *victim;
     C_TABLE *c_table;
     //value_set *p_table_vs;
@@ -263,7 +263,7 @@ int32_t dpage_GC(){
     while(data_gc_poll != real_valid + twrite) {} // polling for reading all data
 #endif
 
-    free(temp_table);
+    //free(temp_table);
     free(temp_set);
     free(d_sram);
 
