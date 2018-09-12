@@ -413,7 +413,7 @@ uint32_t lsm_get(request *const req){
 //		level_all_print();
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
-		abort();
+	//	abort();
 //		exit(1);
 	}
 	return res_type;
