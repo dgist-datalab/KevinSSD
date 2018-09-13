@@ -1261,9 +1261,12 @@ int gc_header(KEYT tbn){
 
 	KEYT start=target->ppa;
 	htable_t **tables=(htable_t**)malloc(sizeof(htable_t*)*algo_lsm.li->PPB);
+#if (defined(LEVELEMUL) || LEVELN==1)
+	o_entry **target_oent=(o_entry**)malloc(sizeof(o_entry*)*algo_lsm.li->PPB);
+#endif
+
 #if (LEVELN==1)
 	level *now=LSM.disk[0];
-	o_entry **target_oent=(o_entry**)malloc(sizeof(o_entry*)*algo_lsm.li->PPB);
 #else
 	Entry **target_ent=(Entry**)malloc(sizeof(Entry*)*algo_lsm.li->PPB);
 #endif
@@ -1293,6 +1296,11 @@ int gc_header(KEYT tbn){
 			}
 			else continue;
 		}
+#ifdef LEVELEMUL
+		KEYT tlpa=PBITGET(t_ppa);
+		target_oent[i]=find_O_ent(now,tlpa);
+		continue;
+#endif
 #else
 		KEYT lpa=PBITGET(t_ppa);
 		Entry **entries=NULL;

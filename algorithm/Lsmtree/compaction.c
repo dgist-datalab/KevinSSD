@@ -890,8 +890,19 @@ uint32_t leveling(int from, int to, Entry *entry){
 	while(t_node!=tskip->header){
 		if(idx==0){
 			tstart=t_node->key;
+#ifdef BLOOM
+			if(target->o_ent[o_idx].filter)bf_free(target->o_ent[o_idx].filter);
+			bf_init(target->o_ent[o_idx].filter,target->fpr);
+#endif
+			if(!target->o_ent[o_idx].table) target->o_ent[o_idx].table=(snode**)malloc(sizeof(snode*)*KEYNUM);
+			target->o_ent[o_idx].size=0;
 		}
 		tend=t_node->key;
+		target->o_ent[o_idx].table[idx]=t_node;
+		target->o_ent[o_idx].size++;
+#ifdef BLOOM
+		bf_sets(target->o_ent[o_idx].filter,tend);
+#endif
 		idx++;
 		if(idx==1024){
 			target->o_ent[o_idx].start=tstart;
@@ -914,7 +925,7 @@ uint32_t leveling(int from, int to, Entry *entry){
 		target->n_num++;
 	}
 
-	free(body);
+	skiplist_free(body);
 	goto chg_level;
 
 #endif

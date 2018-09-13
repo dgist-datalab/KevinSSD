@@ -19,7 +19,6 @@
 #ifdef DEBUG
 #endif
 
-#define ISIN(a,b,c) ((a)<=(b) && (b)<=(c))
 
 struct algorithm algo_lsm={
 	.create=lsm_create,
@@ -512,27 +511,6 @@ int __lsm_get_sub(request *req,Entry *entry, keyset *table,skiplist *list){
 	}
 	return res;
 }
-#ifdef LEVELEMUL
-KEYT find_O_ent(level *input, KEYT key){
-	int s=0, e=input->n_num;
-	int m=(s+e)/2;
-	o_entry *t=&input->o_ent[m];
-	if(ISIN(t->start,key,t->end))
-		return t->pba;
-	while(s<=e){
-		if(ISIN(t->start,key,t->end))
-			return t->pba;
-		if(t->start>key)
-			e=m-1;
-		if(t->end<key)
-			s=m+1;
-		m=(s+e)/2;
-		t=&input->o_ent[m];
-	}
-
-	return UINT_MAX;
-}
-#endif
 void dummy_htable_read(KEYT pbn,request *req){
 	algo_req *lsm_req=lsm_get_req_factory(req);
 	lsm_params *params=(lsm_params*)lsm_req->params;
@@ -594,8 +572,15 @@ uint32_t __lsm_get(request *const req){
 #else
 
 #ifdef LEVELEMUL
+		/*
 		res=__lsm_get_sub(req,NULL,NULL,LSM.disk[level]->level_cache);
-		if(res) return res;
+		if(res) return res;*/
+		KEYT tppa=find_S_ent(&LSM.disk[level]->o_ent[run],req->key);
+		if(tppa!=UINT_MAX){
+			algo_req *mreq=lsm_get_req_factory(req);
+			LSM.li->pull_data(tppa,PAGESIZE,req->value,ASYNC,mreq);
+			return 1;
+		}
 		level++;
 #else
 		Entry **_entry=level_find(LSM.disk[level],req->key);
@@ -634,15 +619,15 @@ uint32_t __lsm_get(request *const req){
 #endif
 
 #ifdef LEVELEMUL
-		KEYT pbn;
 		int *temp_data=(int*)req->params;
 		temp_data[0]=i;
 		temp_data[1]=0;
 		round++;
-		temp_data[2]=round;
-		if((pbn=find_O_ent(LSM.disk[i],req->key))!=UINT_MAX){
+		temp_data[2];
+		o_entry *toent=find_O_ent(LSM.disk[i],req->key,(uint32_t*)&temp_data[1]);
+		if(toent && toent->pba!=UINT_MAX){
 			bench_algo_end(req);
-			dummy_htable_read(pbn,req);
+			dummy_htable_read(toent->pba,req);
 			return 3;
 		}
 		else continue;

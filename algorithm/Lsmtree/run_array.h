@@ -13,7 +13,8 @@
 #include "heap.h"
 
 struct htable;
-struct skiplis;
+struct skiplisa;
+struct snode;
 typedef struct Entry{
 	KEYT key;
 	KEYT end;
@@ -45,7 +46,11 @@ typedef struct o_entry{
 	KEYT pba;
 	KEYT start;
 	KEYT end;
-	htable *table;
+#ifdef BLOOM
+	bloomfilter *filter;
+#endif
+	snode **table;
+	int size;
 }o_entry;
 
 typedef struct level{
@@ -113,6 +118,10 @@ void level_moveTo_front_page(level*);
 void level_move_heap(level * des, level *src);
 bool level_now_block_fchk(level *in);
 bool level_all_check(KEYT);
+#ifdef LEVELEMUL
+o_entry* find_O_ent(level *input, KEYT key, KEYT *idx);
+KEYT find_S_ent(o_entry *input, KEYT key);
+#endif
 #ifdef DVALUE
 void level_move_next_page(level *);
 void level_save_blocks(level *);
