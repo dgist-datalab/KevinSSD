@@ -380,11 +380,11 @@ void gc_data_write(KEYT ppa,htable_t *value,bool isdata){
 	params->lsm_type=isdata?GCDW:GCHW;
 #ifdef NOCPY
 	params->value=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
-	nocpy_copy_from((char*)value->sets,ppa);
+	if(!isdata)
+		nocpy_copy_from((char*)value->sets,ppa);
 #else
 	params->value=inf_get_valueset((PTR)(value)->sets,FS_MALLOC_W,PAGESIZE);
 #endif
-
 
 	areq->parents=NULL;
 	areq->end_req=lsm_end_req;
@@ -931,6 +931,9 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 	gc_data_oneleveling(gn,size,target_level);
 	return;
 #endif
+#ifdef LEVELEMUL
+	o_entry 
+#endif
 	level *in=LSM.disk[target_level];
 	htable_t **datas=(htable_t**)malloc(sizeof(htable_t*)*in->m_num);
 	Entry **entries;
@@ -959,6 +962,10 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			printf("entry null!\n");
 		}
 
+#ifdef LEVELEMUL
+
+
+#else
 		for(int j=0; entries[j]!=NULL;j++){
 			datas[htable_idx]=(htable_t*)malloc(sizeof(htable_t));
 #ifdef CACHE
@@ -971,6 +978,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			gc_data_read(entries[j]->pbn,datas[htable_idx],false);
 			htable_idx++;
 		}
+#endif
 
 		gc_general_waiting();
 
@@ -1299,6 +1307,7 @@ int gc_header(KEYT tbn){
 #ifdef LEVELEMUL
 		KEYT tlpa=PBITGET(t_ppa);
 		target_oent[i]=find_O_ent(now,tlpa);
+		gc_data_read(t_ppa,tables[i],false);
 		continue;
 #endif
 #else
@@ -1378,7 +1387,7 @@ int gc_header(KEYT tbn){
 	}
 
 	gc_general_waiting();
-#if (LEVELN==1)
+#if ((LEVELN==1)|| defined(LEVELEMUL))
 	o_entry *test;
 #else
 	Entry *test;
@@ -1390,7 +1399,7 @@ int gc_header(KEYT tbn){
 		KEYT t_ppa=start+i;
 		KEYT lpa=PBITGET(t_ppa);
 		KEYT n_ppa=getRPPA(HEADER,lpa,true);
-#if (LEVELN==1)
+#if ((LEVELN==1)|| defined(LEVELEMUL))
 		test=target_oent[i];
 		test->pba=n_ppa;
 #else
@@ -1402,8 +1411,12 @@ int gc_header(KEYT tbn){
 		free(tables[i]);
 
 	}
+
 	free(tables);
-#if (LEVELN!=1)
+
+#if ((LEVELN==1)|| defined(LEVELEMUL))
+	free(target_oent);
+#else
 	free(target_ent);
 #endif
 	gc_trim_segment(HEADER,target->ppa);
