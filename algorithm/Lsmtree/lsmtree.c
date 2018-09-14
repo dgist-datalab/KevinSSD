@@ -254,7 +254,8 @@ void* lsm_end_req(algo_req* const req){
 		case GCHR:
 			target=(PTR)params->target;//gc has malloc in gc function
 #ifdef NOCPY
-			nocpy_copy_to((char*)target,params->ppa);
+			if(params->lsm_type==GCHR)
+				nocpy_copy_to((char*)target,params->ppa);
 #else
 			memcpy(target,params->value->value,PAGESIZE);
 #endif
