@@ -7,6 +7,9 @@
 #include<limits.h>
 #include<string.h>
 #include<unistd.h>
+
+#define ISIN(a,b,c) ((a)<=(b) && (b)<=(c))
+
 extern int32_t SIZEFACTOR;
 extern int save_fd;
 extern lsmtree LSM;
@@ -37,11 +40,18 @@ Entry *level_entcpy(Entry *src, char *des){
 bool level_full_check(level *input){
 #ifdef LEVELCACHING
 	if(input->level_idx<LEVELCACHING){
-		if(input->level_cache->size/KEYNUM >= (uint32_t)input->m_num-1){
+		if(input->level_cache->size/KEYNUM>=(uint32_t)(input->m_num/(SIZEFACTOR)*(SIZEFACTOR-1))){
 			return true;
 		}
 		return false;
 	}
+#endif
+
+#ifdef LEVELEMUL
+	if(input->level_cache->size/KEYNUM >=(uint32_t)(input->m_num/(SIZEFACTOR)*(SIZEFACTOR-1))){
+		return true;
+	}
+	return false;
 #endif
 	if(input->isTiering){
 		if(input->r_n_idx==input->r_m_num)
@@ -160,9 +170,31 @@ level *level_init(level *input,int all_entry,int idx,float fpr, bool isTiering){
 	input->remain=NULL;
 	//input->version_info=0;
 	input->level_idx=idx;
-#ifdef LEVELCACHING
-	input->level_cache=idx<LEVELCACHING? skiplist_init():NULL;
+#ifdef LEVELEMUL
+		input->level_cache=NULL;
 #endif
+
+#ifdef LEVELCACHING
+		input->level_cache=idx<LEVELCACHING? skiplist_init():NULL;
+#endif
+
+#ifdef LEVELEMUL
+	#ifdef LEVELCACHING
+	if(idx>=LEVELCACHING){
+	#endif
+		input->o_ent=(o_entry*)malloc(sizeof(o_entry)*input->m_num);
+		for(int i=0; i<input->m_num; i++){
+			input->o_ent[i].pba=UINT_MAX;
+			input->o_ent[i].table=NULL;
+			#ifdef BLOOM
+			input->o_ent[i].filter=NULL;
+			#endif
+		}
+	#ifdef LEVELCACHING
+	}
+	#endif
+#endif
+
 	//heap init
 	input->now_block=NULL;
 #ifdef LEVELUSINGHEAP
@@ -251,7 +283,7 @@ Node *level_insert_seq(level *input, Entry *entry){
 	if(input->n_num==input->m_num){ 
 		printf("level full!!\n");
 		level_print(input);
-		exit(1);
+		abort();
 		return NULL;
 	}
 	
@@ -307,7 +339,7 @@ Node *level_insert(level *input,Entry *entry){//always sequential
 	if(input->n_num==input->m_num){ 
 		printf("level full!!\n");
 		level_print(input);
-		exit(1);
+		abort();
 		return NULL;
 	}
 
@@ -448,7 +480,27 @@ void level_free(level *input){
 #ifdef LEVELCACHING
 	if(input->level_idx<LEVELCACHING){
 		skiplist_free(input->level_cache);
+		input->level_cache=NULL;
 	}
+#endif
+
+
+
+#ifdef LEVELEMUL
+	#ifdef LEVELCACHING
+	if(input->level_idx>LEVELCACHING){
+	#endif
+		for(int i=0; i<input->m_num; i++){
+			#ifdef BLOOM
+			bf_free(input->o_ent[i].filter);
+			#endif
+			free(input->o_ent[i].table);
+		}
+		free(input->o_ent);
+	#ifdef LEVELCACHING
+	}
+	#endif
+	if(input->level_cache)skiplist_free(input->level_cache);
 #endif
 
 #if LEVELN!=1
@@ -498,6 +550,15 @@ Entry *level_make_entry(KEYT key,KEYT end,KEYT pbn){
 	ent->req=NULL;
 #endif
 	return ent;
+}
+
+void level_oent_print(level *l){
+#ifdef LEVELEMUL
+	for(int i=0; i<l->m_num; i++){
+		if(l->o_ent[i].pba==UINT_MAX) break;
+			printf("[%d] %d ~ %d, pbn:%d\n",i,l->o_ent[i].start, l->o_ent[i].end,l->o_ent[i].pba);
+	}
+#endif
 }
 
 void level_free_entry(Entry *entry){
@@ -842,3 +903,47 @@ void level_save_blocks(level *in){
 #endif
 }
 #endif
+#ifdef LEVELEMUL
+o_entry* find_O_ent(level *input, KEYT key, KEYT *idx){
+	int s=0, e=input->n_num;
+	int m=(s+e)/2;
+	o_entry *t=&input->o_ent[m];
+	if(ISIN(t->start,key,t->end)){
+		*idx=m;
+		return t;
+	}
+	while(s<=e){
+		if(ISIN(t->start,key,t->end)){
+			*idx=m;
+			return t;
+		}
+		if(t->start>key)
+			e=m-1;
+		if(t->end<key)
+			s=m+1;
+		m=(s+e)/2;
+		t=&input->o_ent[m];
+	}
+	return NULL;
+}
+KEYT find_S_ent(o_entry *input, KEYT key){
+	int s=0, e=input->size;
+	int m=(s+e)/2;
+	snode **tl=input->table;
+	if(key==tl[m]->key){
+		return tl[m]->ppa;
+	}
+	while(s<=e){
+		if(key==tl[m]->key){
+			return tl[m]->ppa;
+		}
+		if(tl[m]->key>key)
+			e=m-1;
+		if(tl[m]->key<key)
+			s=m+1;
+		m=(s+e)/2;
+	}
+	return UINT_MAX;
+}
+#endif
+

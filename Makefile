@@ -65,6 +65,7 @@ SRCS +=\
 	./include/rwlock.c\
 	./include/data_struct/hash.c\
 	./include/data_struct/list.c\
+	./include/utils/thpool.c\
 	./bench/measurement.c\
 	./bench/bench.c\
 
@@ -109,6 +110,7 @@ libsimulator.a: $(TARGETOBJ)
 	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
 	cd ./include/kuk_socket_lib/ && $(MAKE) && mv ./*.o ../../object/ && cd ../../
 	mv ./include/data_struct/*.o ./object/
+	mv ./include/utils/*.o ./object/
 	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
 	$(AR) r $(@) ./object/*
 

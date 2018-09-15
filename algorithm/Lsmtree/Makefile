@@ -21,12 +21,14 @@ SRCS +=\
 	   skiplist.c\
 	   bloomfilter.c\
 	   lsmtree.c\
+	   merge_compaction.c\
 	   compaction.c\
 	   page.c\
 	   heap.c\
 	   footer.c\
 	   log_list.c\
 	   factory.c\
+	   nocpy.c\
 #cache.c\
 
 OBJS :=\

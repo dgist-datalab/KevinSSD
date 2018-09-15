@@ -69,6 +69,7 @@ static void assign_req(request* req){
 	void *m_req=NULL;
 #endif
 	while(!flag){
+
 		for(int i=0; i<THREADSIZE; i++){
 			processor *t=&mp.processors[i];
 #ifdef interface_pq
@@ -133,9 +134,7 @@ static void assign_req(request* req){
 			}
 #endif
 		}
-#ifdef LEAKCHECK
-		sleep(1);
-#endif
+
 	}
 
 	//if(!req->isAsync){
@@ -172,9 +171,7 @@ void *p_main(void *__input){
 	__hash_node *t_h_node;
 	//int control_cnt=0;
 	while(1){
-#ifdef LEAKCHECK
-		sleep(1);
-#endif
+
 		if(force_write_start ||(write_stop && _this->req_q->size==QDEPTH)){
 			write_stop=false;
 		}
@@ -207,7 +204,9 @@ void *p_main(void *__input){
 				}
 			}
 			pthread_mutex_unlock(&wq_lock);
-			if(!req_flag)continue;
+			if(!req_flag){
+				continue;
+			}
 		}
 #endif
 		inf_req=(request*)_inf_req;

@@ -9,6 +9,7 @@
 #include "run_array.h"
 #include "lsmtree.h"
 #include "page.h"
+#include "nocpy.h"
 #include "factory.h"
 #include<stdio.h>
 #include <unistd.h>
@@ -17,6 +18,7 @@
 #include <fcntl.h>
 #ifdef DEBUG
 #endif
+
 
 struct algorithm algo_lsm={
 	.create=lsm_create,
@@ -143,6 +145,9 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	LSM.li=li;
 	algo_lsm.li=li;
 	pm_init();
+#ifdef NOCPY
+	nocpy_init();
+#endif
 	return 0;
 }
 
@@ -168,6 +173,7 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	printf("data gc: %d\n",data_gc_cnt);
 	printf("header gc: %d\n",header_gc_cnt);
 	printf("block gc: %d\n",block_gc_cnt);
+	nocpy_free();
 }
 
 extern pthread_mutex_t compaction_wait,gc_wait;
@@ -198,7 +204,12 @@ void* lsm_end_req(algo_req* const req){
 				//mem cpy for compaction
 				t_table=(htable**)params->target;
 				table=*t_table;
+#ifdef NOCPY
+				nocpy_copy_to((char*)table->sets,params->ppa);
+#else
 				memcpy(table->sets,params->value->value,PAGESIZE);
+#endif
+
 				//htable_print(table,params->ppa);
 				comp_target_get_cnt++;
 #ifdef CACHE
@@ -242,7 +253,12 @@ void* lsm_end_req(algo_req* const req){
 		case GCDR:
 		case GCHR:
 			target=(PTR)params->target;//gc has malloc in gc function
+#ifdef NOCPY
+			if(params->lsm_type==GCHR)
+				nocpy_copy_to((char*)target,params->ppa);
+#else
 			memcpy(target,params->value->value,PAGESIZE);
+#endif
 
 			if(gc_read_wait==gc_target_get_cnt){
 #ifdef MUTEXLOCK
@@ -365,10 +381,10 @@ uint32_t lsm_get(request *const req){
 			res_type=__lsm_get(tmp_req);
 			if(res_type==0){
 				printf("from req not found seq: %d, key:%u\n",nor++,req->key);
-				level_all_print();
+		//		level_all_print();
 				tmp_req->type=FS_NOTFOUND_T;
 				tmp_req->end_req(tmp_req);
-				exit(1);
+				abort();
 			}
 		}
 		else 
@@ -378,6 +394,8 @@ uint32_t lsm_get(request *const req){
 		for(int i=0; i<LEVELN; i++){
 			//printf("level : %d\n",i);
 			//level_print(LSM.disk[i]);
+			printf("level :%d\n",i);
+			level_oent_print(LSM.disk[i]);
 #if (LEVELN==1)
 			/*
 			for(int j=0; j<TOTALSIZE/PAGESIZE/KEYNUM; j++){
@@ -395,6 +413,7 @@ uint32_t lsm_get(request *const req){
 //		level_all_print();
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
+	//	abort();
 //		exit(1);
 	}
 	return res_type;
@@ -452,8 +471,10 @@ int __lsm_get_sub(request *req,Entry *entry, keyset *table,skiplist *list){
 			res=4;
 		}
 	}
-	
-	if(table){//retry check or cache hit check
+	if(!res && table){//retry check or cache hit check
+#ifdef NOCPY
+		table=(keyset*)nocpy_pick(entry->pbn);
+#endif
 		target_set=htable_find(table,req->key);
 		if(target_set){
 #if defined(CACHE) && !defined(FLASHCECK)
@@ -490,6 +511,14 @@ int __lsm_get_sub(request *req,Entry *entry, keyset *table,skiplist *list){
 #endif
 	}
 	return res;
+}
+void dummy_htable_read(KEYT pbn,request *req){
+	algo_req *lsm_req=lsm_get_req_factory(req);
+	lsm_params *params=(lsm_params*)lsm_req->params;
+	lsm_req->type=HEADERR;
+	params->lsm_type=HEADERR;
+	params->ppa=pbn;
+	LSM.li->pull_data(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 }
 uint32_t __lsm_get(request *const req){
 	/*memtable*/
@@ -542,20 +571,34 @@ uint32_t __lsm_get(request *const req){
 		LSM.li->pull_data(mapinfo.sets[offset].ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 		return 1;
 #else
+
+#ifdef LEVELEMUL
+		/*
+		res=__lsm_get_sub(req,NULL,NULL,LSM.disk[level]->level_cache);
+		if(res) return res;*/
+		KEYT tppa=find_S_ent(&LSM.disk[level]->o_ent[run],req->key);
+		if(tppa!=UINT_MAX){
+			algo_req *mreq=lsm_get_req_factory(req);
+			LSM.li->pull_data(tppa,PAGESIZE,req->value,ASYNC,mreq);
+			return 1;
+		}
+		level++;
+#else
 		Entry **_entry=level_find(LSM.disk[level],req->key);
 		//rwlock_read_unlock(&LSM.level_rwlock[level]);
-#ifdef CACHE
+	#ifdef CACHE
 		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-#endif
+	#endif
 		res=__lsm_get_sub(req,_entry[run],mapinfo.sets,NULL);	
-#ifdef CACHE
+	#ifdef CACHE
 		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 		_entry[run]->req=NULL;
 		_entry[run]->isflying=0;
-#endif
-
+	#endif
 		free(_entry);
 		if(res)return res;
+#endif
+
 #ifndef FLASHCHCK
 		run+=1;
 #endif
@@ -574,6 +617,21 @@ uint32_t __lsm_get(request *const req){
 			if(res) return res;
 			else continue;
 		}
+#endif
+
+#ifdef LEVELEMUL
+		int *temp_data=(int*)req->params;
+		temp_data[0]=i;
+		temp_data[1]=0;
+		round++;
+		temp_data[2]=round;
+		o_entry *toent=find_O_ent(LSM.disk[i],req->key,(uint32_t*)&temp_data[1]);
+		if(toent && toent->pba!=UINT_MAX){
+			bench_algo_end(req);
+			dummy_htable_read(toent->pba,req);
+			return 3;
+		}
+		else continue;
 #endif
 
 #if (LEVELN==1)
