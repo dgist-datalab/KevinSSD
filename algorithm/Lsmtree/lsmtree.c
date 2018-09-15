@@ -624,7 +624,7 @@ uint32_t __lsm_get(request *const req){
 		temp_data[0]=i;
 		temp_data[1]=0;
 		round++;
-		temp_data[2];
+		temp_data[2]=round;
 		o_entry *toent=find_O_ent(LSM.disk[i],req->key,(uint32_t*)&temp_data[1]);
 		if(toent && toent->pba!=UINT_MAX){
 			bench_algo_end(req);
