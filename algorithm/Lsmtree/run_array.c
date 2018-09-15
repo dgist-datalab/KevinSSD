@@ -926,16 +926,16 @@ o_entry* find_O_ent(level *input, KEYT key, KEYT *idx){
 	}
 	return NULL;
 }
-KEYT find_S_ent(o_entry *input, KEYT key){
+snode* find_S_ent(o_entry *input, KEYT key){
 	int s=0, e=input->size;
 	int m=(s+e)/2;
 	snode **tl=input->table;
 	if(key==tl[m]->key){
-		return tl[m]->ppa;
+		return tl[m];
 	}
 	while(s<=e){
 		if(key==tl[m]->key){
-			return tl[m]->ppa;
+			return tl[m];
 		}
 		if(tl[m]->key>key)
 			e=m-1;
@@ -943,7 +943,7 @@ KEYT find_S_ent(o_entry *input, KEYT key){
 			s=m+1;
 		m=(s+e)/2;
 	}
-	return UINT_MAX;
+	return NULL;
 }
 #endif
 

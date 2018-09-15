@@ -633,7 +633,7 @@ bool gc_check(uint8_t type, bool force){
 					header_gc_cnt++; 
 					break;
 				case DATA:
-					//printf("data gc:%d\n",data_gc_cnt);
+					printf("data gc:%d\n",data_gc_cnt);
 					//gc_compaction_checking();
 					//compaction_force();
 					target_p=&data_m;
@@ -932,11 +932,13 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 	return;
 #endif
 #ifdef LEVELEMUL
-	o_entry 
+	o_entry *oent=NULL;
+	KEYT oe_idx=0;
+#else
+	Entry **entries;
 #endif
 	level *in=LSM.disk[target_level];
 	htable_t **datas=(htable_t**)malloc(sizeof(htable_t*)*in->m_num);
-	Entry **entries;
 	//bool debug=false;
 	for(int i=0; i<size; i++){
 		if(gn[i]==NULL) continue;
@@ -952,9 +954,21 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			continue;
 		}
 #endif
-		entries=level_find(in,target->lpa);
-		int htable_idx=0;
 		gc_general_wait_init();
+
+#ifdef LEVELEMUL
+		oent=find_O_ent(in,target->lpa,&oe_idx);
+		if(!oent){
+			printf("entry null\n");
+			abort();
+		}
+		else{
+			datas[0]=(htable_t*)malloc(sizeof(htable_t));
+			gc_data_read(oent->pba,datas[0],false);
+		}
+#else
+		int htable_idx=0;
+		entries=level_find(in,target->lpa);
 	
 		if(entries==NULL){
 			level_all_print();
@@ -962,10 +976,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			printf("entry null!\n");
 		}
 
-#ifdef LEVELEMUL
 
-
-#else
 		for(int j=0; entries[j]!=NULL;j++){
 			datas[htable_idx]=(htable_t*)malloc(sizeof(htable_t));
 #ifdef CACHE
@@ -982,6 +993,31 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 
 		gc_general_waiting();
 
+#ifdef LEVELEMUL
+		int temp_i=i;
+		for(int k=i; k<size; k++){
+			target=gn[k];
+			snode *finded=find_S_ent(oent,target->lpa);
+			if(finded && finded->ppa==target->ppa){
+				finded->ppa=target->nppa;
+				free(target);
+				gn[k]=NULL;
+				i++;
+			}
+			else{
+				if(k==temp_i){
+					printf("what the fuck?\n"); //not founded in level
+					abort();			
+				}
+				i--;
+			}
+		}
+		KEYT temp_header=oent->pba;
+		invalidate_PPA(temp_header);
+		oent->pba=getPPA(HEADER,oent->start,true);
+		gc_data_write(oent->pba,NULL,false);
+		free(datas[0]);
+#else
 		//rwlock_read_lock(&LSM.level_rwlock[in->level_idx]);
 		for(int j=0; j<htable_idx; j++){
 			htable_t *data=datas[j];
@@ -1030,6 +1066,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			free(data);
 		}
 		free(entries);
+#endif
 		//rwlock_read_unlock(&LSM.level_rwlock[in->level_idx]);
 	}
 	free(datas);
@@ -1428,8 +1465,8 @@ int gc_header(KEYT tbn){
 }
 static int gc_dataed_page;
 int gc_data(KEYT tbn){//
-	//gc_data_cnt++;
-	//printf("gc_data_cnt : %d\n",gc_data_cnt);
+	gc_data_cnt++;
+	printf("gc_data_cnt : %d, tbn:%d\n",gc_data_cnt,tbn);
 	block *target=&bl[tbn];
 	char order;
 	if(tbn%BPS==0)	order=0;
