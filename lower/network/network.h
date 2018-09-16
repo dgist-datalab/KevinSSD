@@ -19,11 +19,26 @@
 #define RQ_TYPE_TRIM    4
 #define RQ_TYPE_FLYING  5
 
+#define IP "127.0.0.1"
+#define PORT 9999
+
+
+struct net_data {
+    int8_t type;
+    KEYT ppa;
+    algo_req *req;
+};
+
+struct mem_seg {
+    PTR storage;
+    bool alloc;
+};
+
 
 uint32_t net_info_create(lower_info *li);
 void *net_info_destroy(lower_info *li);
 void *net_info_push_data(KEYT ppa, uint32_t size, value_set *value, bool async, algo_req *const req);
 void *net_info_pull_data(KEYT ppa, uint32_t size, value_set *value, bool async, algo_req *const req);
 void *net_info_trim_block(KEYT ppa, bool async);
-void *net_refresh(struct lower_info* li);
 void net_info_flying_req_wait();
+void *net_refresh(struct lower_info* li);

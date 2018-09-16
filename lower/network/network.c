@@ -1,7 +1,5 @@
 #include "network.h"
 
-#define IP "127.0.0.1"
-#define PORT 9999
 
 lower_info net_info = {
     .create      = net_info_create,
@@ -18,22 +16,10 @@ lower_info net_info = {
     .lower_show_info = NULL
 };
 
-struct net_data {
-    int8_t type;
-    KEYT ppa;
-    algo_req *req;
-};
-
-struct mem_seg {
-    PTR storage;
-    bool alloc;
-};
-
 struct mem_seg *seg_table;
 
 int sock_fd;
 struct sockaddr_in serv_addr;
-char buf[1024];
 pthread_mutex_t flying_lock;
 
 pthread_t tid;
@@ -62,7 +48,7 @@ void *poller(void *arg) {
             req->end_req(req);
             break;
         case RQ_TYPE_TRIM:
-            req->end_req(req);
+            //req->end_req(req);
             break;
         case RQ_TYPE_FLYING:
             pthread_mutex_unlock(&flying_lock);
@@ -82,10 +68,6 @@ static ssize_t net_make_req(int8_t type, KEYT ppa, algo_req *req) {
     return write(sock_fd, &data, sizeof(data));
 }
 
-static ssize_t net_wait_ack() {
-    return read(sock_fd, buf, 1024);
-}
-
 uint32_t net_info_create(lower_info *li) {
     li->NOB = _NOB;
     li->NOP = _NOP;
@@ -95,6 +77,7 @@ uint32_t net_info_create(lower_info *li) {
     li->PPB = _PPB;
     li->TS  = TOTALSIZE;
 
+    // Mem table for metadata
     seg_table = (struct mem_seg *)malloc(sizeof(struct mem_seg) * li->NOB);
     for (int i = 0; i < li->NOB; i++) {
         seg_table[i].storage = NULL;
@@ -130,6 +113,7 @@ uint32_t net_info_create(lower_info *li) {
         exit(1);
     }
 
+    // Polling thread create
     pthread_create(&tid, NULL, poller, NULL);
 
     return 1;
@@ -156,7 +140,6 @@ void *net_info_destroy(lower_info *li) {
 
     // Socket close
     net_make_req(RQ_TYPE_DESTROY, 0, NULL);
-    net_wait_ack();
 
     close(sock_fd);
     return NULL;
