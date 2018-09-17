@@ -1,7 +1,7 @@
-export CC=g++
+export CC=gcc
 
 TARGET_INF=interface
-TARGET_LOWER=bdbm_drv
+TARGET_LOWER=posix_memory
 TARGET_ALGO=Lsmtree
 PWD=$(pwd)
 
@@ -65,9 +65,9 @@ SRCS +=\
 	./include/rwlock.c\
 	./include/data_struct/hash.c\
 	./include/data_struct/list.c\
-	./include/utils/thpool.c\
 	./bench/measurement.c\
 	./bench/bench.c\
+	#./include/utils/thpool.c\
 
 TARGETOBJ =\
 			$(patsubst %.c,%.o,$(SRCS))\
@@ -108,9 +108,9 @@ libsimulator.a: $(TARGETOBJ)
 	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) clean && $(MAKE) && cd ../../
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
 	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
-	cd ./include/kuk_socket_lib/ && $(MAKE) && mv ./*.o ../../object/ && cd ../../
+#cd ./include/kuk_socket_lib/ && $(MAKE) && mv ./*.o ../../object/ && cd ../../
 	mv ./include/data_struct/*.o ./object/
-	mv ./include/utils/*.o ./object/
+#	mv ./include/utils/*.o ./object/
 	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
 	$(AR) r $(@) ./object/*
 

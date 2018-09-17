@@ -58,7 +58,7 @@ int __hash_insert(__hash *h,uint32_t key,void *data, void* inter_ptr, void** upd
 	return res;
 }
 
-void* __hash_delete_by_key(__hash *h,int64_t key){
+void* __hash_delete_by_key(__hash *h,uint32_t key){
 	__hash_node *node=__hash_find_node(h,key);
 	void *res=node->inter_ptr;
 	node->inter_ptr=node->data=NULL;

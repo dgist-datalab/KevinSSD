@@ -89,7 +89,7 @@ KEYT getPPA(uint8_t type, KEYT, bool);//in DVALUE return block id;
 void invalidate_PPA(KEYT ppa);
 void block_print();
 OOBT PBITSET(KEYT,bool);
-void gc_data_now_block_chg(level *in, block *);
+void gc_data_now_block_chg(struct level *in, block *);
 #ifdef DVALUE
 void block_load(block *b);
 void block_save(block *b);
@@ -107,6 +107,6 @@ int gc_data(KEYT tbn);
 bool gc_check(uint8_t,bool);
 bool gc_segment_force();
 KEYT gc_victim_segment(uint8_t type,bool);
-void gc_trim_segment(KEYT pbn);
+void gc_trim_segment(uint8_t, KEYT pbn);
 block *gc_getrblock_fromseg(uint8_t type);
 #endif

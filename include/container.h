@@ -25,6 +25,7 @@ typedef struct value_set{
 	uint32_t length;
 	int dmatag; //-1 == not dma_alloc, others== dma_alloc
 	KEYT ppa;
+	bool from_app;
 }value_set;
 
 struct request {
@@ -33,11 +34,11 @@ struct request {
 	//KEYT ppa;
 	KEYT seq;
 	value_set *value;
-	void *upper_req;
-	void *(*upper_end)(void *);
 	bool (*end_req)(struct request *const);
 	void *(*special_func)(void *);
 	bool isAsync;
+	void *p_req;
+	void *(*p_end_req)(void*);
 	void *params;
 	void *__hash_node;
 	pthread_mutex_t async_mutex;
