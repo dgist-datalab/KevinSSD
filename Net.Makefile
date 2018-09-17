@@ -11,9 +11,9 @@ export CFLAGS_LOWER=\
 			 -lpthread\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\
--O2\
+#-O2\
 
-export priority="true"
+export priority="tru"
 
 
 
@@ -32,15 +32,18 @@ CFLAGS +=\
 -DCDF\
 -DSLC\
 -Wall\
--O2\
+	-g\
+#-O2\
 
 
 SRCS +=\
 	./interface/queue.c\
 	./interface/bb_checker.c\
+	./interface/interface.c\
 	./include/FS.c\
-	./include/dl_sync.c\
-	./include/rwlock.c\
+	./include/utils/dl_sync.c\
+	./include/utils/rwlock.c\
+	./include/utils/cond_lock.c\
 	./include/data_struct/hash.c\
 	./include/data_struct/list.c\
 	./include/utils/thpool.c\

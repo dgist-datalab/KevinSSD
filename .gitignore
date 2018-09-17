@@ -2,6 +2,7 @@
 *.a
 simulator
 simulator_memory_check
+server
 duma_*
 data/
 object/

@@ -4,6 +4,7 @@
 #include "../bench/bench.h"
 #include "../bench/measurement.h"
 #include "../include/data_struct/hash.h"
+#include "../include/utils/cond_lock.h"
 #include "bb_checker.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,9 +41,10 @@ KEYT retry_hit;
 void *p_main(void*);
 int req_cnt_test=0;
 int write_stop;
-static int flying_req_cnt;
-pthread_mutex_t flying_req_lock;
-pthread_cond_t flying_req_cond;
+cl_lock *flying;
+//static int flying_req_cnt;
+//pthread_mutex_t flying_req_lock;
+//pthread_cond_t flying_req_cond;
 #ifdef interface_pq
 pthread_mutex_t wq_lock;
 
@@ -289,9 +291,10 @@ void inf_init(){
 		
 		pthread_create(&t->t_id,NULL,&p_main,NULL);
 	}
-
-	pthread_mutex_init(&flying_req_lock,NULL);
-	pthread_cond_init(&flying_req_cond,NULL);
+	
+	flying=cl_init(QDEPTH,false);
+	//pthread_mutex_init(&flying_req_lock,NULL);
+	//pthread_cond_init(&flying_req_cond,NULL);
 
 	pthread_mutex_init(&mp.flag,NULL);
 #ifdef interface_pq
@@ -372,12 +375,14 @@ bool inf_make_req(const FSTYPE type, const KEYT key,value_set* value){
 #endif
 
 	request *req=inf_get_req_instance(type,key,value,mark);
+	cl_grap(flying);
+	/*
 	pthread_mutex_lock(&flying_req_lock);
 	while(flying_req_cnt==QDEPTH){
 		pthread_cond_wait(&flying_req_cond,&flying_req_lock);
 	}
 	flying_req_cnt++;
-	pthread_mutex_unlock(&flying_req_lock);
+	pthread_mutex_unlock(&flying_req_lock);*/
 #ifdef CDF
 	req->isstart=false;
 	measure_init(&req->latency_checker);
@@ -393,12 +398,14 @@ bool inf_make_req_special(const FSTYPE type, const KEYT key, value_set* value, K
 	}
 	request *req=inf_get_req_instance(type,key,value,0);
 	req->special_func=special;
+	cl_grap(flying);
+	/*
 	pthread_mutex_lock(&flying_req_lock);
 	while(flying_req_cnt==QDEPTH){
 		pthread_cond_wait(&flying_req_cond,&flying_req_lock);
 	}
 	flying_req_cnt++;
-	pthread_mutex_unlock(&flying_req_lock);
+	pthread_mutex_unlock(&flying_req_lock);*/
 	//set sequential
 	req->seq=seq;
 #ifdef CDF
@@ -471,13 +478,14 @@ bool inf_end_req( request * const req){
 	else{
 		free(req);
 	}
-
+	cl_release(flying);
+/*
 	pthread_mutex_lock(&flying_req_lock);
-	/*
-	flying_req_cnt--;
-	if(flying_req_cnt==0){
-		pthread_cond_broadcast(&flying_req_cond);
-	}*/
+	
+	//flying_req_cnt--;
+	//if(flying_req_cnt==0){
+	//	pthread_cond_broadcast(&flying_req_cond);
+	//}
 	if(flying_req_cnt==QDEPTH){
 		flying_req_cnt--;
 		if(special) special((void*)params);
@@ -487,7 +495,7 @@ bool inf_end_req( request * const req){
 		if(special) special((void*)params);
 		flying_req_cnt--;
 	}
-	pthread_mutex_unlock(&flying_req_lock);
+	pthread_mutex_unlock(&flying_req_lock);*/
 
 	return true;
 }
@@ -495,6 +503,7 @@ void inf_free(){
 	mp.li->stop();
 	mp.stopflag=true;
 	int *temp;
+	cl_free(flying);
 	printf("result of ms:\n");
 	printf("---\n");
 	for(int i=0; i<THREADSIZE; i++){
