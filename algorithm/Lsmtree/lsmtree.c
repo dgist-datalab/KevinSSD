@@ -394,8 +394,8 @@ uint32_t lsm_get(request *const req){
 		for(int i=0; i<LEVELN; i++){
 			//printf("level : %d\n",i);
 			//level_print(LSM.disk[i]);
-			//printf("level :%d\n",i);
-			//level_oent_print(LSM.disk[i]);
+			printf("level :%d\n",i);
+			level_oent_print(LSM.disk[i]);
 #if (LEVELN==1)
 			/*
 			for(int j=0; j<TOTALSIZE/PAGESIZE/KEYNUM; j++){
@@ -576,10 +576,10 @@ uint32_t __lsm_get(request *const req){
 		/*
 		res=__lsm_get_sub(req,NULL,NULL,LSM.disk[level]->level_cache);
 		if(res) return res;*/
-		snode *tsn=find_S_ent(&LSM.disk[level]->o_ent[run],req->key);
-		if(tsn){
+		KEYT tppa=find_S_ent(&LSM.disk[level]->o_ent[run],req->key);
+		if(tppa!=UINT_MAX){
 			algo_req *mreq=lsm_get_req_factory(req);
-			LSM.li->pull_data(tsn->ppa,PAGESIZE,req->value,ASYNC,mreq);
+			LSM.li->pull_data(tppa,PAGESIZE,req->value,ASYNC,mreq);
 			return 1;
 		}
 		level++;

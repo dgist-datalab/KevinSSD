@@ -120,7 +120,7 @@ bool level_now_block_fchk(level *in);
 bool level_all_check(KEYT);
 #ifdef LEVELEMUL
 o_entry* find_O_ent(level *input, KEYT key, KEYT *idx);
-snode* find_S_ent(o_entry *input, KEYT key);
+KEYT find_S_ent(o_entry *input, KEYT key);
 #endif
 #ifdef DVALUE
 void level_move_next_page(level *);
