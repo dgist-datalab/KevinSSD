@@ -1,14 +1,23 @@
 #include "../../include/container.h"
 #include "../bb_checker.h"
 #include "../../lower/network/network.h"
+#include "../lfqueue.h"
+#include "../interface.h"
+#include "../../bench/bench.h"
+#include <pthread.h>
 
 #define IP "127.0.0.1"
 #define PORT 9999
 
-#ifdef bdbm_drv
+
+struct serv_params {
+    struct net_data *data;
+    value_set *vs;
+};
+
+#if defined(bdbm_drv)
 extern struct lower_info memio_info;
-#endif
-#ifdef posix_memory
+#elif defined(posix_memory)
 extern struct lower_info my_posix;
 #endif
 
@@ -16,15 +25,36 @@ int serv_fd, clnt_fd;
 struct sockaddr_in serv_addr, clnt_addr;
 socklen_t clnt_sz;
 
+queue *end_req_q;
+
+pthread_t tid;
+
 void *reactor(void *arg) {
-    struct net_data data;
+    struct net_data *sent;
 
     // TODO: How to get end_req here?
     while (1) {
-
+        if (sent = (struct net_data *)q_dequeue(end_req_q)) {
+            write(clnt_fd, sent, sizeof(struct net_data));
+            free(sent);
+        }
     }
 
-    pthread_exit(1);
+    pthread_exit(NULL);
+}
+
+void *serv_end_req(algo_req *req) {
+    struct serv_params *params = (struct serv_params *)req->params;
+
+    q_enqueue((void *)(params->data), end_req_q);
+
+    if (params->data->type == RQ_TYPE_PUSH) {
+        inf_free_valueset(params->vs, FS_MALLOC_W);
+    } else if (params->data->type == RQ_TYPE_PULL) {
+        inf_free_valueset(params->vs, FS_MALLOC_R);
+    }
+    free(params);
+    free(req);
 }
 
 int main(){
@@ -35,15 +65,21 @@ int main(){
     KEYT ppa;
     algo_req *req;
 
-#ifdef bdbm_drv
+    algo_req *serv_req;
+    struct serv_params *params;
+    value_set *dummy_vs;
+
+
+#if defined(bdbm_drv)
     li = &memio_info;
-#endif
-#ifdef posix_memory
+#elif defined(posix_memory)
     li = &my_posix;
 #endif
 
 	li->create(li);
 	bb_checker_start(li);
+
+    q_init(&end_req_q, 1024);
 
     serv_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (serv_fd == -1) {
@@ -85,21 +121,42 @@ int main(){
             break;
         case RQ_TYPE_PUSH:
             dummy_vs = inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
-            // TODO: end_req
-            li->push_data(ppa, PAGESIZE, dummy_vs, ASYNC, req);
+
+            serv_req = (algo_req *)malloc(sizeof(algo_req));
+            serv_req->end_req = serv_end_req;
+
+            params = (struct serv_params *)malloc(sizeof(struct serv_params));
+            params->data = (struct net_data *)malloc(sizeof(struct net_data));
+            *(params->data) = data;
+            params->vs = dummy_vs;
+            serv_req->params = (void *)params;
+
+            li->push_data(ppa, PAGESIZE, dummy_vs, ASYNC, serv_req);
             break;
         case RQ_TYPE_PULL:
             dummy_vs = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
-            // TODO: end_req
-            li->pull_data(ppa, PAGESIZE, dummy_vs, ASYNC, req);
+
+            serv_req = (algo_req *)malloc(sizeof(algo_req));
+            serv_req->end_req = serv_end_req;
+
+            params = (struct serv_params *)malloc(sizeof(struct serv_params));
+            params->data = (struct net_data *)malloc(sizeof(struct net_data));
+            *(params->data) = data;
+            params->vs = dummy_vs;
+            serv_req->params = (void *)params;
+
+            li->pull_data(ppa, PAGESIZE, dummy_vs, ASYNC, serv_req);
             break;
         case RQ_TYPE_TRIM:
             li->trim_block(ppa, ASYNC);
             break;
         case RQ_TYPE_FLYING:
-            li->flyling_req_wait();
+            li->lower_flying_req_wait();
+            write(clnt_fd, &data, sizeof(data));
             // TODO: unlocking message
             break;
         }
     }
+
+    q_free(end_req_q);
 }

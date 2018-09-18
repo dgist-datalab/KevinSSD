@@ -28,6 +28,11 @@ extern struct algorithm algo_lsm;
 #ifdef bdbm_drv
 extern struct lower_info memio_info;
 #endif
+
+#ifdef network
+extern struct lower_info net_info;
+#endif
+
 MeasureTime mt;
 master_processor mp;
 
@@ -258,7 +263,6 @@ void inf_init(){
 #else
 		q_init(&t->req_q,QSIZE);
 #endif
-		
 		pthread_create(&t->t_id,NULL,&p_main,NULL);
 	}
 
@@ -275,9 +279,10 @@ void inf_init(){
 	measure_init(&mt);
 #if defined(posix) || defined(posix_async) || defined(posix_memory)
 	mp.li=&my_posix;
-#endif
-#ifdef bdbm_drv
+#elif defined(bdbm_drv)
 	mp.li=&memio_info;
+#elif defined(network)
+    mp.li=&net_info;
 #endif
 
 #ifdef normal

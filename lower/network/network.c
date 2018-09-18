@@ -16,10 +16,10 @@ lower_info net_info = {
     .lower_show_info = NULL
 };
 
-struct mem_seg *seg_table;
-
 int sock_fd;
 struct sockaddr_in serv_addr;
+
+struct mem_seg *seg_table;
 pthread_mutex_t flying_lock;
 
 pthread_t tid;
@@ -207,14 +207,9 @@ void *net_info_trim_block(KEYT ppa, bool async) {
     if (seg_table[ppa/net_info.PPB].alloc) {
         free(seg_table[ppa/net_info.PPB].storage);
         seg_table[ppa/net_info.PPB].storage = NULL;
-        seg_table[ppa/net_info.PPB].alloc = 0;
+        seg_table[ppa/net_info.PPB].alloc = false;
     }
 
-    //if (value == 0) {
-    //    return (void *)-1;
-    //} else {
-    //    return NULL;
-    //}
     return NULL;
 }
 

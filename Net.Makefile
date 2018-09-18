@@ -1,6 +1,6 @@
 export CC=g++
 
-TARGET_LOWER=bdbm_drv
+TARGET_LOWER=posix_memory
 PWD=$(pwd)
 
 COMMONFLAGS=\
@@ -36,6 +36,7 @@ CFLAGS +=\
 
 
 SRCS +=\
+	./interface/interface.c\
 	./interface/queue.c\
 	./interface/bb_checker.c\
 	./include/FS.c\
