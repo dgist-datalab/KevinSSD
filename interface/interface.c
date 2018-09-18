@@ -257,12 +257,6 @@ bool inf_make_req_fromApp(char _type, KEYT _key,PTR _value,void *_req, void*(*en
 	req->p_req=_req;
 	req->p_end_req=end_func;
 	
-	pthread_mutex_lock(&flying_req_lock);
-	while(flying_req_cnt==QDEPTH){
-		pthread_cond_wait(&flying_req_cond,&flying_req_lock);
-	}
-	flying_req_cnt++;
-	pthread_mutex_unlock(&flying_req_lock);
 #ifdef CDF
 	req->isstart=false;
 	measure_init(&req->latency_checker);

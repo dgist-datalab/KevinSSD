@@ -1,8 +1,8 @@
-export CC=gcc
+export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=posix_memory
-TARGET_ALGO=Lsmtree
+TARGET_LOWER=bdbm_drv
+TARGET_ALGO=dftl_fm
 PWD=$(pwd)
 
 COMMONFLAGS=\
@@ -112,7 +112,7 @@ libsimulator.a: $(TARGETOBJ)
 	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
 #cd ./include/kuk_socket_lib/ && $(MAKE) && mv ./*.o ../../object/ && cd ../../
 	mv ./include/data_struct/*.o ./object/
-#	mv ./include/utils/*.o ./object/
+	mv ./include/utils/*.o ./object/
 	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
 	$(AR) r $(@) ./object/*
 

@@ -19,7 +19,7 @@
 
 #elif defined(SLC)
 
-#define TOTALSIZE (32L*G)
+#define TOTALSIZE (64L*G)
 #define REALSIZE (512L*G)
 #define PAGESIZE (8*K)
 #define VALUESIZE (4*K)
@@ -34,7 +34,7 @@
 #define _NOS (TOTALSIZE/(_PPS*PAGESIZE))
 #define _NOB (BPS*_NOS)
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
-#define RANGE (10*128*1024L*(0.8))
+#define RANGE (64*128*1024L*(0.8))
 
 
 #define FSTYPE uint8_t
@@ -45,7 +45,7 @@
 #define PTR char*
 #define ASYNC 1
 #define QSIZE (1024)
-#define QDEPTH (2)
+#define QDEPTH (256)
 #define THREADSIZE (1)
 
 #define KEYGEN
