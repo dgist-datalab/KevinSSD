@@ -35,6 +35,9 @@
 #define D_IDX (lpa / EPP)   // Idx of directory table
 #define P_IDX (lpa % EPP)   // Idx of page table
 
+#define CLEAN 0
+#define DIRTY 1
+
 // Page table data structure
 typedef struct demand_mapping_table{
     int32_t ppa; //Index = lpa
@@ -50,7 +53,7 @@ typedef struct cached_table{
 #if C_CACHE
     NODE *clean_ptr; // for clean pages
 #endif
-    unsigned char flag; // 0: unchanged, 1: dirty, need to merge, 2: changed but all data on cache
+    bool state; // CLEAN or DIRTY
     bool flying;
 } C_TABLE;
 
@@ -75,6 +78,7 @@ typedef struct demand_params{
 typedef struct read_params{
     int32_t t_ppa;
     uint8_t read;
+    int32_t req_idx;
 } read_params;
 
 typedef struct mem_table{
@@ -100,8 +104,8 @@ extern BM_T *bm;
 extern Block *t_reserved;
 extern Block *d_reserved;
 
-extern int32_t trans_gc_poll;
-extern int32_t data_gc_poll;
+volatile extern int32_t trans_gc_poll;
+volatile extern int32_t data_gc_poll;
 
 extern int32_t num_page;
 extern int32_t num_block;
@@ -115,7 +119,7 @@ extern int32_t num_max_cache;
 extern int32_t max_clean_cache;
 extern int32_t max_dirty_cache;
 
-extern int32_t num_dirty;
+extern int32_t num_caching;
 
 extern int32_t tgc_count;
 extern int32_t dgc_count;

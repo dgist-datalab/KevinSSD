@@ -432,7 +432,6 @@ algo_req* lsm_get_req_factory(request *parents){
 	lsm_req->type=DATAR;
 	return lsm_req;
 }
-extern int skiplist_hit;
 int __lsm_get_sub(request *req,Entry *entry, keyset *table,skiplist *list){
 	int res=0;
 	if(!entry && !table && !list){
@@ -447,7 +446,6 @@ int __lsm_get_sub(request *req,Entry *entry, keyset *table,skiplist *list){
 		if(!target_node) return 0;
 		bench_cache_hit(req->mark);
 		if(target_node->value){
-			skiplist_hit++;
 			memcpy(req->value->value,target_node->value->value,PAGESIZE);
 			bench_algo_end(req);
 			req->end_req(req);

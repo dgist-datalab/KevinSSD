@@ -49,7 +49,7 @@ typedef struct o_entry{
 #ifdef BLOOM
 	bloomfilter *filter;
 #endif
-	snode **table;
+	struct snode **table;
 	int size;
 }o_entry;
 
@@ -117,7 +117,7 @@ KEYT level_get_page(level *,uint8_t plength);
 void level_moveTo_front_page(level*);
 void level_move_heap(level * des, level *src);
 bool level_now_block_fchk(level *in);
-bool level_all_check(KEYT);
+void level_all_check();
 #ifdef LEVELEMUL
 o_entry* find_O_ent(level *input, KEYT key, KEYT *idx);
 KEYT find_S_ent(o_entry *input, KEYT key);

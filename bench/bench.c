@@ -9,6 +9,7 @@
 #include <pthread.h>
 int32_t LOCALITY;
 float TARGETRATIO;
+bool last_ack;
 
 extern int32_t write_stop;
 
@@ -151,6 +152,11 @@ bench_value* get_bench(){
 		fflush(stdout);
 #endif
 	}
+
+    if (_m->n_num == _m->m_num -1) {
+        last_ack = true;
+    }
+
 	return &_m->body[_m->n_num++];
 }
 extern bool force_write_start;

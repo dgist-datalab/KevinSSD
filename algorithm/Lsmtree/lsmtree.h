@@ -6,12 +6,12 @@
 #include "bloomfilter.h"
 #include "cache.h"
 #include "lsmtree.h"
-#include "../../include/rwlock.h"
+#include "../../include/utils/rwlock.h"
 #include "../../interface/queue.h"
 #include "../../include/container.h"
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
-#include "../../include/dl_sync.h"
+#include "../../include/utils/dl_sync.h"
 #include "../../include/types.h"
 
 #define HEADERR MAPPINGR

@@ -6,7 +6,7 @@
 #include "skiplist.h"
 #include "run_array.h"
 #include "nocpy.h"
-#include "../../include/rwlock.h"
+#include "../../include/utils/rwlock.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
