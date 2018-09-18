@@ -59,7 +59,6 @@ lower_info my_posix={
 #if (ASYNC==1)
 void *l_main(void *__input){
 	posix_request *inf_req;
-
 	while(1){
 		if(stopflag){
 			//printf("posix bye bye!\n");
@@ -96,6 +95,7 @@ void *posix_make_push(KEYT PPA, uint32_t size, value_set* value, bool async, alg
 	p_req->size=size;
 
 	while(!flag){
+
 		if(q_enqueue((void*)p_req,p_q)){
 			flag=true;
 		}
@@ -133,8 +133,9 @@ void *posix_make_trim(KEYT PPA, bool async){
 	p_req->type=FS_LOWER_T;
 	p_req->key=PPA;
 	p_req->isAsync=async;
-
+	
 	while(!flag){
+
 		if(q_enqueue((void*)p_req,p_q)){
 			flag=true;
 		}

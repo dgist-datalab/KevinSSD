@@ -78,6 +78,7 @@ void *flash_ack2clnt(void *param){
 	free(params);
 	return NULL;
 }
+
 void *flash_ad(kuk_sock* ks){
 	uint8_t type=*((uint8_t*)ks->p_data[0]);
 	uint64_t key=*((uint64_t*)ks->p_data[1]);

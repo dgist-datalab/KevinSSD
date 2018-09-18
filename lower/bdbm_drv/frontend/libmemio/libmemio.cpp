@@ -97,9 +97,8 @@ static void __dm_intr_handler (
 
 	//	printf("test-time:%ld type:%u\n",my_algo_req->lower_latency_data,my_algo_req->lower_path_flag);*/
 		if(r->req_type==REQTYPE_READ){
-			r->path_type+=4;
 			//my_algo_req->type_lower=r->path_type+4;
-			//my_algo_req->type_lower=r->path_type>r->before_path_type?r->path_type:r->before_path_type;
+	//		my_algo_req->type_lower=r->path_type>r->before_path_type?r->path_type:r->before_path_type;
 			if(my_algo_req->type_lower>r->path_type)
 				my_algo_req->type_lower=r->path_type;
 
@@ -365,6 +364,7 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 		}
 		/*before path type*/
 		
+
 		/*kukania*/
 		r->req = req;
 		//r->dmaTag = req->req->dmaTag;

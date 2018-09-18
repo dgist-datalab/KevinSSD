@@ -5,7 +5,8 @@
 #include "footer.h"
 #include "skiplist.h"
 #include "run_array.h"
-#include "../../include/rwlock.h"
+#include "nocpy.h"
+#include "../../include/utils/rwlock.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -358,6 +359,7 @@ void gc_data_read(KEYT ppa,htable_t *value,bool isdata){
 	params->lsm_type=isdata?GCDR:GCHR;
 	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
 	params->target=(PTR*)value->sets;
+	params->ppa=ppa;
 	value->origin=params->value;
 
 	areq->parents=NULL;
@@ -376,8 +378,13 @@ void gc_data_write(KEYT ppa,htable_t *value,bool isdata){
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 
 	params->lsm_type=isdata?GCDW:GCHW;
+#ifdef NOCPY
+	params->value=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
+	if(!isdata)
+		nocpy_copy_from((char*)value->sets,ppa);
+#else
 	params->value=inf_get_valueset((PTR)(value)->sets,FS_MALLOC_W,PAGESIZE);
-
+#endif
 
 	areq->parents=NULL;
 	areq->end_req=lsm_end_req;
@@ -924,6 +931,9 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 	gc_data_oneleveling(gn,size,target_level);
 	return;
 #endif
+#ifdef LEVELEMUL
+	o_entry 
+#endif
 	level *in=LSM.disk[target_level];
 	htable_t **datas=(htable_t**)malloc(sizeof(htable_t*)*in->m_num);
 	Entry **entries;
@@ -952,6 +962,10 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			printf("entry null!\n");
 		}
 
+#ifdef LEVELEMUL
+
+
+#else
 		for(int j=0; entries[j]!=NULL;j++){
 			datas[htable_idx]=(htable_t*)malloc(sizeof(htable_t));
 #ifdef CACHE
@@ -964,6 +978,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			gc_data_read(entries[j]->pbn,datas[htable_idx],false);
 			htable_idx++;
 		}
+#endif
 
 		gc_general_waiting();
 
@@ -1254,9 +1269,12 @@ int gc_header(KEYT tbn){
 
 	KEYT start=target->ppa;
 	htable_t **tables=(htable_t**)malloc(sizeof(htable_t*)*algo_lsm.li->PPB);
+#if (defined(LEVELEMUL) || LEVELN==1)
+	o_entry **target_oent=(o_entry**)malloc(sizeof(o_entry*)*algo_lsm.li->PPB);
+#endif
+
 #if (LEVELN==1)
 	level *now=LSM.disk[0];
-	o_entry **target_oent=(o_entry**)malloc(sizeof(o_entry*)*algo_lsm.li->PPB);
 #else
 	Entry **target_ent=(Entry**)malloc(sizeof(Entry*)*algo_lsm.li->PPB);
 #endif
@@ -1286,6 +1304,12 @@ int gc_header(KEYT tbn){
 			}
 			else continue;
 		}
+#ifdef LEVELEMUL
+		KEYT tlpa=PBITGET(t_ppa);
+		target_oent[i]=find_O_ent(now,tlpa);
+		gc_data_read(t_ppa,tables[i],false);
+		continue;
+#endif
 #else
 		KEYT lpa=PBITGET(t_ppa);
 		Entry **entries=NULL;
@@ -1363,7 +1387,7 @@ int gc_header(KEYT tbn){
 	}
 
 	gc_general_waiting();
-#if (LEVELN==1)
+#if ((LEVELN==1)|| defined(LEVELEMUL))
 	o_entry *test;
 #else
 	Entry *test;
@@ -1375,7 +1399,7 @@ int gc_header(KEYT tbn){
 		KEYT t_ppa=start+i;
 		KEYT lpa=PBITGET(t_ppa);
 		KEYT n_ppa=getRPPA(HEADER,lpa,true);
-#if (LEVELN==1)
+#if ((LEVELN==1)|| defined(LEVELEMUL))
 		test=target_oent[i];
 		test->pba=n_ppa;
 #else
@@ -1387,8 +1411,12 @@ int gc_header(KEYT tbn){
 		free(tables[i]);
 
 	}
+
 	free(tables);
-#if (LEVELN!=1)
+
+#if ((LEVELN==1)|| defined(LEVELEMUL))
+	free(target_oent);
+#else
 	free(target_ent);
 #endif
 	gc_trim_segment(HEADER,target->ppa);

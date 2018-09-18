@@ -28,6 +28,7 @@ SRCS +=\
 	   footer.c\
 	   log_list.c\
 	   factory.c\
+	   nocpy.c\
 #cache.c\
 
 OBJS :=\

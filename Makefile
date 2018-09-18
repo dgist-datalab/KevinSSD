@@ -1,4 +1,4 @@
-export CC=g++
+export CC=gcc
 
 TARGET_INF=interface
 TARGET_LOWER=posix_memory
@@ -12,7 +12,7 @@ export CFLAGS_ALGO=\
 			 -g\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
-#			 -O2\
+			 -O2\
 #-DDVALUE\
 
 
@@ -21,7 +21,7 @@ export CFLAGS_LOWER=\
 			 -lpthread\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\
-#-O2\
+-O2\
 
 export priority="true"
 
@@ -54,20 +54,22 @@ CFLAGS +=\
 		 -D_BSD_SOURCE\
 -DBENCH\
 -DCDF\
-#-O2\
+-O2\
 
 SRCS +=\
 	./interface/queue.c\
 	./interface/interface.c\
 	./interface/bb_checker.c\
 	./include/FS.c\
-	./include/dl_sync.c\
-	./include/rwlock.c\
+	./include/utils/dl_sync.c\
+	./include/utils/rwlock.c\
+	./include/utils/thpool.c\
+	./include/utils/cond_lock.c\
 	./include/data_struct/hash.c\
 	./include/data_struct/list.c\
-	./include/utils/thpool.c\
 	./bench/measurement.c\
 	./bench/bench.c\
+	#./include/utils/thpool.c\
 
 TARGETOBJ =\
 			$(patsubst %.c,%.o,$(SRCS))\
@@ -108,9 +110,9 @@ libsimulator.a: $(TARGETOBJ)
 	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) clean && $(MAKE) && cd ../../
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
 	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
-	cd ./include/kuk_socket_lib/ && $(MAKE) && mv ./*.o ../../object/ && cd ../../
+#cd ./include/kuk_socket_lib/ && $(MAKE) && mv ./*.o ../../object/ && cd ../../
 	mv ./include/data_struct/*.o ./object/
-	mv ./include/utils/*.o ./object/
+#	mv ./include/utils/*.o ./object/
 	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
 	$(AR) r $(@) ./object/*
 

@@ -11,6 +11,7 @@ bool inf_make_req(const FSTYPE,const KEYT, value_set *);
 bool inf_make_req(const FSTYPE,const KEYT, value_set *,int);
 #endif
 bool inf_make_req_special(const FSTYPE type, const KEYT key, value_set* value, KEYT seq, void*(*special)(void*));
+bool inf_make_req_fromApp(char type, KEYT key,PTR value,void *req, void*(end_func)(void*));
 bool inf_end_req(request*const);
 bool inf_assign_try(request *req);
 void inf_free();

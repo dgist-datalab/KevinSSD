@@ -97,7 +97,6 @@ _s_list *compaction_table_sort_list(_s_list *a, _s_list *b,bool existIgnore){
 		}
 		if(done)break;
 	}
-
 	//printf("res[%p] size:%d  before:%d after:%d\n",res,res->size,a->size+b->size,res->size);
 	__list_free(a);
 	__list_free(b);
@@ -257,9 +256,11 @@ void print_req(__mreq* req){
 	printf("[%d] %d~%d t:%p, tli:%p\n",cnt++,req->start,req->end,req->t, req->tli);
 }
 
+
 _s_list *compaction_table_merge_sort(int size, htable **t,bool existIgnore){
 	//static int cnt=0;
 	//printf("cnt:%d %d\n",cnt++,size);
+
 #ifdef MERGECOMPACTION
 	int target=size;
 	_s_list *res;
@@ -314,13 +315,13 @@ _s_list *compaction_table_merge_sort(int size, htable **t,bool existIgnore){
 			result[1]=compaction_table_sort_list(result[1],result[2],existIgnore);
 			break;
 		case 4:	
-			t_r=req_set(&reqs[0],0,2,NULL,result,existIgnore,&temp_result);//result[0]);
+		//	t_r=req_set(&reqs[0],0,2,NULL,result,existIgnore,&temp_result);//result[0]);
 		//	print_req(t_r);
-			thpool_add_work(thpool,merge_func,(void*)t_r);
-			//result[0]=compaction_table_sort_list(result[0],result[1],existIgnore);
+		//	thpool_add_work(thpool,merge_func,(void*)t_r);
+			result[0]=compaction_table_sort_list(result[0],result[1],existIgnore);
 			result[1]=compaction_table_sort_list(result[2],result[3],existIgnore);
 			thpool_wait(thpool);
-			result[0]=temp_result;
+		//	result[0]=temp_result;
 			break;
 	}
 	//in case 2
@@ -338,7 +339,12 @@ htable *compaction_ht_convert_list(_s_list *data, float fpr, int *size){
 	value_set *temp=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
 	htable *res=(htable*)malloc(sizeof(htable));
 	res->t_b=FS_MALLOC_W;
+#ifdef NOCPY
+	res->sets=(keyset*)malloc(PAGESIZE);
+#else
 	res->sets=(keyset*)temp->value;
+#endif
+
 	res->origin=temp;
 
 #ifdef BLOOM 
@@ -356,6 +362,7 @@ htable *compaction_ht_convert_list(_s_list *data, float fpr, int *size){
 		bf_set(filter,res->sets[i].lpa);
 #endif
 		free(ptr);
+
 		ptr=nxt;
 		data->size--;
 		if(!ptr){

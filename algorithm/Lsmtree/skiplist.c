@@ -555,6 +555,7 @@ skiplist *skiplist_load(){
 	skiplist *res=skiplist_init();
 	return res;
 }
+
 /*
    int main(){
    skiplist * temp=skiplist_init(); //make new skiplist

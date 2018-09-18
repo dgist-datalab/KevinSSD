@@ -106,10 +106,12 @@ static uint64_t __memio_do_io_sub(bdbm_drv_info_t *bdi,bdbm_llm_req_t *llm_req, 
 	llm_req->req=m_req->req;
 	llm_req->path_type=m_req->q_path_type;
 
+	
 	algo_req *my_algo_req=(algo_req*)m_req->req;
+	/*
 	if(my_algo_req->parents){
 		bench_lower_start(my_algo_req->parents);
-	}
+	}*/
 
 	if(llm_req->req_type==REQTYPE_READ){
 		if(my_algo_req->type_lower!=0){
@@ -254,9 +256,10 @@ static void __dm_intr_handler (
 	memio_t *mio=(memio_t*)bdi->private_data;
 	if(r->req_type!=REQTYPE_GC_ERASE){
 		algo_req *my_algo_req=(algo_req*)r->req;
+		/*
 		if(my_algo_req->parents){
 			bench_lower_end(my_algo_req->parents);
-		}
+		}*/
 		/*
 		MA(&my_algo_req->latency_lower);
 		my_algo_req->lower_latency_data=my_algo_req->lower_latency_checker.adding.tv_usec+my_algo_req->lower_latency_checker.adding.tv_sec*1000000;*/
