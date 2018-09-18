@@ -119,7 +119,7 @@ extern int32_t num_max_cache;
 extern int32_t max_clean_cache;
 extern int32_t max_dirty_cache;
 
-extern int32_t num_dirty;
+extern int32_t num_caching;
 
 extern int32_t tgc_count;
 extern int32_t dgc_count;

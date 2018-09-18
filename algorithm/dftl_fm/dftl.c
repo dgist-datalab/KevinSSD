@@ -136,7 +136,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     real_max_cache = num_max_cache;
 
     num_caching = 0;
-    max_sl = num_max_cache;
+    max_sl = 1024;
 #if C_CACHE
     max_clean_cache = num_max_cache / 2; // 50 : 50
     //max_clean_cache = 100 // Fixed clean cache
@@ -429,7 +429,7 @@ static void update_cache() {
             if (p_table) {
                 cache_hit_on_write++;
 #if C_CACHE
-                if (c_talbe->state == CLEAN) { // Clean hit
+                if (c_table->state == CLEAN) { // Clean hit
                     clean_hit_on_write++;
 
                     c_table->state = DIRTY;
@@ -439,7 +439,7 @@ static void update_cache() {
                     lru_update(c_lru, c_table->clean_ptr);
 
                     // migrate(copy) the lru element
-                    if (num_caching == max_num_caching) {
+                    if (num_caching == num_max_cache) {
                         demand_eviction(req_arr[i], 'W', &gc_flag, &d_flag);
                     }
                     c_table->queue_ptr = lru_push(lru, (void *)c_table);
@@ -751,7 +751,7 @@ uint32_t __demand_set(request *const req){
     if (p_table) {
         cache_hit_on_write++;
 #if C_CACHE
-        if (c_talbe->state == CLEAN) { // Clean hit
+        if (c_table->state == CLEAN) { // Clean hit
             clean_hit_on_write++;
 
             c_table->state = DIRTY;
@@ -761,7 +761,7 @@ uint32_t __demand_set(request *const req){
             lru_update(c_lru, c_table->clean_ptr);
 
             // migrate(copy) the lru element
-            if (num_caching == max_num_caching) {
+            if (num_caching == num_max_cache) {
                 demand_eviction(req, 'W', &gc_flag, &d_flag);
             }
             c_table->queue_ptr = lru_push(lru, (void *)c_table);
@@ -1022,7 +1022,13 @@ uint32_t __demand_get(request *const req){
         cache_miss_on_read++;
 
         req->type_ftl += 2;
-        if (num_caching == num_max_cache) {
+
+#if C_CACHE
+        if (num_clean == max_clean_cache)
+#else
+        if (num_caching == num_max_cache)
+#endif
+        {
             req->type_ftl += 1;
             demand_eviction(req, 'R', &gc_flag, &d_flag);
             if(d_flag){
@@ -1044,10 +1050,11 @@ uint32_t __demand_get(request *const req){
         c_table->p_table = p_table;
 #if C_CACHE
         c_table->clean_ptr = lru_push(c_lru, (void*)c_table);
+        num_clean++;
 #else
         c_table->queue_ptr = lru_push(lru, (void*)c_table);
-#endif
         num_caching++;
+#endif
     }
 #else
     req_flying[cur_req] = false;
