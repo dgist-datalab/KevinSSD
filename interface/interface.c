@@ -347,6 +347,8 @@ static request *inf_get_req_instance(const FSTYPE type, const KEYT key, value_se
 	req->before_type_lower=0;
 	req->seq=seq_num++;
 	req->special_func=NULL;
+    req->p_req=NULL;
+    req->p_end_req=NULL;
 #ifndef USINGAPP
 	req->algo.isused=false;
 	req->lower.isused=false;
