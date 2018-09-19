@@ -55,6 +55,8 @@ typedef struct cached_table{
 #endif
     bool state; // CLEAN or DIRTY
     bool flying;
+    request **flying_arr;
+    int32_t num_waiting;
 } C_TABLE;
 
 // OOB data structure
@@ -78,8 +80,11 @@ typedef struct demand_params{
 typedef struct read_params{
     int32_t t_ppa;
     uint8_t read;
-    int32_t req_idx;
 } read_params;
+
+typedef struct write_params {
+    uint8_t written;
+} write_params;
 
 typedef struct mem_table{
     int32_t *mem_p;

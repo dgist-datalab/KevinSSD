@@ -1,13 +1,11 @@
 #ifndef __H_SETDFTL__
 #define __H_SETDFTL__
 
-#define TEST 0
-
 // flying mapping page request waiting flag
 #define FLYING 0
 
 // clean cache flag
-#define C_CACHE 1
+#define C_CACHE 0
 
 // write buffering flag
 #define W_BUFF 1
