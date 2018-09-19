@@ -4,7 +4,7 @@
 
 /*lsmtree structure*/
 #ifndef EEMODE
-#define KEYNUM 1024
+#define KEYNUM 512
 #else
 #define KEYNUM 1000
 #endif
@@ -23,10 +23,10 @@
 //#define CACHE
 //#define CACHESIZE 1//(100*128*1)//1*128==1M
 
-#define LEVELCACHING 2
+//#define LEVELCACHING 2
 //#define LEVELEMUL 
 //#define MERGECOMPACTION 4
-#define NOCPY
+//#define NOCPY
 
 
 /*lsmtree flash thread*/

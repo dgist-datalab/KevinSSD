@@ -19,10 +19,9 @@
 
 #elif defined(SLC)
 
-#define TOTALSIZE (32L*G)
+#define TOTALSIZE (10L*G)
 #define REALSIZE (512L*G)
 #define PAGESIZE (8*K)
-#define VALUESIZE (4*K)
 #define _PPB (256)
 #define _PPS (1<<14)
 #define BPS (64)
@@ -45,7 +44,7 @@
 #define PTR char*
 #define ASYNC 1
 #define QSIZE (1024)
-#define QDEPTH (2)
+#define QDEPTH (1)
 #define THREADSIZE (1)
 
 #define KEYGEN

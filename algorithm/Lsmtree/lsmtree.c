@@ -92,7 +92,7 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	#else
 		level_init(LSM.disk[i],sol,i,target_fpr,false);
 	#endif
-		printf("[%d] fpr:%lf bytes per entry:%lu noe:%d\n",i+1,target_fpr,bf_bits(1024,target_fpr), LSM.disk[i]->m_num);
+		printf("[%d] fpr:%lf bytes per entry:%lu noe:%d\n",i+1,target_fpr,bf_bits(KEYNUM,target_fpr), LSM.disk[i]->m_num);
 		sizeofall+=LSM.disk[i]->m_num*8;
 #ifdef LEVELCACHING
 		if(i<LEVELCACHING){
@@ -102,7 +102,7 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 			continue;
 		}
 #endif
-		bloomfilter_memory+=bf_bits(1024,target_fpr)*sol;
+		bloomfilter_memory+=bf_bits(KEYNUM,target_fpr)*sol;
 		sol*=SIZEFACTOR;
 		LSM.level_addr[i]=(PTR)LSM.disk[i];
 	}
@@ -114,7 +114,7 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	level_init(LSM.disk[LEVELN-1],sol,LEVELN-1,1,false);
 #endif
 
-	printf("[%d] fpr:1.0000 bytes per entry:%lu noe:%d\n",LEVELN,bf_bits(1024,1),LSM.disk[LEVELN-1]->m_num);
+	printf("[%d] fpr:1.0000 bytes per entry:%lu noe:%d\n",LEVELN,bf_bits(KEYNUM,1),LSM.disk[LEVELN-1]->m_num);
 	sizeofall+=LSM.disk[LEVELN-1]->m_num*8;
 	printf("level:%d sizefactor:%d\n",LEVELN,SIZEFACTOR);
 	printf("all level size:%lu(MB), %lf(GB)\n",sizeofall,(double)sizeofall/1024);
@@ -381,7 +381,7 @@ uint32_t lsm_get(request *const req){
 			res_type=__lsm_get(tmp_req);
 			if(res_type==0){
 				printf("from req not found seq: %d, key:%u\n",nor++,req->key);
-		//		level_all_print();
+	//			level_all_print();
 				tmp_req->type=FS_NOTFOUND_T;
 				tmp_req->end_req(tmp_req);
 				abort();
@@ -394,8 +394,8 @@ uint32_t lsm_get(request *const req){
 		for(int i=0; i<LEVELN; i++){
 			//printf("level : %d\n",i);
 			//level_print(LSM.disk[i]);
-			printf("level :%d\n",i);
-			level_oent_print(LSM.disk[i]);
+	//		printf("level :%d\n",i);
+	//		level_oent_print(LSM.disk[i]);
 #if (LEVELN==1)
 			/*
 			for(int j=0; j<TOTALSIZE/PAGESIZE/KEYNUM; j++){
@@ -414,7 +414,6 @@ uint32_t lsm_get(request *const req){
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
 	//	abort();
-//		exit(1);
 	}
 	return res_type;
 }
@@ -782,8 +781,12 @@ keyset *htable_find(keyset *table, KEYT target){
 
 	if(sets[0].lpa>target || sets[KEYNUM-1].lpa<target)
 		return NULL;
-	int mid=512;
+	int mid=KEYNUM/2;
+#if KEYNUM==1024
 	int array[]={256,128,64,32,16,8,4,2,1,1,1};
+#else
+	int array[]={128,64,32,16,8,4,2,1,1,1};
+#endif
 	int idx=0;
 	while(1){
 		if(sets[mid].lpa==target)
@@ -862,7 +865,7 @@ void htable_print(htable * input,KEYT ppa){
 	}
 	if(check){
 		printf("bad page at %d cnt:%d---------\n",ppa,cnt);
-		exit(1);
+		abort();
 	}
 }
 /*

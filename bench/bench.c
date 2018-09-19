@@ -370,7 +370,7 @@ void bench_cdf_print(uint64_t nor, uint8_t type, bench_data *_d){//number of req
 		for(int i=0; i<1000000/TIMESLOT+1; i++){
 			cumulate_number+=_d->write_cdf[i];
 			if(_d->write_cdf[i]==0) continue;
-			printf("%d\t\t%ld\t\t%f\n",i,_d->write_cdf[i],(float)cumulate_number/_d->write_cnt);
+			printf("%d\t%ld\t%f\n",i*10,_d->write_cdf[i],(float)cumulate_number/_d->write_cnt);
 			if(nor==cumulate_number)
 				break;
 		}	
@@ -381,7 +381,7 @@ void bench_cdf_print(uint64_t nor, uint8_t type, bench_data *_d){//number of req
 		for(int i=0; i<1000000/TIMESLOT+1; i++){
 			cumulate_number+=_d->read_cdf[i];
 			if(_d->read_cdf[i]==0) continue;
-			printf("%d\t\t%ld\t\t%f\n",i,_d->read_cdf[i],(float)cumulate_number/_d->read_cnt);	
+			printf("%d\t%ld\t%f\n",i*10,_d->read_cdf[i],(float)cumulate_number/_d->read_cnt);	
 			if(nor==cumulate_number)
 				break;
 		}

@@ -76,7 +76,7 @@ typedef struct level{
 	KEYT end;
 	bool iscompactioning;
 #if defined(LEVELCACHING) || defined(LEVELEMUL)
-	skiplist *level_cache;
+	struct skiplist *level_cache;
 #endif
 #ifdef LEVELEMUL
 	//KEYT *pbn_list;

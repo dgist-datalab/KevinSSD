@@ -184,8 +184,6 @@ int main(int argc,char* argv[]){
 */
 	kuk_sock_destroy(net_worker);
 
-	bench_print();
-	bench_free();
 	inf_free();
 	return 0;
 }
