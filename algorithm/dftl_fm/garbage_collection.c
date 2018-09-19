@@ -186,15 +186,15 @@ int32_t dpage_GC(){
 
         if(p_table){ // cache hit
             //p_table = (int32_t *)p_table_vs->value;
-            if(c_table->flag == 2 && p_table[P_IDX] != d_sram[i].origin_ppa){
+            if(c_table->state == DIRTY && p_table[P_IDX] != d_sram[i].origin_ppa){
                 d_sram[i].origin_ppa = -1; // if not same as origin, it mean this is actually invalid data
                 continue;
             }
-            else{ // but flag 0 couldn't have this case, so just change ppa
+            else{ // but CLEAN state couldn't have this case, so just change ppa
                 p_table[P_IDX] = new_block + real_valid;
                 real_valid++;
-                if(c_table->flag == 0){
-                    c_table->flag = 2;
+                if(c_table->state == CLEAN){
+                    c_table->state = DIRTY;
                     BM_InvalidatePage(bm, t_ppa);
 #if C_CACHE
                     if (num_dirty == max_dirty_cache) {
