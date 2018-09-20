@@ -1,4 +1,3 @@
-CC = gcc
 
 SRCS +=\
 		BM_Block.c\

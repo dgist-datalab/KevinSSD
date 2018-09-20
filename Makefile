@@ -1,4 +1,4 @@
-export CC=gcc
+export CC=g++
 
 TARGET_INF=interface
 TARGET_LOWER=posix_memory
