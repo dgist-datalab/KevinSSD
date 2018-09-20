@@ -58,6 +58,6 @@ typedef enum{false,true} bool;
 typedef enum{
 	SEQGET,SEQSET,SEQRW,
 	RANDGET,RANDSET,
-	RANDRW,MIXED,NOR
+	RANDRW,MIXED,SEQLATENCY,RANDLATENCY,NOR
 }bench_type;
 #endif

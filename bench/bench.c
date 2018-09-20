@@ -20,11 +20,28 @@ void seqrw(KEYT,KEYT,monitor *);
 void randget(KEYT,KEYT,monitor*);
 void randset(KEYT,KEYT,monitor*);
 void randrw(KEYT,KEYT,monitor*);
+void latency(KEYT,KEYT,monitor*);
 void mixed(KEYT,KEYT,int percentage,monitor*);
+void rand_latency(KEYT start, KEYT end,int percentage, monitor *m);
+void seq_latency(KEYT start, KEYT end,int percentage, monitor *m);
 
 KEYT keygenerator(uint32_t range);
 
 pthread_mutex_t bench_lock;
+uint8_t *bitmap;
+static void bitmap_set(KEYT key){
+	uint32_t block=key/8;
+	uint8_t offset=key%8;
+
+	bitmap[block]|=(1<<offset);
+}
+static bool bitmap_get(KEYT key){
+	uint32_t block=key/8;
+	uint8_t offset=key%8;
+
+	return bitmap[block]&(1<<offset);
+}
+
 void bench_init(int benchnum){
 	_master=(master*)malloc(sizeof(master));
 	_master->m=(monitor*)malloc(sizeof(monitor)*benchnum);
@@ -46,7 +63,8 @@ void bench_init(int benchnum){
 		_master->m[i].empty=true;
 		_master->m[i].type=NOR;
 	}
-
+	
+	
 	for(int i=0;i<benchnum;i++){
 		for(int j=0;j<ALGOTYPE;j++){
 			for(int k=0;k<LOWERTYPE;k++){
@@ -55,6 +73,7 @@ void bench_init(int benchnum){
 			}
 		}
 	}
+	bitmap=(uint8_t*)malloc(sizeof(uint8_t)*(TOTALSIZE/8/K/8));
 }
 void bench_make_data(){
 	int idx=_master->n_num;
@@ -93,7 +112,14 @@ void bench_make_data(){
 		case MIXED:
 			mixed(start,end,50,_m);
 			break;
+		case SEQLATENCY:
+			seq_latency(start,end,50,_m);
+			break;
+		case RANDLATENCY:
+			rand_latency(start,end,50,_m);
+			break;
 		default:
+			printf("making data failed\n");
 			break;
 	}
 	_d->read_cnt=_m->read_cnt;
@@ -527,6 +553,7 @@ void seqset(KEYT start, KEYT end,monitor *m){
 	printf("making seq Set bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
 		m->body[i].key=start+(i%(end-start));
+		bitmap_set(m->body[i].key);
 #ifdef DVALUE
 		m->body[i].length=(rand()%16+1)*512;
 #else
@@ -544,6 +571,7 @@ void seqrw(KEYT start, KEYT end, monitor *m){
 	for(i=0; i<m->m_num/2; i++){
 		m->body[i].key=start+(i%(end-start));
 		m->body[i].type=FS_SET_T;
+		bitmap_set(m->body[i].key);
 #ifdef DVALUE
 		m->body[i].length=(rand()%16+1)*512;
 #else	
@@ -578,6 +606,7 @@ void randset(KEYT start, KEYT end, monitor *m){
 #else
 		m->body[i].key=start+rand()%(end-start);
 #endif
+		bitmap_set(m->body[i].key);
 
 #ifdef DVALUE
 		m->body[i].length=(rand()%16+1)*512;
@@ -598,7 +627,7 @@ void randrw(KEYT start, KEYT end, monitor *m){
 #else
 		m->body[i].key=start+rand()%(end-start);
 #endif
-
+		bitmap_set(m->body[i].key);
 		m->body[i].type=FS_SET_T;
 #ifdef DVALUE
 		m->body[i].length=(rand()%16+1)*512;
@@ -626,6 +655,7 @@ void mixed(KEYT start, KEYT end,int percentage, monitor *m){
 
 		if(rand()%100<percentage){
 			m->body[i].type=FS_SET_T;
+			bitmap_set(m->body[i].key);
 #ifdef DVALUE
 			m->body[i].length=(rand()%16+1)*512;
 #else
@@ -639,6 +669,105 @@ void mixed(KEYT start, KEYT end,int percentage, monitor *m){
 			m->read_cnt++;
 		}
 		m->body[i].mark=m->mark;
+	}
+}
+
+void seq_latency(KEYT start, KEYT end,int percentage, monitor *m){
+	printf("making latency bench!\n");
+	//seqset process
+	for(KEYT i=0; i<m->m_num/2; i++){
+		m->body[i].key=start+(i%(end-start));
+		bitmap_set(m->body[i].key);
+#ifdef DVALUE
+		m->body[i].length=(rand()%16+1)*512;
+#else
+		m->body[i].length=PAGESIZE;
+#endif
+		m->body[i].type=FS_SET_T;
+		m->body[i].mark=m->mark;
+		m->write_cnt++;
+	}
+
+	for(KEYT i=m->m_num/2; i<m->m_num; i++){
+#ifdef KEYGEN
+		m->body[i].key=keygenerator(end);
+#else
+		m->body[i].key=start+rand()%(end-start);
+#endif
+		if(rand()%100<percentage){
+			m->body[i].type=FS_SET_T;
+			bitmap_set(m->body[i].key);
+#ifdef DVALUE
+			m->body[i].length=(rand()%16+1)*512;
+#else
+			m->body[i].length=PAGESIZE;
+#endif
+			m->write_cnt++;
+		}
+		else{
+			while(!bitmap_get(m->body[i].key)){
+#ifdef KEYGEN
+				m->body[i].key=keygenerator(end);
+#else
+				m->body[i].key=start+rand()%(end-start);
+#endif
+			}
+			m->body[i].type=FS_GET_T;
+			m->body[i].length=PAGESIZE;
+			m->read_cnt++;
+		}
+	}
+}
+
+
+void rand_latency(KEYT start, KEYT end,int percentage, monitor *m){
+	printf("making latency bench!\n");
+	//seqset process
+	for(KEYT i=0; i<m->m_num/2; i++){
+#ifdef KEYGEN
+		m->body[i].key=keygenerator(end);
+#else
+		m->body[i].key=start+rand()%(end-start);
+#endif	
+		bitmap_set(m->body[i].key);
+#ifdef DVALUE
+		m->body[i].length=(rand()%16+1)*512;
+#else
+		m->body[i].length=PAGESIZE;
+#endif
+		m->body[i].type=FS_SET_T;
+		m->body[i].mark=m->mark;
+		m->write_cnt++;
+	}
+
+	for(KEYT i=m->m_num/2; i<m->m_num; i++){
+#ifdef KEYGEN
+		m->body[i].key=keygenerator(end);
+#else
+		m->body[i].key=start+rand()%(end-start);
+#endif
+		if(rand()%100<percentage){
+			m->body[i].type=FS_SET_T;
+			bitmap_set(m->body[i].key);
+#ifdef DVALUE
+			m->body[i].length=(rand()%16+1)*512;
+#else
+			m->body[i].length=PAGESIZE;
+#endif
+			m->write_cnt++;
+		}
+		else{
+			while(!bitmap_get(m->body[i].key)){
+#ifdef KEYGEN
+				m->body[i].key=keygenerator(end);
+#else
+				m->body[i].key=start+rand()%(end-start);
+#endif
+			}
+			m->body[i].type=FS_GET_T;
+			m->body[i].length=PAGESIZE;
+			m->read_cnt++;
+		}
 	}
 }
 
