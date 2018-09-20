@@ -118,10 +118,10 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 
     /* Cache control & Init */
-    //num_max_cache = max_cache_entry; // max cache
+    num_max_cache = max_cache_entry; // max cache
     //num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2; // 1/2 cache
     //num_max_cache = 1; // 1 cache
-    num_max_cache = max_cache_entry / 4; // 1/4 cache
+    //num_max_cache = max_cache_entry / 4; // 1/4 cache
     //num_max_cache = max_cache_entry / 20; // 5%
     //num_max_cache = max_cache_entry / 10; // 10%
     //num_max_cache = max_cache_entry / 8; // 16%
@@ -327,7 +327,9 @@ void *demand_end_req(algo_req* input){
             trans_r++;
 
             ((read_params*)res->params)->read = 1;
+            //while (!inf_assign_try(res)) {}
             if(!inf_assign_try(res)) {
+                puts("not queued 1");
                 q_enqueue((void*)res, dftl_q);
             }
             inf_free_valueset(temp_v, FS_MALLOC_R);
@@ -335,7 +337,9 @@ void *demand_end_req(algo_req* input){
             break;
         case MAPPING_W:
             trans_w++;
+            //while (!inf_assign_try(res)) {}
             if(!inf_assign_try(res)) {
+                puts("not queued 2");
                 q_enqueue((void*)res, dftl_q);
             }
 
@@ -472,7 +476,9 @@ static uint32_t demand_write_flying(request *const req, char req_t) {
 
             // Register reserved requests
             for (int i = 0; i < c_table->num_waiting; i++) {
+                //while (!inf_assign_try(c_table->flying_arr[i])) {}
                 if (!inf_assign_try(c_table->flying_arr[i])) {
+                    puts("not queued 3");
                     q_enqueue((void *)c_table->flying_arr[i], dftl_q);
                 }
             }
@@ -523,7 +529,9 @@ static uint32_t demand_read_flying(request *const req, char req_t) {
 
     // Register reserved requests
     for (int i = 0; i < c_table->num_waiting; i++) {
+        //while (!inf_assign_try(c_table->flying_arr[i])) {}
         if (!inf_assign_try(c_table->flying_arr[i])) {
+            puts("not queued 4");
             q_enqueue((void *)c_table->flying_arr[i], dftl_q);
         }
     }
@@ -1134,7 +1142,6 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
 
     cache_ptr->queue_ptr = NULL;
     cache_ptr->p_table   = NULL;
-    //num_caching--;
 
     return 1;
 }

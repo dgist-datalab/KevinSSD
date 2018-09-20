@@ -153,7 +153,7 @@ bool inf_assign_try(request *req){
 	bool flag=false;
 	for(int i=0; i<THREADSIZE; i++){
 		processor *t=&mp.processors[i];
-		if(t->req_rq->size!=0) break;
+		//if(t->req_rq->size!=0) break;
 		while(q_enqueue((void*)req,t->retry_q)){
 			flag=true;
 			break;
