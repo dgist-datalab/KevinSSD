@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 bb_checker checker;
-uint64_t target_cnt, _cnt, badblock_cnt;
+volatile uint64_t target_cnt, _cnt, badblock_cnt;
 uint32_t array[128];
 
 void bb_checker_start(lower_info *li){
