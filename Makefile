@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=bdbm_drv
+TARGET_LOWER=network
 TARGET_ALGO=dftl_fm
 PWD=$(pwd)
 
@@ -12,7 +12,7 @@ export CFLAGS_ALGO=\
 			 -g\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
-			 -O2\
+#			 -O2\
 #-DDVALUE\
 
 
@@ -21,9 +21,9 @@ export CFLAGS_LOWER=\
 			 -lpthread\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\
--O2\
+#-O2\
 
-export priority="true"
+export priority="false"
 
 
 #CFLAGS_ALGO+=-DCOMPACTIONLOG\
@@ -54,7 +54,7 @@ CFLAGS +=\
 		 -D_BSD_SOURCE\
 -DBENCH\
 -DCDF\
--O2\
+#-O2\
 
 SRCS +=\
 	./interface/queue.c\
