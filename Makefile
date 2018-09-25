@@ -12,7 +12,7 @@ export CFLAGS_ALGO=\
 			 -g\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
-			 #-O2\
+#			 -O2\
 #-DDVALUE\
 
 
@@ -54,7 +54,7 @@ CFLAGS +=\
 		 -D_BSD_SOURCE\
 -DBENCH\
 -DCDF\
--O2\
+#-O2\
 
 SRCS +=\
 	./interface/queue.c\

@@ -13,7 +13,7 @@ export CFLAGS_LOWER=\
 			 -D_FILE_OFFSET_BITS=64\
 #-O2\
 
-export priority="tru"
+export priority="false"
 
 
 
@@ -70,7 +70,7 @@ server: ./interface/network/network_main.c libsimulator.a
 libsimulator.a:$(TARGETOBJ)
 	mkdir -p object && mkdir -p data
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
-	cd ./include/kuk_socket_lib/ && $(MAKE) && mv ./*.o ../../object/ && cd ../../
+	#cd ./include/kuk_socket_lib/ && $(MAKE) && mv ./*.o ../../object/ && cd ../../
 	mv ./include/data_struct/*.o ./object/
 	mv ./include/utils/*.o ./object/
 	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/

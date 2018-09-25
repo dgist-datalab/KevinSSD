@@ -35,6 +35,7 @@ void *reactor(void *arg) {
     // TODO: How to get end_req here?
     while (1) {
         if (sent = (struct net_data *)q_dequeue(end_req_q)) {
+            printf("sent request [type: %d / ppa: %d / req: 0x%lx]\n", sent->type, sent->ppa, sent->req);
             write(clnt_fd, sent, sizeof(struct net_data));
             free(sent);
         }
@@ -46,13 +47,14 @@ void *reactor(void *arg) {
 void *serv_end_req(algo_req *req) {
     struct serv_params *params = (struct serv_params *)req->params;
 
-    q_enqueue((void *)(params->data), end_req_q);
-
     if (params->data->type == RQ_TYPE_PUSH) {
         inf_free_valueset(params->vs, FS_MALLOC_W);
     } else if (params->data->type == RQ_TYPE_PULL) {
         inf_free_valueset(params->vs, FS_MALLOC_R);
     }
+
+    q_enqueue((void *)(params->data), end_req_q);
+
     free(params);
     free(req);
 }
@@ -115,6 +117,8 @@ int main(){
         ppa  = ((struct net_data *)&data)->ppa;
         req  = ((struct net_data *)&data)->req;
 
+        printf("received request [type: %d / ppa: %d / req: 0x%lx]\n", type, ppa, req);
+
         switch (type) {
         case RQ_TYPE_DESTROY:
             li->destroy(li);
@@ -153,7 +157,6 @@ int main(){
         case RQ_TYPE_FLYING:
             li->lower_flying_req_wait();
             write(clnt_fd, &data, sizeof(data));
-            // TODO: unlocking message
             break;
         }
     }
