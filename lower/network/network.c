@@ -37,6 +37,8 @@ void *poller(void *arg) {
         ppa  = ((struct net_data *)&data)->ppa;
         req  = ((struct net_data *)&data)->req;
 
+        printf("polled request [type: %d / ppa: %d / req: 0x%lx]\n", type, ppa, req);
+
         switch (type) {
         case RQ_TYPE_CREATE:
         case RQ_TYPE_DESTROY:
@@ -65,6 +67,7 @@ static ssize_t net_make_req(int8_t type, KEYT ppa, algo_req *req) {
     data.ppa  = ppa;
     data.req  = req;
 
+    printf("make request [type: %d / ppa: %d / req: 0x%lx]\n", type, ppa, req);
     return write(sock_fd, &data, sizeof(data));
 }
 
@@ -94,6 +97,7 @@ uint32_t net_info_create(lower_info *li) {
     memset(li->req_type_cnt, 0, sizeof(li->req_type_cnt));
 
     pthread_mutex_init(&flying_lock, NULL);
+    pthread_mutex_lock(&flying_lock);
 
     // Socket open
     sock_fd = socket(AF_INET, SOCK_STREAM, 0); // TCP
@@ -190,8 +194,8 @@ void *net_info_pull_data(KEYT ppa, uint32_t size, value_set *value, bool async, 
     }
 
     if (req->type <= GCMW) {
-        PTR loc = seg_table[ppa / net_info.PPS].storage;
-        memcpy(value->value, &loc[(ppa % net_info.PPS) * net_info.SOP], size);
+        PTR loc = seg_table[ppa / net_info.PPB].storage;
+        memcpy(value->value, &loc[(ppa % net_info.PPB) * net_info.SOP], size);
         req->type_lower = 1;
     }
 
