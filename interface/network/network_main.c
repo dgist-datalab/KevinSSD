@@ -32,10 +32,9 @@ pthread_t tid;
 void *reactor(void *arg) {
     struct net_data *sent;
 
-    // TODO: How to get end_req here?
     while (1) {
         if (sent = (struct net_data *)q_dequeue(end_req_q)) {
-            printf("sent request [type: %d / ppa: %d / req: 0x%lx]\n", sent->type, sent->ppa, sent->req);
+            //printf("sent request [type: %d / ppa: %d / req: 0x%lx]\n", sent->type, sent->ppa, sent->req);
             write(clnt_fd, sent, sizeof(struct net_data));
             free(sent);
         }
@@ -55,8 +54,25 @@ void *serv_end_req(algo_req *req) {
 
     q_enqueue((void *)(params->data), end_req_q);
 
-    free(params);
+    free(req->params);
     free(req);
+
+    return NULL;
+}
+
+static algo_req *make_serv_req(value_set *vs, struct net_data *data) {
+    algo_req *req = (algo_req *)malloc(sizeof(algo_req));
+
+    struct serv_params *params = (struct serv_params *)malloc(sizeof(struct serv_params));
+    params->data = (struct net_data *)malloc(sizeof(struct net_data));
+
+    params->vs = vs;
+    *(params->data) = *data;
+
+    req->params  = (void *)params;
+    req->end_req = serv_end_req;
+
+    return req;
 }
 
 int main(){
@@ -68,7 +84,6 @@ int main(){
     algo_req *req;
 
     algo_req *serv_req;
-    struct serv_params *params;
     value_set *dummy_vs;
 
 
@@ -113,11 +128,11 @@ int main(){
     pthread_create(&tid, NULL, reactor, NULL);
 
     while (read(clnt_fd, &data, sizeof(data))) {
-        type = ((struct net_data *)&data)->type;
-        ppa  = ((struct net_data *)&data)->ppa;
-        req  = ((struct net_data *)&data)->req;
+        type = data.type;
+        ppa  = data.ppa;
+        req  = data.req;
 
-        printf("received request [type: %d / ppa: %d / req: 0x%lx]\n", type, ppa, req);
+        //printf("received request [type: %d / ppa: %d / req: 0x%lx]\n", type, ppa, req);
 
         switch (type) {
         case RQ_TYPE_DESTROY:
@@ -125,29 +140,13 @@ int main(){
             break;
         case RQ_TYPE_PUSH:
             dummy_vs = inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
-
-            serv_req = (algo_req *)malloc(sizeof(algo_req));
-            serv_req->end_req = serv_end_req;
-
-            params = (struct serv_params *)malloc(sizeof(struct serv_params));
-            params->data = (struct net_data *)malloc(sizeof(struct net_data));
-            *(params->data) = data;
-            params->vs = dummy_vs;
-            serv_req->params = (void *)params;
+            serv_req = make_serv_req(dummy_vs, &data);
 
             li->push_data(ppa, PAGESIZE, dummy_vs, ASYNC, serv_req);
             break;
         case RQ_TYPE_PULL:
             dummy_vs = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
-
-            serv_req = (algo_req *)malloc(sizeof(algo_req));
-            serv_req->end_req = serv_end_req;
-
-            params = (struct serv_params *)malloc(sizeof(struct serv_params));
-            params->data = (struct net_data *)malloc(sizeof(struct net_data));
-            *(params->data) = data;
-            params->vs = dummy_vs;
-            serv_req->params = (void *)params;
+            serv_req = make_serv_req(dummy_vs, &data);
 
             li->pull_data(ppa, PAGESIZE, dummy_vs, ASYNC, serv_req);
             break;
@@ -157,6 +156,7 @@ int main(){
         case RQ_TYPE_FLYING:
             li->lower_flying_req_wait();
             write(clnt_fd, &data, sizeof(data));
+            printf("sent request [type: %d / ppa: %d / req: 0x%lx]\n", type, ppa, req);
             break;
         }
     }

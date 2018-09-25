@@ -12,10 +12,10 @@
 #include <pthread.h>
 
 
-#define RQ_TYPE_CREATE  0
-#define RQ_TYPE_DESTROY 1
-#define RQ_TYPE_PUSH    2
-#define RQ_TYPE_PULL    3
+#define RQ_TYPE_CREATE  1000
+#define RQ_TYPE_DESTROY 0
+#define RQ_TYPE_PUSH    1
+#define RQ_TYPE_PULL    2
 #define RQ_TYPE_TRIM    4
 #define RQ_TYPE_FLYING  5
 
