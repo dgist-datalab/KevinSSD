@@ -1018,14 +1018,12 @@ uint32_t leveling(int from, int to, Entry *entry){
 			}else{
 #endif
 			body=skiplist_init();
-			level_range_find(src,src->start,src->end,&target_s,false);	
-			partial_leveling(target,target_origin,body,target_s);
+			partial_leveling(target,target_origin,body,src);
 #ifdef LEVELCACHING
 			}
 #endif
 			compaction_heap_setting(target,target_origin);
 			skiplist_free(body);// free at compaction_subprocessing
-			free(target_s);
 		}
 
 /*#ifdef DVALUE
@@ -1199,25 +1197,39 @@ uint64_t partial_tiering(level *des,level *src, int size){
 	return 1;
 }
 
-uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
+uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 	MS(&compaction_timer[1]);
 	KEYT start=0;
 	KEYT end=0;
 	Entry **target_s=NULL;
+	Entry **data=NULL;
 	htable **table=NULL;
 
-	if(!data){
+	//static int cnt=0;
+	//printf("pl:%d\n",cnt++);
+
+	if(!upper){
 #ifndef MONKEY
 		start=skip->start;
 #else
 		start=0;
 #endif
 	}
-	else start=data[0]->key;
+	else{
+		start=upper->start;
+		end=upper->end;
+	}
+#ifndef MONKEY
+	int ts=level_range_unmatch(origin,start,&target_s,true);
+	for(int i=0; i<ts; i++){
+		level_insert(t,target_s[i]);
+		target_s[i]->iscompactioning=4;
+	}
+	free(target_s);
+#endif
 
-	int headerSize;	
-
-	if(!data){
+	int headerSize;
+	if(!upper){
 		end=origin->end;
 		headerSize=level_range_find(origin,start,end,&target_s,true);
 		int target_round=headerSize/EPC+(headerSize%EPC?1:0);
@@ -1281,6 +1293,8 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 		compaction_sub_pre();
 		table=(htable**)malloc(sizeof(htable*)*t->m_num*2);
 		epc_check=0;
+		
+		level_range_find(upper,upper->start,upper->end,&data,true);
 
 		int t_idx=0;
 		for(int i=0; data[i]!=NULL; i++){
@@ -1308,6 +1322,9 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 		headerSize=level_range_find(origin,origin->start,origin->end,&target_s,true);
 		for(int i=0; i<headerSize; i++){
 			Entry *temp=target_s[i];
+			if(temp->iscompactioning==4){
+				continue;
+			}
 			if(!temp->iscompactioning) temp->iscompactioning=true;
 #ifdef CACHE
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
@@ -1335,6 +1352,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 		t_idx=0;
 		for(int i=0; data[i]!=NULL; i++){
 			Entry *temp=data[i];
+
 			if(temp->iscompactioning!=3)
 				invalidate_PPA(temp->pbn);
 			//free(table[t_idx]);
@@ -1344,14 +1362,16 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, Entry **data){
 
 		for(int i=0; i<headerSize; i++){	
 			Entry *temp=target_s[i];
+			if(temp->iscompactioning==4) continue;
+
 			if(temp->iscompactioning!=3)
 				invalidate_PPA(temp->pbn);
 			//free(table[t_idx]);
 			htable_free(table[t_idx]);
 			t_idx++;
 		}
-
 		free(table);
+		free(data);
 		free(target_s);
 		compaction_sub_post();
 	}

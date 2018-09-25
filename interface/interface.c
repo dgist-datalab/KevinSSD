@@ -219,6 +219,7 @@ void *p_main(void *__input){
 #ifdef CDF
 		inf_req->isstart=true;
 #endif
+
 		switch(inf_req->type){
 			case FS_GET_T:
 				mp.algo->get(inf_req);
@@ -264,7 +265,7 @@ bool inf_make_req_fromApp(char _type, KEYT _key,KEYT offset, KEYT len,PTR _value
 		value->len=len;
 	}
 	value->length=len;
-	value->dmatag=-1;
+	value->dmatag=0;
 	value->from_app=true;
 	
 	request *req=inf_get_req_instance(_type,_key,value,0,true);
@@ -358,7 +359,7 @@ static request *inf_get_req_instance(const FSTYPE type, const KEYT key, value_se
 			}
 		}
 	}
-
+	
 	req->end_req=inf_end_req;
 	req->isAsync=ASYNC;
 	req->params=NULL;

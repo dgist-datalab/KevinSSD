@@ -292,8 +292,12 @@ void bench_print(){
 			}
 			printf("[READ WRITE CNT] %ld %ld\n",_m->read_cnt,_m->write_cnt);
 		}
+		printf("error cnt:%d\n",_master->error_cnt);
 	}
 }
+
+
+
 void bench_algo_start(request *const req){
 	measure_init(&req->algo);
 	if(req->params==NULL){
@@ -442,7 +446,10 @@ void bench_reap_data(request *const req,lower_info *li){
 	if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){
 		bench_update_ftltime(_data, req);
 	}
-
+	
+	if(req->type==FS_NOTFOUND_T){
+		_master->error_cnt++;
+	}
 #ifdef CDF
 	measure_calc(&req->latency_checker);
 	int slot_num=req->latency_checker.micro_time/TIMESLOT;

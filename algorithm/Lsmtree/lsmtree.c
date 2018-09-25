@@ -173,7 +173,9 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	printf("data gc: %d\n",data_gc_cnt);
 	printf("header gc: %d\n",header_gc_cnt);
 	printf("block gc: %d\n",block_gc_cnt);
+#ifdef NOCPY
 	nocpy_free();
+#endif
 }
 
 extern pthread_mutex_t compaction_wait,gc_wait;
@@ -363,6 +365,7 @@ uint32_t lsm_get(request *const req){
 	void *re_q;
 	static bool temp=false;
 	static bool level_show=false;
+	static bool debug=false;
 	uint32_t res_type=0;
 	if(!level_show){
 		level_show=true;
@@ -408,6 +411,11 @@ uint32_t lsm_get(request *const req){
 	}
 	bench_algo_start(req);
 	res_type=__lsm_get(req);
+	if(!debug && LSM.disk[0]->n_num>0){
+		printf("here!\n");
+		debug=true;
+		level_all_print();
+	}
 	if(res_type==0){
 //		printf("not found seq: %d, key:%u\n",nor++,req->key);
 //		level_all_print();
