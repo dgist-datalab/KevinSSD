@@ -33,11 +33,11 @@ void *poller(void *arg) {
 
     while (read(sock_fd, &data, sizeof(data))) {
 
-        type = ((struct net_data *)&data)->type;
-        ppa  = ((struct net_data *)&data)->ppa;
-        req  = ((struct net_data *)&data)->req;
+        type = data.type;
+        ppa  = data.ppa;
+        req  = data.req;
 
-        printf("polled request [type: %d / ppa: %d / req: 0x%lx]\n", type, ppa, req);
+        //printf("polled request [type: %d / ppa: %d / req: 0x%lx]\n", type, ppa, req);
 
         switch (type) {
         case RQ_TYPE_CREATE:
@@ -67,7 +67,7 @@ static ssize_t net_make_req(int8_t type, KEYT ppa, algo_req *req) {
     data.ppa  = ppa;
     data.req  = req;
 
-    printf("make request [type: %d / ppa: %d / req: 0x%lx]\n", type, ppa, req);
+    //printf("make request [type: %d / ppa: %d / req: 0x%lx]\n", type, ppa, req);
     return write(sock_fd, &data, sizeof(data));
 }
 

@@ -156,10 +156,15 @@ int main(){
         case RQ_TYPE_FLYING:
             li->lower_flying_req_wait();
             write(clnt_fd, &data, sizeof(data));
-            printf("sent request [type: %d / ppa: %d / req: 0x%lx]\n", type, ppa, req);
+            //printf("sent request [type: %d / ppa: %d / req: 0x%lx]\n", type, ppa, req);
             break;
         }
     }
 
+    close(clnt_fd);
+    close(serv_fd);
+
     q_free(end_req_q);
+
+    return 0;
 }

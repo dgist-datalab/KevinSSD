@@ -124,8 +124,8 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     //num_max_cache = max_cache_entry; // max cache
     //num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2; // 1/2 cache
     //num_max_cache = 1; // 1 cache
-    //num_max_cache = max_cache_entry / 4; // 1/4 cache
-    num_max_cache = max_cache_entry / 20; // 5%
+    num_max_cache = max_cache_entry / 4; // 1/4 cache
+    //num_max_cache = max_cache_entry / 20; // 5%
     //num_max_cache = max_cache_entry / 10; // 10%
     //num_max_cache = max_cache_entry / 8; // 16%
 
@@ -795,21 +795,23 @@ uint32_t __demand_set(request *const req){
     free(req->params);
     req->params = NULL;
 
-    ppa = ppa_prefetch[ppa_idx++];
-
     temp = skiplist_insert(mem_buf, lpa, req->value, true);
-    temp->ppa = ppa;
+    if (mem_buf->size != ppa_idx) {
+        ppa = ppa_prefetch[ppa_idx++];
+        temp->ppa = ppa;
 
-    // if there is previous data with same lpa, then invalidate it
-    p_table = c_table->p_table;
-    if(p_table[P_IDX] != -1){
-        BM_InvalidatePage(bm, p_table[P_IDX]);
+        // if there is previous data with same lpa, then invalidate it
+        p_table = c_table->p_table;
+        if(p_table[P_IDX] != -1){
+            BM_InvalidatePage(bm, p_table[P_IDX]);
+        }
+
+        // Update page table & OOB
+        p_table[P_IDX] = ppa;
+        BM_ValidatePage(bm, ppa);
+        demand_OOB[ppa].lpa = lpa;
     }
 
-    // Update page table & OOB
-    p_table[P_IDX] = ppa;
-    BM_ValidatePage(bm, ppa);
-    demand_OOB[ppa].lpa = lpa;
     req->value = NULL; // moved to value field of snode
     bench_algo_end(req);
     req->end_req(req);

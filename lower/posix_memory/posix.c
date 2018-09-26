@@ -213,9 +213,9 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		printf("dmatag -1 error!\n");
 		exit(1);
 	}
-	bench_lower_w_start(&my_posix);
-	if(req->parents)
-		bench_lower_start(req->parents);
+	//bench_lower_w_start(&my_posix);
+	//if(req->parents)
+	//	bench_lower_start(req->parents);
 	pthread_mutex_lock(&fd_lock);
 
 	if(my_posix.SOP*PPA >= my_posix.TS){
@@ -238,9 +238,9 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	}
 
 	pthread_mutex_unlock(&fd_lock);
-	if(req->parents)
-		bench_lower_end(req->parents);
-	bench_lower_w_end(&my_posix);
+	//if(req->parents)
+	//	bench_lower_end(req->parents);
+	//bench_lower_w_end(&my_posix);
 	req->end_req(req);
 	return NULL;
 }
@@ -254,9 +254,9 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		printf("dmatag -1 error!\n");
 		exit(1);
 	}
-	bench_lower_r_start(&my_posix);
-	if(req->parents)
-		bench_lower_start(req->parents);
+	//bench_lower_r_start(&my_posix);
+	//if(req->parents)
+	//	bench_lower_start(req->parents);
 
 	pthread_mutex_lock(&fd_lock);
 
@@ -279,9 +279,9 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 
 	pthread_mutex_unlock(&fd_lock);
 
-	if(req->parents)
-		bench_lower_end(req->parents);
-	bench_lower_r_end(&my_posix);
+	//if(req->parents)
+	//	bench_lower_end(req->parents);
+	//bench_lower_r_end(&my_posix);
 	req->end_req(req);
 	/*
 	if(async){
