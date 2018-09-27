@@ -808,10 +808,6 @@ void invalidate_PPA(KEYT _ppa){
 	segment *segs=WHICHSEG(bl[bn].ppa);
 	segs->invalid_n++;
 	static int cnt=0;
-	
-	if(bn==10175){
-		printf("_ppa:%d lpa:%d\n",_ppa,PBITGET(_ppa));
-	}
 
 	if(bl[bn].invalid_n>algo_lsm.li->PPB){
 		printf("%ld\n",algo_lsm.li->PPB);
@@ -1435,8 +1431,8 @@ int gc_header(KEYT tbn){
 }
 static int gc_dataed_page;
 int gc_data(KEYT tbn){//
-	gc_data_cnt++;
-	printf("gc_data_cnt : %d\n",gc_data_cnt);
+	//gc_data_cnt++;
+	//printf("gc_data_cnt : %d\n",gc_data_cnt);
 	block *target=&bl[tbn];
 	char order;
 	if(tbn%BPS==0)	order=0;

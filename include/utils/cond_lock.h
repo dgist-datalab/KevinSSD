@@ -12,6 +12,9 @@ typedef struct{
 
 cl_lock *cl_init(int cnt,bool);
 void cl_grap(cl_lock *);
+void cl_cond_grap(cl_lock *,bool);
+void cl_always_release(cl_lock*);
+void cl_now_update(cl_lock*, int);
 void cl_release(cl_lock *);
 void cl_free(cl_lock *);
 #endif

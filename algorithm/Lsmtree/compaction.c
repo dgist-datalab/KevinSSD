@@ -260,6 +260,10 @@ htable *compaction_data_write(skiplist *mem){
 		}
 		idx++;
 	}
+	//add padding 
+	for(int i=KEYNUM; i<(PAGESIZE/(sizeof(KEYT)*2)); i++){
+		res->sets[i].lpa=res->sets[i].ppa=UINT_MAX;
+	}
 	free(iter);
 	isflushing=false;
 	return res;

@@ -412,9 +412,9 @@ uint32_t lsm_get(request *const req){
 	bench_algo_start(req);
 	res_type=__lsm_get(req);
 	if(!debug && LSM.disk[0]->n_num>0){
-		printf("here!\n");
+		//printf("here!\n");
 		debug=true;
-		level_all_print();
+	//	level_all_print();
 	}
 	if(res_type==0){
 //		printf("not found seq: %d, key:%u\n",nor++,req->key);
