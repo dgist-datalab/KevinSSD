@@ -27,6 +27,7 @@ struct net_data {
     int8_t type;
     KEYT ppa;
     algo_req *req;
+    uint8_t req_type;
 };
 
 struct mem_seg {

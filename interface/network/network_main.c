@@ -22,20 +22,24 @@ extern struct lower_info my_posix;
 #endif
 
 int serv_fd, clnt_fd;
+int option;
 struct sockaddr_in serv_addr, clnt_addr;
 socklen_t clnt_sz;
 
 queue *end_req_q;
 
 pthread_t tid;
+pthread_mutex_t socket_lock;
 
 void *reactor(void *arg) {
     struct net_data *sent;
 
     while (1) {
         if (sent = (struct net_data *)q_dequeue(end_req_q)) {
-            //printf("sent request [type: %d / ppa: %d / req: 0x%lx]\n", sent->type, sent->ppa, sent->req);
+            pthread_mutex_lock(&socket_lock);
             write(clnt_fd, sent, sizeof(struct net_data));
+            pthread_mutex_unlock(&socket_lock);
+
             free(sent);
         }
     }
@@ -71,6 +75,7 @@ static algo_req *make_serv_req(value_set *vs, struct net_data *data) {
 
     req->params  = (void *)params;
     req->end_req = serv_end_req;
+    req->type    = data->req_type;
 
     return req;
 }
@@ -98,11 +103,16 @@ int main(){
 
     q_init(&end_req_q, 1024);
 
+    pthread_mutex_init(&socket_lock, NULL);
+
     serv_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (serv_fd == -1) {
         perror("Socket openning ERROR");
         exit(1);
     }
+
+    option = 1;
+    setsockopt(serv_fd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
 
     bzero((char *)&serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
@@ -132,8 +142,6 @@ int main(){
         ppa  = data.ppa;
         req  = data.req;
 
-        //printf("received request [type: %d / ppa: %d / req: 0x%lx]\n", type, ppa, req);
-
         switch (type) {
         case RQ_TYPE_DESTROY:
             li->destroy(li);
@@ -155,8 +163,11 @@ int main(){
             break;
         case RQ_TYPE_FLYING:
             li->lower_flying_req_wait();
+
+            pthread_mutex_lock(&socket_lock);
             write(clnt_fd, &data, sizeof(data));
-            //printf("sent request [type: %d / ppa: %d / req: 0x%lx]\n", type, ppa, req);
+            pthread_mutex_unlock(&socket_lock);
+
             break;
         }
     }

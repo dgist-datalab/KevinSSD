@@ -66,6 +66,7 @@ static ssize_t net_make_req(int8_t type, KEYT ppa, algo_req *req) {
     data.type = type;
     data.ppa  = ppa;
     data.req  = req;
+    data.req_type = req->type;
 
     //printf("make request [type: %d / ppa: %d / req: 0x%lx]\n", type, ppa, req);
     return write(sock_fd, &data, sizeof(data));
