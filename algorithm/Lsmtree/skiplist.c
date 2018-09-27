@@ -79,13 +79,6 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
 #else
 		invalidate_DPPA(ppa);
 #endif
-		/*
-		if(key==1556){
-			printf("[%d]new ppa:%d old ppa:%d\n",key,x->ppa,ppa);
-			#ifdef DVALUE
-			printf("ppb:%d\n",x->ppa/16/256);
-			#endif
-		}*/
 		//x->ppa=ppa;
 		//x->isvalid=deletef;
 		return x;
@@ -193,13 +186,13 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 	}
 
 	if(key==x->key){	
-
 #ifdef DEBUG
 
 #endif
 	//	algo_req * old_req=x->req;
 	//	lsm_params *old_params=(lsm_params*)old_req->params;
 	//	old_params->lsm_type=OLDDATA;
+		
 		if(x->value)
 			inf_free_valueset(x->value,FS_MALLOC_W);
 	//	old_req->end_req(old_req);

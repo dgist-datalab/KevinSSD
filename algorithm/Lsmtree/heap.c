@@ -39,7 +39,7 @@ h_node* heap_insert(heap *h, void *value){
 #ifdef LEVELUSINGHEAP
 	if(h->idx==h->max_size){
 		printf("heap full!\n");
-		exit(1);
+		abort();
 	}
 	//block *bl=(block*)value;
 	h->body[h->idx].value=value;

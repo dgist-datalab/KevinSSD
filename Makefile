@@ -63,7 +63,6 @@ SRCS +=\
 	./include/FS.c\
 	./include/utils/dl_sync.c\
 	./include/utils/rwlock.c\
-	./include/utils/thpool.c\
 	./include/utils/cond_lock.c\
 	./include/data_struct/hash.c\
 	./include/data_struct/list.c\

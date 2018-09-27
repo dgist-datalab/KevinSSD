@@ -28,6 +28,34 @@ void cl_grap(cl_lock *cl){
 	pthread_mutex_unlock(&cl->mutex);
 }
 
+void cl_cond_grap(cl_lock *cl, bool flag){
+	pthread_mutex_lock(&cl->mutex);
+	if(cl->zero_lock){
+		if(flag){
+			pthread_cond_wait(&cl->cond,&cl->mutex);
+		}
+		cl->now--;
+	}else{
+		if(flag){
+			pthread_cond_wait(&cl->cond,&cl->mutex);
+		}
+		cl->now++;
+	}
+	pthread_mutex_unlock(&cl->mutex);
+}
+
+void cl_always_release(cl_lock *cl){
+	pthread_mutex_lock(&cl->mutex);
+	pthread_cond_broadcast(&cl->cond);
+	pthread_mutex_unlock(&cl->mutex);
+}
+
+void cl_now_update(cl_lock* cl,int input){
+	pthread_mutex_lock(&cl->mutex);
+	cl->now=input;
+	pthread_mutex_unlock(&cl->mutex);
+}
+
 void cl_release(cl_lock *cl){;
 	pthread_mutex_lock(&cl->mutex);
 	if(cl->zero_lock){

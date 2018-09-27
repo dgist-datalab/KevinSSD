@@ -211,13 +211,13 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
-		exit(1);
+		abort();
 	}
 	pthread_mutex_lock(&fd_lock);
 
 	if(my_posix.SOP*PPA >= my_posix.TS){
 		printf("\nwrite error\n");
-		exit(2);
+		abort();
 	}
 
 	test_type = convert_type(req->type);
@@ -246,14 +246,14 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	}
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
-		exit(1);
+		abort();
 	}
 
 	pthread_mutex_lock(&fd_lock);
 
 	if(my_posix.SOP*PPA >= my_posix.TS){
 		printf("\nread error\n");
-		exit(3);
+		abort();
 	}
 
 	test_type = convert_type(req->type);
@@ -281,7 +281,7 @@ void *posix_trim_block(KEYT PPA, bool async){
 	pthread_mutex_lock(&fd_lock);
 	if(my_posix.SOP*PPA >= my_posix.TS || PPA%my_posix.PPS != 0){
 		printf("\ntrim error\n");
-		exit(4);
+		abort();
 	}
 	
 	my_posix.req_type_cnt[TRIM]++;

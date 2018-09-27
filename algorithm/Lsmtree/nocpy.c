@@ -7,7 +7,7 @@ keyset **page;
 void nocpy_init(){
 	page=(keyset**)malloc(sizeof(keyset*)*((HEADERSEG+1)*_PPS));
 	for(int i=0; i<(HEADERSEG+1)*_PPS; i++){
-		page[i]=(keyset*)malloc(sizeof(keyset)*KEYNUM);
+		page[i]=(keyset*)malloc(PAGESIZE);
 	}
 	printf("------------# of copy%d\n",(HEADERSEG+1)*_PPS);
 }

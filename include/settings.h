@@ -22,7 +22,6 @@
 #define TOTALSIZE (64L*G)
 #define REALSIZE (512L*G)
 #define PAGESIZE (8*K)
-#define VALUESIZE (4*K)
 #define _PPB (256)
 #define _PPS (1<<14)
 #define BPS (64)
@@ -59,6 +58,6 @@ typedef enum{false,true} bool;
 typedef enum{
 	SEQGET,SEQSET,SEQRW,
 	RANDGET,RANDSET,
-	RANDRW,MIXED,NOR
+	RANDRW,MIXED,SEQLATENCY,RANDLATENCY,NOR
 }bench_type;
 #endif
