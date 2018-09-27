@@ -19,6 +19,7 @@
 #define RQ_TYPE_TRIM    4
 #define RQ_TYPE_FLYING  5
 
+//#define IP "192.168.0.7"
 #define IP "127.0.0.1"
 #define PORT 9999
 

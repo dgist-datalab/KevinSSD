@@ -26,6 +26,9 @@ typedef struct value_set{
 	int dmatag; //-1 == not dma_alloc, others== dma_alloc
 	KEYT ppa;
 	bool from_app;
+	PTR rmw_value;
+	KEYT len;
+	KEYT offset;
 }value_set;
 
 struct request {

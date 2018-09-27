@@ -73,6 +73,7 @@ typedef struct{
 	bench_meta *meta;
 	bench_data *datas;
 	lower_info *li;
+	uint32_t error_cnt;
 }master;
 
 void bench_init(int);
