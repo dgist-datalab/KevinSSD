@@ -34,11 +34,13 @@ int main(int argc,char* argv[]){
 	bench_init(2);
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
-	bench_add(RANDSET,0,RANGE,RANGE);
-//	bench_add(SEQSET,0,RANGE,RANGE);
+
+//	bench_add(RANDRW,0,RANGE,2*RANGE);
+	bench_add(SEQSET,0,RANGE,RANGE);
 //	bench_add(SEQRW,0,RANGE,2*RANGE);
-//	bench_add(MIXED,0,RANGE,RANGE);
+	bench_add(MIXED,0,RANGE,RANGE);
 //	bench_add(SEQLATENCY,0,RANGE,RANGE);
+//	bench_add(NOR,0,-1,-1);
 	bench_value *value;
 
 	value_set temp;
@@ -49,13 +51,27 @@ int main(int argc,char* argv[]){
 	int cnt=0;
 
 	int locality_check=0,locality_check2=0;
-	//uint32_t _type, _key;
+	uint32_t _type, _key;
+/*
+	while(1){
+		scanf("%d%d",&_type,&_key);
+		if(cnt++%10240==0){
+			printf("%d\n",cnt);
+		}
+		temp.length=PAGESIZE;
+		inf_make_req(_type,_key,&temp,0);
+		if(cnt>37000000)
+			break;
+	}
+*/
+	
 	while((value=get_bench())){
 		temp.length=value->length;
 		inf_make_req(value->type,value->key,&temp,value->mark);
 
 //		scanf("%d%d",&_type,&_key);
 //		inf_make_req(_type,_key,&temp,value->mark);
+
 		cnt++;
 
 		if(_master->m[_master->n_num].type<=SEQRW) continue;
@@ -66,7 +82,7 @@ int main(int argc,char* argv[]){
 			locality_check2++;
 		}
 	}
-	
+
 	if(req_cnt_test==cnt){
 		printf("done!\n");
 	}
@@ -74,6 +90,7 @@ int main(int argc,char* argv[]){
 		printf("req_cnt_test:cnt -> %d:%d fuck\n",req_cnt_test,cnt);
 	}
 	force_write_start=true;
+	
 	while(!bench_is_finish()){
 #ifdef LEAKCHECK
 		sleep(1);

@@ -47,7 +47,7 @@ typedef struct htable{
 
 
 typedef struct htable_t{
-	keyset sets[KEYNUM];
+	keyset sets[PAGESIZE/KEYSETSIZE];
 	uint8_t *bitset;
 #ifdef BLOOM
 	BF* filter;

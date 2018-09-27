@@ -73,7 +73,7 @@ void bench_init(int benchnum){
 			}
 		}
 	}
-	bitmap=(uint8_t*)malloc(sizeof(uint8_t)*(TOTALSIZE/8/K/8));
+	bitmap=(uint8_t*)malloc(sizeof(uint8_t)*(TOTALSIZE/(PAGESIZE)/8));
 }
 void bench_make_data(){
 	int idx=_master->n_num;
@@ -153,7 +153,7 @@ bench_value* get_bench(){
 
 	if(_m->n_num==_m->m_num){
 		while(!bench_is_finish_n(_master->n_num)){
-            write_stop = false;
+			write_stop = false;
         }
 		printf("\rtesting...... [100%%] done!\n");
 		printf("\n");
@@ -292,8 +292,12 @@ void bench_print(){
 			}
 			printf("[READ WRITE CNT] %ld %ld\n",_m->read_cnt,_m->write_cnt);
 		}
+		printf("error cnt:%d\n",_master->error_cnt);
 	}
 }
+
+
+
 void bench_algo_start(request *const req){
 	measure_init(&req->algo);
 	if(req->params==NULL){
@@ -442,7 +446,10 @@ void bench_reap_data(request *const req,lower_info *li){
 	if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){
 		bench_update_ftltime(_data, req);
 	}
-
+	
+	if(req->type==FS_NOTFOUND_T){
+		_master->error_cnt++;
+	}
 #ifdef CDF
 	measure_calc(&req->latency_checker);
 	int slot_num=req->latency_checker.micro_time/TIMESLOT;
