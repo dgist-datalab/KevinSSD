@@ -9,6 +9,7 @@
 #include <pthread.h>
 int32_t LOCALITY;
 float TARGETRATIO;
+float OVERLAP;
 bool last_ack;
 
 extern int32_t write_stop;
@@ -26,7 +27,7 @@ void rand_latency(KEYT start, KEYT end,int percentage, monitor *m);
 void seq_latency(KEYT start, KEYT end,int percentage, monitor *m);
 
 KEYT keygenerator(uint32_t range);
-
+KEYT keygenerator_type(uint32_t range, int type);
 pthread_mutex_t bench_lock;
 uint8_t *bitmap;
 static void bitmap_set(KEYT key){
@@ -43,6 +44,7 @@ static bool bitmap_get(KEYT key){
 }
 
 void bench_init(int benchnum){
+	OVERLAP=0.0;
 	_master=(master*)malloc(sizeof(master));
 	_master->m=(monitor*)malloc(sizeof(monitor)*benchnum);
 	memset(_master->m,0,sizeof(monitor)*benchnum);
@@ -289,6 +291,7 @@ void bench_print(){
 			printf("             %lf(mb/s)\n",throughput/1024);
 			if(_m->read_cnt){
 				printf("[cache hit cnt,ratio] %ld, %lf\n",_m->cache_hit,(double)_m->cache_hit/(_m->read_cnt));
+				printf("[cache hit cnt,ratio dftl] %ld, %lf\n",_m->cache_hit,(double)_m->cache_hit/(_m->read_cnt+_m->write_cnt));
 			}
 			printf("[READ WRITE CNT] %ld %ld\n",_m->read_cnt,_m->write_cnt);
 		}
@@ -406,7 +409,7 @@ void bench_cdf_print(uint64_t nor, uint8_t type, bench_data *_d){//number of req
 		for(int i=0; i<1000000/TIMESLOT+1; i++){
 			cumulate_number+=_d->write_cdf[i];
 			if(_d->write_cdf[i]==0) continue;
-			printf("%d\t%ld\t%f\n",i*10,_d->write_cdf[i],(float)cumulate_number/_d->write_cnt);
+			printf("%d\t%ld\t%f\n",i * 10,_d->write_cdf[i],(float)cumulate_number/_d->write_cnt);
 			if(nor==cumulate_number)
 				break;
 		}	
@@ -417,7 +420,7 @@ void bench_cdf_print(uint64_t nor, uint8_t type, bench_data *_d){//number of req
 		for(int i=0; i<1000000/TIMESLOT+1; i++){
 			cumulate_number+=_d->read_cdf[i];
 			if(_d->read_cdf[i]==0) continue;
-			printf("%d\t%ld\t%f\n",i*10,_d->read_cdf[i],(float)cumulate_number/_d->read_cnt);	
+			printf("%d\t%ld\t%f\n",i * 10,_d->read_cdf[i],(float)cumulate_number/_d->read_cnt);	
 			if(nor==cumulate_number)
 				break;
 		}
@@ -538,11 +541,22 @@ void bench_li_print(lower_info* li,monitor *m){
 
 KEYT keygenerator(uint32_t range){
 	if(rand()%100<LOCALITY){
-		return rand()%(int)(range*TARGETRATIO);
+		return rand()%(KEYT)(range*TARGETRATIO);
 	}
 	else{
-		return (rand()%(int)(range*(1-TARGETRATIO)))+(int)RANGE*TARGETRATIO;
+		return (rand()%(KEYT)(range*(1-TARGETRATIO)))+(KEYT)RANGE*TARGETRATIO;
 	}
+}
+
+KEYT keygenerator_type(uint32_t range,int type){
+	KEYT write_shift=(KEYT)(range*TARGETRATIO*(1.0f-OVERLAP));
+	KEYT res=0;
+	if(rand()%100<LOCALITY){
+		res=rand()%(KEYT)(range*TARGETRATIO)+(type==FS_SET_T?write_shift:0);
+	}else{
+		res=(rand()%(KEYT)(range*(1-TARGETRATIO)))+(KEYT)RANGE*TARGETRATIO;
+	}
+	return res;
 }
 
 void seqget(KEYT start, KEYT end,monitor *m){
@@ -723,6 +737,7 @@ void seq_latency(KEYT start, KEYT end,int percentage, monitor *m){
 			m->body[i].length=PAGESIZE;
 			m->read_cnt++;
 		}
+		m->body[i].mark=m->mark;
 	}
 }
 
@@ -730,12 +745,8 @@ void seq_latency(KEYT start, KEYT end,int percentage, monitor *m){
 void rand_latency(KEYT start, KEYT end,int percentage, monitor *m){
 	printf("making latency bench!\n");
 	//seqset process
-	for(KEYT i=0; i<m->m_num/2; i++){
-#ifdef KEYGEN
-		m->body[i].key=keygenerator(end);
-#else
+	for(KEYT i=0; i<0; i++){
 		m->body[i].key=start+rand()%(end-start);
-#endif	
 		bitmap_set(m->body[i].key);
 #ifdef DVALUE
 		m->body[i].length=(rand()%16+1)*512;
@@ -747,13 +758,13 @@ void rand_latency(KEYT start, KEYT end,int percentage, monitor *m){
 		m->write_cnt++;
 	}
 
-	for(KEYT i=m->m_num/2; i<m->m_num; i++){
-#ifdef KEYGEN
-		m->body[i].key=keygenerator(end);
-#else
-		m->body[i].key=start+rand()%(end-start);
-#endif
+	for(KEYT i=0; i<m->m_num; i++){
 		if(rand()%100<percentage){
+#ifdef KEYGEN
+			m->body[i].key=keygenerator_type(end,FS_SET_T);
+#else
+			m->body[i].key=start+rand()%(end-start);
+#endif
 			m->body[i].type=FS_SET_T;
 			bitmap_set(m->body[i].key);
 #ifdef DVALUE
@@ -764,9 +775,14 @@ void rand_latency(KEYT start, KEYT end,int percentage, monitor *m){
 			m->write_cnt++;
 		}
 		else{
+#ifdef KEYGEN
+			m->body[i].key=keygenerator_type(end,FS_GET_T);
+#else
+			m->body[i].key=start+rand()%(end-start);
+#endif
 			while(!bitmap_get(m->body[i].key)){
 #ifdef KEYGEN
-				m->body[i].key=keygenerator(end);
+				m->body[i].key=keygenerator_type(end,FS_GET_T);
 #else
 				m->body[i].key=start+rand()%(end-start);
 #endif
@@ -775,6 +791,7 @@ void rand_latency(KEYT start, KEYT end,int percentage, monitor *m){
 			m->body[i].length=PAGESIZE;
 			m->read_cnt++;
 		}
+		m->body[i].mark=m->mark;
 	}
 }
 
@@ -811,7 +828,6 @@ void bench_lower_t(lower_info *li){
 }
 
 void bench_cache_hit(int mark){
-	
 	monitor *_m=&_master->m[mark];
 	_m->cache_hit++;
 }
