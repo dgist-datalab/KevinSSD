@@ -19,10 +19,9 @@
 
 #elif defined(SLC)
 
-#define TOTALSIZE (64L*G)
+#define TOTALSIZE (10L*G)
 #define REALSIZE (512L*G)
 #define PAGESIZE (8*K)
-#define VALUESIZE (4*K)
 #define _PPB (256)
 #define _PPS (1<<14)
 #define BPS (64)
@@ -34,7 +33,7 @@
 #define _NOS (TOTALSIZE/(_PPS*PAGESIZE))
 #define _NOB (BPS*_NOS)
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
-#define RANGE (64*128*1024L*(0.8))
+#define RANGE (10*(M/PAGESIZE)*1024L*(0.80)+10)
 
 
 #define FSTYPE uint8_t
@@ -59,6 +58,6 @@ typedef enum{false,true} bool;
 typedef enum{
 	SEQGET,SEQSET,SEQRW,
 	RANDGET,RANDSET,
-	RANDRW,MIXED,NOR
+	RANDRW,MIXED,SEQLATENCY,RANDLATENCY,NOR
 }bench_type;
 #endif

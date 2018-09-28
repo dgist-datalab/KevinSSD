@@ -106,8 +106,6 @@ int32_t clean_evict_on_write;
 int32_t dirty_evict_on_read;
 int32_t dirty_evict_on_write;
 
-extern bool last_ack;
-
 uint32_t demand_create(lower_info *li, algorithm *algo){
     /* Initialize pre-defined values by using macro */
     num_page        = _NOP;
@@ -122,10 +120,9 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
     /* Cache control & Init */
     //num_max_cache = max_cache_entry; // max cache
-    //num_max_cache = max_cache_entry / 2 == 0 ? 1 : max_cache_entry / 2; // 1/2 cache
     //num_max_cache = 1; // 1 cache
-    //num_max_cache = max_cache_entry / 4; // 1/4 cache
-    num_max_cache = max_cache_entry / 20; // 5%
+    num_max_cache = max_cache_entry / 4; // 1/4 cache
+    //num_max_cache = max_cache_entry / 20; // 5%
     //num_max_cache = max_cache_entry / 10; // 10%
     //num_max_cache = max_cache_entry / 8; // 16%
 
@@ -183,7 +180,6 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
         CMT[i].t_ppa = -1;
         CMT[i].idx = i;
         CMT[i].p_table = NULL;
-        //CMT[i].p_table_vs = NULL;
         CMT[i].queue_ptr = NULL;
 #if C_CACHE
         CMT[i].clean_ptr = NULL;
@@ -218,9 +214,6 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
     q_init(&dftl_q, 1024);
     BM_Queue_Init(&free_b);
-    //for (int i = 0; i < max_cache_entry; i++) {
-    //    mem_enq(mem_q, mem_arr[i].mem_p);
-    //}
     for(int i = 0; i < num_block - 2; i++){
         BM_Enqueue(free_b, &bm->barray[i]);
     }
@@ -307,7 +300,6 @@ void *demand_end_req(algo_req* input){
     demand_params *params = (demand_params*)input->params;
     value_set *temp_v = params->value;
     request *res = input->parents;
-    //int32_t lpa;
 
     switch(params->type){
         case DATA_R:
@@ -332,7 +324,6 @@ void *demand_end_req(algo_req* input){
             trans_r++;
 
             ((read_params*)res->params)->read = 1;
-            //while (!inf_assign_try(res)) {}
             if(!inf_assign_try(res)) {
                 puts("not queued 1");
                 q_enqueue((void*)res, dftl_q);
@@ -342,7 +333,6 @@ void *demand_end_req(algo_req* input){
             break;
         case MAPPING_W:
             trans_w++;
-            //while (!inf_assign_try(res)) {}
             if(!inf_assign_try(res)) {
                 puts("not queued 2");
                 q_enqueue((void*)res, dftl_q);
@@ -795,21 +785,22 @@ uint32_t __demand_set(request *const req){
     free(req->params);
     req->params = NULL;
 
-    ppa = ppa_prefetch[ppa_idx++];
-
     temp = skiplist_insert(mem_buf, lpa, req->value, true);
-    temp->ppa = ppa;
+    if (mem_buf->size == ppa_idx+1) {
+        ppa = ppa_prefetch[ppa_idx++];
+        temp->ppa = ppa;
 
-    // if there is previous data with same lpa, then invalidate it
-    p_table = c_table->p_table;
-    if(p_table[P_IDX] != -1){
-        BM_InvalidatePage(bm, p_table[P_IDX]);
+        // if there is previous data with same lpa, then invalidate it
+        p_table = c_table->p_table;
+        if(p_table[P_IDX] != -1){
+            BM_InvalidatePage(bm, p_table[P_IDX]);
+        }
+
+        // Update page table & OOB
+        p_table[P_IDX] = ppa;
+        BM_ValidatePage(bm, ppa);
+        demand_OOB[ppa].lpa = lpa;
     }
-
-    // Update page table & OOB
-    p_table[P_IDX] = ppa;
-    BM_ValidatePage(bm, ppa);
-    demand_OOB[ppa].lpa = lpa;
     req->value = NULL; // moved to value field of snode
     bench_algo_end(req);
     req->end_req(req);

@@ -21,7 +21,6 @@ SRCS +=\
 	   skiplist.c\
 	   bloomfilter.c\
 	   lsmtree.c\
-	   merge_compaction.c\
 	   compaction.c\
 	   page.c\
 	   heap.c\
@@ -30,6 +29,7 @@ SRCS +=\
 	   factory.c\
 	   nocpy.c\
 #cache.c\
+#merge_compaction.c\
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\
@@ -65,7 +65,7 @@ set_check:../../include/lsm_settings.h
 	make test_clean
 
 .c.o :  ../../include/lsm_settings.h ../../include/settings.h
-	$(CC) $(CFLAGS_ALGO) -c $< -o $@ -lm
+	$(CC) $(CFLAGS_ALGO) -c $< -o $@ -lm -lpthread
 
 ../../object/%_d.o: %.c ../../include/lsm_settigs.h ../../include/settings.h
 	$(CC) $(CFLAGS_ALGO) -DDEBUG -c $< -o $@ -lm
