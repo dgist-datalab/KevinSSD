@@ -76,6 +76,8 @@ static algo_req *make_serv_req(value_set *vs, struct net_data *data) {
     req->params  = (void *)params;
     req->end_req = serv_end_req;
     req->type    = data->req_type;
+	req->type_lower =0;
+	req->parents=NULL;
 
     return req;
 }
