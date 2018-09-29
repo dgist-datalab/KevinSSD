@@ -213,9 +213,6 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		printf("dmatag -1 error!\n");
 		abort();
 	}
-	bench_lower_w_start(&my_posix);
-	if(req->parents)
-		bench_lower_start(req->parents);
 	pthread_mutex_lock(&fd_lock);
 
 	if(my_posix.SOP*PPA >= my_posix.TS){
@@ -227,7 +224,7 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	if(test_type < LREQ_TYPE_NUM){
 		my_posix.req_type_cnt[test_type]++;
 	}
-	
+
 	if(req->type<=GCMW){
 		if(!seg_table[PPA/my_posix.PPS].alloc){
 			seg_table[PPA/my_posix.PPS].storage = (PTR)malloc(my_posix.SOB);
@@ -238,14 +235,11 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	}
 
 	pthread_mutex_unlock(&fd_lock);
-	if(req->parents)
-		bench_lower_end(req->parents);
-	bench_lower_w_end(&my_posix);
 	req->end_req(req);
 	return NULL;
 }
 
-void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){	
+void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	uint8_t test_type;
 	if(req->type_lower!=1 && req->type_lower!=0){
 		req->type_lower=0;
@@ -254,9 +248,6 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		printf("dmatag -1 error!\n");
 		abort();
 	}
-	bench_lower_r_start(&my_posix);
-	if(req->parents)
-		bench_lower_start(req->parents);
 
 	pthread_mutex_lock(&fd_lock);
 
@@ -279,17 +270,7 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 
 	pthread_mutex_unlock(&fd_lock);
 
-	if(req->parents)
-		bench_lower_end(req->parents);
-	bench_lower_r_end(&my_posix);
 	req->end_req(req);
-	/*
-	if(async){
-		req->end_req(req);
-	}
-	else{
-	
-	}*/
 	return NULL;
 }
 

@@ -1,8 +1,6 @@
 #ifndef __H_SETDFTL__
 #define __H_SETDFTL__
 
-#define TEST 0
-
 // flying mapping page request waiting flag
 #define FLYING 0
 

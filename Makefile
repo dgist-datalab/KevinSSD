@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=posix_memory
+TARGET_LOWER=network
 TARGET_ALGO=Lsmtree
 PWD=$(pwd)
 
@@ -23,7 +23,7 @@ export CFLAGS_LOWER=\
 			 -D_FILE_OFFSET_BITS=64\
 #-O2\
 
-export priority="true"
+export priority="false"
 
 
 #CFLAGS_ALGO+=-DCOMPACTIONLOG\

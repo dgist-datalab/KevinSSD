@@ -12,13 +12,14 @@
 #include <pthread.h>
 
 
-#define RQ_TYPE_CREATE  0
-#define RQ_TYPE_DESTROY 1
-#define RQ_TYPE_PUSH    2
-#define RQ_TYPE_PULL    3
+#define RQ_TYPE_CREATE  1000
+#define RQ_TYPE_DESTROY 0
+#define RQ_TYPE_PUSH    1
+#define RQ_TYPE_PULL    2
 #define RQ_TYPE_TRIM    4
 #define RQ_TYPE_FLYING  5
 
+//#define IP "192.168.0.7"
 #define IP "127.0.0.1"
 #define PORT 9999
 
@@ -27,6 +28,7 @@ struct net_data {
     int8_t type;
     KEYT ppa;
     algo_req *req;
+    uint8_t req_type;
 };
 
 struct mem_seg {

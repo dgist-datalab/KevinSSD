@@ -19,7 +19,8 @@
 
 #elif defined(SLC)
 
-#define TOTALSIZE (1L*G)
+
+#define TOTALSIZE (64L*G)
 #define REALSIZE (512L*G)
 #define PAGESIZE (8*K)
 #define _PPB (256)
@@ -37,6 +38,7 @@
 #define RANGE (10*(M/PAGESIZE)*1024L*(0.80)+10)
 
 
+
 #define FSTYPE uint8_t
 #define KEYT uint32_t
 #define BLOCKT uint32_t
@@ -45,7 +47,7 @@
 #define PTR char*
 #define ASYNC 1
 #define QSIZE (1024)
-#define QDEPTH (128)
+#define QDEPTH (256)
 #define THREADSIZE (1)
 
 #define KEYGEN

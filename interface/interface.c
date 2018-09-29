@@ -29,6 +29,11 @@ extern struct algorithm algo_lsm;
 #ifdef bdbm_drv
 extern struct lower_info memio_info;
 #endif
+
+#ifdef network
+extern struct lower_info net_info;
+#endif
+
 MeasureTime mt;
 master_processor mp;
 
@@ -149,7 +154,7 @@ bool inf_assign_try(request *req){
 	bool flag=false;
 	for(int i=0; i<THREADSIZE; i++){
 		processor *t=&mp.processors[i];
-		if(t->req_rq->size!=0) break;
+		//if(t->req_rq->size!=0) break;
 		while(q_enqueue((void*)req,t->retry_q)){
 			cl_release(inf_cond);
 			flag=true;
@@ -182,6 +187,7 @@ void *p_main(void *__input){
 		if(mp.stopflag)
 			break;
 		if((_inf_req=q_dequeue(_this->retry_q))){
+
 		}
 #ifdef interface_pq
 		else if(!(_inf_req=q_dequeue(_this->req_rq))){
@@ -296,7 +302,6 @@ void inf_init(){
 #else
 		q_init(&t->req_q,QSIZE);
 #endif
-		
 		pthread_create(&t->t_id,NULL,&p_main,NULL);
 	}
 	
@@ -311,9 +316,10 @@ void inf_init(){
 	measure_init(&mt);
 #if defined(posix) || defined(posix_async) || defined(posix_memory)
 	mp.li=&my_posix;
-#endif
-#ifdef bdbm_drv
+#elif defined(bdbm_drv)
 	mp.li=&memio_info;
+#elif defined(network)
+    mp.li=&net_info;
 #endif
 
 #ifdef normal

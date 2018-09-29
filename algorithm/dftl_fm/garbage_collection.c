@@ -197,13 +197,13 @@ int32_t dpage_GC(){
                     c_table->state = DIRTY;
                     BM_InvalidatePage(bm, t_ppa);
 #if C_CACHE
-                    if (num_dirty == max_dirty_cache) {
+                    if (num_caching == num_max_cache) {
                         bool gc_flag, d_flag;
                         demand_eviction(NULL, 'D', &gc_flag, &d_flag);
                     }
 
                     c_table->queue_ptr = lru_push(lru, (void *)c_table);
-                    num_dirty++;
+                    num_caching++;
 #endif
                 }
             }
