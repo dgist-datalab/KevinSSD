@@ -9,7 +9,7 @@ lower_info net_info = {
     .device_badblock_checker = NULL,
     .trim_block  = net_info_trim_block,
     .refresh     = net_refresh,
-    .stop        = NULL,
+    .stop        = net_info_stop,
     .lower_alloc = NULL,
     .lower_free  = NULL,
     .lower_flying_req_wait = net_info_flying_req_wait,
@@ -37,8 +37,6 @@ void *poller(void *arg) {
         ppa  = data.ppa;
         req  = data.req;
 
-        //printf("polled request [type: %d / ppa: %d / req: 0x%lx]\n", type, ppa, req);
-
         switch (type) {
         case RQ_TYPE_CREATE:
         case RQ_TYPE_DESTROY:
@@ -50,7 +48,6 @@ void *poller(void *arg) {
             req->end_req(req);
             break;
         case RQ_TYPE_TRIM:
-            //req->end_req(req);
             break;
         case RQ_TYPE_FLYING:
             pthread_mutex_unlock(&flying_lock);
@@ -66,25 +63,23 @@ static ssize_t net_make_req(int8_t type, KEYT ppa, algo_req *req) {
     data.type = type;
     data.ppa  = ppa;
     data.req  = req;
-    data.req_type = req->type;
+    if (req) data.req_type = req->type;
 
-    //printf("make request [type: %d / ppa: %d / req: 0x%lx]\n", type, ppa, req);
     return write(sock_fd, &data, sizeof(data));
 }
 
 uint32_t net_info_create(lower_info *li) {
-    li->NOB = _NOB;
+    li->NOB = _NOS;
     li->NOP = _NOP;
-    li->SOB = BLOCKSIZE;
+    li->SOB = BLOCKSIZE*BPS;
     li->SOP = PAGESIZE;
     li->SOK = sizeof(KEYT);
-    li->PPB = _PPB;
+    li->PPB = _PPS;
     li->TS  = TOTALSIZE;
 
     // Mem table for metadata
     seg_table = (struct mem_seg *)malloc(sizeof(struct mem_seg) * li->NOB);
-    for (int i = 0; i < li->NOB; i++) {
-        seg_table[i].storage = NULL;
+    for (int i = 0; i < li->NOB; i++) { seg_table[i].storage = NULL;
         seg_table[i].alloc   = false;
     }
 
@@ -102,7 +97,6 @@ uint32_t net_info_create(lower_info *li) {
 
     // Socket open
     sock_fd = socket(AF_INET, SOCK_STREAM, 0); // TCP
-    //sock_fd = socket(AF_INET, SOCK_DGRAM, 0); // UDP
     if (sock_fd < 0) {
         perror("ERROR opening socket");
         exit(1);
@@ -195,6 +189,10 @@ void *net_info_pull_data(KEYT ppa, uint32_t size, value_set *value, bool async, 
     }
 
     if (req->type <= GCMW) {
+        if (!seg_table[ppa/net_info.PPB].alloc) {
+            fprintf(stderr, "Metadata is not allocated (DATA NOT FOUND)\n");
+            exit(1);
+        }
         PTR loc = seg_table[ppa / net_info.PPB].storage;
         memcpy(value->value, &loc[(ppa % net_info.PPB) * net_info.SOP], size);
         req->type_lower = 1;
@@ -229,3 +227,6 @@ void *net_refresh(struct lower_info *li) {
     li->write_op = li->read_op = li->trim_op = 0;
     return NULL;
 }
+
+void net_info_stop() {}
+
