@@ -1,5 +1,8 @@
 #include "../../include/container.h"
 #include "../../bench/measurement.h"
+#include "../../interface/queue.h"
+#include "../../include/utils/cond_lock.h"
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,7 +30,7 @@
 struct net_data {
     int8_t type;
     KEYT ppa;
-    algo_req *req;
+    int32_t idx;
     uint8_t req_type;
 };
 
