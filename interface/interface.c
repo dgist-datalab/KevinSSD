@@ -151,6 +151,7 @@ bool inf_assign_try(request *req){
 		processor *t=&mp.processors[i];
 		if(t->req_rq->size!=0) break;
 		while(q_enqueue((void*)req,t->retry_q)){
+			cl_release(inf_cond);
 			flag=true;
 			break;
 		}
@@ -181,7 +182,6 @@ void *p_main(void *__input){
 		if(mp.stopflag)
 			break;
 		if((_inf_req=q_dequeue(_this->retry_q))){
-			cl_release(inf_cond);
 		}
 #ifdef interface_pq
 		else if(!(_inf_req=q_dequeue(_this->req_rq))){
