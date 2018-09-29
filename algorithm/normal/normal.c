@@ -51,12 +51,10 @@ uint32_t normal_get(request *const req){
 	my_req->parents=req;
 	my_req->end_req=normal_end_req;
 	my_req->params=(void*)params;
-	bench_algo_end(req);
 	normal_cnt++;
+	my_req->type=DATAR;
 
-	measure_init(&req->latency_ftl);
-	MS(&req->latency_ftl);
-
+	bench_algo_end(req);
 	__normal.li->pull_data(req->key,PAGESIZE,req->value,req->isAsync,my_req);
 	return 1;
 }
@@ -68,9 +66,10 @@ uint32_t normal_set(request *const req){
 	algo_req *my_req=(algo_req*)malloc(sizeof(algo_req));
 	my_req->parents=req;
 	my_req->end_req=normal_end_req;
-	my_req->params=(void*)params;
 	bench_algo_end(req);
 	normal_cnt++;
+	my_req->type=DATAR;
+	my_req->params=(void*)params;
 	__normal.li->push_data(req->key,PAGESIZE,req->value,req->isAsync,my_req);
 	return 1;
 }
@@ -84,16 +83,6 @@ void *normal_end_req(algo_req* input){
 	bool check=false;
 	//int cnt=0;
 	request *res=input->parents;
-	if(res->type==FS_GET_T){
-		MC(&res->latency_ftl);
-		n_cdf *t_cdf=&_cdf[input->type_lower];
-		uint64_t lls=res->latency_ftl.micro_time;
-		t_cdf->total_micro+=lls;
-		t_cdf->max=t_cdf->max<lls?lls:t_cdf->max;
-		t_cdf->min=t_cdf->min>lls?lls:t_cdf->min;
-		t_cdf->cnt++;
-	}
-
 	res->end_req(res);
 
 	free(params);

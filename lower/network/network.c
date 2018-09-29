@@ -66,8 +66,10 @@ static ssize_t net_make_req(int8_t type, KEYT ppa, algo_req *req) {
     data.type = type;
     data.ppa  = ppa;
     data.req  = req;
-    data.req_type = req->type;
-
+	if(req){
+	   data.req_type = req->type;
+	}
+	
     //printf("make request [type: %d / ppa: %d / req: 0x%lx]\n", type, ppa, req);
     return write(sock_fd, &data, sizeof(data));
 }
@@ -136,11 +138,11 @@ void *net_info_destroy(lower_info *li) {
 
     measure_init(&li->writeTime);
     measure_init(&li->readTime);
-
+/*
     for (int i = 0; i < LREQ_TYPE_NUM; i++) {
         printf("%d %ld\n", i, li->req_type_cnt[i]);
     }
-
+*/
 	li->write_op=li->read_op=li->trim_op=0;
 
     // Socket close
