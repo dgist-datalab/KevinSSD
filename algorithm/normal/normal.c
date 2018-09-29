@@ -21,12 +21,7 @@ n_cdf _cdf[LOWERTYPE];
 char temp[PAGESIZE];
 
 void normal_cdf_print(){
-	printf("a_type\tl_type\tmax\tmin\tavg\t\tcnt\n");
-	for(int j=0;j<LOWERTYPE; j++){
-		if(!_cdf[j].cnt)continue;
-		printf("%d\t%lu\t%lu\t%f\t%lu\n",j,_cdf[j].max,_cdf[j].min,(float)_cdf[j].total_micro/_cdf[j].cnt,_cdf[j].cnt);
-	}
-	printf("\n");
+
 }
 uint32_t normal_create (lower_info* li,algorithm *algo){
 	algo->li=li;
@@ -68,7 +63,7 @@ uint32_t normal_set(request *const req){
 	my_req->end_req=normal_end_req;
 	bench_algo_end(req);
 	normal_cnt++;
-	my_req->type=DATAR;
+	my_req->type=DATAW;
 	my_req->params=(void*)params;
 	__normal.li->push_data(req->key,PAGESIZE,req->value,req->isAsync,my_req);
 	return 1;

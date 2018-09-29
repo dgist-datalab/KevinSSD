@@ -40,6 +40,7 @@ int main(int argc,char* argv[]){
 //	bench_add(SEQRW,0,RANGE,2*RANGE);
 //	bench_add(MIXED,0,RANGE,RANGE);
 //	bench_add(SEQLATENCY,0,RANGE,RANGE);
+
 //	bench_add(NOR,0,-1,-1);
 	bench_value *value;
 

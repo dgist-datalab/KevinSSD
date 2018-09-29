@@ -44,3 +44,4 @@ void *net_info_pull_data(KEYT ppa, uint32_t size, value_set *value, bool async, 
 void *net_info_trim_block(KEYT ppa, bool async);
 void net_info_flying_req_wait();
 void *net_refresh(struct lower_info* li);
+void net_info_stop();
