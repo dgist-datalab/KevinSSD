@@ -2,7 +2,7 @@ export CC=g++
 
 TARGET_INF=interface
 TARGET_LOWER=network
-TARGET_ALGO=normal
+TARGET_ALGO=dftl_fm
 PWD=$(pwd)
 
 COMMONFLAGS=\

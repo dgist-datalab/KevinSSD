@@ -137,13 +137,21 @@ int main(){
 
     pthread_create(&tid, NULL, reactor, NULL);
 
-    while (read(clnt_fd, &data, sizeof(data))) {
+	int readed,len;
+    while (1) {
+		readed=0;
+		while(readed<sizeof(data)){
+			len=read(clnt_fd,&(((char*)&data)[readed]),sizeof(data)-readed);
+			readed+=len;
+		}
+
         type = data.type;
         ppa  = data.ppa;
 
         switch (type) {
         case RQ_TYPE_DESTROY:
             li->destroy(li);
+			goto end;
             break;
         case RQ_TYPE_PUSH:
             dummy_vs = inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
@@ -171,6 +179,7 @@ int main(){
         }
     }
 
+end:
     close(clnt_fd);
     close(serv_fd);
 

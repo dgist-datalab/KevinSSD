@@ -119,9 +119,9 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 
     /* Cache control & Init */
-    //num_max_cache = max_cache_entry; // max cache
+    num_max_cache = max_cache_entry; // max cache
     //num_max_cache = 1; // 1 cache
-    num_max_cache = max_cache_entry / 4; // 1/4 cache
+    //num_max_cache = max_cache_entry / 4; // 1/4 cache
     //num_max_cache = max_cache_entry / 20; // 5%
     //num_max_cache = max_cache_entry / 10; // 10%
     //num_max_cache = max_cache_entry / 8; // 16%
@@ -757,7 +757,7 @@ uint32_t __demand_set(request *const req){
         mem_buf = skiplist_init();
 
         // Wait until all flying requests(set) are finished
-        __demand.li->lower_flying_req_wait();
+        //__demand.li->lower_flying_req_wait();
     }
 
     /* Insert data to skiplist (default) */

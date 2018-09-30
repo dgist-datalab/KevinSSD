@@ -38,18 +38,25 @@ void *poller(void *arg) {
     int32_t idx;
     algo_req *req;
 
-    while (read(sock_fd, &data, sizeof(data))) {
-
+	int readed,len;
+    while (1) {
+		readed=0;
+		while(readed<sizeof(data)){
+			len=read(sock_fd,&((char*)&data)[readed],sizeof(data)-readed);
+			readed+=len;
+		}
         type = data.type;
         ppa  = data.ppa;
         idx  = data.idx;
         if (idx != -1) {
             req  = algo_req_arr[idx];
-
+			if(!req){
+				printf("wtf!\n");
+			}
             algo_req_arr[idx] = NULL;
             q_enqueue((void *)&indice[idx], free_list);
             cl_release(net_cond);
-
+		//	printf("idx:%d\n",idx);
             req->type_lower = data.type_lower;
         }
 
