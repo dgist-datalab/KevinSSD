@@ -81,7 +81,7 @@ int32_t tpage_GC(){
     while(trans_gc_poll != valid_page_num) {} // polling for reading all mapping data
 #endif
 
-    free(temp_set);
+//    free(temp_set);
     free(d_sram);
 
     /* Trim block */

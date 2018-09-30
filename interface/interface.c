@@ -187,7 +187,7 @@ void *p_main(void *__input){
 		if(mp.stopflag)
 			break;
 		if((_inf_req=q_dequeue(_this->retry_q))){
-			//cl_release(inf_cond);
+
 		}
 #ifdef interface_pq
 		else if(!(_inf_req=q_dequeue(_this->req_rq))){

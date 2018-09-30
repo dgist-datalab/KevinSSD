@@ -38,23 +38,32 @@ void *poller(void *arg) {
     int32_t idx;
     algo_req *req;
 
+	int readed,len;
+
+    while (1) {
+	readed=0;
 #if TCP
-    while (read(sock_fd, &data, sizeof(data)))
+		while(readed<sizeof(data)){
+			len=read(sock_fd,&((char*)&data)[readed],sizeof(data)-readed);
+			readed+=len;
+		}
 #else
-    while (recv(sock_fd, &data, sizeof(data), MSG_WAITALL))
+        recv(sock_fd, &data, sizeof(data), MSG_WAITALL);
 #endif
-    {
+
         type = data.type;
         ppa  = data.ppa;
         idx  = data.idx;
         printf("received ppa: %d\n", ppa);
         if (idx != -1) {
             req  = algo_req_arr[idx];
-
+			if(!req){
+				printf("wtf!\n");
+			}
             algo_req_arr[idx] = NULL;
             q_enqueue((void *)&indice[idx], free_list);
             cl_release(net_cond);
-
+		//	printf("idx:%d\n",idx);
             req->type_lower = data.type_lower;
         }
 
@@ -175,11 +184,11 @@ void *net_info_destroy(lower_info *li) {
 
     measure_init(&li->writeTime);
     measure_init(&li->readTime);
-
+/*
     for (int i = 0; i < LREQ_TYPE_NUM; i++) {
         printf("%d %ld\n", i, li->req_type_cnt[i]);
     }
-
+*/
 	li->write_op=li->read_op=li->trim_op=0;
 
     // Socket close

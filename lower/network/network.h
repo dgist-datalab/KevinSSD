@@ -23,7 +23,6 @@
 #define RQ_TYPE_TRIM    4
 #define RQ_TYPE_FLYING  5
 
-
 struct net_data {
     int8_t type;
     KEYT ppa;

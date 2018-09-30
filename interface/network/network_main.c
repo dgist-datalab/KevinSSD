@@ -78,6 +78,8 @@ static algo_req *make_serv_req(value_set *vs, struct net_data *data) {
     req->params  = (void *)params;
     req->end_req = serv_end_req;
     req->type    = data->req_type;
+	req->type_lower =0;
+	req->parents=NULL;
 
     return req;
 }
@@ -141,13 +143,18 @@ int main(){
 
     pthread_create(&tid, NULL, reactor, NULL);
 
+	int readed,len;
+    while (1) {
+		readed=0;
 #if TCP
-    while (read(clnt_fd, &data, sizeof(data)))
+		while(readed<sizeof(data)){
+			len=read(clnt_fd,&(((char*)&data)[readed]),sizeof(data)-readed);
+			readed+=len;
+		}
 #else
-    clnt_sz = sizeof(clnt_addr);
-    while (recvfrom(serv_fd, &data, sizeof(data), MSG_WAITALL, (struct sockaddr *)&clnt_addr, &clnt_sz))
+        recvfrom(serv_fd, &data, sizeof(data), MSG_WAITALL, (struct sockaddr *)&clnt_addr, &clnt_sz);
 #endif
-    {
+
         type = data.type;
         ppa  = data.ppa;
 
@@ -156,6 +163,7 @@ int main(){
         switch (type) {
         case RQ_TYPE_DESTROY:
             li->destroy(li);
+			goto end;
             break;
         case RQ_TYPE_PUSH:
             dummy_vs = inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
@@ -183,6 +191,7 @@ int main(){
         }
     }
 
+end:
     close(clnt_fd);
     close(serv_fd);
 
