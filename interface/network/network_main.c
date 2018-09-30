@@ -88,7 +88,6 @@ int main(){
 
     int8_t type;
     KEYT ppa;
-    algo_req *req;
 
     algo_req *serv_req;
     value_set *dummy_vs;
@@ -142,7 +141,6 @@ int main(){
     while (read(clnt_fd, &data, sizeof(data))) {
         type = data.type;
         ppa  = data.ppa;
-        req  = data.req;
 
         switch (type) {
         case RQ_TYPE_DESTROY:

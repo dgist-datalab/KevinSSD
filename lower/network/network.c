@@ -24,18 +24,32 @@ pthread_mutex_t flying_lock;
 
 pthread_t tid;
 
+algo_req *algo_req_arr[QDEPTH];
+queue *free_list;
+
+cl_lock *net_cond;
+
+int32_t indice[QDEPTH];
 
 void *poller(void *arg) {
     struct net_data data;
     int8_t type;
     KEYT ppa;
+    int32_t idx;
     algo_req *req;
 
     while (read(sock_fd, &data, sizeof(data))) {
 
         type = data.type;
         ppa  = data.ppa;
-        req  = data.req;
+        idx  = data.idx;
+        if (idx != -1) {
+            req  = algo_req_arr[idx];
+
+            algo_req_arr[idx] = NULL;
+            q_enqueue((void *)&indice[idx], free_list);
+            cl_release(net_cond);
+        }
 
         switch (type) {
         case RQ_TYPE_CREATE:
@@ -50,7 +64,7 @@ void *poller(void *arg) {
         case RQ_TYPE_TRIM:
             break;
         case RQ_TYPE_FLYING:
-            pthread_mutex_unlock(&flying_lock);
+            //pthread_mutex_unlock(&flying_lock);
             break;
         }
     }
@@ -62,9 +76,15 @@ static ssize_t net_make_req(int8_t type, KEYT ppa, algo_req *req) {
     struct net_data data;
     data.type = type;
     data.ppa  = ppa;
-    data.req  = req;
-    if (req) data.req_type = req->type;
+    data.idx  = -1;
 
+    if (req) {
+        cl_grap(net_cond);
+        data.idx = *(int32_t *)q_dequeue(free_list);
+        //while (!(data.idx = *(int32_t *)q_dequeue(free_list))) {}
+
+        algo_req_arr[data.idx] = req;
+    }
     return write(sock_fd, &data, sizeof(data));
 }
 
@@ -81,6 +101,15 @@ uint32_t net_info_create(lower_info *li) {
     seg_table = (struct mem_seg *)malloc(sizeof(struct mem_seg) * li->NOB);
     for (int i = 0; i < li->NOB; i++) { seg_table[i].storage = NULL;
         seg_table[i].alloc   = false;
+    }
+
+    q_init(&free_list, QDEPTH);
+    net_cond = cl_init(QDEPTH, false);
+
+    for (int i = 0; i < QDEPTH; i++) indice[i] = i;
+
+    for (int i = 0; i < QDEPTH; i++) {
+        q_enqueue((void *)&indice[i], free_list);
     }
 
 	li->write_op=li->read_op=li->trim_op=0;
@@ -217,8 +246,9 @@ void *net_info_trim_block(KEYT ppa, bool async) {
 }
 
 void net_info_flying_req_wait() {
-    net_make_req(RQ_TYPE_FLYING, 0, NULL);
-    pthread_mutex_lock(&flying_lock);
+    //net_make_req(RQ_TYPE_FLYING, 0, NULL);
+    //pthread_mutex_lock(&flying_lock);
+    while (free_list->size != QDEPTH) {}
 }
 
 void *net_refresh(struct lower_info *li) {
