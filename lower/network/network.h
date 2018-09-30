@@ -1,6 +1,7 @@
 #include "../../include/container.h"
 #include "../../bench/measurement.h"
 #include "../../interface/queue.h"
+#include "../../include/settings.h"
 #include "../../include/utils/cond_lock.h"
 
 
@@ -22,16 +23,13 @@
 #define RQ_TYPE_TRIM    4
 #define RQ_TYPE_FLYING  5
 
-//#define IP "192.168.0.7"
-#define IP "127.0.0.1"
-#define PORT 9999
-
 
 struct net_data {
     int8_t type;
     KEYT ppa;
     int32_t idx;
     uint8_t req_type;
+    uint8_t type_lower;
 };
 
 struct mem_seg {

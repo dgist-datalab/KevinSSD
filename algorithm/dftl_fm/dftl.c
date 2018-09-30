@@ -764,7 +764,6 @@ uint32_t __demand_set(request *const req){
     lpa = req->key;
     c_table = &CMT[D_IDX];
     p_table = c_table->p_table;
-    //t_ppa   = c_table->t_ppa;
 
     if (req->params) { // Flying request
         if (((read_params *)req->params)->read == 0) { // Case of mapping write finished
