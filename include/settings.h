@@ -47,6 +47,7 @@
 #define QDEPTH (256)
 #define THREADSIZE (1)
 
+#define TCP 0
 #define IP "127.0.0.1"
 #define PORT 9999
 
