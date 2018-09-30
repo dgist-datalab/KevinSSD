@@ -267,7 +267,7 @@ int32_t dpage_GC(){
     while(data_gc_poll != real_valid + twrite) {} // polling for reading all data
 #endif
 
-    free(temp_table);
+    //free(temp_table);
     free(temp_set);
     free(d_sram);
 

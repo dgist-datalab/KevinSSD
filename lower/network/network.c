@@ -49,6 +49,8 @@ void *poller(void *arg) {
             algo_req_arr[idx] = NULL;
             q_enqueue((void *)&indice[idx], free_list);
             cl_release(net_cond);
+
+            req->type_lower = data.type_lower;
         }
 
         switch (type) {
@@ -81,7 +83,6 @@ static ssize_t net_make_req(int8_t type, KEYT ppa, algo_req *req) {
     if (req) {
         cl_grap(net_cond);
         data.idx = *(int32_t *)q_dequeue(free_list);
-        //while (!(data.idx = *(int32_t *)q_dequeue(free_list))) {}
 
         algo_req_arr[data.idx] = req;
     }

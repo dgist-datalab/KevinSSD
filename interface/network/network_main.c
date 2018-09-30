@@ -1,3 +1,4 @@
+#include "../../include/settings.h"
 #include "../../include/container.h"
 #include "../bb_checker.h"
 #include "../../lower/network/network.h"
@@ -5,10 +6,6 @@
 #include "../interface.h"
 #include "../../bench/bench.h"
 #include <pthread.h>
-
-#define IP "127.0.0.1"
-#define PORT 9999
-
 
 struct serv_params {
     struct net_data *data;
@@ -55,6 +52,8 @@ void *serv_end_req(algo_req *req) {
     } else if (params->data->type == RQ_TYPE_PULL) {
         inf_free_valueset(params->vs, FS_MALLOC_R);
     }
+
+    params->data->type_lower = req->type_lower;
 
     q_enqueue((void *)(params->data), end_req_q);
 
