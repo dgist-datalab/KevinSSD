@@ -47,7 +47,7 @@
 #define PTR char*
 #define ASYNC 1
 #define QSIZE (1024)
-#define QDEPTH (256)
+#define QDEPTH (128)
 #define THREADSIZE (1)
 
 #define IP "10.42.0.2"

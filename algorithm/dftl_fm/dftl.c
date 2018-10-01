@@ -757,7 +757,7 @@ uint32_t __demand_set(request *const req){
         mem_buf = skiplist_init();
 
         // Wait until all flying requests(set) are finished
-        //__demand.li->lower_flying_req_wait();
+        __demand.li->lower_flying_req_wait();
     }
 
     /* Insert data to skiplist (default) */

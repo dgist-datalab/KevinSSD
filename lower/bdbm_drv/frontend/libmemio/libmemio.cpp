@@ -99,7 +99,7 @@ static void __dm_intr_handler (
 		if(r->req_type==REQTYPE_READ){
 			//my_algo_req->type_lower=r->path_type+4;
 	//		my_algo_req->type_lower=r->path_type>r->before_path_type?r->path_type:r->before_path_type;
-			if(my_algo_req->type_lower>r->path_type)
+			if(my_algo_req->type_lower<r->path_type)
 				my_algo_req->type_lower=r->path_type;
 
 			MC(&my_algo_req->latency_lower);
