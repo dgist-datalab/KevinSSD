@@ -30,6 +30,7 @@ queue *free_list;
 cl_lock *net_cond;
 
 int32_t indice[QDEPTH];
+int option;
 
 void *poller(void *arg) {
     struct net_data data;
@@ -54,7 +55,6 @@ void *poller(void *arg) {
         type = data.type;
         ppa  = data.ppa;
         idx  = data.idx;
-        printf("received ppa: %d\n", ppa);
         if (idx != -1) {
             req  = algo_req_arr[idx];
 			if(!req){
@@ -101,7 +101,6 @@ static ssize_t net_make_req(int8_t type, KEYT ppa, algo_req *req) {
         algo_req_arr[data.idx] = req;
     }
 
-    printf("sent ppa: %d\n", ppa);
 #if TCP
     return write(sock_fd, &data, sizeof(data));
 #else
@@ -155,6 +154,9 @@ uint32_t net_info_create(lower_info *li) {
         perror("ERROR opening socket");
         exit(1);
     }
+
+	option = 1;
+	setsockopt(sock_fd, IPPROTO_TCP, TCP_NODELAY, (const char *)&option, sizeof(option));
 
     bzero((char *)&serv_addr, sizeof(serv_addr));
     serv_addr.sin_family      = AF_INET;

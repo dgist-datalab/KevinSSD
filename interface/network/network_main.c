@@ -33,7 +33,6 @@ void *reactor(void *arg) {
 
     while (1) {
         if (sent = (struct net_data *)q_dequeue(end_req_q)) {
-            printf("sent ppa: %d\n", sent->ppa);
 #if TCP
             write(clnt_fd, sent, sizeof(struct net_data));
 #else
@@ -108,7 +107,11 @@ int main(){
 
     pthread_mutex_init(&socket_lock, NULL);
 
+#if TCP
+	serv_fd = socket(PF_INET, SOCK_STREAM, 0);
+#else
     serv_fd = socket(PF_INET, SOCK_DGRAM, 0);
+#endif
     if (serv_fd == -1) {
         perror("Socket openning ERROR");
         exit(1);
@@ -116,6 +119,7 @@ int main(){
 
     option = 1;
     setsockopt(serv_fd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
+	//setsockopt(serv_fd, IPPROTO_TCP, TCP_NODELAY, (const char *)&option, sizeof(option));
 
     bzero((char *)&serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
@@ -140,6 +144,7 @@ int main(){
         exit(1);
     }
 #endif
+	setsockopt(clnt_fd, IPPROTO_TCP, TCP_NODELAY, (const char *)&option, sizeof(option));
 
     pthread_create(&tid, NULL, reactor, NULL);
 
@@ -158,7 +163,6 @@ int main(){
         type = data.type;
         ppa  = data.ppa;
 
-        printf("recevied ppa: %d\n", ppa);
 
         switch (type) {
         case RQ_TYPE_DESTROY:
