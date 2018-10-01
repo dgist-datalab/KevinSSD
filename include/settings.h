@@ -50,7 +50,8 @@
 #define QDEPTH (128)
 #define THREADSIZE (1)
 
-#define IP "10.42.0.2"
+#define TCP 0
+#define IP "127.0.0.1"
 #define PORT 9999
 
 #define KEYGEN

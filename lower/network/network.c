@@ -39,15 +39,22 @@ void *poller(void *arg) {
     algo_req *req;
 
 	int readed,len;
+
     while (1) {
-		readed=0;
+	readed=0;
+#if TCP
 		while(readed<sizeof(data)){
 			len=read(sock_fd,&((char*)&data)[readed],sizeof(data)-readed);
 			readed+=len;
 		}
+#else
+        recv(sock_fd, &data, sizeof(data), MSG_WAITALL);
+#endif
+
         type = data.type;
         ppa  = data.ppa;
         idx  = data.idx;
+        printf("received ppa: %d\n", ppa);
         if (idx != -1) {
             req  = algo_req_arr[idx];
 			if(!req){
@@ -93,7 +100,13 @@ static ssize_t net_make_req(int8_t type, KEYT ppa, algo_req *req) {
 
         algo_req_arr[data.idx] = req;
     }
+
+    printf("sent ppa: %d\n", ppa);
+#if TCP
     return write(sock_fd, &data, sizeof(data));
+#else
+    return send(sock_fd, &data, sizeof(data), MSG_CONFIRM);
+#endif
 }
 
 uint32_t net_info_create(lower_info *li) {
@@ -133,7 +146,11 @@ uint32_t net_info_create(lower_info *li) {
     pthread_mutex_lock(&flying_lock);
 
     // Socket open
-    sock_fd = socket(AF_INET, SOCK_STREAM, 0); // TCP
+#if TCP
+    sock_fd = socket(PF_INET, SOCK_STREAM, 0); // TCP
+#else
+    sock_fd = socket(PF_INET, SOCK_DGRAM, 0);
+#endif
     if (sock_fd < 0) {
         perror("ERROR opening socket");
         exit(1);

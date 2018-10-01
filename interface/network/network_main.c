@@ -33,9 +33,12 @@ void *reactor(void *arg) {
 
     while (1) {
         if (sent = (struct net_data *)q_dequeue(end_req_q)) {
-            pthread_mutex_lock(&socket_lock);
+            printf("sent ppa: %d\n", sent->ppa);
+#if TCP
             write(clnt_fd, sent, sizeof(struct net_data));
-            pthread_mutex_unlock(&socket_lock);
+#else
+            sendto(serv_fd, sent, sizeof(struct net_data), MSG_CONFIRM, (struct sockaddr *)&clnt_addr, sizeof(clnt_addr));
+#endif
 
             free(sent);
         }
@@ -105,7 +108,7 @@ int main(){
 
     pthread_mutex_init(&socket_lock, NULL);
 
-    serv_fd = socket(AF_INET, SOCK_STREAM, 0);
+    serv_fd = socket(PF_INET, SOCK_DGRAM, 0);
     if (serv_fd == -1) {
         perror("Socket openning ERROR");
         exit(1);
@@ -123,6 +126,8 @@ int main(){
         perror("Binding ERROR");
         exit(1);
     }
+
+#if TCP
     if (listen(serv_fd, 5) == -1) {
         perror("Listening ERROR");
         exit(1);
@@ -134,19 +139,26 @@ int main(){
         perror("Accepting ERROR");
         exit(1);
     }
+#endif
 
     pthread_create(&tid, NULL, reactor, NULL);
 
 	int readed,len;
     while (1) {
 		readed=0;
+#if TCP
 		while(readed<sizeof(data)){
 			len=read(clnt_fd,&(((char*)&data)[readed]),sizeof(data)-readed);
 			readed+=len;
 		}
+#else
+        recvfrom(serv_fd, &data, sizeof(data), MSG_WAITALL, (struct sockaddr *)&clnt_addr, &clnt_sz);
+#endif
 
         type = data.type;
         ppa  = data.ppa;
+
+        printf("recevied ppa: %d\n", ppa);
 
         switch (type) {
         case RQ_TYPE_DESTROY:
