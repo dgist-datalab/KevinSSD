@@ -1,5 +1,5 @@
 #include "network.h"
-
+#include <fcntl.h>
 
 lower_info net_info = {
     .create      = net_info_create,
@@ -17,6 +17,7 @@ lower_info net_info = {
 };
 
 int sock_fd;
+//int sock_fd2;
 struct sockaddr_in serv_addr;
 
 struct mem_seg *seg_table;
@@ -39,17 +40,21 @@ void *poller(void *arg) {
     int32_t idx;
     algo_req *req;
 
-	int readed,len;
+	uint32_t readed,len;
 
     while (1) {
 	readed=0;
 #if TCP
 		while(readed<sizeof(data)){
 			len=read(sock_fd,&((char*)&data)[readed],sizeof(data)-readed);
+			if(len==-1)
+				continue;
 			readed+=len;
 		}
+//		write(sock_fd2,&ack,sizeof(char));
 #else
-        recv(sock_fd, &data, sizeof(data), MSG_WAITALL);
+        recv(sock_fd, &data, sizeof(data), MSG_WAITALL);	
+	    send(sock_fd, &ack, sizeof(char), MSG_CONFIRM);
 #endif
 
         type = data.type;
@@ -102,10 +107,24 @@ static ssize_t net_make_req(int8_t type, KEYT ppa, algo_req *req) {
     }
 
 #if TCP
-    return write(sock_fd, &data, sizeof(data));
+	int writed=0,len=sizeof(data);
+	while(writed!=len){
+		int w=write(sock_fd, &data, sizeof(data));
+		if(w!=-1){
+			writed+=w;
+		}
+	}
 #else
     return send(sock_fd, &data, sizeof(data), MSG_CONFIRM);
 #endif
+
+/*
+	char t;
+#if TCP
+	read(sock_fd,&t,sizeof(t));
+#else	
+	recv(sock_fd,&t,sizeof(t),MSG_WAITALL);
+#endif*/
 }
 
 uint32_t net_info_create(lower_info *li) {
@@ -147,16 +166,24 @@ uint32_t net_info_create(lower_info *li) {
     // Socket open
 #if TCP
     sock_fd = socket(PF_INET, SOCK_STREAM, 0); // TCP
+	//sock_fd2= socket(PF_INET,SOCK_STREAM,0);
 #else
     sock_fd = socket(PF_INET, SOCK_DGRAM, 0);
+	//sock_fd2= socket(PF_INET,SOCK_DGRAM,0);
 #endif
-    if (sock_fd < 0) {
+    if (sock_fd < 0 ){//|| sock_fd2<0) {
         perror("ERROR opening socket");
         exit(1);
     }
-
+#if TCP
 	option = 1;
 	setsockopt(sock_fd, IPPROTO_TCP, TCP_NODELAY, (const char *)&option, sizeof(option));
+	//setsockopt(sock_fd2, IPPROTO_TCP, TCP_NODELAY, (const char *)&option, sizeof(option));
+
+	/*
+	int flag=fcntl(sock_fd,F_GETFD,0);
+	fcntl(sock_fd,F_SETFD,flag|O_NONBLOCK);*/
+#endif
 
     bzero((char *)&serv_addr, sizeof(serv_addr));
     serv_addr.sin_family      = AF_INET;

@@ -222,8 +222,13 @@ void *p_main(void *__input){
 #ifdef CDF
 		inf_req->isstart=true;
 #endif
+		static bool first_get=true;
 		switch(inf_req->type){
 			case FS_GET_T:
+				if(first_get){
+					first_get=false;
+					//mp.li->lower_flying_req_wait();
+				}
 				mp.algo->get(inf_req);
 				break;
 			case FS_SET_T:

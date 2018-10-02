@@ -6,6 +6,7 @@
 #include "../interface.h"
 #include "../../bench/bench.h"
 #include <pthread.h>
+#include <fcntl.h>
 
 struct serv_params {
     struct net_data *data;
@@ -19,6 +20,7 @@ extern struct lower_info my_posix;
 #endif
 
 int serv_fd, clnt_fd;
+//int clnt_fd2;
 int option;
 struct sockaddr_in serv_addr, clnt_addr;
 socklen_t clnt_sz;
@@ -31,14 +33,20 @@ pthread_mutex_t socket_lock;
 void *reactor(void *arg) {
     struct net_data *sent;
 
+	int len=sizeof(struct net_data), writed=0, w;
     while (1) {
         if (sent = (struct net_data *)q_dequeue(end_req_q)) {
 #if TCP
-            write(clnt_fd, sent, sizeof(struct net_data));
+			writed=0;
+			while(writed!=len){
+				w=write(clnt_fd, sent, sizeof(struct net_data));
+				if(w!=-1){
+					writed+=w;
+				}
+			}
 #else
             sendto(serv_fd, sent, sizeof(struct net_data), MSG_CONFIRM, (struct sockaddr *)&clnt_addr, sizeof(clnt_addr));
 #endif
-
             free(sent);
         }
     }
@@ -119,7 +127,9 @@ int main(){
 
     option = 1;
     setsockopt(serv_fd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
-	//setsockopt(serv_fd, IPPROTO_TCP, TCP_NODELAY, (const char *)&option, sizeof(option));
+#if TCP
+	setsockopt(serv_fd, IPPROTO_TCP, TCP_NODELAY, (const char *)&option, sizeof(option));
+#endif
 
     bzero((char *)&serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
@@ -143,9 +153,18 @@ int main(){
         perror("Accepting ERROR");
         exit(1);
     }
+/*
+    clnt_fd2 = accept(serv_fd, (struct sockaddr *)&clnt_addr, &clnt_sz);
+    if (clnt_sz == -1) {
+        perror("Accepting ERROR");
+        exit(1);
+    }*/
 #endif
 	setsockopt(clnt_fd, IPPROTO_TCP, TCP_NODELAY, (const char *)&option, sizeof(option));
-
+	/*
+	int flag=fcntl(clnt_fd,F_GETFD,0);
+	fcntl(clnt_fd,F_SETFD,flag|O_NONBLOCK);
+*/
     pthread_create(&tid, NULL, reactor, NULL);
 
 	int readed,len;
@@ -154,8 +173,10 @@ int main(){
 #if TCP
 		while(readed<sizeof(data)){
 			len=read(clnt_fd,&(((char*)&data)[readed]),sizeof(data)-readed);
+			if(len==-1)continue;
 			readed+=len;
 		}
+	//	write(clnt_fd,&ack,sizeof(ack));
 #else
         recvfrom(serv_fd, &data, sizeof(data), MSG_WAITALL, (struct sockaddr *)&clnt_addr, &clnt_sz);
 #endif

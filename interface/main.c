@@ -53,8 +53,8 @@ int main(int argc,char* argv[]){
 	int cnt=0;
 
 	int locality_check=0,locality_check2=0;
-	uint32_t _type, _key;
 /*
+	uint32_t _type, _key;
 	while(1){
 		scanf("%d%d",&_type,&_key);
 		if(cnt++%10240==0){

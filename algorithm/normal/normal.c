@@ -65,17 +65,20 @@ uint32_t normal_set(request *const req){
 	normal_cnt++;
 	my_req->type=DATAW;
 	my_req->params=(void*)params;
+	static int cnt=0;
+	if(cnt++%10240==0){
+	//	printf("key:%d\n",req->key);
+	}
 	__normal.li->push_data(req->key,PAGESIZE,req->value,req->isAsync,my_req);
-	return 1;
+	return 0;
 }
 uint32_t normal_remove(request *const req){
 	__normal.li->trim_block(req->key,NULL);
 	return 1;
 }
-static int ccc;
 void *normal_end_req(algo_req* input){
 	normal_params* params=(normal_params*)input->params;
-	bool check=false;
+	//bool check=false;
 	//int cnt=0;
 	request *res=input->parents;
 	res->end_req(res);
