@@ -64,7 +64,7 @@ LIBS +=\
 
 all : server
 
-server: ./interface/network/network_main.c libsimulator.a
+server: ./interface/network/epoll_main.c libsimulator.a 
 	$(CC) $(CFLAGS_LOWER) $(CFLAGS)  -o $@ $^  $(ARCH) $(LIBS)
 
 libsimulator.a:$(TARGETOBJ)

@@ -35,7 +35,7 @@
 #define _NOB (BPS*_NOS)
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
 
-#define RANGE (128*(M/PAGESIZE)*1024L*(0.80))
+#define RANGE (10*(M/PAGESIZE)*1024L*(0.80))
 
 
 
@@ -51,8 +51,8 @@
 #define THREADSIZE (1)
 
 #define TCP 1
-#define IP "10.42.0.2"
-//#define IP "127.0.0.1"
+//#define IP "10.42.0.2"
+#define IP "127.0.0.1"
 #define PORT 9999
 
 #define KEYGEN

@@ -193,7 +193,6 @@ int main(){
         case RQ_TYPE_PUSH:
             dummy_vs = inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
             serv_req = make_serv_req(dummy_vs, &data);
-
             li->push_data(ppa, PAGESIZE, dummy_vs, ASYNC, serv_req);
             break;
         case RQ_TYPE_PULL:
@@ -206,6 +205,7 @@ int main(){
             li->trim_block(ppa, ASYNC);
             break;
         case RQ_TYPE_FLYING:
+			printf("????\n");
             li->lower_flying_req_wait();
 
             pthread_mutex_lock(&socket_lock);

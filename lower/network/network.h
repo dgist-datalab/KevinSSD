@@ -17,7 +17,7 @@
 #include <netinet/tcp.h>
 
 
-#define RQ_TYPE_CREATE  1000
+#define RQ_TYPE_CREATE	6
 #define RQ_TYPE_DESTROY 0
 #define RQ_TYPE_PUSH    1
 #define RQ_TYPE_PULL    2
