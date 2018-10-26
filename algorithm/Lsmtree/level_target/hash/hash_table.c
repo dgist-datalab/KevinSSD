@@ -31,6 +31,8 @@ level* hash_init(int size, int idx, float fpr, bool istier){
 	res->end=0;
 
 	res->level_data=(void*)hbody;
+	res->now_block=NULL;
+	res->h=llog_init();
 	return res;
 }
 
@@ -48,6 +50,7 @@ void hash_free( level * lev){
 
 static void hash_body_free(hash_body *h){
 	if(h->temp) free(h->temp);
+	if(!h->body) return;
 	snode *now=h->body->header->list[1];
 	snode *next=now->list[1];
 	while(now!=h->body->header){
@@ -66,9 +69,11 @@ static void hash_body_free(hash_body *h){
 
 void hash_insert(level *lev, run_t *r){
 	hash_body *h=(hash_body*)lev->level_data;
-	skiplist_general_insert(h->body,r->key,(void*)r);
-	if(lev->start>r->key) lev->start=r->key;
-	if(lev->end<r->end) lev->end=r->end;
+	if(h->body==NULL) h->body=skiplist_init();
+	run_t *target=hash_run_cpy(r);
+	skiplist_general_insert(h->body,target->key,(void*)target,hash_overlap);
+	if(lev->start>r->key) lev->start=target->key;
+	if(lev->end<r->end) lev->end=target->end;
 
 	lev->n_num++;
 }
@@ -99,8 +104,9 @@ run_t** hash_find_run( level* lev, KEYT lpa){
 	skiplist *body=hb->body;
 	if(body->size==0) return NULL;
 	if(lev->istier) return (run_t**)-1;
+	snode *temp=skiplist_strict_range_search(body,lpa);
+	if(!temp) return NULL;
 	run_t **res=(run_t**)calloc(sizeof(run_t*),2);
-	snode *temp=skiplist_find(body,lpa);
 	res[0]=(run_t*)temp->value;
 	res[1]=NULL;
 	return  res;
@@ -110,18 +116,20 @@ uint32_t hash_range_find( level *lev, KEYT s, KEYT e,  run_t ***rc){
 	hash_body *hb=(hash_body*)lev->level_data;
 	skiplist *body=hb->body;
 	int res=0;
-	snode *temp=skiplist_find(body,s);
+	snode *temp=skiplist_strict_range_search(body,s);
 	run_t *ptr;
-	run_t **r=*rc;
-	while(1){
+	run_t **r=(run_t**)malloc(sizeof(run_t*)*(lev->n_num+1));
+	while(temp && temp!=body->header){
 		ptr=(run_t*)temp->value;
-		if(ptr->key <= s && ptr->end<e){
+		if(!(ptr->end<s || ptr->key>e)){
 			r[res++]=ptr;
 			temp=temp->list[1];
 		}else{
 			break;
 		}
 	}
+	r[res]=NULL;
+	*rc=r;
 	return res;
 }
 
@@ -130,18 +138,32 @@ uint32_t hash_unmatch_find( level *lev, KEYT s, KEYT e,  run_t ***rc){
 	hash_body *hb=(hash_body*)lev->level_data;
 	skiplist *body=hb->body;
 	int res=0;
-	snode *temp=skiplist_find(body,s);
 	run_t *ptr;
-	run_t **r=*rc;
-	while(1){
+	run_t **r=(run_t**)malloc(sizeof(run_t*)*(lev->n_num+1));
+
+	snode *temp=body->header->list[1];
+	while(temp && temp!=body->header){
 		ptr=(run_t*)temp->value;
-		if(ptr->key <= s && ptr->end<e){
-			//nothing to do it
+		if(!(ptr->end<s || ptr->key>e)){
+			break;
 		}else{
 			r[res++]=ptr;
 		}
 		temp=temp->list[1];
 	}
+
+	temp=skiplist_strict_range_search(body,e);
+	while(temp && temp!=body->header){
+		ptr=(run_t*)temp->value;
+		if(!(ptr->end<s || ptr->key>e)){
+
+		}else{
+			r[res++]=ptr;
+		}
+		temp=temp->list[1];
+	}
+	r[res]=NULL;
+	*rc=r;
 	return res;
 }
 
@@ -159,7 +181,6 @@ void hash_free_run( run_t *e){
 #ifdef CACHE
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 #endif
-
 	free(e);
 }
 
@@ -203,7 +224,7 @@ lev_iter* hash_get_iter( level *lev, KEYT start, KEYT end){
 
 	hid->idx=0;
 	hid->now_node=skiplist_find(hb->body,start);
-	hid->end_node=hb->body->header;
+	hid->end_node=hb->body?hb->body->header:NULL;
 
 	res->iter_data=(void*)hid;
 	return res;
@@ -211,7 +232,7 @@ lev_iter* hash_get_iter( level *lev, KEYT start, KEYT end){
 
 run_t* hash_iter_nxt( lev_iter *in){
 	hash_iter_data *hid=(hash_iter_data*)in->iter_data;
-	if(hid->now_node==hid->end_node){
+	if((!hid->now_node) ||(hid->now_node==hid->end_node)){
 		free(hid);
 		free(in);
 		return NULL;
@@ -235,6 +256,10 @@ void hash_print(level *lev){
 		idx++;
 		now=now->list[1];
 	}
+}
+
+KEYT h_max_table_entry(){
+	return CUC_ENT_NUM;
 }
 
 void hash_all_print(){

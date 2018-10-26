@@ -1,7 +1,7 @@
 #ifndef __H_HASH_H__
 #define __H_HASH_H__
 #define LOADF 0.9f
-#define HENTRY (KEYNUM-1)
+#define HENTRY (FULLMAPNUM-1)
 #define CUC_ENT_NUM ((int)(HENTRY*LOADF))
 
 #include <stdint.h>
@@ -40,14 +40,18 @@ uint32_t hash_range_find( level *,KEYT, KEYT,  run_t ***);
 uint32_t hash_unmatch_find( level *,KEYT, KEYT,  run_t ***);
 lev_iter* hash_get_iter( level *,KEYT start, KEYT end);
 run_t * hash_iter_nxt( lev_iter*);
+KEYT h_max_table_entry();
 
 
 void hash_free_run( run_t*);
 run_t* hash_run_cpy( run_t *);
 
+htable *hash_mem_cvt2table(skiplist*);
 void hash_merger( skiplist*,  run_t**,  run_t**,  level*);
 htable *hash_cutter( skiplist*,  level*, int* end_idx);
+
 bool hash_chk_overlap( level *, KEYT, KEYT);
+void hash_overlap(void *);
 void hash_tier_align( level *);
 void hash_print(level *);
 void hash_all_print();

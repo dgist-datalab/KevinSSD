@@ -9,6 +9,10 @@
 #endif
 #define MAX_L 30 //max level number
 #define PROB 4 //the probaility of level increasing : 1/PROB => 1/4
+#define for_each_sk(node,skip)\
+	for(node=skip->header->list[1];\
+			node!=skip->header;\
+			node=node->list[1])
 
 #ifdef Lsmtree
 struct level;
@@ -26,7 +30,7 @@ typedef struct snode{ //skiplist's node
 
 #ifdef Lsmtree
 typedef struct length_bucket{
-	snode *bucket[PAGESIZE/PIECE+1][KEYNUM];
+	snode *bucket[PAGESIZE/PIECE+1][FULLMAPNUM];
 	uint16_t idx[PAGESIZE/PIECE+1];
 	value_set** contents;
 	int contents_num;
@@ -51,8 +55,9 @@ skiplist *skiplist_init(); //return initialized skiplist*
 skiplist *skiplist_copy(skiplist* input);
 snode *skiplist_find(skiplist*,KEYT); //find snode having key in skiplist, return NULL:no snode
 snode *skiplist_range_search(skiplist *,KEYT);
+snode *skiplist_strict_range_search(skiplist *,KEYT);
 snode *skiplist_insert(skiplist*,KEYT,value_set *,bool); //insert skiplist, return inserted snode
-snode *skiplist_general_insert(skiplist*,KEYT,void *);
+snode *skiplist_general_insert(skiplist*,KEYT,void *,void (*overlap)(void*));
 #ifdef Lsmtree
 skiplist *skiplist_merge(skiplist *src,skiplist *des);
 snode *skiplist_insert_wP(skiplist*,KEYT,KEYT,bool);//with ppa;

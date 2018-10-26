@@ -578,7 +578,7 @@ bool gc_check(uint8_t type, bool force){
 	int erased_blkn=0;
 	if(!force){
 		if(type==DATA){
-			if(data_m.max_blkn-data_m.used_blkn>=KEYNUM/_PPB){
+			if(data_m.max_blkn-data_m.used_blkn>=LSM.KEYNUM/_PPB){
 				return true;
 			}
 			else{
@@ -729,7 +729,7 @@ bool gc_check(uint8_t type, bool force){
 		data_m.used_blkn-=erased_blkn-ignored_cnt;
 	}
 
-	if(type==DATA && data_m.max_blkn-data_m.used_blkn<KEYNUM/_PPB){
+	if(type==DATA && data_m.max_blkn-data_m.used_blkn<LSM.KEYNUM/_PPB){
 		//printf("??: data_m.used_blkn:%d\n",data_m.used_blkn);
 		return false;
 	}
@@ -879,9 +879,9 @@ void gc_data_oneleveling(gc_node **gn, int size, int target_level){
 		gc_node *target=gn[i];
 
 		if(i==0){
-			num=target->lpa/KEYNUM;
+			num=target->lpa/LSM.KEYNUM;
 		}else{
-			temp=target->lpa/KEYNUM;
+			temp=target->lpa/LSM.KEYNUM;
 		}
 	
 		if(i!=0 && num!=temp){
@@ -904,7 +904,7 @@ void gc_data_oneleveling(gc_node **gn, int size, int target_level){
 		gc_node *target=gn[i];
 
 		if(now->o_ent[num].end>target->lpa){
-			offset=target->lpa%KEYNUM;
+			offset=target->lpa%LSM.KEYNUM;
 			tables[t_idx].sets[offset].ppa=target->nppa;
 		}
 		else{
@@ -1239,7 +1239,7 @@ KEYT gc_victim_segment(uint8_t type,bool isforcegc){ //gc for segment
 
 		if(cnt==0)
 			return UINT_MAX;
-		else if(type==DATA && cnt<KEYNUM && !isforcegc){
+		else if(type==DATA && cnt<LSM.KEYNUM && !isforcegc){
 			return UINT_MAX;
 		}
 
@@ -1248,7 +1248,7 @@ KEYT gc_victim_segment(uint8_t type,bool isforcegc){ //gc for segment
 		return UINT_MAX-1;
 	}
 	target_p->target=target;
-	if(isforcegc && accumulate_cnt<KEYNUM+_PPB)
+	if(isforcegc && accumulate_cnt<LSM.KEYNUM+_PPB)
 		return UINT_MAX;
 
 	return target->ppa/_PPB+target->segment_idx++;
@@ -1296,7 +1296,7 @@ int gc_header(KEYT tbn){
 		}
 		KEYT t_ppa=start+i;
 #if (LEVELN==1)
-		for(int j=0; j<TOTALSIZE/PAGESIZE/KEYNUM;j++){
+		for(int j=0; j<TOTALSIZE/PAGESIZE/LSM.KEYNUM;j++){
 			if(now->o_ent[j].pba==t_ppa){
 				tables[i]=(htable_t*)malloc(sizeof(htable_t));
 				target_oent[i]=&now->o_ent[j];
@@ -1619,13 +1619,13 @@ bool gc_segment_force(){
 			}
 			gc_data(t_bl->ppa/_PPB);
 		}
-		if(created_page>KEYNUM+_PPB) {
+		if(created_page>LSM.KEYNUM+_PPB) {
 			break;
 		}
 		target_pba=gc_victim_segment(1,true);
 
 		target=&segs[target_pba/BPS];
-	}while(created_page<=KEYNUM+_PPB);
+	}while(created_page<=LSM.KEYNUM+_PPB);
 
 	if(data_m.temp==NULL){
 		printf("%d\n",created_page);

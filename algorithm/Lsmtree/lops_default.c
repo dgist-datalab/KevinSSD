@@ -1,7 +1,7 @@
 #include "level.h"
 #include "page.h"
 
-extern block *bl;
+extern block bl[_NOB];
 extern int32_t SIZEFACTOR;
 void def_moveTo_fr_page( level* in){
 	if(def_blk_fchk(in)){

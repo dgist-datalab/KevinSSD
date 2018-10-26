@@ -80,7 +80,7 @@ void compaction_sub_post(){
 }
 
 void htable_checker(htable *table){
-	for(int i=0; i<KEYNUM; i++){
+	for(uint32_t i=0; i<LSM.KEYNUM; i++){
 		if(table->sets[i].ppa<512 && table->sets[i].ppa!=0){
 			printf("here!!\n");
 		}
@@ -214,9 +214,11 @@ void compaction_assign(compR* req){
 
 extern master_processor mp;
 bool isflushing;
-htable *compaction_data_write(skiplist *mem){
+run_t *compaction_data_write(skiplist *mem){
 	//for data
 	isflushing=true;
+	KEYT start=mem->start,end=mem->end;
+	run_t *res=LSM.lop->make_run(start,end,-1);
 	value_set **data_sets=skiplist_make_valueset(mem,LSM.disk[0]);
 	for(int i=0; data_sets[i]!=NULL; i++){	
 		algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
@@ -237,42 +239,13 @@ htable *compaction_data_write(skiplist *mem){
 	}
 	free(data_sets);
 
-	//for htable
-	value_set *temp=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
-	htable *res=(htable*)malloc(sizeof(htable));
-	res->t_b=FS_MALLOC_W;
-#ifdef NOCPY
-	res->sets=(keyset*)malloc(PAGESIZE);
-#else
-	res->sets=(keyset*)temp->value;
+	htable *table=LSM.lop->mem_cvt2table(mem);
+
+	res->cpt_data=table;
+#ifdef BLOOM
+	res->filter=table->filter;
 #endif
 
-	res->origin=temp;
-	snode *target;
-	sk_iter* iter=skiplist_get_iterator(mem);
-#ifdef BLOOM
-	BF *filter=bf_init(KEYNUM,LSM.disk[0]->fpr);
-	res->filter=filter;
-#endif
-	int idx=0;
-	while((target=skiplist_get_next(iter))){
-		res->sets[idx].lpa=target->key;
-		res->sets[idx].ppa=target->ppa;
-	
-		target->ppa=res->sets[idx].ppa;
-#ifdef BLOOM
-		bf_set(filter,res->sets[idx].lpa);
-#endif
-		if(!target->isvalid){
-			res->sets[idx].ppa=UINT_MAX;
-		}
-		idx++;
-	}
-	//add padding 
-	for(uint32_t i=KEYNUM; i<(PAGESIZE/(sizeof(KEYT)*2)); i++){
-		res->sets[i].lpa=res->sets[i].ppa=UINT_MAX;
-	}
-	free(iter);
 	isflushing=false;
 	return res;
 }
@@ -381,16 +354,9 @@ void *compaction_main(void *input){
 			while(!gc_check(DATA,false)){
 			}
 			MS(&compaction_timer[2]);
-			htable *table=compaction_data_write(LSM.temptable);
+			run_t *entry=compaction_data_write(LSM.temptable);
 			MA(&compaction_timer[2]);
 
-			KEYT start=table->sets[0].lpa;
-			KEYT end=table->sets[KEYNUM-1].lpa;
-			run_t *entry=LSM.lop->make_run(start,end,-1);
-			entry->cpt_data=table;
-#ifdef BLOOM
-			entry->filter=table->filter;
-#endif
 			pthread_mutex_lock(&LSM.entrylock);
 			LSM.tempent=entry;
 			pthread_mutex_unlock(&LSM.entrylock);
@@ -430,7 +396,7 @@ void *compaction_main(void *input){
 
 void compaction_check(){
 	compR *req;
-	if(LSM.memtable->size==KEYNUM){
+	if(LSM.memtable->size==LSM.KEYNUM){
 		req=(compR*)malloc(sizeof(compR));
 		req->fromL=-1;
 		req->toL=0;
@@ -454,7 +420,7 @@ htable *compaction_htable_convert(skiplist *input,float fpr){
 
 	sk_iter *iter=skiplist_get_iterator(input);
 #ifdef BLOOM
-	BF *filter=bf_init(KEYNUM,fpr);	
+	BF *filter=bf_init(LSM.KEYNUM,fpr);	
 	res->filter=filter;
 #endif
 	snode *snode_t; int idx=0;
@@ -470,7 +436,7 @@ htable *compaction_htable_convert(skiplist *input,float fpr){
 		
 		idx++;
 	}
-	for(int i=idx; i<KEYNUM; i++){
+	for(uint32_t i=idx; i<LSM.KEYNUM; i++){
 		res->sets[i].lpa=UINT_MAX;
 		res->sets[i].ppa=UINT_MAX;
 	}
@@ -570,6 +536,7 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 	}else{
 		target=1;
 	}*/
+
 	run_t *r;
 	lev_iter *iter=LSM.lop->get_iter(src,src->start, src->end);
 	for_each_lev(r,iter,LSM.lop->iter_nxt){
@@ -707,7 +674,7 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 		if(!LSM.lop->chk_overlap(target_origin,src->start,src->end)){//if seq
 			compaction_heap_setting(target,target_origin);
 #ifdef COMPACTIONLOG
-			printf("1 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from,src->n_num);
+			printf("1 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from->idx,src->n_num);
 #endif
 			bool target_processed=false;
 			if(target_origin->start>src->end){
@@ -722,7 +689,7 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 		}
 		else{
 #ifdef COMPACTIONLOG
-			printf("2 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from,src->n_num);
+			printf("2 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from->idx,src->n_num);
 #endif
 #ifdef LEVELCACHING
 			if(from->idx<LEVELCACHING){
@@ -789,7 +756,7 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 		else{
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
-			target_s[j];->cpt_data=htable_assign();
+			target_s[j]->cpt_data=htable_assign();
 			compaction_htable_read(target_s[idx],(PTR*)&target_s[j]->cpt_data);
 #ifdef CACHE
 		}
@@ -801,8 +768,8 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 
 	for(int k=0; target_s[k]; k++){
 		htable *ttable=target_s[k]->cpt_data;
-		BF* filter=bf_init(KEYNUM,des->fpr);
-		for(int q=0; q<KEYNUM; q++){
+		BF* filter=bf_init(LSM.KEYNUM,des->fpr);
+		for(int q=0; q<LSM.KEYNUM; q++){
 			bf_set(filter,ttable->sets[q].lpa);
 		}
 
@@ -828,6 +795,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 	if(!upper){
 #ifndef MONKEY
 		start=skip->start;
+		end=skip->end;
 #else
 		start=0;
 #endif
@@ -839,7 +807,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 
 #ifndef MONKEY
 	int ts=LSM.lop->unmatch_find(origin,start,end,&target_s);
-	for(int i=0; i<ts; i++){
+	for(int i=0; target_s[i]!=NULL; i++){
 		LSM.lop->insert(t,target_s[i]);
 		target_s[i]->iscompactioning=4;
 	}
@@ -982,15 +950,15 @@ void onelevel_processing(run_t *entry){
 	int num,temp=-1;
 	int t_idx=0;
 	run_t t_ent;
-	KEYT *pbas=(KEYT*)malloc(sizeof(KEYT)*KEYNUM);
+	KEYT *pbas=(KEYT*)malloc(sizeof(KEYT)*LSM.KEYNUM);
 	epc_check=0;
-	for(int i=0; i<KEYNUM; i++){
+	for(int i=0; i<LSM.KEYNUM; i++){
 		if(i==0){
-			num=t->sets[0].lpa/KEYNUM;
+			num=t->sets[0].lpa/LSM.KEYNUM;
 			t_ent.pbn=now->o_ent[num].pba;
 		}
 		else{
-			temp=t->sets[i].lpa/KEYNUM;
+			temp=t->sets[i].lpa/LSM.KEYNUM;
 		}
 		if(i!=0 && num!=temp){
 			num=temp;
@@ -1010,10 +978,10 @@ void onelevel_processing(run_t *entry){
 	t_idx=0;
 	int offset=0;
 	keyset *__temp;
-	for(int i=0; i<KEYNUM; i++){
+	for(int i=0; i<LSM.KEYNUM; i++){
 		num=pbas[t_idx];
 		if(now->o_ent[num].end > t->sets[i].lpa){
-			offset=t->sets[i].lpa%KEYNUM;
+			offset=t->sets[i].lpa%LSM.KEYNUM;
 			if(now->o_ent[num].table->sets[offset].ppa){
 				invalidate_PPA(now->o_ent[num].table->sets[offset].ppa);
 			}

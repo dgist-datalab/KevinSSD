@@ -60,6 +60,7 @@ typedef struct run_t{
 }run_t;
 
 typedef struct level{
+	
 #ifdef LEVELUSINGHEAP
 	heap *h;
 #else
@@ -77,8 +78,6 @@ typedef struct level{
 #endif
 
 	void* level_data;
-
-
 }level;
 
 typedef struct lev_iter{
@@ -100,8 +99,10 @@ typedef struct level_ops{
 	uint32_t (*unmatch_find)( level *,KEYT start, KEYT end, run_t ***r);
 	lev_iter* (*get_iter)( level*,KEYT from, KEYT to);
 	run_t* (*iter_nxt)( lev_iter*);
+	KEYT (*get_max_table_entry)();
 
 	/*compaciton operation*/
+	htable* (*mem_cvt2table)(skiplist *);
 	void (*merger)( skiplist*, run_t** src,  run_t** org,  level *des);
 	htable *(*cutter)( skiplist *,  level* des, int* end_idx);
 

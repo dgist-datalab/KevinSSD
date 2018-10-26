@@ -44,6 +44,7 @@ void lsm_debug_print(){
 extern level_ops h_ops;
 void lsm_bind_ops(lsmtree *l){
 	l->lop=&h_ops;
+	l->KEYNUM=l->lop->get_max_table_entry();
 }
 uint32_t __lsm_get(request *const);
 uint32_t lsm_create(lower_info *li, algorithm *lsm){
@@ -52,10 +53,10 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	lsm_bind_ops(&LSM);
 	LSM.memtable=skiplist_init();
 	uint32_t _f=LEVELN;
-	SIZEFACTOR=_f?ceil(pow(10,log10(TOTALSIZE/PAGESIZE/KEYNUM)/(_f))):TOTALSIZE/PAGESIZE/KEYNUM;
+	SIZEFACTOR=_f?ceil(pow(10,log10(TOTALSIZE/PAGESIZE/LSM.KEYNUM)/(_f))):TOTALSIZE/PAGESIZE/LSM.KEYNUM;
 	unsigned long long sol=SIZEFACTOR;
 #ifdef MONKEY
-	int32_t SIZEFACTOR2=ceil(pow(10,log10(TOTALSIZE/PAGESIZE/KEYNUM/LEVELN)/(LEVELN-1)));
+	int32_t SIZEFACTOR2=ceil(pow(10,log10(TOTALSIZE/PAGESIZE/LSM.KEYNUM/LEVELN)/(LEVELN-1)));
 	float ffpr=RAF*(1-SIZEFACTOR2)/(1-pow(SIZEFACTOR2,LEVELN-1));
 #endif
 	float target_fpr=0;
@@ -78,7 +79,7 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	#else
 		LSM.disk[i]=LSM.lop->init(sol,i,target_fpr,false);
 	#endif
-		printf("[%d] fpr:%lf bytes per entry:%lu noe:%d\n",i+1,target_fpr,bf_bits(KEYNUM,target_fpr), LSM.disk[i]->m_num);
+		printf("[%d] fpr:%lf bytes per entry:%lu noe:%d\n",i+1,target_fpr,bf_bits(LSM.KEYNUM,target_fpr), LSM.disk[i]->m_num);
 		sizeofall+=LSM.disk[i]->m_num*8;
 #ifdef LEVELCACHING
 		if(i<LEVELCACHING){
@@ -88,7 +89,7 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 			continue;
 		}
 #endif
-		bloomfilter_memory+=bf_bits(KEYNUM,target_fpr)*sol;
+		bloomfilter_memory+=bf_bits(LSM.KEYNUM,target_fpr)*sol;
 		sol*=SIZEFACTOR;
 		LSM.level_addr[i]=(PTR)LSM.disk[i];
 	}
@@ -99,7 +100,7 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	LSM.disk[LEVELN-1]=LSM.lop->init(sol,LEVELN-1,1,false);
 #endif
 
-	printf("[%d] fpr:1.0000 bytes per entry:%lu noe:%d\n",LEVELN,bf_bits(KEYNUM,1),LSM.disk[LEVELN-1]->m_num);
+	printf("[%d] fpr:1.0000 bytes per entry:%lu noe:%d\n",LEVELN,bf_bits(LSM.KEYNUM,1),LSM.disk[LEVELN-1]->m_num);
 	sizeofall+=LSM.disk[LEVELN-1]->m_num*8;
 	printf("level:%d sizefactor:%d\n",LEVELN,SIZEFACTOR);
 	printf("all level size:%lu(MB), %lf(GB)\n",sizeofall,(double)sizeofall/1024);
@@ -336,7 +337,7 @@ uint32_t lsm_set(request * const req){
 	req->end_req(req); //end write
 
 	MA(&__get_mt);
-	if(LSM.memtable->size==KEYNUM)
+	if(LSM.memtable->size==LSM.KEYNUM)
 		return 1;
 	else
 		return 0;
@@ -376,34 +377,20 @@ uint32_t lsm_get(request *const req){
 			break;
 	}
 	if(!temp){
-		for(int i=0; i<LEVELN; i++){
-			//printf("level : %d\n",i);
-			//LSM.lop->print(LSM.disk[i]);
-	//		printf("level :%d\n",i);
-	//		level_oent_print(LSM.disk[i]);
-#if (LEVELN==1)
-			/*
-			for(int j=0; j<TOTALSIZE/PAGESIZE/KEYNUM; j++){
-				o_entry *t=&LSM.disk[0]->o_ent[j];
-				printf("[%d]%d~%d at %d\n",j,t->start,t->end,t->pba);
-			}*/
-#endif
-		}
+		LSM.lop->all_print();
 		temp=true;
 	}
 	bench_algo_start(req);
 	res_type=__lsm_get(req);
 	if(!debug && LSM.disk[0]->n_num>0){
-		//printf("here!\n");
 		debug=true;
-	//	LSM.lop->all_print();
 	}
 	if(res_type==0){
-//		printf("not found seq: %d, key:%u\n",nor++,req->key);
+		printf("not found seq: %d, key:%u\n",nor++,req->key);
 //		LSM.lop->all_print();
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
-	//	abort();
+		abort();
 	}
 	return res_type;
 }
@@ -553,7 +540,7 @@ uint32_t __lsm_get(request *const req){
 
 		mapinfo.sets=(keyset*)req->value->value;
 #if (LEVELN==1)
-		KEYT offset=req->key%KEYNUM;
+		KEYT offset=req->key%LSM.KEYNUM;
 		algo_req *lsm_req=lsm_get_req_factory(req);
 		LSM.li->pull_data(mapinfo.sets[offset].ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 		return 1;
@@ -618,7 +605,7 @@ uint32_t __lsm_get(request *const req){
 #endif
 
 #if (LEVELN==1)
-		KEYT p=req->key/KEYNUM;
+		KEYT p=req->key/LSM.KEYNUM;
 		KEYT target_ppa=LSM.disk[i]->o_ent[p].pba;	
 		int *temp_data=(int*)req->params;
 		temp_data[0]=0;
@@ -749,7 +736,8 @@ uint32_t lsm_remove(request *const req){
 
 htable *htable_assign(){
 	htable *res=(htable*)malloc(sizeof(htable));
-	res->sets=(keyset*)calloc(sizeof(keyset),KEYNUM);
+	res->sets=(keyset*)malloc(PAGESIZE);
+	memset(res->sets,-1,PAGESIZE);
 	res->t_b=0;
 	res->origin=NULL;
 	return res;
@@ -776,7 +764,7 @@ htable *htable_copy(htable *input){
 void htable_print(htable * input,KEYT ppa){
 	bool check=false;
 	int cnt=0;
-	for(int i=0; i<KEYNUM; i++){
+	for(uint32_t i=0; i<FULLMAPNUM; i++){
 		if(input->sets[i].lpa>RANGE && input->sets[i].lpa!=UINT_MAX){
 			printf("bad reading %u\n",input->sets[i].lpa);
 			cnt++;

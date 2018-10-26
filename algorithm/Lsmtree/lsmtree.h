@@ -42,6 +42,7 @@ typedef struct lsm_params{
 }lsm_params;
 
 typedef struct lsmtree{
+	KEYT KEYNUM;
 	level *disk[LEVELN];
 	level *c_level;
 	level_ops *lop;

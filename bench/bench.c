@@ -75,6 +75,7 @@ void bench_init(int benchnum){
 			}
 		}
 	}
+	printf("bench:%ld\n",TOTALSIZE/PAGESIZE/8);
 	bitmap=(uint8_t*)malloc(sizeof(uint8_t)*(TOTALSIZE/(PAGESIZE)/8));
 }
 void bench_make_data(){

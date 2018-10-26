@@ -31,6 +31,7 @@ skiplist *skiplist_init(){
 }
 
 snode *skiplist_find(skiplist *list, KEYT key){
+	if(!list) return NULL;
 	if(list->size==0) return NULL;
 	snode *x=list->header;
 	for(int i=list->level; i>=1; i--){
@@ -60,6 +61,25 @@ snode *skiplist_range_search(skiplist *list,KEYT key){
 	}
 	if(key<=list->header->list[1]->key){
 		return list->header->list[1];
+	}
+	return NULL;
+}
+
+snode *skiplist_strict_range_search(skiplist *list,KEYT key){
+	if(list->size==0) return NULL;
+	snode *x=list->header;
+	snode *bf=list->header;
+	for(int i=list->level; i>=1; i--){
+		while(x->list[i]->key<=key){
+			bf=x;
+			x=x->list[i];
+		}
+	}
+	
+	bf=x;
+	x=x->list[1];
+	if(bf->key<=key && key< x->key){
+		return bf;
 	}
 	return NULL;
 }
@@ -191,7 +211,7 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef
 #endif
 
 
-snode *skiplist_general_insert(skiplist *list,KEYT key,void* value){
+snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overlap)(void*)){
 	snode *update[MAX_L+1];
 	snode *x=list->header;
 
@@ -201,11 +221,13 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value){
 		update[i]=x;
 	}
 	x=x->list[1];
-	
+
 	if(key<list->start) list->start=key;
 	if(key>list->end) list->end=key;
+
 	if(key==x->key){
 		DEBUG_LOG("general");
+		overlap((void*)x->value);
 		x->value=(value_set*)value;
 		return x;
 	}
@@ -301,8 +323,8 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 //static int make_value_cnt=0;
 value_set **skiplist_make_valueset(skiplist *input, level *from){
 	//printf("make_value_cnt:%d\n",++make_value_cnt);
-	value_set **res=(value_set**)malloc(sizeof(value_set*)*(KEYNUM+1));
-	memset(res,0,sizeof(value_set*)*(KEYNUM+1));
+	value_set **res=(value_set**)malloc(sizeof(value_set*)*(LSM.KEYNUM+1));
+	memset(res,0,sizeof(value_set*)*(LSM.KEYNUM+1));
 	l_bucket b;
 	memset(&b,0,sizeof(b));
 
@@ -550,7 +572,7 @@ skiplist *skiplist_cut(skiplist *list, KEYT num,KEYT limit,htable *table, float 
 	snode *h=res->header;
 	snode *temp;
 #ifdef BLOOM
-	BF *filter=bf_init(KEYNUM,fpr);
+	BF *filter=bf_init(LSM.KEYNUM,fpr);
 	table->filter=filter;
 #endif
 	for(KEYT i=0; i<num; i++){
@@ -593,7 +615,7 @@ skiplist *skiplist_cut(skiplist *list, KEYT num,KEYT limit,htable *table, float 
 		h=temp;
 	}
 	res->size=num;
-	for(int i=num; i<KEYNUM; i++){
+	for(uint32_t i=num; i<LSM.KEYNUM; i++){
 		table->sets[i].ppa=UINT_MAX;
 		table->sets[i].lpa=UINT_MAX;
 	}

@@ -19,8 +19,8 @@
 
 #elif defined(SLC)
 
-
-#define TOTALSIZE (128L*G)
+#define GIGAUNIT 10L
+#define TOTALSIZE ((GIGAUNIT)*G)
 #define REALSIZE (512L*G)
 #define PAGESIZE (8*K)
 #define _PPB (256)
@@ -35,7 +35,7 @@
 #define _NOB (BPS*_NOS)
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
 
-#define RANGE (10*(M/PAGESIZE)*1024L*(0.80))
+#define RANGE (1*(M/PAGESIZE)*1024L*(0.80))
 
 
 
