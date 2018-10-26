@@ -5,7 +5,6 @@
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
 #ifdef Lsmtree
-#include "run_array.h"
 #include "lsmtree.h"
 #endif
 #define MAX_L 30 //max level number
@@ -51,7 +50,9 @@ typedef struct{
 skiplist *skiplist_init(); //return initialized skiplist*
 skiplist *skiplist_copy(skiplist* input);
 snode *skiplist_find(skiplist*,KEYT); //find snode having key in skiplist, return NULL:no snode
+snode *skiplist_range_search(skiplist *,KEYT);
 snode *skiplist_insert(skiplist*,KEYT,value_set *,bool); //insert skiplist, return inserted snode
+snode *skiplist_general_insert(skiplist*,KEYT,void *);
 #ifdef Lsmtree
 skiplist *skiplist_merge(skiplist *src,skiplist *des);
 snode *skiplist_insert_wP(skiplist*,KEYT,KEYT,bool);//with ppa;

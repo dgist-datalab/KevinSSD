@@ -12,10 +12,8 @@ static uint32_t f_h(uint32_t a){
 }
 
 void hash_init(hash *c){
-	c->n_num=0;
-	//c->body=(keyset*)malloc(sizeof(keyset)*CUC_ENT_NUM);
+	c->n_num=c->t_num=c->end=0;
 	c->start=UINT_MAX;
-	c->end=0;
 	memset(c->body,0xff,sizeof(keyset)*1023);
 }
 
@@ -25,14 +23,14 @@ bool hash_insert(hash *c, keyset input){
 		return false;
 	}else{
 		uint32_t h_keyset=f_h(input.lpa);
-		uint32_t idx=0,i=0;
-		//for(int i=0; i<MAX_TRY; i++){
+		uint32_t idx=0,i=0,try_n=0;
 		while(1){
-			set_cnt++;
+			try_n++;
 			idx=(h_keyset+i*i+i)%(1023);
 			if(c->body[idx].lpa==UINT_MAX){
 				if(c->start>input.lpa) c->start=input.lpa;
 				if(c->end<input.lpa)c->end=input.lpa;
+				if(c->t_num<try_n)c->t_num=try_n;
 				c->body[idx]=input;
 				c->n_num++;
 				return true;
@@ -46,15 +44,12 @@ bool hash_insert(hash *c, keyset input){
 static int get_cnt;
 keyset* hash_find(hash *c,uint32_t lpa){
 	uint32_t h_keyset=f_h(lpa);
-	uint32_t idx=0,i=0;
-	//for(int i=0; i<MAX_TRY; i++){
-	while(1){
-		get_cnt++;
+	uint32_t idx=0;
+	for(int i=0; i<c->t_num; i++){
 		idx=(h_keyset+i*i+i)%(1023);
 		if(c->body[idx].lpa==lpa){
 			return &c->body[idx];
 		}
-		i++;
 	}
 	return NULL;
 }
@@ -103,6 +98,17 @@ void hash_print(hash *h){
 	}
 }
 
+hash* hash_bucket_find(hash_body* b,uint32_t lpa){
+	hash *res=NULL;
+	if(b->n_num){
+		snode *s=skiplist_range_search(b->body,lpa);
+		res=(hash*)s->value;
+	}else{
+		res=b->temp;
+	}
+	return res;
+}
+
 uint32_t hash_split_in(hash *src, hash *a_des){
 	uint32_t partition=(src->start+src->end)/2;
 	uint32_t end=0;
@@ -128,7 +134,6 @@ void hash_insert_into(hash_body *b, KEYT input ){
 	snode *sn=NULL;
 	if(b->n_num){
 		snode *s=skiplist_range_search(b->body,input);
-		hash_insert_time+=_c.tv_sec*100000+_c.tv_usec;
 
 		h=(hash*)s->value;
 		sn=s;
@@ -137,11 +142,9 @@ void hash_insert_into(hash_body *b, KEYT input ){
 	if(!hash_insert(h,t)){
 		hash *new_hash=hash_assign_new();
 		int partition=hash_split_in(h,new_hash);
-		split+=_c.tv_sec*100000+_c.tv_usec;
 
 		skiplist_insert(b->body,h->start,(char*)h);
 		skiplist_insert(b->body,new_hash->start,(char*)new_hash);
-		skip_insert+=_c.tv_sec*100000+_c.tv_usec;
 
 		if(input<partition){
 			hash_insert(h,t);
@@ -158,6 +161,15 @@ hash* hash_assign_new(){
 	hash_init(res);
 	return res;
 }
+
+
+keyset* hash_find_from_body(hash_body *body,uint32_t lpa){
+	hash *h;
+	if(h=hash_bucket_find(body,lpa)){
+		return hash_find(h,lpa);
+	}
+	return NULL;
+}
 hash_body my_body;
 int main(){
 	my_body.n_num=0;
@@ -167,7 +179,7 @@ int main(){
 	struct timeval a,b,c;
 	gettimeofday(&a,NULL);
 	for(int i=0; i<INPUTSIZE; i++){
-		hash_insert_into(&my_body,rand());
+		hash_insert_into(&my_body,i);
 	}
 	gettimeofday(&b,NULL);
 	timersub(&b,&a,&c);
@@ -175,6 +187,16 @@ int main(){
 
 	printf("s_insert:%ld, split:%ld, h_inser:%ld ----loop:%d\n",skip_insert,split,hash_insert_time);
 
+	gettimeofday(&a,NULL);
+	for(int i=0; i<INPUTSIZE; i++){
+		if(!hash_find_from_body(&my_body,i)){
+		}
+	}
+	gettimeofday(&b,NULL);
+	timersub(&b,&a,&c);
+	printf("body size:%d microsec:%ld\n",my_body.n_num,c.tv_sec*1000000+c.tv_usec);
+
+	/*
 	gettimeofday(&_a,NULL);
 	skiplist *test=skiplist_init();
 	for(int i=0; i<INPUTSIZE; i++){
@@ -182,13 +204,8 @@ int main(){
 	}
 	gettimeofday(&_b,NULL);
 	timersub(&_b,&_a,&_c);
-	printf("skiplist size:%d microsec:%ld\n",test->size,_c.tv_sec*1000000+_c.tv_usec);
-
-	for(int i=0; i<INPUTSIZE; i++){
+	printf("skiplist size:%d microsec:%ld\n",test->size,_c.tv_sec*1000000+_c.tv_usec);*/
 	
-	}
-
-	for(int i=0; )
 }
 
 

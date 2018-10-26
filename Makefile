@@ -1,9 +1,9 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=network
-TARGET_ALGO=normal
-PWD=$(pwd)
+TARGET_LOWER=posix_memory
+TARGET_ALGO=Lsmtree
+PPWD=$(pwd)
 
 COMMONFLAGS=\
 			-DSLC\
@@ -24,7 +24,7 @@ export CFLAGS_LOWER=\
 #-O2\
 
 export priority="false"
-
+export ORIGINAL_PATH=$(PPWD)
 
 #CFLAGS_ALGO+=-DCOMPACTIONLOG\
 	

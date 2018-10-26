@@ -4,6 +4,7 @@
 #include "../../interface/interface.h"
 #include "footer.h"
 #include "skiplist.h"
+#include "run_array.h"
 #include "nocpy.h"
 #include "../../include/utils/rwlock.h"
 #include <string.h>
@@ -807,8 +808,9 @@ void invalidate_PPA(KEYT _ppa){
 	segment *segs=WHICHSEG(bl[bn].ppa);
 	segs->invalid_n++;
 	static int cnt=0;
+
 	if(bl[bn].invalid_n>algo_lsm.li->PPB){
-		printf("%u\n",algo_lsm.li->PPB);
+		printf("%ld\n",algo_lsm.li->PPB);
 		printf("invalidate:??\n");
 		abort();
 	}
@@ -937,13 +939,13 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 #endif
 	level *in=LSM.disk[target_level];
 	htable_t **datas=(htable_t**)malloc(sizeof(htable_t*)*in->m_num);
-	run_t **entries;
+	Entry **entries;
 	//bool debug=false;
 	for(int i=0; i<size; i++){
 		if(gn[i]==NULL) continue;
 		gc_node *target=gn[i];
 #ifdef LEVELCACHING
-		if(in->idx<LEVELCACHING){
+		if(in->level_idx<LEVELCACHING){
 			snode *find=skiplist_find(in->level_cache,target->lpa);
 			if(find==NULL){
 				printf("can't be!\n");
@@ -953,12 +955,12 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			continue;
 		}
 #endif
-		entries=LSM.lop->find_run(in,target->lpa);
+		entries=level_find(in,target->lpa);
 		int htable_idx=0;
 		gc_general_wait_init();
 	
 		if(entries==NULL){
-			LSM.lop->all_print();
+			level_all_print();
 			printf("lpa:%d-ppa:%d\n",target->lpa,target->ppa);
 			printf("entry null!\n");
 		}
@@ -983,6 +985,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 
 		gc_general_waiting();
 
+		//rwlock_read_lock(&LSM.level_rwlock[in->level_idx]);
 		for(int j=0; j<htable_idx; j++){
 			htable_t *data=datas[j];
 			int temp_i=i;
@@ -991,13 +994,13 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 				
 				if(target==NULL) continue;
 
-				keyset *finded=LSM.lop->find_keyset((char*)data->sets,target->lpa);
+				keyset *finded=htable_find(data->sets,target->lpa);
 
 				if(finded && finded->ppa==target->ppa){
 #ifdef CACHE
 					pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 					if(entries[j]->c_entry){
-						keyset *c_finded=find_keyset(entries[j]->t_table->sets,target->lpa);
+						keyset *c_finded=htable_find(entries[j]->t_table->sets,target->lpa);
 						if(c_finded){
 							c_finded->ppa=target->nppa;
 						}
@@ -1011,15 +1014,15 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 				}
 				else{
 					if(k==temp_i){
-						if(!in->istier || j==htable_idx-1){
-							LSM.lop->print(in);
+						if(!in->isTiering || j==htable_idx-1){
+							level_print(in);
 							printf("lpa:%d-ppa:%d\n",target->lpa,target->ppa);
 							printf("what the fuck?\n"); //not founded in level
 							abort();
 						}
 					}
 					i--;
-					if(!in->istier) break;
+					if(!in->isTiering) break;
 				}
 			}
 			KEYT temp_header=entries[j]->pbn;
@@ -1030,7 +1033,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			free(data);
 		}
 		free(entries);
-		//rwlock_read_unlock(&LSM.level_rwlock[in->idx]);
+		//rwlock_read_unlock(&LSM.level_rwlock[in->level_idx]);
 	}
 	free(datas);
 }
@@ -1112,11 +1115,11 @@ int gc_data_write_using_bucket(l_bucket *b,int target_level,char order){
 		int ptr=0;
 		int remain=PAGESIZE-PIECE;
 		footer *foot=f_init();
-		if(LSM.lop->block_fchk(in)){			
+		if(level_now_block_fchk(in)){			
 			block *reserve_block=getRBLOCK(DATA);
 			gc_data_now_block_chg(in,reserve_block);
 		}
-		LSM.lop->moveTo_fr_page(in);
+		level_moveTo_front_page(in);
 		KEYT target_ppa=in->now_block->ppage_array[in->now_block->ppage_idx];
 		oob[target_ppa/(PAGESIZE/PIECE)]=PBITSET(target_ppa,false);
 		res++;
@@ -1130,7 +1133,7 @@ int gc_data_write_using_bucket(l_bucket *b,int target_level,char order){
 
 			target=(gc_node*)b->bucket[target_length][b->idx[target_length]-1];
 
-			target->nppa=LSM.lop->get_page(in,target->plength);//level==new ppa
+			target->nppa=level_get_page(in,target->plength);//level==new ppa
 			gc_container[gc_idx++]=target;
 			used_piece+=target_length;
 			//end
@@ -1177,7 +1180,7 @@ void gc_data_now_block_chg(level *in, block *reserve_block){
 #else
 	reserve_block->hn_ptr=llog_insert(in->h,reserve_block);
 #endif
-	reserve_block->level=in->idx;
+	reserve_block->level=in->level_idx;
 
 #ifdef DVALUE
 	in->now_block->length_data=(uint8_t*)malloc(PAGESIZE);
@@ -1276,13 +1279,13 @@ int gc_header(KEYT tbn){
 #if (LEVELN==1)
 	level *now=LSM.disk[0];
 #else
-	run_t **target_ent=(run_t**)malloc(sizeof(run_t*)*algo_lsm.li->PPB);
+	Entry **target_ent=(Entry**)malloc(sizeof(Entry*)*algo_lsm.li->PPB);
 #endif
 	//printf("2\n");
-	//LSM.lop->all_print();
+	//level_all_print();
 	/*
 	if(LSM.c_level)
-		LSM.lop->print(LSM.c_level);*/
+		level_print(LSM.c_level);*/
 	//printf("--------------------------------------------------\n");
 	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
 		if(target->bitset[i/8]&(1<<(i%8))){
@@ -1312,18 +1315,18 @@ int gc_header(KEYT tbn){
 #endif
 #else
 		KEYT lpa=PBITGET(t_ppa);
-		run_t **entries=NULL;
+		Entry **entries=NULL;
 		bool checkdone=false;
-	//	LSM.lop->all_print();
+	//	level_all_print();
 		for(int j=0; j<LEVELN; j++){
-			entries=LSM.lop->find_run(LSM.disk[j],lpa);
-			//LSM.lop->print(LSM.disk[j]);
+			entries=level_find(LSM.disk[j],lpa);
+			//level_print(LSM.disk[j]);
 			if(entries==NULL) continue;
 
 			for(int k=0; entries[k]!=NULL ;k++){
 
 				if(entries[k]->pbn==t_ppa){
-					if(LSM.disk[j]->istier && LSM.disk[j]->m_num==LSM.c_level->m_num){
+					if(LSM.disk[j]->isTiering && LSM.disk[j]->m_num==LSM.c_level->m_num){
 						/*in this situation ftl should change c_level entry*/
 						break;
 					}
@@ -1355,7 +1358,7 @@ int gc_header(KEYT tbn){
 		}
 
 		if(LSM.c_level && !checkdone){
-			entries=LSM.lop->find_run(LSM.c_level,lpa);
+			entries=level_find(LSM.c_level,lpa);
 			if(entries!=NULL){
 				for(int k=0; entries[k]!=NULL; k++){
 					if(entries[k]->pbn==t_ppa){
@@ -1379,7 +1382,7 @@ int gc_header(KEYT tbn){
 			free(entries);
 		}
 		if(checkdone==false){
-			LSM.lop->all_print();
+			level_all_print();
 			printf("[%u : %u]error!\n",t_ppa,lpa);
 			abort();
 		}
@@ -1390,7 +1393,7 @@ int gc_header(KEYT tbn){
 #if ((LEVELN==1)|| defined(LEVELEMUL))
 	o_entry *test;
 #else
-	run_t *test;
+	Entry *test;
 #endif
 
 	htable_t *table;
@@ -1420,7 +1423,10 @@ int gc_header(KEYT tbn){
 	free(target_ent);
 #endif
 	gc_trim_segment(HEADER,target->ppa);
-
+	//level_all_print();
+	/*
+	if(LSM.c_level)
+		level_print(LSM.c_level);*/
 	return 1;
 }
 static int gc_dataed_page;
@@ -1443,7 +1449,7 @@ int gc_data(KEYT tbn){//
 		return 1;
 	}
 
-	//LSM.lop->all_print();
+	//level_all_print();
 
 	l_bucket bucket;
 	memset(&bucket,0,sizeof(l_bucket));
@@ -1451,9 +1457,9 @@ int gc_data(KEYT tbn){//
 	int target_level=target->level;
 	level *in=LSM.disk[target_level];
 
-	//LSM.lop->print(in);
+	//level_print(in);
 
-	if(LSM.lop->block_fchk(in)|| (in->now_block && in->now_block->ppa/_PPB/BPS==tbn/BPS)){
+	if(level_now_block_fchk(in)|| (in->now_block && in->now_block->ppa/_PPB/BPS==tbn/BPS)){
 		//in->now_blokc full or in->now_block is same segment for target block
 		block *reserve_block=getRBLOCK(DATA);
 		gc_data_now_block_chg(in,reserve_block);
@@ -1521,12 +1527,12 @@ int gc_data(KEYT tbn){//
 #ifdef DVALUE
 		if(PBITFULL(d_ppa,true)){
 #endif
-			if(LSM.lop->block_fchk(in)){
+			if(level_now_block_fchk(in)){
 				block *reserve_block=getRBLOCK(DATA);
 				gc_data_now_block_chg(in,reserve_block);
 			}
-			LSM.lop->moveTo_fr_page(in);
-			KEYT n_ppa=LSM.lop->get_page(in,(PAGESIZE/PIECE));
+			level_moveTo_front_page(in);
+			KEYT n_ppa=level_get_page(in,(PAGESIZE/PIECE));
 			KEYT d_lpa=PBITGET(d_ppa);
 #ifdef DVALUE
 			oob[n_ppa/(PAGESIZE/PIECE)]=PBITSET(d_lpa,true);
@@ -1588,6 +1594,7 @@ int gc_data(KEYT tbn){//
 
 	gc_data_write_using_bucket(&bucket,target_level,order);
 	gc_trim_segment(DATA,target->ppa);
+//	level_print(in);
 	return 1;
 }
 

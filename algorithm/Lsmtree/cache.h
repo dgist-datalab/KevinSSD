@@ -1,7 +1,6 @@
 #ifdef CACHE
 #ifndef __CACHE_H__
 #define __CACHE_H__
-#include"run_array.h"
 #include"skiplist.h"
 #include<pthread.h>
 typedef struct Entry Entry;

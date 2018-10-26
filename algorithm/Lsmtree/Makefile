@@ -1,23 +1,27 @@
+L_TARGET=hash
+AL_PWD=$(PWD)
+
 ifeq ($(CC),cc)
  CC=gcc
- CFLAGS_ALGO=\
+ export CFLAGS_ALGO=\
 		 -g\
 		 -Wall\
 
  ifeq ($(CC),gcc)
-  CFLAGS_ALGO+=\
+  export CFLAGS_ALGO+=\
 			   -Wno-discarded-qualifiers\
 			   -std=c99\
 
  else
-  CFLAGS_ALGO+=\
+  export CFLAGS_ALGO+=\
 			   -std=c++11\
 
  endif
 endif
 
+
+
 SRCS +=\
-	   run_array.c\
 	   skiplist.c\
 	   bloomfilter.c\
 	   lsmtree.c\
@@ -28,8 +32,11 @@ SRCS +=\
 	   log_list.c\
 	   factory.c\
 	   nocpy.c\
+	   lops_default.c\
+
 #cache.c\
 #merge_compaction.c\
+	   run_array.c\
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\
@@ -62,7 +69,7 @@ liblsm.a : $(TARGETOBJ)
 	$(AR) r $(@) $(TARGETOBJ)
 
 set_check:../../include/lsm_settings.h
-	make test_clean
+	$(MAKE) -C $(AL_PWD)/level_target/$(L_TARGET)
 
 .c.o :  ../../include/lsm_settings.h ../../include/settings.h
 	$(CC) $(CFLAGS_ALGO) -c $< -o $@ -lm -lpthread

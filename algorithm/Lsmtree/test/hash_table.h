@@ -15,9 +15,10 @@ typedef struct keyset{
 }keyset;
 
 typedef struct {
-	uint32_t n_num;
 	uint32_t start;
 	uint32_t end;
+	uint32_t n_num;
+	uint32_t t_num;
 	keyset body[1023];
 }hash;
 
@@ -34,6 +35,8 @@ hash* hash_assign_new();
 bool hash_insert(hash *, keyset);
 void hash_insert_into(hash_body *b, KEYT input);
 keyset* hash_find(hash *,uint32_t lpa);
+hash* hash_bucket_find(hash_body *,uint32_t lpa);
+keyset* hash_find_from_body(hash_body *,uint32_t lpa);
 void hash_print(hash *);
 uint32_t hash_split(hash *src, hash *a_des, hash *b_des);
 void hash_delete(hash*, uint32_t lpa);

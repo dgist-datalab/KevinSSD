@@ -19,4 +19,10 @@
 #define MC(t) donothing((t))
 #endif
 
+#define DEBUG_LOG(c) ({\
+		if(c){\
+			printf("[%s]:",c);\
+		}\
+		printf("%s:%d\n",__FILE__,__LINE__);})
+
 #endif

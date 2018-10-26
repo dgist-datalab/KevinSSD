@@ -13,6 +13,7 @@
 
 extern MeasureTime compaction_timer[3];
 extern OOBT *oob;
+extern lsmtree LSM;
 #endif
 
 skiplist *skiplist_init(){
@@ -38,6 +39,28 @@ snode *skiplist_find(skiplist *list, KEYT key){
 	}
 	if(x->list[1]->key==key)
 		return x->list[1];
+	return NULL;
+}
+
+snode *skiplist_range_search(skiplist *list,KEYT key){
+	if(list->size==0) return NULL;
+	snode *x=list->header;
+	snode *bf=list->header;
+	for(int i=list->level; i>=1; i--){
+		while(x->list[i]->key<=key){
+			bf=x;
+			x=x->list[i];
+		}
+	}
+	
+	bf=x;
+	x=x->list[1];
+	if(bf->key<=key && key< x->key){
+		return bf;
+	}
+	if(key<=list->header->list[1]->key){
+		return list->header->list[1];
+	}
 	return NULL;
 }
 
@@ -167,6 +190,51 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef
 }
 #endif
 
+
+snode *skiplist_general_insert(skiplist *list,KEYT key,void* value){
+	snode *update[MAX_L+1];
+	snode *x=list->header;
+
+	for(int i=list->level; i>=1; i--){
+		while(x->list[i]->key<key)
+			x=x->list[i];
+		update[i]=x;
+	}
+	x=x->list[1];
+	
+	if(key<list->start) list->start=key;
+	if(key>list->end) list->end=key;
+	if(key==x->key){
+		DEBUG_LOG("general");
+		x->value=(value_set*)value;
+		return x;
+	}
+	else{
+		int level=getLevel();
+		if(level>list->level){
+			for(int i=list->level+1; i<=level; i++){
+				update[i]=list->header;
+			}
+			list->level=level;
+		}
+
+		x=(snode*)malloc(sizeof(snode));
+		x->list=(snode**)malloc(sizeof(snode*)*(level+1));
+
+		x->key=key;
+		x->ppa=UINT_MAX;
+		x->value=(value_set*)value;
+
+		for(int i=1; i<=level; i++){
+			x->list[i]=update[i]->list[i];
+			update[i]->list[i]=x;
+		}
+		x->level=level;
+		list->size++;
+	}
+	return x;
+
+}
 snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 	snode *update[MAX_L+1];
 	snode *x=list->header;
@@ -252,8 +320,8 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 	for(int i=0; i<b.idx[PAGESIZE/PIECE]; i++){//full page
 		target=b.bucket[PAGESIZE/PIECE][i];
 		res[res_idx]=target->value;
-		level_moveTo_front_page(from);
-		res[res_idx]->ppa=level_get_page(from,(PAGESIZE/PIECE));
+		LSM.lop->moveTo_fr_page(from);
+		res[res_idx]->ppa=LSM.lop->get_page(from,(PAGESIZE/PIECE));
 		/*checking new ppa in skiplist_valuset*/
 #ifdef DVALUE
 		oob[res[res_idx]->ppa/(PAGESIZE/PIECE)]=PBITSET(target->key,true);//OOB setting
@@ -284,7 +352,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 		footer *foot=f_init();
 
 		res[res_idx]=inf_get_valueset(page,FS_MALLOC_W,PAGESIZE); 
-		level_moveTo_front_page(from);
+		LSM.lop->moveTo_fr_page(from);
 
 		res[res_idx]->ppa=from->now_block->ppage_array[from->now_block->ppage_idx];
 
@@ -299,7 +367,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 				break;
 			}
 			target=b.bucket[target_length][b.idx[target_length]-1];
-			target->ppa=level_get_page(from,target->value->length);
+			target->ppa=LSM.lop->get_page(from,target->value->length);
 
 			used_piece+=target_length;
 			f_insert(foot,target->key,target->ppa,target_length);
