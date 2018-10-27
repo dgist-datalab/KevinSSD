@@ -43,6 +43,8 @@ typedef struct lsm_params{
 
 typedef struct lsmtree{
 	KEYT KEYNUM;
+	bool inplace_compaction; 
+
 	level *disk[LEVELN];
 	level *c_level;
 	level_ops *lop;
@@ -75,7 +77,7 @@ void* lsm_end_req(struct algo_req*const);
 bool lsm_kv_validcheck(uint8_t *, int idx);
 void lsm_kv_validset(uint8_t *,int idx);
 htable *htable_copy(htable *);
-htable *htable_assign();
+htable *htable_assign(char*,bool);
 void htable_free(htable*);
 void htable_print(htable*,KEYT);
 /*

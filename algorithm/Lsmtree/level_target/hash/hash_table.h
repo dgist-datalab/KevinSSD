@@ -48,11 +48,13 @@ run_t* hash_run_cpy( run_t *);
 
 htable *hash_mem_cvt2table(skiplist*);
 void hash_merger( skiplist*,  run_t**,  run_t**,  level*);
-htable *hash_cutter( skiplist*,  level*, int* end_idx);
+run_t *hash_cutter( skiplist*,  level*, KEYT *start,KEYT *end);
 
 bool hash_chk_overlap( level *, KEYT, KEYT);
 void hash_overlap(void *);
 void hash_tier_align( level *);
 void hash_print(level *);
 void hash_all_print();
+
+void hash_range_update(level *,run_t *,KEYT lpa);
 #endif

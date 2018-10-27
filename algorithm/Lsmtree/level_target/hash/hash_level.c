@@ -40,6 +40,7 @@ static inline hash *r2h(run_t* a){
 }
 
 void hash_overlap(void *value){
+	printf("%p free\n",value);
 	run_t *temp=(run_t*)value;
 	htable_free(temp->cpt_data);
 	hash_free_run(temp);
@@ -70,11 +71,12 @@ static bool hash_real_insert(run_t *r, keyset input,float fpr){
 	if(c->n_num>=CUC_ENT_NUM){
 		return false;
 	}else{
+		hash_range_update(NULL,r,input.lpa);
 #ifdef BLOOM
-		if(f->filter==NULL){
-			f->filter=bf_init(HENTRY,fpr);
+		if(r->filter==NULL){
+			r->filter=bf_init(HENTRY,fpr);
 		}
-		bf_set(f->filter,input.lpa);
+		bf_set(r->filter,input.lpa);
 #endif
 		if(r->key>input.lpa) r->key=input.lpa;
 		if(r->end<input.lpa) r->end=input.lpa;
@@ -119,7 +121,7 @@ static KEYT hash_split_in(run_t *_src, run_t *_des,float fpr){
 }
 static run_t *hash_make_dummy_run(){
 	run_t *res=hash_make_run(UINT_MAX,0,-1);
-	res->cpt_data=htable_assign();
+	res->cpt_data=htable_assign(NULL,0);
 	res->cpt_data->sets[0].lpa=res->cpt_data->sets[0].ppa=0;
 	return res;
 }
@@ -128,7 +130,7 @@ static void hash_insert_into(hash_body *b, keyset input, float fpr){
 	h=b->late_use_node?b->late_use_node:b->temp;
 	if(b->late_use_nxt && b->late_use_node){
 		run_t *h2=b->late_use_nxt;
-		if(b->late_use_nxt!=b->late_use_node &&!(h->key<=input.lpa && input.lpa< h2->key)){
+		if(input.lpa< h->key || (b->late_use_nxt!=b->late_use_node &&!(h->key<=input.lpa && input.lpa< h2->key))){
 			snode* s=skiplist_range_search(b->body,input.lpa);
 			h=b->late_use_node=(run_t*)s->value;
 			if(s->list[1]!=b->body->header)
@@ -141,7 +143,10 @@ static void hash_insert_into(hash_body *b, keyset input, float fpr){
 		b->late_use_nxt=NULL;
 	}
 
+
 	if(!hash_real_insert(h,input,fpr)){
+		if(h==b->temp) b->temp=NULL;
+		if(!b->body) b->body=skiplist_init();
 		snode *w,*e;
 		run_t *new_hash=hash_make_dummy_run();
 #ifdef BLOOM
@@ -152,12 +157,14 @@ static void hash_insert_into(hash_body *b, keyset input, float fpr){
 		}
 		hash_free_run(h);
 		h=new_hash2;
-#else
-		uint32_t partition=hash_split_in(h,new_hash,fpr);
-#endif
-		if(!b->body) b->body=skiplist_init();
 		skiplist_general_insert(b->body,h->key,(void*)h,hash_overlap);
 		w=skiplist_general_insert(b->body,new_hash->key,(void*)new_hash,hash_overlap);
+#else
+		uint32_t partition=hash_split_in(h,new_hash,fpr);
+		skiplist_general_insert(b->body,h->key,(void*)h,NULL);
+		w=skiplist_general_insert(b->body,new_hash->key,(void*)new_hash,NULL);
+#endif
+
 		e=w->list[1];
 
 		if(input.lpa<partition){
@@ -175,6 +182,7 @@ static void hash_insert_into(hash_body *b, keyset input, float fpr){
 	}
 }
 
+
 void hash_merger(struct skiplist* mem, struct run_t** s, struct run_t** o, struct level* d){
 	hash_body *des=(hash_body*)d->level_data;
 	if(!des->temp){
@@ -186,10 +194,16 @@ void hash_merger(struct skiplist* mem, struct run_t** s, struct run_t** o, struc
 		hash *h=r2h(o[i]);
 		for(int j=0; j<HENTRY; j++){
 			if(h->b[j].lpa==UINT_MAX) continue;
-			hash_insert_into(des,h->b[j],d->fpr);	
+
+			hash_insert_into(des,h->b[j],d->fpr);
+			hash_range_update(d,NULL,h->b[j].lpa);
 		}
 	}
-
+	
+	/*
+	printf("mid result\n");
+	hash_print(d);
+	printf("\n");*/
 	if(mem){
 		keyset target;
 		snode *s=mem->header->list[1];
@@ -197,6 +211,7 @@ void hash_merger(struct skiplist* mem, struct run_t** s, struct run_t** o, struc
 			target.lpa=s->key;
 			target.ppa=s->ppa;
 			hash_insert_into(des,target,d->fpr);
+			hash_range_update(d,NULL,target.lpa);
 			s=s->list[1];
 		}
 	}else{
@@ -205,25 +220,26 @@ void hash_merger(struct skiplist* mem, struct run_t** s, struct run_t** o, struc
 			for(int j=0; j<HENTRY; j++){
 				if(h->b[j].lpa==UINT_MAX) continue;
 				hash_insert_into(des,h->b[j],d->fpr);	
+				hash_range_update(d,NULL,h->b[j].lpa);
 			}
 		}
 	}
+	d->n_num=des->body->size;
+/*
+	printf("done\n");
+	hash_print(d);
+	printf("\n");*/
 }
 
-struct htable *hash_cutter(struct skiplist* mem, struct level* d, int* end_idx){
+run_t *hash_cutter(struct skiplist* mem, struct level* d, KEYT* start, KEYT *end){
 	hash_body *des=(hash_body*)d->level_data;
-	static struct lev_iter *iter=hash_get_iter(d,des->body->start,des->body->end);
+	static struct lev_iter *iter=NULL;
+	iter=(!iter)?hash_get_iter(d,des->body->start,des->body->end):iter;
 
 	run_t *r;
-	htable *ht;
 	while((r=hash_iter_nxt(iter))){
 		if(!r->cpt_data) continue;
-		ht=(htable*)calloc(sizeof(htable),1);
-#ifdef BLOOM
-		ht->filter=r->filter;
-#endif	
-		ht->sets=(keyset*)r->cpt_data;
-		return ht;
+		return r;
 	}
 	iter=NULL;
 	return NULL;

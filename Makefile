@@ -26,7 +26,7 @@ export CFLAGS_LOWER=\
 export priority="false"
 export ORIGINAL_PATH=$(PPWD)
 
-CFLAGS_ALGO+=-DCOMPACTIONLOG\
+#CFLAGS_ALGO+=-DCOMPACTIONLOG\
 	
 CFLAGS_ALGO+=$(COMMONFLAGS)\
 			 -D$(TARGET_ALGO)\
@@ -98,7 +98,7 @@ debug_simulator: ./interface/main.c libsimulator_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
 
 simulator: ./interface/main.c libsimulator.a
-	$(CC) $(CFLAGS) -o $@ $^ -lduma	$(ARCH) $(LIBS)
+	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 duma_simulator: ./interface/main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ -lduma $(ARCH) $(LIBS)

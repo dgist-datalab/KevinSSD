@@ -45,6 +45,7 @@ extern level_ops h_ops;
 void lsm_bind_ops(lsmtree *l){
 	l->lop=&h_ops;
 	l->KEYNUM=l->lop->get_max_table_entry();
+	l->inplace_compaction=true;
 }
 uint32_t __lsm_get(request *const);
 uint32_t lsm_create(lower_info *li, algorithm *lsm){
@@ -734,12 +735,22 @@ uint32_t lsm_remove(request *const req){
 	return lsm_set(req);
 }
 
-htable *htable_assign(){
+htable *htable_assign(char *cpy_src, bool using_dma){
 	htable *res=(htable*)malloc(sizeof(htable));
-	res->sets=(keyset*)malloc(PAGESIZE);
-	memset(res->sets,-1,PAGESIZE);
-	res->t_b=0;
-	res->origin=NULL;
+	if(!using_dma){
+		res->sets=(keyset*)malloc(PAGESIZE);
+		res->t_b=0;
+		res->origin=NULL;
+		if(cpy_src) memcpy(res->sets,cpy_src,PAGESIZE);
+		else memset(res->sets,-1,PAGESIZE);
+	}else{
+		value_set *temp;
+		if(cpy_src) temp=inf_get_valueset(cpy_src,FS_MALLOC_W,PAGESIZE);
+		else temp=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
+		res->t_b=FS_MALLOC_W;
+		res->sets=(keyset*)temp->value;
+		res->origin=temp;
+	}
 	return res;
 }
 

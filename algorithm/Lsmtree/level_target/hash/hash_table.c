@@ -13,6 +13,24 @@ extern lsmtree LSM;
 
 static void hash_body_free(hash_body* );
 
+void hash_range_update(level *d, run_t *t,KEYT lpa){
+	if(t){
+		snode *sn=(snode*)t->run_data;
+		if(sn && sn->key>lpa)sn->key=lpa;
+	}
+
+	if(d){	
+		hash_body* h=(hash_body*)d->level_data;
+		if(h->body){
+			if(h->body->start>lpa)h->body->start=lpa;
+			if(h->body->end<lpa)h->body->end=lpa;
+		}
+		if(d->start>lpa) d->start=lpa;
+		if(d->end<lpa) d->end=lpa;
+	}
+}
+
+
 level* hash_init(int size, int idx, float fpr, bool istier){
 	/*
 	   c->n_num=c->t_num=c->end=0;
@@ -49,7 +67,9 @@ void hash_free( level * lev){
 }
 
 static void hash_body_free(hash_body *h){
-	if(h->temp) free(h->temp);
+	if(h->temp){
+		free(h->temp);
+	}
 	if(!h->body) return;
 	snode *now=h->body->header->list[1];
 	snode *next=now->list[1];
@@ -72,8 +92,8 @@ void hash_insert(level *lev, run_t *r){
 	if(h->body==NULL) h->body=skiplist_init();
 	run_t *target=hash_run_cpy(r);
 	skiplist_general_insert(h->body,target->key,(void*)target,hash_overlap);
-	if(lev->start>r->key) lev->start=target->key;
-	if(lev->end<r->end) lev->end=target->end;
+	hash_range_update(lev,r,target->key);
+	hash_range_update(lev,r,target->end);
 
 	lev->n_num++;
 }
@@ -96,13 +116,14 @@ run_t *hash_make_run(KEYT start, KEYT end, KEYT pbn){
 	res->key=start;
 	res->end=end;
 	res->pbn=pbn;
+	res->run_data=NULL;
 	return res;
 }
 
 run_t** hash_find_run( level* lev, KEYT lpa){
 	hash_body *hb=(hash_body*)lev->level_data;
 	skiplist *body=hb->body;
-	if(body->size==0) return NULL;
+	if(!body || body->size==0) return NULL;
 	if(lev->istier) return (run_t**)-1;
 	snode *temp=skiplist_strict_range_search(body,lpa);
 	if(!temp) return NULL;
@@ -174,13 +195,10 @@ void hash_free_run( run_t *e){
 
 #ifdef CACHE
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-#endif
-
 	if(e->cache_data)htable_free(e->cache_data);
-
-#ifdef CACHE
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 #endif
+
 	free(e);
 }
 
@@ -247,12 +265,13 @@ run_t* hash_iter_nxt( lev_iter *in){
 
 void hash_print(level *lev){
 	hash_body *b=(hash_body*)lev->level_data;
+	if(!b->body)return;
 	snode *now=b->body->header->list[1];
 	int idx=0;
 	printf("------------[%d]----------\n",lev->idx);
 	while(now!=b->body->header){
 		run_t *temp=(run_t*)now->value;
-		printf("[%d]%d~%d(%d)\n",idx,temp->key,temp->end,temp->pbn);
+		printf("[%d]%d~%d(%d)-ptr:%p\n",idx,temp->key,temp->end,temp->pbn,temp);
 		idx++;
 		now=now->list[1];
 	}

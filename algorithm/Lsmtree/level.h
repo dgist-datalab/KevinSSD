@@ -56,6 +56,7 @@ typedef struct run_t{
 #endif
 	htable *cache_data;
 	htable *cpt_data;
+	void *run_data;
 	char iscompactioning;
 }run_t;
 
@@ -76,7 +77,6 @@ typedef struct level{
 #if defined(LEVELCACHING) || defined(LEVELEMUL)
 	struct skiplist *level_cache;
 #endif
-
 	void* level_data;
 }level;
 
@@ -104,7 +104,7 @@ typedef struct level_ops{
 	/*compaciton operation*/
 	htable* (*mem_cvt2table)(skiplist *);
 	void (*merger)( skiplist*, run_t** src,  run_t** org,  level *des);
-	htable *(*cutter)( skiplist *,  level* des, int* end_idx);
+	run_t *(*cutter)( skiplist *,  level* des, KEYT* start, KEYT* end);
 
 	/*run operation*/
 	run_t*(*make_run)(KEYT start, KEYT end, KEYT pbn);

@@ -1,7 +1,12 @@
 #ifndef __H_SETTING__
 #define __H_SETTING__
 #include<stdint.h>
-
+#include <stdlib.h>
+#include<stdio.h>
+/*
+#define free(a) ({ printf("%s:%d %p\n",__FILE__,__LINE__,a);\
+	free(a);})
+*/
 #define K (1024)
 #define M (1024*K)
 #define G (1024*M)
@@ -35,7 +40,7 @@
 #define _NOB (BPS*_NOS)
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
 
-#define RANGE (1*(M/PAGESIZE)*1024L*(0.80))
+#define RANGE (3*(M/PAGESIZE)*1024L*(0.80))
 
 
 

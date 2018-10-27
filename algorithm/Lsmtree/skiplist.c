@@ -8,6 +8,7 @@
 #include"../../interface/interface.h"
 #ifdef Lsmtree
 #include "lsmtree.h"
+#include "level.h"
 #include"page.h"
 #include "footer.h"
 
@@ -224,11 +225,16 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overla
 
 	if(key<list->start) list->start=key;
 	if(key>list->end) list->end=key;
-
+	
+	run_t *t_r=(run_t*)value;
+	//printf("input value:%p %d~%d\n",value,t_r->key,t_r->end);
 	if(key==x->key){
-		DEBUG_LOG("general");
-		overlap((void*)x->value);
+		//printf("key:%d(%p->%p)",key,x->value,value);
+		//DEBUG_LOG("general");
+		if(overlap)
+			overlap((void*)x->value);
 		x->value=(value_set*)value;
+		t_r->run_data=(void*)x;
 		return x;
 	}
 	else{
@@ -246,6 +252,7 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overla
 		x->key=key;
 		x->ppa=UINT_MAX;
 		x->value=(value_set*)value;
+		t_r->run_data=(void*)x;
 
 		for(int i=1; i<=level; i++){
 			x->list[i]=update[i]->list[i];
