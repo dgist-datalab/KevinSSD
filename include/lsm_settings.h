@@ -10,11 +10,11 @@
 #endif
 
 #define RAF 0.01
-#define LEVELN 5
+#define LEVELN 6
 
 #if LEVELN!=1
-//#define BLOOM
-//#define MONKEY
+#define BLOOM
+#define MONKEY
 #endif
 
 #define PIECE 512
@@ -23,7 +23,7 @@
 //#define CACHE
 //#define CACHESIZE 1//(100*128*1)//1*128==1M
 
-//#define LEVELCACHING 1
+#define LEVELCACHING 2
 //#define LEVELEMUL 
 //#define MERGECOMPACTION 4
 //#define NOCPY

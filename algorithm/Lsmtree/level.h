@@ -3,8 +3,10 @@
 #include "../../include/settings.h"
 #include "../../include/container.h"
 #include "../../include/lsm_settings.h"
+#include "bloomfilter.h"
 #include "page.h"
 #include "lsmtree.h"
+#include "bloomfilter.h"
 #include "log_list.h"
 #include <pthread.h>
 
@@ -22,10 +24,6 @@ typedef struct keyset{
 typedef struct htable{
 	keyset *sets;
 	//	uint8_t *bitset;
-
-#ifdef BLOOM
-	BF* filter;
-#endif
 	value_set *origin;
 	uint8_t t_b;//0, MALLOC
 	//1, valueset from W
@@ -35,9 +33,6 @@ typedef struct htable{
 
 typedef struct htable_t{
 	keyset sets[PAGESIZE/KEYSETSIZE];
-#ifdef BLOOM
-	BF* filter;
-#endif
 	value_set *origin;
 }htable_t;
 
@@ -74,9 +69,6 @@ typedef struct level{
 	bool istier;
 	struct level_ops *op;
 	block* now_block;
-#if defined(LEVELCACHING) || defined(LEVELEMUL)
-	struct skiplist *level_cache;
-#endif
 	void* level_data;
 }level;
 
@@ -102,9 +94,12 @@ typedef struct level_ops{
 	KEYT (*get_max_table_entry)();
 
 	/*compaciton operation*/
-	htable* (*mem_cvt2table)(skiplist *);
+	htable* (*mem_cvt2table)(skiplist *,run_t *);
 	void (*merger)( skiplist*, run_t** src,  run_t** org,  level *des);
 	run_t *(*cutter)( skiplist *,  level* des, KEYT* start, KEYT* end);
+#ifdef MONKEY
+	BF *(*making_filter)(run_t *,float);
+#endif
 
 	/*run operation*/
 	run_t*(*make_run)(KEYT start, KEYT end, KEYT pbn);
@@ -116,7 +111,16 @@ typedef struct level_ops{
 	void (*moveTo_fr_page)( level*);
 	KEYT (*get_page)( level*, uint8_t plength);
 	bool (*block_fchk)( level*);
-
+#ifdef LEVELCACHING
+	/*level caching*/
+	void (*cache_insert)(level *,run_t *);
+	void (*cache_merge)(level *from, level *to);
+	void (*cache_free)(level*);
+	void (*cache_comp_formatting)(level *,run_t ***);
+	void (*cache_move)(level*, level *);
+	keyset *(*cache_find)(level *,KEYT);
+	int (*cache_get_size)(level *);
+#endif
 
 	/*for debugging*/
 	void (*print)( level*);

@@ -66,6 +66,13 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	uint64_t lev_caching_mem=0;
 #endif
 	for(int i=0; i<LEVELN-1; i++){//for lsmtree -1 level
+
+	#ifdef TIERING
+		LSM.disk[i]=LSM.lop->init(sol,i,target_fpr,true);
+	#else
+		LSM.disk[i]=LSM.lop->init(sol,i,target_fpr,false);
+	#endif
+
 		#ifdef BLOOM
 			#ifdef MONKEY
 		target_fpr=pow(SIZEFACTOR2,i)*ffpr;
@@ -75,11 +82,6 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 		LSM.disk[i]->fpr=target_fpr;
 		#endif
 
-	#ifdef TIERING
-		LSM.disk[i]=LSM.lop->init(sol,i,target_fpr,true);
-	#else
-		LSM.disk[i]=LSM.lop->init(sol,i,target_fpr,false);
-	#endif
 		printf("[%d] fpr:%lf bytes per entry:%lu noe:%d\n",i+1,target_fpr,bf_bits(LSM.KEYNUM,target_fpr), LSM.disk[i]->m_num);
 		sizeofall+=LSM.disk[i]->m_num*8;
 #ifdef LEVELCACHING
@@ -371,7 +373,7 @@ uint32_t lsm_get(request *const req){
 	//			LSM.lop->all_print();
 				tmp_req->type=FS_NOTFOUND_T;
 				tmp_req->end_req(tmp_req);
-				abort();
+			//	abort();
 			}
 		}
 		else 
@@ -391,7 +393,7 @@ uint32_t lsm_get(request *const req){
 //		LSM.lop->all_print();
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
-		abort();
+	//	abort();
 	}
 	return res_type;
 }
@@ -583,8 +585,18 @@ uint32_t __lsm_get(request *const req){
 #ifdef LEVELCACHING
 		if(i<LEVELCACHING){
 			pthread_mutex_lock(&LSM.level_lock[i]);
-			res=__lsm_get_sub(req,NULL,NULL,LSM.disk[i]->level_cache);
+			keyset *find=LSM.lop->cache_find(LSM.disk[i],req->key);
 			pthread_mutex_unlock(&LSM.level_lock[i]);
+			if(find){
+				algo_req *lsm_req=lsm_get_req_factory(req);
+				req->value->ppa=find->ppa;
+#ifdef DVALUE
+				LSM.li->pull_data(find->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+#else
+				LSM.li->pull_data(find->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+#endif
+				res=1;
+			}
 			if(res) return res;
 			else continue;
 		}

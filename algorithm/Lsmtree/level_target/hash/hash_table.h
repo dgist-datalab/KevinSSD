@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include "../../skiplist.h"
 #include "../../level.h"
+#include "../../bloomfilter.h"
 
 inline KEYT f_h(KEYT a){ return (a*2654435761);}
 typedef struct hash{
@@ -22,6 +23,9 @@ typedef struct hash_body{
 	run_t *late_use_node;
 	run_t *late_use_nxt;
 	skiplist *body;
+#ifdef LEVELCACHING
+	struct hash_body *lev_cache_data;
+#endif
 }hash_body;
 
 typedef struct hash_iter_data{
@@ -46,7 +50,7 @@ KEYT h_max_table_entry();
 void hash_free_run( run_t*);
 run_t* hash_run_cpy( run_t *);
 
-htable *hash_mem_cvt2table(skiplist*);
+htable *hash_mem_cvt2table(skiplist*,run_t*);
 void hash_merger( skiplist*,  run_t**,  run_t**,  level*);
 run_t *hash_cutter( skiplist*,  level*, KEYT *start,KEYT *end);
 
@@ -55,6 +59,22 @@ void hash_overlap(void *);
 void hash_tier_align( level *);
 void hash_print(level *);
 void hash_all_print();
+void hash_body_free(hash_body* );
 
 void hash_range_update(level *,run_t *,KEYT lpa);
+#ifdef MONKEY 
+BF* hash_making_filter(run_t *,float );
+#endif
+
+#ifdef LEVELCACHING
+void hash_cache_insert(level *,run_t*);
+void hash_cache_merge(level *, level *);
+void hash_cache_free(level *);
+void hash_cache_comp_formatting(level *,run_t ***);
+void hash_cache_move(level *, level *);
+keyset *hash_cache_find(level *, KEYT lpa);
+int hash_cache_get_sz(level*);
+#endif
+
+
 #endif

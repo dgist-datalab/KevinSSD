@@ -157,7 +157,9 @@ uint64_t bf_bits(int entry, float fpr){
 }
 
 void bf_set(BF *input, KEYT key){
-	if(input==NULL) return;
+	if(input==NULL){
+		abort();
+	}
 	KEYT h;
 	int block;
 	int offset;

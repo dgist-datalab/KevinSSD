@@ -11,7 +11,6 @@
 extern int32_t SIZEFACTOR;
 extern lsmtree LSM;
 
-static void hash_body_free(hash_body* );
 
 void hash_range_update(level *d, run_t *t,KEYT lpa){
 	if(t){
@@ -47,7 +46,6 @@ level* hash_init(int size, int idx, float fpr, bool istier){
 	res->n_num=0;
 	res->start=UINT_MAX;
 	res->end=0;
-
 	res->level_data=(void*)hbody;
 	res->now_block=NULL;
 	res->h=llog_init();
@@ -56,6 +54,13 @@ level* hash_init(int size, int idx, float fpr, bool istier){
 
 void hash_free( level * lev){
 	hash_body_free((hash_body*)lev->level_data);
+
+#ifdef LEVELCACHING
+	hash_body *h=(hash_body*)lev->level_data;
+	if(h->lev_cache_data)
+		hash_body_free(h->lev_cache_data);
+#endif
+
 	if(lev->h){
 #ifdef LEVELUSINGHEAP
 		heap_free(lev->h);
@@ -66,7 +71,7 @@ void hash_free( level * lev){
 	free(lev);
 }
 
-static void hash_body_free(hash_body *h){
+void hash_body_free(hash_body *h){
 	if(h->temp){
 		free(h->temp);
 	}
@@ -92,8 +97,8 @@ void hash_insert(level *lev, run_t *r){
 	if(h->body==NULL) h->body=skiplist_init();
 	run_t *target=hash_run_cpy(r);
 	skiplist_general_insert(h->body,target->key,(void*)target,hash_overlap);
-	hash_range_update(lev,r,target->key);
-	hash_range_update(lev,r,target->end);
+	hash_range_update(lev,target,target->key);
+	hash_range_update(lev,target,target->end);
 
 	lev->n_num++;
 }
@@ -117,6 +122,9 @@ run_t *hash_make_run(KEYT start, KEYT end, KEYT pbn){
 	res->end=end;
 	res->pbn=pbn;
 	res->run_data=NULL;
+#ifdef BLOOM
+	res->filter=NULL;
+#endif
 	return res;
 }
 
@@ -127,6 +135,11 @@ run_t** hash_find_run( level* lev, KEYT lpa){
 	if(lev->istier) return (run_t**)-1;
 	snode *temp=skiplist_strict_range_search(body,lpa);
 	if(!temp) return NULL;
+#ifdef BLOOM
+	run_t *test_run=(run_t*)temp->value;
+	if(!test_run->filter)abort();
+	if(!bf_check(test_run->filter,lpa)) return NULL;
+#endif
 	run_t **res=(run_t**)calloc(sizeof(run_t*),2);
 	res[0]=(run_t*)temp->value;
 	res[1]=NULL;
@@ -190,7 +203,7 @@ uint32_t hash_unmatch_find( level *lev, KEYT s, KEYT e,  run_t ***rc){
 
 void hash_free_run( run_t *e){
 #ifdef BLOOM
-	if(e->filter)bf_free(e->filter);
+	if(e->filter) bf_free(e->filter);
 #endif
 
 #ifdef CACHE
@@ -208,6 +221,10 @@ run_t * hash_run_cpy( run_t *input){
 	res->key=input->key;
 	res->end=input->end;
 	res->pbn=input->pbn;
+#ifdef BLOOM
+	res->filter=input->filter;
+	input->filter=NULL;
+#endif
 
 #ifdef CACHE
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
@@ -265,13 +282,34 @@ run_t* hash_iter_nxt( lev_iter *in){
 
 void hash_print(level *lev){
 	hash_body *b=(hash_body*)lev->level_data;
+	printf("------------[%d]----------\n",lev->idx);
+#ifdef LEVELCACHING
+	hash_body *lc=b->lev_cache_data;
+	if(lc){
+		if(lc->temp)
+			printf("[cache]%d~%d in temp\n",lc->temp->key,lc->temp->end);
+		if(lc->body){
+			snode *n;
+			int id=0;
+			for_each_sk(n,lc->body){
+				run_t *t=(run_t*)n->value;
+				printf("[cache:%d]%d~%d\n",id,t->key,t->end);
+				id++;
+			}
+		}
+	}
+#endif
+	
 	if(!b->body)return;
 	snode *now=b->body->header->list[1];
 	int idx=0;
-	printf("------------[%d]----------\n",lev->idx);
 	while(now!=b->body->header){
 		run_t *temp=(run_t*)now->value;
+#ifdef BLOOM
+		printf("[%d]%d~%d(%d)-ptr:%p filter:%p\n",idx,temp->key,temp->end,temp->pbn,temp,temp->filter);
+#else
 		printf("[%d]%d~%d(%d)-ptr:%p\n",idx,temp->key,temp->end,temp->pbn,temp);
+#endif
 		idx++;
 		now=now->list[1];
 	}

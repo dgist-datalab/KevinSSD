@@ -1,8 +1,11 @@
 #include "level.h"
 #include "page.h"
+#include "lsmtree.h"
+#include <stdio.h>
 
 extern block bl[_NOB];
 extern int32_t SIZEFACTOR;
+extern lsmtree LSM;
 void def_moveTo_fr_page( level* in){
 	if(def_blk_fchk(in)){
 #if DVALUE
@@ -94,7 +97,8 @@ void def_move_heap( level *des,  level *src){
 bool def_fchk( level *input){
 #ifdef LEVELCACHING
 	if(input->idx<LEVELCACHING){
-		if(input->level_cache->size/KEYNUM>=(uint32_t)(input->m_num/(SIZEFACTOR)*(SIZEFACTOR-1))){
+	
+		if(LSM.lop->cache_get_size(input)>=(uint32_t)(input->m_num/(SIZEFACTOR)*(SIZEFACTOR-1))){
 			return true;
 		}
 		return false;

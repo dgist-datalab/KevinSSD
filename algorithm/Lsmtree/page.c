@@ -944,7 +944,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 		gc_node *target=gn[i];
 #ifdef LEVELCACHING
 		if(in->idx<LEVELCACHING){
-			snode *find=skiplist_find(in->level_cache,target->lpa);
+			keyset *find=LSM.lop->cache_find(in,target->lpa);
 			if(find==NULL){
 				printf("can't be!\n");
 				abort();
