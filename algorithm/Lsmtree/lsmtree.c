@@ -28,6 +28,7 @@ extern OOBT *oob;
 lsmtree LSM;
 int save_fd;
 int32_t SIZEFACTOR;
+int32_t caching_size;
 
 MeasureTime __get_mt;
 MeasureTime __get_mt2;
@@ -53,7 +54,8 @@ static int32_t get_sizefactor(){
 	int32_t res;
 #ifdef LEVELCACHING
 	uint32_t all_memory=(TOTALSIZE/1024);
-	res=CACHINGSIZE*(all_memory/(8*K));
+	caching_size=CACHINGSIZE*(all_memory/(8*K));
+	res=_f?ceil(pow(10,(log10(TOTALSIZE/PAGESIZE/LSM.KEYNUM)-log10(caching_size))/(_f-1))):TOTALSIZE/PAGESIZE/LSM.KEYNUM;
 #else
 	res=_f?ceil(pow(10,log10(TOTALSIZE/PAGESIZE/LSM.KEYNUM)/(_f))):TOTALSIZE/PAGESIZE/LSM.KEYNUM;
 #endif
@@ -65,7 +67,7 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	lsm_bind_ops(&LSM);
 	LSM.memtable=skiplist_init();
 	SIZEFACTOR=get_sizefactor();
-	unsigned long long sol=SIZEFACTOR;
+	unsigned long long sol;
 #ifdef MONKEY
 	int32_t SIZEFACTOR2=ceil(pow(10,log10(TOTALSIZE/PAGESIZE/LSM.KEYNUM/LEVELN)/(LEVELN-1)));
 	float ffpr=RAF*(1-SIZEFACTOR2)/(1-pow(SIZEFACTOR2,LEVELN-1));
@@ -74,14 +76,16 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	uint64_t sizeofall=0;
 #ifdef LEVELCACHING
 	uint64_t lev_caching_mem=0;
+	sol=SIZEFACTOR*caching_size;
+#else
+	sol=SIZEFACTOR;
 #endif
 	for(int i=0; i<LEVELN-1; i++){//for lsmtree -1 level
-
-	#ifdef TIERING
-		LSM.disk[i]=LSM.lop->init(sol,i,target_fpr,true);
-	#else
+#ifdef LEVELCACHING
+		if(i<LEVELCACHING) LSM.disk[i]=LSM.lop->init(caching_size,i,target_fpr,false);
+		else
+#endif
 		LSM.disk[i]=LSM.lop->init(sol,i,target_fpr,false);
-	#endif
 
 		#ifdef BLOOM
 			#ifdef MONKEY
@@ -96,7 +100,6 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 		sizeofall+=LSM.disk[i]->m_num*8;
 #ifdef LEVELCACHING
 		if(i<LEVELCACHING){
-			sol*=SIZEFACTOR;
 			LSM.level_addr[i]=(PTR)LSM.disk[i];
 			lev_caching_mem+=LSM.disk[i]->m_num*8*K;
 			continue;
