@@ -42,12 +42,14 @@ void compaction_sub_pre(){
 }
 
 static void compaction_selector(level *a, level *b, run_t *r, pthread_mutex_t* lock){
+	MS(&compaction_timer[3]);
 	if(b->istier){
 		//tiering(a,b,r,lock);
 	}
 	else{
 		leveling(a,b,r,lock);
 	}
+	MA(&compaction_timer[3]);
 }
 
 void compaction_sub_wait(){
@@ -434,7 +436,7 @@ run_t* compaction_postprocessing(run_t *target){
 #ifdef NOCPY
 	table=htable_assign(NULL,true);
 	table->sets=(keyset*)malloc(PAGESIZE);
-	memcpy(table->sets,target->cpt_dta->sets,PAGESIZE);
+	memcpy(table->sets,target->cpt_data->sets,PAGESIZE);
 #else
 	table=htable_assign((char*)target->cpt_data->sets,true);
 #endif
@@ -470,6 +472,7 @@ void compaction_subprocessing(skiplist *top,run_t** src, run_t** org, level *des
 void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 #ifdef LEVELCACHING
 	if(src->idx<LEVELCACHING){
+		MS(&compaction_timer[4]);
 		run_t **datas;
 		LSM.lop->cache_comp_formatting(src,&datas);	
 		for(int i=0;datas[i]!=NULL; i++){
@@ -482,6 +485,7 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 			htable_free(datas[i]->cpt_data);
 		}
 		free(datas);
+		MA(&compaction_timer[4]);
 		return;
 	}
 #endif
@@ -549,6 +553,7 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 	body=leveling_preprocessing(from,to);
 #ifdef LEVELCACHING
 	if(to->idx<LEVELCACHING){
+		MS(&compaction_timer[1]);
 		if(from==NULL){	
 			pthread_mutex_lock(&LSM.templock);
 			LSM.temptable=NULL;
@@ -573,6 +578,7 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 		if(from){
 			LSM.lop->move_heap(target,from);	
 		}
+		MA(&compaction_timer[1]);
 		goto chg_level;
 	}
 #endif
@@ -741,7 +747,6 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 #endif
 
 uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
-	MS(&compaction_timer[1]);
 	KEYT start=0;
 	KEYT end=0;
 	run_t **target_s=NULL;
@@ -817,7 +822,9 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 	else{
 #ifdef LEVELCACHING
 		if(upper->idx<LEVELCACHING){
+			MS(&compaction_timer[1]);
 			LSM.lop->cache_comp_formatting(upper,&data);
+			MA(&compaction_timer[1]);
 			goto skip;
 		}
 #endif
@@ -897,7 +904,6 @@ skip:
 		free(target_s);
 	}
 	compaction_sub_post();
-	MS(&compaction_timer[1]);
 	return 1;
 }
 #if (LEVELN==1)

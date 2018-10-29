@@ -390,7 +390,7 @@ uint32_t lsm_get(request *const req){
 			break;
 	}
 	if(!temp){
-		LSM.lop->all_print();
+	//	LSM.lop->all_print();
 		temp=true;
 	}
 	bench_algo_start(req);
