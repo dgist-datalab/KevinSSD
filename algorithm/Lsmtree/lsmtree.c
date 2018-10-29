@@ -48,13 +48,23 @@ void lsm_bind_ops(lsmtree *l){
 	l->inplace_compaction=true;
 }
 uint32_t __lsm_get(request *const);
+static int32_t get_sizefactor(){
+	uint32_t _f=LEVELN;
+	int32_t res;
+#ifdef LEVELCACHING
+	uint32_t all_memory=(TOTALSIZE/1024);
+	res=CACHINGSIZE*(all_memory/(8*K));
+#else
+	res=_f?ceil(pow(10,log10(TOTALSIZE/PAGESIZE/LSM.KEYNUM)/(_f))):TOTALSIZE/PAGESIZE/LSM.KEYNUM;
+#endif
+	return res;
+}
 uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	measure_init(&__get_mt);
 	measure_init(&__get_mt2);
 	lsm_bind_ops(&LSM);
 	LSM.memtable=skiplist_init();
-	uint32_t _f=LEVELN;
-	SIZEFACTOR=_f?ceil(pow(10,log10(TOTALSIZE/PAGESIZE/LSM.KEYNUM)/(_f))):TOTALSIZE/PAGESIZE/LSM.KEYNUM;
+	SIZEFACTOR=get_sizefactor();
 	unsigned long long sol=SIZEFACTOR;
 #ifdef MONKEY
 	int32_t SIZEFACTOR2=ceil(pow(10,log10(TOTALSIZE/PAGESIZE/LSM.KEYNUM/LEVELN)/(LEVELN-1)));
