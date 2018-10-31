@@ -370,6 +370,7 @@ void *compaction_main(void *input){
 		while(1){
 			if(LSM.lop->full_check(LSM.disk[start_level])){
 				des_level=(start_level==LEVELN?start_level:start_level+1);
+				if(des_level==LEVELN) break;
 				compaction_selector(LSM.disk[start_level],LSM.disk[des_level],NULL,&LSM.level_lock[des_level]);
 				LSM.disk[start_level]->iscompactioning=false;
 				start_level++;
@@ -542,6 +543,9 @@ skiplist *leveling_preprocessing(level * from, level* to){
 
 
 uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
+#ifdef COMPACTIONLOG
+	char log[1024];
+#endif
 	skiplist *body;
 	level *target_origin=to;
 	level *target=LSM.lop->init(target_origin->m_num, target_origin->idx,target_origin->fpr,false);
@@ -591,7 +595,8 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 		if(!LSM.lop->chk_overlap(target_origin,body->start,body->end)){
 			compaction_heap_setting(target,target_origin);
 #ifdef COMPACTIONLOG
-			printf("-1 1 .... ttt\n");
+			sprintf(log,"seq - (-1) to %d",to->idx);
+			DEBUG_LOG(log);
 #endif
 			skiplist_free(body);
 			bool target_processed=false;
@@ -627,8 +632,9 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 		}
 		else{
 #ifdef COMPACTIONLOG
-			printf("-1 2 .... ttt\n");
-#endif
+			sprintf(log,"rand - (-1) to %d",to->idx);
+			DEBUG_LOG(log);
+#endif	
 			partial_leveling(target,target_origin,body,NULL);
 			skiplist_free(body);// free at compaction_subprocessing;
 			pthread_mutex_lock(&LSM.entrylock);
@@ -642,7 +648,8 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 		if(!LSM.lop->chk_overlap(target_origin,src->start,src->end)){//if seq
 			compaction_heap_setting(target,target_origin);
 #ifdef COMPACTIONLOG
-			printf("1 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from->idx,src->n_num);
+			sprintf(log,"seq - %d to %d",from->idx,to->idx);
+			DEBUG_LOG(log);
 #endif
 			bool target_processed=false;
 			if(target_origin->start>src->end){
@@ -658,7 +665,8 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 		}
 		else{
 #ifdef COMPACTIONLOG
-			printf("2 ee:%u end:%ufrom:%d n_num:%d \n",src->start,src->end,from->idx,src->n_num);
+			sprintf(log,"rand - %d to %d",from->idx,to->idx);
+			DEBUG_LOG(log);
 #endif
 			body=skiplist_init();
 			partial_leveling(target,target_origin,body,src);
@@ -745,13 +753,17 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 	free(target_s);
 }
 #endif
-
+bool flag_value;
 uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 	KEYT start=0;
 	KEYT end=0;
 	run_t **target_s=NULL;
 	run_t **data=NULL;
-
+	static int cnt=0;
+	if(cnt==15){
+		flag_value=true;
+		DEBUG_LOG("");
+	}
 	if(!upper){
 #ifndef MONKEY
 		start=skip->start;
@@ -766,7 +778,8 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 	}
 
 #ifndef MONKEY
-	LSM.lop->unmatch_find(origin,start,end,&target_s);
+	int test_a, test_b;
+	test_a=LSM.lop->unmatch_find(origin,start,end,&target_s);
 	for(int i=0; target_s[i]!=NULL; i++){
 		LSM.lop->insert(t,target_s[i]);
 		target_s[i]->iscompactioning=4;
@@ -776,10 +789,16 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 
 	compaction_sub_pre();
 	if(!upper){
-		start=start<origin->start?origin->start:start;
-		end=origin->end;
+
+		//printf("partial_leveling:%d\n",cnt++);
+		//start=start<origin->start?origin->start:start;
+		//end=origin->end;
+
 		//printf("start:%u end:%u => l_star:%u l_end:%u\n",start,end,origin->start,origin->end);
-		LSM.lop->range_find(origin,start,end,&target_s);
+		test_b=LSM.lop->range_find(origin,start,end,&target_s);
+		if(!(test_a | test_b)){
+			DEBUG_LOG("can't be");
+		}
 		upper_table=0;
 
 		for(int j=0; target_s[j]!=NULL; j++){
@@ -828,7 +847,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 			goto skip;
 		}
 #endif
-		LSM.lop->range_find(upper,upper->start,upper->end,&data);
+		LSM.lop->range_find(upper,start,end,&data);
 		for(int i=0; data[i]!=NULL; i++){
 			run_t *temp=data[i];
 			temp->iscompactioning=true;
@@ -853,7 +872,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 skip:
 #endif
 
-		LSM.lop->range_find(origin,origin->start,origin->end,&target_s);
+		LSM.lop->range_find(origin,start,end,&target_s);
 		for(int i=0; target_s[i]!=NULL; i++){
 			run_t *temp=target_s[i];
 			if(temp->iscompactioning==4){

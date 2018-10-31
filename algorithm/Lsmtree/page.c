@@ -988,9 +988,8 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			int temp_i=i;
 			for(int k=temp_i; k<size; k++){
 				target=gn[k];
-				
+			
 				if(target==NULL) continue;
-
 				keyset *finded=LSM.lop->find_keyset((char*)data->sets,target->lpa);
 
 				if(finded && finded->ppa==target->ppa){
@@ -1015,6 +1014,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 							LSM.lop->print(in);
 							printf("lpa:%d-ppa:%d\n",target->lpa,target->ppa);
 							printf("what the fuck?\n"); //not founded in level
+							DEBUG_LOG("");
 							abort();
 						}
 					}
@@ -1424,7 +1424,7 @@ int gc_header(KEYT tbn){
 	return 1;
 }
 static int gc_dataed_page;
-int gc_data(KEYT tbn){//
+int gc_data(KEYT tbn){
 	//gc_data_cnt++;
 	//printf("gc_data_cnt : %d\n",gc_data_cnt);
 	block *target=&bl[tbn];

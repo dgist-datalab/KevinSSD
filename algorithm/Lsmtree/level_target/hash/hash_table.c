@@ -10,6 +10,7 @@
 
 extern int32_t SIZEFACTOR;
 extern lsmtree LSM;
+extern bool flag_value;
 
 
 void hash_range_update(level *d, run_t *t,KEYT lpa){
@@ -93,6 +94,10 @@ void hash_body_free(hash_body *h){
 }
 
 void hash_insert(level *lev, run_t *r){
+	if(lev->m_num<= lev->n_num){
+		hash_print(lev);
+		abort();
+	}
 	hash_body *h=(hash_body*)lev->level_data;
 	if(h->body==NULL) h->body=skiplist_init();
 	run_t *target=hash_run_cpy(r);
@@ -108,7 +113,7 @@ keyset *hash_find_keyset(char *data, KEYT lpa){
 	KEYT h_keyset=f_h(lpa);
 	KEYT idx=0;
 	for(uint32_t i=0; i<c->t_num; i++){
-		idx=(h_keyset+i*i+i)%(1023);
+		idx=(h_keyset+i*i+i)%(HENTRY);
 		if(c->b[idx].lpa==lpa){
 			return &c->b[idx];
 		}
@@ -157,16 +162,15 @@ uint32_t hash_range_find( level *lev, KEYT s, KEYT e,  run_t ***rc){
 		ptr=(run_t*)temp->value;
 		if(!(ptr->end<s || ptr->key>e)){
 			r[res++]=ptr;
-			temp=temp->list[1];
-		}else{
+		}else if(e< ptr->key){
 			break;
 		}
+		temp=temp->list[1];
 	}
 	r[res]=NULL;
 	*rc=r;
 	return res;
 }
-
 
 uint32_t hash_unmatch_find( level *lev, KEYT s, KEYT e,  run_t ***rc){
 	hash_body *hb=(hash_body*)lev->level_data;
@@ -174,7 +178,10 @@ uint32_t hash_unmatch_find( level *lev, KEYT s, KEYT e,  run_t ***rc){
 	int res=0;
 	run_t *ptr;
 	run_t **r=(run_t**)malloc(sizeof(run_t*)*(lev->n_num+1));
-
+/*
+	if(flag_value){
+		hash_print(lev);
+	}*/
 	snode *temp=body->header->list[1];
 	while(temp && temp!=body->header){
 		ptr=(run_t*)temp->value;
@@ -244,7 +251,7 @@ run_t * hash_run_cpy( run_t *input){
 #else
 	res->cache_data=NULL;
 #endif
-
+	res->cpt_data=NULL;
 	res->iscompactioning=false;
 	return res;
 }

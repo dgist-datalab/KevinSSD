@@ -87,14 +87,14 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 #endif
 		LSM.disk[i]=LSM.lop->init(sol,i,target_fpr,false);
 
-		#ifdef BLOOM
-			#ifdef MONKEY
+#ifdef BLOOM
+	#ifdef MONKEY
 		target_fpr=pow(SIZEFACTOR2,i)*ffpr;
-			#else
+	#else
 		target_fpr=(float)RAF/LEVELN;
-			#endif
+	#endif
 		LSM.disk[i]->fpr=target_fpr;
-		#endif
+#endif
 
 		printf("[%d] fpr:%lf bytes per entry:%lu noe:%d\n",i+1,target_fpr,bf_bits(LSM.KEYNUM,target_fpr), LSM.disk[i]->m_num);
 		sizeofall+=LSM.disk[i]->m_num*8;
@@ -103,19 +103,18 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 			LSM.level_addr[i]=(PTR)LSM.disk[i];
 			lev_caching_mem+=LSM.disk[i]->m_num*8*K;
 			continue;
-		}
+		}   
 #endif
 		bloomfilter_memory+=bf_bits(LSM.KEYNUM,target_fpr)*sol;
 		sol*=SIZEFACTOR;
 		LSM.level_addr[i]=(PTR)LSM.disk[i];
-	}
+	}   
 
 #ifdef TIERING
 	LSM.disk[LEVELN-1]=LSM.lop->init(sol,LEVELN-1,1,true);
 #else
 	LSM.disk[LEVELN-1]=LSM.lop->init(sol,LEVELN-1,1,false);
 #endif
-
 	printf("[%d] fpr:1.0000 bytes per entry:%lu noe:%d\n",LEVELN,bf_bits(LSM.KEYNUM,1),LSM.disk[LEVELN-1]->m_num);
 	sizeofall+=LSM.disk[LEVELN-1]->m_num*8;
 	printf("level:%d sizefactor:%d\n",LEVELN,SIZEFACTOR);
@@ -150,6 +149,7 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 #endif
 	return 0;
 }
+
 
 extern uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
 void lsm_destroy(lower_info *li, algorithm *lsm){
@@ -393,7 +393,7 @@ uint32_t lsm_get(request *const req){
 			break;
 	}
 	if(!temp){
-	//	LSM.lop->all_print();
+		LSM.lop->all_print();
 		temp=true;
 	}
 	bench_algo_start(req);
@@ -406,7 +406,7 @@ uint32_t lsm_get(request *const req){
 //		LSM.lop->all_print();
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);
-	//	abort();
+		//abort();
 	}
 	return res_type;
 }

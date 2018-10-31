@@ -97,8 +97,10 @@ void def_move_heap( level *des,  level *src){
 bool def_fchk( level *input){
 #ifdef LEVELCACHING
 	if(input->idx<LEVELCACHING){
-	
-		if(LSM.lop->cache_get_size(input)>=(uint32_t)(input->m_num/(SIZEFACTOR)*(SIZEFACTOR-1))){
+		int a=LSM.lop->cache_get_size(input);
+		int b=input->idx==0?input->m_num-2:
+			input->m_num/(SIZEFACTOR)*(SIZEFACTOR-1);
+		if(a>=b){
 			return true;
 		}
 		return false;

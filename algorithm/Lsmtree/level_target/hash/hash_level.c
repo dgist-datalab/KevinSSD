@@ -75,6 +75,11 @@ static bool hash_body_insert(hash *c,keyset input){
 				c->b[idx]=input;
 				c->n_num++;
 				return true;
+			}else if(c->b[idx].lpa==input.lpa){
+
+				invalidate_PPA(c->b[idx].ppa);
+				c->b[idx].ppa=input.ppa;
+				return true;
 			}
 			i++;
 		}
@@ -116,39 +121,32 @@ static KEYT hash_split(run_t *_src, run_t *_a_des, run_t* _b_des, float fpr){
 	return partition;
 }
 
-static KEYT hash_split_in(run_t *_src, run_t *_des,float fpr){
-	hash *src=r2h(_src);
-	KEYT partition=(_src->key+_src->end)/2;
-	KEYT end=0;
-	for(int i=0; i<HENTRY; i++){
-		if(src->b[i].lpa==UINT_MAX) continue;
-		if(src->b[i].lpa>partition){
-			hash_real_insert(_des,src->b[i],fpr);
-			src->b[i].lpa=src->b[i].ppa=UINT_MAX;
-			src->n_num--;
-		}else{
-			if(src->b[i].lpa>end) end=src->b[i].lpa;
-		}
-	}
-	_src->end=end;
-	return partition;
-
-}
 static run_t *hash_make_dummy_run(){
 	run_t *res=hash_make_run(UINT_MAX,0,-1);
 	res->cpt_data=htable_assign(NULL,0);
 	res->cpt_data->sets[0].lpa=res->cpt_data->sets[0].ppa=0;
 	return res;
 }
+extern bool flag_value;
 static void hash_insert_into(hash_body *b, keyset input, float fpr){
 	run_t *h;
-
 	h=b->late_use_node?b->late_use_node:b->temp;
-
 	if(b->late_use_nxt && b->late_use_node){
 		run_t *h2=b->late_use_nxt;
 		if(input.lpa< h->key || (b->late_use_nxt!=b->late_use_node &&!(h->key<=input.lpa && input.lpa< h2->key))){
 			snode* s=skiplist_range_search(b->body,input.lpa);
+			
+			while(s && s!=b->body->header){
+				run_t *check=(run_t*)s->value;
+				if(check->cpt_data==NULL){
+					s=s->list[1];
+				}else{
+					break;
+				}
+			}
+			if(s==b->body->header){
+				DEBUG_LOG("fuck");
+			}
 			h=b->late_use_node=(run_t*)s->value;
 			if(s->list[1]!=b->body->header)
 				b->late_use_nxt=(run_t*)s->list[1]->value;
@@ -159,13 +157,12 @@ static void hash_insert_into(hash_body *b, keyset input, float fpr){
 		b->late_use_node=b->temp;
 		b->late_use_nxt=NULL;
 	}
-	
+
 	if(!hash_real_insert(h,input,fpr)){
 		if(h==b->temp) b->temp=NULL;
 		if(!b->body) b->body=skiplist_init();
 		snode *w,*e;
 		run_t *new_hash=hash_make_dummy_run();
-#ifdef BLOOM
 		run_t *new_hash2=hash_make_dummy_run();
 		uint32_t partition=hash_split(h,new_hash2,new_hash,fpr);
 		if(h->cpt_data){
@@ -177,11 +174,7 @@ static void hash_insert_into(hash_body *b, keyset input, float fpr){
 		h=new_hash2;
 		skiplist_general_insert(b->body,h->key,(void*)h,hash_overlap);
 		w=skiplist_general_insert(b->body,new_hash->key,(void*)new_hash,hash_overlap);
-#else
-		uint32_t partition=hash_split_in(h,new_hash,fpr);
-		skiplist_general_insert(b->body,h->key,(void*)h,NULL);
-		w=skiplist_general_insert(b->body,new_hash->key,(void*)new_hash,NULL);
-#endif
+
 
 		e=w->list[1];
 
@@ -200,22 +193,25 @@ static void hash_insert_into(hash_body *b, keyset input, float fpr){
 	}
 }
 
-
 void hash_merger(struct skiplist* mem, struct run_t** s, struct run_t** o, struct level* d){
 	static int cnt=0;
 	cnt++;
-//	printf("cnt:%d\n",cnt);
+	//printf("cnt:%d\n",cnt);
 	hash_body *des=(hash_body*)d->level_data;
+	if(des->body){
+		snode *t;
+		for_each_sk(t,des->body){
+			//printf("t->key:%d\n",t->key);
+		}
+	}
 	if(!des->temp){
 		des->temp=hash_make_dummy_run();
 		des->late_use_node=NULL;
 	}
-
 	for(int i=0; o[i]!=NULL; i++){
 		hash *h=r2h(o[i]);
 		for(int j=0; j<HENTRY; j++){
 			if(h->b[j].lpa==UINT_MAX) continue;
-
 			hash_insert_into(des,h->b[j],d->fpr);
 			hash_range_update(d,NULL,h->b[j].lpa);
 		}
@@ -388,12 +384,20 @@ void hash_cache_move(level *src, level *des){
 
 void hash_cache_comp_formatting(level *lev,run_t *** des){
 	hash_body* lc=cfl(lev);
-	run_t **res=(run_t **)malloc(sizeof(run_t*)*(lc->body->size+1));
-	snode *temp;
+	run_t **res;
 	int idx=0;
-	for_each_sk(temp,lc->body){
-		res[idx++]=(run_t*)temp->value;
+	if(lc->body==NULL){
+		res=(run_t **)malloc(sizeof(run_t*)*(2));
+		res[idx++]=lc->temp;
 	}
+	else{
+		res=(run_t **)malloc(sizeof(run_t*)*(lc->body->size+1));
+		snode *temp;
+		for_each_sk(temp,lc->body){
+			res[idx++]=(run_t*)temp->value;
+		}
+	}
+
 	res[idx]=NULL;
 	*des=res;
 }

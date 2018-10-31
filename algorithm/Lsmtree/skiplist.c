@@ -23,8 +23,8 @@ skiplist *skiplist_init(){
 	point->header=(snode*)malloc(sizeof(snode));
 	point->header->list=(snode**)malloc(sizeof(snode*)*(MAX_L+1));
 	for(int i=0; i<MAX_L; i++) point->header->list[i]=point->header;
-	point->header->key=INT_MAX;
-
+	point->header->key=UINT_MAX;
+	point->header->value=NULL;
 	point->start=UINT_MAX;
 	point->end=0;
 	point->size=0;
@@ -81,6 +81,8 @@ snode *skiplist_strict_range_search(skiplist *list,KEYT key){
 	x=x->list[1];
 	if(bf->key<=key && key< x->key){
 		return bf;
+	}else if(bf->key==UINT_MAX){
+		return x;
 	}
 	return NULL;
 }
@@ -211,11 +213,10 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef
 }
 #endif
 
-
 snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overlap)(void*)){
 	snode *update[MAX_L+1];
 	snode *x=list->header;
-
+	
 	for(int i=list->level; i>=1; i--){
 		while(x->list[i]->key<key)
 			x=x->list[i];
