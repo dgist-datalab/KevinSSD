@@ -29,6 +29,11 @@ extern struct algorithm algo_lsm;
 #ifdef bdbm_drv
 extern struct lower_info memio_info;
 #endif
+
+#ifdef network
+extern struct lower_info net_info;
+#endif
+
 MeasureTime mt;
 master_processor mp;
 
@@ -182,6 +187,7 @@ void *p_main(void *__input){
 		if(mp.stopflag)
 			break;
 		if((_inf_req=q_dequeue(_this->retry_q))){
+
 		}
 #ifdef interface_pq
 		else if(!(_inf_req=q_dequeue(_this->req_rq))){
@@ -216,8 +222,13 @@ void *p_main(void *__input){
 #ifdef CDF
 		inf_req->isstart=true;
 #endif
+		static bool first_get=true;
 		switch(inf_req->type){
 			case FS_GET_T:
+				if(first_get){
+					first_get=false;
+					//mp.li->lower_flying_req_wait();
+				}
 				mp.algo->get(inf_req);
 				break;
 			case FS_SET_T:
@@ -296,7 +307,6 @@ void inf_init(){
 #else
 		q_init(&t->req_q,QSIZE);
 #endif
-		
 		pthread_create(&t->t_id,NULL,&p_main,NULL);
 	}
 	
@@ -311,9 +321,10 @@ void inf_init(){
 	measure_init(&mt);
 #if defined(posix) || defined(posix_async) || defined(posix_memory)
 	mp.li=&my_posix;
-#endif
-#ifdef bdbm_drv
+#elif defined(bdbm_drv)
 	mp.li=&memio_info;
+#elif defined(network)
+    mp.li=&net_info;
 #endif
 
 #ifdef normal
@@ -459,6 +470,7 @@ bool inf_end_req( request * const req){
 		*seq=req->seq;
 		params[0]=(void*)type;
 		params[1]=(void*)seq;
+		special((void*)params);
 	}
 
 	if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){

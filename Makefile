@@ -2,8 +2,8 @@ export CC=g++
 
 TARGET_INF=interface
 TARGET_LOWER=posix_memory
-TARGET_ALGO=dftl_fm
-PWD=$(pwd)
+TARGET_ALGO=Lsmtree
+PPWD=$(pwd)
 
 COMMONFLAGS=\
 			-DSLC\
@@ -12,7 +12,7 @@ export CFLAGS_ALGO=\
 			 -g\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
-#			 -O2\
+#		 -O2\
 #-DDVALUE\
 
 
@@ -24,7 +24,7 @@ export CFLAGS_LOWER=\
 #-O2\
 
 export priority="false"
-
+export ORIGINAL_PATH=$(PPWD)
 
 #CFLAGS_ALGO+=-DCOMPACTIONLOG\
 	
@@ -97,8 +97,8 @@ duma_sim: duma_simulator
 debug_simulator: ./interface/main.c libsimulator_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
 
-simulator: ./interface/main.c libsimulator.a
-	$(CC) $(CFLAGS) -o $@ $^  $(ARCH) $(LIBS)
+simulator: ./interface/B_main.c libsimulator.a
+	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 duma_simulator: ./interface/main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ -lduma $(ARCH) $(LIBS)
@@ -109,7 +109,7 @@ libsimulator.a: $(TARGETOBJ)
 	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) clean && $(MAKE) && cd ../../
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
 	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
-#cd ./include/kuk_socket_lib/ && $(MAKE) && mv ./*.o ../../object/ && cd ../../
+	cd ./include/kuk_socket_lib/ && $(MAKE) && mv ./*.o ../../object/ && cd ../../
 	mv ./include/data_struct/*.o ./object/
 	mv ./include/utils/*.o ./object/
 	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/

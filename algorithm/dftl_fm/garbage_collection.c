@@ -11,6 +11,8 @@ int32_t tpage_GC(){
     value_set **temp_set;
     D_SRAM *d_sram; // SRAM for contain block data temporarily
 
+    puts("tpage_GC()");
+
     /* Load valid pages to SRAM */
     all = 0;
     tgc_count++;
@@ -79,7 +81,7 @@ int32_t tpage_GC(){
     while(trans_gc_poll != valid_page_num) {} // polling for reading all mapping data
 #endif
 
-    free(temp_set);
+//    free(temp_set);
     free(d_sram);
 
     /* Trim block */
@@ -110,6 +112,8 @@ int32_t dpage_GC(){
     value_set *temp_value_set;
     value_set **temp_set;
     value_set *dummy_vs;
+
+    puts("dpage_GC");
 
     /* Load valid pages to SRAM */
     all = 0;

@@ -4,9 +4,9 @@
 
 /*lsmtree structure*/
 #ifndef EEMODE
-#define KEYNUM 512
+#define FULLMAPNUM  1024
 #else
-#define KEYNUM 1000
+#define FULLMAPNUM 1024
 #endif
 
 #define RAF 0.01
@@ -23,7 +23,8 @@
 //#define CACHE
 //#define CACHESIZE 1//(100*128*1)//1*128==1M
 
-//#define LEVELCACHING 2
+#define LEVELCACHING 1
+#define CACHINGSIZE 0.03f
 //#define LEVELEMUL 
 //#define MERGECOMPACTION 4
 //#define NOCPY

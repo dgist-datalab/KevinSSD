@@ -112,9 +112,9 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 
     /* Cache control & Init */
-    //num_max_cache = max_cache_entry; // max cache
+    num_max_cache = max_cache_entry; // max cache
     //num_max_cache = 1; // 1 cache
-    num_max_cache = max_cache_entry / 4; // 1/4 cache
+    //num_max_cache = max_cache_entry / 4; // 1/4 cache
     //num_max_cache = max_cache_entry / 20; // 5%
     //num_max_cache = max_cache_entry / 10; // 10%
     //num_max_cache = max_cache_entry / 8; // 16%
@@ -747,7 +747,6 @@ uint32_t __demand_set(request *const req){
     lpa = req->key;
     c_table = &CMT[D_IDX];
     p_table = c_table->p_table;
-    //t_ppa   = c_table->t_ppa;
 
     if (req->params) { // Flying request
         if (((read_params *)req->params)->read == 0) { // Case of mapping write finished

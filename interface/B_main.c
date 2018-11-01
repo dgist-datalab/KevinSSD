@@ -17,8 +17,6 @@ int skiplist_hit;
 #endif
 kuk_sock *net_worker;
 //#define IP "127.0.0.1"
-#define IP "10.42.0.2"
-#define PORT 8888
 #define REQSIZE (sizeof(uint64_t)*3+sizeof(uint8_t))
 #define PACKETSIZE (5*REQSIZE)
 queue *ret_q;
@@ -38,9 +36,9 @@ void *flash_returner(void *param){
 
 		if((*(int*)req)!=0){	
 			pthread_mutex_lock(&send_lock);
-			if(++cnt%10240==0){
+		//	if(++cnt%10240==0){
 				printf("send_cnt:%d - len:%d\n",global_value++,*(int*)req);
-			}
+		//	}
 			kuk_send(net_worker,(char*)req,sizeof(uint32_t));
 			pthread_mutex_unlock(&send_lock);
 		}
@@ -94,8 +92,7 @@ void *flash_ad(kuk_sock* ks){
 	temp.length=PAGESIZE;
 	for(uint64_t i=0; i<len; i++){
 		static int cnt=0;
-		if(++cnt%10240==0)
-			printf("make cnt:%d\n",cnt);
+		printf("make cnt:%d\n",cnt++);
 		if(i+1!=len){
 			inf_make_req_special(type,(uint32_t)key+i,&temp,0,flash_ack2clnt);
 		}else{
@@ -149,7 +146,7 @@ int main(int argc,char* argv[]){
 	pthread_t rt_thread;
 	pthread_create(&rt_thread,NULL,&flash_returner,NULL);
 	/*network initialize*/
-	
+#ifdef NETWORKSET
 	net_worker=kuk_sock_init((PACKETSIZE/REQSIZE)*REQSIZE,flash_decoder,flash_ad);
 	kuk_open(net_worker,IP,PORT);
 	kuk_bind(net_worker);
@@ -164,6 +161,25 @@ int main(int argc,char* argv[]){
 			net_worker->decoder(net_worker,net_worker->after_decode);
 		}
 	}
+#else
+	int a;
+	uint64_t b,c,d;
+	value_set temp;
+	temp.value=t_value;
+	temp.dmatag=-1;
+	temp.length=PAGESIZE;
+	int cnt=0;
+	while(1){
+		scanf("%d%ld%ld%ld\n",&a,&b,&c,&d);
+		for(uint64_t i=0; i<c; i++){
+			cnt++;
+			if(cnt%10240==0){
+				printf("cnt:%d\n",cnt);
+			}
+			inf_make_req(a,b+i,&temp,0);
+		}
+	}
+#endif
 
 /*
 	value_set temp;

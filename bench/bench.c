@@ -75,6 +75,7 @@ void bench_init(int benchnum){
 			}
 		}
 	}
+	printf("bench:%ld\n",TOTALSIZE/PAGESIZE/8);
 	bitmap=(uint8_t*)malloc(sizeof(uint8_t)*(TOTALSIZE/(PAGESIZE)/8));
 }
 void bench_make_data(){
@@ -409,7 +410,7 @@ void bench_cdf_print(uint64_t nor, uint8_t type, bench_data *_d){//number of req
 		for(int i=0; i<1000000/TIMESLOT+1; i++){
 			cumulate_number+=_d->write_cdf[i];
 			if(_d->write_cdf[i]==0) continue;
-			printf("%d\t%ld\t%f\n",i * 10,_d->write_cdf[i],(float)cumulate_number/_d->write_cnt);
+			//printf("%d\t%ld\t%f\n",i * 10,_d->write_cdf[i],(float)cumulate_number/_d->write_cnt);
 			if(nor==cumulate_number)
 				break;
 		}	

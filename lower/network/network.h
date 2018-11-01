@@ -1,5 +1,9 @@
 #include "../../include/container.h"
 #include "../../bench/measurement.h"
+#include "../../interface/queue.h"
+#include "../../include/settings.h"
+#include "../../include/utils/cond_lock.h"
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,23 +14,22 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <netinet/tcp.h>
 
 
-#define RQ_TYPE_CREATE  0
-#define RQ_TYPE_DESTROY 1
-#define RQ_TYPE_PUSH    2
-#define RQ_TYPE_PULL    3
+#define RQ_TYPE_CREATE	6
+#define RQ_TYPE_DESTROY 0
+#define RQ_TYPE_PUSH    1
+#define RQ_TYPE_PULL    2
 #define RQ_TYPE_TRIM    4
 #define RQ_TYPE_FLYING  5
-
-#define IP "127.0.0.1"
-#define PORT 9999
-
 
 struct net_data {
     int8_t type;
     KEYT ppa;
-    algo_req *req;
+    int32_t idx;
+    uint8_t req_type;
+    uint8_t type_lower;
 };
 
 struct mem_seg {
@@ -42,3 +45,4 @@ void *net_info_pull_data(KEYT ppa, uint32_t size, value_set *value, bool async, 
 void *net_info_trim_block(KEYT ppa, bool async);
 void net_info_flying_req_wait();
 void *net_refresh(struct lower_info* li);
+void net_info_stop();

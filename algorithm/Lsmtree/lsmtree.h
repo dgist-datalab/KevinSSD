@@ -1,11 +1,12 @@
 #ifndef __LSM_HEADER__
 #define __LSM_HEADER__
 #include <pthread.h>
-#include "run_array.h"
+#include "level.h"
 #include "skiplist.h"
 #include "bloomfilter.h"
 #include "cache.h"
-#include "lsmtree.h"
+#include "level.h"
+#include "../../include/settings.h"
 #include "../../include/utils/rwlock.h"
 #include "../../interface/queue.h"
 #include "../../include/container.h"
@@ -25,35 +26,9 @@
 #define OLDDATA 13
 
 //lower type, algo type
-
-
-typedef struct keyset{
-	KEYT lpa;
-	KEYT ppa;
-}keyset;
-
-typedef struct htable{
-	keyset *sets;
-//	uint8_t *bitset;
-
-#ifdef BLOOM
-	BF* filter;
-#endif
-	value_set *origin;
-	uint8_t t_b;//0, MALLOC
-				//1, valueset from W
-				//2, valueset from R
-}htable;
-
-
-typedef struct htable_t{
-	keyset sets[PAGESIZE/KEYSETSIZE];
-	uint8_t *bitset;
-#ifdef BLOOM
-	BF* filter;
-#endif
-	value_set *origin;
-}htable_t;
+typedef struct level level;
+typedef struct run_t run_t;
+typedef struct level_ops level_ops;
 
 typedef struct lsm_params{
 	dl_sync lock;
@@ -67,8 +42,13 @@ typedef struct lsm_params{
 }lsm_params;
 
 typedef struct lsmtree{
-	struct level *disk[LEVELN];
-	struct level *c_level;
+	KEYT KEYNUM;
+	bool inplace_compaction; 
+
+	level *disk[LEVELN];
+	level *c_level;
+	level_ops *lop;
+
 	PTR level_addr[LEVELN];
 	pthread_mutex_t memlock;
 	pthread_mutex_t templock;
@@ -76,14 +56,12 @@ typedef struct lsmtree{
 
 	pthread_mutex_t valueset_lock;
 	pthread_mutex_t level_lock[LEVELN];
-	//pthread_rwlock_t level_rwlock[LEVELN];
-	//rwlock level_rwlock[LEVELN];
 	PTR caching_value;
 
 	struct skiplist *memtable;
 	struct skiplist *temptable;
 	struct queue *re_q;
-	struct Entry *tempent;
+	run_t *tempent;
 #ifdef CACHE
 	struct cache* lsm_cache;
 #endif
@@ -98,9 +76,8 @@ uint32_t lsm_remove(request *const);
 void* lsm_end_req(struct algo_req*const);
 bool lsm_kv_validcheck(uint8_t *, int idx);
 void lsm_kv_validset(uint8_t *,int idx);
-keyset* htable_find(keyset*, KEYT target);
 htable *htable_copy(htable *);
-htable *htable_assign();
+htable *htable_assign(char*,bool);
 void htable_free(htable*);
 void htable_print(htable*,KEYT);
 /*

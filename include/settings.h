@@ -1,7 +1,12 @@
 #ifndef __H_SETTING__
 #define __H_SETTING__
 #include<stdint.h>
-
+#include <stdlib.h>
+#include<stdio.h>
+/*
+#define free(a) ({ printf("%s:%d %p\n",__FILE__,__LINE__,a);\
+	free(a);})
+*/
 #define K (1024)
 #define M (1024*K)
 #define G (1024*M)
@@ -19,7 +24,8 @@
 
 #elif defined(SLC)
 
-#define TOTALSIZE (10L*G)
+#define GIGAUNIT 15L
+#define TOTALSIZE ((GIGAUNIT)*G)
 #define REALSIZE (512L*G)
 #define PAGESIZE (8*K)
 #define _PPB (256)
@@ -33,7 +39,9 @@
 #define _NOS (TOTALSIZE/(_PPS*PAGESIZE))
 #define _NOB (BPS*_NOS)
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
-#define RANGE (10*(M/PAGESIZE)*1024L*(0.80)+10)
+
+#define RANGE (10*(M/PAGESIZE)*1024L*(0.80))
+
 
 
 #define FSTYPE uint8_t
@@ -44,8 +52,14 @@
 #define PTR char*
 #define ASYNC 1
 #define QSIZE (1024)
-#define QDEPTH (256)
+#define QDEPTH (128)
 #define THREADSIZE (1)
+
+#define TCP 1
+//#define IP "10.42.0.2"
+#define IP "127.0.0.1"
+#define PORT 9999
+#define NETWORKSET
 
 #define KEYGEN
 #define SPINSYNC

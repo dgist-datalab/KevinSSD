@@ -151,7 +151,7 @@ int32_t dp_alloc(){ // Data page allocation
     return ppa++;
 }
 
-value_set* SRAM_load(D_SRAM* d_sram, int32_t ppa, int idx, char t){
+value_set* SRAM_load(D_SRAM* d_sram, int32_t ppa, int idx, char t) {
     value_set *temp_value_set;
     temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
     if(t == 'T'){

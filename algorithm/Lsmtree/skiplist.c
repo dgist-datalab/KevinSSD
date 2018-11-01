@@ -8,11 +8,13 @@
 #include"../../interface/interface.h"
 #ifdef Lsmtree
 #include "lsmtree.h"
+#include "level.h"
 #include"page.h"
 #include "footer.h"
 
 extern MeasureTime compaction_timer[3];
 extern OOBT *oob;
+extern lsmtree LSM;
 #endif
 
 skiplist *skiplist_init(){
@@ -21,8 +23,8 @@ skiplist *skiplist_init(){
 	point->header=(snode*)malloc(sizeof(snode));
 	point->header->list=(snode**)malloc(sizeof(snode*)*(MAX_L+1));
 	for(int i=0; i<MAX_L; i++) point->header->list[i]=point->header;
-	point->header->key=INT_MAX;
-
+	point->header->key=UINT_MAX;
+	point->header->value=NULL;
 	point->start=UINT_MAX;
 	point->end=0;
 	point->size=0;
@@ -30,6 +32,7 @@ skiplist *skiplist_init(){
 }
 
 snode *skiplist_find(skiplist *list, KEYT key){
+	if(!list) return NULL;
 	if(list->size==0) return NULL;
 	snode *x=list->header;
 	for(int i=list->level; i>=1; i--){
@@ -38,6 +41,49 @@ snode *skiplist_find(skiplist *list, KEYT key){
 	}
 	if(x->list[1]->key==key)
 		return x->list[1];
+	return NULL;
+}
+
+snode *skiplist_range_search(skiplist *list,KEYT key){
+	if(list->size==0) return NULL;
+	snode *x=list->header;
+	snode *bf=list->header;
+	for(int i=list->level; i>=1; i--){
+		while(x->list[i]->key<=key){
+			bf=x;
+			x=x->list[i];
+		}
+	}
+	
+	bf=x;
+	x=x->list[1];
+	if(bf->key<=key && key< x->key){
+		return bf;
+	}
+	if(key<=list->header->list[1]->key){
+		return list->header->list[1];
+	}
+	return NULL;
+}
+
+snode *skiplist_strict_range_search(skiplist *list,KEYT key){
+	if(list->size==0) return NULL;
+	snode *x=list->header;
+	snode *bf=list->header;
+	for(int i=list->level; i>=1; i--){
+		while(x->list[i]->key<=key){
+			bf=x;
+			x=x->list[i];
+		}
+	}
+	
+	bf=x;
+	x=x->list[1];
+	if(bf->key<=key && key< x->key){
+		return bf;
+	}else if(bf->key==UINT_MAX){
+		return x;
+	}
 	return NULL;
 }
 
@@ -167,6 +213,58 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef
 }
 #endif
 
+snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overlap)(void*)){
+	snode *update[MAX_L+1];
+	snode *x=list->header;
+	
+	for(int i=list->level; i>=1; i--){
+		while(x->list[i]->key<key)
+			x=x->list[i];
+		update[i]=x;
+	}
+	x=x->list[1];
+
+	if(key<list->start) list->start=key;
+	if(key>list->end) list->end=key;
+	
+	run_t *t_r=(run_t*)value;
+	//printf("input value:%p %d~%d\n",value,t_r->key,t_r->end);
+	if(key==x->key){
+		//printf("key:%d(%p->%p)",key,x->value,value);
+		//DEBUG_LOG("general");
+		if(overlap)
+			overlap((void*)x->value);
+		x->value=(value_set*)value;
+		t_r->run_data=(void*)x;
+		return x;
+	}
+	else{
+		int level=getLevel();
+		if(level>list->level){
+			for(int i=list->level+1; i<=level; i++){
+				update[i]=list->header;
+			}
+			list->level=level;
+		}
+
+		x=(snode*)malloc(sizeof(snode));
+		x->list=(snode**)malloc(sizeof(snode*)*(level+1));
+
+		x->key=key;
+		x->ppa=UINT_MAX;
+		x->value=(value_set*)value;
+		t_r->run_data=(void*)x;
+
+		for(int i=1; i<=level; i++){
+			x->list[i]=update[i]->list[i];
+			update[i]->list[i]=x;
+		}
+		x->level=level;
+		list->size++;
+	}
+	return x;
+
+}
 snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 	snode *update[MAX_L+1];
 	snode *x=list->header;
@@ -233,8 +331,8 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 //static int make_value_cnt=0;
 value_set **skiplist_make_valueset(skiplist *input, level *from){
 	//printf("make_value_cnt:%d\n",++make_value_cnt);
-	value_set **res=(value_set**)malloc(sizeof(value_set*)*(KEYNUM+1));
-	memset(res,0,sizeof(value_set*)*(KEYNUM+1));
+	value_set **res=(value_set**)malloc(sizeof(value_set*)*(LSM.KEYNUM+1));
+	memset(res,0,sizeof(value_set*)*(LSM.KEYNUM+1));
 	l_bucket b;
 	memset(&b,0,sizeof(b));
 
@@ -252,8 +350,8 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 	for(int i=0; i<b.idx[PAGESIZE/PIECE]; i++){//full page
 		target=b.bucket[PAGESIZE/PIECE][i];
 		res[res_idx]=target->value;
-		level_moveTo_front_page(from);
-		res[res_idx]->ppa=level_get_page(from,(PAGESIZE/PIECE));
+		LSM.lop->moveTo_fr_page(from);
+		res[res_idx]->ppa=LSM.lop->get_page(from,(PAGESIZE/PIECE));
 		/*checking new ppa in skiplist_valuset*/
 #ifdef DVALUE
 		oob[res[res_idx]->ppa/(PAGESIZE/PIECE)]=PBITSET(target->key,true);//OOB setting
@@ -284,7 +382,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 		footer *foot=f_init();
 
 		res[res_idx]=inf_get_valueset(page,FS_MALLOC_W,PAGESIZE); 
-		level_moveTo_front_page(from);
+		LSM.lop->moveTo_fr_page(from);
 
 		res[res_idx]->ppa=from->now_block->ppage_array[from->now_block->ppage_idx];
 
@@ -299,7 +397,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 				break;
 			}
 			target=b.bucket[target_length][b.idx[target_length]-1];
-			target->ppa=level_get_page(from,target->value->length);
+			target->ppa=LSM.lop->get_page(from,target->value->length);
 
 			used_piece+=target_length;
 			f_insert(foot,target->key,target->ppa,target_length);
@@ -357,7 +455,7 @@ int skiplist_delete(skiplist* list, KEYT key){
 			list->level--;
 	}
 
-    inf_free_valueset(x->value, FS_MALLOC_W);
+//   inf_free_valueset(x->value, FS_MALLOC_W);
 	free(x->list);
 	free(x);
 	list->size--;
@@ -473,74 +571,6 @@ snode *skiplist_pop(skiplist *list){
 	return NULL;	
 }
 
-#ifdef Lsmtree
-skiplist *skiplist_cut(skiplist *list, KEYT num,KEYT limit,htable *table, float fpr){
-	if(num==0) return NULL;
-	if(list->size<num) return NULL;
-	skiplist* res=NULL;
-	res=skiplist_init();
-	snode *h=res->header;
-	snode *temp;
-#ifdef BLOOM
-	BF *filter=bf_init(KEYNUM,fpr);
-	table->filter=filter;
-#endif
-	for(KEYT i=0; i<num; i++){
-		temp=skiplist_pop(list);
-		temp->value=NULL;
-		if(temp==NULL){
-			return NULL;
-		}
-		
-		if(temp->key>=limit){
-			snode *temp_header=res->header->list[1];
-			snode *temp_s;
-			while(temp_header!=res->header){
-				temp_s=skiplist_insert_wP(list,temp_header->key,temp_header->ppa,temp_header->isvalid);
-				temp_s->ppa=temp_header->ppa;
-				temp_header=temp_header->list[1];
-			}
-			temp_s=skiplist_insert_wP(list,temp->key,temp->ppa,temp->isvalid);
-			temp_s->ppa=temp->ppa;
-			free(temp->list);
-			/*
-			if(temp->req)
-				free(temp->req);
-				*/
-			free(temp);
-			skiplist_free(res);
-			return NULL;
-		}
-		
-		table->sets[i].ppa=temp->ppa;
-		table->sets[i].lpa=temp->key;	
-#ifdef BLOOM
-		bf_set(table->filter,temp->key);
-#endif
-
-		res->start=temp->key>res->start?res->start:temp->key;
-		res->end=temp->key>res->end?temp->key:res->end;
-		h->list[1]=temp;
-		temp->list[1]=res->header;
-		h=temp;
-	}
-	res->size=num;
-	for(int i=num; i<KEYNUM; i++){
-		table->sets[i].ppa=UINT_MAX;
-		table->sets[i].lpa=UINT_MAX;
-	}
-	//error check
-	/*
-	   sk_iter* iter=skiplist_get_iterator(res);
-	   snode *node;
-	   while((node=skiplist_get_next(iter))){
-	   if(node->ppa<512){
-	   printf("here!\n");
-	   }
-	   }*/
-	return res;
-}
-#endif
 void skiplist_save(skiplist *input){
 	return;
 }
