@@ -211,7 +211,6 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef
 	}
 	return x;
 }
-#endif
 
 snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overlap)(void*)){
 	snode *update[MAX_L+1];
@@ -265,6 +264,7 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overla
 	return x;
 
 }
+#endif
 snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 	snode *update[MAX_L+1];
 	snode *x=list->header;

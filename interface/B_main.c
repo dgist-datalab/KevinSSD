@@ -36,9 +36,9 @@ void *flash_returner(void *param){
 
 		if((*(int*)req)!=0){	
 			pthread_mutex_lock(&send_lock);
-		//	if(++cnt%10240==0){
+			if(++cnt%10240==0){
 				printf("send_cnt:%d - len:%d\n",global_value++,*(int*)req);
-		//	}
+			}
 			kuk_send(net_worker,(char*)req,sizeof(uint32_t));
 			pthread_mutex_unlock(&send_lock);
 		}
@@ -92,7 +92,9 @@ void *flash_ad(kuk_sock* ks){
 	temp.length=PAGESIZE;
 	for(uint64_t i=0; i<len; i++){
 		static int cnt=0;
-		printf("make cnt:%d\n",cnt++);
+		if (cnt % 102400 == 0) {
+			printf("make cnt:%d\n",cnt++);
+		}
 		if(i+1!=len){
 			inf_make_req_special(type,(uint32_t)key+i,&temp,0,flash_ack2clnt);
 		}else{
@@ -153,9 +155,15 @@ int main(int argc,char* argv[]){
 	kuk_listen(net_worker,5);
 	kuk_accept(net_worker);
 	//while(kuk_service(net_worker,1)){}
-	uint32_t len=0;
-	
-	while((len=kuk_recv(net_worker,net_worker->data,net_worker->data_size))){
+	uint32_t readed, len=0;
+
+	while (1) {
+		readed = 0;
+		while (readed == 0 || readed % REQSIZE != 0) {
+			len = kuk_recv(net_worker, net_worker->data, net_worker->data_size);
+			if (len == -1) continue;
+			readed += len;
+		}
 		net_worker->data_idx=0;
 		while(len!=net_worker->data_idx){
 			net_worker->decoder(net_worker,net_worker->after_decode);
