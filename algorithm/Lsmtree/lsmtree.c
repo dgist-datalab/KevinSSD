@@ -382,7 +382,7 @@ uint32_t lsm_get(request *const req){
 			bench_algo_start(tmp_req);
 			res_type=__lsm_get(tmp_req);
 			if(res_type==0){
-				printf("from req not found seq: %d, key:%u\n",nor++,req->key);
+				//printf("from req not found seq: %d, key:%u\n",nor++,req->key);
 	//			LSM.lop->all_print();
 				tmp_req->type=FS_NOTFOUND_T;
 				tmp_req->end_req(tmp_req);
@@ -402,7 +402,7 @@ uint32_t lsm_get(request *const req){
 		debug=true;
 	}
 	if(res_type==0){
-		printf("not found seq: %d, key:%u\n",nor++,req->key);
+		//printf("not found seq: %d, key:%u\n",nor++,req->key);
 //		LSM.lop->all_print();
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);

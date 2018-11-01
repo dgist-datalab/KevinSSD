@@ -193,6 +193,12 @@ uint32_t hash_unmatch_find( level *lev, KEYT s, KEYT e,  run_t ***rc){
 		temp=temp->list[1];
 	}
 
+	if(temp==body->header){
+		r[res]=NULL; 
+		*rc=r;
+		return res;
+	}
+
 	temp=skiplist_strict_range_search(body,e);
 	while(temp && temp!=body->header){
 		ptr=(run_t*)temp->value;

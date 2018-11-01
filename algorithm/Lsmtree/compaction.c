@@ -776,10 +776,13 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 		start=upper->start;
 		end=upper->end;
 	}
-
+	printf("p_cnt:%d\n",cnt++);
 #ifndef MONKEY
 	int test_a, test_b;
 	test_a=LSM.lop->unmatch_find(origin,start,end,&target_s);
+	if(test_a>origin->n_num){
+		DEBUG_LOG("fuck!");
+	}
 	for(int i=0; target_s[i]!=NULL; i++){
 		LSM.lop->insert(t,target_s[i]);
 		target_s[i]->iscompactioning=4;

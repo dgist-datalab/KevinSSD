@@ -470,6 +470,7 @@ bool inf_end_req( request * const req){
 		*seq=req->seq;
 		params[0]=(void*)type;
 		params[1]=(void*)seq;
+		special((void*)params);
 	}
 
 	if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){
