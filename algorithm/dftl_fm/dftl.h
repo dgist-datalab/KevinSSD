@@ -47,7 +47,7 @@ typedef struct demand_mapping_table{
 typedef struct cached_table{
     int32_t t_ppa;
     int32_t idx;
-    int32_t *p_table;
+    D_TABLE *p_table;
     //value_set *p_table_vs;
     NODE *queue_ptr; // for dirty pages (or general use)
 #if C_CACHE
@@ -87,7 +87,7 @@ typedef struct write_params {
 } write_params;
 
 typedef struct mem_table{
-    int32_t *mem_p;
+    D_TABLE *mem_p;
 } mem_table;
 
 /* extern variables */

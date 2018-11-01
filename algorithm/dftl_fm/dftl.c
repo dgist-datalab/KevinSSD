@@ -9,13 +9,6 @@ algorithm __demand = {
     .remove  = demand_remove
 };
 
-/*
-   data에 관한 write buffer를 생성
-   128개의 channel이라서 128개를 한번에 처리가능
-   1024개씩 한번에 쓰도록.(dynamic)->변수처리
-   ppa는 1씩 증가해서 보내도됨. ---->>>>> bdbm_drv 에서는 없어도 된다!!!!
-   */
-
 LRU *lru; // for lru cache
 queue *dftl_q; // for async get
 b_queue *free_b; // block allocate
@@ -193,7 +186,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     memset(demand_OOB, -1, num_page * sizeof(D_OOB));
 
     for (int i = 0; i < max_cache_entry; i++) {
-        mem_arr[i].mem_p = (int32_t *)malloc(PAGESIZE);
+        mem_arr[i].mem_p = (D_TABLE *)malloc(PAGESIZE);
         memset(mem_arr[i].mem_p, -1, PAGESIZE);
     }
 
@@ -690,7 +683,7 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
     }
 
     // Case of initial state (t_ppa == -1)
-    // Read(get) method must not enter here
+    // Read(get) method never enter here
     c_table->p_table   = mem_arr[D_IDX].mem_p;
     c_table->queue_ptr = lru_push(lru, (void*)c_table);
     c_table->state     = DIRTY;
@@ -705,23 +698,13 @@ uint32_t __demand_set(request *const req){
        data than number of data page !!! */
     int32_t lpa; // Logical data page address
     int32_t ppa; // Physical data page address
-    //int32_t t_ppa; // Translation page address
     C_TABLE *c_table; // Cache mapping entry pointer
-    int32_t *p_table; // pointer of p_table on cme
+    D_TABLE *p_table; // pointer of p_table on cme
     algo_req *my_req; // pseudo request pointer
-    //bool gc_flag;
-    //bool d_flag;
-    //algo_req *temp_req;
-    //value_set *dummy_vs;
 #if W_BUFF
     snode *temp;
     sk_iter *iter;
 #endif
-    //read_params *checker;
-
-    //value_set *p_table_vs;
-    //value_set *temp_value_set;
-    //demand_params *params; // pseudo request's params
 
     bench_algo_start(req);
 
@@ -798,12 +781,12 @@ uint32_t __demand_set(request *const req){
 
         // if there is previous data with same lpa, then invalidate it
         p_table = c_table->p_table;
-        if(p_table[P_IDX] != -1){
-            BM_InvalidatePage(bm, p_table[P_IDX]);
+        if(p_table[P_IDX].ppa != -1){
+            BM_InvalidatePage(bm, p_table[P_IDX].ppa);
         }
 
         // Update page table & OOB
-        p_table[P_IDX] = ppa;
+        p_table[P_IDX].ppa = ppa;
         BM_ValidatePage(bm, ppa);
         demand_OOB[ppa].lpa = lpa;
     }
@@ -819,20 +802,12 @@ uint32_t __demand_get(request *const req){
     int32_t ppa; // Physical data page address
     int32_t t_ppa; // Translation page address
     C_TABLE* c_table; // Cache mapping entry pointer
-    //value_set *p_table_vs;
-    int32_t * p_table; // pointer of p_table on cme
-    //algo_req *my_req; // pseudo request pointer
-    //algo_req *temp_req;
-    //value_set *dummy_vs;
-    //bool gc_flag;
-    //1bool d_flag;
+    D_TABLE *p_table; // pointer of p_table on cme
 #if W_BUFF
     snode *temp;
 #endif
 #if !ASYNC
     demand_params *params; // used for mutex lock
-#else
-    //read_params *checker; // used for async
 #endif
 
     MS(&ftl);
@@ -875,7 +850,7 @@ uint32_t __demand_get(request *const req){
         }
 
     } else if (p_table) { // Cache hit
-        ppa = p_table[P_IDX];
+        ppa = p_table[P_IDX].ppa;
         if (ppa == -1) { // Validity check
             bench_algo_end(req);
             return UINT32_MAX;
@@ -901,7 +876,7 @@ uint32_t __demand_get(request *const req){
 
     /* Get actual data from device */
     p_table = c_table->p_table;
-    ppa = p_table[P_IDX];
+    ppa = p_table[P_IDX].ppa;
     if (ppa == -1) {
         bench_algo_end(req);
         return UINT32_MAX;
@@ -919,7 +894,7 @@ uint32_t __demand_remove(request *const req) {
     int32_t t_ppa;
     C_TABLE *c_table;
     //value_set *p_table_vs;
-    int32_t *p_table;
+    D_TABLE *p_table;
     bool gc_flag;
     bool d_flag;
     value_set *dummy_vs;
@@ -998,8 +973,7 @@ uint32_t __demand_remove(request *const req) {
     }
 
     /* Invalidate the page */
-    //p_table = (int32_t *)p_table_vs->value;
-    ppa = p_table[P_IDX];
+    ppa = p_table[P_IDX].ppa;
 
     // Validity check by ppa
     if (ppa == -1) { // case of no data written
@@ -1007,7 +981,7 @@ uint32_t __demand_remove(request *const req) {
         return UINT32_MAX;
     }
 
-    p_table[P_IDX] = -1;
+    p_table[P_IDX].ppa = -1;
     demand_OOB[ppa].lpa = -1;
     BM_InvalidatePage(bm, ppa);
 
@@ -1036,7 +1010,7 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
     int32_t   t_ppa;
     C_TABLE   *cache_ptr;
     value_set *p_table_vs;
-    int32_t   *p_table;
+    D_TABLE   *p_table;
     value_set *temp_value_set;
     algo_req  *temp_req;
     value_set *dummy_vs;
@@ -1072,7 +1046,6 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
 
         /* Write translation page */
         t_ppa = tp_alloc(req_t, flag);
-        //p_table = (int32_t *)p_table_vs->value;
         //temp_value_set = inf_get_valueset((PTR)p_table, FS_MALLOC_W, PAGESIZE);
         dummy_vs = inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
         temp_req = assign_pseudo_req(MAPPING_W, dummy_vs, NULL);
@@ -1109,7 +1082,6 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
 uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag){
     int32_t   t_ppa;            // Translation page address
     C_TABLE   *cache_ptr;       // Cache mapping entry pointer
-    //int32_t   *p_table;         // physical page table on value_set
     algo_req  *temp_req;        // pseudo request pointer
     value_set *dummy_vs;
 #if EVICT_POLL
