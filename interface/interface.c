@@ -241,7 +241,7 @@ void *p_main(void *__input){
 				mp.algo->get(inf_req);
 				break;
 			default:
-				printf("wtf??\n");
+				printf("wtf??, type %d\n", inf_req->type);
 				inf_req->end_req(inf_req);
 				break;
 		}

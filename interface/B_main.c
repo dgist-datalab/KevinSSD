@@ -18,7 +18,7 @@ int skiplist_hit;
 kuk_sock *net_worker;
 //#define IP "127.0.0.1"
 #define REQSIZE (sizeof(uint64_t)*3+sizeof(uint8_t))
-#define PACKETSIZE (5*REQSIZE)
+#define PACKETSIZE (2*REQSIZE*128)
 queue *ret_q;
 pthread_mutex_t send_lock;
 
@@ -86,6 +86,9 @@ void *flash_ad(kuk_sock* ks){
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
 
+	if (type == 0) {
+		printf("[ERROR] Type error on flash_ad, %d\n", type);
+	}
 	value_set temp;
 	temp.value=t_value;
 	temp.dmatag=-1;
@@ -160,12 +163,19 @@ int main(int argc,char* argv[]){
 	while (1) {
 		readed = 0;
 		while (readed == 0 || readed % REQSIZE != 0) {
-			len = kuk_recv(net_worker, net_worker->data, net_worker->data_size);
+			len = kuk_recv(net_worker, net_worker->data+readed, net_worker->data_size-readed);
 			if (len == -1) continue;
 			readed += len;
+			//printf("len %d\n", len);
 		}
+		//printf("Batch size of req :: %d\n", readed/REQSIZE);
+		//for (int i = 0; i < readed; i += REQSIZE) {
+		//	if (*(uint8_t *)&net_worker->data[i] == 0) {
+		//		printf("[ERROR] Type error on packet, %d\n", *(uint8_t*)&net_worker->data[i]);
+		//	}
+		//}
 		net_worker->data_idx=0;
-		while(len!=net_worker->data_idx){
+		while(readed!=net_worker->data_idx){
 			net_worker->decoder(net_worker,net_worker->after_decode);
 		}
 	}
