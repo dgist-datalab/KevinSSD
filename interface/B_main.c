@@ -25,6 +25,9 @@ pthread_mutex_t send_lock;
 pthread_mutex_t ret_q_lock;
 pthread_cond_t ret_cond;
 
+uint64_t len_sum = 0;
+uint64_t len_cnt = 0;
+
 static int global_value;
 void *flash_returner(void *param){
 	while(1){
@@ -34,10 +37,11 @@ void *flash_returner(void *param){
 			continue;
 		}
 
-		if((*(int*)req)!=0){	
+		if((*(int*)req)!=UINT32_MAX){
 			pthread_mutex_lock(&send_lock);
 			if(++cnt%10240==0){
 				printf("send_cnt:%d - len:%d\n",global_value++,*(int*)req);
+				printf("len avg :%.2f\n", (float)len_sum/len_cnt);
 			}
 			kuk_send(net_worker,(char*)req,sizeof(uint32_t));
 			pthread_mutex_unlock(&send_lock);
@@ -50,6 +54,7 @@ void *flash_returner(void *param){
 void *flash_ack2clnt(void *param){
 	void **params=(void**)param;
 	uint8_t type=*((uint8_t*)params[0]);
+	//printf("tid on ack : %d\n", *(uint32_t *)params[1]);
 	//uint32_t *tt;
 	//uint32_t seq=*((uint32_t*)params[1]);
 	switch(type){
@@ -81,10 +86,14 @@ void *flash_ad(kuk_sock* ks){
 	uint8_t type=*((uint8_t*)ks->p_data[0]);
 	uint64_t key=*((uint64_t*)ks->p_data[1]);
 	uint64_t len=*((uint64_t*)ks->p_data[2]);
-	//uint64_t seq=*((uint64_t*)ks->p_data[3]);
-		
+	uint64_t tid=*((uint64_t*)ks->p_data[3]);
+
+
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
+
+	len_sum += len; 
+	len_cnt++;
 
 	if (type == 0) {
 		printf("[ERROR] Type error on flash_ad, %d\n", type);
@@ -99,19 +108,19 @@ void *flash_ad(kuk_sock* ks){
 			printf("make cnt:%d\n",cnt++);
 		}
 		if(i+1!=len){
-			inf_make_req_special(type,(uint32_t)key+i,&temp,0,flash_ack2clnt);
+			inf_make_req_special(type,(uint32_t)key+i,&temp,UINT32_MAX,flash_ack2clnt);
 		}else{
-			inf_make_req_special(type,(uint32_t)key+i,&temp,len,flash_ack2clnt);
+			inf_make_req_special(type,(uint32_t)key+i,&temp,(uint32_t)tid,flash_ack2clnt);
 		}
 	}	
 
 	// Ack for write immediately
-	if(type==FS_SET_T){
+/*	if(type==FS_SET_T){
 		uint32_t t=UINT32_MAX;
 		pthread_mutex_lock(&send_lock);
 		kuk_send(net_worker,(char*)&t,sizeof(t));
 		pthread_mutex_unlock(&send_lock);
-	}
+	}*/
 	return NULL;
 }
 void *flash_decoder(kuk_sock *ks, void*(*ad)(kuk_sock*)){
@@ -121,7 +130,7 @@ void *flash_decoder(kuk_sock *ks, void*(*ad)(kuk_sock*)){
 		parse[0]=(char*)malloc(sizeof(uint8_t));//type
 		parse[1]=(char*)malloc(sizeof(uint64_t));//key
 		parse[2]=(char*)malloc(sizeof(uint64_t));//length
-		parse[3]=(char*)malloc(sizeof(uint64_t));//seq
+		parse[3]=(char*)malloc(sizeof(uint64_t));//tid
 		parse[4]=NULL;
 		ks->p_data=parse;
 	}
