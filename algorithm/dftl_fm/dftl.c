@@ -112,12 +112,13 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 
     /* Cache control & Init */
-    num_max_cache = max_cache_entry; // max cache
+    //num_max_cache = max_cache_entry; // max cache
     //num_max_cache = 1; // 1 cache
     //num_max_cache = max_cache_entry / 4; // 1/4 cache
     //num_max_cache = max_cache_entry / 20; // 5%
     //num_max_cache = max_cache_entry / 10; // 10%
-    //num_max_cache = max_cache_entry / 8; // 16%
+    num_max_cache = max_cache_entry / 8; // 12.5%
+    //num_max_cache = max_cache_entry / 40; // 2.5%
 
     real_max_cache = num_max_cache;
 
@@ -721,7 +722,7 @@ uint32_t __demand_set(request *const req){
         for (int i = 0;i < max_sl; i++) {
             temp = skiplist_get_next(iter);
 
-            /* Actual part of data pull */
+            /* Actual part of data push */
             my_req = assign_pseudo_req(DATA_W, temp->value, NULL);
             __demand.li->push_data(temp->ppa, PAGESIZE, temp->value, ASYNC, my_req);
 

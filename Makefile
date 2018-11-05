@@ -1,8 +1,8 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=posix_memory
-TARGET_ALGO=Lsmtree
+TARGET_LOWER=bdbm_drv
+TARGET_ALGO=dftl_fm
 PPWD=$(pwd)
 
 COMMONFLAGS=\
@@ -12,7 +12,7 @@ export CFLAGS_ALGO=\
 			 -g\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
-#		 -O2\
+		 -O2\
 #-DDVALUE\
 
 
@@ -21,7 +21,7 @@ export CFLAGS_LOWER=\
 			 -lpthread\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\
-#-O2\
+-O2\
 
 export priority="false"
 export ORIGINAL_PATH=$(PPWD)
@@ -54,7 +54,7 @@ CFLAGS +=\
 		 -D_BSD_SOURCE\
 -DBENCH\
 -DCDF\
-#-O2\
+-O2\
 
 SRCS +=\
 	./interface/queue.c\

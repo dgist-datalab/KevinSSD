@@ -104,12 +104,11 @@ void *flash_ad(kuk_sock* ks){
 			inf_make_req_special(type,(uint32_t)key+i,&temp,len,flash_ack2clnt);
 		}
 	}	
-	
+
+	// Ack for write immediately
 	if(type==FS_SET_T){
-		uint32_t t=UINT_MAX;
-	//	static int set_cnt=0;
+		uint32_t t=UINT32_MAX;
 		pthread_mutex_lock(&send_lock);
-//		printf("set:%d\n",global_value++);
 		kuk_send(net_worker,(char*)&t,sizeof(t));
 		pthread_mutex_unlock(&send_lock);
 	}
@@ -166,14 +165,14 @@ int main(int argc,char* argv[]){
 			len = kuk_recv(net_worker, net_worker->data+readed, net_worker->data_size-readed);
 			if (len == -1) continue;
 			readed += len;
-			//printf("len %d\n", len);
 		}
-		//printf("Batch size of req :: %d\n", readed/REQSIZE);
+
 		//for (int i = 0; i < readed; i += REQSIZE) {
-		//	if (*(uint8_t *)&net_worker->data[i] == 0) {
+		//	if (*(uint8_t *)&net_worker->data[i] > 2) {
 		//		printf("[ERROR] Type error on packet, %d\n", *(uint8_t*)&net_worker->data[i]);
 		//	}
 		//}
+
 		net_worker->data_idx=0;
 		while(readed!=net_worker->data_idx){
 			net_worker->decoder(net_worker,net_worker->after_decode);
