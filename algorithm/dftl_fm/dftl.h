@@ -31,7 +31,7 @@
 #define DGC_R GCDR
 #define DGC_W GCDW
 
-#define EPP (PAGESIZE / 4) //Number of table entries per page
+#define EPP (PAGESIZE / 4)  // Number of table entries per page
 #define D_IDX (lpa / EPP)   // Idx of directory table
 #define P_IDX (lpa % EPP)   // Idx of page table
 
@@ -48,7 +48,6 @@ typedef struct cached_table{
     int32_t t_ppa;
     int32_t idx;
     D_TABLE *p_table;
-    //value_set *p_table_vs;
     NODE *queue_ptr; // for dirty pages (or general use)
 #if C_CACHE
     NODE *clean_ptr; // for clean pages
@@ -81,10 +80,6 @@ typedef struct read_params{
     int32_t t_ppa;
     uint8_t read;
 } read_params;
-
-typedef struct write_params {
-    uint8_t written;
-} write_params;
 
 typedef struct mem_table{
     D_TABLE *mem_p;
@@ -132,19 +127,16 @@ extern int32_t read_tgc_count;
 extern int32_t tgc_w_dgc_count;
 /* extern variables */
 
-//dftl.c
+// dftl.c
 uint32_t demand_create(lower_info*, algorithm*);
-void demand_destroy(lower_info*, algorithm*);
-void *demand_end_req(algo_req*);
-uint32_t demand_set(request *const);
+void     demand_destroy(lower_info*, algorithm*);
 uint32_t demand_get(request *const);
+uint32_t demand_set(request *const);
 uint32_t demand_remove(request *const);
-uint32_t __demand_set(request *const);
-uint32_t __demand_get(request *const);
-uint32_t __demand_remove(request *const);
-uint32_t demand_eviction(request *const, char, bool*, bool*);
+uint32_t demand_eviction(request *const, char, bool *, bool *);
+void    *demand_end_req(algo_req*);
 
-//dftl_utils.c
+// dftl_utils.c
 algo_req* assign_pseudo_req(TYPE type, value_set *temp_v, request *req);
 D_TABLE* mem_deq(b_queue *q);
 void mem_enq(b_queue *q, D_TABLE *input);
@@ -156,7 +148,7 @@ value_set* SRAM_load(D_SRAM* d_sram, int32_t ppa, int idx, char t);
 void SRAM_unload(D_SRAM* d_sram, int32_t ppa, int idx, char t);
 void cache_show(char* dest);
 
-//garbage_collection.c
+// garbage_collection.c
 int32_t tpage_GC();
 int32_t dpage_GC();
 

@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=bdbm_drv
+TARGET_LOWER=posix_memory
 TARGET_ALGO=dftl_fm
 PPWD=$(pwd)
 
@@ -51,7 +51,7 @@ CFLAGS +=\
 		 -D$(TARGET_LOWER)\
 		 -D$(TARGET_ALGO)\
 		 -D$(TARGET_INF)\
-		 -D_BSD_SOURCE\
+		 -D_DEFAULT_SOURCE\
 -DBENCH\
 -DCDF\
 -O2\
@@ -97,7 +97,7 @@ duma_sim: duma_simulator
 debug_simulator: ./interface/main.c libsimulator_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
 
-simulator: ./interface/B_main.c libsimulator.a
+simulator: ./interface/main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 duma_simulator: ./interface/main.c libsimulator.a
