@@ -45,6 +45,7 @@ uint32_t hash_unmatch_find( level *,KEYT, KEYT,  run_t ***);
 lev_iter* hash_get_iter( level *,KEYT start, KEYT end);
 run_t * hash_iter_nxt( lev_iter*);
 KEYT h_max_table_entry();
+KEYT h_max_flush_entry(uint32_t in);
 
 
 void hash_free_run( run_t*);
@@ -62,7 +63,7 @@ void hash_all_print();
 void hash_body_free(hash_body* );
 
 void hash_range_update(level *,run_t *,KEYT lpa);
-#ifdef MONKEY 
+#ifdef BLOOM
 BF* hash_making_filter(run_t *,float );
 #endif
 

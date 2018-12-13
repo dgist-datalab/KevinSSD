@@ -1,18 +1,18 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=bdbm_drv
-TARGET_ALGO=dftl_fm
+TARGET_LOWER=posix_memory
+TARGET_ALGO=Lsmtree
 PPWD=$(pwd)
 
 COMMONFLAGS=\
 			-DSLC\
+#-O2\
 
 export CFLAGS_ALGO=\
 			 -g\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
-		 -O2\
 #-DDVALUE\
 
 
@@ -21,12 +21,12 @@ export CFLAGS_LOWER=\
 			 -lpthread\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\
--O2\
+#-O2\
 
 export priority="false"
 export ORIGINAL_PATH=$(PPWD)
 
-#CFLAGS_ALGO+=-DCOMPACTIONLOG\
+CFLAGS_ALGO+=-DCOMPACTIONLOG\
 	
 CFLAGS_ALGO+=$(COMMONFLAGS)\
 			 -D$(TARGET_ALGO)\
@@ -54,7 +54,6 @@ CFLAGS +=\
 		 -D_BSD_SOURCE\
 -DBENCH\
 -DCDF\
--O2\
 
 SRCS +=\
 	./interface/queue.c\
@@ -97,7 +96,7 @@ duma_sim: duma_simulator
 debug_simulator: ./interface/main.c libsimulator_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
 
-simulator: ./interface/B_main.c libsimulator.a
+simulator: ./interface/main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 duma_simulator: ./interface/main.c libsimulator.a

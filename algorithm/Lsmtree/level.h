@@ -92,12 +92,13 @@ typedef struct level_ops{
 	lev_iter* (*get_iter)( level*,KEYT from, KEYT to);
 	run_t* (*iter_nxt)( lev_iter*);
 	KEYT (*get_max_table_entry)();
+	KEYT (*get_max_flush_entry)(uint32_t);
 
 	/*compaciton operation*/
 	htable* (*mem_cvt2table)(skiplist *,run_t *);
 	void (*merger)( skiplist*, run_t** src,  run_t** org,  level *des);
 	run_t *(*cutter)( skiplist *,  level* des, KEYT* start, KEYT* end);
-#ifdef MONKEY
+#ifdef BLOOM
 	BF *(*making_filter)(run_t *,float);
 #endif
 

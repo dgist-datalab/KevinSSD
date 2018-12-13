@@ -99,6 +99,7 @@ void bench_lower_r_end(lower_info *);
 void bench_lower_t(lower_info*);
 void bench_reap_data(request *const,lower_info *);
 void bench_reap_nostart(request *const);
+char *bench_lower_type(int);
 #ifdef CDF
 void bench_cdf_print(uint64_t, uint8_t istype, bench_data*);
 #endif

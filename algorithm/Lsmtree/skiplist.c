@@ -331,14 +331,15 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 //static int make_value_cnt=0;
 value_set **skiplist_make_valueset(skiplist *input, level *from){
 	//printf("make_value_cnt:%d\n",++make_value_cnt);
-	value_set **res=(value_set**)malloc(sizeof(value_set*)*(LSM.KEYNUM+1));
-	memset(res,0,sizeof(value_set*)*(LSM.KEYNUM+1));
+	value_set **res=(value_set**)malloc(sizeof(value_set*)*(LSM.FLUSHNUM+1));
+	memset(res,0,sizeof(value_set*)*(LSM.FLUSHNUM+1));
 	l_bucket b;
 	memset(&b,0,sizeof(b));
 
 	snode *target;
 	sk_iter* iter=skiplist_get_iterator(input);
 	int total_size=0;
+	int cnt=0;
 	while((target=skiplist_get_next(iter))){
 		if(target->value==0) continue;
 		b.bucket[target->value->length][b.idx[target->value->length]++]=target;

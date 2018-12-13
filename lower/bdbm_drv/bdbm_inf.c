@@ -57,7 +57,7 @@ void *memio_info_destroy(lower_info *li){
 	measure_init(&li->writeTime);
 	measure_init(&li->readTime);
 	for(int i=0; i<LREQ_TYPE_NUM; i++){
-		printf("%d %d\n",i,li->req_type_cnt[i]);
+		printf("%s %d\n",bench_lower_type(i),li->req_type_cnt[i]);
 	}
 	li->write_op=li->read_op=li->trim_op=0;
 	memio_close(mio);

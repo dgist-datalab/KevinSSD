@@ -18,14 +18,14 @@ level_ops h_ops={
 	.get_iter=hash_get_iter,
 	.iter_nxt=hash_iter_nxt,
 	.get_max_table_entry=h_max_table_entry,
+	.get_max_flush_entry=h_max_flush_entry,
 
 	.mem_cvt2table=hash_mem_cvt2table,
 	.merger=hash_merger,
 	.cutter=hash_cutter,
-#ifdef MONKEY
+#ifdef BLOOM
 	.making_filter=hash_making_filter,
 #endif
-
 	.make_run=hash_make_run,
 	.find_run=hash_find_run,
 	.release_run=hash_free_run,
@@ -48,6 +48,7 @@ level_ops h_ops={
 	.print=hash_print,
 	.all_print=hash_all_print,
 }; 
+uint32_t hash_insert_cnt;
 
 static inline hash *r2h(run_t* a){
 	return (hash*)a->cpt_data->sets;
@@ -130,6 +131,8 @@ static run_t *hash_make_dummy_run(){
 extern bool flag_value;
 static void hash_insert_into(hash_body *b, keyset input, float fpr){
 	run_t *h;
+	hash_insert_cnt++;
+
 	h=b->late_use_node?b->late_use_node:b->temp;
 	if(b->late_use_nxt && b->late_use_node){
 		run_t *h2=b->late_use_nxt;

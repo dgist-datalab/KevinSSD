@@ -332,6 +332,11 @@ KEYT h_max_table_entry(){
 	return CUC_ENT_NUM;
 }
 
+
+KEYT h_max_flush_entry(uint32_t in){
+	return (in-1)*LOADF;
+}
+
 void hash_all_print(){
 	for(int i=0;i<LEVELN;i++) hash_print(LSM.disk[i]);
 }

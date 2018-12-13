@@ -30,7 +30,7 @@ typedef struct snode{ //skiplist's node
 
 #ifdef Lsmtree
 typedef struct length_bucket{
-	snode *bucket[PAGESIZE/PIECE+1][FULLMAPNUM];
+	snode *bucket[PAGESIZE/PIECE+1][1024];
 	uint16_t idx[PAGESIZE/PIECE+1];
 	value_set** contents;
 	int contents_num;

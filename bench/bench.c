@@ -832,3 +832,18 @@ void bench_cache_hit(int mark){
 	monitor *_m=&_master->m[mark];
 	_m->cache_hit++;
 }
+
+
+char *bench_lower_type(int a){
+	switch(a){
+		case 0: return "TRIM";
+		case 1: return "MAPPINGR";
+		case 2: return "MAPPINGW";
+		case 3: return "GCMR";
+		case 4:return "GCMW";
+		case 5:return "DATAR";
+		case 6:return "DATAW";
+		case 7:return"GCDR";
+		case 8:return "GCDW";
+	}
+}
