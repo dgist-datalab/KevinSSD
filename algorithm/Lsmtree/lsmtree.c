@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+extern uint32_t hash_insert_cnt;
 
 struct algorithm algo_lsm={
 	.create=lsm_create,
@@ -80,6 +81,8 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 #else
 	sol=SIZEFACTOR;
 #endif
+
+	printf("LSM KEYNUM:%d\n",LSM.KEYNUM);
 	for(int i=0; i<LEVELN-1; i++){//for lsmtree -1 level
 #ifdef LEVELCACHING
 		if(i<LEVELCACHING) LSM.disk[i]=LSM.lop->init(caching_size,i,target_fpr,false);
@@ -97,7 +100,7 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 #endif
 
 		printf("[%d] fpr:%lf bytes per entry:%lu noe:%d\n",i+1,target_fpr,bf_bits(LSM.KEYNUM,target_fpr), LSM.disk[i]->m_num);
-		sizeofall+=LSM.disk[i]->m_num*8;
+		sizeofall+=LSM.disk[i]->m_num;
 #ifdef LEVELCACHING
 		if(i<LEVELCACHING){
 			LSM.level_addr[i]=(PTR)LSM.disk[i];
@@ -116,11 +119,14 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 	LSM.disk[LEVELN-1]=LSM.lop->init(sol,LEVELN-1,1,false);
 #endif
 	printf("[%d] fpr:1.0000 bytes per entry:%lu noe:%d\n",LEVELN,bf_bits(LSM.KEYNUM,1),LSM.disk[LEVELN-1]->m_num);
-	sizeofall+=LSM.disk[LEVELN-1]->m_num*8;
+	sizeofall+=LSM.disk[LEVELN-1]->m_num;
 	printf("level:%d sizefactor:%d\n",LEVELN,SIZEFACTOR);
-	printf("all level size:%lu(MB), %lf(GB)\n",sizeofall,(double)sizeofall/1024);
+	printf("all level size:%lu(MB), %lf(GB)\n",sizeofall*8*M,(double)sizeofall*8*M/G);
+	printf("all level header size: %lu(MB), except last header: %lu(MB)\n",sizeofall*PAGESIZE/M,(sizeofall-LSM.disk[LEVELN-1]->m_num)*PAGESIZE/M);
+	printf("WRITE WAF:%f\n",(float)SIZEFACTOR * LEVELN /1024);
 	printf("top level size:%d(MB)\n",LSM.disk[0]->m_num*8);
 	printf("blommfileter : %fMB\n",(float)bloomfilter_memory/1024/1024);
+
 #ifdef LEVELCACHING
 	printf("level cache :%fMB\n",(float)lev_caching_mem/M);
 #endif
@@ -175,6 +181,8 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 #ifdef NOCPY
 	nocpy_free();
 #endif
+
+	printf("---------------------------hash_insert_cnt: %u\n",hash_insert_cnt);
 }
 
 extern pthread_mutex_t compaction_wait,gc_wait;
@@ -393,7 +401,7 @@ uint32_t lsm_get(request *const req){
 			break;
 	}
 	if(!temp){
-		LSM.lop->all_print();
+		//LSM.lop->all_print();
 		temp=true;
 	}
 	bench_algo_start(req);
