@@ -7,7 +7,7 @@ PPWD=$(pwd)
 
 COMMONFLAGS=\
 			-DSLC\
--O2\
+#-O2\
 
 export CFLAGS_ALGO=\
 			 -g\

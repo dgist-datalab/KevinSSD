@@ -54,14 +54,15 @@ uint32_t __lsm_get(request *const);
 static int32_t get_sizefactor(uint64_t as){
 	uint32_t _f=LEVELN;
 	int32_t res;
-	/*
+	
 #ifdef LEVELCACHING
 	uint32_t all_memory=(as/1024);
 	caching_size=CACHINGSIZE*(all_memory/(8*K));
-	res=_f?ceil(pow(10,(log10(as/PAGESIZE/LSM.FLUSHNUM)-log10(caching_size))/(_f-1))):as/PAGESIZE/LSM.FLUSHNUM;
-#else*/
+	res=caching_size;
+	//res=_f?ceil(pow(10,((log10(as/PAGESIZE/LSM.FLUSHNUM-caching_size)))/(_f-1))):as/PAGESIZE/LSM.FLUSHNUM;
+#else
 	res=_f?ceil(pow(10,log10(as/PAGESIZE/LSM.FLUSHNUM)/(_f))):as/PAGESIZE/LSM.FLUSHNUM;
-//#endif
+#endif
 	return res;
 }
 uint32_t lsm_create(lower_info *li, algorithm *lsm){
@@ -87,7 +88,7 @@ uint32_t __lsm_create_simulation(lower_info *li, algorithm *lsm){
 	uint64_t sizeofall=0;
 #ifdef LEVELCACHING
 	uint64_t lev_caching_mem=0;
-	sol=SIZEFACTOR*caching_size;
+	sol=SIZEFACTOR;
 #else
 	sol=SIZEFACTOR;
 #endif
@@ -218,7 +219,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	printf("blommfileter : %fMB\n",(float)bloomfilter_memory/1024/1024);
 
 #ifdef LEVELCACHING
-	printf("level cache :%dMB %.2f(%%)\n",lev_caching_mem*PAGESIZE/M,(float)lev_caching_mem/sizeofall);
+	printf("level cache :%dMB %.2f(%%)\n",lev_caching_mem*PAGESIZE/M,(float)lev_caching_mem/sizeofall*100);
 #endif
 
 	pthread_mutex_init(&LSM.templock,NULL);
