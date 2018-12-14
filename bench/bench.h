@@ -12,6 +12,7 @@
 #define TIMESLOT 10 //micro sec
 #endif
 
+#define BENCHSETSIZE (1024+1)
 typedef struct{
 	FSTYPE type;
 	KEYT key;
@@ -49,7 +50,9 @@ typedef struct{
 }bench_data;
 
 typedef struct{
-	bench_value *body;
+	bench_value *body[BENCHSETSIZE];
+	uint32_t bech;
+	uint32_t benchsetsize;
 	volatile uint64_t n_num;//request throw num
 	volatile uint64_t m_num;
 	volatile uint64_t r_num;//request end num

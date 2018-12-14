@@ -56,7 +56,7 @@ static inline hash *r2h(run_t* a){
 
 void hash_overlap(void *value){
 	if(!value)return;
-	printf("%p free\n",value);
+	//printf("%p free\n",value);
 	run_t *temp=(run_t*)value;
 	htable_free(temp->cpt_data);
 	hash_free_run(temp);

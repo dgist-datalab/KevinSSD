@@ -84,7 +84,13 @@ void bench_make_data(){
 	bench_data *_d=&_master->datas[idx];
 	monitor * _m=&_master->m[idx];
 	_m->mark=idx;
-	_m->body=(bench_value*)malloc(sizeof(bench_value)*_meta->number);
+	_m->bech=_meta->number/(BENCHSETSIZE-1)+(_meta->number%(BENCHSETSIZE)?1:0);
+	_m->benchsetsize=(BENCHSETSIZE-1);
+	printf("%d X %d = %d, answer=%d\n",_m->bech,_m->benchsetsize,_m->bech*_m->benchsetsize,_meta->number);
+	for(uint32_t i=0; i<_m->benchsetsize; i++){
+		_m->body[i]=(bench_value*)malloc(sizeof(bench_value)*_m->bech);
+	}
+
 	_m->n_num=0;
 	_m->r_num=0;
 	_m->empty=false;
@@ -160,8 +166,10 @@ bench_value* get_bench(){
         }
 		printf("\rtesting...... [100%%] done!\n");
 		printf("\n");
-
-		free(_m->body);
+		
+		for(int i=0; i<BENCHSETSIZE; i++){
+			free(_m->body[i]);
+		}
 		_master->n_num++;
 		if(_master->n_num==_master->m_num)
 			return NULL;
@@ -185,8 +193,16 @@ bench_value* get_bench(){
     if (_m->n_num == _m->m_num -1) {
         last_ack = true;
     }
-
-	return &_m->body[_m->n_num++];
+	
+	
+	bench_value *res=&_m->body[_m->n_num/_m->bech][_m->n_num%_m->bech];
+	if(_m->n_num%_m->bech==0 && _m->n_num/_m->bech>1){
+	//	printf("%d %p org:%p\n",_m->n_num/_m->bech-1,&_m->body[_m->n_num/_m->bech-1],_m->body);
+		free(_m->body[_m->n_num/_m->bech-1]);
+		_m->body[_m->n_num/_m->bech-1]=NULL;
+	}
+	_m->n_num++;
+	return res;
 }
 extern bool force_write_start;
 bool bench_is_finish_n(volatile int n){
@@ -438,6 +454,9 @@ void bench_reap_nostart(request *const req){
 }
 
 void bench_reap_data(request *const req,lower_info *li){
+	//for cdf
+	measure_calc(&req->latency_checker);
+
 	pthread_mutex_lock(&bench_lock);
 	if(!req){ 
 		pthread_mutex_unlock(&bench_lock);
@@ -455,7 +474,6 @@ void bench_reap_data(request *const req,lower_info *li){
 		_master->error_cnt++;
 	}
 #ifdef CDF
-	measure_calc(&req->latency_checker);
 	int slot_num=req->latency_checker.micro_time/TIMESLOT;
 	if(req->type==FS_GET_T){
 		if(slot_num>=1000000/TIMESLOT){
@@ -563,10 +581,10 @@ KEYT keygenerator_type(uint32_t range,int type){
 void seqget(KEYT start, KEYT end,monitor *m){
 	printf("making seq Get bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
-		m->body[i].key=start+(i%(end-start));
-		m->body[i].length=PAGESIZE;
-		m->body[i].type=FS_GET_T;
-		m->body[i].mark=m->mark;
+		m->body[i/m->bech][i%m->bech].key=start+(i%(end-start));
+		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
+		m->body[i/m->bech][i%m->bech].type=FS_GET_T;
+		m->body[i/m->bech][i%m->bech].mark=m->mark;
 		m->read_cnt++;
 	}
 }
@@ -574,15 +592,15 @@ void seqget(KEYT start, KEYT end,monitor *m){
 void seqset(KEYT start, KEYT end,monitor *m){
 	printf("making seq Set bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
-		m->body[i].key=start+(i%(end-start));
-		bitmap_set(m->body[i].key);
+		m->body[i/m->bech][i%m->bech].key=start+(i%(end-start));
+		bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #ifdef DVALUE
-		m->body[i].length=(rand()%16+1)*512;
+		m->body[i/m->bech][i%m->bech].length=(rand()%16+1)*512;
 #else
-		m->body[i].length=PAGESIZE;
+		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
-		m->body[i].type=FS_SET_T;
-		m->body[i].mark=m->mark;
+		m->body[i/m->bech][i%m->bech].type=FS_SET_T;
+		m->body[i/m->bech][i%m->bech].mark=m->mark;
 		m->write_cnt++;
 	}
 }
@@ -591,20 +609,20 @@ void seqrw(KEYT start, KEYT end, monitor *m){
 	printf("making seq Set and Get bench!\n");
 	KEYT i=0;
 	for(i=0; i<m->m_num/2; i++){
-		m->body[i].key=start+(i%(end-start));
-		m->body[i].type=FS_SET_T;
-		bitmap_set(m->body[i].key);
+		m->body[i/m->bech][i%m->bech].key=start+(i%(end-start));
+		m->body[i/m->bech][i%m->bech].type=FS_SET_T;
+		bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #ifdef DVALUE
-		m->body[i].length=(rand()%16+1)*512;
+		m->body[i/m->bech][i%m->bech].length=(rand()%16+1)*512;
 #else	
-		m->body[i].length=PAGESIZE;
+		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
-		m->body[i].mark=m->mark;
+		m->body[i/m->bech][i%m->bech].mark=m->mark;
 		m->write_cnt++;
-		m->body[i+m->m_num/2].key=start+(i%(end-start));
-		m->body[i+m->m_num/2].type=FS_GET_T;
-		m->body[i+m->m_num/2].length=PAGESIZE;
-		m->body[i+m->m_num/2].mark=m->mark;
+		m->body[(i+m->m_num/2)/m->bech][(i+m->m_num/2)%m->bech].key=start+(i%(end-start));
+		m->body[(i+m->m_num/2)/m->bech][(i+m->m_num/2)%m->bech].type=FS_GET_T;
+		m->body[(i+m->m_num/2)/m->bech][(i+m->m_num/2)%m->bech].length=PAGESIZE;
+		m->body[(i+m->m_num/2)/m->bech][(i+m->m_num/2)%m->bech].mark=m->mark;
 		m->read_cnt++;
 	}
 }
@@ -612,10 +630,10 @@ void seqrw(KEYT start, KEYT end, monitor *m){
 void randget(KEYT start, KEYT end,monitor *m){
 	printf("making rand Get bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
-		m->body[i].key=start+rand()%(end-start);
-		m->body[i].type=FS_GET_T;
-		m->body[i].length=PAGESIZE;
-		m->body[i].mark=m->mark;
+		m->body[i/m->bech][i%m->bech].key=start+rand()%(end-start);
+		m->body[i/m->bech][i%m->bech].type=FS_GET_T;
+		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
+		m->body[i/m->bech][i%m->bech].mark=m->mark;
 		m->read_cnt++;
 	}
 }
@@ -624,19 +642,19 @@ void randset(KEYT start, KEYT end, monitor *m){
 	printf("making rand Set bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
 #ifdef KEYGEn
-		m->body[i].key=keygenerator(end);
+		m->body[i/m->bech][i%m->bech].key=keygenerator(end);
 #else
-		m->body[i].key=start+rand()%(end-start);
+		m->body[i/m->bech][i%m->bech].key=start+rand()%(end-start);
 #endif
-		bitmap_set(m->body[i].key);
+		bitmap_set(m->body[i/m->bech][i%m->bech].key);
 
 #ifdef DVALUE
-		m->body[i].length=(rand()%16+1)*512;
+		m->body[i/m->bech][i%m->bech].length=(rand()%16+1)*512;
 #else	
-		m->body[i].length=PAGESIZE;
+		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
-		m->body[i].mark=m->mark;
-		m->body[i].type=FS_SET_T;
+		m->body[i/m->bech][i%m->bech].mark=m->mark;
+		m->body[i/m->bech][i%m->bech].type=FS_SET_T;
 		m->write_cnt++;
 	}
 }
@@ -645,52 +663,53 @@ void randrw(KEYT start, KEYT end, monitor *m){
 	printf("making rand Set and Get bench!\n");
 	for(KEYT i=0; i<m->m_num/2; i++){
 #ifdef KEYGEN
-		m->body[i].key=keygenerator(end);
+		m->body[i/m->bech][i%m->bech].key=keygenerator(end);
 #else
-		m->body[i].key=start+rand()%(end-start);
+		m->body[i/m->bech][i%m->bech].key=start+rand()%(end-start);
 #endif
-		bitmap_set(m->body[i].key);
-		m->body[i].type=FS_SET_T;
+		bitmap_set(m->body[i/m->bech][i%m->bech].key);
+		m->body[i/m->bech][i%m->bech].type=FS_SET_T;
 #ifdef DVALUE
-		m->body[i].length=(rand()%16+1)*512;
+		m->body[i/m->bech][i%m->bech].length=(rand()%16+1)*512;
 #else	
-		m->body[i].length=PAGESIZE;
+		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
-		m->body[i].mark=m->mark;
+		m->body[i/m->bech][i%m->bech].mark=m->mark;
 		m->write_cnt++;
-		m->body[m->m_num/2+i].key=m->body[i].key;
-		m->body[m->m_num/2+i].type=FS_GET_T;
-		m->body[m->m_num/2+i].length=PAGESIZE;
-		m->body[m->m_num/2+i].mark=m->mark;
+		m->body[(i+m->m_num/2)/m->bech][(i+m->m_num/2)%m->bech].key=m->body[i/m->bech][i%m->bech].key;
+		m->body[(i+m->m_num/2)/m->bech][(i+m->m_num/2)%m->bech].type=FS_GET_T;
+		m->body[(i+m->m_num/2)/m->bech][(i+m->m_num/2)%m->bech].length=PAGESIZE;
+		m->body[(i+m->m_num/2)/m->bech][(i+m->m_num/2)%m->bech].mark=m->mark;
 		m->read_cnt++;
 	}
+	printf("last set:%d\n",(m->m_num-1)/m->bech);
 }
 
 void mixed(KEYT start, KEYT end,int percentage, monitor *m){
 	printf("making mixed bench!\n");
 	for(KEYT i=0; i<m->m_num; i++){
 #ifdef KEYGEN
-		m->body[i].key=keygenerator(end);
+		m->body[i/m->bech][i%m->bech].key=keygenerator(end);
 #else
-		m->body[i].key=start+rand()%(end-start);
+		m->body[i/m->bech][i%m->bech].key=start+rand()%(end-start);
 #endif
 
 		if(rand()%100<percentage){
-			m->body[i].type=FS_SET_T;
-			bitmap_set(m->body[i].key);
+			m->body[i/m->bech][i%m->bech].type=FS_SET_T;
+			bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #ifdef DVALUE
-			m->body[i].length=(rand()%16+1)*512;
+			m->body[i/m->bech][i%m->bech].length=(rand()%16+1)*512;
 #else
-			m->body[i].length=PAGESIZE;
+			m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
 			m->write_cnt++;
 		}
 		else{
-			m->body[i].type=FS_GET_T;
-			m->body[i].length=PAGESIZE;
+			m->body[i/m->bech][i%m->bech].type=FS_GET_T;
+			m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 			m->read_cnt++;
 		}
-		m->body[i].mark=m->mark;
+		m->body[i/m->bech][i%m->bech].mark=m->mark;
 	}
 }
 
@@ -698,47 +717,47 @@ void seq_latency(KEYT start, KEYT end,int percentage, monitor *m){
 	printf("making latency bench!\n");
 	//seqset process
 	for(KEYT i=0; i<m->m_num/2; i++){
-		m->body[i].key=start+(i%(end-start));
-		bitmap_set(m->body[i].key);
+		m->body[i/m->bech][i%m->bech].key=start+(i%(end-start));
+		bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #ifdef DVALUE
-		m->body[i].length=(rand()%16+1)*512;
+		m->body[i/m->bech][i%m->bech].length=(rand()%16+1)*512;
 #else
-		m->body[i].length=PAGESIZE;
+		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
-		m->body[i].type=FS_SET_T;
-		m->body[i].mark=m->mark;
+		m->body[i/m->bech][i%m->bech].type=FS_SET_T;
+		m->body[i/m->bech][i%m->bech].mark=m->mark;
 		m->write_cnt++;
 	}
 
 	for(KEYT i=m->m_num/2; i<m->m_num; i++){
 #ifdef KEYGEN
-		m->body[i].key=keygenerator(end);
+		m->body[i/m->bech][i%m->bech].key=keygenerator(end);
 #else
-		m->body[i].key=start+rand()%(end-start);
+		m->body[i/m->bech][i%m->bech].key=start+rand()%(end-start);
 #endif
 		if(rand()%100<percentage){
-			m->body[i].type=FS_SET_T;
-			bitmap_set(m->body[i].key);
+			m->body[i/m->bech][i%m->bech].type=FS_SET_T;
+			bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #ifdef DVALUE
-			m->body[i].length=(rand()%16+1)*512;
+			m->body[i/m->bech][i%m->bech].length=(rand()%16+1)*512;
 #else
-			m->body[i].length=PAGESIZE;
+			m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
 			m->write_cnt++;
 		}
 		else{
-			while(!bitmap_get(m->body[i].key)){
+			while(!bitmap_get(m->body[i/m->bech][i%m->bech].key)){
 #ifdef KEYGEN
-				m->body[i].key=keygenerator(end);
+				m->body[i/m->bech][i%m->bech].key=keygenerator(end);
 #else
-				m->body[i].key=start+rand()%(end-start);
+				m->body[i/m->bech][i%m->bech].key=start+rand()%(end-start);
 #endif
 			}
-			m->body[i].type=FS_GET_T;
-			m->body[i].length=PAGESIZE;
+			m->body[i/m->bech][i%m->bech].type=FS_GET_T;
+			m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 			m->read_cnt++;
 		}
-		m->body[i].mark=m->mark;
+		m->body[i/m->bech][i%m->bech].mark=m->mark;
 	}
 }
 
@@ -747,52 +766,52 @@ void rand_latency(KEYT start, KEYT end,int percentage, monitor *m){
 	printf("making latency bench!\n");
 	//seqset process
 	for(KEYT i=0; i<0; i++){
-		m->body[i].key=start+rand()%(end-start);
-		bitmap_set(m->body[i].key);
+		m->body[i/m->bech][i%m->bech].key=start+rand()%(end-start);
+		bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #ifdef DVALUE
-		m->body[i].length=(rand()%16+1)*512;
+		m->body[i/m->bech][i%m->bech].length=(rand()%16+1)*512;
 #else
-		m->body[i].length=PAGESIZE;
+		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
-		m->body[i].type=FS_SET_T;
-		m->body[i].mark=m->mark;
+		m->body[i/m->bech][i%m->bech].type=FS_SET_T;
+		m->body[i/m->bech][i%m->bech].mark=m->mark;
 		m->write_cnt++;
 	}
 
 	for(KEYT i=0; i<m->m_num; i++){
 		if(rand()%100<percentage){
 #ifdef KEYGEN
-			m->body[i].key=keygenerator_type(end,FS_SET_T);
+			m->body[i/m->bech][i%m->bech].key=keygenerator_type(end,FS_SET_T);
 #else
-			m->body[i].key=start+rand()%(end-start);
+			m->body[i/m->bech][i%m->bech].key=start+rand()%(end-start);
 #endif
-			m->body[i].type=FS_SET_T;
-			bitmap_set(m->body[i].key);
+			m->body[i/m->bech][i%m->bech].type=FS_SET_T;
+			bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #ifdef DVALUE
-			m->body[i].length=(rand()%16+1)*512;
+			m->body[i/m->bech][i%m->bech].length=(rand()%16+1)*512;
 #else
-			m->body[i].length=PAGESIZE;
+			m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
 			m->write_cnt++;
 		}
 		else{
 #ifdef KEYGEN
-			m->body[i].key=keygenerator_type(end,FS_GET_T);
+			m->body[i/m->bech][i%m->bech].key=keygenerator_type(end,FS_GET_T);
 #else
-			m->body[i].key=start+rand()%(end-start);
+			m->body[i/m->bech][i%m->bech].key=start+rand()%(end-start);
 #endif
-			while(!bitmap_get(m->body[i].key)){
+			while(!bitmap_get(m->body[i/m->bech][i%m->bech].key)){
 #ifdef KEYGEN
-				m->body[i].key=keygenerator_type(end,FS_GET_T);
+				m->body[i/m->bech][i%m->bech].key=keygenerator_type(end,FS_GET_T);
 #else
-				m->body[i].key=start+rand()%(end-start);
+				m->body[i/m->bech][i%m->bech].key=start+rand()%(end-start);
 #endif
 			}
-			m->body[i].type=FS_GET_T;
-			m->body[i].length=PAGESIZE;
+			m->body[i/m->bech][i%m->bech].type=FS_GET_T;
+			m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 			m->read_cnt++;
 		}
-		m->body[i].mark=m->mark;
+		m->body[i/m->bech][i%m->bech].mark=m->mark;
 	}
 }
 

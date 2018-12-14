@@ -7,7 +7,7 @@ PPWD=$(pwd)
 
 COMMONFLAGS=\
 			-DSLC\
-#-O2\
+-O2\
 
 export CFLAGS_ALGO=\
 			 -g\
@@ -26,7 +26,7 @@ export CFLAGS_LOWER=\
 export priority="false"
 export ORIGINAL_PATH=$(PPWD)
 
-CFLAGS_ALGO+=-DCOMPACTIONLOG\
+#CFLAGS_ALGO+=-DCOMPACTIONLOG\
 	
 CFLAGS_ALGO+=$(COMMONFLAGS)\
 			 -D$(TARGET_ALGO)\
