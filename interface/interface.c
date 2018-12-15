@@ -417,6 +417,11 @@ bool inf_make_req_special(const FSTYPE type, const KEYT key, value_set* value, K
 	}
 	request *req=inf_get_req_instance(type,key,value,0,false);
 	req->special_func=special;
+	static int cnt=0;
+	/*
+	if(flying->now==1){
+		printf("[%d]will be sleep! type:%d\n",cnt++,type);
+	}*/
 	cl_grap(flying);
 
 	//set sequential

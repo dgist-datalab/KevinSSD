@@ -569,7 +569,7 @@ static uint32_t __demand_get(request *const req){
     bench_algo_start(req);
     lpa = req->key;
     if(lpa > RANGE + 1){ // range check
-        printf("range error\n");
+        printf("range error %d\n",lpa);
         exit(3);
     }
 
@@ -660,7 +660,7 @@ static uint32_t __demand_set(request *const req){
 
     lpa = req->key;
     if(lpa > RANGE + 1){ // range check
-        printf("range error\n");
+        printf("range error %d\n",lpa);
         exit(3);
     }
 
@@ -773,7 +773,7 @@ static uint32_t __demand_remove(request *const req) {
     // Range check
     lpa = req->key;
     if (lpa > RANGE + 1) {
-        printf("range error\n");
+        printf("range error %d\n",lpa);
         exit(3);
     }
 

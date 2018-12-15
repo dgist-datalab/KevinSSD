@@ -201,7 +201,7 @@ int main(int argc,char* argv[]){
 	MeasureTime tt,tt2;
 	MS(&tt);
 	int write_cnt=0, read_cnt=0;
-	while(stop_cnt<6640768){
+	while(stop_cnt<2001954){
 		stop_cnt++;
 		scanf("%ld%d%ld%ld\n",&d,&a,&b,&c);
 		for(uint64_t i=0; i<c; i++){

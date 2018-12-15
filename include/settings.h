@@ -24,7 +24,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 64L
+#define GIGAUNIT 200L
 #define TOTALSIZE ((GIGAUNIT)*G)
 #define REALSIZE (512L*G)
 #define PAGESIZE (8*K)
@@ -40,7 +40,7 @@
 #define _NOB (BPS*_NOS)
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
 
-#define RANGE (64L*(M/PAGESIZE)*1024L*(0.80))
+#define RANGE (200L*(M/PAGESIZE)*1024L*(0.8))
 
 #define SIMULATION 0
 
@@ -60,7 +60,7 @@
 //#define IP "127.0.0.1"
 //#define IP "10.42.0.1"
 #define PORT 9999
-#define NETWORKSET
+//#define NETWORKSET
 
 #define KEYGEN
 #define SPINSYNC
