@@ -5,9 +5,6 @@
 #include <limits.h>
 #include<signal.h>
 #include <fcntl.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include "../include/lsm_settings.h"
 #include "../include/FS.h"
 #include "../include/settings.h"
@@ -17,13 +14,13 @@
 #include "interface.h"
 #include "queue.h"
 
-//#include "../include/kuk_socket_lib/kuk_sock.h"
+#include "../include/kuk_socket_lib/kuk_sock.h"
 #ifdef Lsmtree
 int skiplist_hit;
 #endif
-//kuk_sock *net_worker;
+kuk_sock *net_worker;
 //#define IP "127.0.0.1"
-#define MAX_RET 128
+#define MAX_RET 1024
 #define REQSIZE sizeof(net_data_t)
 #define PACKETSIZE sizeof(net_data_t)
 queue *ret_q;
@@ -112,7 +109,7 @@ int main(void){
 	sa.sa_handler = log_print;
 	sigaction(SIGINT, &sa, NULL);
 
-	q_init(&ret_q,2*MAX_RET);
+	q_init(&ret_q,8192*128);
 
 	inf_init();
 	pthread_t t_id;
@@ -163,7 +160,7 @@ int main(void){
 	flag = fcntl( client_socket, F_GETFL, 0 );
 	fcntl( client_socket, F_SETFL, flag | O_NONBLOCK );
 
-	net_data_t temp[512];
+	net_data_t temp[1024];
 	int readed=0,len;
 	while(1){
 		memset(temp,0,sizeof(temp));

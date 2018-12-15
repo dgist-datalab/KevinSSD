@@ -43,7 +43,9 @@ void *flash_returner(void *param){
 				printf("send_cnt:%d - len:%d\n",global_value++,*(int*)req);
 				printf("len avg :%.2f\n", (float)len_sum/len_cnt);
 			}
+#ifdef NETWORKSET
 			kuk_send(net_worker,(char*)req,sizeof(uint32_t));
+#endif
 			pthread_mutex_unlock(&send_lock);
 		}
 		free(req);
@@ -195,16 +197,28 @@ int main(int argc,char* argv[]){
 	temp.dmatag=-1;
 	temp.length=PAGESIZE;
 	int cnt=0;
-	while(1){
-		scanf("%d%ld%ld%ld\n",&a,&b,&c,&d);
+	int stop_cnt=0;
+	MeasureTime tt,tt2;
+	MS(&tt);
+	int write_cnt=0, read_cnt=0;
+	while(stop_cnt<6640768){
+		stop_cnt++;
+		scanf("%ld%d%ld%ld\n",&d,&a,&b,&c);
 		for(uint64_t i=0; i<c; i++){
 			cnt++;
-			if(cnt%10240==0){
-				printf("cnt:%d\n",cnt);
+			if(cnt%(128*1024)==0){
+				struct timeval res=measure_res(&tt);
+				float sec=(float)(res.tv_sec*1000000+res.tv_usec)/1000000;
+				printf("cnt:%d write_cnt:%d read_cnt:%d %.2f(MB)\n",cnt,write_cnt,read_cnt,(float)128*1024*8*K/sec/1024/1024);
+				write_cnt=read_cnt=0;
+				MS(&tt);
 			}
+			if(a==1) write_cnt++;
+			else read_cnt++;
 			inf_make_req(a,b+i,&temp,0);
 		}
 	}
+	MT(&tt);
 #endif
 
 /*
@@ -224,8 +238,12 @@ int main(int argc,char* argv[]){
 		}	
 	}
 */
+#ifdef NETWORKSET
 	kuk_sock_destroy(net_worker);
-
+#endif
 	inf_free();
+
+
+	MT(&tt);
 	return 0;
 }
