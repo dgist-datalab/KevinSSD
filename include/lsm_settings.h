@@ -16,10 +16,9 @@
 #define PIECE 512
 //#define LEVELUSINGHEAP
 //#define TIERING
-#define CACHE
 
 #define LEVELCACHING 0
-#define CACHINGSIZE 0.12f
+#define CACHINGSIZE 0.02f
 //#define LEVELEMUL 
 //#define MERGECOMPACTION 4
 //#define NOCPY
@@ -46,7 +45,6 @@
 #define DATASEG (_NOS-(HEADERSEG+1)-1)
 
 
-//#define FLASHCHECK
 
 //#define SNU_TEST
 #define SPINLOCK

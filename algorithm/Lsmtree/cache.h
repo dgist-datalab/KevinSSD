@@ -1,4 +1,3 @@
-#ifdef CACHE
 #ifndef __CACHE_H__
 #define __CACHE_H__
 #include"skiplist.h"
@@ -27,5 +26,4 @@ bool cache_delete_entry_only(cache *c, struct run *ent);
 void cache_update(cache *, struct run *);
 void cache_free(cache *);
 void cache_print(cache *);
-#endif
 #endif

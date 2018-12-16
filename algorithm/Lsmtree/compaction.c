@@ -17,9 +17,8 @@
 #ifdef DEBUG
 #endif
 
-#ifdef CACHE
 volatile int memcpy_cnt;
-#endif
+
 extern lsmtree LSM;
 extern block bl[_NOB];
 extern volatile int comp_target_get_cnt;
@@ -51,27 +50,17 @@ static void compaction_selector(level *a, level *b, run_t *r, pthread_mutex_t* l
 }
 
 void compaction_sub_wait(){
-#ifdef CACHE
-	#ifdef MUTEXLOCK
-		if(epc_check==comp_target_get_cnt+memcpy_cnt)
-			pthread_mutex_unlock(&compaction_wait);
-	#elif defined (SPINLOCK)
-		while(comp_target_get_cnt+memcpy_cnt!=epc_check){}
-	#endif
-#else
-
-	#ifdef MUTEXLOCK
-		pthread_mutex_lock(&compaction_wait);
-	#elif defined (SPINLOCK)
-		while(comp_target_get_cnt!=epc_check){}
-	#endif
+#ifdef MUTEXLOCK
+	if(epc_check==comp_target_get_cnt+memcpy_cnt)
+		pthread_mutex_unlock(&compaction_wait);
+#elif defined (SPINLOCK)
+	while(comp_target_get_cnt+memcpy_cnt!=epc_check){}
 #endif
+
 
 	//printf("%u:%u\n",comp_target_get_cnt,epc_check);
 
-#ifdef CACHE
 	memcpy_cnt=0;
-#endif
 	comp_target_get_cnt=0;
 	epc_check=0;
 }
@@ -438,13 +427,6 @@ run_t* compaction_postprocessing(run_t *target){
 	table=htable_assign((char*)target->cpt_data->sets,true);
 #endif
 
-#ifdef CACHE
-	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-	target->cache_data=htable_copy(table); 
-	cache_entry *c_entry=cache_insert(LSM.lsm_cache,target,0);
-	target->c_entry=c_entry;
-	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-#endif
 	target->pbn=compaction_htable_write(table,target->key);
 	return target;
 }
@@ -525,10 +507,6 @@ skiplist *leveling_preprocessing(level * from, level* to){
 	if(from==NULL){
 		return LSM.temptable;
 	}
-	/*
-	if(from && from->idx <LEVELCACHING){
-		res=skiplist_copy(from->level_cache);
-	}*/
 	else{
 		res=NULL;
 	}
@@ -583,12 +561,11 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 		pthread_mutex_lock(&LSM.templock);
 		LSM.temptable=NULL;
 		pthread_mutex_unlock(&LSM.templock);
-		//llog_print(LSM.disk[0]->h);
 		if(!LSM.lop->chk_overlap(target_origin,body->start,body->end)){
 			compaction_heap_setting(target,target_origin);
 #ifdef COMPACTIONLOG
 			sprintf(log,"seq - (-1) to %d",to->idx);
-			//DEBUG_LOG(log);
+			DEBUG_LOG(log);
 #endif
 			skiplist_free(body);
 			bool target_processed=false;
@@ -597,27 +574,15 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 				compaction_lev_seq_processing(target_origin,target,target_origin->n_num);
 			}
 			pthread_mutex_lock(&LSM.entrylock);
-#ifdef CACHE
-			//cache must be inserted befor level insert
-			
-			htable *temp_table=htable_copy(entry->cpt_data);
-			entry->pbn=compaction_htable_write(entry->cpt_data,entry->key);//write table & free allocated htable by inf_get_valueset
-			entry->cpt_data=temp_table;
-			
-			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-			cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
-			entry->c_entry=c_entry;
-			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-#else
+
 			entry->pbn=compaction_htable_write(entry->cpt_data,entry->key);//write table
 			entry->cpt_data=NULL;
-#endif	
 
 			LSM.tempent=NULL;
 			pthread_mutex_unlock(&LSM.entrylock);
 			LSM.lop->insert(target,entry);
-
 			LSM.lop->release_run(entry);
+
 			if(!target_processed){
 				compaction_lev_seq_processing(target_origin,target,target_origin->n_num);
 			}
@@ -625,7 +590,7 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 		else{
 #ifdef COMPACTIONLOG
 			sprintf(log,"rand - (-1) to %d",to->idx);
-			//DEBUG_LOG(log);
+			DEBUG_LOG(log);
 #endif	
 			partial_leveling(target,target_origin,body,NULL);
 			skiplist_free(body);// free at compaction_subprocessing;
@@ -709,7 +674,6 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 
 	compaction_sub_pre();
 	for(int j=0; target_s[j]!=NULL; j++){
-#ifdef CACHE
 		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 		if(target_s[j]->c_entry){
 			target_s[j]->cpt_data=htable_copy(target_s[j]->cach_data);
@@ -718,12 +682,9 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 		}
 		else{
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-#endif
 			target_s[j]->cpt_data=htable_assign(NULL,false);
 			compaction_htable_read(target_s[j],(PTR*)&target_s[j]->cpt_data);
-#ifdef CACHE
 		}
-#endif
 		epc_check++;
 	}
 
@@ -779,12 +740,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 
 	compaction_sub_pre();
 	if(!upper){
-
-		//printf("partial_leveling:%d\n",cnt++);
-		//start=start<origin->start?origin->start:start;
-		//end=origin->end;
-
-		//printf("start:%u end:%u => l_star:%u l_end:%u\n",start,end,origin->start,origin->end);
 		test_b=LSM.lop->range_find(origin,start,end,&target_s);
 		if(!(test_a | test_b)){
 			DEBUG_LOG("can't be");
@@ -792,7 +747,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 		upper_table=0;
 
 		for(int j=0; target_s[j]!=NULL; j++){
-#ifdef CACHE
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(target_s[j]->c_entry){
 				memcpy_cnt++;
@@ -801,12 +755,9 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 			}
 			else{
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-#endif
 				target_s[j]->cpt_data=htable_assign(NULL,false);
 				compaction_htable_read(target_s[j],(PTR*)&target_s[j]->cpt_data);
-#ifdef CACHE
 			}
-#endif
 			if(!target_s[j]->iscompactioning){
 				target_s[j]->iscompactioning=true;
 			}
@@ -837,7 +788,6 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 		for(int i=0; data[i]!=NULL; i++){
 			run_t *temp=data[i];
 			temp->iscompactioning=true;
-#ifdef CACHE
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(temp->c_entry){
 				temp->cpt_data=htable_copy(temp->cache_data);
@@ -846,12 +796,9 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 			}
 			else{
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-#endif
 				temp->cpt_data=htable_assign(NULL,false);
 				compaction_htable_read(temp,(PTR*)&temp->cpt_data);
-#ifdef CACHE
 			}
-#endif
 			epc_check++;
 		}
 #ifdef LEVELCACHING
@@ -865,7 +812,6 @@ skip:
 				continue;
 			}
 			if(!temp->iscompactioning) temp->iscompactioning=true;
-#ifdef CACHE
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(temp->c_entry){
 				temp->cpt_data=htable_copy(temp->cache_data);
@@ -874,12 +820,9 @@ skip:
 			}
 			else{
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-#endif
 				temp->cpt_data=htable_assign(NULL,false);
 				compaction_htable_read(temp,(PTR*)&temp->cpt_data);
-#ifdef CACHE
 			}
-#endif
 			epc_check++;
 		}
 

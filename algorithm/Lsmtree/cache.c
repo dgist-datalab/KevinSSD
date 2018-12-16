@@ -4,6 +4,7 @@
 #include<stdlib.h>
 #include<string.h>
 #include<stdio.h>
+int32_t update,delete_,insert;
 cache *cache_init(uint32_t noe){
 	cache *c=(cache*)malloc(sizeof(cache));
 	c->m_size=noe;
@@ -15,9 +16,11 @@ cache *cache_init(uint32_t noe){
 }
 
 cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
+	if(!c->m_size) return NULL;
 	if(c->m_size==c->n_size){
 		cache_delete(c,cache_get(c));
 	}
+	insert++;
 	cache_entry *c_ent=(cache_entry*)malloc(sizeof(cache_entry));
 
 	c_ent->entry=ent;
@@ -38,17 +41,17 @@ cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
 	c->n_size++;
 	return c_ent;
 }
-int delete_cnt_check;
 bool cache_delete(cache *c, run_t * ent){
+	delete_++;
 	if(c->n_size==0){
 		return false;
 	}
 	cache_entry *c_ent=ent->c_entry;
-	if(ent->header){
-		free(ent->header->sets);
-		free(ent->header);
+	if(ent->cache_data){
+		free(ent->cache_data->sets);
+		free(ent->cache_data);
 	}
-	ent->header=NULL;
+	ent->cache_data=NULL;
 	c->n_size--;
 	free(c_ent);
 	ent->c_entry=NULL;
@@ -88,7 +91,9 @@ bool cache_delete_entry_only(cache *c, run_t *ent){
 	ent->c_entry=NULL;
 	return true;
 }
+
 void cache_update(cache *c, run_t* ent){
+	update++;
 	cache_entry *c_ent=ent->c_entry;
 	if(c->top==c_ent){ 
 		return;
@@ -125,19 +130,22 @@ run_t* cache_get(cache *c){
 		up->down=NULL;
 		c->bottom=up;
 	}
-	if(!res->entry->c_entry){
+	if(!res->entry->c_entry || res->entry->c_entry!=res){
+		cache_print(c);
 		printf("hello\n");
 	}
 	return res->entry;
 }
 void cache_free(cache *c){
 	run_t *tmp_ent;
+	printf("cache size:%d\n",c->n_size);
 	while((tmp_ent=cache_get(c))){
 		free(tmp_ent->c_entry);
 		tmp_ent->c_entry=NULL;
 		c->n_size--;
 	}
 	free(c);
+	printf("insert:%u delete:%d update:%u\n",insert,delete_,update);
 }
 int print_number;
 void cache_print(cache *c){
@@ -149,7 +157,7 @@ void cache_print(cache *c){
 		if(start->entry->c_entry!=start){
 			printf("fuck!!!\n");
 		}
-		printf("[%d]c->entry->key:%d c->entry->pbn:%d d:%p\n",print_number++,tent->key,tent->pbn,tent->header);
+		printf("[%d]c->entry->key:%d c->entry->pbn:%d d:%p\n",print_number++,tent->key,tent->pbn,tent->cache_data);
 		start=start->down;
 	}
 }

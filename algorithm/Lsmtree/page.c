@@ -969,13 +969,13 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 #else
 		for(int j=0; entries[j]!=NULL;j++){
 			datas[htable_idx]=(htable_t*)malloc(sizeof(htable_t));
-#ifdef CACHE
+
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(entries[j]->c_entry){
-				memcpy(datas[htable_idx]->sets,entries[j]->header->sets,PAGESIZE);
+				memcpy(datas[htable_idx]->sets,entries[j]->cache_data->sets,PAGESIZE);
 			}
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-#endif
+
 			gc_data_read(entries[j]->pbn,datas[htable_idx],false);
 			htable_idx++;
 		}
@@ -993,16 +993,16 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 				keyset *finded=LSM.lop->find_keyset((char*)data->sets,target->lpa);
 
 				if(finded && finded->ppa==target->ppa){
-#ifdef CACHE
+
 					pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 					if(entries[j]->c_entry){
-						keyset *c_finded=LSM.lop->find_keyset((char*)entries[j]->header->sets,target->lpa);
+						keyset *c_finded=LSM.lop->find_keyset((char*)entries[j]->cache_data->sets,target->lpa);
 						if(c_finded){
 							c_finded->ppa=target->nppa;
 						}
 					}
 					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-#endif
+
 					finded->ppa=target->nppa;
 					free(target);
 					gn[k]=NULL;
@@ -1337,15 +1337,15 @@ int gc_header(KEYT tbn){
 					}
 					tables[i]=(htable_t*)malloc(sizeof(htable_t));
 					target_ent[i]=entries[k];
-#ifdef CACHE
+
 					pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 					if(entries[k]->c_entry){
-						memcpy(tables[i]->sets,entries[k]->header->sets,PAGESIZE);
+						memcpy(tables[i]->sets,entries[k]->cache_data->sets,PAGESIZE);
 						pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 						continue;
 					}
 					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-#endif
+
 					gc_data_read(t_ppa,tables[i],false);
 					break;
 				}
@@ -1363,15 +1363,15 @@ int gc_header(KEYT tbn){
 						checkdone=true;
 						tables[i]=(htable_t*)malloc(sizeof(htable_t));
 						target_ent[i]=entries[k];
-#ifdef CACHE
+
 						pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 						if(entries[k]->c_entry){
-							memcpy(tables[i]->sets,entries[k]->header->sets,PAGESIZE);
+							memcpy(tables[i]->sets,entries[k]->cache_data->sets,PAGESIZE);
 							pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 							break;
 						}
 						pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-#endif
+
 						gc_data_read(t_ppa,tables[i],false);
 					}
 				}

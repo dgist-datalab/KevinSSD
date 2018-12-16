@@ -135,6 +135,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 #ifdef LEVELCACHING
 	printf("| all caching %.2f(%%) - %lu page\n",(float)caching_size/(TOTALSIZE/PAGESIZE/K)*100,caching_size);	
 	printf("| level cache :%luMB(%lu page)%.2f(%%)\n",lev_caching_entry*PAGESIZE/M,lev_caching_entry,(float)lev_caching_entry/(TOTALSIZE/PAGESIZE/K)*100);
+
 	printf("| entry cache :%uMB(%u page)%.2f(%%)\n",cached_entry*PAGESIZE/M,cached_entry,(float)cached_entry/(TOTALSIZE/PAGESIZE/K)*100);
 #endif
 	printf("| -------- algorithm_log END\n\n");
@@ -172,9 +173,8 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 #ifdef DVALUE
 	factory_free();
 #endif
-#ifdef CACHE
+
 	cache_free(LSM.lsm_cache);
-#endif
 	printf("last summary-----\n");
 	for(int i=0; i<LEVELN; i++){
 		LSM.lop->release(LSM.disk[i]);
@@ -194,9 +194,7 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 
 extern pthread_mutex_t compaction_wait,gc_wait;
 extern int epc_check,gc_read_wait;
-#ifdef CACHE
 extern int memcpy_cnt;
-#endif
 volatile int comp_target_get_cnt=0,gc_target_get_cnt;
 extern pthread_cond_t factory_cond;
 void* lsm_end_req(algo_req* const req){
@@ -228,11 +226,7 @@ void* lsm_end_req(algo_req* const req){
 
 				//htable_print(table,params->ppa);
 				comp_target_get_cnt++;
-#ifdef CACHE
 				if(epc_check==comp_target_get_cnt+memcpy_cnt){
-#else
-				if(epc_check==comp_target_get_cnt){
-#endif
 #ifdef MUTEXLOCK
 						pthread_mutex_unlock(&compaction_wait);
 #endif
@@ -246,9 +240,7 @@ void* lsm_end_req(algo_req* const req){
 					havetofree=false;
 				}
 				else{
-#ifdef CACHE
 					((run_t*)params->entry_ptr)->isflying=2;
-#endif
 					while(1){
 						if(inf_assign_try(parents)){
 							break;
@@ -384,10 +376,7 @@ uint32_t lsm_get(request *const req){
 	if(!level_show){
 		level_show=true;
 		measure_init(&lsm_mt);
-#ifdef CACHE
 //		cache_print(LSM.lsm_cache);
-#endif
-		//readlockbywrite=0;
 	}
 
 	//printf("seq: %d, key:%u\n",nor++,req->key);
@@ -482,10 +471,11 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 #endif
 		target_set=LSM.lop->find_keyset((char*)table,req->key);
 		if(target_set){
-#if defined(CACHE) && !defined(FLASHCECK)
-			if(entry && !entry->header){
+#if !defined(FLASHCECK)
+			if(entry && !entry->cache_data){
+				static int cnt=0;
 				htable temp; temp.sets=table;
-				entry->header=htable_copy(&temp);
+				entry->cache_data=htable_copy(&temp);
 				cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
 				entry->c_entry=c_entry;
 			}
@@ -578,7 +568,6 @@ uint32_t __lsm_get(request *const req){
 #else
 
 #ifdef LEVELEMUL
-
 		KEYT tppa=find_S_ent(&LSM.disk[level]->o_ent[run],req->key);
 		if(tppa!=UINT_MAX){
 			algo_req *mreq=lsm_get_req_factory(req);
@@ -588,15 +577,13 @@ uint32_t __lsm_get(request *const req){
 		level++;
 #else
 		run_t **_entry=LSM.lop->find_run(LSM.disk[level],req->key);
-	#ifdef CACHE
+
 		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-	#endif
-		res=__lsm_get_sub(req,_entry[run],mapinfo.sets,NULL);	
-	#ifdef CACHE
+		res=__lsm_get_sub(req,_entry[run],mapinfo.sets,NULL);
 		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+
 		_entry[run]->req=NULL;
 		_entry[run]->isflying=0;
-	#endif
 		free(_entry);
 		if(res)return res;
 #endif
@@ -604,7 +591,6 @@ uint32_t __lsm_get(request *const req){
 #ifndef FLASHCHCK
 		run+=1;
 #endif
-
 		comback_req=true;
 #endif
 	}
@@ -671,22 +657,10 @@ uint32_t __lsm_get(request *const req){
 			temp_data[1]=j;
 			round++;
 			temp_data[2]=round;
-#ifdef FLASHCHECK
-			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-			if(comback_req && entry->c_entry){
-				res=__lsm_get_sub(req,NULL,entry->header->sets,NULL);
-				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-				if(res){ 
-					free(entries);
-					return res;
-				}
-				continue;
-			}
-			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-#elif defined(CACHE)
+
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(entry->c_entry){
-				res=__lsm_get_sub(req,NULL,entry->header->sets,NULL);
+				res=__lsm_get_sub(req,NULL,entry->cache_data->sets,NULL);
 				if(res){
 					cache_update(LSM.lsm_cache,entry);
 					free(entries);
@@ -697,7 +671,6 @@ uint32_t __lsm_get(request *const req){
 				continue;
 			}
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-#endif
 
 #ifdef BLOOM
 			if(!bf_check(entry->filter,req->key)){
@@ -714,7 +687,8 @@ uint32_t __lsm_get(request *const req){
 			params->ppa=target_ppa;
 #else
 			params->ppa=entry->pbn;
-	#ifdef CACHE
+			/*
+			  [ for sequential code ]
 			if(entry->isflying==1 || entry->isflying==2){
 				while(entry->isflying!=2){}//wait for mapping
 				request *__req=(request*)entry->req;
@@ -733,13 +707,11 @@ uint32_t __lsm_get(request *const req){
 					continue;
 				}
 			}
-			else{
+			else{*/
 				entry->isflying=1;
 				entry->req=(void*)req;
 				params->entry_ptr=(void*)entry;
-			}
-	#endif
-
+			//}
 #endif
 			LSM.li->pull_data(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 			__header_read_cnt++;

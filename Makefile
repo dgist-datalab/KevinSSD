@@ -8,7 +8,7 @@ PPWD=$(pwd)
 COMMONFLAGS=\
 			-Wno-write-strings\
 			-DSLC\
-#-O2\
+-O2\
 
 export CFLAGS_ALGO=\
 			 -g\
@@ -22,7 +22,6 @@ export CFLAGS_LOWER=\
 			 -lpthread\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\
-#-O2\
 
 export priority="false"
 export ORIGINAL_PATH=$(PPWD)

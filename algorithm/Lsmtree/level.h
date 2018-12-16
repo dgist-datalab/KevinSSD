@@ -44,14 +44,12 @@ typedef struct run{
 #ifdef BLOOM
 	BF *filter;
 #endif
-
-#ifdef CACHE
+	//for caching
 	cache_entry *c_entry;
-	char isflying;
-	htable *header;
-	void *req;
-#endif
+	volatile char isflying;
 	htable *cache_data;
+	void *req;
+
 	htable *cpt_data;
 	void *run_data;
 	char iscompactioning;

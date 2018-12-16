@@ -63,9 +63,8 @@ typedef struct lsmtree{
 	struct skiplist *temptable;
 	struct queue *re_q;
 	run_t *tempent;
-#ifdef CACHE
+
 	struct cache* lsm_cache;
-#endif
 	lower_info* li;
 }lsmtree;
 

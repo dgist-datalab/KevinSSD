@@ -127,6 +127,7 @@ run_t *hash_make_run(KEYT start, KEYT end, KEYT pbn){
 	res->end=end;
 	res->pbn=pbn;
 	res->run_data=NULL;
+	res->c_entry=NULL;
 #ifdef BLOOM
 	res->filter=NULL;
 #endif
@@ -219,11 +220,13 @@ void hash_free_run( run_t *e){
 	if(e->filter) bf_free(e->filter);
 #endif
 
-#ifdef CACHE
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-	if(e->cache_data)htable_free(e->cache_data);
-	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-#endif
+	if(e->cache_data){
+		htable_free(e->cache_data);
+		cache_delete_entry_only(LSM.lsm_cache,e);
+		//e->cache_data=NULL;
+	}
+	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 
 	free(e);
 }
@@ -239,24 +242,21 @@ run_t * hash_run_cpy( run_t *input){
 	input->filter=NULL;
 #endif
 
-#ifdef CACHE
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(input->c_entry){
 		res->cache_data=input->cache_data;
 		res->c_entry=input->c_entry;
 		res->c_entry->entry=res;
 		input->c_entry=NULL;
-		input->header=NULL;
+		input->cache_data=NULL;
 	}else{
 		res->c_entry=NULL;
-		res->header=NULL;
+		res->cache_data=NULL;
 	}
 	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 	res->isflying=0;
 	res->req=NULL;
-#else
-	res->cache_data=NULL;
-#endif
+
 	res->cpt_data=NULL;
 	res->iscompactioning=false;
 	return res;

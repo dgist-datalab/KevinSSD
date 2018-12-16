@@ -6,6 +6,7 @@
 #include "../../bench/measurement.h"
 #include "../../interface/queue.h"
 #include "../../interface/bb_checker.h"
+#include "../../include/utils/cond_lock.h"
 #ifdef dftl
 #include "../../algorithm/dftl/dftl.h"
 #elif defined(dftl_fm)
@@ -13,6 +14,7 @@
 #else
 #include "../../algorithm/Lsmtree/lsmtree.h"
 #endif
+
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,6 +33,8 @@ queue *p_q;
 pthread_t t_id;
 bool stopflag;
 #endif
+
+cl_lock *lower_flying;
 
 lower_info my_posix={
 	.create=posix_create,
@@ -60,6 +64,7 @@ lower_info my_posix={
 void *l_main(void *__input){
 	posix_request *inf_req;
 	while(1){
+		cl_grap(lower_flying);
 		if(stopflag){
 			//printf("posix bye bye!\n");
 			pthread_exit(NULL);
@@ -97,6 +102,7 @@ void *posix_make_push(KEYT PPA, uint32_t size, value_set* value, bool async, alg
 	while(!flag){
 
 		if(q_enqueue((void*)p_req,p_q)){
+			cl_release(lower_flying);
 			flag=true;
 		}
 
@@ -117,6 +123,7 @@ void *posix_make_pull(KEYT PPA, uint32_t size, value_set* value, bool async, alg
 	bool once=true;
 	while(!flag){
 		if(q_enqueue((void*)p_req,p_q)){
+			cl_release(lower_flying);
 			flag=true;
 		}	
 		if(!flag && once){
@@ -135,8 +142,8 @@ void *posix_make_trim(KEYT PPA, bool async){
 	p_req->isAsync=async;
 	
 	while(!flag){
-
 		if(q_enqueue((void*)p_req,p_q)){
+			cl_release(lower_flying);
 			flag=true;
 		}
 	}
@@ -153,6 +160,7 @@ uint32_t posix_create(lower_info *li){
 	li->PPB=_PPB;
 	li->PPS=_PPS;
 	li->TS=TOTALSIZE;
+	lower_flying=cl_init(QDEPTH*2,true);
 
 	printf("!!! posix memory ASYNC: %d!!!\n", ASYNC);
 	li->write_op=li->read_op=li->trim_op=0;
@@ -172,6 +180,7 @@ uint32_t posix_create(lower_info *li){
 #endif
 
 	memset(li->req_type_cnt,0,sizeof(li->req_type_cnt));
+
 	return 1;
 }
 
