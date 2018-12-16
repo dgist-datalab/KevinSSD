@@ -339,7 +339,6 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 	snode *target;
 	sk_iter* iter=skiplist_get_iterator(input);
 	int total_size=0;
-	int cnt=0;
 	while((target=skiplist_get_next(iter))){
 		if(target->value==0) continue;
 		b.bucket[target->value->length][b.idx[target->value->length]++]=target;

@@ -8,6 +8,7 @@
 #include "lsmtree.h"
 #include "bloomfilter.h"
 #include "log_list.h"
+#include "cache.h"
 #include <pthread.h>
 
 #define for_each_lev(run,iter,func) \
@@ -36,7 +37,7 @@ typedef struct htable_t{
 	value_set *origin;
 }htable_t;
 
-typedef struct run_t{ 
+typedef struct run{ 
 	KEYT key;
 	KEYT end;
 	KEYT pbn;
@@ -47,6 +48,7 @@ typedef struct run_t{
 #ifdef CACHE
 	cache_entry *c_entry;
 	char isflying;
+	htable *header;
 	void *req;
 #endif
 	htable *cache_data;

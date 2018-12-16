@@ -246,10 +246,10 @@ run_t * hash_run_cpy( run_t *input){
 		res->c_entry=input->c_entry;
 		res->c_entry->entry=res;
 		input->c_entry=NULL;
-		input->t_table=NULL;
+		input->header=NULL;
 	}else{
 		res->c_entry=NULL;
-		res->t_table=NULL;
+		res->header=NULL;
 	}
 	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 	res->isflying=0;

@@ -1,13 +1,14 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=bdbm_drv
+TARGET_LOWER=posix_memory
 TARGET_ALGO=Lsmtree
 PPWD=$(pwd)
 
 COMMONFLAGS=\
+			-Wno-write-strings\
 			-DSLC\
--O2\
+#-O2\
 
 export CFLAGS_ALGO=\
 			 -g\

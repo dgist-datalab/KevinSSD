@@ -33,8 +33,7 @@ SRCS +=\
 	   factory.c\
 	   nocpy.c\
 	   lops_default.c\
-
-#cache.c\
+	   cache.c\
 #merge_compaction.c\
 	   run_array.c\
 

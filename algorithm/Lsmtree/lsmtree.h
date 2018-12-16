@@ -27,7 +27,7 @@
 
 //lower type, algo type
 typedef struct level level;
-typedef struct run_t run_t;
+typedef struct run run_t;
 typedef struct level_ops level_ops;
 
 typedef struct lsm_params{
@@ -71,7 +71,7 @@ typedef struct lsmtree{
 
 uint32_t lsm_create(lower_info *, algorithm *);
 uint32_t __lsm_create_normal(lower_info *, algorithm *);
-uint32_t __lsm_create_simulation(lower_info *, algorithm*);
+//uint32_t __lsm_create_simulation(lower_info *, algorithm*);
 void lsm_destroy(lower_info*, algorithm*);
 uint32_t lsm_get(request *const);
 uint32_t lsm_set(request *const);

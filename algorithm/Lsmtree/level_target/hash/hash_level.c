@@ -196,7 +196,7 @@ static void hash_insert_into(hash_body *b, keyset input, float fpr){
 	}
 }
 
-void hash_merger(struct skiplist* mem, struct run_t** s, struct run_t** o, struct level* d){
+void hash_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	static int cnt=0;
 	cnt++;
 	//printf("cnt:%d\n",cnt);

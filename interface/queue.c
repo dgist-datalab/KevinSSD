@@ -10,7 +10,7 @@ void q_init(queue **q,int qsize){
 	(*q)->size=0;
 	(*q)->head=(*q)->tail=NULL;
 	pthread_mutex_init(&((*q)->q_lock),NULL);
-	printf("mutex_t : %p q:%p, size:%d\n",&(*q)->q_lock,*q,qsize);
+	//printf("mutex_t : %p q:%p, size:%d\n",&(*q)->q_lock,*q,qsize);
 	(*q)->firstFlag=true;
 	(*q)->m_size=qsize;
 }

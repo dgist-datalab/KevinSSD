@@ -2,10 +2,10 @@
 #ifndef __CACHE_H__
 #define __CACHE_H__
 #include"skiplist.h"
+#include "level.h"
 #include<pthread.h>
-typedef struct Entry Entry;
 typedef struct cache_entry{
-	struct Entry* entry;
+	struct run* entry;
 	struct cache_entry *up;
 	struct cache_entry *down;
 	int dmatag;
@@ -19,12 +19,12 @@ typedef struct cache{
 	pthread_mutex_t cache_lock;
 }cache;
 
-cache *cache_init();
-Entry* cache_get(cache *c);
-cache_entry* cache_insert(cache *, Entry *, int );
-bool cache_delete(cache *, Entry *);
-bool cache_delete_entry_only(cache *c, Entry *ent);
-void cache_update(cache *, Entry *);
+cache *cache_init(uint32_t);
+struct run* cache_get(cache *c);
+cache_entry* cache_insert(cache *, struct run *, int );
+bool cache_delete(cache *, struct run *);
+bool cache_delete_entry_only(cache *c, struct run *ent);
+void cache_update(cache *, struct run *);
 void cache_free(cache *);
 void cache_print(cache *);
 #endif

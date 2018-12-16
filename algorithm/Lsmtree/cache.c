@@ -4,9 +4,9 @@
 #include<stdlib.h>
 #include<string.h>
 #include<stdio.h>
-cache *cache_init(){
+cache *cache_init(uint32_t noe){
 	cache *c=(cache*)malloc(sizeof(cache));
-	c->m_size=CACHESIZE;
+	c->m_size=noe;
 	c->n_size=0;
 	c->top=NULL;
 	c->bottom=NULL;
@@ -14,7 +14,7 @@ cache *cache_init(){
 	return c;
 }
 
-cache_entry * cache_insert(cache *c, Entry *ent, int dmatag){
+cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
 	if(c->m_size==c->n_size){
 		cache_delete(c,cache_get(c));
 	}
@@ -39,23 +39,23 @@ cache_entry * cache_insert(cache *c, Entry *ent, int dmatag){
 	return c_ent;
 }
 int delete_cnt_check;
-bool cache_delete(cache *c, Entry * ent){
+bool cache_delete(cache *c, run_t * ent){
 	if(c->n_size==0){
 		return false;
 	}
 	cache_entry *c_ent=ent->c_entry;
-	if(ent->t_table){
-		free(ent->t_table->sets);
-		free(ent->t_table);
+	if(ent->header){
+		free(ent->header->sets);
+		free(ent->header);
 	}
-	ent->t_table=NULL;
+	ent->header=NULL;
 	c->n_size--;
 	free(c_ent);
 	ent->c_entry=NULL;
 	return true;
 }
 
-bool cache_delete_entry_only(cache *c, Entry *ent){
+bool cache_delete_entry_only(cache *c, run_t *ent){
 	if(c->n_size==0){
 		return false;
 	}
@@ -88,7 +88,7 @@ bool cache_delete_entry_only(cache *c, Entry *ent){
 	ent->c_entry=NULL;
 	return true;
 }
-void cache_update(cache *c, Entry* ent){
+void cache_update(cache *c, run_t* ent){
 	cache_entry *c_ent=ent->c_entry;
 	if(c->top==c_ent){ 
 		return;
@@ -111,7 +111,7 @@ void cache_update(cache *c, Entry* ent){
 	c->top=c_ent;
 }
 
-Entry* cache_get(cache *c){
+run_t* cache_get(cache *c){
 	if(c->n_size==0){
 		return NULL;
 	}
@@ -131,7 +131,7 @@ Entry* cache_get(cache *c){
 	return res->entry;
 }
 void cache_free(cache *c){
-	Entry *tmp_ent;
+	run_t *tmp_ent;
 	while((tmp_ent=cache_get(c))){
 		free(tmp_ent->c_entry);
 		tmp_ent->c_entry=NULL;
@@ -143,13 +143,13 @@ int print_number;
 void cache_print(cache *c){
 	cache_entry *start=c->top;
 	print_number=0;
-	Entry *tent;
+	run_t *tent;
 	while(start!=NULL){
 		tent=start->entry;
 		if(start->entry->c_entry!=start){
 			printf("fuck!!!\n");
 		}
-		printf("[%d]c->entry->key:%d c->entry->pbn:%d d:%p\n",print_number++,tent->key,tent->pbn,tent->t_table);
+		printf("[%d]c->entry->key:%d c->entry->pbn:%d d:%p\n",print_number++,tent->key,tent->pbn,tent->header);
 		start=start->down;
 	}
 }

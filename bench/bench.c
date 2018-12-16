@@ -86,7 +86,7 @@ void bench_make_data(){
 	_m->mark=idx;
 	_m->bech=_meta->number/(BENCHSETSIZE-1)+(_meta->number%(BENCHSETSIZE)?1:0);
 	_m->benchsetsize=(BENCHSETSIZE-1);
-	printf("%d X %d = %d, answer=%d\n",_m->bech,_m->benchsetsize,_m->bech*_m->benchsetsize,_meta->number);
+	printf("%d X %d = %d, answer=%lu\n",_m->bech,_m->benchsetsize,_m->bech*_m->benchsetsize,_meta->number);
 	for(uint32_t i=0; i<_m->benchsetsize; i++){
 		_m->body[i]=(bench_value*)malloc(sizeof(bench_value)*_m->bech);
 	}
@@ -682,7 +682,7 @@ void randrw(KEYT start, KEYT end, monitor *m){
 		m->body[(i+m->m_num/2)/m->bech][(i+m->m_num/2)%m->bech].mark=m->mark;
 		m->read_cnt++;
 	}
-	printf("last set:%d\n",(m->m_num-1)/m->bech);
+	printf("last set:%lu\n",(m->m_num-1)/m->bech);
 }
 
 void mixed(KEYT start, KEYT end,int percentage, monitor *m){
@@ -865,4 +865,5 @@ char *bench_lower_type(int a){
 		case 7:return"GCDR";
 		case 8:return "GCDW";
 	}
+	return NULL;
 }

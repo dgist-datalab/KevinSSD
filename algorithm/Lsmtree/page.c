@@ -806,7 +806,7 @@ void invalidate_PPA(KEYT _ppa){
 	bl[bn].invalid_n++;
 	segment *segs=WHICHSEG(bl[bn].ppa);
 	segs->invalid_n++;
-	static int cnt=0;
+	//static int cnt=0;
 	if(bl[bn].invalid_n>algo_lsm.li->PPB){
 		printf("%u\n",algo_lsm.li->PPB);
 		printf("invalidate:??\n");
@@ -972,7 +972,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 #ifdef CACHE
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(entries[j]->c_entry){
-				memcpy(datas[htable_idx]->sets,entries[j]->t_table->sets,PAGESIZE);
+				memcpy(datas[htable_idx]->sets,entries[j]->header->sets,PAGESIZE);
 			}
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
@@ -996,7 +996,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 #ifdef CACHE
 					pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 					if(entries[j]->c_entry){
-						keyset *c_finded=find_keyset(entries[j]->t_table->sets,target->lpa);
+						keyset *c_finded=LSM.lop->find_keyset((char*)entries[j]->header->sets,target->lpa);
 						if(c_finded){
 							c_finded->ppa=target->nppa;
 						}
@@ -1340,7 +1340,7 @@ int gc_header(KEYT tbn){
 #ifdef CACHE
 					pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 					if(entries[k]->c_entry){
-						memcpy(tables[i]->sets,entries[k]->t_table->sets,PAGESIZE);
+						memcpy(tables[i]->sets,entries[k]->header->sets,PAGESIZE);
 						pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 						continue;
 					}
@@ -1366,7 +1366,7 @@ int gc_header(KEYT tbn){
 #ifdef CACHE
 						pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 						if(entries[k]->c_entry){
-							memcpy(tables[i]->sets,entries[k]->t_table->sets,PAGESIZE);
+							memcpy(tables[i]->sets,entries[k]->header->sets,PAGESIZE);
 							pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 							break;
 						}

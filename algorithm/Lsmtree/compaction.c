@@ -441,7 +441,7 @@ run_t* compaction_postprocessing(run_t *target){
 #ifdef CACHE
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	target->cache_data=htable_copy(table); 
-	cache_entry *c_entry=cache_insert(LSM.lsm_cache,res,0);
+	cache_entry *c_entry=cache_insert(LSM.lsm_cache,target,0);
 	target->c_entry=c_entry;
 	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #endif
@@ -601,7 +601,7 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 			//cache must be inserted befor level insert
 			
 			htable *temp_table=htable_copy(entry->cpt_data);
-			entry->pbn=compaction_htable_write(entry->cpt_data);//write table & free allocated htable by inf_get_valueset
+			entry->pbn=compaction_htable_write(entry->cpt_data,entry->key);//write table & free allocated htable by inf_get_valueset
 			entry->cpt_data=temp_table;
 			
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
@@ -751,7 +751,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 	KEYT end=0;
 	run_t **target_s=NULL;
 	run_t **data=NULL;
-	static int cnt=0;
+	//static int cnt=0;
 	if(!upper){
 #ifndef MONKEY
 		start=skip->start;

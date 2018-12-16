@@ -175,13 +175,13 @@ void *p_main(void *__input){
 		}
 	}
 	__hash_node *t_h_node;
-	bool write_stop_chg=false;
+	//bool write_stop_chg=false;
 	//int control_cnt=0;
 	while(1){
 		cl_grap(inf_cond);
 		if(force_write_start ||(write_stop && _this->req_q->size==QDEPTH)){
 			write_stop=false;
-			write_stop_chg=true;
+			//write_stop_chg=true;
 		}
 
 		if(mp.stopflag)
@@ -191,7 +191,7 @@ void *p_main(void *__input){
 		}
 #ifdef interface_pq
 		else if(!(_inf_req=q_dequeue(_this->req_rq))){
-			bool req_flag=false;
+			//bool req_flag=false;
 			pthread_mutex_lock(&wq_lock);
 
 			if(_this->retry_q->size || write_stop || !(_inf_req=q_dequeue(_this->req_q))){
@@ -205,7 +205,7 @@ void *p_main(void *__input){
 			}
 #ifdef interface_pq
 			else{
-				req_flag=true;
+				//req_flag=true;
 			}
 
 			inf_req=(request*)_inf_req;
@@ -417,8 +417,8 @@ bool inf_make_req_special(const FSTYPE type, const KEYT key, value_set* value, K
 	}
 	request *req=inf_get_req_instance(type,key,value,0,false);
 	req->special_func=special;
-	static int cnt=0;
 	/*
+	static int cnt=0;
 	if(flying->now==1){
 		printf("[%d]will be sleep! type:%d\n",cnt++,type);
 	}*/

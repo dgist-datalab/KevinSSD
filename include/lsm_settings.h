@@ -16,10 +16,9 @@
 #define PIECE 512
 //#define LEVELUSINGHEAP
 //#define TIERING
-//#define CACHE
-//#define CACHESIZE 1//(100*128*1)//1*128==1M
+#define CACHE
 
-#define LEVELCACHING 2
+#define LEVELCACHING 0
 #define CACHINGSIZE 0.12f
 //#define LEVELEMUL 
 //#define MERGECOMPACTION 4
