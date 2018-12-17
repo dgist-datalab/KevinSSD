@@ -24,6 +24,7 @@ void measure_pop(MeasureTime *);
 void measure_stamp(MeasureTime *);
 void measure_adding(MeasureTime *);
 void measure_calc_max(MeasureTime *);
+void measure_adding_print(MeasureTime *m);
 struct timeval measure_res(MeasureTime *);
 #ifdef DCPP
 #include<string>

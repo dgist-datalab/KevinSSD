@@ -1,5 +1,7 @@
 #ifndef __H_SETTING__
 #define __H_SETTING__
+#define likely(x)      __builtin_expect(!!(x), 1)
+#define unlikely(x)    __builtin_expect(!!(x), 0)
 #include<stdint.h>
 #include <stdlib.h>
 #include<stdio.h>
@@ -40,7 +42,7 @@
 #define _NOB (BPS*_NOS)
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
 
-#define RANGE (/*(GIGAUNIT)*/64L*(M/PAGESIZE)*1024L*(0.8))
+#define RANGE (/*(GIGAUNIT)*/16L*(M/PAGESIZE)*1024L*(0.8))
 
 #define SIMULATION 0
 

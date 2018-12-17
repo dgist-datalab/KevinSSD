@@ -8,7 +8,8 @@ PPWD=$(pwd)
 COMMONFLAGS=\
 			-Wno-write-strings\
 			-DSLC\
--O2\
+			-p\
+			-O2\
 
 export CFLAGS_ALGO=\
 			 -g\

@@ -91,7 +91,7 @@ static void __dm_intr_handler (
 		dm_intr_cnt++;
 		algo_req *my_algo_req=(algo_req*)r->req;
 		if(my_algo_req->parents){
-			bench_lower_end(my_algo_req->parents);
+			//bench_lower_end(my_algo_req->parents);
 		}
 		
 
@@ -360,7 +360,7 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 		/*kukania*/
 		algo_req *my_algo_req=(algo_req*)req;
 		if(my_algo_req->parents){
-			bench_lower_start(my_algo_req->parents);
+			//bench_lower_start(my_algo_req->parents);
 		}
 		/*before path type*/
 		

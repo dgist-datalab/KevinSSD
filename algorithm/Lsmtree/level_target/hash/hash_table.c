@@ -138,6 +138,7 @@ run_t** hash_find_run( level* lev, KEYT lpa){
 	hash_body *hb=(hash_body*)lev->level_data;
 	skiplist *body=hb->body;
 	if(!body || body->size==0) return NULL;
+	if(lev->start>lpa || lev->end<lpa) return NULL;
 	if(lev->istier) return (run_t**)-1;
 	snode *temp=skiplist_strict_range_search(body,lpa);
 	if(!temp) return NULL;

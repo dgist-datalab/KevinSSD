@@ -55,6 +55,10 @@ void measure_adding(MeasureTime *m){
 	free(t);
 
 }
+void measure_adding_print(MeasureTime *m){
+	uint64_t res=m->adding.tv_sec*1000000+m->adding.tv_usec;
+	printf("%.2f\n",(double)res/1000000);
+}
 void measure_stamp(MeasureTime *m){
 	struct timeval res; linktime *t;
 	gettimeofday(&m->header->end,NULL);

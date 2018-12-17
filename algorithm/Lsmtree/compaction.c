@@ -353,7 +353,7 @@ void *compaction_main(void *input){
 		}
 
 		while(1){
-			if(LSM.lop->full_check(LSM.disk[start_level])){
+			if(unlikely(LSM.lop->full_check(LSM.disk[start_level]))){
 				des_level=(start_level==LEVELN?start_level:start_level+1);
 				if(des_level==LEVELN) break;
 				compaction_selector(LSM.disk[start_level],LSM.disk[des_level],NULL,&LSM.level_lock[des_level]);
@@ -382,7 +382,7 @@ void *compaction_main(void *input){
 
 void compaction_check(){
 	compR *req;
-	if(LSM.memtable->size==LSM.FLUSHNUM){
+	if(unlikely(LSM.memtable->size==LSM.FLUSHNUM)){
 		req=(compR*)malloc(sizeof(compR));
 		req->fromL=-1;
 		req->toL=0;
