@@ -35,6 +35,7 @@ extern struct lower_info net_info;
 #endif
 
 MeasureTime mt;
+MeasureTime mt4;
 master_processor mp;
 
 /*hit checker*/
@@ -223,13 +224,16 @@ void *p_main(void *__input){
 		inf_req->isstart=true;
 #endif
 		static bool first_get=true;
+		
 		switch(inf_req->type){
 			case FS_GET_T:
+				MS(&mt4);
 				if(first_get){
 					first_get=false;
 					//mp.li->lower_flying_req_wait();
 				}
 				mp.algo->get(inf_req);
+				MA(&mt4);
 				break;
 			case FS_SET_T:
 				write_stop=mp.algo->set(inf_req);
@@ -349,6 +353,7 @@ static request *inf_get_req_instance(const FSTYPE type, const KEYT key, value_se
 	request *req=(request*)malloc(sizeof(request));
 	req->type=type;
 	req->key=key;	
+	req->ppa=0;
 	static KEYT seq_num=0;
 	
 	if(type==FS_DELETE_T){
@@ -550,6 +555,7 @@ void inf_free(){
 
 	mp.algo->destroy(mp.li,mp.algo);
 	mp.li->destroy(mp.li);
+	printf("all read time:");measure_adding_print(&mt4);
 	printf("write_q_hit:%u\tread_q_hit:%u\tretry_hit:%u\n",write_q_hit,read_q_hit,retry_hit);
 }
 

@@ -294,8 +294,6 @@ void *posix_trim_block(KEYT PPA, bool async){
 	}
 	
 	my_posix.req_type_cnt[TRIM]++;
-
-
 	if(seg_table[PPA/my_posix.PPS].alloc){
 		free(seg_table[PPA/my_posix.PPS].storage);
 		seg_table[PPA/my_posix.PPS].storage = NULL;

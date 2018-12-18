@@ -25,6 +25,9 @@ typedef struct keyset{
 typedef struct htable{
 	keyset *sets;
 	//	uint8_t *bitset;
+#ifdef NOCPY
+	char *nocpy_table;
+#endif
 	value_set *origin;
 	uint8_t t_b;//0, MALLOC
 	//1, valueset from W
@@ -34,6 +37,9 @@ typedef struct htable{
 
 typedef struct htable_t{
 	keyset sets[PAGESIZE/KEYSETSIZE];
+#ifdef NOCPY
+	char *nocpy_table;
+#endif
 	value_set *origin;
 }htable_t;
 

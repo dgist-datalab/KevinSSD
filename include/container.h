@@ -25,6 +25,7 @@ typedef struct value_set{
 	uint32_t length;
 	int dmatag; //-1 == not dma_alloc, others== dma_alloc
 	KEYT ppa;
+	char *nocpy;//nocpy buffer for bdbm_drv
 	bool from_app;
 	PTR rmw_value;
 	KEYT len;
@@ -34,7 +35,7 @@ typedef struct value_set{
 struct request {
 	FSTYPE type;
 	KEYT key;
-	//KEYT ppa;
+	KEYT ppa;
 	KEYT seq;
 	value_set *value;
 	bool (*end_req)(struct request *const);

@@ -6,7 +6,7 @@
 #define FULLMAPNUM  1024
 
 #define RAF 0.01
-#define LEVELN 2
+#define LEVELN 3
 
 #if LEVELN!=1
 //#define BLOOM
@@ -21,7 +21,8 @@
 #define CACHINGSIZE 0.12f
 //#define LEVELEMUL 
 //#define MERGECOMPACTION 4
-//#define NOCPY
+#define READCACHE
+#define NOCPY
 
 
 /*lsmtree flash thread*/

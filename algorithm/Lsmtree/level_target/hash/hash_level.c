@@ -54,6 +54,14 @@ static inline hash *r2h(run_t* a){
 	return (hash*)a->cpt_data->sets;
 }
 
+static inline hash* r2h_from_compaction(run_t *a){
+#ifdef NOCPY
+	if(a->cpt_data->nocpy_table)
+		return (hash*)a->cpt_data->nocpy_table;
+#endif
+	return (hash*)a->cpt_data->sets;
+}
+
 void hash_overlap(void *value){
 	if(!value)return;
 	//printf("%p free\n",value);
@@ -211,8 +219,9 @@ void hash_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 		des->temp=hash_make_dummy_run();
 		des->late_use_node=NULL;
 	}
+
 	for(int i=0; o[i]!=NULL; i++){
-		hash *h=r2h(o[i]);
+		hash *h=r2h_from_compaction(o[i]);
 		for(int j=0; j<HENTRY; j++){
 			if(h->b[j].lpa==UINT_MAX) continue;
 			hash_insert_into(des,h->b[j],d->fpr);
@@ -236,7 +245,7 @@ void hash_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 		}
 	}else{
 		for(int i=0; s[i]!=NULL; i++){
-			hash *h=r2h(s[i]);
+			hash *h=r2h_from_compaction(s[i]);
 			for(int j=0; j<HENTRY; j++){
 				if(h->b[j].lpa==UINT_MAX) continue;
 				hash_insert_into(des,h->b[j],d->fpr);	
@@ -314,7 +323,7 @@ void hash_tier_align(struct level *){
 }
 
 BF* hash_making_filter(run_t *data, float fpr){
-	hash *h=r2h(data);
+	hash *h=r2h_from_compaction(data);
 	BF *res=bf_init(LSM.KEYNUM,fpr);
 	for(int i=0; i<HENTRY; i++){
 		if(h->b[i].lpa==UINT_MAX) continue;

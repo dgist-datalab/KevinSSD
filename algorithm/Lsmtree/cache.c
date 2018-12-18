@@ -162,3 +162,6 @@ void cache_print(cache *c){
 	}
 }
 
+bool cache_insertable(cache *c){
+	return c->m_size==0?0:1;
+}

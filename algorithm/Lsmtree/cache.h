@@ -21,6 +21,7 @@ typedef struct cache{
 cache *cache_init(uint32_t);
 struct run* cache_get(cache *c);
 cache_entry* cache_insert(cache *, struct run *, int );
+bool cache_insertable(cache *c);
 bool cache_delete(cache *, struct run *);
 bool cache_delete_entry_only(cache *c, struct run *ent);
 void cache_update(cache *, struct run *);

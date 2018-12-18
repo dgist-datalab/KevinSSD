@@ -247,8 +247,8 @@ KEYT compaction_htable_write(htable *input, KEYT lpa){
 	params->htable_ptr=(PTR)input;
 
 #ifdef NOCPY
-	nocpy_copy_from((char*)input->sets,ppa);
-	free(input->sets);
+	nocpy_copy_from_change((char*)input->sets,ppa);
+	/*because we will use input->sets (free(input->sets);)*/
 #endif
 	
 	//htable_print(input);
@@ -412,6 +412,9 @@ void compaction_htable_read(run_t *ent,PTR* value){
 	areq->type_lower=0;
 	areq->rapid=false;
 	areq->type=HEADERR;
+#ifdef NOCPY
+	params->value->nocpy=nocpy_pick(ent->pbn);
+#endif
 	//printf("R %u\n",ent->pbn);
 	LSM.li->pull_data(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
 	return;
@@ -676,7 +679,11 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 	for(int j=0; target_s[j]!=NULL; j++){
 		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 		if(target_s[j]->c_entry){
+#ifdef NOCPY
+			target_s[j]->cpt_data->nocpy_table=target_s[j]->cache_data->nocpy_table;
+#else
 			target_s[j]->cpt_data=htable_copy(target_s[j]->cach_data);
+#endif
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			memcpy_cnt++;
 		}
@@ -750,7 +757,11 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(target_s[j]->c_entry){
 				memcpy_cnt++;
+#ifdef NOCPY
+				target_s[j]->cpt_data->nocpy_table=target_s[j]->cache_data->nocpy_table;
+#else
 				target_s[j]->cpt_data=htable_copy(target_s[j]->cache_data);
+#endif
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			}
 			else{
@@ -790,7 +801,11 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 			temp->iscompactioning=true;
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(temp->c_entry){
+#ifdef NOCPY
+				temp->cpt_data->nocpy_table=temp->cache_data->nocpy_table;
+#else
 				temp->cpt_data=htable_copy(temp->cache_data);
+#endif
 				memcpy_cnt++;
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			}
@@ -814,7 +829,11 @@ skip:
 			if(!temp->iscompactioning) temp->iscompactioning=true;
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(temp->c_entry){
+#ifdef NOCPY
+				temp->cpt_data->nocpy_table=temp->cache_data->nocpy_table;
+#else
 				temp->cpt_data=htable_copy(temp->cache_data);
+#endif
 				memcpy_cnt++;
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			}
