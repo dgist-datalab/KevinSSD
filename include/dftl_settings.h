@@ -1,6 +1,9 @@
 #ifndef __H_SETDFTL__
 #define __H_SETDFTL__
 
+// memcpy op gc flag
+#define MEMCPY_ON_GC 0
+
 // flying mapping page request waiting flag
 #define FLYING 0
 

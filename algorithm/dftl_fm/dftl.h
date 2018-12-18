@@ -56,6 +56,9 @@ typedef struct cached_table{
     bool flying;
     request **flying_arr;
     int32_t num_waiting;
+
+	uint32_t read_hit;
+	uint32_t write_hit;
 } C_TABLE;
 
 // OOB data structure

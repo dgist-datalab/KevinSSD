@@ -68,7 +68,9 @@ int32_t tpage_GC(){
 #endif
 
     for(int i = 0; i < valid_page_num; i++){ // copy data to memory and free dma valueset
+#if MEMCPY_ON_GC
         memcpy(d_sram[i].DATA_RAM, temp_set[i]->value, PAGESIZE);
+#endif
         inf_free_valueset(temp_set[i], FS_MALLOC_R); //미리 value_set을 free시켜서 불필요한 value_set 낭비 줄임
     }
 
@@ -174,7 +176,9 @@ int32_t dpage_GC(){
 #endif
     
     for(int i = 0; i < valid_num; i++){
+#if MEMCPY_ON_GC
         memcpy(d_sram[i].DATA_RAM, temp_set[i]->value, PAGESIZE);
+#endif
         inf_free_valueset(temp_set[i], FS_MALLOC_R);
     }
 

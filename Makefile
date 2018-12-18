@@ -1,12 +1,13 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=posix_memory
+TARGET_LOWER=bdbm_drv
 TARGET_ALGO=dftl_fm
 PPWD=$(pwd)
 
 COMMONFLAGS=\
 			-DSLC\
+#			-DWRITESYNC\
 
 export CFLAGS_ALGO=\
 			 -g\
@@ -52,6 +53,7 @@ CFLAGS +=\
 		 -D$(TARGET_ALGO)\
 		 -D$(TARGET_INF)\
 		 -D_DEFAULT_SOURCE\
+		 -D_BSD_SOURCE\
 -DBENCH\
 -DCDF\
 -O2\

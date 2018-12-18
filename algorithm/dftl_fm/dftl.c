@@ -111,9 +111,9 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 
     /* Cache control & Init */
-    //num_max_cache = max_cache_entry; // max cache
+    num_max_cache = max_cache_entry; // max cache
     //num_max_cache = 1; // 1 cache
-    num_max_cache = max_cache_entry / 4; // 1/4 cache
+    //num_max_cache = max_cache_entry / 4; // 1/4 cache
     //num_max_cache = max_cache_entry / 20; // 5%
     //num_max_cache = max_cache_entry / 10; // 10%
     //num_max_cache = max_cache_entry / 8; // 12.5%
@@ -207,6 +207,8 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
         CMT[i].flying = false;
         CMT[i].flying_arr = (request **)malloc(sizeof(request *) * 1024);
         CMT[i].num_waiting = 0;
+        CMT[i].read_hit = 0;
+		CMT[i].write_hit = 0;
     }
 
     for (int i = 0; i < max_cache_entry; i++) {
@@ -268,6 +270,13 @@ void demand_destroy(lower_info *li, algorithm *algo){
 
     printf("\nnum caching: %d\n", num_caching);
     printf("num_flying: %d\n", num_flying);
+
+	puts("");
+	for (int i = 0; i < max_cache_entry; i++) {
+		if (CMT[i].read_hit || CMT[i].write_hit) {
+			printf("CMT[%d]: read(%u) / write(%u)\n", i, CMT[i].read_hit, CMT[i].write_hit);	
+		}
+	}
 
     /* Clear modules */
     q_free(dftl_q);
@@ -618,6 +627,8 @@ static uint32_t __demand_get(request *const req){
     free(req->params);
     req->params = NULL;
 
+	c_table->read_hit++;
+
     /* Get actual data from device */
     p_table = c_table->p_table;
     ppa = p_table[P_IDX].ppa;
@@ -713,6 +724,8 @@ static uint32_t __demand_set(request *const req){
 
     free(req->params);
     req->params = NULL;
+
+	c_table->write_hit++;
 
     temp = skiplist_insert(write_buffer, lpa, req->value, true);
 
@@ -1149,4 +1162,3 @@ void *demand_end_req(algo_req* input){
     free(input);
     return NULL;
 }
-
