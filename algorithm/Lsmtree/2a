@@ -409,7 +409,9 @@ void compaction_htable_read(run_t *ent,PTR* value){
 	areq->type_lower=0;
 	areq->rapid=false;
 	areq->type=HEADERR;
-
+	if(ent->pbn==23557){
+		printf("readed\n");
+	}
 #ifdef NOCPY
 	params->value->nocpy=nocpy_pick(ent->pbn);
 #endif

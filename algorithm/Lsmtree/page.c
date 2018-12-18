@@ -802,7 +802,6 @@ KEYT getPPA(uint8_t type, KEYT lpa,bool isfull){
 		active_block->erased=false;
 		target->used_blkn++;
 	}
-
 	return res;
 }
 
@@ -984,9 +983,6 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 #else
 		for(int j=0; entries[j]!=NULL;j++){
 			datas[htable_idx]=(htable_t*)malloc(sizeof(htable_t));
-			if(entries[j]->pbn==9386){
-				//printf("here! entry target\n");
-			}
 			if(entries[j]->c_entry){
 				pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 #ifdef NOCPY
@@ -1014,9 +1010,6 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 				target=gn[k];
 			
 				if(target==NULL) continue;
-				if(target->lpa==838438 && target->ppa==7527926){
-					printf("here! tttt\n");
-				}
 #ifdef NOCPY
 				keyset *finded=LSM.lop->find_keyset((char*)data->nocpy_table,target->lpa);
 #else
@@ -1362,6 +1355,9 @@ int gc_header(KEYT tbn){
 		bool checkdone=false;
 	//	LSM.lop->all_print();
 		for(int j=0; j<LEVELN; j++){
+			if(lpa==6709486){
+				printf("here\n");
+			}
 			entries=LSM.lop->find_run(LSM.disk[j],lpa);
 			//LSM.lop->print(LSM.disk[j]);
 			if(entries==NULL) continue;

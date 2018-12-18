@@ -132,7 +132,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	printf("| all level header size: %lu(MB), except last header: %lu(MB)\n",sizeofall*PAGESIZE/M,(sizeofall-LSM.disk[LEVELN-1]->m_num)*PAGESIZE/M);
 	printf("| WRITE WAF:%f\n",(float)SIZEFACTOR * LEVELN /LSM.KEYNUM);
 	printf("| top level size:%d(MB)\n",LSM.disk[0]->m_num*8);
-	printf("| blommfileter : %fMB\n",(float)bloomfilter_memory/1024/1024);
+	printf("| bloomfileter : %fMB\n",(float)bloomfilter_memory/1024/1024);
 
 	uint32_t cached_entry=caching_size-lev_caching_entry-bloomfilter_memory/PAGESIZE;
 //	uint32_t cached_entry=0;
@@ -506,7 +506,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 		}
 		else{
 			if(LEVELN-LEVELCACHING==1){
-				printf("can't be\n");
+				printf("can't be %d\n",__LINE__);
 			}
 		}
 	}
@@ -692,7 +692,11 @@ uint32_t __lsm_get(request *const req){
 
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(entry->c_entry){
+#ifdef NOCPY
+				res=__lsm_get_sub(req,NULL,(keyset*)entry->cache_data->nocpy_table,NULL);
+#else
 				res=__lsm_get_sub(req,NULL,entry->cache_data->sets,NULL);
+#endif
 				if(res){
 				//	static int cnt=0;
 				//	printf("cache_hit:%d\n",cnt++);
@@ -701,6 +705,8 @@ uint32_t __lsm_get(request *const req){
 					free(entries);
 					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 					return res;
+				}else if(LEVELN-LEVELCACHING==1){
+					printf("can't be:%d\n",__LINE__);
 				}
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 				continue;

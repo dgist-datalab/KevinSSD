@@ -9,8 +9,8 @@
 #define LEVELN 3
 
 #if LEVELN!=1
-//#define BLOOM
-//#define MONKEY
+#define BLOOM
+#define MONKEY
 #endif
 
 #define PIECE 512
