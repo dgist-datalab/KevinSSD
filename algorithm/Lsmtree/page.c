@@ -28,22 +28,6 @@ pm data_m;//for data blocks
 pm header_m;//for header ppaa
 pm block_m;//for dynamic block;
 
-static bool gc_possible(uint8_t type){
-	pm *target=NULL;
-	switch(type){
-		case HEADER:
-			target=&header_m;
-			break;
-		case DATA:
-			target=&data_m;
-			break;
-		case BLOCK:
-			target=&block_m;
-			break;
-	}	
-	block *active_block=(block*)target->n_log->data;
-	return false;
-}
 segment* WHICHSEG(KEYT ppa){
 	return &segs[ppa/(_PPS)];
 }
@@ -1001,7 +985,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 		for(int j=0; entries[j]!=NULL;j++){
 			datas[htable_idx]=(htable_t*)malloc(sizeof(htable_t));
 			if(entries[j]->pbn==9386){
-				printf("here! entry target\n");
+				//printf("here! entry target\n");
 			}
 			if(entries[j]->c_entry){
 				pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
@@ -1013,6 +997,9 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			}else{
 				gc_data_read(entries[j]->pbn,datas[htable_idx],false);
+			}
+			if(((keyset*)datas[htable_idx]->nocpy_table)->lpa>1024){
+				printf("fuck!\n");
 			}
 			htable_idx++;
 		}
@@ -1027,7 +1014,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 				target=gn[k];
 			
 				if(target==NULL) continue;
-				if(target->lpa==2357428 && target->ppa==5996828){
+				if(target->lpa==838438 && target->ppa==7527926){
 					printf("here! tttt\n");
 				}
 #ifdef NOCPY
@@ -1074,12 +1061,18 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			/*should change keep the value before invalidate*/
 			char *nocpy_temp_table=data->nocpy_table;
 			nocpy_force_freepage(entries[j]->pbn);
+			if(((keyset*)data->nocpy_table)->lpa>1024){
+				abort();
+			}
 #endif
 			invalidate_PPA(temp_header);
 			entries[j]->pbn=getPPA(HEADER,entries[j]->key,true);
 #ifdef NOCPY
 			data->nocpy_table=nocpy_temp_table;
-#endif
+#endif	
+			if(((keyset*)data->nocpy_table)->lpa>1024){
+				abort();
+			}
 			gc_data_write(entries[j]->pbn,data,false);
 			free(data);
 		}
@@ -1307,8 +1300,9 @@ KEYT gc_victim_segment(uint8_t type,bool isforcegc){ //gc for segment
 }
 
 int gc_header(KEYT tbn){
-//	static int gc_cnt=0;
-//	printf("[%d]gc_header start -> block:%u\n",gc_cnt++,tbn);
+	/*
+	static int gc_cnt=0;
+	printf("[%d]gc_header start -> block:%u\n",gc_cnt++,tbn);*/
 	block *target=&bl[tbn];
 	if(target->invalid_n==algo_lsm.li->PPB){
 		gc_trim_segment(HEADER,target->ppa);
@@ -1346,6 +1340,7 @@ int gc_header(KEYT tbn){
 			continue;
 		}
 		KEYT t_ppa=start+i;
+
 #if (LEVELN==1)
 		for(int j=0; j<TOTALSIZE/PAGESIZE/LSM.KEYNUM;j++){
 			if(now->o_ent[j].pba==t_ppa){
@@ -1466,6 +1461,13 @@ int gc_header(KEYT tbn){
 		test->pbn=n_ppa;
 #endif
 		table=tables[i];
+		if(((keyset*)table->nocpy_table)->lpa>1024){
+			abort();
+		}
+#ifdef NOCPY
+		/*should change keep the value before invalidate*/
+		nocpy_force_freepage(t_ppa);
+#endif
 		gc_data_write(n_ppa,table,false);
 		free(tables[i]);
 
@@ -1495,7 +1497,6 @@ int gc_data(KEYT tbn){
 #else
 	if(target->invalid_n==algo_lsm.li->PPB){
 #endif
-
 		gc_data_header_update_add(NULL,0,0,order);
 		gc_trim_segment(DATA,target->ppa);
 		return 1;

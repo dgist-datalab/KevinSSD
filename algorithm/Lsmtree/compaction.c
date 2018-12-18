@@ -56,8 +56,6 @@ void compaction_sub_wait(){
 #elif defined (SPINLOCK)
 	while(comp_target_get_cnt+memcpy_cnt!=epc_check){}
 #endif
-
-
 	//printf("%u:%u\n",comp_target_get_cnt,epc_check);
 
 	memcpy_cnt=0;
@@ -257,7 +255,6 @@ KEYT compaction_htable_write(htable *input, KEYT lpa){
 	areq->type=HEADERW;
 	params->ppa=ppa;
 	LSM.li->push_data(ppa,PAGESIZE,params->value,ASYNC,areq);
-
 	return ppa;
 }
 void dummy_meta_write(KEYT ppa){
@@ -678,7 +675,7 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 	compaction_sub_pre();
 	for(int j=0; target_s[j]!=NULL; j++){
 		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-		if(target_s[j]->c_entry){
+/*		if(target_s[j]->c_entry){
 #ifdef NOCPY
 			target_s[j]->cpt_data->nocpy_table=target_s[j]->cache_data->nocpy_table;
 #else
@@ -687,11 +684,11 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			memcpy_cnt++;
 		}
-		else{
+		else{*/
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			target_s[j]->cpt_data=htable_assign(NULL,false);
 			compaction_htable_read(target_s[j],(PTR*)&target_s[j]->cpt_data);
-		}
+		//}
 		epc_check++;
 	}
 
@@ -719,7 +716,10 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 	KEYT end=0;
 	run_t **target_s=NULL;
 	run_t **data=NULL;
-	//static int cnt=0;
+	/*
+	static int cnt=0;
+	printf("partial_leveling:%d\n",cnt++);
+*/
 	if(!upper){
 #ifndef MONKEY
 		start=skip->start;
@@ -755,20 +755,22 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 
 		for(int j=0; target_s[j]!=NULL; j++){
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+			/*
 			if(target_s[j]->c_entry){
 				memcpy_cnt++;
 #ifdef NOCPY
+				target_s[j]->cpt_data=htable_dummy_assign();
 				target_s[j]->cpt_data->nocpy_table=target_s[j]->cache_data->nocpy_table;
 #else
 				target_s[j]->cpt_data=htable_copy(target_s[j]->cache_data);
 #endif
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			}
-			else{
+			else{*/
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 				target_s[j]->cpt_data=htable_assign(NULL,false);
 				compaction_htable_read(target_s[j],(PTR*)&target_s[j]->cpt_data);
-			}
+			//}
 			if(!target_s[j]->iscompactioning){
 				target_s[j]->iscompactioning=true;
 			}
@@ -800,8 +802,10 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 			run_t *temp=data[i];
 			temp->iscompactioning=true;
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+			/*
 			if(temp->c_entry){
 #ifdef NOCPY
+				temp->cpt_data=htable_dummy_assign();
 				temp->cpt_data->nocpy_table=temp->cache_data->nocpy_table;
 #else
 				temp->cpt_data=htable_copy(temp->cache_data);
@@ -809,11 +813,11 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 				memcpy_cnt++;
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			}
-			else{
+			else{*/
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 				temp->cpt_data=htable_assign(NULL,false);
 				compaction_htable_read(temp,(PTR*)&temp->cpt_data);
-			}
+			//}
 			epc_check++;
 		}
 #ifdef LEVELCACHING
@@ -828,8 +832,10 @@ skip:
 			}
 			if(!temp->iscompactioning) temp->iscompactioning=true;
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+			/*
 			if(temp->c_entry){
 #ifdef NOCPY
+				temp->cpt_data=htable_dummy_assign();
 				temp->cpt_data->nocpy_table=temp->cache_data->nocpy_table;
 #else
 				temp->cpt_data=htable_copy(temp->cache_data);
@@ -837,11 +843,11 @@ skip:
 				memcpy_cnt++;
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			}
-			else{
+			else{*/
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 				temp->cpt_data=htable_assign(NULL,false);
 				compaction_htable_read(temp,(PTR*)&temp->cpt_data);
-			}
+			//}
 			epc_check++;
 		}
 
@@ -869,6 +875,7 @@ skip:
 		free(target_s);
 	}
 	compaction_sub_post();
+
 	return 1;
 }
 #if (LEVELN==1)

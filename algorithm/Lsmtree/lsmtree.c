@@ -134,8 +134,8 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	printf("| top level size:%d(MB)\n",LSM.disk[0]->m_num*8);
 	printf("| blommfileter : %fMB\n",(float)bloomfilter_memory/1024/1024);
 
-//	uint32_t cached_entry=caching_size-lev_caching_entry-bloomfilter_memory/PAGESIZE;
-	uint32_t cached_entry=0;
+	uint32_t cached_entry=caching_size-lev_caching_entry-bloomfilter_memory/PAGESIZE;
+//	uint32_t cached_entry=0;
 	LSM.lsm_cache=cache_init(cached_entry);
 
 #ifdef LEVELCACHING
@@ -488,9 +488,13 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 		target_set=LSM.lop->find_keyset((char*)table,req->key);
 		if(likely(target_set)){
 			if(entry && !entry->cache_data && cache_insertable(LSM.lsm_cache)){
-				static int cnt=0;
+#ifdef NOCPY
+				entry->cache_data=htable_dummy_assign();
+				entry->cache_data->nocpy_table=nocpy_pick(entry->pbn);
+#else
 				htable temp; temp.sets=table;
 				entry->cache_data=htable_copy(&temp);
+#endif
 				cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
 				entry->c_entry=c_entry;
 			}
@@ -499,6 +503,11 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 			req->value->ppa=target_set->ppa;
 			ppa=target_set->ppa;
 			res=4;
+		}
+		else{
+			if(LEVELN-LEVELCACHING==1){
+				printf("can't be\n");
+			}
 		}
 	}
 
@@ -824,7 +833,14 @@ htable *htable_copy(htable *input){
 	res->origin=NULL;
 	return res;
 }
-
+htable *htable_dummy_assign(){
+	htable *res=(htable*)malloc(sizeof(htable));
+	res->sets=NULL;
+	res->nocpy_table=NULL;
+	res->t_b=0;
+	res->origin=NULL;
+	return res;
+}
 void htable_print(htable * input,KEYT ppa){
 	bool check=false;
 	int cnt=0;

@@ -80,6 +80,7 @@ bool lsm_kv_validcheck(uint8_t *, int idx);
 void lsm_kv_validset(uint8_t *,int idx);
 htable *htable_copy(htable *);
 htable *htable_assign(char*,bool);
+htable *htable_dummy_assign();
 void htable_free(htable*);
 void htable_print(htable*,KEYT);
 /*
