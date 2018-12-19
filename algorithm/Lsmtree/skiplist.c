@@ -6,6 +6,7 @@
 #include<sys/types.h>
 #include"skiplist.h"
 #include"../../interface/interface.h"
+#include "../../include/slab.h"
 #ifdef Lsmtree
 #include "lsmtree.h"
 #include "level.h"
@@ -16,11 +17,19 @@ extern MeasureTime compaction_timer[3];
 extern OOBT *oob;
 extern lsmtree LSM;
 #endif
-
+#ifdef USINGSLAB
+//extern struct slab_chain snode_slab;
+extern kmem_cache_t snode_slab;
+#endif
 skiplist *skiplist_init(){
 	skiplist *point=(skiplist*)malloc(sizeof(skiplist));
 	point->level=1;
+#ifdef USINGSLAB
+	//point->header=(snode*)slab_alloc(&snode_slab);
+	point->header=(snode*)kmem_cache_alloc(snode_slab,KM_NOSLEEP);
+#else
 	point->header=(snode*)malloc(sizeof(snode));
+#endif
 	point->header->list=(snode**)malloc(sizeof(snode*)*(MAX_L+1));
 	for(int i=0; i<MAX_L; i++) point->header->list[i]=point->header;
 	point->header->key=UINT_MAX;
@@ -137,8 +146,12 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
 			}
 			list->level=level;
 		}
-
+#ifdef USINGSLAB
+	//	x=(snode*)slab_alloc(&snode_slab);
+		x=(snode*)kmem_cache_alloc(snode_slab,KM_NOSLEEP);
+#else
 		x=(snode*)malloc(sizeof(snode));
+#endif
 		x->list=(snode**)malloc(sizeof(snode*)*(level+1));
 
 		x->key=key;
@@ -194,8 +207,12 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef
 			}
 			list->level=level;
 		}
-
+#ifdef USINGSLAB
+		//x=(snode*)slab_alloc(&snode_slab);
+		x=(snode*)kmem_cache_alloc(snode_slab,KM_NOSLEEP);
+#else
 		x=(snode*)malloc(sizeof(snode));
+#endif
 		x->list=(snode**)malloc(sizeof(snode*)*(level+1));
 
 		x->key=key;
@@ -245,8 +262,12 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overla
 			}
 			list->level=level;
 		}
-
+#ifdef USINGSLAB
+		//x=(snode*)slab_alloc(&snode_slab);
+		x=(snode*)kmem_cache_alloc(snode_slab,KM_NOSLEEP);
+#else
 		x=(snode*)malloc(sizeof(snode));
+#endif
 		x->list=(snode**)malloc(sizeof(snode*)*(level+1));
 
 		x->key=key;
@@ -307,8 +328,12 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 			}
 			list->level=level;
 		}
-
+#ifdef USINGSLAB
+	//	x=(snode*)slab_alloc(&snode_slab);
+		x=(snode*)kmem_cache_alloc(snode_slab,KM_NOSLEEP);
+#else
 		x=(snode*)malloc(sizeof(snode));
+#endif
 		x->list=(snode**)malloc(sizeof(snode*)*(level+1));
 
 		x->key=key;
@@ -457,7 +482,12 @@ int skiplist_delete(skiplist* list, KEYT key){
 
 //   inf_free_valueset(x->value, FS_MALLOC_W);
 	free(x->list);
+#ifdef USINGSLAB
+	//slab_free(&snode_slab,x);
+	kmem_cache_free(snode_slab,x);
+#else
 	free(x);
+#endif
 	list->size--;
 	return 0;
 }
@@ -505,7 +535,12 @@ void skiplist_clear(skiplist *list){
 			free(now->req->params);
 			free(now->req);
 		}*/
+#ifdef USINGSLAB
+	//	slab_free(&snode_slab,now);
+		kmem_cache_free(snode_slab,now);
+#else
 		free(now);
+#endif
 		now=next;
 		next=now->list[1];
 	}
@@ -541,7 +576,12 @@ void skiplist_free(skiplist *list){
 	if(list==NULL) return;
 	skiplist_clear(list);
 	free(list->header->list);
+#ifdef USINGSLAB
+	//slab_free(&snode_slab,list->header);
+	kmem_cache_free(snode_slab,list->header);
+#else
 	free(list->header);
+#endif
 	free(list);
 	return;
 }

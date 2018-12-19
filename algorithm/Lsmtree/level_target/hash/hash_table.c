@@ -6,12 +6,16 @@
 #include <sys/time.h>
 #include "../../level.h"
 #include "../../../../include/settings.h"
+#include "../../../../include/slab.h"
 
 
 extern int32_t SIZEFACTOR;
 extern lsmtree LSM;
 extern bool flag_value;
-
+#ifdef USINGSLAB
+//extern slab_chain snode_slab;
+extern kmem_cache_t snode_slab;
+#endif
 
 void hash_range_update(level *d, run_t *t,KEYT lpa){
 	if(t){
@@ -84,12 +88,22 @@ void hash_body_free(hash_body *h){
 			hash_free_run((run_t*)now->value);
 		}
 		free(now->list);
+#ifdef USINGSLAB
+	//	slab_free(&snode_slab,now);
+		kmem_cache_free(snode_slab,now);
+#else
 		free(now);
+#endif
 		now=next;
 		next=now->list[1];
 	}
 	free(h->body->header->list);
+#ifdef USINGSLAB
+//	slab_free(&snode_slab,h->body->header);
+	kmem_cache_free(snode_slab,h->body->header);
+#else
 	free(h->body->header);
+#endif
 	free(h->body);
 }
 

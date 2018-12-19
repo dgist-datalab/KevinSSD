@@ -3,6 +3,7 @@
 #include <math.h>
 #include <limits.h>
 #include "../../include/lsm_settings.h"
+#include "../../include/slab.h"
 #include "../../interface/interface.h"
 #include "../../bench/bench.h"
 #include "compaction.h"
@@ -34,6 +35,11 @@ uint64_t caching_size;
 MeasureTime __get_mt;
 MeasureTime __get_mt2;
 MeasureTime level_get_time[10];
+#ifdef USINGSLAB
+//struct slab_chain snode_slab;
+//extern size_t slab_pagesize;
+kmem_cache_t snode_slab;
+#endif
 
 uint64_t bloomfilter_memory;
 uint64_t __get_max_value;
@@ -77,6 +83,11 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 }
 
 uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
+#ifdef USINGSLAB
+	//slab_pagesize=(size_t)sysconf(_SC_PAGESIZE);
+	//slab_init(&snode_slab,sizeof(snode));
+	snode_slab=kmem_cache_create("snode_slab",sizeof(snode),0,NULL,NULL);
+#endif
 	measure_init(&__get_mt);
 	measure_init(&__get_mt2);
 	for(int i=0; i<10; i++){
@@ -201,6 +212,7 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 		measure_adding_print(&level_get_time[i]);
 	}
 	printf("---------------------------hash_insert_cnt: %u\n",hash_insert_cnt);
+	//SLAB_DUMP(snode_slab)
 }
 
 extern pthread_mutex_t compaction_wait,gc_wait;

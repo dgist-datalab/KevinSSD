@@ -5,6 +5,7 @@ TARGET_LOWER=posix_memory
 TARGET_ALGO=Lsmtree
 PPWD=$(pwd)
 
+
 COMMONFLAGS=\
 			-Wno-write-strings\
 			-DSLC\
@@ -60,6 +61,7 @@ SRCS +=\
 	./interface/interface.c\
 	./interface/bb_checker.c\
 	./include/FS.c\
+	./include/slab.c\
 	./include/utils/dl_sync.c\
 	./include/utils/rwlock.c\
 	./include/utils/cond_lock.c\
@@ -86,6 +88,7 @@ endif
 LIBS +=\
 		-lpthread\
 		-lm\
+#-ljemalloc\
 
 all: simulator
 
