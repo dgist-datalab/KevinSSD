@@ -3,11 +3,13 @@
 #include <string.h>
 #include <unistd.h>
 #include <limits.h>
+#include<signal.h>
 #include "../include/lsm_settings.h"
 #include "../include/FS.h"
 #include "../include/settings.h"
 #include "../include/types.h"
 #include "../bench/bench.h"
+#include "server.h"
 #include "interface.h"
 #include "queue.h"
 
@@ -17,18 +19,19 @@ int skiplist_hit;
 #endif
 kuk_sock *net_worker;
 //#define IP "127.0.0.1"
-#define REQSIZE (sizeof(uint64_t)*3+sizeof(uint8_t))
-#define PACKETSIZE (2*REQSIZE*128)
+#define REQSIZE sizeof(net_data_t)
+#define PACKETSIZE sizeof(net_data_t)
 queue *ret_q;
 pthread_mutex_t send_lock;
 
 pthread_mutex_t ret_q_lock;
 pthread_cond_t ret_cond;
 
-uint64_t len_sum = 0;
-uint64_t len_cnt = 0;
-
 static int global_value;
+void log_print(int sig){
+	inf_free();
+	exit(1);
+}
 void *flash_returner(void *param){
 	while(1){
 		static int cnt=0;
@@ -37,11 +40,10 @@ void *flash_returner(void *param){
 			continue;
 		}
 
-		if((*(int*)req)!=UINT32_MAX){
+		if((*(int*)req)!=0){	
 			pthread_mutex_lock(&send_lock);
 			if(++cnt%10240==0){
 				printf("send_cnt:%d - len:%d\n",global_value++,*(int*)req);
-				printf("len avg :%.2f\n", (float)len_sum/len_cnt);
 			}
 #ifdef NETWORKSET
 			kuk_send(net_worker,(char*)req,sizeof(uint32_t));
@@ -56,7 +58,6 @@ void *flash_returner(void *param){
 void *flash_ack2clnt(void *param){
 	void **params=(void**)param;
 	uint8_t type=*((uint8_t*)params[0]);
-	//printf("tid on ack : %d\n", *(uint32_t *)params[1]);
 	//uint32_t *tt;
 	//uint32_t seq=*((uint32_t*)params[1]);
 	switch(type){
@@ -88,52 +89,38 @@ void *flash_ad(kuk_sock* ks){
 	uint8_t type=*((uint8_t*)ks->p_data[0]);
 	uint64_t key=*((uint64_t*)ks->p_data[1]);
 	uint64_t len=*((uint64_t*)ks->p_data[2]);
-	uint64_t tid=*((uint64_t*)ks->p_data[3]);
+	uint32_t seq=*((uint32_t*)ks->p_data[3]);
 
-
+	printf("type:%d key:%lu len:%lu seq:%u\n",type,key,len,seq);
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
 
-	len_sum += len; 
-	len_cnt++;
-
-	if (type == 0) {
-		printf("[ERROR] Type error on flash_ad, %d\n", type);
-	}
 	value_set temp;
 	temp.value=t_value;
 	temp.dmatag=-1;
 	temp.length=PAGESIZE;
+	
 	for(uint64_t i=0; i<len; i++){
 		static int cnt=0;
-		if (cnt % 102400 == 0) {
-			printf("make cnt:%d\n",cnt++);
-		}
 		if(i+1!=len){
-			inf_make_req_special(type,(uint32_t)key+i,&temp,UINT32_MAX,flash_ack2clnt);
+			inf_make_req_special(type,(uint32_t)key+i,&temp,0,flash_ack2clnt);
 		}else{
-			inf_make_req_special(type,(uint32_t)key+i,&temp,(uint32_t)tid,flash_ack2clnt);
+			inf_make_req_special(type,(uint32_t)key+i,&temp,seq,flash_ack2clnt);
 		}
-	}	
-
-	// Ack for write immediately
-/*	if(type==FS_SET_T){
-		uint32_t t=UINT32_MAX;
-		pthread_mutex_lock(&send_lock);
-		kuk_send(net_worker,(char*)&t,sizeof(t));
-		pthread_mutex_unlock(&send_lock);
-	}*/
+	}
 	return NULL;
 }
+
 void *flash_decoder(kuk_sock *ks, void*(*ad)(kuk_sock*)){
 	char **parse=ks->p_data;
 	if(parse==NULL){
-		parse=(char**)malloc((4+1)*sizeof(char*));
+		
+		/*parse=(char**)malloc((4+1)*sizeof(char*));
 		parse[0]=(char*)malloc(sizeof(uint8_t));//type
 		parse[1]=(char*)malloc(sizeof(uint64_t));//key
 		parse[2]=(char*)malloc(sizeof(uint64_t));//length
-		parse[3]=(char*)malloc(sizeof(uint64_t));//tid
-		parse[4]=NULL;
+		parse[3]=(char*)malloc(sizeof(uint32_t));//seq
+		parse[4]=NULL;*/
 		ks->p_data=parse;
 	}
 
@@ -150,7 +137,12 @@ void *flash_decoder(kuk_sock *ks, void*(*ad)(kuk_sock*)){
 	ad(ks);
 	return (void*)parse;
 }
+
 int main(int argc,char* argv[]){
+	struct sigaction sa;
+	sa.sa_handler = log_print;
+	sigaction(SIGINT, &sa, NULL);
+
 	inf_init();
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
@@ -160,33 +152,41 @@ int main(int argc,char* argv[]){
 	q_init(&ret_q,1024);
 	pthread_t rt_thread;
 	pthread_create(&rt_thread,NULL,&flash_returner,NULL);
+	value_set dummy;
+	dummy.value=t_value;
+	dummy.dmatag=-1;
+	dummy.length=PAGESIZE;
+	static int cnt=0;
 	/*network initialize*/
 #ifdef NETWORKSET
-	net_worker=kuk_sock_init((PACKETSIZE/REQSIZE)*REQSIZE,flash_decoder,flash_ad);
+	net_worker=kuk_sock_init(sizeof(net_data_t),flash_decoder,flash_ad);
 	kuk_open(net_worker,IP,PORT);
 	kuk_bind(net_worker);
 	kuk_listen(net_worker,5);
 	kuk_accept(net_worker);
-	//while(kuk_service(net_worker,1)){}
-	uint32_t readed, len=0;
+	printf("connected......\n");
+	uint32_t readed=0, len=0;
 
+	net_data_t temp;
 	while (1) {
-		readed = 0;
 		while (readed == 0 || readed % REQSIZE != 0) {
-			len = kuk_recv(net_worker, net_worker->data+readed, net_worker->data_size-readed);
+			len = kuk_recv(net_worker, &((char*)&temp)[readed], sizeof(net_data_t)-readed);
 			if (len == -1) continue;
 			readed += len;
 		}
-
-		//for (int i = 0; i < readed; i += REQSIZE) {
-		//	if (*(uint8_t *)&net_worker->data[i] > 2) {
-		//		printf("[ERROR] Type error on packet, %d\n", *(uint8_t*)&net_worker->data[i]);
-		//	}
-		//}
-
+		printf("%d %lu %lu %u %d\n",temp.type, temp.offset, temp.len,temp.seq,cnt++);
+		if((temp.type!=1 && temp.type!=2) || temp.len!=1){
+			printf("no");
+		}
+		readed=0;
 		net_worker->data_idx=0;
-		while(readed!=net_worker->data_idx){
-			net_worker->decoder(net_worker,net_worker->after_decode);
+
+		for(int i=0; i<temp.len; i++){
+			if(i+1!=temp.len){
+				inf_make_req_special(temp.type,(uint32_t)temp.offset+i,&dummy,0,flash_ack2clnt);
+			}else{
+				inf_make_req_special(temp.type,(uint32_t)temp.offset+i,&dummy,temp.seq,flash_ack2clnt);
+			}
 		}
 	}
 #else

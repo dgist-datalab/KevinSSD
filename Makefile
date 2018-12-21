@@ -9,12 +9,14 @@ PPWD=$(pwd)
 COMMONFLAGS=\
 			-Wno-write-strings\
 			-DSLC\
-#		-O2\
+		-O2\
+#			-DWRITESYNC\
 
 export CFLAGS_ALGO=\
 			 -g\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
+			 -O2
 #-DDVALUE\
 
 
@@ -52,9 +54,11 @@ CFLAGS +=\
 		 -D$(TARGET_LOWER)\
 		 -D$(TARGET_ALGO)\
 		 -D$(TARGET_INF)\
+		 -D_DEFAULT_SOURCE\
 		 -D_BSD_SOURCE\
 -DBENCH\
 -DCDF\
+-O2\
 
 SRCS +=\
 	./interface/queue.c\

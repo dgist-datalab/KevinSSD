@@ -168,7 +168,11 @@ value_set* SRAM_load(D_SRAM* d_sram, int32_t ppa, int idx, char t) {
 
 void SRAM_unload(D_SRAM* d_sram, int32_t ppa, int idx, char t){
     value_set *temp_value_set;
+#if MEMCPY_ON_GC
     temp_value_set = inf_get_valueset((PTR)d_sram[idx].DATA_RAM, FS_MALLOC_W, PAGESIZE);
+#else
+    temp_value_set = inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
+#endif
     if(t == 'T'){
         __demand.li->push_data(ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(TGC_W, temp_value_set, NULL));
     }

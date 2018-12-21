@@ -219,7 +219,8 @@ void *p_main(void *__input){
 #endif
 		inf_req=(request*)_inf_req;
 		inter_cnt++;
-		//printf("inf:%u\n",inf_req->seq);
+//		printf("inf:%u\n",inf_req->seq);
+		//printf("lock now:%d - %s\n",inf_cond->now,write_stop?"stop":"no");
 #ifdef CDF
 		inf_req->isstart=true;
 #endif
@@ -232,11 +233,14 @@ void *p_main(void *__input){
 					first_get=false;
 					//mp.li->lower_flying_req_wait();
 				}
+	//			printf("read key :%d\n",inf_req->key);
 				mp.algo->get(inf_req);
 				MA(&mt4);
 				break;
 			case FS_SET_T:
+	//			printf("write key :%d\n",inf_req->key);
 				write_stop=mp.algo->set(inf_req);
+			//	write_stop=false;
 				break;
 			case FS_DELETE_T:
 				mp.algo->remove(inf_req);
@@ -398,6 +402,7 @@ static request *inf_get_req_instance(const FSTYPE type, const KEYT key, value_se
 	}
 	return req;
 }
+
 #ifndef USINGAPP
 bool inf_make_req(const FSTYPE type, const KEYT key, value_set *value,int mark){
 #else
@@ -506,24 +511,6 @@ bool inf_end_req( request * const req){
 		free(req);
 	}
 	cl_release(flying);
-/*
-	pthread_mutex_lock(&flying_req_lock);
-	
-	//flying_req_cnt--;
-	//if(flying_req_cnt==0){
-	//	pthread_cond_broadcast(&flying_req_cond);
-	//}
-	if(flying_req_cnt==QDEPTH){
-		flying_req_cnt--;
-		if(special) special((void*)params);
-		pthread_cond_broadcast(&flying_req_cond);
-	}
-	else{
-		if(special) special((void*)params);
-		flying_req_cnt--;
-	}
-	pthread_mutex_unlock(&flying_req_lock);*/
-
 	return true;
 }
 void inf_free(){
