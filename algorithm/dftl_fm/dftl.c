@@ -314,6 +314,11 @@ static uint32_t demand_cache_update(request *const req, char req_t) {
         }
 #else
         lru_update(lru, c_table->queue_ptr);
+        if (c_table->state == CLEAN) {
+            clean_hit_on_read++;
+        } else {
+            dirty_hit_on_read++;
+        }
 #endif
     } else {
 #if C_CACHE
@@ -341,6 +346,9 @@ static uint32_t demand_cache_update(request *const req, char req_t) {
         if (c_table->state == CLEAN) {
             c_table->state = DIRTY;
             BM_InvalidatePage(bm, t_ppa);
+            clean_hit_on_write++;
+        } else {
+            dirty_hit_on_write++;
         }
         lru_update(lru, c_table->queue_ptr);
 #endif
@@ -597,6 +605,7 @@ static uint32_t __demand_get(request *const req){
                 bench_algo_end(req);
                 return UINT32_MAX;
             }
+            cache_hit_on_read++;
             // Cache update
             demand_cache_update(req, 'R');
             req->type_ftl += 1;
@@ -606,6 +615,7 @@ static uint32_t __demand_get(request *const req){
                 bench_algo_end(req);
                 return UINT32_MAX;
             }
+            cache_miss_on_read++;
             if (demand_cache_eviction(req, 'R') == 1) {
                 return 1;
             }
@@ -705,6 +715,7 @@ static uint32_t __demand_set(request *const req){
             demand_cache_update(req, 'W');
 
         } else {
+            cache_miss_on_write++;
             if (demand_cache_eviction(req, 'W') == 1) {
                 return 1;
             }
