@@ -1,22 +1,21 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=posix_memory
-TARGET_ALGO=Lsmtree
+TARGET_LOWER=linux_aio
+TARGET_ALGO=dftl_fm
 PPWD=$(pwd)
 
 
 COMMONFLAGS=\
 			-Wno-write-strings\
 			-DSLC\
-		-O2\
+#		-O2\
 #			-DWRITESYNC\
 
 export CFLAGS_ALGO=\
 			 -g\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
-			 -O2
 #-DDVALUE\
 
 
@@ -58,7 +57,6 @@ CFLAGS +=\
 		 -D_BSD_SOURCE\
 -DBENCH\
 -DCDF\
--O2\
 
 SRCS +=\
 	./interface/queue.c\
@@ -92,6 +90,7 @@ endif
 LIBS +=\
 		-lpthread\
 		-lm\
+		-lrt\
 #-ljemalloc\
 
 all: simulator

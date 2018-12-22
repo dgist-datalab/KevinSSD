@@ -3,6 +3,8 @@
 #include "../../bench/bench.h"
 #include "../../bench/measurement.h"
 #include "../../algorithm/Lsmtree/lsmtree.h"
+#include "../../include/utils/cond_lock.h"
+#include "linux_aio.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,6 +13,8 @@
 #include <string.h>
 #include <pthread.h>
 #include <limits.h>
+#include <errno.h>
+#include <assert.h>
 #include <aio.h>
 
 lower_info aio_info={
@@ -27,32 +31,42 @@ lower_info aio_info={
 	.lower_flying_req_wait=aio_flying_req_wait
 };
 
-static int _fd;
+static int _fd,read_cnt,write_cnt,return_cnt;
 static pthread_mutex_t fd_lock;
-static struct aiocb *aiocb_list'
-static queue *aiocb_q;
-
+static pthread_t t_id;
+static struct aiocb_container *aiocb_list;
+static queue *aiocb_q;//free q
+static queue *aiocb_wq;//wait q
+cl_lock *lower_flying;
+bool stopflag;
 void *poller(void *input) {
+	algo_req *req;
+	int err,ret;
     for (int i = 0; ; i++) {
         if (stopflag) {
             pthread_exit(NULL);
         }
 
-        if (aio_error(&aiocb_list[i]) != EINPROGRESS) {
-            err = aio_error(&aiocb_list[i]);
-            ret = aio_return(&aiocb_list[i]);
+        if (aiocb_list[i].main_req && aio_error(&aiocb_list[i].aiocb) != EINPROGRESS) {
+            err = aio_error(&aiocb_list[i].aiocb);
+            ret = aio_return(&aiocb_list[i].aiocb);
 
             if (err != 0) {
                 printf("Error on aio_error()\n");
-                exit(1);
+				assert(0);
             }
 
-            if (ret != aiocb_list[i].aio_nbytes) {
-                printf("Error on aio_return()\n");
-                exit(1);
+            if (ret != aiocb_list[i].aiocb.aio_nbytes) {
+                printf("Error on aio_return() %d\n",ret);
+				assert(0);
             }
+				
+			req=aiocb_list[i].main_req;
+			req->end_req(req);
 
-            // TODO: q_enqueue()
+			aiocb_list[i].main_req=NULL;
+			q_enqueue((void *)&aiocb_list[i],aiocb_q);
+			cl_release(lower_flying);
         }
 
         if (i == QDEPTH-1) i = -1;
@@ -75,11 +89,13 @@ uint32_t aio_create(lower_info *li){
 		printf("file open error!\n");
 		exit(1);
 	}
-    aiocb_list = (struct aiocb *)malloc(sizeof(struct aiocb) * QDEPTH);
-    q_init(aiocb_q, QDEPTH);
+    q_init(&aiocb_q, QDEPTH);
+	lower_flying=cl_init(QDEPTH,false);
+    aiocb_list = (aiocb_container_t *)malloc(sizeof(aiocb_container_t) * QDEPTH);
+
     for (int i = 0; i < QDEPTH; i++) {
-        memset(&aiocb_list[i], 0, sizeof(struct aiocb));
-        q_enqueue(aiocb_q, (void *)&aiocb_list[i]);
+        memset(&aiocb_list[i], 0, sizeof(aiocb_container_t));
+        q_enqueue((void *)&aiocb_list[i],aiocb_q);
     }
 
 	pthread_mutex_init(&fd_lock,NULL);
@@ -116,20 +132,26 @@ void *aio_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_r
 	bench_lower_w_start(&aio_info);
 	if(req->parents)
 		bench_lower_start(req->parents);
-	pthread_mutex_lock(&fd_lock);
 
-    struct aiocb *aiocb = (struct aiocb *)q_dequeue(aiocb_q);
+    //aiocb_container_t *ac;	
+	//while(!(ac= (aiocb_container_t*)q_dequeue(aiocb_q))){};
+	cl_grap(lower_flying);
+    aiocb_container_t *ac= (aiocb_container_t *)q_dequeue(aiocb_q);
+	struct aiocb *aiocb=&ac->aiocb;
+	assert(aiocb);
     aiocb->aio_fildes = _fd;
     aiocb->aio_offset = (off64_t)aio_info.SOP * PPA;
     aiocb->aio_buf = value->value;
     aiocb->aio_nbytes = size;
 
-    if (aio_write(aiocb) == -1) {
+	pthread_mutex_lock(&fd_lock);
+	if (aio_write(aiocb) == -1) {
         printf("Error on aio_write()\n");
         exit(1);
     }
-
 	pthread_mutex_unlock(&fd_lock);
+	ac->main_req=req;
+
 	if(req->parents)
 		bench_lower_end(req->parents);
 	bench_lower_w_end(&aio_info);
@@ -145,20 +167,23 @@ void *aio_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_r
 	if(req->parents)
 		bench_lower_start(req->parents);
 
-	pthread_mutex_lock(&fd_lock);
-
-    struct aiocb *aiocb = (struct aiocb *)q_dequeue(aiocb_q);
+    aiocb_container_t *ac= (aiocb_container_t *)q_dequeue(aiocb_q);
+	read_cnt++;
+	struct aiocb *aiocb=&ac->aiocb;
+	assert(aiocb);
+	assert(aiocb);
     aiocb->aio_fildes = _fd;
     aiocb->aio_offset = (off64_t)aio_info.SOP * PPA;
     aiocb->aio_buf = value->value;
     aiocb->aio_nbytes = size;
 
+	pthread_mutex_lock(&fd_lock);
     if (aio_read(aiocb) == -1) {
         printf("Error on aio_read()\n");
         exit(1);
     }
-
 	pthread_mutex_unlock(&fd_lock);
+	ac->main_req=req;
 
 	if(req->parents)
 		bench_lower_end(req->parents);
@@ -171,6 +196,14 @@ void *aio_trim_block(KEYT PPA, bool async){
 	bench_lower_t(&aio_info);
 	char *temp=(char *)malloc(aio_info.SOB);
 	memset(temp,0,aio_info.SOB);
+
+    struct aiocb *aiocb = (struct aiocb *)q_dequeue(aiocb_q);
+	assert(aiocb);
+    aiocb->aio_fildes = _fd;
+    aiocb->aio_offset = (off64_t)aio_info.SOP * PPA;
+    aiocb->aio_buf = temp;
+    aiocb->aio_nbytes = aio_info.SOB;
+
 	pthread_mutex_lock(&fd_lock);
 	if(lseek64(_fd,((off64_t)aio_info.SOP)*PPA,SEEK_SET)==-1){
 		printf("lseek error in trim\n");

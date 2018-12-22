@@ -29,7 +29,7 @@ extern struct algorithm algo_lsm;
 #ifdef bdbm_drv
 extern struct lower_info memio_info;
 #endif
-
+extern struct lower_info aio_info;
 #ifdef network
 extern struct lower_info net_info;
 #endif
@@ -333,6 +333,8 @@ void inf_init(){
 	mp.li=&memio_info;
 #elif defined(network)
     mp.li=&net_info;
+#elif defined(linux_aio)
+	mp.li=&aio_info;
 #endif
 
 #ifdef normal
