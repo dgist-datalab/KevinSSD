@@ -519,7 +519,6 @@ void inf_free(){
 
 	bench_print();
 	bench_free();
-
 	mp.li->stop();
 	mp.stopflag=true;
 	int *temp;

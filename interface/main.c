@@ -31,15 +31,15 @@ int main(int argc,char* argv[]){
 	}
 
 	inf_init();
-	bench_init(2);
+	bench_init(1);
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
 
 //	bench_add(RANDSET,0,RANGE,2*RANGE);
-	bench_add(SEQSET,0,RANGE,RANGE);
+	bench_add(RANDRW,0,RANGE,2*RANGE);
 //	bench_add(SEQGET,0,RANGE,RANGE);
 //	bench_add(SEQRW,0,RANGE,2*RANGE);
-	bench_add(MIXED,0,RANGE,RANGE);
+//	bench_add(MIXED,0,RANGE,RANGE);
 //	bench_add(SEQLATENCY,0,RANGE,RANGE);
 //	bench_add(RANDRW,0,RANGE,2*RANGE);
 //	bench_add(RANDLATENCY,0,RANGE,RANGE-RANGE/10);
@@ -76,7 +76,6 @@ int main(int argc,char* argv[]){
 		inf_make_req(value->type,value->key,&temp,value->mark);
 		if(!tflag &&value->type==FS_GET_T){
 			tflag=true;
-			MS(&aaa);
 		}
 //		scanf("%d%d",&_type,&_key);
 //		inf_make_req(_type,_key,&temp,value->mark);
@@ -110,7 +109,6 @@ int main(int argc,char* argv[]){
 
 	printf("bench free\n");
 	inf_free();
-	MT(&aaa);
 #ifdef Lsmtree
 	printf("skiplist hit:%d\n",skiplist_hit);
 #endif

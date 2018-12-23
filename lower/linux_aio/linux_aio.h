@@ -1,9 +1,8 @@
 #include "../../include/container.h"
-#include <aio.h>
-typedef struct aiocb_container{
-	struct aiocb aiocb;
-	algo_req *main_req;
-}aiocb_container_t;
+#include <libaio.h>
+typedef struct iocb_container{
+	struct iocb cb;
+}iocb_container_t;
 
 uint32_t aio_create(lower_info*);
 void *aio_destroy(lower_info*);
