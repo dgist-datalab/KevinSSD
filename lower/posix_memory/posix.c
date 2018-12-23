@@ -204,10 +204,20 @@ void *posix_destroy(lower_info *li){
 	stopflag = true;
 	q_free(p_q);
 #endif
-	for(int i=0; i<LREQ_TYPE_NUM; i++){
-	//	if(!li->req_type_cnt[i]) continue;
-		printf("%d %lu\n",i,my_posix.req_type_cnt[i]);
-	}
+
+    printf("TRIM\t%lu\n", li->req_type_cnt[0]);
+    printf("TR\t%lu\n", li->req_type_cnt[1]);
+    printf("TW\t%lu\n", li->req_type_cnt[2]);
+    printf("TGCR\t%lu\n", li->req_type_cnt[3]);
+    printf("TGCW\t%lu\n", li->req_type_cnt[4]);
+    printf("DR\t%lu\n", li->req_type_cnt[5]);
+    printf("DW\t%lu\n", li->req_type_cnt[6]);
+    printf("DGCR\t%lu\n", li->req_type_cnt[7]);
+    printf("DGCW\t%lu\n\n", li->req_type_cnt[8]);
+
+    printf("Total Read Traffic : %lu\n", li->req_type_cnt[1]+li->req_type_cnt[3]+li->req_type_cnt[5]+li->req_type_cnt[7]);
+    printf("Total Write Traffic: %lu\n\n", li->req_type_cnt[2]+li->req_type_cnt[4]+li->req_type_cnt[6]+li->req_type_cnt[8]);
+    printf("Total WAF: %.2f\n\n", (float)(li->req_type_cnt[2]+li->req_type_cnt[4]+li->req_type_cnt[6]+li->req_type_cnt[8]) / li->req_type_cnt[6]);
 	return NULL;
 }
 
