@@ -275,7 +275,6 @@ void demand_destroy(lower_info *li, algorithm *algo){
 
     printf("WAF: %.2f\n\n", (float)(data_r+dirty_evict_on_write)/data_r);
 
-<<<<<<< HEAD:algorithm/dftl_fm/dftl.c
     printf("\nnum caching: %d\n", num_caching);
     printf("num_flying: %d\n", num_flying);
 
@@ -287,8 +286,6 @@ void demand_destroy(lower_info *li, algorithm *algo){
 		}
 	}*/
 
-=======
->>>>>>> 0b19aa1768803e16ffd2d70075c90eb49378cfcc:algorithm/ctoc/dftl.c
     /* Clear modules */
     q_free(dftl_q);
     q_free(wait_q);

@@ -227,7 +227,6 @@ static uint8_t convert_type(uint8_t type) {
 
 void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	uint8_t test_type;
-
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
 		abort();
