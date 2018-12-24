@@ -13,6 +13,8 @@
 #include "../../algorithm/dftl_fm/dftl.h"
 #elif defined(ctoc)
 #include "../../algorithm/ctoc/dftl.h"
+#elif defined(test)
+#include "../../algorithm/test/dftl.h"
 #else
 #include "../../algorithm/Lsmtree/lsmtree.h"
 #endif
