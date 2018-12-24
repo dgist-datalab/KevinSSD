@@ -5,17 +5,20 @@
 #include "../../algorithm/Lsmtree/lsmtree.h"
 #include "../../include/utils/cond_lock.h"
 #include "linux_aio.h"
+#include <libaio.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/ioctl.h>
+#include <linux/fs.h>
+#include<semaphore.h>
 #include <string.h>
 #include <pthread.h>
 #include <limits.h>
 #include <errno.h>
 #include <assert.h>
-#include <aio.h>
 
 lower_info aio_info={
 	.create=aio_create,
@@ -31,49 +34,69 @@ lower_info aio_info={
 	.lower_flying_req_wait=aio_flying_req_wait
 };
 
-static int _fd,read_cnt,write_cnt,return_cnt;
-static pthread_mutex_t fd_lock;
+static int _fd;
+static pthread_mutex_t fd_lock,flying_lock;
 static pthread_t t_id;
-static struct aiocb_container *aiocb_list;
-static queue *aiocb_q;//free q
-static queue *aiocb_wq;//wait q
+static io_context_t ctx;
 cl_lock *lower_flying;
+bool flying_flag;
+static int write_cnt, read_cnt;
+sem_t sem;
 bool stopflag;
+uint64_t lower_micro_latency;
 void *poller(void *input) {
 	algo_req *req;
-	int err,ret;
+	int ret;
+	struct io_event done_array[1024];
+	struct io_event *r;
+	struct timespec w_t;
+	struct iocb *cb;
+	w_t.tv_sec=0;
+	w_t.tv_nsec=10*1000;
+
     for (int i = 0; ; i++) {
         if (stopflag) {
             pthread_exit(NULL);
         }
-
-        if (aiocb_list[i].main_req && aio_error(&aiocb_list[i].aiocb) != EINPROGRESS) {
-            err = aio_error(&aiocb_list[i].aiocb);
-            ret = aio_return(&aiocb_list[i].aiocb);
-
-            if (err != 0) {
-                printf("Error on aio_error()\n");
-				assert(0);
-            }
-
-            if (ret != aiocb_list[i].aiocb.aio_nbytes) {
-                printf("Error on aio_return() %d\n",ret);
-				assert(0);
-            }
-				
-			req=aiocb_list[i].main_req;
-			req->end_req(req);
-
-			aiocb_list[i].main_req=NULL;
-			q_enqueue((void *)&aiocb_list[i],aiocb_q);
-			cl_release(lower_flying);
-        }
-
-        if (i == QDEPTH-1) i = -1;
+		if((ret=io_getevents(ctx,0,1024,done_array,&w_t))){
+			for(int i=0; i<ret; i++){
+				r=&done_array[i];
+				req=(algo_req*)r->data;
+				cb=r->obj;
+				if(r->res==(unsigned int)-22){
+					printf("error! %s %lu %llu\n",strerror(-r->res),r->res2,cb->u.c.offset);
+				}else if(r->res!=PAGESIZE){
+					printf("write error!\n");
+				}
+				else{
+				//	printf("cb->offset:%d cb->nbytes:%d\n",cb->u.c.offset,cb->u.c.nbytes);
+				}
+				if(req->parents){
+					bench_lower_end(req->parents);
+				}
+				MA(&req->latency_lower);
+				lower_micro_latency+=req->latency_lower.adding.tv_sec*1000000+req->latency_lower.adding.tv_usec;
+				req->end_req(req);
+				cl_release(lower_flying);
+				/*
+				pthread_mutex_lock(&flying_lock);
+				if(flying_flag&& lower_flying->cnt==lower_flying->now){
+					flying_flag=false;
+					pthread_mutex_unlock(&flying_lock);
+					sem_post(&sem);
+				}else{
+					pthread_mutex_unlock(&flying_lock);
+				}*/
+				free(r->obj);
+			}
+		}
+        if (i == 1-1) i = -1;
     }
+	return NULL;
 }
 
 uint32_t aio_create(lower_info *li){
+	int ret;
 	li->NOB=_NOS;
 	li->NOP=_NOP;
 	li->SOB=BLOCKSIZE * BPS;
@@ -84,22 +107,26 @@ uint32_t aio_create(lower_info *li){
 	li->TS=TOTALSIZE;
 
 	li->write_op=li->read_op=li->trim_op=0;
-	_fd=open("data/simulator.data",O_RDWR|O_CREAT|O_TRUNC,0666);
+	_fd=open("/dev/robusta",O_RDWR|O_DIRECT,0644);
+	//_fd=open64("/media/robusta/data",O_RDWR|O_CREAT|O_DIRECT,0666);
 	if(_fd==-1){
 		printf("file open error!\n");
 		exit(1);
 	}
-    q_init(&aiocb_q, QDEPTH);
-	lower_flying=cl_init(QDEPTH,false);
-    aiocb_list = (aiocb_container_t *)malloc(sizeof(aiocb_container_t) * QDEPTH);
+	
+	ret=io_setup(1024,&ctx);
+	if(ret!=0){
+		printf("io setup error\n");
+		exit(1);
+	}
 
-    for (int i = 0; i < QDEPTH; i++) {
-        memset(&aiocb_list[i], 0, sizeof(aiocb_container_t));
-        q_enqueue((void *)&aiocb_list[i],aiocb_q);
-    }
+	lower_flying=cl_init(1024,false);
 
 	pthread_mutex_init(&fd_lock,NULL);
 	pthread_mutex_init(&aio_info.lower_lock,NULL);
+	pthread_mutex_init(&flying_lock,NULL);
+	sem_init(&sem,0,0);
+
 	measure_init(&li->writeTime);
 	measure_init(&li->readTime);
 
@@ -116,10 +143,17 @@ void *aio_refresh(lower_info *li){
 	return NULL;
 }
 
+static uint8_t test_type(uint8_t type){
+	uint8_t t_type=0xff>>1;
+	return type&t_type;
+}
 void *aio_destroy(lower_info *li){
-	pthread_mutex_destroy(&aio_info.lower_lock);
-	pthread_mutex_destroy(&fd_lock);
-    free(aiocb_list);
+	//pthread_mutex_destroy(&aio_info.lower_lock);
+	//pthread_mutex_destroy(&fd_lock);
+	for(int i=0; i<LREQ_TYPE_NUM;i++){
+		printf("%s %lu\n",bench_lower_type(i),li->req_type_cnt[i]);
+	}
+	printf("lower time all :%.2lf %lu average:%.2f\n",((double)lower_micro_latency)/1000000,lower_micro_latency,(float)lower_micro_latency/write_cnt);
 	close(_fd);
 	return NULL;
 }
@@ -130,30 +164,30 @@ void *aio_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_r
 		exit(1);
 	}
 	bench_lower_w_start(&aio_info);
+	write_cnt++;
+	uint8_t t_type=test_type(req->type);
+	if(t_type < LREQ_TYPE_NUM){
+		aio_info.req_type_cnt[t_type]++;
+	}
+	
 	if(req->parents)
 		bench_lower_start(req->parents);
+	measure_init(&req->latency_lower);
+	MS(&req->latency_lower);
 
-    //aiocb_container_t *ac;	
-	//while(!(ac= (aiocb_container_t*)q_dequeue(aiocb_q))){};
+	struct iocb *cb=(struct iocb*)malloc(sizeof(struct iocb));
 	cl_grap(lower_flying);
-    aiocb_container_t *ac= (aiocb_container_t *)q_dequeue(aiocb_q);
-	struct aiocb *aiocb=&ac->aiocb;
-	assert(aiocb);
-    aiocb->aio_fildes = _fd;
-    aiocb->aio_offset = (off64_t)aio_info.SOP * PPA;
-    aiocb->aio_buf = value->value;
-    aiocb->aio_nbytes = size;
+
+	io_prep_pwrite(cb,_fd,(void*)value->value,PAGESIZE,aio_info.SOP*PPA);
+	cb->data=(void*)req;	
 
 	pthread_mutex_lock(&fd_lock);
-	if (aio_write(aiocb) == -1) {
+	if (io_submit(ctx,1,&cb) !=1) {
         printf("Error on aio_write()\n");
         exit(1);
     }
 	pthread_mutex_unlock(&fd_lock);
-	ac->main_req=req;
 
-	if(req->parents)
-		bench_lower_end(req->parents);
 	bench_lower_w_end(&aio_info);
 	return NULL;
 }
@@ -164,60 +198,57 @@ void *aio_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_r
 		exit(1);
 	}
 	bench_lower_r_start(&aio_info);
+	uint8_t t_type=test_type(req->type);
+	if(t_type < LREQ_TYPE_NUM){
+		aio_info.req_type_cnt[t_type]++;
+	}
+	
 	if(req->parents)
 		bench_lower_start(req->parents);
-
-    aiocb_container_t *ac= (aiocb_container_t *)q_dequeue(aiocb_q);
-	read_cnt++;
-	struct aiocb *aiocb=&ac->aiocb;
-	assert(aiocb);
-	assert(aiocb);
-    aiocb->aio_fildes = _fd;
-    aiocb->aio_offset = (off64_t)aio_info.SOP * PPA;
-    aiocb->aio_buf = value->value;
-    aiocb->aio_nbytes = size;
+	measure_init(&req->latency_lower);
+	MS(&req->latency_lower);
+	struct iocb *cb=(struct iocb*)malloc(sizeof(struct iocb));
+	cl_grap(lower_flying);
+	//printf("%u %u offset:%u\n",PPA,aio_info.SOP,aio_info.SOP*PPA);
+	io_prep_pread(cb,_fd,(void*)value->value,PAGESIZE,aio_info.SOP*PPA);
+	cb->data=(void*)req;
+//	io_set_callback(cb,call_back);
 
 	pthread_mutex_lock(&fd_lock);
-    if (aio_read(aiocb) == -1) {
+    if (io_submit(ctx,1,&cb) !=1) {
         printf("Error on aio_read()\n");
         exit(1);
     }
 	pthread_mutex_unlock(&fd_lock);
-	ac->main_req=req;
 
-	if(req->parents)
-		bench_lower_end(req->parents);
 	bench_lower_r_end(&aio_info);
 	//req->end_req(req);
 	return NULL;
 }
 
 void *aio_trim_block(KEYT PPA, bool async){
-	bench_lower_t(&aio_info);
-	char *temp=(char *)malloc(aio_info.SOB);
-	memset(temp,0,aio_info.SOB);
-
-    struct aiocb *aiocb = (struct aiocb *)q_dequeue(aiocb_q);
-	assert(aiocb);
-    aiocb->aio_fildes = _fd;
-    aiocb->aio_offset = (off64_t)aio_info.SOP * PPA;
-    aiocb->aio_buf = temp;
-    aiocb->aio_nbytes = aio_info.SOB;
-
-	pthread_mutex_lock(&fd_lock);
-	if(lseek64(_fd,((off64_t)aio_info.SOP)*PPA,SEEK_SET)==-1){
-		printf("lseek error in trim\n");
-	}
-	if(!write(_fd,temp,BLOCKSIZE*BPS)){
-		printf("write none\n");
-	}
-	pthread_mutex_unlock(&fd_lock);
-	free(temp);
+	aio_info.req_type_cnt[TRIM]++;
+	uint64_t range[2];
+	range[0]=PPA*aio_info.SOP;
+	range[1]=16384*aio_info.SOP;
+	ioctl(_fd,BLKDISCARD,&range);
 	return NULL;
 }
 
 void aio_stop(){}
 
 void aio_flying_req_wait(){
+	/*
+	pthread_mutex_lock(&flying_lock);
+	if(lower_flying->cnt!=lower_flying->now){
+		flying_flag=true;
+		pthread_mutex_unlock(&flying_lock);
+		sem_wait(&sem);
+	}
+	else{
+		pthread_mutex_unlock(&flying_lock);
+	}*/
+	
+//	while(lower_flying->cnt!=lower_flying->now){}
 	return ;
 }

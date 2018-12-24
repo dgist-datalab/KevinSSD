@@ -2,6 +2,8 @@
 #include "container.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <malloc.h>
+#include <errno.h>
 #ifdef bdbm_drv
 extern lower_info memio_info;
 #endif
@@ -13,6 +15,14 @@ int F_malloc(void **ptr, int size,int rw){
 	}
 #ifdef bdbm_drv
 	dmatag=memio_info.lower_alloc(rw,(char**)ptr);
+#elif linux_aio
+	int res;
+	void *target;
+	res=posix_memalign(&target,4*K,size);
+	if(res){
+		printf("failed to allocate memory:%d\n",errno);
+	}
+	*ptr=target;
 #else
 	(*ptr)=malloc(size);
 #endif	

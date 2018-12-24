@@ -17,7 +17,7 @@ libpos.a : $(TARGETOBJ)
 	
 
 .c.o :
-	$(CC) $(CFLAGS_LOWER) -c $< -o $@
+	$(CC) -laio $(CFLAGS_LOWER) -c $< -o $@
 
 ../../object/%.o: %.c
 	$(CC) $(CFLAGS_LOWER) -c $< -o $@

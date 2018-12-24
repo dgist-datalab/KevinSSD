@@ -8,8 +8,9 @@ PPWD=$(pwd)
 
 COMMONFLAGS=\
 			-Wno-write-strings\
+			-DLARGEFILE64_SOURCE\
 			-DSLC\
-#		-O2\
+-O2\
 #			-DWRITESYNC\
 
 export CFLAGS_ALGO=\
@@ -92,8 +93,8 @@ endif
 LIBS +=\
 		-lpthread\
 		-lm\
-		-lrt\
-#-ljemalloc\
+		-laio\
+-ljemalloc\
 
 all: simulator
 

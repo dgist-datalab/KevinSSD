@@ -116,8 +116,11 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 
     /* Cache control & Init */
-    //num_max_cache = max_cache_entry; // Full cache
-    num_max_cache = max_cache_entry / 4; // 25%
+ //   num_max_cache = max_cache_entry; // max cache
+    //num_max_cache = 1; // 1 cache
+    num_max_cache = max_cache_entry / 4; // 1/4 cache
+    //num_max_cache = max_cache_entry / 20; // 5%
+    //num_max_cache = max_cache_entry / 10; // 10%
     //num_max_cache = max_cache_entry / 8; // 12.5%
     //num_max_cache = max_cache_entry / 10; // 10%
     //num_max_cache = max_cache_entry / 20; // 5%
@@ -272,6 +275,20 @@ void demand_destroy(lower_info *li, algorithm *algo){
 
     printf("WAF: %.2f\n\n", (float)(data_r+dirty_evict_on_write)/data_r);
 
+<<<<<<< HEAD:algorithm/dftl_fm/dftl.c
+    printf("\nnum caching: %d\n", num_caching);
+    printf("num_flying: %d\n", num_flying);
+
+	/*
+	puts("");
+	for (int i = 0; i < max_cache_entry; i++) {
+		if (CMT[i].read_hit || CMT[i].write_hit) {
+			printf("CMT[%d]: read(%u) / write(%u)\n", i, CMT[i].read_hit, CMT[i].write_hit);	
+		}
+	}*/
+
+=======
+>>>>>>> 0b19aa1768803e16ffd2d70075c90eb49378cfcc:algorithm/ctoc/dftl.c
     /* Clear modules */
     q_free(dftl_q);
     q_free(wait_q);

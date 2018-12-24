@@ -145,7 +145,8 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	printf("| top level size:%d(MB)\n",LSM.disk[0]->m_num*8);
 	printf("| bloomfileter : %fMB\n",(float)bloomfilter_memory/1024/1024);
 
-	uint32_t cached_entry=caching_size-lev_caching_entry-bloomfilter_memory/PAGESIZE;
+	int32_t calc_cache=(caching_size-lev_caching_entry-bloomfilter_memory/PAGESIZE);
+	uint32_t cached_entry=calc_cache<0?0:calc_cache;
 //	uint32_t cached_entry=0;
 	LSM.lsm_cache=cache_init(cached_entry);
 

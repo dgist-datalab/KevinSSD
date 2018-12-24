@@ -111,9 +111,9 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 
     /* Cache control & Init */
-    ///num_max_cache = max_cache_entry; // max cache
-    //num_max_cache = 1; // 1 cache
-    num_max_cache = max_cache_entry / 4; // 1/4 cache
+    num_max_cache = max_cache_entry; // max cache
+ //   num_max_cache = 1; // 1 cache
+    //num_max_cache = max_cache_entry / 4; // 1/4 cache
     //num_max_cache = max_cache_entry / 20; // 5%
     //num_max_cache = max_cache_entry / 10; // 10%
     //num_max_cache = max_cache_entry / 8; // 12.5%
@@ -379,9 +379,9 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
 
     // Reserve requests that share flying mapping table
     if (c_table->flying) {
-        static int flying_cnt = 0;
+        //static int flying_cnt = 0;
         c_table->flying_arr[c_table->num_waiting++] = req;
-        if (++flying_cnt % 1024 == 0) printf("%d\n", flying_cnt);
+        //if (++flying_cnt % 1024 == 0) printf("%d\n", flying_cnt);
         bench_algo_end(req);
         return 1;
     }
