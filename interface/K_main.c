@@ -3,8 +3,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <limits.h>
-#include<signal.h>
+#include <signal.h>
 #include <fcntl.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 #include "../include/lsm_settings.h"
 #include "../include/FS.h"
 #include "../include/settings.h"
@@ -14,12 +17,9 @@
 #include "interface.h"
 #include "queue.h"
 
-#include "../include/kuk_socket_lib/kuk_sock.h"
 #ifdef Lsmtree
 int skiplist_hit;
 #endif
-kuk_sock *net_worker;
-//#define IP "127.0.0.1"
 #define MAX_RET 1024
 #define REQSIZE sizeof(net_data_t)
 #define PACKETSIZE sizeof(net_data_t)
@@ -31,15 +31,13 @@ pthread_cond_t ret_cond;
 
 int client_socket;
 
-static int global_value;
 void log_print(int sig){
 	inf_free();
 	exit(1);
 }
 void *flash_returner(void *param){
 	uint32_t req_array[MAX_RET];
-	int writed,len;
-	static int g_cnt=0;
+	uint32_t writed,len;
 	int cnt=0;
 	while(1){
 		void *req;
@@ -128,7 +126,7 @@ int main(void){
 	memset(&server_addr, 0, sizeof(server_addr));
 	server_addr.sin_family     = AF_INET;
 	server_addr.sin_port       = htons(PORT);
-	server_addr.sin_addr.s_addr= inet_addr("10.42.0.2");
+	server_addr.sin_addr.s_addr= inet_addr(IP);
 
 	if(-1 == bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr))){
 		printf("bind error!\n");
@@ -173,7 +171,6 @@ int main(void){
 		}
 	//	printf("readed len :%d %d sizseoftemp:%d\n",readed, len,sizeof(temp));
 		//printf("readed %u %u\n",readed/sizeof(net_data_t),readed%sizeof(net_data_t));
-		uint32_t *write_return;
 		for(uint32_t i=0;i<readed/sizeof(net_data_t); i++){
 			net_data_t *t=&temp[i];
 //			if(t->type==1){

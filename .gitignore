@@ -9,6 +9,7 @@ object/
 test_file/
 data/
 tags
+robusta*
 *log
 .
 *log
