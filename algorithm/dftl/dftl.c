@@ -22,7 +22,7 @@ Heap *trans_b;   // (Allocated) Trans block heap
 C_TABLE *CMT;          // Cached Mapping Table
 mem_table* mem_arr;    // Memtable of translation pages (D_TABLE)
 D_OOB *demand_OOB;     // Page OOB
-KEYT *ppa_prefetch;    // Prefetched ppa table
+struct prefetch_struct *ppa_prefetch;    // Prefetched ppa table
 request **waiting_arr; // Array of blocked requests due to lack of cache entry
 
 /* DFTL variables */
@@ -111,10 +111,10 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 
     /* Cache control & Init */
-    ///num_max_cache = max_cache_entry; // max cache
-    //num_max_cache = 1; // 1 cache
+    num_max_cache = max_cache_entry; // max cache
+ //   num_max_cache = 1; // 1 cache
     //num_max_cache = max_cache_entry / 4; // 1/4 cache
-    num_max_cache = max_cache_entry / 20; // 5%
+    //num_max_cache = max_cache_entry / 20; // 5%
     //num_max_cache = max_cache_entry / 10; // 10%
     //num_max_cache = max_cache_entry / 8; // 12.5%
     //num_max_cache = max_cache_entry / 40; // 2.5%
@@ -188,7 +188,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     CMT = (C_TABLE*)malloc(sizeof(C_TABLE) * max_cache_entry);
     mem_arr = (mem_table *)malloc(sizeof(mem_table) * max_cache_entry);
     demand_OOB = (D_OOB*)malloc(sizeof(D_OOB) * num_page);
-    ppa_prefetch = (KEYT *)malloc(sizeof(KEYT) * max_write_buf);
+    ppa_prefetch = (struct prefetch_struct *)malloc(sizeof(struct prefetch_struct) * max_write_buf);
     waiting_arr = (request **)malloc(sizeof(request *) * max_write_buf);
 
     for(int i = 0; i < max_cache_entry; i++){
@@ -215,7 +215,8 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     memset(demand_OOB, -1, sizeof(D_OOB) * num_page);
 
     for (size_t i = 0; i < max_write_buf; i++) {
-        ppa_prefetch[i] = dp_alloc();
+        ppa_prefetch[i].ppa = dp_alloc();
+        ppa_prefetch[i].sn = NULL;
     }
 
     return 0;
@@ -677,9 +678,8 @@ static uint32_t __demand_set(request *const req){
     /* If the write buffer is already full, flush it */
     if (write_buffer->size == max_write_buf) {
         /* Push all the data to lower */
-        iter = skiplist_get_iterator(write_buffer);
         for (size_t i = 0;i < max_write_buf; i++) {
-            temp = skiplist_get_next(iter);
+            temp = ppa_prefetch[i].sn;
 
             /* Actual part of data push */
             /* Push the buffered data to pre-fetched ppa */
@@ -689,14 +689,27 @@ static uint32_t __demand_set(request *const req){
             temp->value = NULL; // this memory area will be freed in end_req
         }
 
+/*
+        iter = skiplist_get_iterator(write_buffer);
+        for (size_t i = 0;i < max_write_buf; i++) {
+            temp = skiplist_get_next(iter);
+
+            my_req = assign_pseudo_req(DATA_W, temp->value, NULL);
+            __demand.li->push_data(temp->ppa, PAGESIZE, temp->value, ASYNC, my_req);
+
+            temp->value = NULL; // this memory area will be freed in end_req
+        }
+*/
+
         // prefetch ppa to hide write overhead on read
         for (size_t i = 0; i < max_write_buf; i++) {
-            ppa_prefetch[i] = dp_alloc();
+            ppa_prefetch[i].ppa = dp_alloc();
+            ppa_prefetch[i].sn = NULL;
         }
         ppa_idx = 0;
 
         // Clear the skiplist
-        free(iter);
+        //free(iter);
         skiplist_free(write_buffer);
         write_buffer = skiplist_init();
 
@@ -742,8 +755,10 @@ static uint32_t __demand_set(request *const req){
 
     // If the value is successfully inserted to write_buffer, then update the mapping table entry
     if (write_buffer->size == ppa_idx+1) {
-        ppa = ppa_prefetch[ppa_idx++];
+        ppa = ppa_prefetch[ppa_idx].ppa;
         temp->ppa = ppa;
+
+        ppa_prefetch[ppa_idx++].sn = temp;
 
         // if there is previous data with same lpa, then invalidate it
         p_table = c_table->p_table;

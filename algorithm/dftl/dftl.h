@@ -88,6 +88,11 @@ typedef struct mem_table{
     D_TABLE *mem_p;
 } mem_table;
 
+struct prefetch_struct {
+    KEYT ppa;
+    snode *sn;
+};
+
 /* extern variables */
 extern algorithm __demand;
 
