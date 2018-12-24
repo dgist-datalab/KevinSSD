@@ -18,10 +18,10 @@
 //#define TIERING
 
 #define LEVELCACHING 1
-#define CACHINGSIZE 0.12f
+#define CACHINGSIZE 0.06f
 //#define LEVELEMUL 
 //#define MERGECOMPACTION 4
-#define READCACHE
+//#define READCACHE
 #define NOCPY
 //#define USINGSLAB
 

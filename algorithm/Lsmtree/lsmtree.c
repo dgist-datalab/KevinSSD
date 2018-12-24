@@ -640,6 +640,7 @@ uint32_t __lsm_get(request *const req){
 	for(int i=level; i<LEVELN; i++){
 #ifdef LEVELCACHING
 		if(LEVELCACHING && i<LEVELCACHING){
+			printf("%d level cache size:%d\n",level,LSM.lop->cache_get_size(LSM.disk[i]));
 			pthread_mutex_lock(&LSM.level_lock[i]);
 			keyset *find=LSM.lop->cache_find(LSM.disk[i],req->key);
 			pthread_mutex_unlock(&LSM.level_lock[i]);

@@ -25,7 +25,6 @@ Heap *trans_b; // trans block heap
 skiplist *mem_buf;
 snode *dummy_snode;
 #endif
-queue *wait_q;
 queue *write_q;
 queue *flying_q;
 
@@ -116,13 +115,10 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 
     /* Cache control & Init */
- //   num_max_cache = max_cache_entry; // max cache
-    //num_max_cache = 1; // 1 cache
-    num_max_cache = max_cache_entry / 4; // 1/4 cache
-    //num_max_cache = max_cache_entry / 20; // 5%
-    //num_max_cache = max_cache_entry / 10; // 10%
-    //num_max_cache = max_cache_entry / 8; // 12.5%
-    //num_max_cache = max_cache_entry / 10; // 10%
+    //num_max_cache = max_cache_entry; // Full cache
+   // num_max_cache = max_cache_entry / 4; // 25%
+	num_max_cache = max_cache_entry / 8; // 12.5%
+    ///num_max_cache = max_cache_entry / 10; // 10%
     //num_max_cache = max_cache_entry / 20; // 5%
     //num_max_cache = 1; // 1 cache
 
@@ -135,7 +131,8 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     num_clean = 0;
 #endif
     //max_sl = num_max_cache;
-    max_sl = 1024;
+   // max_sl = 1024;
+    max_sl = 512;
 
     /* Print information */
     printf("!!! print info !!!\n");
@@ -212,7 +209,6 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 #endif
 
     q_init(&dftl_q, 1024);
-    q_init(&wait_q, max_sl);
 	q_init(&write_q, max_sl);
 	q_init(&flying_q, max_sl);
     BM_Queue_Init(&free_b);
@@ -251,9 +247,9 @@ void demand_destroy(lower_info *li, algorithm *algo){
     printf("Cache hit on write: %d\n", cache_hit_on_write);
     printf("Cache miss on write: %d\n\n", cache_miss_on_write);
 
-    printf("Miss ratio: %.2f\n", (float)(cache_miss_on_read+cache_miss_on_write)/(data_r*2));
-    printf("Miss ratio on read : %.2f\n", (float)(cache_miss_on_read)/(data_r));
-    printf("Miss ratio on write: %.2f\n", (float)(cache_miss_on_write)/(data_r));
+    printf("Miss ratio: %.2f%%\n", (float)(cache_miss_on_read+cache_miss_on_write)/(data_r*2) * 100);
+    printf("Miss ratio on read : %.2f%%\n", (float)(cache_miss_on_read)/(data_r) * 100);
+    printf("Miss ratio on write: %.2f%%\n\n", (float)(cache_miss_on_write)/(data_r) * 100);
 
     printf("Clean hit on read: %d\n", clean_hit_on_read);
     printf("Dirty hit on read: %d\n", dirty_hit_on_read);
@@ -276,19 +272,13 @@ void demand_destroy(lower_info *li, algorithm *algo){
     printf("WAF: %.2f\n\n", (float)(data_r+dirty_evict_on_write)/data_r);
 
     printf("\nnum caching: %d\n", num_caching);
-    printf("num_flying: %d\n", num_flying);
-
-	/*
-	puts("");
-	for (int i = 0; i < max_cache_entry; i++) {
-		if (CMT[i].read_hit || CMT[i].write_hit) {
-			printf("CMT[%d]: read(%u) / write(%u)\n", i, CMT[i].read_hit, CMT[i].write_hit);	
-		}
-	}*/
+#if C_CACHE
+	printf("num_clean:   %d\n", num_clean);
+#endif
+    printf("num_flying: %d\n\n", num_flying);
 
     /* Clear modules */
     q_free(dftl_q);
-    q_free(wait_q);
 	q_free(write_q);
 	q_free(flying_q);
     BM_Free(bm);
@@ -372,7 +362,6 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
     if (num_flying == num_max_cache) // This case occurs only if (QDEPTH > num_max_cache)
 #endif
 	{
-        puts("wtf?");
         waiting_arr[waiting++] = req;
         bench_algo_end(req);
         return 1;
@@ -735,7 +724,7 @@ uint32_t __demand_set(request *const req){
 
 				// Register reserved requests
 				for (int i = 0; i < c_table->num_snode; i++) {
-					q_enqueue((void *)c_table->flying_snodes[i], wait_q);
+					q_enqueue((void *)c_table->flying_snodes[i], write_q);
 					c_table->flying_snodes[i] = NULL;
 				}
 				c_table->num_snode = 0;
@@ -761,10 +750,7 @@ uint32_t __demand_set(request *const req){
 
 			if (num_wflying == num_max_cache) continue;
 
-            temp = (snode *)q_dequeue(wait_q);
-
-            if (temp == NULL) temp = (snode *)q_dequeue(write_q);
-
+			temp = (snode *)q_dequeue(write_q);
 			if (temp == NULL) continue;
 
 			lpa = temp->key;
@@ -823,9 +809,7 @@ uint32_t __demand_set(request *const req){
 
 			} else { // Cache miss
 				if (c_table->wflying) {
-                    //static int flying_cnt = 0;
 					c_table->flying_snodes[c_table->num_snode++] = temp;
-                    //if (++flying_cnt % 1024 == 0) printf("%d\n", flying_cnt);
 					continue;
 				}
 				cache_miss_on_write++;

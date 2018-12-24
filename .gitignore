@@ -9,6 +9,7 @@ object/
 test_file/
 data/
 tags
+result/
 robusta*
 *log
 .

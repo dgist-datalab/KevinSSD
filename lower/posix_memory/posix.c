@@ -11,6 +11,8 @@
 #include "../../algorithm/dftl/dftl.h"
 #elif defined(dftl_fm)
 #include "../../algorithm/dftl_fm/dftl.h"
+#elif defined(ctoc)
+#include "../../algorithm/ctoc/dftl.h"
 #else
 #include "../../algorithm/Lsmtree/lsmtree.h"
 #endif

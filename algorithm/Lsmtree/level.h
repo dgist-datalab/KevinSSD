@@ -62,7 +62,6 @@ typedef struct run{
 }run_t;
 
 typedef struct level{
-	
 #ifdef LEVELUSINGHEAP
 	heap *h;
 #else

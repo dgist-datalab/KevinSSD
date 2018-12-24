@@ -2,7 +2,7 @@ export CC=g++
 
 TARGET_INF=interface
 TARGET_LOWER=linux_aio
-TARGET_ALGO=dftl
+TARGET_ALGO=Lsmtree
 PPWD=$(pwd)
 
 
@@ -25,7 +25,6 @@ export CFLAGS_LOWER=\
 			 -lpthread\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\
-			 -O2\
 
 export priority="false"
 export ORIGINAL_PATH=$(PPWD)
@@ -59,7 +58,6 @@ CFLAGS +=\
 		 -D_BSD_SOURCE\
 -DBENCH\
 -DCDF\
--O2\
 
 SRCS +=\
 	./interface/queue.c\

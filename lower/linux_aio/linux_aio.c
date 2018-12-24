@@ -19,6 +19,7 @@
 #include <limits.h>
 #include <errno.h>
 #include <assert.h>
+#include <semaphore.h>
 
 lower_info aio_info={
 	.create=aio_create,
@@ -42,6 +43,7 @@ cl_lock *lower_flying;
 bool flying_flag;
 static int write_cnt, read_cnt;
 sem_t sem;
+bool wait_flag;
 bool stopflag;
 uint64_t lower_micro_latency;
 void *poller(void *input) {
@@ -90,6 +92,12 @@ void *poller(void *input) {
 				free(r->obj);
 			}
 		}
+		if(lower_flying->now==lower_flying->cnt){
+			if(wait_flag){
+				wait_flag=false;
+				sem_post(&sem);
+			}
+		}
         if (i == 1-1) i = -1;
     }
 	return NULL;
@@ -97,6 +105,7 @@ void *poller(void *input) {
 
 uint32_t aio_create(lower_info *li){
 	int ret;
+	sem_init(&sem,0,0);
 	li->NOB=_NOS;
 	li->NOP=_NOP;
 	li->SOB=BLOCKSIZE * BPS;
@@ -238,17 +247,6 @@ void *aio_trim_block(KEYT PPA, bool async){
 void aio_stop(){}
 
 void aio_flying_req_wait(){
-	/*
-	pthread_mutex_lock(&flying_lock);
-	if(lower_flying->cnt!=lower_flying->now){
-		flying_flag=true;
-		pthread_mutex_unlock(&flying_lock);
-		sem_wait(&sem);
-	}
-	else{
-		pthread_mutex_unlock(&flying_lock);
-	}*/
-	
-//	while(lower_flying->cnt!=lower_flying->now){}
+
 	return ;
 }
