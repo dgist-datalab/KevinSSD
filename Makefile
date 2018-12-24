@@ -1,8 +1,8 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=posix_memory
-TARGET_ALGO=dftl_fm
+TARGET_LOWER=linux_aio
+TARGET_ALGO=dftl
 PPWD=$(pwd)
 
 
