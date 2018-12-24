@@ -24,7 +24,13 @@ typedef struct snode{ //skiplist's node
 	KEYT level;
 	value_set* value;
 	bool isvalid;
-    bool is_updated;
+
+	// ++ ctoc
+	bool bypass;
+	bool write_flying;
+	int32_t t_ppa;
+	// -- ctoc
+
 	struct snode **list;
 }snode;
 

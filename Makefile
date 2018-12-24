@@ -1,8 +1,8 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=posix_memory
-TARGET_ALGO=dftl_fm
+TARGET_LOWER=bdbm_drv
+TARGET_ALGO=ctoc
 PPWD=$(pwd)
 
 
@@ -93,7 +93,7 @@ endif
 LIBS +=\
 		-lpthread\
 		-lm\
-		-laio\
+#		-laio\
 -ljemalloc\
 
 all: simulator

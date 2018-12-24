@@ -342,6 +342,12 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		x->ppa=UINT_MAX;
 		x->value=value;
 
+		// ++ ctoc
+		x->t_ppa = -1;
+		x->bypass = false;
+		x->write_flying = false;
+		// -- ctoc
+
 		for(int i=1; i<=level; i++){
 			x->list[i]=update[i]->list[i];
 			update[i]->list[i]=x;

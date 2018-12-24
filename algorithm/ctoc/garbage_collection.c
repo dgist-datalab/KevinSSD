@@ -11,8 +11,6 @@ int32_t tpage_GC(){
     value_set **temp_set;
     D_SRAM *d_sram; // SRAM for contain block data temporarily
 
-	puts("tpage_GC()");
-
     /* Load valid pages to SRAM */
     all = 0;
     tgc_count++;
@@ -32,10 +30,14 @@ int32_t tpage_GC(){
     t_reserved->hn_ptr = BM_Heap_Insert(trans_b, t_reserved);
     t_reserved = victim;
     if(all){ // if all page is invalid, then just trim and return
+		puts("tpage_GC() - all");
         __demand.li->trim_block(old_block, false);
         BM_InitializeBlock(bm, victim->PBA);
         return new_block;
     }
+
+	printf("tpage_GC()");
+
     valid_page_num = 0;
     trans_gc_poll = 0;
     d_sram = (D_SRAM*)malloc(sizeof(D_SRAM) * p_p_b); //필요한 만큼만 할당하는 걸로 변경
@@ -89,6 +91,8 @@ int32_t tpage_GC(){
     /* Trim block */
     __demand.li->trim_block(old_block, false);
 
+	printf(" - %d\n", valid_page_num);
+
     return new_block + valid_page_num;
 }
 
@@ -115,8 +119,6 @@ int32_t dpage_GC(){
     value_set **temp_set;
     value_set *dummy_vs;
 
-	puts("dpage_GC");
-
     /* Load valid pages to SRAM */
     all = 0;
     dgc_count++;
@@ -138,9 +140,12 @@ int32_t dpage_GC(){
     d_reserved->hn_ptr = BM_Heap_Insert(data_b, d_reserved);
     d_reserved = victim;
     if(all){ // if all page is invalid, then just trim and return
+		puts("dpage_GC - all");
         __demand.li->trim_block(old_block, false);
         return new_block;
     }
+	printf("dpage_GC");
+
     valid_num = 0;
     real_valid = 0;
     data_gc_poll = 0;
@@ -277,6 +282,8 @@ int32_t dpage_GC(){
 
     /* Trim data block */
     __demand.li->trim_block(old_block, false);
+
+	printf(" - %d\n", real_valid);
     return new_block + real_valid;
 }
 
