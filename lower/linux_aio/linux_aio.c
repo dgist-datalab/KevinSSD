@@ -46,6 +46,17 @@ sem_t sem;
 bool wait_flag;
 bool stopflag;
 uint64_t lower_micro_latency;
+MeasureTime total_time;
+long int a, b, sum1, sum2, max1, max2, cnt;
+
+int type_dist[9][1000];
+int read_dist[1000], write_dist[1000];
+
+static uint8_t test_type(uint8_t type){
+	uint8_t t_type=0xff>>1;
+	return type&t_type;
+}
+
 void *poller(void *input) {
 	algo_req *req;
 	int ret;
@@ -77,6 +88,39 @@ void *poller(void *input) {
 					bench_lower_end(req->parents);
 				}
 				MA(&req->latency_lower);
+				MA(&total_time);
+
+				a = total_time.adding.tv_sec*1000000+total_time.adding.tv_usec;
+				b = req->latency_lower.adding.tv_sec*1000000+req->latency_lower.adding.tv_usec;
+
+				if (test_type(req->type)%2 == 1) {
+					sum1 += b;
+					max1 = (max1 < b) ? b : max1;
+					read_cnt++;
+
+					read_dist[b/10]++;
+
+				} else {
+					sum2 += b;
+					max2 = (max2 < b) ? b : max2;
+					write_cnt++;
+
+					write_dist[b/10]++;
+				}
+
+				type_dist[test_type(req->type)][b/10]++;
+
+				if (++cnt % 100 == 0) {
+					fprintf(stderr, "R %ld %ld %ld\n", a, (read_cnt == 0) ? 0:sum1/read_cnt, max1);
+					fprintf(stderr, "W %ld %ld %ld\n", a, (write_cnt == 0) ? 0:sum2/write_cnt, max2);
+
+					sum1 = sum2 = read_cnt = write_cnt = max1 = max2 = 0;
+				}
+
+
+				//printf("%ld %ld\n", total_time.adding.tv_sec*1000000+total_time.adding.tv_usec,
+			//			req->latency_lower.adding.tv_sec*1000000+req->latency_lower.adding.tv_usec);
+				MS(&total_time);
 				lower_micro_latency+=req->latency_lower.adding.tv_sec*1000000+req->latency_lower.adding.tv_usec;
 				req->end_req(req);
 				cl_release(lower_flying);
@@ -138,9 +182,13 @@ uint32_t aio_create(lower_info *li){
 
 	measure_init(&li->writeTime);
 	measure_init(&li->readTime);
+	measure_init(&total_time);
+	MS(&total_time);
 
     stopflag = false;
     pthread_create(&t_id, NULL, &poller, NULL);
+
+
 
 	return 1;
 }
@@ -151,19 +199,31 @@ void *aio_refresh(lower_info *li){
 	li->write_op=li->read_op=li->trim_op=0;
 	return NULL;
 }
-
-static uint8_t test_type(uint8_t type){
-	uint8_t t_type=0xff>>1;
-	return type&t_type;
-}
 void *aio_destroy(lower_info *li){
 	//pthread_mutex_destroy(&aio_info.lower_lock);
 	//pthread_mutex_destroy(&fd_lock);
 	for(int i=0; i<LREQ_TYPE_NUM;i++){
 		printf("%s %lu\n",bench_lower_type(i),li->req_type_cnt[i]);
 	}
-	printf("lower time all :%.2lf %lu average:%.2f\n",((double)lower_micro_latency)/1000000,lower_micro_latency,(float)lower_micro_latency/write_cnt);
 	close(_fd);
+/*
+	puts("read distribution");
+	for (int i = 0; i < 1000; i++) {
+		printf("%d %d\n", i*10, read_dist[i]);
+	}
+
+	puts("write distribution");
+	for (int i = 0; i < 1000; i++) {
+		printf("%d %d\n", i*10, write_dist[i]);
+	}
+*/
+	puts("\ntype distribution");
+	for (int i = 1; i < 9; i++) {
+		printf("%s\n", bench_lower_type(i));
+		for (int j = 0; j < 200; j++) {
+			printf("%d %d\n", j*10, type_dist[i][j]);
+		}
+	}
 	return NULL;
 }
 
@@ -173,7 +233,6 @@ void *aio_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_r
 		exit(1);
 	}
 	bench_lower_w_start(&aio_info);
-	write_cnt++;
 	uint8_t t_type=test_type(req->type);
 	if(t_type < LREQ_TYPE_NUM){
 		aio_info.req_type_cnt[t_type]++;
