@@ -5,13 +5,18 @@ TARGET_LOWER=linux_aio
 TARGET_ALGO=dftl_test
 PPWD=$(pwd)
 
+DEBUGFLAGS=\
+			-rdynamic\
+
 
 COMMONFLAGS=\
 			-Wno-write-strings\
 			-DLARGEFILE64_SOURCE\
 			-DSLC\
--O2\
+#			-O2\
 #			-DWRITESYNC\
+
+COMMONFLAGS+=$(DEBUGFLAGS)\
 
 export CFLAGS_ALGO=\
 			 -g\
@@ -65,6 +70,7 @@ SRCS +=\
 	./interface/bb_checker.c\
 	./include/FS.c\
 	./include/slab.c\
+	./include/utils/debug_tools.c\
 	./include/utils/dl_sync.c\
 	./include/utils/rwlock.c\
 	./include/utils/cond_lock.c\

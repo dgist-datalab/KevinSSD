@@ -13,6 +13,7 @@ typedef struct cache_entry{
 typedef struct cache{
 	int m_size;
 	int n_size;
+	int max_size;
 	cache_entry *top;
 	cache_entry *bottom;
 	pthread_mutex_t cache_lock;
@@ -25,6 +26,8 @@ bool cache_insertable(cache *c);
 bool cache_delete(cache *, struct run *);
 bool cache_delete_entry_only(cache *c, struct run *ent);
 void cache_update(cache *, struct run *);
+void cache_evict(cache *);
+void cache_size_update(cache *c, int m_size);
 void cache_free(cache *);
 void cache_print(cache *);
 #endif

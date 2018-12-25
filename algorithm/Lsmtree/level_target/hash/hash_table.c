@@ -114,7 +114,21 @@ void hash_insert(level *lev, run_t *r){
 	}
 	hash_body *h=(hash_body*)lev->level_data;
 	if(h->body==NULL) h->body=skiplist_init();
+	/*cache_inert*/
+
 	run_t *target=hash_run_cpy(r);
+	if(!target->c_entry && r->cpt_data && cache_insertable(LSM.lsm_cache)){
+		char *cache_temp=(char*)r->cpt_data->sets;
+#ifdef NOCPY
+		target->cache_data=htable_dummy_assign();
+		target->cache_data->nocpy_table=(char*)cache_temp;
+#else
+		target->cache_data=htable_copy(r->cpt_data);
+#endif
+		target->c_entry=cache_insert(LSM.lsm_cache,target,0);
+		r->cpt_data->sets=NULL;
+	}
+
 	skiplist_general_insert(h->body,target->key,(void*)target,hash_overlap);
 	hash_range_update(lev,target,target->key);
 	hash_range_update(lev,target,target->end);

@@ -1,5 +1,6 @@
 *.o
 *.a
+*.out
 simulator
 simulator_memory_check
 server
