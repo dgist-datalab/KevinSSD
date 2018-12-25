@@ -240,7 +240,7 @@ void *p_main(void *__input){
 			case FS_SET_T:
 	//			printf("write key :%d\n",inf_req->key);
 				write_stop=mp.algo->set(inf_req);
-			//	write_stop=false;
+				//write_stop=false;
 				break;
 			case FS_DELETE_T:
 				mp.algo->remove(inf_req);

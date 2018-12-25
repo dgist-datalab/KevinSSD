@@ -182,7 +182,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
         CMT[i].flying_arr = (request **)malloc(sizeof(request *) * max_sl);
         CMT[i].num_waiting = 0;
 
-        MT[i].wflying = false;
+        CMT[i].wflying = false;
 		CMT[i].flying_snodes = (snode **)malloc(sizeof(snode *) *max_sl);
         CMT[i].num_snode = 0;
     }
