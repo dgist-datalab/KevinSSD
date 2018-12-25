@@ -1,17 +1,22 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=linux_aio
+TARGET_LOWER=posix_memory
 TARGET_ALGO=Lsmtree
 PPWD=$(pwd)
+
+DEBUGFLAGS=\
+			-rdynamic\
 
 
 COMMONFLAGS=\
 			-Wno-write-strings\
 			-DLARGEFILE64_SOURCE\
 			-DSLC\
--O2\
+#			-O2\
 #			-DWRITESYNC\
+
+COMMONFLAGS+=$(DEBUGFLAGS)\
 
 export CFLAGS_ALGO=\
 			 -g\
@@ -25,7 +30,6 @@ export CFLAGS_LOWER=\
 			 -lpthread\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\
-			 -O2\
 
 export priority="false"
 export ORIGINAL_PATH=$(PPWD)
@@ -59,7 +63,6 @@ CFLAGS +=\
 		 -D_BSD_SOURCE\
 -DBENCH\
 -DCDF\
--O2\
 
 SRCS +=\
 	./interface/queue.c\
@@ -67,6 +70,7 @@ SRCS +=\
 	./interface/bb_checker.c\
 	./include/FS.c\
 	./include/slab.c\
+	./include/utils/debug_tools.c\
 	./include/utils/dl_sync.c\
 	./include/utils/rwlock.c\
 	./include/utils/cond_lock.c\

@@ -298,6 +298,34 @@ bool compaction_force_target(int from, int to){
 	return true;
 }
 
+bool compaction_force_levels(int nol){
+	for(int i=0; i<nol; i++){
+		int max=0,target=0;
+		for(int j=0; j<LEVELN-1; j++){
+			int noe;
+#ifdef LEVELCACHING
+			if(j<LEVELCACHING){
+				noe=LSM.lop->cache_get_size(LSM.disk[j]);
+			}else{
+#endif		
+				noe=LSM.disk[j]->n_num;	
+
+#ifdef LEVELCACHING
+			}
+#endif
+			if(max<noe){
+				max=noe;
+				target=j;
+			}
+		}
+		if(max!=0){
+			compaction_selector(LSM.disk[target],LSM.disk[LEVELN-1],NULL,&LSM.level_lock[LEVELN-1]);
+		}else{
+			return false;
+		}
+	}
+	return true;
+}
 extern pm data_m;
 void *compaction_main(void *input){
 	void *_req;
@@ -454,7 +482,9 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 #ifdef LEVELCACHING
 	if(src->idx<LEVELCACHING){
 		run_t **datas;
-		LSM.lop->cache_comp_formatting(src,&datas);	
+		int cache_added_size=LSM.lop->cache_get_size(src);
+		LSM.lop->cache_comp_formatting(src,&datas);
+		cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
 		for(int i=0;datas[i]!=NULL; i++){
 #ifdef BLOOM
 			bf_free(datas[i]->filter);
@@ -530,7 +560,9 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 	level **src_ptr=NULL, **des_ptr=NULL;
 	body=leveling_preprocessing(from,to);
 #ifdef LEVELCACHING
+	int before,now;
 	if(to->idx<LEVELCACHING){
+		before=LSM.lop->cache_get_size(to);
 		if(from==NULL){	
 			pthread_mutex_lock(&LSM.templock);
 			LSM.temptable=NULL;
@@ -550,6 +582,12 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 			LSM.lop->cache_free(from);
 		}
 
+		now=LSM.lop->cache_get_size(target);
+#ifdef COMPACTIONLOG
+		sprintf(log,"caching noe %d",now);
+		DEBUG_LOG(log);
+#endif
+		cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size-(now-before));
 		skiplist_free(body);
 		compaction_heap_setting(target,target_origin);
 		if(from){
@@ -795,6 +833,9 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 	else{
 #ifdef LEVELCACHING
 		if(upper->idx<LEVELCACHING){
+			/*for caching more data*/
+			int cache_added_size=LSM.lop->cache_get_size(upper);
+			cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
 			LSM.lop->cache_comp_formatting(upper,&data);
 			goto skip;
 		}

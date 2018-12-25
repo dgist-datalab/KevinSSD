@@ -1,5 +1,6 @@
 #include "lsmtree.h"
 #include "../../include/lsm_settings.h"
+#include "../../include/utils/debug_tools.h"
 #include "cache.h"
 #include<stdlib.h>
 #include<string.h>
@@ -11,15 +12,37 @@ cache *cache_init(uint32_t noe){
 	c->n_size=0;
 	c->top=NULL;
 	c->bottom=NULL;
+	c->max_size=noe;
 	pthread_mutex_init(&c->cache_lock,NULL);
 	return c;
 }
 
+void cache_evict(cache *c){
+	cache_delete(c,cache_get(c));
+}
+
+void cache_size_update(cache *c, int m_size){
+	if(m_size <0) return;
+	if(c->n_size>m_size){
+		int i=0;
+		int target=c->n_size-m_size;
+		for(i=0; i<target; i++){
+			cache_evict(c);
+		}
+	}
+	c->m_size=m_size>c->max_size?c->max_size:m_size;
+	//fprintf(stderr,"%d\n",c->m_size);
+}
+
 cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
 	if(!c->m_size) return NULL;
-	if(c->m_size==c->n_size){
-		cache_delete(c,cache_get(c));
+	if(c->m_size < c->n_size){
+		int target=c->n_size-c->m_size+1;
+		for(int i=0; i<target; i++){
+			cache_delete(c,cache_get(c));
+		}
 	}
+
 	insert++;
 	cache_entry *c_ent=(cache_entry*)malloc(sizeof(cache_entry));
 
@@ -138,7 +161,7 @@ run_t* cache_get(cache *c){
 }
 void cache_free(cache *c){
 	run_t *tmp_ent;
-	printf("cache size:%d\n",c->n_size);
+	printf("cache size:%d %d %d\n",c->n_size,c->m_size,c->max_size);
 	while((tmp_ent=cache_get(c))){
 		free(tmp_ent->c_entry);
 		tmp_ent->c_entry=NULL;

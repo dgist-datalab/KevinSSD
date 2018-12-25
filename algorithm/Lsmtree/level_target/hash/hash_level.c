@@ -333,7 +333,6 @@ BF* hash_making_filter(run_t *data, float fpr){
 }
 
 #ifdef LEVELCACHING
-
 static inline hash_body *cfl(level *lev){
 	hash_body *h=(hash_body*)lev->level_data;
 	return h->lev_cache_data;

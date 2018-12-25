@@ -38,6 +38,7 @@ uint32_t partial_leveling(struct level *,struct level *,struct skiplist *,struct
 void compaction_check();
 void compaction_free();
 bool compaction_force();
+bool compaction_force_levels(int nol);
 bool compaction_force_target(int from, int to);
 
 #ifdef MONKEY

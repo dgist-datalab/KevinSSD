@@ -9,8 +9,8 @@
 #define LEVELN 2
 
 #if LEVELN!=1
-#define BLOOM
-#define MONKEY
+//#define BLOOM
+//#define MONKEY
 #endif
 
 #define PIECE 512
@@ -21,7 +21,7 @@
 #define CACHINGSIZE 0.06f
 //#define LEVELEMUL 
 //#define MERGECOMPACTION 4
-//#define READCACHE
+#define READCACHE
 #define NOCPY
 //#define USINGSLAB
 

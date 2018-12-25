@@ -644,7 +644,11 @@ bool gc_check(uint8_t type, bool force){
 					header_gc_cnt++; 
 					break;
 				case DATA:
-					//printf("data gc:%d\n",data_gc_cnt);
+					printf("data gc:%d %d",data_gc_cnt,false);
+					if(compaction_force_levels(1)){
+						printf(" done\n");
+					}
+					else printf(" fail\n");
 					//gc_compaction_checking();
 					//compaction_force();
 					target_p=&data_m;
@@ -713,6 +717,7 @@ bool gc_check(uint8_t type, bool force){
 				gc_header(target_block);
 				break;
 			case DATA:
+				/*add some gc*/
 				gc_data(target_block);
 				break;
 #ifdef DVALUE
@@ -960,7 +965,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 		if(in->idx<LEVELCACHING){
 			keyset *find=LSM.lop->cache_find(in,target->lpa);
 			if(find==NULL){
-				printf("can't be!\n");
+				printf("can't be! %d %d size:%d\n",target->lpa,target->ppa,LSM.lop->cache_get_size(in));
 				abort();
 			}
 			find->ppa=target->nppa;

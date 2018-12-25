@@ -148,13 +148,14 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	int32_t calc_cache=(caching_size-lev_caching_entry-bloomfilter_memory/PAGESIZE);
 	uint32_t cached_entry=calc_cache<0?0:calc_cache;
 //	uint32_t cached_entry=0;
-	LSM.lsm_cache=cache_init(cached_entry);
+	LSM.lsm_cache=cache_init(cached_entry+lev_caching_entry);
 
 #ifdef LEVELCACHING
 	printf("| all caching %.2f(%%) - %lu page\n",(float)caching_size/(TOTALSIZE/PAGESIZE/K)*100,caching_size);	
 	printf("| level cache :%luMB(%lu page)%.2f(%%)\n",lev_caching_entry*PAGESIZE/M,lev_caching_entry,(float)lev_caching_entry/(TOTALSIZE/PAGESIZE/K)*100);
 
 	printf("| entry cache :%uMB(%u page)%.2f(%%)\n",cached_entry*PAGESIZE/M,cached_entry,(float)cached_entry/(TOTALSIZE/PAGESIZE/K)*100);
+	printf("| start cache :%uMB(%u page)%.2f(%%)\n",(cached_entry+lev_caching_entry)*PAGESIZE/M,cached_entry+lev_caching_entry,(float)cached_entry/(TOTALSIZE/PAGESIZE/K)*100);
 #endif
 	printf("| -------- algorithm_log END\n\n");
 
@@ -640,7 +641,13 @@ uint32_t __lsm_get(request *const req){
 	for(int i=level; i<LEVELN; i++){
 #ifdef LEVELCACHING
 		if(LEVELCACHING && i<LEVELCACHING){
-			printf("%d level cache size:%d\n",level,LSM.lop->cache_get_size(LSM.disk[i]));
+			
+			static int log_cnt=0;
+			int a=LSM.lsm_cache->n_size;
+			int b=LSM.lop->cache_get_size(LSM.disk[i]);
+			if(log_cnt++%1024==0){
+				//fprintf(stderr,"%d %d sum:%d\n",a,b,a+b);
+			}
 			pthread_mutex_lock(&LSM.level_lock[i]);
 			keyset *find=LSM.lop->cache_find(LSM.disk[i],req->key);
 			pthread_mutex_unlock(&LSM.level_lock[i]);
