@@ -130,7 +130,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     real_max_cache = num_max_cache;
 
     num_caching = 0;
-    max_write_buf = 1024;
+    max_write_buf = 1024 / 2;
 #if C_CACHE
     max_clean_cache = num_max_cache / 2; // 50 : 50
     num_max_cache -= max_clean_cache;
@@ -1194,7 +1194,11 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
         num_caching--;
 
         dummy_vs = inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
-        temp_req = assign_pseudo_req(MAPPING_W, dummy_vs, req);
+		if (req_t == 'R') {
+			temp_req = assign_pseudo_req(MAPPING_W, dummy_vs, req);
+		} else {
+			temp_req = assign_pseudo_req(MAPPING_W, dummy_vs, NULL);
+		}
         if (sn) sn->write_flying = true;
         ((demand_params *)temp_req->params)->sn = sn;
         __demand.li->push_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);

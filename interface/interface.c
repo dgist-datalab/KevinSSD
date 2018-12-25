@@ -341,7 +341,7 @@ void inf_init(){
 	mp.algo=&__normal;
 #elif defined(pftl)
 	mp.algo=&algo_pbase;
-#elif defined(dftl) || defined(dftl_fm) || defined(ctoc) || defined(test)
+#elif defined(dftl) || defined(ctoc) || defined(dftl_test)
 	mp.algo=&__demand;
 #elif defined(Lsmtree)
 	mp.algo=&algo_lsm;
