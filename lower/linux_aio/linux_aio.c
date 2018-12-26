@@ -60,7 +60,7 @@ static uint8_t test_type(uint8_t type){
 void *poller(void *input) {
 	algo_req *req;
 	int ret;
-	struct io_event done_array[1024];
+	struct io_event done_array[128];
 	struct io_event *r;
 	struct timespec w_t;
 	struct iocb *cb;
@@ -71,7 +71,7 @@ void *poller(void *input) {
         if (stopflag) {
             pthread_exit(NULL);
         }
-		if((ret=io_getevents(ctx,0,1024,done_array,&w_t))){
+		if((ret=io_getevents(ctx,0,128,done_array,&w_t))){
 			for(int i=0; i<ret; i++){
 				r=&done_array[i];
 				req=(algo_req*)r->data;
@@ -109,14 +109,14 @@ void *poller(void *input) {
 				}
 
 				type_dist[test_type(req->type)][b/10]++;
-
+/*
 				if (++cnt % 100 == 0) {
 					fprintf(stderr, "R %ld %ld %ld\n", a, (read_cnt == 0) ? 0:sum1/read_cnt, max1);
 					fprintf(stderr, "W %ld %ld %ld\n", a, (write_cnt == 0) ? 0:sum2/write_cnt, max2);
 
 					sum1 = sum2 = read_cnt = write_cnt = max1 = max2 = 0;
 				}
-
+*/
 
 				//printf("%ld %ld\n", total_time.adding.tv_sec*1000000+total_time.adding.tv_usec,
 			//			req->latency_lower.adding.tv_sec*1000000+req->latency_lower.adding.tv_usec);
@@ -167,13 +167,13 @@ uint32_t aio_create(lower_info *li){
 		exit(1);
 	}
 	
-	ret=io_setup(1024,&ctx);
+	ret=io_setup(128,&ctx);
 	if(ret!=0){
 		printf("io setup error\n");
 		exit(1);
 	}
 
-	lower_flying=cl_init(1024,false);
+	lower_flying=cl_init(128,false);
 
 	pthread_mutex_init(&fd_lock,NULL);
 	pthread_mutex_init(&aio_info.lower_lock,NULL);
@@ -216,7 +216,7 @@ void *aio_destroy(lower_info *li){
 	for (int i = 0; i < 1000; i++) {
 		printf("%d %d\n", i*10, write_dist[i]);
 	}
-*/
+
 	puts("\ntype distribution");
 	for (int i = 1; i < 9; i++) {
 		printf("%s\n", bench_lower_type(i));
@@ -224,6 +224,7 @@ void *aio_destroy(lower_info *li){
 			printf("%d %d\n", j*10, type_dist[i][j]);
 		}
 	}
+*/
 	return NULL;
 }
 

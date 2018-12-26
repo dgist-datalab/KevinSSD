@@ -43,6 +43,7 @@ typedef struct lsm_params{
 
 typedef struct lsmtree{
 	KEYT KEYNUM;
+	KEYT ORGHEADER;
 	KEYT FLUSHNUM;
 	bool inplace_compaction; 
 
@@ -83,6 +84,7 @@ htable *htable_assign(char*,bool);
 htable *htable_dummy_assign();
 void htable_free(htable*);
 void htable_print(htable*,KEYT);
+void htable_check(htable *in,KEYT lpa,KEYT ppa,char *);
 /*
 void lsm_save(lsmtree *);
 void lsm_trim_set(value_set* ,uint8_t *);

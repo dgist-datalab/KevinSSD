@@ -54,6 +54,7 @@ void lsm_debug_print(){
 extern level_ops h_ops;
 void lsm_bind_ops(lsmtree *l){
 	l->lop=&h_ops;
+	l->ORGHEADER=
 	l->KEYNUM=l->lop->get_max_table_entry();
 	l->FLUSHNUM=l->lop->get_max_flush_entry(1024);
 	l->inplace_compaction=true;
@@ -887,3 +888,28 @@ void htable_print(htable * input,KEYT ppa){
 		abort();
 	}
 }
+extern block bl[_NOB];
+void htable_check(htable *in, KEYT lpa, KEYT ppa,char *log){
+	keyset *target=NULL;
+	if(in->nocpy_table){
+		target=(keyset*)in->nocpy_table;
+	}
+	if(!target){ 
+	//	printf("no table\n");
+		return;
+	}
+	
+	for(int i=0; i<1024; i++){
+		if(target[i].lpa==lpa || target[i].ppa==ppa){
+			if(log){
+				printf("[%s]exist %u %u %d:%d\n",log,target[i].lpa, target[i].ppa,target[i].ppa/256, bl[target[i].ppa/256].level);
+			}else{
+			
+				printf("exist %u %u\n",target[i].lpa, target[i].ppa);
+			}
+		}else if(target[i].lpa>8000 && target[i].lpa<9000){
+			//printf("%u %u\n",target[i].lpa, target[i].ppa);
+		}
+	}
+}
+

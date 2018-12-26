@@ -19,7 +19,9 @@ void def_moveTo_fr_page( level* in){
 #ifdef LEVELUSINGHEAP
 		in->now_block->hn_ptr=heap_insert(in->h,(void*)in->now_block);
 #else
+
 		in->now_block->hn_ptr=llog_insert(in->h,(void*)in->now_block);
+	//	printf("header:%p\n",in->h->head);
 #endif
 
 #ifdef DVALUE

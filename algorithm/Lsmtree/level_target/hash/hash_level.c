@@ -205,9 +205,13 @@ static void hash_insert_into(hash_body *b, keyset input, float fpr){
 }
 
 void hash_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
+	/*
 	static int cnt=0;
 	cnt++;
-	//printf("cnt:%d\n",cnt);
+	printf("cnt:%d\n",cnt);
+	if(cnt==10){
+		printf("break\n");
+	}*/
 	hash_body *des=(hash_body*)d->level_data;
 	if(des->body){
 		snode *t;
@@ -219,8 +223,9 @@ void hash_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 		des->temp=hash_make_dummy_run();
 		des->late_use_node=NULL;
 	}
-
+	//printf("start\n");
 	for(int i=0; o[i]!=NULL; i++){
+//		htable_check(o[i]->cpt_data,0,81665,"o:");
 		hash *h=r2h_from_compaction(o[i]);
 		for(int j=0; j<HENTRY; j++){
 			if(h->b[j].lpa==UINT_MAX) continue;
@@ -246,6 +251,7 @@ void hash_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	}else{
 		for(int i=0; s[i]!=NULL; i++){
 			hash *h=r2h_from_compaction(s[i]);
+			//htable_check(s[i]->cpt_data,0,81665,"s:");
 			for(int j=0; j<HENTRY; j++){
 				if(h->b[j].lpa==UINT_MAX) continue;
 				hash_insert_into(des,h->b[j],d->fpr);	
@@ -254,6 +260,8 @@ void hash_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 		}
 	}
 	d->n_num=des->body->size;
+
+	//printf("end\n");
 /*
 	printf("done\n");
 	hash_print(d);

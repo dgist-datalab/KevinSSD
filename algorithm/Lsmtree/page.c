@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <limits.h>
+#include <assert.h>
 extern algorithm algo_lsm;
 extern lsmtree LSM;
 extern volatile int gc_target_get_cnt;
@@ -590,7 +591,7 @@ bool gc_check(uint8_t type, bool force){
 	int erased_blkn=0;
 	if(!force){
 		if(type==DATA){
-			if(data_m.max_blkn-data_m.used_blkn>=LSM.KEYNUM/_PPB){
+			if(data_m.max_blkn-data_m.used_blkn>=FULLMAPNUM/_PPB){
 				return true;
 			}
 			else{
@@ -644,11 +645,10 @@ bool gc_check(uint8_t type, bool force){
 					header_gc_cnt++; 
 					break;
 				case DATA:
-					printf("data gc:%d %d",data_gc_cnt,false);
-					if(compaction_force_levels(1)){
-						printf(" done\n");
-					}
-					else printf(" fail\n");
+	//				printf("data gc:%d %d\n",data_gc_cnt,false);
+
+					//compaction_force_levels(1);
+
 					//gc_compaction_checking();
 					//compaction_force();
 					target_p=&data_m;
@@ -746,13 +746,13 @@ bool gc_check(uint8_t type, bool force){
 		data_m.used_blkn-=erased_blkn-ignored_cnt;
 	}
 
+//	llog_print(target_p->blocks);
 	if(type==DATA && data_m.max_blkn-data_m.used_blkn<LSM.KEYNUM/_PPB){
 		//printf("??: data_m.used_blkn:%d\n",data_m.used_blkn);
 		return false;
 	}
 	return true;
 	//if(erased_blkn)
-		//llog_print(target_p->blocks);
 		//printf("after free block:%d\n",data_m.max_blkn-data_m.used_blkn);
 }
 
@@ -819,9 +819,13 @@ void invalidate_PPA(KEYT _ppa){
 
 	bl[bn].bitset[idx/8]|=(1<<(idx%8));
 	bl[bn].invalid_n++;
+	
 	segment *segs=WHICHSEG(bl[bn].ppa);
 	segs->invalid_n++;
 	//static int cnt=0;
+	if(_ppa==81665){
+		printf("invalidate l:%u p:%u\n",PBITGET(_ppa),_ppa);
+	}
 #ifdef NOCPY
 	if(_ppa>=0 && _ppa<(HEADERSEG+1)*_PPS)
 		nocpy_free_page(_ppa);
@@ -966,7 +970,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			keyset *find=LSM.lop->cache_find(in,target->lpa);
 			if(find==NULL){
 				printf("can't be! %d %d size:%d\n",target->lpa,target->ppa,LSM.lop->cache_get_size(in));
-				abort();
+//				assert(0);
 			}
 			find->ppa=target->nppa;
 			continue;
@@ -1360,9 +1364,6 @@ int gc_header(KEYT tbn){
 		bool checkdone=false;
 	//	LSM.lop->all_print();
 		for(int j=0; j<LEVELN; j++){
-			if(lpa==6709486){
-				printf("here\n");
-			}
 			entries=LSM.lop->find_run(LSM.disk[j],lpa);
 			//LSM.lop->print(LSM.disk[j]);
 			if(entries==NULL) continue;

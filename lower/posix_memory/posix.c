@@ -104,7 +104,6 @@ void *posix_make_push(KEYT PPA, uint32_t size, value_set* value, bool async, alg
 	p_req->size=size;
 
 	while(!flag){
-
 		if(q_enqueue((void*)p_req,p_q)){
 			cl_release(lower_flying);
 			flag=true;

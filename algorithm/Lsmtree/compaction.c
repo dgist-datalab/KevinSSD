@@ -605,7 +605,7 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 			compaction_heap_setting(target,target_origin);
 #ifdef COMPACTIONLOG
 			sprintf(log,"seq - (-1) to %d",to->idx);
-			DEBUG_LOG(log);
+	//		DEBUG_LOG(log);
 #endif
 			skiplist_free(body);
 			bool target_processed=false;
@@ -630,7 +630,7 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 		else{
 #ifdef COMPACTIONLOG
 			sprintf(log,"rand - (-1) to %d",to->idx);
-			DEBUG_LOG(log);
+	//		DEBUG_LOG(log);
 #endif	
 			partial_leveling(target,target_origin,body,NULL);
 			skiplist_free(body);// free at compaction_subprocessing;
@@ -646,7 +646,7 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 			compaction_heap_setting(target,target_origin);
 #ifdef COMPACTIONLOG
 			sprintf(log,"seq - %d to %d info:%d,%d max %d,%d",from->idx,to->idx,src->n_num,target_origin->n_num,src->m_num,target_origin->m_num);
-			DEBUG_LOG(log);
+	//		DEBUG_LOG(log);
 #endif
 			bool target_processed=false;
 			if(target_origin->start>src->end){
@@ -663,7 +663,7 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 		else{
 #ifdef COMPACTIONLOG
 			sprintf(log,"rand - %d to %d info:%d,%d max %d,%d",from->idx,to->idx,src->n_num,target_origin->n_num,src->m_num,target_origin->m_num);
-			DEBUG_LOG(log);
+	//		DEBUG_LOG(log);
 #endif
 			body=skiplist_init();
 			partial_leveling(target,target_origin,body,src);
@@ -891,6 +891,7 @@ skip:
 				temp->cpt_data=htable_assign(NULL,false);
 				compaction_htable_read(temp,(PTR*)&temp->cpt_data);
 			}
+			//htable_check(temp->cpt_data,8499,81665);
 			epc_check++;
 		}
 

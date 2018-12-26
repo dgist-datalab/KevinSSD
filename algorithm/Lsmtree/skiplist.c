@@ -250,6 +250,9 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overla
 		//DEBUG_LOG("general");
 		if(overlap)
 			overlap((void*)x->value);
+		if(x->ppa==81665){
+			printf("%u overlap\n",81665);
+		}
 		x->value=(value_set*)value;
 		t_r->run_data=(void*)x;
 		return x;
@@ -361,7 +364,10 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 #ifdef Lsmtree
 //static int make_value_cnt=0;
 value_set **skiplist_make_valueset(skiplist *input, level *from){
-	//printf("make_value_cnt:%d\n",++make_value_cnt);
+//	printf("make_value_cnt:%d\n",++make_value_cnt);
+//	if(make_value_cnt==89){
+//		printf("break\n");
+//	}
 	value_set **res=(value_set**)malloc(sizeof(value_set*)*(LSM.FLUSHNUM+1));
 	memset(res,0,sizeof(value_set*)*(LSM.FLUSHNUM+1));
 	l_bucket b;
@@ -376,13 +382,19 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 		total_size+=target->value->length;
 	}
 	free(iter);
-
+	bool flag=0;
+	if(from->idx!=0){
+		printf("start fuck!\n");
+		flag=1;
+	}
 	int res_idx=0;
 	for(int i=0; i<b.idx[PAGESIZE/PIECE]; i++){//full page
 		target=b.bucket[PAGESIZE/PIECE][i];
 		res[res_idx]=target->value;
+
 		LSM.lop->moveTo_fr_page(from);
 		res[res_idx]->ppa=LSM.lop->get_page(from,(PAGESIZE/PIECE));
+
 		/*checking new ppa in skiplist_valuset*/
 #ifdef DVALUE
 		oob[res[res_idx]->ppa/(PAGESIZE/PIECE)]=PBITSET(target->key,true);//OOB setting
@@ -395,6 +407,9 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 		res_idx++;
 	}
 	b.idx[PAGESIZE/PIECE]=0;
+	if(from->idx!=0){
+		printf("%d----------end fuck!\n",flag);
+	}
 	
 	//level_moveTo_front_page(from);//setting to erased block started;
 	for(int i=1; i<PAGESIZE/PIECE+1; i++){
