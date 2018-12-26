@@ -309,7 +309,6 @@ bool compaction_force_levels(int nol){
 			}else{
 #endif		
 				noe=LSM.disk[j]->n_num;	
-
 #ifdef LEVELCACHING
 			}
 #endif

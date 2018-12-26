@@ -2,7 +2,7 @@ export CC=g++
 
 TARGET_INF=interface
 TARGET_LOWER=linux_aio
-TARGET_ALGO=dftl_test
+TARGET_ALGO=Lsmtree
 PPWD=$(pwd)
 
 DEBUGFLAGS=\

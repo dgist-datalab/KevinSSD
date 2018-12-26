@@ -156,7 +156,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	printf("| level cache :%luMB(%lu page)%.2f(%%)\n",lev_caching_entry*PAGESIZE/M,lev_caching_entry,(float)lev_caching_entry/(TOTALSIZE/PAGESIZE/K)*100);
 
 	printf("| entry cache :%uMB(%u page)%.2f(%%)\n",cached_entry*PAGESIZE/M,cached_entry,(float)cached_entry/(TOTALSIZE/PAGESIZE/K)*100);
-	printf("| start cache :%uMB(%u page)%.2f(%%)\n",(cached_entry+lev_caching_entry)*PAGESIZE/M,cached_entry+lev_caching_entry,(float)cached_entry/(TOTALSIZE/PAGESIZE/K)*100);
+	printf("| start cache :%luMB(%lu page)%.2f(%%)\n",(cached_entry+lev_caching_entry)*PAGESIZE/M,cached_entry+lev_caching_entry,(float)cached_entry/(TOTALSIZE/PAGESIZE/K)*100);
 #endif
 	printf("| -------- algorithm_log END\n\n");
 
@@ -228,7 +228,9 @@ void* lsm_end_req(algo_req* const req){
 	request* parents=req->parents;
 	bool havetofree=true;
 	void *req_temp_params=NULL;
+#ifndef NOCPY
 	PTR target=NULL;
+#endif
 	htable **header=NULL;
 	htable *table=NULL;
 	//htable mapinfo;
@@ -285,7 +287,6 @@ void* lsm_end_req(algo_req* const req){
 			break;
 		case GCDR:
 		case GCHR:
-			target=(PTR)params->target;//gc has malloc in gc function
 #ifdef NOCPY
 			/*
 			if(params->lsm_type==GCHR)
@@ -293,6 +294,7 @@ void* lsm_end_req(algo_req* const req){
 			*/
 			//nothing to do
 #else
+			target=(PTR)params->target;//gc has malloc in gc function
 			memcpy(target,params->value->value,PAGESIZE);
 #endif
 
@@ -642,13 +644,13 @@ uint32_t __lsm_get(request *const req){
 	for(int i=level; i<LEVELN; i++){
 #ifdef LEVELCACHING
 		if(LEVELCACHING && i<LEVELCACHING){
-			
+			/*
 			static int log_cnt=0;
 			int a=LSM.lsm_cache->n_size;
 			int b=LSM.lop->cache_get_size(LSM.disk[i]);
 			if(log_cnt++%1024==0){
-				//fprintf(stderr,"%d %d sum:%d\n",a,b,a+b);
-			}
+				fprintf(stderr,"%d %d sum:%d\n",a,b,a+b);
+			}*/
 			pthread_mutex_lock(&LSM.level_lock[i]);
 			keyset *find=LSM.lop->cache_find(LSM.disk[i],req->key);
 			pthread_mutex_unlock(&LSM.level_lock[i]);

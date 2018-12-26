@@ -647,7 +647,7 @@ bool gc_check(uint8_t type, bool force){
 				case DATA:
 	//				printf("data gc:%d %d\n",data_gc_cnt,false);
 
-					//compaction_force_levels(1);
+					compaction_force_levels(1);
 
 					//gc_compaction_checking();
 					//compaction_force();
