@@ -42,7 +42,7 @@
 #define _NOB (BPS*_NOS)
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
 
-#define RANGE ((GIGAUNIT)*(M/PAGESIZE)*1024L*(0.8))
+#define RANGE (/*(GIGAUNIT)*/32*(M/PAGESIZE)*1024L*(0.8))
 
 #define SIMULATION 0
 
@@ -56,6 +56,9 @@
 #define QSIZE (1024)
 #define QDEPTH (128)
 #define THREADSIZE (1)
+
+#define THPOOL
+#define NUM_THREAD 64
 
 #define TCP 1
 //#define IP "10.42.0.2"

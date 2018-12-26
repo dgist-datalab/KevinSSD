@@ -4,6 +4,7 @@
 #include "../../bench/measurement.h"
 #include "../../algorithm/Lsmtree/lsmtree.h"
 #include "../../include/utils/cond_lock.h"
+#include "../../include/utils/thpool.h"
 #include "linux_aio.h"
 #include <libaio.h>
 #include <fcntl.h>
@@ -35,6 +36,8 @@ lower_info aio_info={
 	.lower_flying_req_wait=aio_flying_req_wait
 };
 
+threadpool thpool;
+
 static int _fd;
 static pthread_mutex_t fd_lock,flying_lock;
 static pthread_t t_id;
@@ -60,6 +63,17 @@ static uint8_t test_type(uint8_t type){
 	uint8_t t_type=0xff>>1;
 	return type&t_type;
 }
+
+#ifdef THPOOL
+void io_submit_wrap(void *arg, int id) {
+	struct iocb *cb = (struct iocb *)arg;
+
+	if (io_submit(ctx,1,&cb) !=1) {
+        printf("Error on aio_write()\n");
+        exit(1);
+    }
+}
+#endif
 
 void *poller(void *input) {
 	algo_req *req;
@@ -210,7 +224,9 @@ uint32_t aio_create(lower_info *li){
     stopflag = false;
     pthread_create(&t_id, NULL, &poller, NULL);
 
-
+#ifdef THPOOL
+	thpool = thpool_init(NUM_THREAD);
+#endif
 
 	return 1;
 }
@@ -274,12 +290,17 @@ void *aio_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_r
 	io_prep_pwrite(cb,_fd,(void*)value->value,PAGESIZE,aio_info.SOP*PPA);
 	cb->data=(void*)req;	
 
+#ifdef THPOOL
+	while(thpool_num_threads_working(thpool)>=NUM_THREAD);
+	thpool_add_work(thpool, io_submit_wrap, (void *)cb);
+#else
 	pthread_mutex_lock(&fd_lock);
 	if (io_submit(ctx,1,&cb) !=1) {
         printf("Error on aio_write()\n");
         exit(1);
     }
 	pthread_mutex_unlock(&fd_lock);
+#endif
 
 	bench_lower_w_end(&aio_info);
 	return NULL;
@@ -308,12 +329,17 @@ void *aio_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_r
 	cb->data=(void*)req;
 //	io_set_callback(cb,call_back);
 
+#ifdef THPOOL
+	while(thpool_num_threads_working(thpool)>=NUM_THREAD);
+	thpool_add_work(thpool, io_submit_wrap, (void *)cb);
+#else
 	pthread_mutex_lock(&fd_lock);
-    if (io_submit(ctx,1,&cb) !=1) {
-        printf("Error on aio_read()\n");
+	if (io_submit(ctx,1,&cb) !=1) {
+        printf("Error on aio_write()\n");
         exit(1);
     }
 	pthread_mutex_unlock(&fd_lock);
+#endif
 
 	bench_lower_r_end(&aio_info);
 	//req->end_req(req);

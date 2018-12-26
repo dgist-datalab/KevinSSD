@@ -13,7 +13,7 @@ COMMONFLAGS=\
 			-Wno-write-strings\
 			-DLARGEFILE64_SOURCE\
 			-DSLC\
-			-O2\
+		-O2\
 #			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
@@ -78,7 +78,7 @@ SRCS +=\
 	./include/data_struct/list.c\
 	./bench/measurement.c\
 	./bench/bench.c\
-	#./include/utils/thpool.c\
+	./include/utils/thpool.c\
 
 TARGETOBJ =\
 			$(patsubst %.c,%.o,$(SRCS))\
