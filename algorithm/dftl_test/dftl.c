@@ -54,7 +54,6 @@ int32_t waiting;    // # of waiting requests on 'waiting_arr'
 #if W_BUFF
 skiplist *write_buffer;
 int32_t buf_hit;
-snode *dummy_snode;
 #endif
 
 #if C_CACHE
@@ -131,6 +130,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
     num_caching = 0;
     max_write_buf = 1024;
+	//max_write_buf = 512;
 #if C_CACHE
     max_clean_cache = num_max_cache / 2; // 50 : 50
     num_max_cache -= max_clean_cache;
@@ -192,8 +192,6 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 #if W_BUFF
     write_buffer = skiplist_init();
-    dummy_snode = (snode *)malloc(sizeof(snode));
-    dummy_snode->bypass = true;
 #endif
 
 
@@ -213,6 +211,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
         CMT[i].clean_ptr = NULL;
 #endif
         CMT[i].state = CLEAN;
+
         CMT[i].flying = false;
         CMT[i].flying_arr = (request **)malloc(sizeof(request *) * 1024);
         CMT[i].num_waiting = 0;
