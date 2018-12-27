@@ -8,6 +8,7 @@ typedef struct node{
 	struct node *prev;
 	struct node *next;
 }node;
+
 typedef struct queue{
 	volatile int size;
 	int m_size;
@@ -19,6 +20,7 @@ typedef struct queue{
 void q_init(queue**,int);
 bool q_enqueue(void *,queue*);
 bool q_enqueue_front(void *,queue*);
+void* q_pick(queue*);
 void *q_dequeue(queue*);
 void q_desize(queue*);
 void q_free(queue*);

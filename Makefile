@@ -7,13 +7,14 @@ PPWD=$(pwd)
 
 DEBUGFLAGS=\
 			-rdynamic\
-
+			-Wno-pointer-arith\
+#	-DBUSE_DEBUG
 
 COMMONFLAGS=\
 			-Wno-write-strings\
 			-DLARGEFILE64_SOURCE\
 			-DSLC\
-		-O2\
+			-O2\
 #			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
@@ -68,6 +69,7 @@ SRCS +=\
 	./interface/queue.c\
 	./interface/interface.c\
 	./interface/bb_checker.c\
+	./interface/buse.c\
 	./include/FS.c\
 	./include/slab.c\
 	./include/utils/debug_tools.c\
@@ -109,10 +111,10 @@ duma_sim: duma_simulator
 debug_simulator: ./interface/main.c libsimulator_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
 
-simulator: ./interface/main.c libsimulator.a
+simulator: ./interface/B_main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
-duma_simulator: ./interface/main.c libsimulator.a
+duma_simulator: ./interface/B_main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ -lduma $(ARCH) $(LIBS)
 	
 

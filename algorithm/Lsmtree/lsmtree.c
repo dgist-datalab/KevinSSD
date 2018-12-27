@@ -757,7 +757,7 @@ uint32_t __lsm_get(request *const req){
 			params->ppa=target_ppa;
 #else
 			params->ppa=entry->pbn;
-		/*		
+			/*	
 			//  [ for sequential code ]
 			if(entry->isflying==1 || entry->isflying==2){
 				while(entry->isflying!=2){}//wait for mapping
@@ -866,7 +866,9 @@ htable *htable_copy(htable *input){
 htable *htable_dummy_assign(){
 	htable *res=(htable*)malloc(sizeof(htable));
 	res->sets=NULL;
+#ifdef NOCPY
 	res->nocpy_table=NULL;
+#endif
 	res->t_b=0;
 	res->origin=NULL;
 	return res;
@@ -893,9 +895,11 @@ void htable_print(htable * input,KEYT ppa){
 extern block bl[_NOB];
 void htable_check(htable *in, KEYT lpa, KEYT ppa,char *log){
 	keyset *target=NULL;
+#ifdef NOCPY
 	if(in->nocpy_table){
 		target=(keyset*)in->nocpy_table;
 	}
+#endif
 	if(!target){ 
 	//	printf("no table\n");
 		return;

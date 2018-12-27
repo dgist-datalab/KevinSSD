@@ -49,6 +49,13 @@ struct request {
 
 	int mark;
 
+/*s:for application req*/
+	char *target_buf;
+	uint32_t target_len;
+	char istophalf;
+	FSTYPE org_type;
+/*e:for application req*/
+
 	MeasureTime algo;
 	MeasureTime lower;
 	MeasureTime latency_ftl;

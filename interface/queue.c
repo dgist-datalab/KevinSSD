@@ -77,7 +77,18 @@ void* q_dequeue(queue *q){
 	return res;
 }
 
-
+void* q_pick(queue *q){
+	pthread_mutex_lock(&q->q_lock);
+	if(!q->head || q->size==0){
+		pthread_mutex_unlock(&q->q_lock);
+		return NULL;
+	}
+	node *target_node;
+	target_node=q->head;
+	void *res=target_node->req;
+	pthread_mutex_unlock(&q->q_lock);
+	return res;
+}
 void q_free(queue* q){
 	while(q_dequeue(q)){}
 	pthread_mutex_destroy(&q->q_lock);

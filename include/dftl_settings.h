@@ -1,14 +1,14 @@
 #ifndef __H_SETDFTL__
 #define __H_SETDFTL__
 
+// clean cache flag
+#define C_CACHE 0
+
 // memcpy op gc flag
 #define MEMCPY_ON_GC 0
 
 // flying mapping page request waiting flag
 #define FLYING 0
-
-// clean cache flag
-#define C_CACHE 1
 
 // write buffering flag
 #define W_BUFF 1

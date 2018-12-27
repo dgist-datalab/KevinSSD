@@ -42,7 +42,7 @@
 #define _NOB (BPS*_NOS)
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
 
-#define RANGE (/*(GIGAUNIT)*/32*(M/PAGESIZE)*1024L*(0.8))
+#define RANGE (/*(GIGAUNIT)*/64*(M/PAGESIZE)*1024L*(0.8))
 
 #define SIMULATION 0
 
@@ -65,7 +65,8 @@
 #define IP "127.0.0.1"
 //#define IP "10.42.0.1"
 #define PORT 9999
-//#define NETWORKSET
+#define NETWORKSET
+#define DATATRANS
 
 #define KEYGEN
 #define SPINSYNC

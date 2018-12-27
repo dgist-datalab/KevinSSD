@@ -111,18 +111,19 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 
     /* Cache control & Init */
-//	 num_max_cache = max_cache_entry; // max cache
+	 num_max_cache = max_cache_entry; // max cache
  //   num_max_cache = 1; // 1 cache
 	//num_max_cache = max_cache_entry / 4; // 1/4 cache
     //num_max_cache = max_cache_entry / 20; // 5%
     //num_max_cache = max_cache_entry / 10; // 10%
-    num_max_cache = max_cache_entry / 8; // 12.5%
+    //num_max_cache = max_cache_entry / 8; // 12.5%
     //num_max_cache = max_cache_entry / 40; // 2.5%
 
     real_max_cache = num_max_cache;
 
     num_caching = 0;
-    max_write_buf = 512;
+    //max_write_buf = 512;
+	max_write_buf = 1024;
 #if C_CACHE
     max_clean_cache = num_max_cache / 2; // 50 : 50
     num_max_cache -= max_clean_cache;

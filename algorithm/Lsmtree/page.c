@@ -647,7 +647,7 @@ bool gc_check(uint8_t type, bool force){
 				case DATA:
 	//				printf("data gc:%d %d\n",data_gc_cnt,false);
 
-					compaction_force_levels(1);
+					//compaction_force_levels(1);
 
 					//gc_compaction_checking();
 					//compaction_force();
@@ -816,6 +816,7 @@ void invalidate_PPA(KEYT _ppa){
 	ppa=_ppa;
 	bn=ppa/algo_lsm.li->PPB;
 	idx=ppa%algo_lsm.li->PPB;
+
 
 	bl[bn].bitset[idx/8]|=(1<<(idx%8));
 	bl[bn].invalid_n++;
@@ -1003,9 +1004,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			}else{
 				gc_data_read(entries[j]->pbn,datas[htable_idx],false);
 			}
-			if(((keyset*)datas[htable_idx]->nocpy_table)->lpa>1024){
-				printf("fuck!\n");
-			}
+
 			htable_idx++;
 		}
 #endif
@@ -1071,10 +1070,10 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			entries[j]->pbn=getPPA(HEADER,entries[j]->key,true);
 #ifdef NOCPY
 			data->nocpy_table=nocpy_temp_table;
-#endif	
 			if(((keyset*)data->nocpy_table)->lpa>1024){
 				abort();
 			}
+#endif	
 			gc_data_write(entries[j]->pbn,data,false);
 			free(data);
 		}
@@ -1463,10 +1462,10 @@ int gc_header(KEYT tbn){
 		test->pbn=n_ppa;
 #endif
 		table=tables[i];
+#ifdef NOCPY
 		if(((keyset*)table->nocpy_table)->lpa>1024){
 			abort();
 		}
-#ifdef NOCPY
 		/*should change keep the value before invalidate*/
 		nocpy_force_freepage(t_ppa);
 #endif

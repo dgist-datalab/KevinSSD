@@ -97,7 +97,7 @@ void *poller(void *input) {
 				if(r->res==(unsigned int)-22){
 					printf("error! %s %lu %llu\n",strerror(-r->res),r->res2,cb->u.c.offset);
 				}else if(r->res!=PAGESIZE){
-					printf("write error!\n");
+					printf("data size error!\n");
 				}
 				else{
 				//	printf("cb->offset:%d cb->nbytes:%d\n",cb->u.c.offset,cb->u.c.nbytes);

@@ -40,9 +40,12 @@ void *flash_returner(void *param){
 	uint32_t writed,len;
 	int cnt=0;
 	while(1){
-		void *req;
+		void **req;
 		for(int i=0; i<MAX_RET; i++){
 			req=q_dequeue(ret_q);
+#ifdef DATATRANS
+
+#else
 			if(req){
 				req_array[cnt++]=*(uint32_t*)req;
 				free(req);
@@ -50,6 +53,9 @@ void *flash_returner(void *param){
 			else{
 				break;
 			}
+#endif	
+			free(req[0]); free(req[1]);
+			free(req);
 		}
 		if(cnt){
 			//printf("cnt:%d\n",cnt);
@@ -76,9 +82,9 @@ void *flash_ack2clnt(void *param){
 		case FS_GET_T:
 			/*
 			kuk_ack2clnt(net_worker);*/
-			//kuk_send(net_worker,(char*)&seq,sizeof(seq));
+			//kuk_send(net_worker,(char*)&seq,sizeof(seq))
 			if(*(uint32_t*)params[1]!=0){
-				while(!q_enqueue((void*)params[1],ret_q)){}
+				while(!q_enqueue((void*)params,ret_q)){}
 			}
 			break;
 			/*
@@ -92,9 +98,10 @@ void *flash_ack2clnt(void *param){
 			break;
 	}
 
-	free(params[0]);
+//	free(params[0]);
+//	params[0]=NULL;
 	//free(params[1]);
-	free(params);
+	//free(params);
 	return NULL;
 }
 
@@ -158,10 +165,10 @@ int main(void){
 	flag = fcntl( client_socket, F_GETFL, 0 );
 	fcntl( client_socket, F_SETFL, flag | O_NONBLOCK );
 
-	net_data_t temp[1024];
+	net_data_t *temp=(net_data_t*)malloc(sizeof(net_data_t)*512);
 	int readed=0,len;
 	while(1){
-		memset(temp,0,sizeof(temp));
+		//memset(temp,0,sizeof(temp));
 		readed=len=0;
 		while(readed==0 || (readed%sizeof(net_data_t))){
 			len=read (client_socket,&((char*)temp)[readed],sizeof(temp)-readed);
@@ -182,6 +189,9 @@ int main(void){
 				printf("aaaaaaaa\n");
 			}
 			for(uint32_t j=0; j<t->len; j++){
+#ifdef DATATRANS
+				dummy.value=t->data;
+#endif
 				if(j+1!=t->len){
 					inf_make_req_special(t->type,(uint32_t)t->offset+j,&dummy,0,flash_ack2clnt);
 				}else{

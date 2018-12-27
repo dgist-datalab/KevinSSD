@@ -1,249 +1,158 @@
+#define _LARGEFILE64_SOURCE
+
+#include <assert.h>
+#include <fcntl.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <sys/mount.h>
+#include <sys/types.h>
+#include <argp.h>
+#include <sys/stat.h>
 #include <unistd.h>
-#include <limits.h>
-#include<signal.h>
-#include "../include/lsm_settings.h"
-#include "../include/FS.h"
-#include "../include/settings.h"
-#include "../include/types.h"
-#include "../bench/bench.h"
-#include "server.h"
+#include <semaphore.h>
+#include <linux/nbd.h>
+#include <signal.h>
+
+#include "../include/container.h"
 #include "interface.h"
+#include "buse.h"
 #include "queue.h"
+typedef struct fs_req{
+	struct nbd_reply *r;
+	char *data;
+	char type;
+	int max;
+	int now;
+	int sk;
+	int seq;
+	uint64_t len;
+}fs_req;
 
-#include "../include/kuk_socket_lib/kuk_sock.h"
-#ifdef Lsmtree
-int skiplist_hit;
-#endif
-kuk_sock *net_worker;
-//#define IP "127.0.0.1"
-#define REQSIZE sizeof(net_data_t)
-#define PACKETSIZE sizeof(net_data_t)
-queue *ret_q;
-pthread_mutex_t send_lock;
-
-pthread_mutex_t ret_q_lock;
-pthread_cond_t ret_cond;
-
-static int global_value;
-void log_print(int sig){
-	inf_free();
-	exit(1);
-}
-void *flash_returner(void *param){
+//std::queue<fs_req *> *main_q;
+queue *main_q;
+void *returner(void *a){
 	while(1){
-		static int cnt=0;
-		void *req;
-		if(!(req=q_dequeue(ret_q))){
-			continue;
-		}
-
-		if((*(int*)req)!=0){	
-			pthread_mutex_lock(&send_lock);
-			if(++cnt%10240==0){
-				printf("send_cnt:%d - len:%d\n",global_value++,*(int*)req);
+		while(main_q->size){
+			fs_req *temp=(fs_req*)q_pick(main_q);
+			if(temp->now==temp->max){
+				if(temp->type==FS_GET_T){
+					write_all(temp->sk,(char*)temp->r,sizeof(struct nbd_reply));
+					write_all(temp->sk,(char*)temp->data,temp->len);
+					free(temp->data);
+				}
+				else{	
+					free(temp->data);
+					write_all(temp->sk,(char*)temp->r,sizeof(struct nbd_reply));
+				}
+				//printf("check temp:%d %d\n",temp->seq,main_q->size());
 			}
-#ifdef NETWORKSET
-			kuk_send(net_worker,(char*)req,sizeof(uint32_t));
-#endif
-			pthread_mutex_unlock(&send_lock);
-		}
-		free(req);
-	}
-	return NULL;
-}
-
-void *flash_ack2clnt(void *param){
-	void **params=(void**)param;
-	uint8_t type=*((uint8_t*)params[0]);
-	//uint32_t *tt;
-	//uint32_t seq=*((uint32_t*)params[1]);
-	switch(type){
-		case FS_NOTFOUND_T:
-		case FS_GET_T:
-			/*
-			kuk_ack2clnt(net_worker);*/
-			//kuk_send(net_worker,(char*)&seq,sizeof(seq));
-			while(!q_enqueue((void*)params[1],ret_q)){}
-			break;
-			/*
-		case FS_SET_T:
-			tt=(uint32_t*)malloc(sizeof(uint32_t));
-			*tt=UINT_MAX;
-			while(!q_enqueue((void*)tt,ret_q))
-			free(params[1]);
-			break;*/
-		default:
-			break;
-	}
-
-	free(params[0]);
-	//free(params[1]);
-	free(params);
-	return NULL;
-}
-
-void *flash_ad(kuk_sock* ks){
-	uint8_t type=*((uint8_t*)ks->p_data[0]);
-	uint64_t key=*((uint64_t*)ks->p_data[1]);
-	uint64_t len=*((uint64_t*)ks->p_data[2]);
-	uint32_t seq=*((uint32_t*)ks->p_data[3]);
-
-	printf("type:%d key:%lu len:%lu seq:%u\n",type,key,len,seq);
-	char t_value[PAGESIZE];
-	memset(t_value,'x',PAGESIZE);
-
-	value_set temp;
-	temp.value=t_value;
-	temp.dmatag=-1;
-	temp.length=PAGESIZE;
-	
-	for(uint64_t i=0; i<len; i++){
-		static int cnt=0;
-		if(i+1!=len){
-			inf_make_req_special(type,(uint32_t)key+i,&temp,0,flash_ack2clnt);
-		}else{
-			inf_make_req_special(type,(uint32_t)key+i,&temp,seq,flash_ack2clnt);
+			else{
+				continue;
+			}
+			free(temp->r);
+			free(temp);
+			q_dequeue(main_q);
 		}
 	}
+}
+
+void *fs_end_req(void *arg){
+	fs_req *res=(fs_req*)arg;
+	//printf("%d end_req\n",res->seq);
+	res->now++;
 	return NULL;
 }
 
-void *flash_decoder(kuk_sock *ks, void*(*ad)(kuk_sock*)){
-	char **parse=ks->p_data;
-	if(parse==NULL){
-		
-		/*parse=(char**)malloc((4+1)*sizeof(char*));
-		parse[0]=(char*)malloc(sizeof(uint8_t));//type
-		parse[1]=(char*)malloc(sizeof(uint64_t));//key
-		parse[2]=(char*)malloc(sizeof(uint64_t));//length
-		parse[3]=(char*)malloc(sizeof(uint32_t));//seq
-		parse[4]=NULL;*/
-		ks->p_data=parse;
-	}
-
-	char *dd=&ks->data[ks->data_idx];
-	memcpy(parse[0],&dd[0],sizeof(uint8_t));
-	memcpy(parse[1],&dd[sizeof(uint8_t)],sizeof(uint64_t));
-	memcpy(parse[2],&dd[sizeof(uint8_t)+sizeof(uint64_t)],sizeof(uint64_t));
-	memcpy(parse[3],&dd[REQSIZE-sizeof(uint64_t)],sizeof(uint64_t));
-	
-	if((*(uint8_t*)parse[0])==ENDFLAG){
-		return NULL;
-	}
-	ks->data_idx+=REQSIZE;
-	ad(ks);
-	return (void*)parse;
-}
-
-int main(int argc,char* argv[]){
-	struct sigaction sa;
-	sa.sa_handler = log_print;
-	sigaction(SIGINT, &sa, NULL);
-
-	inf_init();
-	char t_value[PAGESIZE];
-	memset(t_value,'x',PAGESIZE);
-	bench_init(1);
-	bench_add(NOR,0,-1,-1);
-	
-	q_init(&ret_q,1024);
-	pthread_t rt_thread;
-	pthread_create(&rt_thread,NULL,&flash_returner,NULL);
-	value_set dummy;
-	dummy.value=t_value;
-	dummy.dmatag=-1;
-	dummy.length=PAGESIZE;
+static fs_req *make_fs_req_from_data(int sk,char type,const void *_buf, u_int32_t len, u_int64_t offset, void *userdata){
 	static int cnt=0;
-	/*network initialize*/
-#ifdef NETWORKSET
-	net_worker=kuk_sock_init(sizeof(net_data_t),flash_decoder,flash_ad);
-	kuk_open(net_worker,IP,PORT);
-	kuk_bind(net_worker);
-	kuk_listen(net_worker,5);
-	kuk_accept(net_worker);
-	printf("connected......\n");
-	uint32_t readed=0, len=0;
+	int i;
+	fs_req *res=(fs_req*)malloc(sizeof(fs_req));
+	
+	int nreq=len/PAGESIZE+len%PAGESIZE?1:0;
+	res->r=(struct nbd_reply*)userdata;
+	res->max=nreq;
+	res->now=0;
+	res->data=(char*)_buf;
+	res->type=type;
+	res->sk=sk;
+	res->len=len;
+	res->seq=cnt++;
+	
+	uint32_t target=offset;
+	uint64_t remain=len;
+	char *buf=(char*)_buf;
+	int _type;
+	for(i=0; i<nreq; i++){
+		KEYT key=target/PAGESIZE;
+		if(target%(PAGESIZE)==0 && remain>=PAGESIZE){
+			inf_make_req_fromApp(type,-1,key,PAGESIZE,(type!=FS_DELETE_T?(char*)&buf[len-remain]:NULL),res,fs_end_req);
+			remain-=PAGESIZE;
+			target+=PAGESIZE;
+		}else if(target%(PAGESIZE)==0 && remain%PAGESIZE!=0){
+			_type=(type==FS_SET_T?FS_RMW_T:type);
+			inf_make_req_fromApp(_type,1,key,remain%PAGESIZE,(type!=FS_DELETE_T?(char*)&buf[len-remain]:NULL),res,fs_end_req);
+			remain-=(remain%PAGESIZE);
+			target+=(remain%PAGESIZE);
+		}else if(target % (PAGESIZE)!=0){
+			_type=(type==FS_SET_T?FS_RMW_T:type);
+			uint32_t target_len;
+			target_len = remain<PAGESIZE/2?remain:PAGESIZE/2;
 
-	net_data_t temp;
-	while (1) {
-		while (readed == 0 || readed % REQSIZE != 0) {
-			len = kuk_recv(net_worker, &((char*)&temp)[readed], sizeof(net_data_t)-readed);
-			if (len == -1) continue;
-			readed += len;
+			inf_make_req_fromApp(_type,0,key,target_len,(type!=FS_DELETE_T?(char*)&buf[len-remain]:NULL),res,fs_end_req);
+			remain-=target_len;
+			target+=target_len;
 		}
-		printf("%d %lu %lu %u %d\n",temp.type, temp.offset, temp.len,temp.seq,cnt++);
-		if((temp.type!=1 && temp.type!=2) || temp.len!=1){
-			printf("no");
-		}
-		readed=0;
-		net_worker->data_idx=0;
-
-		for(int i=0; i<temp.len; i++){
-			if(i+1!=temp.len){
-				inf_make_req_special(temp.type,(uint32_t)temp.offset+i,&dummy,0,flash_ack2clnt);
-			}else{
-				inf_make_req_special(temp.type,(uint32_t)temp.offset+i,&dummy,temp.seq,flash_ack2clnt);
-			}
-		}
-	}
-#else
-	int a;
-	uint64_t b,c,d;
-	value_set temp;
-	temp.value=t_value;
-	temp.dmatag=-1;
-	temp.length=PAGESIZE;
-	int cnt=0;
-	int stop_cnt=0;
-	MeasureTime tt,tt2;
-	MS(&tt);
-	int write_cnt=0, read_cnt=0;
-	while(stop_cnt<2001954){
-		stop_cnt++;
-		scanf("%ld%d%ld%ld\n",&d,&a,&b,&c);
-		for(uint64_t i=0; i<c; i++){
-			cnt++;
-			if(cnt%(128*1024)==0){
-				struct timeval res=measure_res(&tt);
-				float sec=(float)(res.tv_sec*1000000+res.tv_usec)/1000000;
-				printf("cnt:%d write_cnt:%d read_cnt:%d %.2f(MB)\n",cnt,write_cnt,read_cnt,(float)128*1024*8*K/sec/1024/1024);
-				write_cnt=read_cnt=0;
-				MS(&tt);
-			}
-			if(a==1) write_cnt++;
-			else read_cnt++;
-			inf_make_req(a,b+i,&temp,0);
+		else{
+			abort();
 		}
 	}
-	MT(&tt);
-#endif
+	while(!q_enqueue((void*)res,main_q)){}
+//	printf("done temp:%d\n",res->seq);
+	return res;
+}
 
-/*
-	value_set temp;
-	temp.value=t_value;
-	temp.dmatag=-1;
-	temp.length=PAGESIZE;
-	while(1){
-		uint32_t type,key,len;
-		scanf("%d%d%d",&type,&key,&len);
-		for(uint64_t i=0; i<len; i++){
-			static int cnt=0;
-			if(cnt++%10240==0){
-				printf("%d\n",cnt);
-			}
-			inf_make_req(type,(uint32_t)key+i,&temp,0);
-		}	
+static int fs_read(int sk,void *buf, u_int32_t len, u_int64_t offset, void *userdata)
+{
+	make_fs_req_from_data(sk,FS_GET_T,buf,len,offset,userdata);
+	return 0;
+}
+
+static int fs_write(int sk,const void *buf, u_int32_t len, u_int64_t offset, void *userdata)
+{
+	make_fs_req_from_data(sk,FS_SET_T,buf,len,offset,userdata);
+	return 0;
+}
+static int fs_trim(int sk,u_int64_t from, u_int32_t len, void *userdata){
+	make_fs_req_from_data(sk,FS_DELETE_T,NULL,len,from,userdata);
+	return 0;
+}
+
+struct buse_operations bop = {0,};
+struct arguments{
+	unsigned long long size;
+	char *devices;
+	int verbose;
+};
+pthread_t return_t;
+int main(int argc, char *argv[])
+{
+	if (argc != 2) {
+		printf("should input nbd device name\n");
+		return -1;
 	}
-*/
-#ifdef NETWORKSET
-	kuk_sock_destroy(net_worker);
-#endif
-	inf_free();
+	inf_init();
+	struct arguments args;
+	args.size=TOTALSIZE;
+	args.devices=argv[1];
+	args.verbose=1;
 
+	bop.read=fs_read;
+	bop.write=fs_write;
+	bop.trim=fs_trim;
+	bop.size=TOTALSIZE;
+	
+	q_init(&main_q,1024);
+	pthread_create(&return_t,NULL,returner,NULL);
 
-	MT(&tt);
+	buse_main(args.devices, &bop,(void *)&args.verbose);
 	return 0;
 }

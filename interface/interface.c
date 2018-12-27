@@ -240,7 +240,7 @@ void *p_main(void *__input){
 			case FS_SET_T:
 	//			printf("write key :%d\n",inf_req->key);
 				write_stop=mp.algo->set(inf_req);
-				//write_stop=false;
+				write_stop=false;
 				break;
 			case FS_DELETE_T:
 				mp.algo->remove(inf_req);
@@ -260,32 +260,29 @@ void *p_main(void *__input){
 	return NULL;
 }
 
-bool inf_make_req_fromApp(char _type, KEYT _key,KEYT offset, KEYT len,PTR _value,void *_req, void*(*end_func)(void*)){
+bool inf_make_req_fromApp(char _type,char istophalf, KEYT _key,KEYT len, PTR _value,void *_req, void*(*end_func)(void*)){
 	static bool start=false;
 	if(!start){
 		bench_init(1);
 		bench_add(NOR,0,-1,-1);
 		start=true;
 	}
-	value_set *value=(value_set*)malloc(sizeof(value_set));
-	if(_type!=FS_RMW_T){
-		value->value=_value;
-		value->rmw_value=NULL;
-		value->offset=0;
-		value->len=PAGESIZE;
-	}else{
-		value->value=(PTR)malloc(PAGESIZE);
-		value->rmw_value=_value;
-		value->offset=offset;
-		value->len=len;
-	}
-	value->length=len;
-	value->dmatag=0;
-	value->from_app=true;
 	
-	request *req=inf_get_req_instance(_type,_key,value,0,true);
+	request *req=inf_get_req_instance(_type,_key,NULL,0,true);
 	req->p_req=_req;
 	req->p_end_req=end_func;
+	req->target_buf=_value;
+	req->target_len=len;
+	req->istophalf=istophalf;
+	req->org_type=_type;
+
+	switch(_type){
+		case FS_SET_T:
+			memcpy(req->value->value,_value,PAGESIZE);
+			break;
+		default:
+			break;
+	}
 	
 	cl_grap(flying);
 #ifdef CDF
@@ -366,15 +363,24 @@ static request *inf_get_req_instance(const FSTYPE type, const KEYT key, value_se
 		req->value=NULL;
 	}
 	else{
-		if(type==FS_SET_T){
-			req->value=inf_get_valueset(value->value,FS_SET_T,value->length);	
-		}
-		else{
-			if(fromApp){
-				req->value=value;
+		if(value!=NULL){
+			if(type==FS_SET_T){
+				req->value=inf_get_valueset(value->value,FS_SET_T,value->length);	
 			}
 			else{
-				req->value=inf_get_valueset(value->value,FS_GET_T,value->length);
+				if(fromApp){
+					req->value=value;
+				}
+				else{
+					req->value=inf_get_valueset(value->value,FS_GET_T,value->length);
+				}
+			}
+		}
+		else{
+			if(type!=FS_DELETE_T){
+				FSTYPE temp_type=type==FS_RMW_T?FS_SET_T:type;
+
+				req->value=inf_get_valueset(NULL,temp_type,PAGESIZE);
 			}
 		}
 	}
@@ -450,25 +456,34 @@ bool inf_make_req_special(const FSTYPE type, const KEYT key, value_set* value, K
 
 //static int end_req_num=0;
 bool inf_end_req( request * const req){
+	value_set *original=req->value;
+	//printf("end_req :%d\n",req->type);
 	if(req->type==FS_RMW_T){
 		req->type=FS_SET_T;
-		value_set *original=req->value;
-		memcpy(&original->value[original->offset],original->rmw_value,original->len);
-		value_set *temp=inf_get_valueset(req->value->value,FS_SET_T,req->value->length);
-
-		free(original->value);
-		req->value=temp;
+		if(req->istophalf){
+			memcpy(&original->value[0],req->target_buf,PAGESIZE/2);
+		}else{
+			memcpy(&original->value[PAGESIZE/2],req->target_buf,PAGESIZE/2);
+		}
 		assign_req(req);
 		return 1;
+	}else if(req->type==FS_GET_T){
+		if(req->istophalf==1){
+			memcpy(req->target_buf,&original->value[0],req->target_len);
+		}else if(req->istophalf==0){
+			memcpy(req->target_buf,&original->value[PAGESIZE/2],req->target_len);
+		}else{
+			memcpy(req->target_buf,&original->value,req->target_len);
+		}
+	}else if(req->type==FS_NOTFOUND_T){
+		memset(req->target_buf,0,req->target_len);
 	}
-#ifdef SNU_TEST
-#else
+
 	if(req->isstart){
 		bench_reap_data(req,mp.li);
 	}else{
 		bench_reap_nostart(req);
 	}
-#endif
 
 
 #ifdef DEBUG
@@ -479,14 +494,25 @@ bool inf_end_req( request * const req){
 	void **params;
 	uint8_t *type;
 	uint32_t *seq;
+	value_set *res_value;
 	if(special){
+#ifdef DATATRANS
+		params=(void**)malloc(sizeof(void*)*3);
+#else 
 		params=(void**)malloc(sizeof(void*)*2);
+#endif
+
 		type=(uint8_t*)malloc(sizeof(uint8_t));
 		seq=(uint32_t*)malloc(sizeof(uint32_t));
+		res_value=req->value;
+		req->value=NULL;
 		*type=req->type;
 		*seq=req->seq;
 		params[0]=(void*)type;
 		params[1]=(void*)seq;
+#ifdef DATATRANS
+		params[2]=(void*)res_value;
+#endif
 		special((void*)params);
 	}
 
@@ -502,7 +528,9 @@ bool inf_end_req( request * const req){
 		}
 	}
 	req_cnt_test++;
-	
+
+
+	cl_release(flying);
 	if(req->p_req){
 		req->p_end_req(req->p_req);
 	}
@@ -512,11 +540,9 @@ bool inf_end_req( request * const req){
 	else{
 		free(req);
 	}
-	cl_release(flying);
 	return true;
 }
 void inf_free(){
-
 	bench_print();
 	bench_free();
 	mp.li->stop();
@@ -565,7 +591,9 @@ value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
 	
 	res->from_app=false;
 	if(in_v){
-		memcpy(res->value,in_v,length);
+		if(type==FS_SET_T){
+			memcpy(res->value,in_v,length);
+		}
 	}
 	else
 		memset(res->value,0,length);
