@@ -83,6 +83,7 @@ static void assign_req(request* req){
 			if(req->type==FS_SET_T){
 				pthread_mutex_lock(&wq_lock);
 				if(t->req_q->size<QSIZE){
+					
 					if((m_req=__hash_find_data(app_hash,req->key))){
 						request *t_req=(request*)m_req;
 						value_set *t_value=t_req->value;
@@ -122,6 +123,7 @@ static void assign_req(request* req){
 				break;
 			}
 			else{
+				
 				if(inf_queue_check(req)){
 					if(req->isstart==false){
 						req->type_ftl=10;
@@ -210,6 +212,7 @@ void *p_main(void *__input){
 			}
 
 			inf_req=(request*)_inf_req;
+			
 			if(inf_req->type==FS_SET_T){
 				t_h_node=(__hash_node*)inf_req->__hash_node;
 				__hash_delete_by_idx(app_hash,t_h_node->t_idx);
@@ -225,7 +228,7 @@ void *p_main(void *__input){
 		inf_req->isstart=true;
 #endif
 		static bool first_get=true;
-		
+
 		switch(inf_req->type){
 			case FS_GET_T:
 				MS(&mt4);
@@ -260,7 +263,7 @@ void *p_main(void *__input){
 	return NULL;
 }
 
-bool inf_make_req_fromApp(char _type,char istophalf, KEYT _key,KEYT len, PTR _value,void *_req, void*(*end_func)(void*)){
+bool inf_make_req_fromApp(char _type,char istophalf, KEYT _key, KEYT inter_offset,KEYT len, PTR _value,void *_req, void*(*end_func)(void*)){
 	static bool start=false;
 	if(!start){
 		bench_init(1);
@@ -275,15 +278,39 @@ bool inf_make_req_fromApp(char _type,char istophalf, KEYT _key,KEYT len, PTR _va
 	req->target_len=len;
 	req->istophalf=istophalf;
 	req->org_type=_type;
-
+	req->inter_offset=inter_offset;
+	if(_type==FS_RMW_T){
+	//	printf("FS_RMW_T:%u %u, %u\n",_key,len,inter_offset);
+	}
 	switch(_type){
 		case FS_SET_T:
-			memcpy(req->value->value,_value,PAGESIZE);
+			memcpy(req->value->value,_value+inter_offset,len);
 			break;
 		default:
 			break;
 	}
-	
+	req->seq=0;
+	/*
+	if((req->type==FS_RMW_T || req->type==FS_SET_T) && req->key==0){
+		bool zflag=0;
+		for(int i=0;i<len; i++){
+			if(*(uint8_t*)&_value[i]!=0){ 
+				zflag=1;
+				break;
+			}
+		}
+		static int cnt=0;
+		req->seq=cnt++;
+
+		printf("\n %d inter:%d len:%d\n",req->seq,inter_offset,len);
+		if(zflag){
+			for(int i=0; i<len; i++){
+				if(i%1024==0 && i!=0) printf("\n");
+				printf("%02x",*(uint8_t*)&_value[i]);
+			}
+		}else printf("0 ALL\n");
+		printf("\n");
+	}*/
 	cl_grap(flying);
 #ifdef CDF
 	req->isstart=false;
@@ -378,8 +405,7 @@ static request *inf_get_req_instance(const FSTYPE type, const KEYT key, value_se
 		}
 		else{
 			if(type!=FS_DELETE_T){
-				FSTYPE temp_type=type==FS_RMW_T?FS_SET_T:type;
-
+				FSTYPE temp_type=type==FS_RMW_T?FS_GET_T:type;
 				req->value=inf_get_valueset(NULL,temp_type,PAGESIZE);
 			}
 		}
@@ -456,28 +482,54 @@ bool inf_make_req_special(const FSTYPE type, const KEYT key, value_set* value, K
 
 //static int end_req_num=0;
 bool inf_end_req( request * const req){
-	value_set *original=req->value;
 	//printf("end_req :%d\n",req->type);
+	/*data check*/
+	/*
+	value_set *original=req->value;
+	if(req->type==FS_GET_T){
+		static int err=0,clear=0,cnt=0;
+		KEYT test;
+		memcpy(&test,&req->value->value[0],sizeof(test));
+		if(test!=req->key){
+			err++;
+		}
+		else{
+			clear++;
+		}
+		if(cnt%1024==0){
+			printf("clear err: %d %d\n",clear,err);
+		}
+		cnt++;
+	}*/
+
+	/*
+	if((req->type==FS_GET_T || req->type==FS_RMW_T) && req->key==0){
+		
+		if(req->type==FS_GET_T)
+			printf("\nread %d\n",req->seq);
+		else
+			printf("\nrmw %d\n",req->seq);
+		for(int i=0; i<8192; i++){
+			
+			if(i%1024==0 && i!=0) printf("\n");
+			printf("%02x",*(uint8_t*)&req->value->value[i]);
+		}
+		printf("\n");
+	}
 	if(req->type==FS_RMW_T){
 		req->type=FS_SET_T;
-		if(req->istophalf){
-			memcpy(&original->value[0],req->target_buf,PAGESIZE/2);
-		}else{
-			memcpy(&original->value[PAGESIZE/2],req->target_buf,PAGESIZE/2);
-		}
+		memcpy(&original->value[0]+req->inter_offset,req->target_buf,req->target_len);
+
+		value_set *new_val=inf_get_valueset(original->value,FS_SET_T,PAGESIZE);
+		inf_free_valueset(original,FS_MALLOC_R);
+		req->value=new_val;
 		assign_req(req);
 		return 1;
 	}else if(req->type==FS_GET_T){
-		if(req->istophalf==1){
-			memcpy(req->target_buf,&original->value[0],req->target_len);
-		}else if(req->istophalf==0){
-			memcpy(req->target_buf,&original->value[PAGESIZE/2],req->target_len);
-		}else{
-			memcpy(req->target_buf,&original->value,req->target_len);
-		}
+		memcpy(req->target_buf,&original->value[0]+req->inter_offset,req->target_len);
 	}else if(req->type==FS_NOTFOUND_T){
 		memset(req->target_buf,0,req->target_len);
-	}
+	}*/
 
 	if(req->isstart){
 		bench_reap_data(req,mp.li);
@@ -530,7 +582,6 @@ bool inf_end_req( request * const req){
 	req_cnt_test++;
 
 
-	cl_release(flying);
 	if(req->p_req){
 		req->p_end_req(req->p_req);
 	}
@@ -540,6 +591,7 @@ bool inf_end_req( request * const req){
 	else{
 		free(req);
 	}
+	cl_release(flying);
 	return true;
 }
 void inf_free(){

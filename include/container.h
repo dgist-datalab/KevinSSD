@@ -51,6 +51,7 @@ struct request {
 
 /*s:for application req*/
 	char *target_buf;
+	uint32_t inter_offset;
 	uint32_t target_len;
 	char istophalf;
 	FSTYPE org_type;

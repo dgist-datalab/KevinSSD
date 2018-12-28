@@ -43,7 +43,7 @@ int main(int argc,char* argv[]){
 //	bench_add(SEQRW,0,RANGE,2*RANGE);
 //	bench_add(MIXED,0,RANGE,RANGE);
 //	bench_add(SEQLATENCY,0,RANGE,RANGE);
-	bench_add(RANDRW,0,RANGE,2*RANGE);
+	bench_add(SEQRW,0,RANGE,2*RANGE);
 //	bench_add(RANDLATENCY,0,RANGE,RANGE-RANGE/10);
 
 //	bench_add(NOR,0,-1,-1);
@@ -75,6 +75,9 @@ int main(int argc,char* argv[]){
 	bool tflag=false;
 	while((value=get_bench())){
 		temp.length=value->length;
+		if(value->type==FS_SET_T){
+			memcpy(&temp.value[0],&value->key,sizeof(value->key));
+		}
 		inf_make_req(value->type,value->key,&temp,value->mark);
 		if(!tflag &&value->type==FS_GET_T){
 			tflag=true;

@@ -307,7 +307,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		value->length=(value->length/PIECE)+(value->length%PIECE?1:0);
 	}
 
-	if(key==x->key){	
+	if(key==x->key){
 #ifdef DEBUG
 
 #endif

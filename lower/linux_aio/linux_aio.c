@@ -44,7 +44,7 @@ static pthread_t t_id;
 static io_context_t ctx;
 cl_lock *lower_flying;
 bool flying_flag;
-static int write_cnt, read_cnt;
+//static int write_cnt, read_cnt;
 sem_t sem;
 bool wait_flag;
 bool stopflag;
@@ -111,64 +111,11 @@ void *poller(void *input) {
 				a = total_time.adding.tv_sec*1000000+total_time.adding.tv_usec;
 				b = req->latency_lower.adding.tv_sec*1000000+req->latency_lower.adding.tv_usec;
 
-				//rw_pattern[ptrn_idx] = (test_type(req->type)%2==0) ? 'W':'R';
-				rw_pattern[ptrn_idx] = test_type(req->type);
-				ppa_pattern[ptrn_idx] = req->ppa;
-				ptrn_idx = (ptrn_idx + 1) % 1000;
-
-				if (test_type(req->type)%2 == 1) {
-					sum1 += b;
-					max1 = (max1 < b) ? b : max1;
-					read_cnt++;
-
-					read_dist[b/10]++;
-/*
-//					if (b > 200) {
-						fprintf(stderr,"%s %ld %ld\n",bench_lower_type(test_type(req->type)),a,b);
-
-						fprintf(stderr,"rw pattern\n");
-						for (int i = 1; i <= 10; i++) {
-							int idx = (1000 + ptrn_idx - i) % 1000;
-							fprintf(stderr,"%s %ld\n", bench_lower_type(rw_pattern[idx]), ppa_pattern[idx]);
-						}
-						fprintf(stderr,"---------\n");
-//					}
-*/
-
-				} else {
-					sum2 += b;
-					max2 = (max2 < b) ? b : max2;
-					write_cnt++;
-
-					write_dist[b/10]++;
-				}
-
-				//type_dist[test_type(req->type)][b/10]++;
-
-/*
-				if (++cnt % 100 == 0) {
-					fprintf(stderr, "R %ld %ld %ld\n", a, (read_cnt == 0) ? 0:sum1/read_cnt, max1);
-					fprintf(stderr, "W %ld %ld %ld\n", a, (write_cnt == 0) ? 0:sum2/write_cnt, max2);
-
-					sum1 = sum2 = read_cnt = write_cnt = max1 = max2 = 0;
-				}
-*/
-
-				//printf("%ld %ld\n", total_time.adding.tv_sec*1000000+total_time.adding.tv_usec,
-			//			req->latency_lower.adding.tv_sec*1000000+req->latency_lower.adding.tv_usec);
 				MS(&total_time);
 				lower_micro_latency+=req->latency_lower.adding.tv_sec*1000000+req->latency_lower.adding.tv_usec;
 				req->end_req(req);
 				cl_release(lower_flying);
-				/*
-				pthread_mutex_lock(&flying_lock);
-				if(flying_flag&& lower_flying->cnt==lower_flying->now){
-					flying_flag=false;
-					pthread_mutex_unlock(&flying_lock);
-					sem_post(&sem);
-				}else{
-					pthread_mutex_unlock(&flying_lock);
-				}*/
+
 				free(r->obj);
 			}
 		}
@@ -238,32 +185,12 @@ void *aio_refresh(lower_info *li){
 	return NULL;
 }
 void *aio_destroy(lower_info *li){
-	//pthread_mutex_destroy(&aio_info.lower_lock);
-	//pthread_mutex_destroy(&fd_lock);
+
 	for(int i=0; i<LREQ_TYPE_NUM;i++){
 		printf("%s %lu\n",bench_lower_type(i),li->req_type_cnt[i]);
 	}
 	close(_fd);
 
-	/*
-	puts("read distribution");
-	for (int i = 0; i < 1000; i++) {
-		printf("%d %d\n", i*10, read_dist[i]);
-	}
-
-	puts("write distribution");
-	for (int i = 0; i < 1000; i++) {
-		printf("%d %d\n", i*10, write_dist[i]);
-	}
-
-	
-	for (int i = 1; i < 9; i++) {
-		printf("\n%s\n", bench_lower_type(i));
-		for (int j = 0; j < 200; j++) {
-			printf("%d %d\n", j*10, type_dist[i][j]);
-		}
-	}
-*/
 	return NULL;
 }
 
@@ -324,10 +251,8 @@ void *aio_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_r
 	MS(&req->latency_lower);
 	struct iocb *cb=(struct iocb*)malloc(sizeof(struct iocb));
 	cl_grap(lower_flying);
-	//printf("%u %u offset:%u\n",PPA,aio_info.SOP,aio_info.SOP*PPA);
 	io_prep_pread(cb,_fd,(void*)value->value,PAGESIZE,aio_info.SOP*PPA);
 	cb->data=(void*)req;
-//	io_set_callback(cb,call_back);
 
 #ifdef THPOOL
 	while(thpool_num_threads_working(thpool)>=NUM_THREAD);
@@ -342,7 +267,6 @@ void *aio_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_r
 #endif
 
 	bench_lower_r_end(&aio_info);
-	//req->end_req(req);
 	return NULL;
 }
 

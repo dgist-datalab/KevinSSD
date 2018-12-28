@@ -29,6 +29,7 @@
 #define GIGAUNIT 64L
 #define TOTALSIZE ((GIGAUNIT)*G)
 #define REALSIZE (512L*G)
+#define DEVSIZE (100L * G)
 #define PAGESIZE (8*K)
 #define _PPB (256)
 #define _PPS (1<<14)
@@ -42,7 +43,7 @@
 #define _NOB (BPS*_NOS)
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
 
-#define RANGE (/*(GIGAUNIT)*/64*(M/PAGESIZE)*1024L*(0.8))
+#define RANGE (/*(GIGAUNIT)*/64L*(M/PAGESIZE)*1024L*(0.8))
 
 #define SIMULATION 0
 

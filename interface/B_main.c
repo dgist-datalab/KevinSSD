@@ -84,20 +84,19 @@ static fs_req *make_fs_req_from_data(int sk,char type,const void *_buf, u_int32_
 	for(i=0; i<nreq; i++){
 		KEYT key=target/PAGESIZE;
 		if(target%(PAGESIZE)==0 && remain>=PAGESIZE){
-			inf_make_req_fromApp(type,-1,key,PAGESIZE,(type!=FS_DELETE_T?(char*)&buf[len-remain]:NULL),res,fs_end_req);
+			inf_make_req_fromApp(type,-1,key,0,PAGESIZE,(type!=FS_DELETE_T?(char*)&buf[len-remain]:NULL),res,fs_end_req);
 			remain-=PAGESIZE;
 			target+=PAGESIZE;
 		}else if(target%(PAGESIZE)==0 && remain%PAGESIZE!=0){
 			_type=(type==FS_SET_T?FS_RMW_T:type);
-			inf_make_req_fromApp(_type,1,key,remain%PAGESIZE,(type!=FS_DELETE_T?(char*)&buf[len-remain]:NULL),res,fs_end_req);
+			inf_make_req_fromApp(_type,1,key,target%PAGESIZE,remain%PAGESIZE,(type!=FS_DELETE_T?(char*)&buf[len-remain]:NULL),res,fs_end_req);
 			remain-=(remain%PAGESIZE);
 			target+=(remain%PAGESIZE);
 		}else if(target % (PAGESIZE)!=0){
 			_type=(type==FS_SET_T?FS_RMW_T:type);
 			uint32_t target_len;
 			target_len = remain<PAGESIZE/2?remain:PAGESIZE/2;
-
-			inf_make_req_fromApp(_type,0,key,target_len,(type!=FS_DELETE_T?(char*)&buf[len-remain]:NULL),res,fs_end_req);
+			inf_make_req_fromApp(_type,0,key,target%PAGESIZE,target_len,(type!=FS_DELETE_T?(char*)&buf[len-remain]:NULL),res,fs_end_req);
 			remain-=target_len;
 			target+=target_len;
 		}

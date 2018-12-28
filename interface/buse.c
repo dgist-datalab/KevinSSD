@@ -145,7 +145,7 @@ static int serve_nbd(int sk, const struct buse_operations * aop, void * userdata
 			 * and writes.
 			 */
 			case NBD_CMD_READ:
-				if (BUSE_DEBUG) fprintf(stderr, "Request %u(offset))for read of size %d\n",from,len);
+				//if (BUSE_DEBUG) fprintf(stderr, "Request %u(offset))for read of size %d\n",from,len);
 				/* Fill with zero in case actual read is not implemented */
 				//res=posix_memalign(&chunk,4*K,len);
 				chunk = malloc(len);
@@ -162,7 +162,7 @@ static int serve_nbd(int sk, const struct buse_operations * aop, void * userdata
 
 				break;
 			case NBD_CMD_WRITE:
-				if (BUSE_DEBUG) fprintf(stderr, "Request for write of size %d\n", len);
+				//if (BUSE_DEBUG) fprintf(stderr, "Request for write of size %d\n", len);
 //				res=posix_memalign(&chunk,4*K,len);
 				chunk = malloc(len);
 				read_all(sk, (char*)chunk, len);
@@ -172,14 +172,14 @@ static int serve_nbd(int sk, const struct buse_operations * aop, void * userdata
 					/* If user not specified write operation, return EPERM error */
 					reply->error = htonl(EPERM);
 				}
-				write(2,&from,sizeof(from));
-				write(2,chunk,len);
+				//write(2,&from,sizeof(from));
+				//write(2,chunk,len);
 				//free(chunk);
 				//write_all(sk, (char*)&reply, sizeof(struct nbd_reply));
 				 
 				break;
 			case NBD_CMD_DISC:
-				if (BUSE_DEBUG) fprintf(stderr, "Got NBD_CMD_DISC\n");
+				//if (BUSE_DEBUG) fprintf(stderr, "Got NBD_CMD_DISC\n");
 				/* Handle a disconnect request. */
 				if (aop->disc) {
 					aop->disc(sk,userdata);
@@ -200,6 +200,7 @@ static int serve_nbd(int sk, const struct buse_operations * aop, void * userdata
 				if (aop->trim) {
 					reply->error = aop->trim(sk,from, len, (void*)reply);
 				}
+				//printf("T %u %lu \n",from,len);
 				//write_all(sk, (char*)reply, sizeof(struct nbd_reply));
 				break;
 #endif
