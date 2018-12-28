@@ -6,6 +6,7 @@
 #include "../../include/slab.h"
 #include "../../interface/interface.h"
 #include "../../bench/bench.h"
+#include "./level_target/hash/hash_table.h"
 #include "compaction.h"
 #include "lsmtree.h"
 #include "page.h"
@@ -427,7 +428,7 @@ uint32_t lsm_get(request *const req){
 			break;
 	}
 	if(!temp){
-	//	LSM.lop->all_print();
+		//LSM.lop->all_print();
 		temp=true;
 	}
 	bench_algo_start(req);
@@ -570,7 +571,11 @@ uint32_t __lsm_get(request *const req){
 	run_t *entry;
 	bool comback_req=false;
 #endif
-
+	/*
+	uint32_t nc=hash_all_cached_entries();
+	if(LSM.lsm_cache->max_size < nc-1){
+		printf("[lsmtree :%d] over cached! %d,%u\n",__LINE__,LSM.lsm_cache->max_size,nc);
+	}*/
 	if(req->params==NULL){
 		/*memtable*/
 		res=__lsm_get_sub(req,NULL,NULL,LSM.memtable);

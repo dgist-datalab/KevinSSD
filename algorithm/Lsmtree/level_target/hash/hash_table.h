@@ -77,5 +77,5 @@ keyset *hash_cache_find(level *, KEYT lpa);
 int hash_cache_get_sz(level*);
 #endif
 
-
+uint32_t hash_all_cached_entries();
 #endif
