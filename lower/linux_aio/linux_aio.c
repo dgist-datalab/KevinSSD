@@ -105,14 +105,6 @@ void *poller(void *input) {
 				if(req->parents){
 					bench_lower_end(req->parents);
 				}
-				MA(&req->latency_lower);
-				MA(&total_time);
-
-				a = total_time.adding.tv_sec*1000000+total_time.adding.tv_usec;
-				b = req->latency_lower.adding.tv_sec*1000000+req->latency_lower.adding.tv_usec;
-
-				MS(&total_time);
-				lower_micro_latency+=req->latency_lower.adding.tv_sec*1000000+req->latency_lower.adding.tv_usec;
 				req->end_req(req);
 				cl_release(lower_flying);
 
@@ -232,8 +224,6 @@ void *aio_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_r
 	
 	if(req->parents)
 		bench_lower_start(req->parents);
-	measure_init(&req->latency_lower);
-	MS(&req->latency_lower);
 
 	struct iocb *cb=(struct iocb*)malloc(sizeof(struct iocb));
 	cl_grap(lower_flying);
@@ -272,8 +262,6 @@ void *aio_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_r
 	
 	if(req->parents)
 		bench_lower_start(req->parents);
-	measure_init(&req->latency_lower);
-	MS(&req->latency_lower);
 	struct iocb *cb=(struct iocb*)malloc(sizeof(struct iocb));
 	cl_grap(lower_flying);
 	io_prep_pread(cb,_fd,(void*)value->value,PAGESIZE,offset_hooker(aio_info.SOP*PPA,t_type));
