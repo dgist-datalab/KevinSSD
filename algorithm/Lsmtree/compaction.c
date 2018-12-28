@@ -36,6 +36,7 @@ MeasureTime compaction_timer[5];
 #if (LEVELN==1)
 void onelevel_processing(run_t *);
 #endif
+static int compaction_cnt=0;
 void compaction_sub_pre(){
 	pthread_mutex_lock(&compaction_wait);
 }
@@ -47,6 +48,7 @@ static void compaction_selector(level *a, level *b, run_t *r, pthread_mutex_t* l
 	else{
 		leveling(a,b,r,lock);
 	}
+	compaction_cnt++;
 }
 
 void compaction_sub_wait(){
@@ -117,7 +119,7 @@ bool compaction_init(){
 
 void compaction_free(){
 	for(int i=0; i<5; i++){
-		printf("%ld %.6f\n",compaction_timer[i].adding.tv_sec,(float)compaction_timer[i].adding.tv_usec/1000000);
+		printf("cpt timer:%ld %.6f\n",compaction_timer[i].adding.tv_sec,(float)compaction_timer[i].adding.tv_usec/1000000);
 	}
 	compactor.stopflag=true;
 	int *temp;
@@ -130,6 +132,7 @@ void compaction_free(){
 		}
 		q_free(t->q);
 	}
+	printf("compaction_cnt:%d\n",compaction_cnt);
 	free(compactor.processors);
 }
 
@@ -462,7 +465,9 @@ run_t* compaction_postprocessing(run_t *target){
 
 void compaction_subprocessing(skiplist *top,run_t** src, run_t** org, level *des){
 	compaction_sub_wait();
+	MS(&compaction_timer[0]);
 	LSM.lop->merger(top,src,org,des);
+	MA(&compaction_timer[0]);
 	KEYT key,end;
 	run_t* target=NULL;
 	while((target=LSM.lop->cutter(top,des,&key,&end))){

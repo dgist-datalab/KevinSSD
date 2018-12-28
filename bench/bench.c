@@ -143,6 +143,7 @@ void bench_add(bench_type type, KEYT start, KEYT end, uint64_t number){
 	_master->meta[idx].end=end;
 	_master->meta[idx].type=type;
 	_master->meta[idx].number=number%2?(number/2)*2:number;
+	printf("bench range:%u ~ %u\n",start,end);
 	idx++;
 }
 
@@ -183,9 +184,9 @@ bench_value* get_bench(){
 		float head=_m->n_num;
 		printf("\r testing.....[%f%%]",head/body*100);
 	}
-	else if(_m->n_num%(PRINTPER*(_m->m_num/100))==0){
+	else if(_m->n_num%(PRINTPER*(_m->m_num/10000))==0){
 #ifdef BENCH
-		printf("\r testing...... [%ld%%]",(_m->n_num)/(_m->m_num/100));
+		printf("\r testing...... [%.2lf%%]",(double)(_m->n_num)/(_m->m_num/100));
 		fflush(stdout);
 #endif
 	}

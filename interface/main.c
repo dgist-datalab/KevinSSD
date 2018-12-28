@@ -9,12 +9,14 @@
 #include "../include/types.h"
 #include "../bench/bench.h"
 #include "interface.h"
+#include "../algorithm/Lsmtree/lsmtree.h"
 extern int req_cnt_test;
 extern uint64_t dm_intr_cnt;
 extern int LOCALITY;
 extern float TARGETRATIO;
 extern master *_master;
 extern bool force_write_start;
+extern lsmtree LSM;
 #ifdef Lsmtree
 int skiplist_hit;
 #endif
@@ -43,7 +45,7 @@ int main(int argc,char* argv[]){
 //	bench_add(SEQRW,0,RANGE,2*RANGE);
 //	bench_add(MIXED,0,RANGE,RANGE);
 //	bench_add(SEQLATENCY,0,RANGE,RANGE);
-	bench_add(SEQRW,0,RANGE,2*RANGE);
+	bench_add(RANDSET,0,RANGE,RANGE);
 //	bench_add(RANDLATENCY,0,RANGE,RANGE-RANGE/10);
 
 //	bench_add(NOR,0,-1,-1);
@@ -113,6 +115,7 @@ int main(int argc,char* argv[]){
 	//printf("locality: 0~%.0f\n",RANGE*TARGETRATIO);
 
 	printf("bench free\n");
+	//LSM.lop->all_print();
 	inf_free();
 #ifdef Lsmtree
 	printf("skiplist hit:%d\n",skiplist_hit);

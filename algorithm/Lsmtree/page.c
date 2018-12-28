@@ -824,9 +824,7 @@ void invalidate_PPA(KEYT _ppa){
 	segment *segs=WHICHSEG(bl[bn].ppa);
 	segs->invalid_n++;
 	//static int cnt=0;
-	if(_ppa==81665){
-		printf("invalidate l:%u p:%u\n",PBITGET(_ppa),_ppa);
-	}
+
 #ifdef NOCPY
 	if(_ppa>=0 && _ppa<(HEADERSEG+1)*_PPS)
 		nocpy_free_page(_ppa);

@@ -2,7 +2,7 @@ export CC=g++
 
 TARGET_INF=interface
 TARGET_LOWER=posix_memory
-TARGET_ALGO=dftl
+TARGET_ALGO=Lsmtree
 PPWD=$(pwd)
 
 DEBUGFLAGS=\
@@ -111,7 +111,7 @@ duma_sim: duma_simulator
 debug_simulator: ./interface/main.c libsimulator_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
 
-simulator: ./interface/K_main.c libsimulator.a
+simulator: ./interface/main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 duma_simulator: ./interface/B_main.c libsimulator.a

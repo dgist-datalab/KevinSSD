@@ -137,6 +137,13 @@ void cache_update(cache *c, run_t* ent){
 	c_ent->up=NULL;
 	c_ent->down=c->top;
 	c->top=c_ent;
+
+	if(c->m_size < c->n_size){
+		int target=c->n_size-c->m_size+1;
+		for(int i=0; i<target; i++){
+			cache_delete(c,cache_get(c));
+		}
+	}
 }
 
 run_t* cache_get(cache *c){

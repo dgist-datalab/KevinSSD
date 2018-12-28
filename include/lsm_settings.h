@@ -42,7 +42,7 @@
 #define EPC 100000 //size factor have to be multiple of SIZEFACTOR
 
 /*block,header,data area variable*/
-#define HEADERSEG 2
+#define HEADERSEG 32
 #define BLOCKSEG (1)
 #define DATASEG (_NOS-(HEADERSEG+1)-1)
 

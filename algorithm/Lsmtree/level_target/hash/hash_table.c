@@ -345,16 +345,19 @@ void hash_print(level *lev){
 	if(!b->body)return;
 	snode *now=b->body->header->list[1];
 	int idx=0;
+	int cache_cnt=0;
 	while(now!=b->body->header){
 		run_t *temp=(run_t*)now->value;
+		if(temp->c_entry) cache_cnt++;
 #ifdef BLOOM
 		printf("[%d]%d~%d(%d)-ptr:%p filter:%p\n",idx,temp->key,temp->end,temp->pbn,temp,temp->filter);
 #else
-		printf("[%d]%d~%d(%d)-ptr:%p\n",idx,temp->key,temp->end,temp->pbn,temp);
+		printf("[%d]%d~%d(%d)-ptr:%p cached:%s\n",idx,temp->key,temp->end,temp->pbn,temp,temp->c_entry?"true":"false");
 #endif
 		idx++;
 		now=now->list[1];
 	}
+	printf("\t\t\t\tcache_entry number: %d\n",cache_cnt);
 }
 
 KEYT h_max_table_entry(){
@@ -368,5 +371,43 @@ KEYT h_max_flush_entry(uint32_t in){
 
 void hash_all_print(){
 	for(int i=0;i<LEVELN;i++) hash_print(LSM.disk[i]);
+}
+uint32_t hash_cached_entries(level *lev){
+	hash_body *b=(hash_body*)lev->level_data;
+	uint32_t res=0;
+#ifdef LEVELCACHING
+	hash_body *lc=b->lev_cache_data;
+	if(lc){
+		if(lc->temp){
+			res++;
+		}
+		if(lc->body){
+			snode *n;
+			int id=0;
+			for_each_sk(n,lc->body){
+				run_t *t=(run_t*)n->value;
+				res++;
+				id++;
+			}
+		}
+	}
+#endif
+	
+	if(!b->body) return res;
+	snode *now=b->body->header->list[1];
+	int idx=0;
+	while(now!=b->body->header){
+		run_t *temp=(run_t*)now->value;
+		if(temp->c_entry) res++;
+		idx++;
+		now=now->list[1];
+	}
+	return res;
+}
+
+uint32_t hash_all_cached_entries(){
+	uint32_t res=0;
+	for(int i=0; i<LEVELN; i++)res+=hash_cached_entries(LSM.disk[i]);
+	return res;
 }
 
