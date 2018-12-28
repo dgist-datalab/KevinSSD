@@ -113,6 +113,8 @@ struct lower_info {
 	uint32_t PPB;
 	uint32_t PPS;
 	uint64_t TS;
+	uint64_t DEV_SIZE;//for sacle up test
+	uint64_t all_pages_in_dev;//for scale up test
 
 	uint64_t req_type_cnt[LREQ_TYPE_NUM];
 	//anything

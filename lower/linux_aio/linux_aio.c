@@ -94,10 +94,10 @@ void *poller(void *input) {
 				r=&done_array[i];
 				req=(algo_req*)r->data;
 				cb=r->obj;
-				if(r->res==(unsigned int)-22){
+				if(r->res==-22){
 					printf("error! %s %lu %llu\n",strerror(-r->res),r->res2,cb->u.c.offset);
 				}else if(r->res!=PAGESIZE){
-					printf("data size error!\n");
+					printf("data size error %d!\n");
 				}
 				else{
 				//	printf("cb->offset:%d cb->nbytes:%d\n",cb->u.c.offset,cb->u.c.nbytes);
@@ -141,6 +141,8 @@ uint32_t aio_create(lower_info *li){
 	li->PPB=_PPB;
 	li->PPS=_PPS;
 	li->TS=TOTALSIZE;
+	li->DEV_SIZE=DEVSIZE;
+	li->all_pages_in_dev=DEVSIZE/PAGESIZE;
 
 	li->write_op=li->read_op=li->trim_op=0;
 	_fd=open("/dev/robusta",O_RDWR|O_DIRECT,0644);
@@ -185,7 +187,6 @@ void *aio_refresh(lower_info *li){
 	return NULL;
 }
 void *aio_destroy(lower_info *li){
-
 	for(int i=0; i<LREQ_TYPE_NUM;i++){
 		printf("%s %lu\n",bench_lower_type(i),li->req_type_cnt[i]);
 	}
@@ -193,7 +194,30 @@ void *aio_destroy(lower_info *li){
 
 	return NULL;
 }
-
+uint64_t offset_hooker(uint64_t origin_offset, uint8_t req_type){
+	uint64_t res=origin_offset;
+	switch(req_type){
+		case TRIM:
+			break;
+		case MAPPINGR:
+			break;
+		case MAPPINGW:
+			break;
+		case GCMR:
+			break;
+		case GCMW:
+			break;
+		case DATAR:
+			break;
+		case DATAW:
+			break;
+		case GCDR:
+			break;
+		case GCDW:
+			break;
+	}
+	return res%(aio_info.DEV_SIZE);
+}
 void *aio_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	req->ppa = PPA;
 	if(value->dmatag==-1){
@@ -214,7 +238,8 @@ void *aio_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_r
 	struct iocb *cb=(struct iocb*)malloc(sizeof(struct iocb));
 	cl_grap(lower_flying);
 
-	io_prep_pwrite(cb,_fd,(void*)value->value,PAGESIZE,aio_info.SOP*PPA);
+	//io_prep_pwrite(cb,_fd,(void*)value->value,PAGESIZE,aio_info.SOP*PPA);
+	io_prep_pwrite(cb,_fd,(void*)value->value,PAGESIZE,offset_hooker(aio_info.SOP*PPA,t_type));
 	cb->data=(void*)req;	
 
 #ifdef THPOOL
@@ -251,7 +276,7 @@ void *aio_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_r
 	MS(&req->latency_lower);
 	struct iocb *cb=(struct iocb*)malloc(sizeof(struct iocb));
 	cl_grap(lower_flying);
-	io_prep_pread(cb,_fd,(void*)value->value,PAGESIZE,aio_info.SOP*PPA);
+	io_prep_pread(cb,_fd,(void*)value->value,PAGESIZE,offset_hooker(aio_info.SOP*PPA,t_type));
 	cb->data=(void*)req;
 
 #ifdef THPOOL
@@ -273,7 +298,8 @@ void *aio_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_r
 void *aio_trim_block(KEYT PPA, bool async){
 	aio_info.req_type_cnt[TRIM]++;
 	uint64_t range[2];
-	range[0]=PPA*aio_info.SOP;
+	//range[0]=PPA*aio_info.SOP;
+	range[0]=offset_hooker(PPA*aio_info.SOP,TRIM);
 	range[1]=16384*aio_info.SOP;
 	ioctl(_fd,BLKDISCARD,&range);
 	return NULL;
