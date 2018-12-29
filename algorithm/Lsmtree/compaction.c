@@ -119,7 +119,8 @@ bool compaction_init(){
 
 void compaction_free(){
 	for(int i=0; i<5; i++){
-		printf("cpt timer:%ld %.6f\n",compaction_timer[i].adding.tv_sec,(float)compaction_timer[i].adding.tv_usec/1000000);
+		uint64_t all_time=compaction_timer[i].adding.tv_sec*1000000+compaction_timer[i].adding.tv_usec;
+		printf("cpt timer:%.2lf\n",(double)all_time/1000000);
 	}
 	compactor.stopflag=true;
 	int *temp;
