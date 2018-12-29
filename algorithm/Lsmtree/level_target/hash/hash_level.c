@@ -3,6 +3,7 @@
 #include "../../lsmtree.h"
 #include "../../../../interface/interface.h"
 #include "hash_table.h"
+#include "../../../../include/utils/thpool.h"
 extern lsmtree LSM;
 level_ops h_ops={
 	.init=hash_init,
@@ -21,7 +22,12 @@ level_ops h_ops={
 	.get_max_flush_entry=h_max_flush_entry,
 
 	.mem_cvt2table=hash_mem_cvt2table,
-	.merger=hash_merger,
+#ifdef STREAMCOMP
+	.stream_merger=hash_stream_merger,
+	.stream_comp_wait=hash_stream_comp_wait,
+#else
+	.merger=hash_merger_wrapper,
+#endif
 	.cutter=hash_cutter,
 #ifdef BLOOM
 	.making_filter=hash_making_filter,
@@ -48,6 +54,10 @@ level_ops h_ops={
 	.print=hash_print,
 	.all_print=hash_all_print,
 }; 
+#ifdef STREAMCOMP
+static bool start_flag=0;
+threadpool stream_compactor;
+#endif
 uint32_t hash_insert_cnt;
 
 static inline hash *r2h(run_t* a){
@@ -85,7 +95,6 @@ static bool hash_body_insert(hash *c,keyset input){
 				c->n_num++;
 				return true;
 			}else if(c->b[idx].lpa==input.lpa){
-
 				invalidate_PPA(c->b[idx].ppa);
 				c->b[idx].ppa=input.ppa;
 				return true;
@@ -204,14 +213,47 @@ static void hash_insert_into(hash_body *b, keyset input, float fpr){
 	}
 }
 
-void hash_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
-	/*
-	static int cnt=0;
-	cnt++;
-	printf("cnt:%d\n",cnt);
-	if(cnt==10){
-		printf("break\n");
-	}*/
+void hash_merger_wrapper(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
+#ifdef STREAMCOMP
+	hash_merger(mem,s,o,d,true);
+#else
+	hash_merger(mem,s,o,d,false);
+#endif
+}
+#ifdef STREAMCOMP
+pthread_t tid;
+void hash_merger_thread_func(void *args,int id){
+	void **arg=(void**)args;
+	run_t **s=(run_t**)arg[0];
+	run_t **o=(run_t**)arg[1];
+	level *d=(level*)arg[2];
+	skiplist *mem=(skiplist*)arg[3];
+	
+	hash_merger_wrapper(mem,s,o,d);
+
+	free(arg);
+	return;
+}
+void hash_stream_merger(skiplist* mem,run_t** src, run_t** org,  level *des){
+	if(!start_flag){
+		start_flag=1;
+		stream_compactor=thpool_init(1);
+	}
+	void **args=(void **)malloc(sizeof(void*)*4);
+	args[0]=(void*)src;
+	args[1]=(void*)org;
+	args[2]=(void*)des;
+	args[3]=(void*)mem;
+
+	while(thpool_num_threads_working(stream_compactor)>=1);
+	thpool_add_work(stream_compactor,hash_merger_thread_func,(void*)args);
+}
+
+void hash_stream_comp_wait(){
+	thpool_wait(stream_compactor);
+}
+#endif
+void hash_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d, bool waiting){
 	hash_body *des=(hash_body*)d->level_data;
 	if(des->body){
 		snode *t;
@@ -223,9 +265,10 @@ void hash_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 		des->temp=hash_make_dummy_run();
 		des->late_use_node=NULL;
 	}
-	//printf("start\n");
 	for(int i=0; o[i]!=NULL; i++){
-//		htable_check(o[i]->cpt_data,0,81665,"o:");
+		if(waiting){
+			while(!o[i]->cpt_data ||!o[i]->cpt_data->done){}
+		}
 		hash *h=r2h_from_compaction(o[i]);
 		for(int j=0; j<HENTRY; j++){
 			if(h->b[j].lpa==UINT_MAX) continue;
@@ -233,11 +276,7 @@ void hash_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 			hash_range_update(d,NULL,h->b[j].lpa);
 		}
 	}
-	
-	
-//	printf("mid result\n");
-//	printf("\n");
-
+		
 	if(mem){
 		keyset target;
 		snode *s=mem->header->list[1];
@@ -250,6 +289,9 @@ void hash_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 		}
 	}else{
 		for(int i=0; s[i]!=NULL; i++){
+			if(waiting){
+				while(!s[i]->cpt_data || !s[i]->cpt_data->done){}
+			}
 			hash *h=r2h_from_compaction(s[i]);
 			//htable_check(s[i]->cpt_data,0,81665,"s:");
 			for(int j=0; j<HENTRY; j++){
@@ -260,12 +302,6 @@ void hash_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 		}
 	}
 	d->n_num=des->body->size;
-
-	//printf("end\n");
-/*
-	printf("done\n");
-	hash_print(d);
-	printf("\n");*/
 }
 
 run_t *hash_cutter(struct skiplist* mem, struct level* d, KEYT* start, KEYT *end){
@@ -401,7 +437,7 @@ void hash_cache_move(level *src, level *des){
 	des->end=src->end;
 }
 
-void hash_cache_comp_formatting(level *lev,run_t *** des){
+int hash_cache_comp_formatting(level *lev,run_t *** des){
 	hash_body* lc=cfl(lev);
 	run_t **res;
 	int idx=0;
@@ -413,12 +449,15 @@ void hash_cache_comp_formatting(level *lev,run_t *** des){
 		res=(run_t **)malloc(sizeof(run_t*)*(lc->body->size+1));
 		snode *temp;
 		for_each_sk(temp,lc->body){
-			res[idx++]=(run_t*)temp->value;
+			res[idx]=(run_t*)temp->value;
+			res[idx]->cpt_data->done=true;
+			idx++;
 		}
 	}
 
 	res[idx]=NULL;
 	*des=res;
+	return idx;
 }
 
 keyset *hash_cache_find(level *lev , KEYT lpa){

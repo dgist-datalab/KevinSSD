@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=posix_memory
+TARGET_LOWER=linux_aio
 TARGET_ALGO=Lsmtree
 PPWD=$(pwd)
 
@@ -14,7 +14,7 @@ COMMONFLAGS=\
 			-Wno-write-strings\
 			-DLARGEFILE64_SOURCE\
 			-DSLC\
-			-O2\
+#			-O2\
 #			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
@@ -114,7 +114,7 @@ debug_simulator: ./interface/main.c libsimulator_d.a
 simulator: ./interface/main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
-duma_simulator: ./interface/B_main.c libsimulator.a
+duma_simulator: ./interface/main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ -lduma $(ARCH) $(LIBS)
 	
 

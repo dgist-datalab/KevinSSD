@@ -35,6 +35,7 @@
 #define FQSIZE 2
 #define RQSIZE 1024
 #define WRITEWAIT
+//#define STREAMCOMP
 //#define NOGC
 //#define COSTBENEFIT
 
@@ -42,7 +43,7 @@
 #define EPC 100000 //size factor have to be multiple of SIZEFACTOR
 
 /*block,header,data area variable*/
-#define HEADERSEG 32
+#define HEADERSEG 2
 #define BLOCKSEG (1)
 #define DATASEG (_NOS-(HEADERSEG+1)-1)
 

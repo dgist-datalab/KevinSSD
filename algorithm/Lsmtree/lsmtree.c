@@ -255,6 +255,7 @@ void* lsm_end_req(algo_req* const req){
 				memcpy(table->sets,params->value->value,PAGESIZE);
 #endif
 				comp_target_get_cnt++;
+				table->done=true;
 				if(epc_check==comp_target_get_cnt+memcpy_cnt){
 #ifdef MUTEXLOCK
 						pthread_mutex_unlock(&compaction_wait);
@@ -848,6 +849,7 @@ htable *htable_assign(char *cpy_src, bool using_dma){
 		res->sets=(keyset*)temp->value;
 		res->origin=temp;
 	}
+	res->done=0;
 	return res;
 }
 
@@ -866,6 +868,7 @@ htable *htable_copy(htable *input){
 	memcpy(res->sets,input->sets,PAGESIZE);
 	res->t_b=0;
 	res->origin=NULL;
+	res->done=0;
 	return res;
 }
 htable *htable_dummy_assign(){
@@ -875,6 +878,7 @@ htable *htable_dummy_assign(){
 	res->nocpy_table=NULL;
 #endif
 	res->t_b=0;
+	res->done=0;;
 	res->origin=NULL;
 	return res;
 }

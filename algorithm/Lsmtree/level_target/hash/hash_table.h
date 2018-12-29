@@ -52,7 +52,12 @@ void hash_free_run( run_t*);
 run_t* hash_run_cpy( run_t *);
 
 htable *hash_mem_cvt2table(skiplist*,run_t*);
-void hash_merger( skiplist*,  run_t**,  run_t**,  level*);
+#ifdef STREAMCOMP
+void hash_stream_merger(skiplist*,run_t** src, run_t** org,  level *des);
+void hash_stream_comp_wait();
+#endif
+void hash_merger( skiplist*,  run_t**,  run_t**,  level*, bool);
+void hash_merger_wrapper(skiplist *, run_t**, run_t**, level *);
 run_t *hash_cutter( skiplist*,  level*, KEYT *start,KEYT *end);
 
 bool hash_chk_overlap( level *, KEYT, KEYT);
@@ -71,7 +76,7 @@ BF* hash_making_filter(run_t *,float );
 void hash_cache_insert(level *,run_t*);
 void hash_cache_merge(level *, level *);
 void hash_cache_free(level *);
-void hash_cache_comp_formatting(level *,run_t ***);
+int hash_cache_comp_formatting(level *,run_t ***);
 void hash_cache_move(level *, level *);
 keyset *hash_cache_find(level *, KEYT lpa);
 int hash_cache_get_sz(level*);

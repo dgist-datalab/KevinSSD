@@ -32,6 +32,7 @@ typedef struct htable{
 	uint8_t t_b;//0, MALLOC
 	//1, valueset from W
 	//2, valueset from R
+	volatile uint8_t done;
 }htable;
 
 
@@ -101,8 +102,14 @@ typedef struct level_ops{
 
 	/*compaciton operation*/
 	htable* (*mem_cvt2table)(skiplist *,run_t *);
+#ifdef STREAMCOMP
+	void (*stream_merger)(skiplist*,run_t** src, run_t** org,  level *des);
+	void (*stream_comp_wait)();
+#else
 	void (*merger)( skiplist*, run_t** src,  run_t** org,  level *des);
+#endif
 	run_t *(*cutter)( skiplist *,  level* des, KEYT* start, KEYT* end);
+
 #ifdef BLOOM
 	BF *(*making_filter)(run_t *,float);
 #endif
@@ -122,7 +129,7 @@ typedef struct level_ops{
 	void (*cache_insert)(level *,run_t *);
 	void (*cache_merge)(level *from, level *to);
 	void (*cache_free)(level*);
-	void (*cache_comp_formatting)(level *,run_t ***);
+	int (*cache_comp_formatting)(level *,run_t ***);
 	void (*cache_move)(level*, level *);
 	keyset *(*cache_find)(level *,KEYT);
 	int (*cache_get_size)(level *);

@@ -466,9 +466,15 @@ run_t* compaction_postprocessing(run_t *target){
 
 void compaction_subprocessing(skiplist *top,run_t** src, run_t** org, level *des){
 	compaction_sub_wait();
+#ifdef STREAMCOMP
+	MS(&compaction_timer[0]);
+	LSM.lop->stream_comp_wait();
+	MA(&compaction_timer[0]);
+#else
 	MS(&compaction_timer[0]);
 	LSM.lop->merger(top,src,org,des);
 	MA(&compaction_timer[0]);
+#endif
 	KEYT key,end;
 	run_t* target=NULL;
 	while((target=LSM.lop->cutter(top,des,&key,&end))){
@@ -635,7 +641,7 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 		else{
 #ifdef COMPACTIONLOG
 			sprintf(log,"rand - (-1) to %d",to->idx);
-	//		DEBUG_LOG(log);
+			DEBUG_LOG(log);
 #endif	
 			partial_leveling(target,target_origin,body,NULL);
 			skiplist_free(body);// free at compaction_subprocessing;
@@ -651,7 +657,7 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 			compaction_heap_setting(target,target_origin);
 #ifdef COMPACTIONLOG
 			sprintf(log,"seq - %d to %d info:%d,%d max %d,%d",from->idx,to->idx,src->n_num,target_origin->n_num,src->m_num,target_origin->m_num);
-	//		DEBUG_LOG(log);
+			DEBUG_LOG(log);
 #endif
 			bool target_processed=false;
 			if(target_origin->start>src->end){
@@ -668,7 +674,7 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 		else{
 #ifdef COMPACTIONLOG
 			sprintf(log,"rand - %d to %d info:%d,%d max %d,%d",from->idx,to->idx,src->n_num,target_origin->n_num,src->m_num,target_origin->m_num);
-	//		DEBUG_LOG(log);
+			DEBUG_LOG(log);
 #endif
 			body=skiplist_init();
 			partial_leveling(target,target_origin,body,src);
@@ -764,7 +770,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 	/*
 	static int cnt=0;
 	printf("partial_leveling:%d\n",cnt++);
-*/
+	*/
 	if(!upper){
 #ifndef MONKEY
 		start=skip->start;
@@ -797,10 +803,12 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 			DEBUG_LOG("can't be");
 		}
 		upper_table=0;
-
+#ifdef STREAMCOMP
+		LSM.lop->stream_merger(skip,NULL,target_s,t);
+#endif
 		for(int j=0; target_s[j]!=NULL; j++){
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-			
+
 			if(target_s[j]->c_entry){
 				memcpy_cnt++;
 #ifdef NOCPY
@@ -809,6 +817,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 #else
 				target_s[j]->cpt_data=htable_copy(target_s[j]->cache_data);
 #endif
+				target_s[j]->cpt_data->done=true;
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			}
 			else{
@@ -836,43 +845,25 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 		free(target_s);
 	}
 	else{
+		int src_num, des_num; //for stream compaction
+		des_num=LSM.lop->range_find(origin,start,end,&target_s);//for stream compaction
 #ifdef LEVELCACHING
 		if(upper->idx<LEVELCACHING){
-			/*for caching more data*/
+			//for caching more data
 			int cache_added_size=LSM.lop->cache_get_size(upper);
 			cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
-			LSM.lop->cache_comp_formatting(upper,&data);
-			goto skip;
+			src_num=LSM.lop->cache_comp_formatting(upper,&data);
 		}
+		else{
 #endif
-		LSM.lop->range_find(upper,start,end,&data);
-		for(int i=0; data[i]!=NULL; i++){
-			run_t *temp=data[i];
-			temp->iscompactioning=true;
-			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-			
-			if(temp->c_entry){
-#ifdef NOCPY
-				temp->cpt_data=htable_dummy_assign();
-				temp->cpt_data->nocpy_table=temp->cache_data->nocpy_table;
-#else
-				temp->cpt_data=htable_copy(temp->cache_data);
-#endif
-				memcpy_cnt++;
-				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-			}
-			else{
-				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-				temp->cpt_data=htable_assign(NULL,false);
-				compaction_htable_read(temp,(PTR*)&temp->cpt_data);
-			}
-			epc_check++;
-		}
+			src_num=LSM.lop->range_find(upper,start,end,&data);	
 #ifdef LEVELCACHING
-skip:
+		}
 #endif
 
-		LSM.lop->range_find(origin,start,end,&target_s);
+#ifdef STREAMCOMP
+		LSM.lop->stream_merger(NULL,data,target_s,t);
+#endif
 		for(int i=0; target_s[i]!=NULL; i++){
 			run_t *temp=target_s[i];
 			if(temp->iscompactioning==4){
@@ -888,6 +879,136 @@ skip:
 #else
 				temp->cpt_data=htable_copy(temp->cache_data);
 #endif
+				temp->cpt_data->done=true;
+				memcpy_cnt++;
+				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+			}
+			else{
+				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+				temp->cpt_data=htable_assign(NULL,false);
+				compaction_htable_read(temp,(PTR*)&temp->cpt_data);
+			}
+			//htable_check(temp->cpt_data,8499,81665);
+			epc_check++;
+		}
+#ifdef LEVELCACHING
+		if(upper->idx<LEVELCACHING){
+			goto skip;
+		}
+#endif
+		for(int i=0; data[i]!=NULL; i++){
+			run_t *temp=data[i];
+			temp->iscompactioning=true;
+			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+			
+			if(temp->c_entry){
+#ifdef NOCPY
+				temp->cpt_data=htable_dummy_assign();
+				temp->cpt_data->nocpy_table=temp->cache_data->nocpy_table;
+#else
+				temp->cpt_data=htable_copy(temp->cache_data);
+#endif
+				temp->cpt_data->done=true;
+				memcpy_cnt++;
+				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+			}
+			else{
+				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+				temp->cpt_data=htable_assign(NULL,false);
+				compaction_htable_read(temp,(PTR*)&temp->cpt_data);
+			}
+			epc_check++;
+		}
+skip:
+		compaction_subprocessing(NULL,data,target_s,t);
+
+		for(int i=0; data[i]!=NULL; i++){
+			run_t *temp=data[i];
+
+			if(temp->iscompactioning!=3 && temp->pbn!=UINT_MAX)
+				invalidate_PPA(temp->pbn);
+			htable_free(temp->cpt_data);
+			temp->cpt_data=NULL;
+		}
+
+		for(int i=0; target_s[i]!=NULL; i++){	
+			run_t *temp=target_s[i];
+			if(temp->iscompactioning==4) continue;
+
+			if(temp->iscompactioning!=3)
+				invalidate_PPA(temp->pbn);
+			htable_free(temp->cpt_data);
+			temp->cpt_data=NULL;
+		}
+		free(data);
+		free(target_s);
+	}
+	compaction_sub_post();
+
+	return 1;
+}
+/*
+		int src_num, des_num; //for stream compaction
+#ifdef LEVELCACHING
+		if(upper->idx<LEVELCACHING){
+			//for caching more data
+			int cache_added_size=LSM.lop->cache_get_size(upper);
+			cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
+			src_num=LSM.lop->cache_comp_formatting(upper,&data);
+			des_num=LSM.lop->range_find(origin,start,end,&target_s);//for stream compaction
+#ifdef STREAMCOMP
+			LSM.lop->stream_merger(NULL,data,target_s,t);
+#endif
+			goto skip;
+		}
+#endif//caching end
+		des_num=LSM.lop->range_find(origin,start,end,&target_s);//for stream compaction
+		src_num=LSM.lop->range_find(upper,start,end,&data);
+#ifdef STREAMCOMP
+		LSM.lop->stream_merger(NULL,data,target_s,t);
+#endif
+		for(int i=0; data[i]!=NULL; i++){
+			run_t *temp=data[i];
+			temp->iscompactioning=true;
+			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+			
+			if(temp->c_entry){
+#ifdef NOCPY
+				temp->cpt_data=htable_dummy_assign();
+				temp->cpt_data->nocpy_table=temp->cache_data->nocpy_table;
+#else
+				temp->cpt_data=htable_copy(temp->cache_data);
+#endif
+				temp->cpt_data->done=true;
+				memcpy_cnt++;
+				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+			}
+			else{
+				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+				temp->cpt_data=htable_assign(NULL,false);
+				compaction_htable_read(temp,(PTR*)&temp->cpt_data);
+			}
+			epc_check++;
+		}
+#ifdef LEVELCACHING
+skip:
+#endif
+		for(int i=0; target_s[i]!=NULL; i++){
+			run_t *temp=target_s[i];
+			if(temp->iscompactioning==4){
+				continue;
+			}
+			if(!temp->iscompactioning) temp->iscompactioning=true;
+			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+			
+			if(temp->c_entry){
+#ifdef NOCPY
+				temp->cpt_data=htable_dummy_assign();
+				temp->cpt_data->nocpy_table=temp->cache_data->nocpy_table;
+#else
+				temp->cpt_data=htable_copy(temp->cache_data);
+#endif
+				temp->cpt_data->done=true;
 				memcpy_cnt++;
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			}
@@ -926,7 +1047,7 @@ skip:
 	compaction_sub_post();
 
 	return 1;
-}
+}*/
 #if (LEVELN==1)
 void onelevel_processing(run_t *entry){
 	//static int cnt=0;
