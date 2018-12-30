@@ -175,6 +175,7 @@ int main(void){
 			net_data_t *t=&temp[i];
 			//			if(t->type==1){
 			//			printf("netdata: %d %llu %llu(len) %u\n",t->type,t->offset,t->len,t->seq);
+			//fprintf(stderr, "%d %llu %llu\n",t->type,t->offset,t->len);
 			//			}
 			if(t->len>256){
 				printf("len %d readed:%d\n",len,readed);

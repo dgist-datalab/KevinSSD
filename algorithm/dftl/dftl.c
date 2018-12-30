@@ -111,9 +111,9 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 
     /* Cache control & Init */
-//	 num_max_cache = max_cache_entry; // max cache
- //   num_max_cache = 1; // 1 cache
-	num_max_cache = max_cache_entry / 4; // 1/4 cache
+	num_max_cache = max_cache_entry; // max cache
+    //num_max_cache = 1; // 1 cache
+	//num_max_cache = max_cache_entry / 4; // 1/4 cache
     //num_max_cache = max_cache_entry / 20; // 5%
     //num_max_cache = max_cache_entry / 10; // 10%
     //num_max_cache = max_cache_entry / 8; // 12.5%
@@ -397,6 +397,8 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
     req->params = (void *)checker;
 
     if (req_t == 'R') {
+		cache_miss_on_read++;
+
         req->type_ftl += 2;
 #if C_CACHE
         if (num_clean == max_clean_cache) {
@@ -420,6 +422,8 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
         }
 #endif
     } else {
+		cache_miss_on_write++;
+
         if (num_caching + num_flying == num_max_cache) {
             if (demand_eviction(req, 'W', &gc_flag, &d_flag) == 0) {
                 c_table->flying = true;
@@ -617,7 +621,7 @@ static uint32_t __demand_get(request *const req){
                 bench_algo_end(req);
                 return UINT32_MAX;
             }
-            cache_miss_on_read++;
+            //cache_miss_on_read++;
             if (demand_cache_eviction(req, 'R') == 1) {
                 return 1;
             }
@@ -729,7 +733,7 @@ static uint32_t __demand_set(request *const req){
             demand_cache_update(req, 'W');
 
         } else {
-            cache_miss_on_write++;
+            //cache_miss_on_write++;
             if (demand_cache_eviction(req, 'W') == 1) {
                 return 1;
             }

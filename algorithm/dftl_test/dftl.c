@@ -110,7 +110,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     num_page        = _NOP;
     num_block       = _NOS;
     p_p_b           = _PPS;
-    num_tblock      = ((num_block / EPP) + ((num_block % EPP != 0) ? 1 : 0)) * 4;
+    num_tblock      = ((num_block / EPP) + ((num_block % EPP != 0) ? 1 : 0)) * 8;
     num_tpage       = num_tblock * p_p_b;
     num_dblock      = num_block - num_tblock - 2;
     num_dpage       = num_dblock * p_p_b;
@@ -121,8 +121,8 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     //num_max_cache = max_cache_entry; // max cache
  //   num_max_cache = 1; // 1 cache
     //num_max_cache = max_cache_entry / 4; // 1/4 cache
-    num_max_cache = max_cache_entry / 20; // 5%
-    //num_max_cache = max_cache_entry / 10; // 10%
+    //num_max_cache = max_cache_entry / 20; // 5%
+    num_max_cache = max_cache_entry / 10; // 10%
     //num_max_cache = max_cache_entry / 8; // 12.5%
     //num_max_cache = max_cache_entry / 40; // 2.5%
 
@@ -413,6 +413,7 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
     req->params = (void *)checker;
 
     if (req_t == 'R') {
+		cache_miss_on_read++;
         req->type_ftl += 2;
 #if C_CACHE
         if (num_clean == max_clean_cache) {
@@ -633,7 +634,7 @@ static uint32_t __demand_get(request *const req){
                 bench_algo_end(req);
                 return UINT32_MAX;
             }
-            cache_miss_on_read++;
+            //cache_miss_on_read++;
             if (demand_cache_eviction(req, 'R') == 1) {
                 return 1;
             }
@@ -831,7 +832,7 @@ static uint32_t __demand_set(request *const req){
 					c_table->state = DIRTY;
 					BM_InvalidatePage(bm, t_ppa);
 				} else {
-					dirty_hit_on_write;
+					dirty_hit_on_write++;
 				}
 				lru_update(lru, c_table->queue_ptr);
 #endif
