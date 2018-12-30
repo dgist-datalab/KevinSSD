@@ -156,6 +156,8 @@ run_t *hash_make_run(KEYT start, KEYT end, KEYT pbn){
 	res->pbn=pbn;
 	res->run_data=NULL;
 	res->c_entry=NULL;
+	
+	res->wait_idx=0;
 #ifdef BLOOM
 	res->filter=NULL;
 #endif
@@ -350,9 +352,9 @@ void hash_print(level *lev){
 		run_t *temp=(run_t*)now->value;
 		if(temp->c_entry) cache_cnt++;
 #ifdef BLOOM
-		printf("[%d]%d~%d(%d)-ptr:%p filter:%p\n",idx,temp->key,temp->end,temp->pbn,temp,temp->filter);
+		printf("[%d]%d~%d(%d)-ptr:%p filter:%p wait:%d\n",idx,temp->key,temp->end,temp->pbn,temp,temp->filter,temp->wait_idx);
 #else
-		printf("[%d]%d~%d(%d)-ptr:%p cached:%s\n",idx,temp->key,temp->end,temp->pbn,temp,temp->c_entry?"true":"false");
+		printf("[%d]%d~%d(%d)-ptr:%p cached:%s wait:%d\n",idx,temp->key,temp->end,temp->pbn,temp,temp->c_entry?"true":"false",temp->wait_idx);
 #endif
 		idx++;
 		now=now->list[1];

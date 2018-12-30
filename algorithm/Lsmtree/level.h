@@ -57,6 +57,9 @@ typedef struct run{
 	htable *cache_data;
 	void *req;
 
+	struct request* waitreq[QDEPTH];
+	int wait_idx;
+
 	htable *cpt_data;
 	void *run_data;
 	char iscompactioning;
