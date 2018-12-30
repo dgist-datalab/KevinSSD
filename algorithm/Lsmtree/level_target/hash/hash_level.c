@@ -272,6 +272,7 @@ void hash_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d, bo
 		hash *h=r2h_from_compaction(o[i]);
 		for(int j=0; j<HENTRY; j++){
 			if(h->b[j].lpa==UINT_MAX) continue;
+			if(h->b[j].ppa==UINT_MAX && d->idx==LEVELN-1) continue; //delete req finally arrive at last level
 			hash_insert_into(des,h->b[j],d->fpr);
 			hash_range_update(d,NULL,h->b[j].lpa);
 		}

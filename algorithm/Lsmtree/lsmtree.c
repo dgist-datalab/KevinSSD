@@ -529,7 +529,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 				printf("can't be %d\n",__LINE__);
 			}
 		}
-		/*
+		
 		if(entry){
 			request *temp_req;
 			keyset *new_target_set;
@@ -556,7 +556,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 			}
 			entry->isflying=0;
 			entry->wait_idx=0;
-		}*/
+		}
 	}
 
 	if(lsm_req==NULL){
@@ -799,18 +799,18 @@ retry:
 #else
 			params->ppa=entry->pbn;
 
-			/*
+			
 			if(entry->isflying==1){
 				entry->waitreq[entry->wait_idx++]=req;
 				return 3;
 			}
-			else{*/
+			else{
 				entry->isflying=1;
 				memset(entry->waitreq,0,sizeof(entry->waitreq));
 				entry->wait_idx=0;
 				entry->req=(void*)req;
 				params->entry_ptr=(void*)entry;
-			//}
+			}
 
 #endif
 			req->ppa=params->ppa;

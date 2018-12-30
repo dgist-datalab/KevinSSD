@@ -6,7 +6,7 @@
 #define FULLMAPNUM  1024
 
 #define RAF 0.01
-#define LEVELN 2
+#define LEVELN 3
 
 #if LEVELN!=1
 //#define BLOOM
@@ -17,8 +17,8 @@
 //#define LEVELUSINGHEAP
 //#define TIERING
 
-#define LEVELCACHING 1
-#define CACHINGSIZE 0.06f
+#define LEVELCACHING 2
+#define CACHINGSIZE 0.05f
 //#define LEVELEMUL 
 //#define MERGECOMPACTION 4
 #define READCACHE
