@@ -270,7 +270,7 @@ void* lsm_end_req(algo_req* const req){
 					havetofree=false;
 				}
 				else{
-					((run_t*)params->entry_ptr)->isflying=2;
+					//((run_t*)params->entry_ptr)->isflying=2;
 					while(1){
 						if(inf_assign_try(parents)){
 							break;
@@ -317,7 +317,7 @@ void* lsm_end_req(algo_req* const req){
 		case DATAR:
 			req_temp_params=parents->params;
 			if(req_temp_params){
-				parents->type_ftl=((int*)req_temp_params)[2];
+				parents->type_ftl=((int*)req_temp_params)[2]-((int*)req_temp_params)[3];
 			}
 			parents->type_lower=req->type_lower;
 			free(req_temp_params);
@@ -429,7 +429,7 @@ uint32_t lsm_get(request *const req){
 			break;
 	}
 	if(!temp){
-		//LSM.lop->all_print();
+//		LSM.lop->all_print();
 		temp=true;
 	}
 	bench_algo_start(req);
@@ -504,6 +504,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 			table=(keyset*)nocpy_pick(entry->pbn);
 		}
 #endif
+
 		target_set=LSM.lop->find_keyset((char*)table,req->key);
 		if(likely(target_set)){
 			if(entry && !entry->cache_data && cache_insertable(LSM.lsm_cache)){
@@ -528,6 +529,34 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 				printf("can't be %d\n",__LINE__);
 			}
 		}
+		/*
+		if(entry){
+			request *temp_req;
+			keyset *new_target_set;
+			algo_req *new_lsm_req;
+			for(int i=0; i<entry->wait_idx; i++){
+				temp_req=entry->waitreq[i];
+				new_target_set=LSM.lop->find_keyset((char*)table,temp_req->key);	
+				int *temp_params=(int*)temp_req->params;
+				temp_params[3]++;
+				if(new_target_set){
+					new_lsm_req=lsm_get_req_factory(temp_req);
+					temp_req->value->ppa=new_target_set->ppa;
+					LSM.li->pull_data(temp_req->value->ppa,PAGESIZE,temp_req->value,ASYNC,new_lsm_req);
+				}
+				else{
+					while(1){
+						if(q_enqueue((void*)temp_req,LSM.re_q)){
+							break;
+						}else{
+							printf("enqueue failed!%d\n",__LINE__);
+						}
+					}
+				}
+			}
+			entry->isflying=0;
+			entry->wait_idx=0;
+		}*/
 	}
 
 	if(lsm_req==NULL){
@@ -593,17 +622,22 @@ uint32_t __lsm_get(request *const req){
 		if(unlikely(res)) return res;
 
 
-		int *_temp_data=(int *)malloc(sizeof(int)*3);
+		int *_temp_data=(int *)malloc(sizeof(int)*4);
 		req->params=(void*)_temp_data;
 		_temp_data[0]=run=0;
 		_temp_data[1]=round=0;
 		_temp_data[2]=level=0;
+		_temp_data[3]=0; //bypass
 	}
 	else{
+		run_t **_entry;
 		int *temp_req=(int*)req->params;
 		level=temp_req[0];
 		run=temp_req[1];
 		round=temp_req[2];
+		if(temp_req[3]){
+			goto retry;
+		}
 #ifdef NOCPY
 		mapinfo.sets=(keyset*)req->value->nocpy;
 #else
@@ -628,7 +662,7 @@ uint32_t __lsm_get(request *const req){
 		level++;
 		*/
 #else
-		run_t **_entry=LSM.lop->find_run(LSM.disk[level],req->key);
+		_entry=LSM.lop->find_run(LSM.disk[level],req->key);
 
 		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 		res=__lsm_get_sub(req,_entry[run],mapinfo.sets,NULL);
@@ -647,6 +681,7 @@ uint32_t __lsm_get(request *const req){
 #endif
 	}
 	
+retry:
 	for(int i=level; i<LEVELN; i++){
 #ifdef LEVELCACHING
 		if(LEVELCACHING && i<LEVELCACHING){
@@ -654,7 +689,7 @@ uint32_t __lsm_get(request *const req){
 			static int log_cnt=0;
 			int a=LSM.lsm_cache->n_size;
 			int b=LSM.lop->cache_get_size(LSM.disk[i]);
-			if(log_cnt++%1024==0){
+			if(log_cnt++%128==0){
 				fprintf(stderr,"%d %d sum:%d\n",a,b,a+b);
 			}*/
 			pthread_mutex_lock(&LSM.level_lock[i]);
@@ -763,28 +798,16 @@ uint32_t __lsm_get(request *const req){
 			params->ppa=target_ppa;
 #else
 			params->ppa=entry->pbn;
-			/*	
-			//  [ for sequential code ]
-			if(entry->isflying==1 || entry->isflying==2){
-				while(entry->isflying!=2){}//wait for mapping
-				request *__req=(request*)entry->req;
-				mapinfo.sets=(keyset*)__req->value->value;
-				pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-				res=__lsm_get_sub(req,entry,mapinfo.sets,NULL);
-				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-				entry->isflying=0;
-				if(likely(res)){ 
-					free(entries);
-					return res;
-				}
-				else{
-					free(params);
-					free(lsm_req);
-					continue;
-				}
+
+			/*
+			if(entry->isflying==1){
+				entry->waitreq[entry->wait_idx++]=req;
+				return 3;
 			}
 			else{*/
 				entry->isflying=1;
+				memset(entry->waitreq,0,sizeof(entry->waitreq));
+				entry->wait_idx=0;
 				entry->req=(void*)req;
 				params->entry_ptr=(void*)entry;
 			//}
