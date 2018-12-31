@@ -6,7 +6,7 @@
 #define FULLMAPNUM  1024
 
 #define RAF 0.01
-#define LEVELN 2
+#define LEVELN 3
 
 #if LEVELN!=1
 //#define BLOOM

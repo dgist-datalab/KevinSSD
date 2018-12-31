@@ -987,7 +987,6 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 
 #ifdef LEVELEMUL
 
-
 #else
 		for(int j=0; entries[j]!=NULL;j++){
 			datas[htable_idx]=(htable_t*)malloc(sizeof(htable_t));
@@ -1022,7 +1021,9 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 				keyset *finded=LSM.lop->find_keyset((char*)data->sets,target->lpa);
 #endif
 				if(finded && finded->ppa==target->ppa){
-
+					if(target->nppa==UINT_MAX){
+						printf("brk\n");
+					}
 					pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 					if(entries[j]->c_entry){					
 #ifdef NOCPY
@@ -1483,6 +1484,18 @@ int gc_header(KEYT tbn){
 	return 1;
 }
 static int gc_dataed_page;
+static bool gc_data_check_upper_lev_caching(KEYT lpa, KEYT ppa, int level){
+	bool res=false;
+	for(int i=0; i<level; i++){
+		if(LEVELCACHING<i) continue;
+		keyset *find=LSM.lop->cache_find(LSM.disk[i],lpa);
+		if(find){
+			res=true;
+			break;
+		}
+	}
+	return res;
+}
 int gc_data(KEYT tbn){
 	//gc_data_cnt++;
 	//printf("gc_data_cnt : %d\n",gc_data_cnt);
@@ -1537,9 +1550,9 @@ int gc_data(KEYT tbn){
 	memset(tables,0,sizeof(htable_t*)*algo_lsm.li->PPB);
 
 	/*data read request phase*/
+	htable_t dummy_table;//for invalid read
 #ifndef DVALUE	 
 	for(KEYT i=0; i<target->ppage_idx; i++){
-
 		if(target->bitset[i/8]&(1<<(i%8))){
 			continue;
 		}
@@ -1549,7 +1562,6 @@ int gc_data(KEYT tbn){
 		if(target->length_data[i*(PAGESIZE/PIECE)]==0)
 			break;
 		for(int j=0; j<(PAGESIZE/PIECE); j++){
-
 			if(!(target->length_data[i*(PAGESIZE/PIECE)+j]%2)){
 				have_to_read_f=true;
 				break;
@@ -1559,9 +1571,15 @@ int gc_data(KEYT tbn){
 			tables[i]=NULL; continue;
 		}
 #endif
+
+		KEYT t_ppa=start+i;
+		KEYT d_lpa=PBITGET(t_ppa);
+		if(gc_data_check_upper_lev_caching(d_lpa,t_ppa,in->idx)){
+			tables[i]=&dummy_table;
+			continue;
+		}
 		gc_dataed_page++;
 		tables[i]=(htable_t*)malloc(sizeof(htable_t));
-		KEYT t_ppa=start+i;
 		gc_data_read(t_ppa,tables[i],true);
 	}
 
@@ -1584,16 +1602,24 @@ int gc_data(KEYT tbn){
 				gc_data_now_block_chg(in,reserve_block);
 			}
 			LSM.lop->moveTo_fr_page(in);
-			KEYT n_ppa=LSM.lop->get_page(in,(PAGESIZE/PIECE));
+			KEYT n_ppa;
+			if(data==&dummy_table){
+				n_ppa=UINT_MAX;
+			}else{
+				n_ppa=LSM.lop->get_page(in,(PAGESIZE/PIECE));
+			}
 			KEYT d_lpa=PBITGET(d_ppa);
+
+			if(data!=&dummy_table){
 #ifdef DVALUE
-			oob[n_ppa/(PAGESIZE/PIECE)]=PBITSET(d_lpa,true);
-			gc_data_write(n_ppa/(PAGESIZE/PIECE),data);
+				oob[n_ppa/(PAGESIZE/PIECE)]=PBITSET(d_lpa,true);
+				gc_data_write(n_ppa/(PAGESIZE/PIECE),data);
 #else
-			oob[n_ppa]=PBITSET(d_lpa,true);
-			gc_data_write(n_ppa,data,true);
+				oob[n_ppa]=PBITSET(d_lpa,true);
+				gc_data_write(n_ppa,data,true);
 #endif
-			free(tables[i]);
+				free(tables[i]);
+			}
 
 			gc_node *temp_g=(gc_node*)malloc(sizeof(gc_node));
 			temp_g->plength=(PAGESIZE/PIECE);
