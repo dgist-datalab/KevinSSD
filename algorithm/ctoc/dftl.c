@@ -103,6 +103,41 @@ int32_t clean_evict_on_write;
 int32_t dirty_evict_on_read;
 int32_t dirty_evict_on_write;
 
+static void print_algo_log() {
+	printf("\n");
+#if C_CACHE
+	printf(" |---------- algorithm_log : CtoC Demand FTL\n");
+#else
+	if (num_max_cache == max_cache_entry) {
+		printf(" |---------- algorithm_log : Page FTL\n");
+	} else {
+		printf(" |---------- algorithm_log : Demand FTL\n");
+	}
+
+#endif
+	printf(" | Total Blocks(Segments): %d\n", num_block); 
+	printf(" |  -Translation Blocks:   %d (+1 reserved)\n", num_tblock);
+	printf(" |  -Data Blocks:          %d (+1 reserved)\n", num_dblock);
+	printf(" | Total Pages:            %d\n", num_page);
+	printf(" |  -Translation Pages:    %d\n", num_tpage);
+	printf(" |  -Data Pages            %d\n", num_dpage);
+	printf(" |  -Page per Block:       %d\n", p_p_b);
+	printf(" | Total cache entries:    %d\n", max_cache_entry);
+#if C_CACHE
+	printf(" |  -Clean Cache entries:  %d\n", num_max_cache);
+	printf(" |  -Dirty Cache entries:  %d\n", max_clean_cache);
+#else
+	printf(" |  -Mixed Cache entries:  %d\n", num_max_cache);
+#endif
+	printf(" |  -Cache Percentage:     %0.3f%%\n", (float)real_max_cache/max_cache_entry*100);
+	printf(" | Write buffer size:      %d\n", max_sl);
+	printf(" |\n");
+	printf(" | ! Assume no Shadow buffer\n");
+	//printf(" | ! PPAs are prefetched on write flush stage\n");
+	printf(" |---------- algorithm_log END\n\n");
+}
+
+
 uint32_t demand_create(lower_info *li, algorithm *algo){
     /* Initialize pre-defined values by using macro */
     num_page        = _NOP;
@@ -136,26 +171,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     //max_sl = 512;
 
     /* Print information */
-    printf("!!! print info !!!\n");
-    printf("Async status: %d\n", ASYNC);
-    printf("use wirte buffer: %d\n", W_BUFF);
-    printf("Wait same mapping request(FLYING): %d\n", FLYING);
-    printf("use gc polling: %d\n", GC_POLL);
-    printf("use eviction polling: %d\n", EVICT_POLL);
-    printf("# of total block: %d\n", num_block);
-    printf("# of total page: %d\n", num_page);
-    printf("page per block: %d\n", p_p_b);
-    printf("# of translation block: %d\n", num_tblock);
-    printf("# of translation page: %d\n", num_tpage);
-    printf("# of data block: %d\n", num_dblock);
-    printf("# of data page: %d\n", num_dpage);
-    printf("# of total cache mapping entry: %d\n", max_cache_entry);
-    printf("max # of ram reside cme: %d\n", real_max_cache);
-#if C_CACHE
-    printf("max # of clean translation cache table: %d\n", max_clean_cache);
-#endif
-    printf("cache percentage: %0.3f%%\n", ((float)real_max_cache/max_cache_entry)*100);
-    printf("!!! print info !!!\n");
+	print_algo_log();
 
 
     /* Map lower info */
@@ -877,10 +893,9 @@ uint32_t __demand_remove(request *const req) {
     algo_req *temp_req;
     demand_params *params;
 
+	bench_algo_start(req);
 
-    bench_algo_start(req);
-
-    // Range check
+	// Range check
     lpa = req->key;
     if (lpa > RANGE + 1) {
         printf("range error\n");
