@@ -47,8 +47,6 @@
 #define BLOCKSEG (1)
 #define DATASEG (_NOS-(HEADERSEG+1)-1)
 
-
-
 //#define SNU_TEST
 #define SPINLOCK
 //#define MUTEXLOCK

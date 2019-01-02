@@ -71,7 +71,9 @@ static int32_t get_sizefactor(uint64_t as){
 	res=caching_size;
 	//res=_f?ceil(pow(10,((log10(as/PAGESIZE/LSM.FLUSHNUM-caching_size)))/(_f-1))):as/PAGESIZE/LSM.FLUSHNUM;
 #else
+	double temp_res=pow(10,log10(as/PAGESIZE/LSM.FLUSHNUM)/(_f));
 	res=_f?ceil(pow(10,log10(as/PAGESIZE/LSM.FLUSHNUM)/(_f))):as/PAGESIZE/LSM.FLUSHNUM;
+	printf("%lf",temp_res);
 #endif
 	return res;
 }
@@ -546,6 +548,9 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 				}
 				else{
 					while(1){
+						if(inf_assign_try(temp_req)){
+							break;
+						}
 						if(q_enqueue((void*)temp_req,LSM.re_q)){
 							break;
 						}else{
@@ -636,6 +641,7 @@ uint32_t __lsm_get(request *const req){
 		run=temp_req[1];
 		round=temp_req[2];
 		if(temp_req[3]){
+			run++;
 			goto retry;
 		}
 #ifdef NOCPY
@@ -748,10 +754,10 @@ retry:
 		if(comback_req && level!=i){
 			run=0;
 		}
+		int *temp_data=(int*)req->params;
 		for(int j=run; entries[j]!=NULL; j++){
 			entry=entries[j];
 			//read mapinfo
-			int *temp_data=(int*)req->params;
 			temp_data[0]=i;
 			temp_data[1]=j;
 
@@ -805,6 +811,8 @@ retry:
 				return 3;
 			}
 			else{
+				static int overlap_cnt=0;
+				//printf("[%d]overlap :%p\n",overlap_cnt++,entry);
 				entry->isflying=1;
 				memset(entry->waitreq,0,sizeof(entry->waitreq));
 				entry->wait_idx=0;
@@ -840,6 +848,10 @@ retry:
 
 		}
 
+		if(temp_data[3]){//bypass
+			run=0;
+			temp_data[3]=0;
+		}
 		free(entries);
 #else
 		return 3;
