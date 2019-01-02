@@ -97,6 +97,40 @@ int32_t clean_evict_on_write;
 int32_t dirty_evict_on_read;
 int32_t dirty_evict_on_write;
 
+static void print_algo_log() {
+	printf("\n");
+#if C_CACHE
+	printf(" |---------- algorithm_log : CtoC Demand FTL\n");
+#else
+	if (num_max_cache == max_cache_entry) {
+		printf(" |---------- algorithm_log : Page FTL\n");
+	} else {
+		printf(" |---------- algorithm_log : Demand FTL\n");
+	}
+
+#endif
+	printf(" | Total Blocks(Segments): %d\n", num_block); 
+	printf(" |  -Translation Blocks:   %d (+1 reserved)\n", num_tblock);
+	printf(" |  -Data Blocks:          %d (+1 reserved)\n", num_dblock);
+	printf(" | Total Pages:            %d\n", num_page);
+	printf(" |  -Translation Pages:    %d\n", num_tpage);
+	printf(" |  -Data Pages            %d\n", num_dpage);
+	printf(" |  -Page per Block:       %d\n", p_p_b);
+	printf(" | Total cache entries:    %d\n", max_cache_entry);
+#if C_CACHE
+	printf(" |  -Clean Cache entries:  %d\n", num_max_cache);
+	printf(" |  -Dirty Cache entries:  %d\n", max_clean_cache);
+#else
+	printf(" |  -Mixed Cache entries:  %d\n", num_max_cache);
+#endif
+	printf(" |  -Cache Percentage:     %0.3f%%\n", (float)real_max_cache/max_cache_entry*100);
+	printf(" | Write buffer size:      %d\n", max_write_buf);
+	printf(" |\n");
+	printf(" | ! Assume no Shadow buffer\n");
+	printf(" | ! PPAs are prefetched on write flush stage\n");
+	printf(" |---------- algorithm_log END\n\n");
+}
+
 
 uint32_t demand_create(lower_info *li, algorithm *algo){
     /* Initialize pre-defined values by using macro */
@@ -111,19 +145,21 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 
     /* Cache control & Init */
-//	 num_max_cache = max_cache_entry; // max cache
- //   num_max_cache = 1; // 1 cache
-	num_max_cache = max_cache_entry / 4; // 1/4 cache
+	//num_max_cache = max_cache_entry; // max cache
+    //num_max_cache = 1; // 1 cache
+	//num_max_cache = max_cache_entry / 4; // 1/4 cache
     //num_max_cache = max_cache_entry / 20; // 5%
-    //num_max_cache = max_cache_entry / 10; // 10%
+    num_max_cache = max_cache_entry / 10; // 10%
     //num_max_cache = max_cache_entry / 8; // 12.5%
     //num_max_cache = max_cache_entry / 40; // 2.5%
+	//num_max_cache = max_cache_entry / 50; // 2%
 
     real_max_cache = num_max_cache;
 
     num_caching = 0;
     //max_write_buf = 512;
-	max_write_buf = 1024;
+	//max_write_buf = 1024;
+	max_write_buf = 1;
 #if C_CACHE
     max_clean_cache = num_max_cache / 2; // 50 : 50
     num_max_cache -= max_clean_cache;
@@ -131,29 +167,8 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     num_clean = 0;
 #endif
 
-
     /* Print information */
-    printf("!!! print info !!!\n");
-    printf("Async status: %d\n", ASYNC);
-    printf("use wirte buffer: %d\n", W_BUFF);
-    printf("Wait same mapping request(FLYING): %d\n", FLYING);
-    printf("use gc polling: %d\n", GC_POLL);
-    printf("use eviction polling: %d\n", EVICT_POLL);
-    printf("# of total block: %d\n", num_block);
-    printf("# of total page: %d\n", num_page);
-    printf("page per block: %d\n", p_p_b);
-    printf("# of translation block: %d\n", num_tblock);
-    printf("# of translation page: %d\n", num_tpage);
-    printf("# of data block: %d\n", num_dblock);
-    printf("# of data page: %d\n", num_dpage);
-    printf("# of total cache mapping entry: %d\n", max_cache_entry);
-    printf("max # of ram reside cme: %d\n", real_max_cache);
-#if C_CACHE
-    printf("max # of clean translation cache table: %d\n", max_clean_cache);
-#endif
-    printf("cache percentage: %0.3f%%\n", ((float)real_max_cache/max_cache_entry)*100);
-    printf("!!! print info !!!\n");
-
+	print_algo_log();
 
     /* Map lower info */
     algo->li = li;
@@ -225,14 +240,14 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 void demand_destroy(lower_info *li, algorithm *algo){
 
-    /*
+    
     puts("");
     for (int i = 0; i < max_cache_entry; i++) {
         if (CMT[i].read_hit || CMT[i].write_hit) {
             printf("CMT[%d]: read(%u) / write(%u)\n", i, CMT[i].read_hit, CMT[i].write_hit);
         }
     }
-    */
+
 
     /* Print information */
     printf("# of gc: %d\n", tgc_count + dgc_count);
@@ -397,6 +412,8 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
     req->params = (void *)checker;
 
     if (req_t == 'R') {
+		cache_miss_on_read++;
+
         req->type_ftl += 2;
 #if C_CACHE
         if (num_clean == max_clean_cache) {
@@ -420,6 +437,8 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
         }
 #endif
     } else {
+		cache_miss_on_write++;
+
         if (num_caching + num_flying == num_max_cache) {
             if (demand_eviction(req, 'W', &gc_flag, &d_flag) == 0) {
                 c_table->flying = true;
@@ -617,7 +636,7 @@ static uint32_t __demand_get(request *const req){
                 bench_algo_end(req);
                 return UINT32_MAX;
             }
-            cache_miss_on_read++;
+            //cache_miss_on_read++;
             if (demand_cache_eviction(req, 'R') == 1) {
                 return 1;
             }
@@ -667,6 +686,7 @@ static uint32_t __demand_set(request *const req){
     snode *temp;
     sk_iter *iter;
 #endif
+	static bool is_flush = false;
 
     bench_algo_start(req);
 
@@ -715,7 +735,8 @@ static uint32_t __demand_set(request *const req){
         write_buffer = skiplist_init();
 
         // Wait until all flying requests(set) are finished
-        __demand.li->lower_flying_req_wait();
+        //__demand.li->lower_flying_req_wait();
+		is_flush = true;
     }
 
     /* Insert data to skiplist (default) */
@@ -729,24 +750,41 @@ static uint32_t __demand_set(request *const req){
             demand_cache_update(req, 'W');
 
         } else {
-            cache_miss_on_write++;
+            //cache_miss_on_write++;
             if (demand_cache_eviction(req, 'W') == 1) {
+				if (is_flush) {
+					__demand.li->lower_flying_req_wait();
+					is_flush = false;
+				}
                 return 1;
             }
         }
     } else {
         if (((read_params *)req->params)->read == 0) { // Case of mapping write finished
             if (demand_write_flying(req, 'W') == 1) {
+				if (is_flush) {
+					__demand.li->lower_flying_req_wait();
+					is_flush = false;
+				}
                 return 1;
             }
 
         } else { // Case of mapping read finished
             if (demand_read_flying(req, 'W') == 1) {
+				if (is_flush) {
+					__demand.li->lower_flying_req_wait();
+					is_flush = false;
+				}
                 return 1;
             }
         }
     }
 
+	if (is_flush) {
+		__demand.li->lower_flying_req_wait();
+		is_flush = false;
+	}
+     
     free(req->params);
     req->params = NULL;
 
