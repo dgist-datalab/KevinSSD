@@ -225,7 +225,7 @@ void *posix_destroy(lower_info *li){
 }
 
 static uint8_t convert_type(uint8_t type) {
-	return (type & (0xff >> 1));
+	return (type & (0xff));
 }
 
 void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){

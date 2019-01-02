@@ -1022,7 +1022,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 #endif
 				if(finded && finded->ppa==target->ppa){
 					if(target->nppa==UINT_MAX){
-						printf("brk\n");
+						//printf("target->ppa:%d\n",target->lpa);
 					}
 					pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 					if(entries[j]->c_entry){					
@@ -1487,7 +1487,7 @@ static int gc_dataed_page;
 static bool gc_data_check_upper_lev_caching(KEYT lpa, KEYT ppa, int level){
 	bool res=false;
 	for(int i=0; i<level; i++){
-		if(LEVELCACHING<i) continue;
+		if(i>=LEVELCACHING) break;
 		keyset *find=LSM.lop->cache_find(LSM.disk[i],lpa);
 		if(find){
 			res=true;
@@ -1497,8 +1497,9 @@ static bool gc_data_check_upper_lev_caching(KEYT lpa, KEYT ppa, int level){
 	return res;
 }
 int gc_data(KEYT tbn){
-	//gc_data_cnt++;
-	//printf("gc_data_cnt : %d\n",gc_data_cnt);
+//	gc_data_cnt++;
+//	printf("gc_data_cnt : %d\n",gc_data_cnt);
+	int data_read=0,data_write=0;
 	block *target=&bl[tbn];
 	char order;
 	if(tbn%BPS==0)	order=0;
@@ -1574,11 +1575,14 @@ int gc_data(KEYT tbn){
 
 		KEYT t_ppa=start+i;
 		KEYT d_lpa=PBITGET(t_ppa);
+		
 		if(gc_data_check_upper_lev_caching(d_lpa,t_ppa,in->idx)){
+			//printf("%u %u\n",d_lpa,t_ppa);
 			tables[i]=&dummy_table;
 			continue;
 		}
 		gc_dataed_page++;
+		data_read++;
 		tables[i]=(htable_t*)malloc(sizeof(htable_t));
 		gc_data_read(t_ppa,tables[i],true);
 	}
@@ -1603,12 +1607,13 @@ int gc_data(KEYT tbn){
 			}
 			LSM.lop->moveTo_fr_page(in);
 			KEYT n_ppa;
+			KEYT d_lpa=PBITGET(d_ppa);
 			if(data==&dummy_table){
 				n_ppa=UINT_MAX;
+				//printf("%u %u\n",d_lpa,d_ppa);
 			}else{
 				n_ppa=LSM.lop->get_page(in,(PAGESIZE/PIECE));
 			}
-			KEYT d_lpa=PBITGET(d_ppa);
 
 			if(data!=&dummy_table){
 #ifdef DVALUE
@@ -1619,6 +1624,7 @@ int gc_data(KEYT tbn){
 				gc_data_write(n_ppa,data,true);
 #endif
 				free(tables[i]);
+				data_write++;
 			}
 
 			gc_node *temp_g=(gc_node*)malloc(sizeof(gc_node));
@@ -1672,6 +1678,9 @@ int gc_data(KEYT tbn){
 
 	gc_data_write_using_bucket(&bucket,target_level,order);
 	gc_trim_segment(DATA,target->ppa);
+	if(data_write!=data_read){
+		printf("gc rw:%d,%d\n",data_read,data_write);
+	}
 	return 1;
 }
 
