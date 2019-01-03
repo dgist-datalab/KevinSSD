@@ -158,8 +158,8 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
     num_caching = 0;
     //max_write_buf = 512;
-	//max_write_buf = 1024;
-	max_write_buf = 1;
+	max_write_buf = 1024;
+//	max_write_buf = 1;
 #if C_CACHE
     max_clean_cache = num_max_cache / 2; // 50 : 50
     num_max_cache -= max_clean_cache;
@@ -735,7 +735,7 @@ static uint32_t __demand_set(request *const req){
         write_buffer = skiplist_init();
 
         // Wait until all flying requests(set) are finished
-        //__demand.li->lower_flying_req_wait();
+        __demand.li->lower_flying_req_wait();
 		is_flush = true;
     }
 
@@ -752,39 +752,21 @@ static uint32_t __demand_set(request *const req){
         } else {
             //cache_miss_on_write++;
             if (demand_cache_eviction(req, 'W') == 1) {
-				if (is_flush) {
-					__demand.li->lower_flying_req_wait();
-					is_flush = false;
-				}
                 return 1;
             }
         }
     } else {
         if (((read_params *)req->params)->read == 0) { // Case of mapping write finished
             if (demand_write_flying(req, 'W') == 1) {
-				if (is_flush) {
-					__demand.li->lower_flying_req_wait();
-					is_flush = false;
-				}
                 return 1;
             }
 
         } else { // Case of mapping read finished
             if (demand_read_flying(req, 'W') == 1) {
-				if (is_flush) {
-					__demand.li->lower_flying_req_wait();
-					is_flush = false;
-				}
                 return 1;
             }
         }
     }
-
-	if (is_flush) {
-		__demand.li->lower_flying_req_wait();
-		is_flush = false;
-	}
-     
     free(req->params);
     req->params = NULL;
 
