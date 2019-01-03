@@ -17,7 +17,13 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-
+/*
+#define free(a) \
+	do{\
+		fprintf(stderr,"%s %d:%p\n",__FILE__,__LINE__,a);\
+		free(a);\
+	}while(0)
+*/
 extern uint32_t hash_insert_cnt;
 
 struct algorithm algo_lsm={
@@ -57,7 +63,11 @@ void lsm_bind_ops(lsmtree *l){
 	l->lop=&h_ops;
 	l->ORGHEADER=
 	l->KEYNUM=l->lop->get_max_table_entry();
+#if (LEVELN!=1)
 	l->FLUSHNUM=l->lop->get_max_flush_entry(1024);
+#else
+	l->FLUSHNUM=FULLMAPNUM;
+#endif
 	l->inplace_compaction=true;
 }
 uint32_t __lsm_get(request *const);
@@ -73,7 +83,6 @@ static int32_t get_sizefactor(uint64_t as){
 #else
 	double temp_res=pow(10,log10(as/PAGESIZE/LSM.FLUSHNUM)/(_f));
 	res=_f?ceil(pow(10,log10(as/PAGESIZE/LSM.FLUSHNUM)/(_f))):as/PAGESIZE/LSM.FLUSHNUM;
-	printf("%lf",temp_res);
 #endif
 	return res;
 }
@@ -601,11 +610,8 @@ uint32_t __lsm_get(request *const req){
 	int res;
 	htable mapinfo;
 
-#if (LEVELN!=1)
 	run_t** entries;
 	run_t *entry;
-	bool comback_req=false;
-#endif
 	/*
 	uint32_t nc=hash_all_cached_entries();
 	if(LSM.lsm_cache->max_size < nc-1){
@@ -625,7 +631,6 @@ uint32_t __lsm_get(request *const req){
 		res=__lsm_get_sub(req,LSM.tempent,NULL,NULL);
 		pthread_mutex_unlock(&LSM.entrylock);
 		if(unlikely(res)) return res;
-
 
 		int *_temp_data=(int *)malloc(sizeof(int)*4);
 		req->params=(void*)_temp_data;
@@ -649,25 +654,7 @@ uint32_t __lsm_get(request *const req){
 #else
 		mapinfo.sets=(keyset*)req->value->value;
 #endif
-#if (LEVELN==1)
-		/*
-		KEYT offset=req->key%LSM.KEYNUM;
-		algo_req *lsm_req=lsm_get_req_factory(req);
-		LSM.li->pull_data(mapinfo.sets[offset].ppa,PAGESIZE,req->value,ASYNC,lsm_req);
-		return 1;*/
-#else
 
-#ifdef LEVELEMUL
-		/*
-		KEYT tppa=find_S_ent(&LSM.disk[level]->o_ent[run],req->key);
-		if(tppa!=UINT_MAX){
-			algo_req *mreq=lsm_get_req_factory(req);
-			LSM.li->pull_data(tppa,PAGESIZE,req->value,ASYNC,mreq);
-			return 1;
-		}
-		level++;
-		*/
-#else
 		_entry=LSM.lop->find_run(LSM.disk[level],req->key);
 
 		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
@@ -678,13 +665,6 @@ uint32_t __lsm_get(request *const req){
 		_entry[run]->isflying=0;
 		free(_entry);
 		if(res)return res;
-#endif
-
-#ifndef FLASHCHCK
-		run+=1;
-#endif
-		comback_req=true;
-#endif
 	}
 	
 retry:
@@ -716,34 +696,6 @@ retry:
 		}
 #endif
 
-#ifdef LEVELEMUL
-		/*
-		int *temp_data=(int*)req->params;
-		temp_data[0]=i;
-		temp_data[1]=0;
-		round++;
-		temp_data[2]=round;
-		o_entry *toent=find_O_ent(LSM.disk[i],req->key,(uint32_t*)&temp_data[1]);
-		if(toent && toent->pba!=UINT_MAX){
-			bench_algo_end(req);
-			dummy_htable_read(toent->pba,req);
-			return 3;
-		}
-		else continue;
-		*/
-#endif
-
-#if (LEVELN==1)
-		/*
-		KEYT p=req->key/LSM.KEYNUM;
-		KEYT target_ppa=LSM.disk[i]->o_ent[p].pba;	
-		int *temp_data=(int*)req->params;
-		temp_data[0]=0;
-		temp_data[1]=0;
-		round++;
-		temp_data[2]=round;
-		*/
-#else
 		pthread_mutex_lock(&LSM.level_lock[i]);
 		entries=LSM.lop->find_run(LSM.disk[i],req->key);
 		pthread_mutex_unlock(&LSM.level_lock[i]);
@@ -751,9 +703,7 @@ retry:
 		if(!entries){
 			continue;
 		}
-		if(comback_req && level!=i){
-			run=0;
-		}
+
 		int *temp_data=(int*)req->params;
 		for(int j=run; entries[j]!=NULL; j++){
 			entry=entries[j];
@@ -794,15 +744,11 @@ retry:
 			}
 #endif
 
-#endif
-
 			algo_req *lsm_req=lsm_get_req_factory(req);
 			lsm_params* params=(lsm_params*)lsm_req->params;
 			lsm_req->type=HEADERR;
 			params->lsm_type=HEADERR;
-#if (LEVELN==1)
-			params->ppa=target_ppa;
-#else
+
 			params->ppa=entry->pbn;
 
 			
@@ -820,7 +766,6 @@ retry:
 				params->entry_ptr=(void*)entry;
 			}
 
-#endif
 			req->ppa=params->ppa;
 #ifdef NOCPY
 			req->value->nocpy=nocpy_pick(params->ppa);
@@ -828,23 +773,9 @@ retry:
 			LSM.li->pull_data(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 			__header_read_cnt++;
 
-#if (LEVELN!=1)
-			/*
-			if(!req->isAsync){
-				dl_sync_wait(&params->lock); // wait until read table data;
-				mapinfo.sets=(keyset*)req->value->value;
-				res=__lsm_get_sub(req,NULL,mapinfo.sets,NULL);
-				if(!res){
-					continue; // check next entry
-				}else{
-					free(entries);
-				}
-			}
-			else{*/
-				free(entries);
-				bench_algo_end(req);
-				return 3; //async
-			//}
+			free(entries);
+			bench_algo_end(req);
+			return 3; //async
 
 		}
 
@@ -853,9 +784,7 @@ retry:
 			temp_data[3]=0;
 		}
 		free(entries);
-#else
 		return 3;
-#endif
 	}
 	bench_algo_end(req);
 	return res;

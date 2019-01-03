@@ -79,6 +79,9 @@ typedef struct level{
 	struct level_ops *op;
 	block* now_block;
 	void* level_data;
+#if (LEVELN==1)
+	run_t *mappings;
+#endif
 }level;
 
 typedef struct lev_iter{
@@ -127,6 +130,7 @@ typedef struct level_ops{
 	void (*moveTo_fr_page)( level*);
 	KEYT (*get_page)( level*, uint8_t plength);
 	bool (*block_fchk)( level*);
+	void (*range_update)(level *,run_t*,KEYT);
 #ifdef LEVELCACHING
 	/*level caching*/
 	void (*cache_insert)(level *,run_t *);

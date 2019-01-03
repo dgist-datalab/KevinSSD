@@ -40,6 +40,7 @@ level_ops h_ops={
 	.moveTo_fr_page=def_moveTo_fr_page,
 	.get_page=def_get_page,
 	.block_fchk=def_blk_fchk,
+	.range_update=hash_range_update,
 
 #ifdef LEVELCACHING
 	.cache_insert=hash_cache_insert,

@@ -57,9 +57,11 @@ void nocpy_copy_from_change(char *des, KEYT ppa){
 		page[ppa]=NULL;
 	}
 
+#if (LEVELN!=1)
 	if(((keyset*)des)->lpa>1024 || ((keyset*)des)->lpa<=0){
 		abort();
 	}
+#endif
 
 	if(ppa==16384){
 		static int cnt=0;
@@ -73,9 +75,11 @@ void nocpy_copy_from_change(char *des, KEYT ppa){
 }
 void nocpy_copy_from(char *src, KEYT ppa){
 	if(page[ppa]==NULL){
+#if (LEVELN!=1)
 		if(((keyset*)src)->lpa>1024 || ((keyset*)src)->lpa<=0){
 			abort();
 		}
+#endif
 		if(ppa==16384){
 	//		printf("16384 inserted %u from\n", ((keyset*)src)->lpa);
 		}
@@ -87,7 +91,9 @@ void nocpy_copy_from(char *src, KEYT ppa){
 }
 
 char *nocpy_pick(KEYT ppa){
+#if (LEVELN!=1)
 	if(page[ppa]->lpa<=0 || page[ppa]->lpa>1024) abort();
+#endif
 	return (char*)page[ppa];
 }
 void nocpy_force_freepage(KEYT ppa){

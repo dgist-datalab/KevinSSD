@@ -32,6 +32,7 @@ struct compaction_master{
 
 bool compaction_init();
 void *compaction_main(void *);
+uint32_t level_one_processing(level *, level *, run_t *, pthread_mutex_t *);
 //uint32_t tiering(int f, int t, struct Entry *);
 uint32_t leveling(level *,level* , run_t *, pthread_mutex_t *);
 uint32_t partial_leveling(struct level *,struct level *,struct skiplist *,struct level *upper);
