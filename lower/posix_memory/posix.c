@@ -15,6 +15,8 @@
 #include "../../algorithm/ctoc/dftl.h"
 #elif defined(dftl_test)
 #include "../../algorithm/dftl_test/dftl.h"
+#elif defined(ctoc_batch)
+#include "../../algorithm/ctoc_batch/dftl.h"
 #else
 #include "../../algorithm/Lsmtree/lsmtree.h"
 #endif
