@@ -341,7 +341,7 @@ void *p_main(void *__input){
 		mp.algo=&__normal;
 #elif defined(pftl)
 		mp.algo=&algo_pbase;
-#elif defined(dftl) || defined(ctoc) || defined(dftl_test)
+#elif defined(dftl) || defined(ctoc) || defined(dftl_test) || defined(ctoc_batch)
 		mp.algo=&__demand;
 #elif defined(Lsmtree)
 		mp.algo=&algo_lsm;

@@ -460,7 +460,7 @@ run_t* compaction_postprocessing(run_t *target){
 	table->sets=(keyset*)malloc(PAGESIZE);
 #if LEVELN==1
 	if(target->cpt_data->nocpy_table)
-		memcpy(table->sets,target->cpt_data->sets,PAGESIZE);
+		memcpy(table->sets,target->cpt_data->nocpy_table,PAGESIZE);
 	else{
 #endif
 		memcpy(table->sets,target->cpt_data->sets,PAGESIZE);
@@ -948,10 +948,15 @@ uint32_t level_one_processing(level *from, level *to, run_t *entry, pthread_mute
 	level *new_level=LSM.lop->init(to->m_num,to->idx,to->fpr,false);
 	LSM.c_level=new_level;
 	body=leveling_preprocessing(from,to);
+
+	pthread_mutex_lock(&LSM.templock);
+	LSM.temptable=NULL;
+	pthread_mutex_unlock(&LSM.templock);
+
 	snode *node;
 	run_t *table;
 	KEYT pre_map_num=UINT_MAX;
-
+	//printf("compaction_called\n");
 	compaction_sub_pre();
 	for_each_sk(node,body){ //read data
 		KEYT mapnum=MAPNUM(node->key);
@@ -994,6 +999,7 @@ uint32_t level_one_processing(level *from, level *to, run_t *entry, pthread_mute
 	pre_map_num=UINT_MAX;
 	KEYT old_header_pbn;
 	run_t * pre_run=NULL;
+
 	for_each_sk(node,body){
 		KEYT mapnum=MAPNUM(node->key);
 		KEYT offset=MAPOFFSET(node->key);
@@ -1011,7 +1017,9 @@ uint32_t level_one_processing(level *from, level *to, run_t *entry, pthread_mute
 #endif
 
 		if(map[offset].ppa!=UINT_MAX){
-			printf("invalidate :%u\n",map[offset].ppa);
+	//		static int cnt=0;
+	//		printf("[%d] %u invalidate :%u, new :%u\n",cnt++,map[offset].lpa,map[offset].ppa,node->ppa);
+	//		printf("invalidate ppa:%u\n",map[offset].ppa);
 			invalidate_PPA(map[offset].ppa);
 		}
 		map[offset].lpa=node->key;
@@ -1050,14 +1058,31 @@ uint32_t level_one_processing(level *from, level *to, run_t *entry, pthread_mute
 
 
 	pthread_mutex_lock(&LSM.entrylock);
-	LSM.lop->release_run(entry);
 	LSM.tempent=NULL;
+	LSM.lop->release_run(entry);
 	pthread_mutex_unlock(&LSM.entrylock);
+
 	skiplist_free(body);
 
 	compaction_sub_post();
 
-	memcpy(new_level->mappings,to->mappings,sizeof(run_t)*to->m_num);
+	run_t *fr,*tr;
+	for(int i=0; i<to->n_num; i++){
+		tr=&new_level->mappings[i];
+		fr=&to->mappings[i];
+	
+		tr->key=fr->key;
+		tr->end=fr->end;
+		tr->pbn=fr->pbn;
+
+		tr->c_entry=NULL;
+		tr->cache_data=NULL;
+
+		tr->isflying=0;
+		tr->req=NULL;
+		tr->cpt_data=NULL;
+		tr->iscompactioning=false;
+	}
 	compaction_heap_setting(new_level,to);
 
 	level **des_ptr=&LSM.disk[to->idx];

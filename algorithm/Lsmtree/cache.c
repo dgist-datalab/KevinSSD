@@ -62,6 +62,7 @@ cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
 	c->top=c_ent;
 	c_ent->up=NULL;
 	c->n_size++;
+	//printf("cache insert:%d\n",c->n_size);
 	return c_ent;
 }
 bool cache_delete(cache *c, run_t * ent){
@@ -69,6 +70,7 @@ bool cache_delete(cache *c, run_t * ent){
 	if(c->n_size==0){
 		return false;
 	}
+	//printf("cache delete\n");
 	cache_entry *c_ent=ent->c_entry;
 	if(ent->cache_data){
 		free(ent->cache_data->sets);

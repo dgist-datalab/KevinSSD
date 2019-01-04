@@ -57,13 +57,13 @@ level* hash_init(int size, int idx, float fpr, bool istier){
 
 #if (LEVELN==1)
 	res->mappings=(run_t*)malloc(sizeof(run_t)*size);
+	memset(res->mappings,0,sizeof(run_t)*size);
 	for(int i=0; i<size;i++){
 		res->mappings[i].key=FULLMAPNUM*i;
 		res->mappings[i].end=FULLMAPNUM*(i+1)-1;
 		res->mappings[i].pbn=UINT_MAX;
-		res->n_num=size;
 	}
-	//memset(res->mappings,0,sizeof(o_entry)*size);
+	res->n_num=size;
 #endif
 	return res;
 }
@@ -84,11 +84,16 @@ void hash_free( level * lev){
 		llog_free(lev->h);
 #endif
 	}
-	free(lev);
 
 #if LEVELN==1
+	for(int i=0; i<lev->n_num; i++){
+		hash_free_run(&lev->mappings[i]);
+	}
 	free(lev->mappings);
+	//cache_print(LSM.lsm_cache);
 #endif
+
+	free(lev);
 }
 
 void hash_body_free(hash_body *h){
@@ -191,6 +196,8 @@ run_t** hash_find_run( level* lev, KEYT lpa){
 #if LEVELN==1
 	res=(run_t**)calloc(sizeof(run_t*),2);
 	KEYT mapnum=lpa/FULLMAPNUM;
+	if(lev->mappings[mapnum].pbn==UINT_MAX)
+		return NULL;
 	res[0]=&lev->mappings[mapnum];
 	res[1]=NULL;
 	return res;
@@ -286,8 +293,9 @@ void hash_free_run( run_t *e){
 		//e->cache_data=NULL;
 	}
 	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-
+#if LEVELN!=1
 	free(e);
+#endif
 }
 
 run_t * hash_run_cpy( run_t *input){

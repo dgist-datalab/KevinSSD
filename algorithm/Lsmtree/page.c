@@ -889,22 +889,7 @@ int gc_node_compare(const void *a, const void *b){
 	else return -1;
 }
 
-#if (LEVELN==1)
-void gc_data_oneleveling(gc_node **gn, int size, int target_level){
-	gc_general_wait_init();
-	level *now=LSM.disk[target_level];
-	
-}
-#endif
-
 void gc_data_header_update(gc_node **gn, int size,int target_level){
-#if (LEVELN==1)
-	gc_data_oneleveling(gn,size,target_level);
-	return;
-#endif
-#ifdef LEVELEMUL
-	o_entry
-#endif
 	level *in=LSM.disk[target_level];
 	htable_t **datas=(htable_t**)malloc(sizeof(htable_t*)*in->m_num);
 	run_t **entries;
