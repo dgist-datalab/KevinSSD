@@ -943,6 +943,38 @@ skip:
 #if (LEVELN==1)
 #define MAPNUM(a) (a/FULLMAPNUM)
 #define MAPOFFSET(a) (a%FULLMAPNUM)
+void level_one_header_update(run_t *pre_run){
+	KEYT old_header_pbn=pre_run->pbn;
+	if(!pre_run->c_entry && pre_run->cpt_data && cache_insertable(LSM.lsm_cache)){
+
+		char *cache_temp;
+		if(pre_run->cpt_data->nocpy_table){
+			cache_temp=(char*)pre_run->cpt_data->nocpy_table;
+		}else{
+			cache_temp=(char*)pre_run->cpt_data->sets;
+		}
+
+#ifdef NOCPY
+		pre_run->cache_data=htable_dummy_assign();
+		pre_run->cache_data->nocpy_table=cache_temp;
+#else
+		pre_run->cache_data=htable_copy(pre_run->cpt_data);
+#endif
+		pre_run->c_entry=cache_insert(LSM.lsm_cache,pre_run,0);
+	}
+	compaction_postprocessing(pre_run);
+	if(old_header_pbn!=UINT_MAX && pre_run->iscompactioning!=3)
+		invalidate_PPA(old_header_pbn);
+	if(pre_run->iscompactioning==5){
+		free(pre_run->cpt_data->sets);
+		pre_run->cpt_data->sets=NULL;
+	}
+	pre_run->iscompactioning=0;
+	htable_free(pre_run->cpt_data);
+	pre_run->cpt_data=NULL;
+
+}
+
 uint32_t level_one_processing(level *from, level *to, run_t *entry, pthread_mutex_t *lock){
 	skiplist *body;
 	level *new_level=LSM.lop->init(to->m_num,to->idx,to->fpr,false);
@@ -1028,6 +1060,7 @@ uint32_t level_one_processing(level *from, level *to, run_t *entry, pthread_mute
 		LSM.lop->range_update(new_level,NULL,node->key);
 
 		if(pre_map_num!=UINT_MAX &&pre_map_num!=mapnum){
+			/*
 			old_header_pbn=pre_run->pbn;
 			compaction_postprocessing(pre_run);
 			if(old_header_pbn!=UINT_MAX && pre_run->iscompactioning!=3)
@@ -1038,12 +1071,15 @@ uint32_t level_one_processing(level *from, level *to, run_t *entry, pthread_mute
 			}
 			pre_run->iscompactioning=0;
 			htable_free(pre_run->cpt_data);
-			pre_run->cpt_data=NULL;
+			pre_run->cpt_data=NULL;*/
+			level_one_header_update(pre_run);
 		}
 		pre_run=table;
 		pre_map_num=mapnum;
 	}
-
+	
+	level_one_header_update(pre_run);
+	/*
 	old_header_pbn=pre_run->pbn;
 	compaction_postprocessing(pre_run);
 	if(old_header_pbn!=UINT_MAX && pre_run->iscompactioning!=3)
@@ -1053,8 +1089,7 @@ uint32_t level_one_processing(level *from, level *to, run_t *entry, pthread_mute
 		pre_run->cpt_data->sets=NULL;
 	}
 	htable_free(pre_run->cpt_data);
-	pre_run->cpt_data=NULL;
-	pre_run->iscompactioning=0;
+	pre_run->cpt_data=NULL;*/
 
 
 	pthread_mutex_lock(&LSM.entrylock);
