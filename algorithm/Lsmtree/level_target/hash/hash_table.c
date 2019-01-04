@@ -54,6 +54,17 @@ level* hash_init(int size, int idx, float fpr, bool istier){
 	res->level_data=(void*)hbody;
 	res->now_block=NULL;
 	res->h=llog_init();
+
+#if (LEVELN==1)
+	res->mappings=(run_t*)malloc(sizeof(run_t)*size);
+	memset(res->mappings,0,sizeof(run_t)*size);
+	for(int i=0; i<size;i++){
+		res->mappings[i].key=FULLMAPNUM*i;
+		res->mappings[i].end=FULLMAPNUM*(i+1)-1;
+		res->mappings[i].pbn=UINT_MAX;
+	}
+	res->n_num=size;
+#endif
 	return res;
 }
 
@@ -73,6 +84,15 @@ void hash_free( level * lev){
 		llog_free(lev->h);
 #endif
 	}
+
+#if LEVELN==1
+	for(int i=0; i<lev->n_num; i++){
+		hash_free_run(&lev->mappings[i]);
+	}
+	free(lev->mappings);
+	//cache_print(LSM.lsm_cache);
+#endif
+
 	free(lev);
 }
 
@@ -140,12 +160,17 @@ keyset *hash_find_keyset(char *data, KEYT lpa){
 	hash *c=(hash*)data;
 	KEYT h_keyset=f_h(lpa);
 	KEYT idx=0;
+#if LEVELN==1
+	keyset* sets=(keyset*)data;
+	return &sets[lpa%FULLMAPNUM];
+#else
 	for(uint32_t i=0; i<c->t_num; i++){
 		idx=(h_keyset+i*i+i)%(HENTRY);
 		if(c->b[idx].lpa==lpa){
 			return &c->b[idx];
 		}
 	}
+#endif
 	return NULL;
 }
 
@@ -167,6 +192,16 @@ run_t *hash_make_run(KEYT start, KEYT end, KEYT pbn){
 run_t** hash_find_run( level* lev, KEYT lpa){
 	hash_body *hb=(hash_body*)lev->level_data;
 	skiplist *body=hb->body;
+	run_t **res;
+#if LEVELN==1
+	res=(run_t**)calloc(sizeof(run_t*),2);
+	KEYT mapnum=lpa/FULLMAPNUM;
+	if(lev->mappings[mapnum].pbn==UINT_MAX)
+		return NULL;
+	res[0]=&lev->mappings[mapnum];
+	res[1]=NULL;
+	return res;
+#endif
 	if(!body || body->size==0) return NULL;
 	if(lev->start>lpa || lev->end<lpa) return NULL;
 	if(lev->istier) return (run_t**)-1;
@@ -177,7 +212,7 @@ run_t** hash_find_run( level* lev, KEYT lpa){
 	if(!test_run->filter)abort();
 	if(!bf_check(test_run->filter,lpa)) return NULL;
 #endif
-	run_t **res=(run_t**)calloc(sizeof(run_t*),2);
+	res=(run_t**)calloc(sizeof(run_t*),2);
 	res[0]=(run_t*)temp->value;
 	res[1]=NULL;
 	return  res;
@@ -258,8 +293,9 @@ void hash_free_run( run_t *e){
 		//e->cache_data=NULL;
 	}
 	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-
+#if LEVELN!=1
 	free(e);
+#endif
 }
 
 run_t * hash_run_cpy( run_t *input){

@@ -889,74 +889,8 @@ int gc_node_compare(const void *a, const void *b){
 	else return -1;
 }
 
-#if (LEVELN==1)
-void gc_data_oneleveling(gc_node **gn, int size, int target_level){
-	gc_general_wait_init();
-	level *now=LSM.disk[target_level];
-	int num, temp=-1;
-	int t_idx=0;
-	KEYT *pbas=(KEYT*)malloc(sizeof(KEYT)*size);
-	htable_t *tables=(htable_t *)malloc(sizeof(htable_t)*size);
-	for(int i=0; i<size; i++){
-		gc_node *target=gn[i];
-
-		if(i==0){
-			num=target->lpa/LSM.KEYNUM;
-		}else{
-			temp=target->lpa/LSM.KEYNUM;
-		}
-	
-		if(i!=0 && num!=temp){
-			num=temp;
-		}
-		else if(i!=0) continue;
-
-		pbas[t_idx]=num;
-//		now->o_ent[num].table=htable_assign();
-
-		gc_data_read(now->o_ent[num].pba,&tables[t_idx++],false);
-	}
-
-	gc_general_waiting();
-
-	t_idx=0;
-	int offset=0;
-	for(int i=0; i<size; i++){
-		num=pbas[t_idx];
-		gc_node *target=gn[i];
-
-		if(now->o_ent[num].end>target->lpa){
-			offset=target->lpa%LSM.KEYNUM;
-			tables[t_idx].sets[offset].ppa=target->nppa;
-		}
-		else{
-			KEYT temp_header=now->o_ent[num].pba;
-			now->o_ent[num].pba=getPPA(HEADER,tables[t_idx].sets[0].lpa,true);
-			invalidate_PPA(temp_header);
-			gc_data_write(now->o_ent[num].pba,&tables[t_idx],false);
-			t_idx++;
-			i--;
-		}
-	}
-
-	KEYT temp_header=now->o_ent[num].pba;
-	now->o_ent[num].pba=getPPA(HEADER,tables->sets[0].lpa,true);
-	invalidate_PPA(temp_header);
-	gc_data_write(now->o_ent[num].pba,&tables[t_idx],false);
-
-	free(tables);
-	free(pbas);
-}
-#endif
 
 void gc_data_header_update(gc_node **gn, int size,int target_level){
-#if (LEVELN==1)
-	gc_data_oneleveling(gn,size,target_level);
-	return;
-#endif
-#ifdef LEVELEMUL
-	o_entry
-#endif
 	level *in=LSM.disk[target_level];
 	htable_t **datas=(htable_t**)malloc(sizeof(htable_t*)*in->m_num);
 	run_t **entries;
@@ -1061,17 +995,21 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			/*should change keep the value before invalidate*/
 			char *nocpy_temp_table=data->nocpy_table;
 			nocpy_force_freepage(entries[j]->pbn);
+#if (LEVELN!=1)
 			if(((keyset*)data->nocpy_table)->lpa>1024){
 				abort();
 			}
+#endif
 #endif
 			invalidate_PPA(temp_header);
 			entries[j]->pbn=getPPA(HEADER,entries[j]->key,true);
 #ifdef NOCPY
 			data->nocpy_table=nocpy_temp_table;
+#if (LEVELN!=1)
 			if(((keyset*)data->nocpy_table)->lpa>1024){
 				abort();
 			}
+#endif
 #endif	
 			gc_data_write(entries[j]->pbn,data,false);
 			free(data);
@@ -1306,7 +1244,6 @@ int gc_header(KEYT tbn){
 	block *target=&bl[tbn];
 	if(target->invalid_n==algo_lsm.li->PPB){
 		gc_trim_segment(HEADER,target->ppa);
-
 		return 1;
 	}
 
@@ -1314,15 +1251,8 @@ int gc_header(KEYT tbn){
 
 	KEYT start=target->ppa;
 	htable_t **tables=(htable_t**)malloc(sizeof(htable_t*)*algo_lsm.li->PPB);
-#if (defined(LEVELEMUL) || LEVELN==1)
-	o_entry **target_oent=(o_entry**)malloc(sizeof(o_entry*)*algo_lsm.li->PPB);
-#endif
 
-#if (LEVELN==1)
-	level *now=LSM.disk[0];
-#else
 	run_t **target_ent=(run_t**)malloc(sizeof(run_t*)*algo_lsm.li->PPB);
-#endif
 	//printf("2\n");
 	//LSM.lop->all_print();
 	/*
@@ -1332,31 +1262,11 @@ int gc_header(KEYT tbn){
 	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
 		if(target->bitset[i/8]&(1<<(i%8))){
 			tables[i]=NULL;
-#if (LEVELN==1)
-			target_oent[i]=NULL;
-#else
 			target_ent[i]=NULL;
-#endif
 			continue;
 		}
 		KEYT t_ppa=start+i;
 
-#if (LEVELN==1)
-		for(int j=0; j<TOTALSIZE/PAGESIZE/LSM.KEYNUM;j++){
-			if(now->o_ent[j].pba==t_ppa){
-				tables[i]=(htable_t*)malloc(sizeof(htable_t));
-				target_oent[i]=&now->o_ent[j];
-				gc_data_read(t_ppa,tables[i],false);
-			}
-			else continue;
-		}
-#ifdef LEVELEMUL
-		KEYT tlpa=PBITGET(t_ppa);
-		target_oent[i]=find_O_ent(now,tlpa);
-		gc_data_read(t_ppa,tables[i],false);
-		continue;
-#endif
-#else
 		KEYT lpa=PBITGET(t_ppa);
 		run_t **entries=NULL;
 		bool checkdone=false;
@@ -1437,37 +1347,28 @@ int gc_header(KEYT tbn){
 			printf("[%u : %u]error!\n",t_ppa,lpa);
 			abort();
 		}
-#endif
 	}
 
 	gc_general_waiting();
-#if ((LEVELN==1)|| defined(LEVELEMUL))
-	o_entry *test;
-#else
-	run_t *test;
-#endif
 
+	run_t *test;
 	htable_t *table;
 	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
 		if(tables[i]==NULL) continue;
 		KEYT t_ppa=start+i;
 		KEYT lpa=PBITGET(t_ppa);
 		KEYT n_ppa=getRPPA(HEADER,lpa,true);
-#if ((LEVELN==1)|| defined(LEVELEMUL))
-		test=target_oent[i];
-		test->pba=n_ppa;
-#else
+
 		test=target_ent[i];
 		test->pbn=n_ppa;
-#endif
 		table=tables[i];
-#ifdef NOCPY
+#if defined(NOCPY) && (LEVELN!=1)
 		if(((keyset*)table->nocpy_table)->lpa>1024){
 			abort();
 		}
 		/*should change keep the value before invalidate*/
-		nocpy_force_freepage(t_ppa);
 #endif
+		nocpy_force_freepage(t_ppa);
 		gc_data_write(n_ppa,table,false);
 		free(tables[i]);
 
@@ -1475,11 +1376,7 @@ int gc_header(KEYT tbn){
 
 	free(tables);
 
-#if ((LEVELN==1)|| defined(LEVELEMUL))
-	free(target_oent);
-#else
 	free(target_ent);
-#endif
 	gc_trim_segment(HEADER,target->ppa);
 	return 1;
 }
