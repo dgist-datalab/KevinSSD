@@ -422,11 +422,12 @@ uint32_t hash_cached_entries(level *lev){
 		if(lc->body){
 			snode *n;
 			int id=0;
+			/*
 			for_each_sk(n,lc->body){
 				run_t *t=(run_t*)n->value;
 				res++;
-				id++;
-			}
+			/	id++;
+			}*/
 		}
 	}
 #endif
