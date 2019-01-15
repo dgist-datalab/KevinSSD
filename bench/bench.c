@@ -43,38 +43,38 @@ static bool bitmap_get(KEYT key){
 	return bitmap[block]&(1<<offset);
 }
 
-void bench_init(int benchnum){
+void bench_init(){
 	OVERLAP=0.0;
 	_master=(master*)malloc(sizeof(master));
-	_master->m=(monitor*)malloc(sizeof(monitor)*benchnum);
-	memset(_master->m,0,sizeof(monitor)*benchnum);
+	_master->m=(monitor*)malloc(sizeof(monitor)*BENCHNUM);
+	memset(_master->m,0,sizeof(monitor)*BENCHNUM);
 
-	_master->meta=(bench_meta*)malloc(sizeof(bench_meta) * benchnum);
-	memset(_master->meta,0,sizeof(bench_meta)*benchnum);
+	_master->meta=(bench_meta*)malloc(sizeof(bench_meta) * BENCHNUM);
+	memset(_master->meta,0,sizeof(bench_meta)*BENCHNUM);
 
-	_master->datas=(bench_data*)malloc(sizeof(bench_data) * benchnum);
-	memset(_master->datas,0,sizeof(bench_data)*benchnum);
+	_master->datas=(bench_data*)malloc(sizeof(bench_data) * BENCHNUM);
+	memset(_master->datas,0,sizeof(bench_data)*BENCHNUM);
 
-	_master->li=(lower_info*)malloc(sizeof(lower_info)*benchnum);
-	memset(_master->li,0,sizeof(lower_info)*benchnum);
+	_master->li=(lower_info*)malloc(sizeof(lower_info)*BENCHNUM);
+	memset(_master->li,0,sizeof(lower_info)*BENCHNUM);
 
-	_master->n_num=0; _master->m_num=benchnum;
+	_master->n_num=0; _master->m_num=0;
 	pthread_mutex_init(&bench_lock,NULL);
 
-	for(int i=0; i<benchnum; i++){
+	for(int i=0; i<BENCHNUM; i++){
 		_master->m[i].empty=true;
 		_master->m[i].type=NOR;
 	}
 	
-	
-	for(int i=0;i<benchnum;i++){
+	/*
+	for(int i=0;i<BENCHNUM;i++){
 		for(int j=0;j<ALGOTYPE;j++){
 			for(int k=0;k<LOWERTYPE;k++){
 				_master->datas[i].ftl_poll[j][k].min = UINT64_MAX;
 				//_master->datas[i].ftl_npoll[j][k].min = UINT64_MAX;
 			}
 		}
-	}
+	}*/
 	printf("bench:%ld\n",TOTALSIZE/PAGESIZE/8);
 	bitmap=(uint8_t*)malloc(sizeof(uint8_t)*(TOTALSIZE/(PAGESIZE)/8));
 }
@@ -143,6 +143,14 @@ void bench_add(bench_type type, KEYT start, KEYT end, uint64_t number){
 	_master->meta[idx].end=end;
 	_master->meta[idx].type=type;
 	_master->meta[idx].number=number%2?(number/2)*2:number;
+
+	for(int j=0;j<ALGOTYPE;j++){
+		for(int k=0;k<LOWERTYPE;k++){
+			_master->datas[idx].ftl_poll[j][k].min = UINT64_MAX;
+			//_master->datas[i].ftl_npoll[j][k].min = UINT64_MAX;
+		}
+	}
+	_master->m_num++;
 	printf("bench range:%u ~ %u\n",start,end);
 	idx++;
 }
