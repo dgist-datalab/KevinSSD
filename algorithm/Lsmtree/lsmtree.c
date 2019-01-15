@@ -31,7 +31,9 @@ struct algorithm algo_lsm={
 	.destroy=lsm_destroy,
 	.get=lsm_get,
 	.set=lsm_set,
-	.remove=lsm_remove
+	.remove=lsm_remove,
+	.multi_set=lsm_multi_set,
+	.range_get=lsm_range_get,
 };
 extern OOBT *oob;
 lsmtree LSM;
@@ -80,7 +82,7 @@ static int32_t get_sizefactor(uint64_t as){
 	res=caching_size;
 	//res=_f?ceil(pow(10,((log10(as/PAGESIZE/LSM.FLUSHNUM-caching_size)))/(_f-1))):as/PAGESIZE/LSM.FLUSHNUM;
 #else
-	double temp_res=pow(10,log10(as/PAGESIZE/LSM.FLUSHNUM)/(_f));
+	//double temp_res=pow(10,log10(as/PAGESIZE/LSM.FLUSHNUM)/(_f));
 	res=_f?ceil(pow(10,log10(as/PAGESIZE/LSM.FLUSHNUM)/(_f))):as/PAGESIZE/LSM.FLUSHNUM;
 #endif
 	return res;
@@ -409,8 +411,34 @@ uint32_t lsm_set(request * const req){
 }
 int nor;
 MeasureTime lsm_mt;
-uint32_t lsm_get(request *const req){
+uint32_t lsm_proc_re_q(){
 	void *re_q;
+	int res_type;
+	while(1){
+		if((re_q=q_dequeue(LSM.re_q))){
+			request *tmp_req=(request*)re_q;
+			bench_algo_start(tmp_req);
+			switch(tmp_req->type){
+				case FS_GET_T:
+					res_type=__lsm_get(tmp_req);
+					break;
+				case FS_RANGEGET_T:
+					res_type=__lsm_range_get(tmp_req);
+					break;
+			}
+			if(res_type==0){
+				tmp_req->type=FS_NOTFOUND_T;
+				tmp_req->end_req(tmp_req);
+				//tmp_req->type=tmp_req->type==FS_GET_T?FS_NOTFOUND_T:tmp_req->type;
+			}
+		}
+		else 
+			break;
+	}
+	return 1;
+}
+
+uint32_t lsm_get(request *const req){
 	static bool temp=false;
 	static bool level_show=false;
 	static bool debug=false;
@@ -420,24 +448,7 @@ uint32_t lsm_get(request *const req){
 		measure_init(&lsm_mt);
 		//		cache_print(LSM.lsm_cache);
 	}
-
-	//printf("seq: %d, key:%u\n",nor++,req->key);
-	while(1){
-		if((re_q=q_dequeue(LSM.re_q))){
-			request *tmp_req=(request*)re_q;
-			bench_algo_start(tmp_req);
-			res_type=__lsm_get(tmp_req);
-			if(res_type==0){
-				//printf("from req not found seq: %d, key:%u\n",nor++,req->key);
-				//			LSM.lop->all_print();
-				tmp_req->type=tmp_req->type==FS_GET_T?FS_NOTFOUND_T:tmp_req->type;
-				tmp_req->end_req(tmp_req);
-				//	abort();
-			}
-		}
-		else 
-			break;
-	}
+	lsm_proc_re_q();
 	if(!temp){
 		//		LSM.lop->all_print();
 		temp=true;
@@ -457,17 +468,17 @@ uint32_t lsm_get(request *const req){
 	return res_type;
 }
 
-algo_req* lsm_get_req_factory(request *parents){
+algo_req* lsm_get_req_factory(request *parents, uint8_t type){
 	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-	params->lsm_type=DATAR;
+	params->lsm_type=type;
 	lsm_req->params=params;
 	lsm_req->parents=parents;
 	dl_sync_init(&params->lock,1);
 	lsm_req->end_req=lsm_end_req;
 	lsm_req->type_lower=0;
 	lsm_req->rapid=true;
-	lsm_req->type=DATAR;
+	lsm_req->type=type;
 	return lsm_req;
 }
 int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
@@ -490,7 +501,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 			return 2;
 		}
 		else{
-			lsm_req=lsm_get_req_factory(req);
+			lsm_req=lsm_get_req_factory(req,DATAR);
 			req->value->ppa=target_node->ppa;
 			ppa=target_node->ppa;
 			res=4;
@@ -500,7 +511,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 	if(entry && !table){ //tempent check
 		target_set=LSM.lop->find_keyset((char*)entry->cpt_data->sets,req->key);
 		if(target_set){
-			lsm_req=lsm_get_req_factory(req);
+			lsm_req=lsm_get_req_factory(req,DATAR);
 			bench_cache_hit(req->mark);	
 			req->value->ppa=target_set->ppa;
 			ppa=target_set->ppa;
@@ -529,7 +540,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 				entry->c_entry=c_entry;
 			}
 
-			lsm_req=lsm_get_req_factory(req);
+			lsm_req=lsm_get_req_factory(req,DATAR);
 			req->value->ppa=target_set->ppa;
 			ppa=target_set->ppa;
 			res=4;
@@ -550,7 +561,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 				int *temp_params=(int*)temp_req->params;
 				temp_params[3]++;
 				if(new_target_set){
-					new_lsm_req=lsm_get_req_factory(temp_req);
+					new_lsm_req=lsm_get_req_factory(temp_req,DATAR);
 					temp_req->value->ppa=new_target_set->ppa;
 					LSM.li->pull_data(temp_req->value->ppa,PAGESIZE,temp_req->value,ASYNC,new_lsm_req);
 				}
@@ -595,7 +606,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 	return res;
 }
 void dummy_htable_read(KEYT pbn,request *req){
-	algo_req *lsm_req=lsm_get_req_factory(req);
+	algo_req *lsm_req=lsm_get_req_factory(req,DATAR);
 	lsm_params *params=(lsm_params*)lsm_req->params;
 	lsm_req->type=HEADERR;
 	params->lsm_type=HEADERR;
@@ -675,7 +686,6 @@ uint32_t __lsm_get(request *const req){
 
 retry:
 	for(int i=level; i<LEVELN; i++){
-#ifdef LEVELCACHING
 		if(LEVELCACHING && i<LEVELCACHING){
 			/*
 			   static int log_cnt=0;
@@ -688,7 +698,7 @@ retry:
 			keyset *find=LSM.lop->cache_find(LSM.disk[i],req->key);
 			pthread_mutex_unlock(&LSM.level_lock[i]);
 			if(find){
-				algo_req *lsm_req=lsm_get_req_factory(req);
+				algo_req *lsm_req=lsm_get_req_factory(req,DATAR);
 				req->value->ppa=find->ppa;
 #ifdef DVALUE
 				LSM.li->pull_data(find->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
@@ -700,7 +710,6 @@ retry:
 			if(res){ return res;}
 			else continue;
 		}
-#endif
 		pthread_mutex_lock(&LSM.level_lock[i]);
 		entries=LSM.lop->find_run(LSM.disk[i],req->key);
 		pthread_mutex_unlock(&LSM.level_lock[i]);
@@ -749,19 +758,18 @@ retry:
 			}
 #endif
 
-			algo_req *lsm_req=lsm_get_req_factory(req);
+			algo_req *lsm_req=lsm_get_req_factory(req,HEADERR);
 			lsm_params* params=(lsm_params*)lsm_req->params;
-			lsm_req->type=HEADERR;
-			params->lsm_type=HEADERR;
 			params->ppa=entry->pbn;
-
+	//		lsm_req->type=HEADERR;
+	//		params->lsm_type=HEADERR;
 
 			if(entry->isflying==1){
 				entry->waitreq[entry->wait_idx++]=req;
 				return 3;
 			}
 			else{
-				static int overlap_cnt=0;
+				//static int overlap_cnt=0;
 				//printf("[%d]overlap :%p\n",overlap_cnt++,entry);
 				entry->isflying=1;
 				memset(entry->waitreq,0,sizeof(entry->waitreq));
@@ -776,8 +784,6 @@ retry:
 #endif
 			LSM.li->pull_data(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 			__header_read_cnt++;
-
-
 
 			free(entries);
 			bench_algo_end(req);

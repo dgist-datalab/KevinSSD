@@ -25,6 +25,12 @@
 #define BLOCKR 12
 #define OLDDATA 13
 
+#define DONE 1
+#define FLYING 2
+#define ARRIVE 3
+#define NOTCHECK 4
+#define NOTFOUND 5
+
 //lower type, algo type
 typedef struct level level;
 typedef struct run run_t;
@@ -40,6 +46,24 @@ typedef struct lsm_params{
 	value_set* value;
 	PTR htable_ptr;
 }lsm_params;
+
+typedef struct lsm_sub_req{
+	KEYT key;
+	value_set *value;
+	request *parents;
+	run_t *ent;
+	uint8_t status;
+}lsm_sub_req;
+
+typedef struct lsm_range_params{
+	uint8_t type;
+	int now;
+	int not_found;
+	int max;
+	uint32_t now_level;
+	uint8_t status;
+	lsm_sub_req *children;
+}lsm_range_params;
 
 typedef struct lsmtree{
 	KEYT KEYNUM;
@@ -75,7 +99,12 @@ uint32_t __lsm_create_normal(lower_info *, algorithm *);
 void lsm_destroy(lower_info*, algorithm*);
 uint32_t lsm_get(request *const);
 uint32_t lsm_set(request *const);
+uint32_t lsm_proc_re_q();
 uint32_t lsm_remove(request *const);
+
+uint32_t __lsm_get(request *const);
+uint32_t __lsm_range_get(request *const);
+
 void* lsm_end_req(struct algo_req*const);
 bool lsm_kv_validcheck(uint8_t *, int idx);
 void lsm_kv_validset(uint8_t *,int idx);
@@ -84,7 +113,11 @@ htable *htable_assign(char*,bool);
 htable *htable_dummy_assign();
 void htable_free(htable*);
 void htable_print(htable*,KEYT);
+algo_req *lsm_get_req_factory(request*,uint8_t);
 void htable_check(htable *in,KEYT lpa,KEYT ppa,char *);
+
+uint32_t lsm_multi_set(request *const, uint32_t num);
+uint32_t lsm_range_get(request *const, uint32_t len);
 /*
 void lsm_save(lsmtree *);
 void lsm_trim_set(value_set* ,uint8_t *);

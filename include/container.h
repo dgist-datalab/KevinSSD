@@ -28,6 +28,7 @@ typedef struct value_set{
 	char *nocpy;//nocpy buffer for bdbm_drv
 	bool from_app;
 	PTR rmw_value;
+	uint8_t status;
 	KEYT len;
 	KEYT offset;
 }value_set;
@@ -37,7 +38,11 @@ struct request {
 	KEYT key;
 	KEYT ppa;
 	KEYT seq;
+	int num;
+	int not_found_cnt;
 	value_set *value;
+	value_set **multi_value;
+	KEYT *multi_key;
 	bool (*end_req)(struct request *const);
 	void *(*special_func)(void *);
 	bool isAsync;
@@ -127,6 +132,8 @@ struct algorithm{
 	uint32_t (*get)(request *const);
 	uint32_t (*set)(request *const);
 	uint32_t (*remove)(request *const);
+	uint32_t (*multi_set)(request *const,uint32_t num);
+	uint32_t (*range_get)(request *const,uint32_t len);
 	lower_info* li;
 	void *algo_body;
 };

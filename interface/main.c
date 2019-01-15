@@ -82,7 +82,7 @@ int main(int argc,char* argv[]){
 			memcpy(&temp.value[0],&value->key,sizeof(value->key));
 		}
 
-		inf_make_req(value->type,value->key,&temp,value->mark);
+		inf_make_req(value->type,value->key,temp.value ,value->length,value->mark);
 		if(!tflag &&value->type==FS_GET_T){
 			tflag=true;
 		}

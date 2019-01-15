@@ -1,13 +1,15 @@
 #ifndef __H_TYPES__
 #define __H_TYPES__
 
-#define FS_GET_T 2
 #define FS_SET_T 1
+#define FS_GET_T 2
 #define FS_DELETE_T 3 
 #define FS_AGAIN_R_T 4
 #define FS_NOTFOUND_T 5
 #define FS_CACHE_HIT_T 6
 #define FS_RMW_T 7
+#define FS_MSET_T 8
+#define FS_RANGEGET_T 9
 
 #define LREQ_TYPE_NUM 9
 #define TRIM 0
