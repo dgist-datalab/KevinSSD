@@ -20,8 +20,8 @@ pthread_mutex_t fd_lock;
 lower_info my_posix={
 	.create=posix_create,
 	.destroy=posix_destroy,
-	.push_data=posix_push_data,
-	.pull_data=posix_pull_data,
+	.write=posix_push_data,
+	.read=posix_pull_data,
 	.device_badblock_checker=NULL,
 	.trim_block=posix_trim_block,
 	.refresh=posix_refresh,

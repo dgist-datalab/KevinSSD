@@ -79,6 +79,7 @@ SRCS +=\
 	./include/utils/cond_lock.c\
 	./include/data_struct/hash.c\
 	./include/data_struct/list.c\
+	./include/data_struct/redblack.c\
 	./bench/measurement.c\
 	./bench/bench.c\
 	./include/utils/thpool.c\
@@ -103,7 +104,7 @@ LIBS +=\
 		-laio\
 -ljemalloc\
 
-all: simulator
+all: range_driver
 
 DEBUG: debug_simulator
 
@@ -112,7 +113,10 @@ duma_sim: duma_simulator
 debug_simulator: ./interface/main.c libsimulator_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
 
-simulator: ./interface/main.c libsimulator.a
+driver: ./interface/main.c libsimulator.a
+	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
+
+range_driver: ./interface/range_test_main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 duma_simulator: ./interface/main.c libsimulator.a

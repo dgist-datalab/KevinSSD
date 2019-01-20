@@ -15,8 +15,8 @@ memio_t *mio;
 lower_info memio_info={
 	.create=memio_info_create,
 	.destroy=memio_info_destroy,
-	.push_data=memio_info_push_data,
-	.pull_data=memio_info_pull_data,
+	.write=memio_info_push_data,
+	.read=memio_info_pull_data,
 	.device_badblock_checker=memio_badblock_checker,
 	.trim_block=memio_info_trim_block,
 	.refresh=memio_info_refresh,

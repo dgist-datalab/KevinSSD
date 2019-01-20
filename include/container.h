@@ -35,16 +35,17 @@ typedef struct value_set{
 
 struct request {
 	FSTYPE type;
-	KEYT key;
+	KEYT key;/*it can be the iter_idx*/
 	KEYT ppa;
 	KEYT seq;
-	int num;
+	int num; /*length of requests*/
 	int not_found_cnt;
 	value_set *value;
 	value_set **multi_value;
 	KEYT *multi_key;
 	bool (*end_req)(struct request *const);
 	void *(*special_func)(void *);
+	bool (*added_end_req)(struct request *const);
 	bool isAsync;
 	void *p_req;
 	void *(*p_end_req)(void*);
@@ -89,8 +90,8 @@ struct algo_req{
 struct lower_info {
 	uint32_t (*create)(struct lower_info*);
 	void* (*destroy)(struct lower_info*);
-	void* (*push_data)(KEYT ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
-	void* (*pull_data)(KEYT ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
+	void* (*write)(KEYT ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
+	void* (*read)(KEYT ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
 	void* (*device_badblock_checker)(KEYT ppa,uint32_t size,void *(*process)(uint64_t, uint8_t));
 	void* (*trim_block)(KEYT ppa,bool async);
 	void* (*refresh)(struct lower_info*);
@@ -129,9 +130,12 @@ struct algorithm{
 	/*interface*/
 	uint32_t (*create) (lower_info*,struct algorithm *);
 	void (*destroy) (lower_info*, struct algorithm *);
-	uint32_t (*get)(request *const);
-	uint32_t (*set)(request *const);
+	uint32_t (*read)(request *const);
+	uint32_t (*write)(request *const);
 	uint32_t (*remove)(request *const);
+	uint32_t (*iter_create)(request *const);
+	uint32_t (*iter_next)(request *const);
+	uint32_t (*iter_release)(request *const);
 	uint32_t (*multi_set)(request *const,uint32_t num);
 	uint32_t (*range_get)(request *const,uint32_t len);
 	lower_info* li;
