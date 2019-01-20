@@ -16,6 +16,8 @@ level_ops h_ops={
 	.chk_overlap=hash_chk_overlap,
 	.range_find=hash_range_find,
 	.unmatch_find=hash_unmatch_find,
+	.range_find_start=hash_range_find_start,
+	//.range_find_nxt_node=NULL,
 	.get_iter=hash_get_iter,
 	.iter_nxt=hash_iter_nxt,
 	.get_max_table_entry=h_max_table_entry,
@@ -49,12 +51,13 @@ level_ops h_ops={
 	.cache_comp_formatting=hash_cache_comp_formatting,
 	.cache_move=hash_cache_move,
 	.cache_find=hash_cache_find,
+	.cache_find_run=hash_cache_find_run,
 	.cache_get_size=hash_cache_get_sz,
 #endif
-
 	.print=hash_print,
 	.all_print=hash_all_print,
-}; 
+};
+
 #ifdef STREAMCOMP
 static bool start_flag=0;
 threadpool stream_compactor;
@@ -156,7 +159,7 @@ static void hash_insert_into(hash_body *b, keyset input, float fpr){
 		run_t *h2=b->late_use_nxt;
 		if(input.lpa< h->key || (b->late_use_nxt!=b->late_use_node &&!(h->key<=input.lpa && input.lpa< h2->key))){
 			snode* s=skiplist_range_search(b->body,input.lpa);
-			
+
 			while(s && s!=b->body->header){
 				run_t *check=(run_t*)s->value;
 				if(check->cpt_data==NULL){
@@ -229,7 +232,7 @@ void hash_merger_thread_func(void *args,int id){
 	run_t **o=(run_t**)arg[1];
 	level *d=(level*)arg[2];
 	skiplist *mem=(skiplist*)arg[3];
-	
+
 	hash_merger_wrapper(mem,s,o,d);
 
 	free(arg);
@@ -278,7 +281,7 @@ void hash_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d, bo
 			hash_range_update(d,NULL,h->b[j].lpa);
 		}
 	}
-		
+
 	if(mem){
 		keyset target;
 		snode *s=mem->header->list[1];
@@ -405,7 +408,7 @@ void hash_cache_insert(level *lev,run_t* r){
 void hash_cache_merge(level *src,level * des){
 	hash_body *slc=cfl(src);
 	hash_body *dlc=cfl(des);
-	
+
 	if(dlc==NULL){
 		dlc=(hash_body*)calloc(sizeof(hash_body),1);
 		dlc->temp=hash_make_dummy_run();
@@ -475,11 +478,38 @@ keyset *hash_cache_find(level *lev , KEYT lpa){
 	run_t *r=(run_t*)temp->value;
 	return hash_find_keyset((char*)r->cpt_data->sets,lpa);
 }
+run_t *hash_cache_find_run(level *lev,KEYT lpa){
+	hash_body *lc=cfl(lev);
+	if(lev->start>lpa || lev->end<lpa) return NULL;
+	if(lc->temp){
+		run_t *t=(run_t *)lc->temp;
+		return t;
+	}
+	if(!lc->body) return NULL;
+	snode *temp=skiplist_strict_range_search(lc->body,lpa);
+	run_t *r=(run_t*)temp->value;
+	return r;
+}
 
 int hash_cache_get_sz(level* lev){
 	hash_body *lc=cfl(lev);
 	if(!lc) return 0;
 	if(lc->temp) return 1;
 	return lc->body->size;
+}
+
+run_t *hash_range_find_start(level *lev, KEYT start){
+	hash_body *hb=(hash_body*)lev->level_data;
+	skiplist *body=hb->body;
+	int res=0;
+	snode *temp=skiplist_strict_range_search(body,start);
+	run_t *ptr;
+	while(temp && temp!=body->header){
+		ptr=(run_t*)temp->value;
+		if(ptr->key > start){
+			return ptr;
+		}
+	}
+	return NULL;
 }
 #endif

@@ -101,6 +101,8 @@ typedef struct level_ops{
 	bool (*chk_overlap)( level *des, KEYT star, KEYT end);
 	uint32_t (*range_find)( level *l,KEYT start, KEYT end,  run_t ***r);
 	uint32_t (*unmatch_find)( level *,KEYT start, KEYT end, run_t ***r);
+	run_t* (*range_find_start)(level *l, KEYT start);
+	//void* (*range_find_nxt_node)(level *l, void *node, run_t *);
 	lev_iter* (*get_iter)( level*,KEYT from, KEYT to);
 	run_t* (*iter_nxt)( lev_iter*);
 	KEYT (*get_max_table_entry)();
@@ -139,6 +141,7 @@ typedef struct level_ops{
 	int (*cache_comp_formatting)(level *,run_t ***);
 	void (*cache_move)(level*, level *);
 	keyset *(*cache_find)(level *,KEYT);
+	run_t *(*cache_find_run)(level *,KEYT);
 	int (*cache_get_size)(level *);
 #endif
 

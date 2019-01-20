@@ -59,6 +59,7 @@ void hash_stream_comp_wait();
 void hash_merger( skiplist*,  run_t**,  run_t**,  level*, bool);
 void hash_merger_wrapper(skiplist *, run_t**, run_t**, level *);
 run_t *hash_cutter( skiplist*,  level*, KEYT *start,KEYT *end);
+run_t *hash_range_find_start(level *,KEYT );
 
 bool hash_chk_overlap( level *, KEYT, KEYT);
 void hash_overlap(void *);
@@ -66,7 +67,6 @@ void hash_tier_align( level *);
 void hash_print(level *);
 void hash_all_print();
 void hash_body_free(hash_body* );
-
 void hash_range_update(level *,run_t *,KEYT lpa);
 #ifdef BLOOM
 BF* hash_making_filter(run_t *,float );
@@ -79,6 +79,7 @@ void hash_cache_free(level *);
 int hash_cache_comp_formatting(level *,run_t ***);
 void hash_cache_move(level *, level *);
 keyset *hash_cache_find(level *, KEYT lpa);
+run_t *hash_cache_find_run(level *,KEYT lpa);
 int hash_cache_get_sz(level*);
 #endif
 

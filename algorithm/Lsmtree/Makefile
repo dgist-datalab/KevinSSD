@@ -26,6 +26,7 @@ SRCS +=\
 	   bloomfilter.c\
 	   lsmtree.c\
 	   lsmtree_multi.c\
+	   lsmtree_iter.c\
 	   compaction.c\
 	   page.c\
 	   heap.c\

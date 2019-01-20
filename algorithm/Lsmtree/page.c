@@ -296,7 +296,7 @@ void block_load(block *b){
 
 	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
 	b->isflying=true;
-	LSM.li->pull_data(b->ldp,PAGESIZE,params->value,ASYNC,lsm_req);
+	LSM.li->read(b->ldp,PAGESIZE,params->value,ASYNC,lsm_req);
 }
 
 void block_apply_log(block *b){
@@ -348,7 +348,7 @@ void block_save(block *b){
 	params->value=inf_get_valueset((PTR)b->length_data,FS_MALLOC_W,PAGESIZE);
 	KEYT ldp=getPPA(BLOCK,b->ppa,true);
 	
-	LSM.li->push_data(ldp,PAGESIZE,params->value,ASYNC,lsm_req);
+	LSM.li->write(ldp,PAGESIZE,params->value,ASYNC,lsm_req);
 	b->length_data=NULL;
 	if(b->ldp!=UINT_MAX){
 		invalidate_BPPA(b->ldp);
@@ -380,7 +380,7 @@ void gc_data_read(KEYT ppa,htable_t *value,bool isdata){
 		value->nocpy_table=nocpy_pick(ppa);
 	}
 #endif
-	algo_lsm.li->pull_data(ppa,PAGESIZE,params->value,ASYNC,areq);
+	algo_lsm.li->read(ppa,PAGESIZE,params->value,ASYNC,areq);
 	return;
 }
 
@@ -403,7 +403,7 @@ void gc_data_write(KEYT ppa,htable_t *value,bool isdata){
 	areq->params=(void*)params;
 	areq->type=params->lsm_type;
 	areq->rapid=false;
-	algo_lsm.li->push_data(ppa,PAGESIZE,params->value,ASYNC,areq);
+	algo_lsm.li->write(ppa,PAGESIZE,params->value,ASYNC,areq);
 	return;
 }
 

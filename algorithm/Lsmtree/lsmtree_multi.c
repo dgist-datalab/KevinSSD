@@ -141,7 +141,7 @@ uint32_t __lsm_range_get_sub(request* req,lsm_sub_req *sr,void *arg1, void *arg2
 	}
 
 	if(lsm_req){
-		LSM.li->pull_data(ppa,PAGESIZE,sr->value,ASYNC,lsm_req);
+		LSM.li->read(ppa,PAGESIZE,sr->value,ASYNC,lsm_req);
 	}
 	return 4;
 }
@@ -244,7 +244,7 @@ uint32_t __lsm_range_get(request *const req){
 				sr[i].status=DONE;
 				/*ISSUE THE DATA READ req*/
 				lsm_req=lsm_range_get_req_factory(&sr[i],DATAR);
-				LSM.li->pull_data(find->ppa,PAGESIZE,sr[i].value,ASYNC,lsm_req);
+				LSM.li->read(find->ppa,PAGESIZE,sr[i].value,ASYNC,lsm_req);
 			}
 		}
 	}
@@ -282,7 +282,7 @@ uint32_t __lsm_range_get(request *const req){
 			}
 			/*ISSUE HEADER READ*/
 			lsm_req=lsm_range_get_req_factory(&sr[i],HEADERR);
-			LSM.li->pull_data(rs[0]->pbn,PAGESIZE,sr[i].value,ASYNC,lsm_req);
+			LSM.li->read(rs[0]->pbn,PAGESIZE,sr[i].value,ASYNC,lsm_req);
 			break;
 		}
 		free(rs);

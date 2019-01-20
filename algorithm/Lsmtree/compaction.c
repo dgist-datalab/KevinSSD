@@ -234,9 +234,9 @@ run_t *compaction_data_write(skiplist *mem){
 		////while(mp.processors[0].retry_q->size){}
 		lsm_req->type=DATAW;
 #ifdef DVALUE
-		LSM.li->push_data(data_sets[i]->ppa/(PAGESIZE/PIECE),PAGESIZE,params->value,ASYNC,lsm_req);
+		LSM.li->write(data_sets[i]->ppa/(PAGESIZE/PIECE),PAGESIZE,params->value,ASYNC,lsm_req);
 #else
-		LSM.li->push_data(data_sets[i]->ppa,PAGESIZE,params->value,ASYNC,lsm_req);
+		LSM.li->write(data_sets[i]->ppa,PAGESIZE,params->value,ASYNC,lsm_req);
 #endif
 	}
 	free(data_sets);
@@ -268,7 +268,7 @@ KEYT compaction_htable_write(htable *input, KEYT lpa){
 	areq->params=(void*)params;
 	areq->type=HEADERW;
 	params->ppa=ppa;
-	LSM.li->push_data(ppa,PAGESIZE,params->value,ASYNC,areq);
+	LSM.li->write(ppa,PAGESIZE,params->value,ASYNC,areq);
 	return ppa;
 }
 void dummy_meta_write(KEYT ppa){
@@ -286,7 +286,7 @@ void dummy_meta_write(KEYT ppa){
 	areq->params=(void*)params;
 	areq->type=HEADERW;
 	params->ppa=ppa;
-	LSM.li->push_data(ppa,PAGESIZE,params->value,ASYNC,areq);
+	LSM.li->write(ppa,PAGESIZE,params->value,ASYNC,areq);
 }
 
 bool compaction_force(){
@@ -449,7 +449,7 @@ void compaction_htable_read(run_t *ent,PTR* value){
 	params->value->nocpy=nocpy_pick(ent->pbn);
 #endif
 	//printf("R %u\n",ent->pbn);
-	LSM.li->pull_data(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
+	LSM.li->read(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
 	return;
 }
 

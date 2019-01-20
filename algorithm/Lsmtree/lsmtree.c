@@ -8,6 +8,7 @@
 #include "../../bench/bench.h"
 #include "./level_target/hash/hash_table.h"
 #include "compaction.h"
+#include "lsmtree_iter.h"
 #include "lsmtree.h"
 #include "page.h"
 #include "nocpy.h"
@@ -29,9 +30,12 @@ extern uint32_t hash_insert_cnt;
 struct algorithm algo_lsm={
 	.create=lsm_create,
 	.destroy=lsm_destroy,
-	.get=lsm_get,
-	.set=lsm_set,
+	.read=lsm_get,
+	.write=lsm_set,
 	.remove=lsm_remove,
+	.iter_create=lsm_iter_create,
+	.iter_next=lsm_iter_next,
+	.iter_release=lsm_iter_release,
 	.multi_set=lsm_multi_set,
 	.range_get=lsm_range_get,
 };
@@ -563,7 +567,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 				if(new_target_set){
 					new_lsm_req=lsm_get_req_factory(temp_req,DATAR);
 					temp_req->value->ppa=new_target_set->ppa;
-					LSM.li->pull_data(temp_req->value->ppa,PAGESIZE,temp_req->value,ASYNC,new_lsm_req);
+					LSM.li->read(temp_req->value->ppa,PAGESIZE,temp_req->value,ASYNC,new_lsm_req);
 				}
 				else{
 					while(1){
@@ -597,10 +601,10 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 	if(likely(lsm_req)){
 
 #ifdef DVALUE
-		LSM.li->pull_data(ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+		LSM.li->read(ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
 #else
 		//printf("get ppa:%u\n",ppa);
-		LSM.li->pull_data(ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+		LSM.li->read(ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 #endif
 	}
 	return res;
@@ -611,7 +615,7 @@ void dummy_htable_read(KEYT pbn,request *req){
 	lsm_req->type=HEADERR;
 	params->lsm_type=HEADERR;
 	params->ppa=pbn;
-	LSM.li->pull_data(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+	LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 }
 uint32_t __lsm_get(request *const req){
 	int level;
@@ -701,9 +705,9 @@ retry:
 				algo_req *lsm_req=lsm_get_req_factory(req,DATAR);
 				req->value->ppa=find->ppa;
 #ifdef DVALUE
-				LSM.li->pull_data(find->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+				LSM.li->read(find->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
 #else
-				LSM.li->pull_data(find->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+				LSM.li->read(find->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 #endif
 				res=1;
 			}
@@ -782,7 +786,7 @@ retry:
 #ifdef NOCPY
 			req->value->nocpy=nocpy_pick(params->ppa);
 #endif
-			LSM.li->pull_data(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+			LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 			__header_read_cnt++;
 
 			free(entries);
