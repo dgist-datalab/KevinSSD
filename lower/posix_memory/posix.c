@@ -46,11 +46,11 @@ lower_info my_posix={
 	.create=posix_create,
 	.destroy=posix_destroy,
 #if (ASYNC==1)
-	.push_data=posix_make_push,
-	.pull_data=posix_make_pull,
+	.write=posix_make_push,
+	.read=posix_make_pull,
 #elif (ASYNC==0)
-	.push_data=posix_push_data,
-	.pull_data=posix_pull_data,
+	.write=posix_push_data,
+	.read=posix_pull_data,
 #endif
 	.device_badblock_checker=NULL,
 #if (ASYNC==1)

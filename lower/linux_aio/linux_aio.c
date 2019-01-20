@@ -25,8 +25,8 @@
 lower_info aio_info={
 	.create=aio_create,
 	.destroy=aio_destroy,
-	.push_data=aio_push_data,
-	.pull_data=aio_pull_data,
+	.write=aio_push_data,
+	.read=aio_pull_data,
 	.device_badblock_checker=NULL,
 	.trim_block=aio_trim_block,
 	.refresh=aio_refresh,

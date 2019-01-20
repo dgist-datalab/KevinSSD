@@ -233,22 +233,31 @@ void *p_main(void *__input){
 					//mp.li->lower_flying_req_wait();
 				}
 				//			printf("read key :%d\n",inf_req->key);
-				mp.algo->get(inf_req);
+				mp.algo->read(inf_req);
 				MA(&mt4);
 				break;
 			case FS_SET_T:
 				//			printf("write key :%d\n",inf_req->key);
-				write_stop=mp.algo->set(inf_req);
+				write_stop=mp.algo->write(inf_req);
 				//	write_stop=false;
 				break;
 			case FS_DELETE_T:
 				mp.algo->remove(inf_req);
 				break;
 			case FS_RMW_T:
-				mp.algo->get(inf_req);
+				mp.algo->read(inf_req);
 				break;
 			case FS_MSET_T:
 				mp.algo->multi_set(inf_req,inf_req->num);
+				break;
+			case FS_ITER_CRT_T:
+				mp.algo->iter_create(inf_req);
+				break;
+			case FS_ITER_NXT_T:
+				mp.algo->iter_next(inf_req);
+				break;
+			case FS_ITER_RLS_T:
+				mp.algo->iter_release(inf_req);
 				break;
 			case FS_RANGEGET_T:
 				mp.algo->range_get(inf_req,inf_req->num);
@@ -298,7 +307,8 @@ bool inf_make_req_fromApp(char _type, KEYT _key,KEYT offset, KEYT len,PTR _value
 	measure_init(&req->latency_checker);
 	measure_start(&req->latency_checker);
 #endif
-	assign_req(req);*/
+	assign_req(req);
+	return true;*/
 	return true;
 }
 
@@ -370,6 +380,7 @@ static request* inf_get_req_common(request *req, bool fromApp, int mark){
 	req->before_type_lower=0;
 	req->seq=seq_num++;
 	req->special_func=NULL;
+	req->added_end_req=NULL;
 	req->p_req=NULL;
 	req->p_end_req=NULL;
 #ifndef USINGAPP
@@ -440,8 +451,8 @@ bool inf_make_req(const FSTYPE type, const KEYT key,char* value){
 }
 
 
-bool inf_make_multi_req(const FSTYPE type, KEYT *keys, char **values, int *lengths, int req_num, int mark){
-	request *req=inf_get_multi_req_instance(type, keys, values, lengths, req_num,mark,0);
+bool inf_make_multi_set(const FSTYPE type, KEYT *keys, char **values, int *lengths, int req_num, int mark){
+	
 	return 0;
 }
 
@@ -512,6 +523,11 @@ bool inf_end_req( request * const req){
 		special((void*)params);
 	}
 
+	/*for range query*/
+	if(req->added_end_req){
+		req->added_end_req(req);
+	}
+
 	if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){
 
 	}
@@ -574,6 +590,45 @@ void inf_print_debug(){
 }
 
 
+bool inf_make_multi_req(char type, KEYT key,KEYT *keys,char **values,uint32_t lengths,bool (*added_end)(struct request *const)){
+	request *req=inf_get_req_instance(-1,key,NULL,PAGESIZE,0,false);
+	cl_grap(flying);
+	uint32_t i;
+	switch(type){
+		case FS_MSET_T:
+			/*should implement*/
+			break;
+		case FS_ITER_CRT_T:
+			break;
+		case FS_ITER_NXT_T:
+			req->multi_value=(value_set**)malloc(sizeof(value_set*)*lengths);
+			for(i=0; i < lengths; i++){
+				req->multi_value[i]=inf_get_valueset(NULL,FS_GET_T,PAGESIZE);
+			}
+			break;
+		case FS_ITER_RLS_T:
+
+			break;
+		default:
+			printf("error in inf_make_multi_req\n");
+			return false;
+	}
+	req->added_end_req=added_end;
+	req->isstart=false;
+	measure_init(&req->latency_checker);
+	measure_start(&req->latency_checker);
+	assign_req(req);
+	return true;
+}
+bool inf_iter_create(KEYT start,bool (*added_end)(struct request *const)){
+	return inf_make_multi_req(FS_ITER_CRT_T,start,NULL,NULL,PAGESIZE,added_end);
+}
+bool inf_iter_next(KEYT iter_id,KEYT length,char **values,bool (*added_end)(struct request *const)){
+	return inf_make_multi_req(FS_ITER_NXT_T,iter_id,NULL,values,length,added_end);
+}
+bool inf_iter_release(KEYT iter_id, bool (*added_end)(struct request *const)){
+	return inf_make_multi_req(FS_ITER_RLS_T,iter_id,NULL,NULL,0,added_end);
+}
 value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
 	value_set *res=(value_set*)malloc(sizeof(value_set));
 	//check dma alloc type
