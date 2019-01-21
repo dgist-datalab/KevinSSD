@@ -509,6 +509,7 @@ run_t *hash_range_find_start(level *lev, KEYT start){
 		if(ptr->key > start){
 			return ptr;
 		}
+		temp=temp->list[1];
 	}
 	return NULL;
 }

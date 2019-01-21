@@ -289,6 +289,62 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overla
 
 }
 #endif
+snode *skiplist_insert_iter(skiplist *list,KEYT key,KEYT ppa){
+	snode *update[MAX_L+1];
+	snode *x=list->header;
+
+	for(int i=list->level; i>=1; i--){
+		while(x->list[i]->key<key)
+			x=x->list[i];
+		update[i]=x;
+	}
+	x=x->list[1];
+	
+	if(key<list->start) list->start=key;
+	if(key>list->end) list->end=key;
+
+	if(key==x->key){
+#ifdef DEBUG
+
+#endif
+		x->ppa=ppa;
+		return x;
+	}
+	else{
+		int level=getLevel();
+		if(level>list->level){
+			for(int i=list->level+1; i<=level; i++){
+				update[i]=list->header;
+			}
+			list->level=level;
+		}
+#ifdef USINGSLAB
+	d//	x=(snode*)slab_alloc(&snode_slab);
+		x=(snode*)kmem_cache_alloc(snode_slab,KM_NOSLEEP);
+#else
+		x=(snode*)malloc(sizeof(snode));
+#endif
+		x->list=(snode**)malloc(sizeof(snode*)*(level+1));
+
+		x->key=key;
+
+		x->ppa=ppa;
+		x->value=NULL;
+
+		// ++ ctoc
+		x->t_ppa = -1;
+		x->bypass = false;
+		x->write_flying = false;
+		// -- ctoc
+		for(int i=1; i<=level; i++){
+			x->list[i]=update[i]->list[i];
+			update[i]->list[i]=x;
+		}
+		x->level=level;
+		list->size++;
+	}
+	return x;
+}
 snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 	snode *update[MAX_L+1];
 	snode *x=list->header;

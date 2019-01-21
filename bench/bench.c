@@ -74,7 +74,8 @@ void bench_init(){
 				//_master->datas[i].ftl_npoll[j][k].min = UINT64_MAX;
 			}
 		}
-	}*/
+	}
+	*/
 	printf("bench:%ld\n",TOTALSIZE/PAGESIZE/8);
 	bitmap=(uint8_t*)malloc(sizeof(uint8_t)*(TOTALSIZE/(PAGESIZE)/8));
 }
@@ -86,6 +87,10 @@ void bench_make_data(){
 	_m->mark=idx;
 	_m->bech=_meta->number/(BENCHSETSIZE-1)+(_meta->number%(BENCHSETSIZE)?1:0);
 	_m->benchsetsize=(BENCHSETSIZE-1);
+	if(_meta->type==NOR){
+		printf("not fixed test!\n");
+		return;
+	}
 	printf("%d X %d = %d, answer=%lu\n",_m->bech,_m->benchsetsize,_m->bech*_m->benchsetsize,_meta->number);
 	for(uint32_t i=0; i<_m->benchsetsize; i++){
 		_m->body[i]=(bench_value*)malloc(sizeof(bench_value)*_m->bech);

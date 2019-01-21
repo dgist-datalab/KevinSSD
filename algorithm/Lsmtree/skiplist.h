@@ -63,6 +63,7 @@ snode *skiplist_find(skiplist*,KEYT); //find snode having key in skiplist, retur
 snode *skiplist_range_search(skiplist *,KEYT);
 snode *skiplist_strict_range_search(skiplist *,KEYT);
 snode *skiplist_insert(skiplist*,KEYT,value_set *,bool); //insert skiplist, return inserted snode
+snode *skiplist_insert_iter(skiplist *,KEYT lpa, KEYT ppa);
 #ifdef Lsmtree
 skiplist *skiplist_merge(skiplist *src,skiplist *des);
 snode *skiplist_insert_wP(skiplist*,KEYT,KEYT,bool);//with ppa;

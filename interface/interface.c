@@ -93,7 +93,6 @@ static void assign_req(request* req){
 						req->value=t_value;
 
 						t_req->seq=req->seq;
-
 						req->end_req(req);
 						pthread_mutex_unlock(&wq_lock);
 						write_q_hit++;
@@ -210,6 +209,7 @@ void *p_main(void *__input){
 			}
 
 			inf_req=(request*)_inf_req;
+			
 			if(inf_req->type==FS_SET_T){
 				t_h_node=(__hash_node*)inf_req->__hash_node;
 				__hash_delete_by_idx(app_hash,t_h_node->t_idx);
@@ -255,6 +255,9 @@ void *p_main(void *__input){
 				break;
 			case FS_ITER_NXT_T:
 				mp.algo->iter_next(inf_req);
+				break;
+			case FS_ITER_NXT_VALUE_T:
+				mp.algo->iter_next_with_value(inf_req);
 				break;
 			case FS_ITER_RLS_T:
 				mp.algo->iter_release(inf_req);
@@ -395,6 +398,8 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 	req->type=type;
 	req->key=key;	
 	req->ppa=0;
+	req->multi_value=NULL;
+	req->multi_key=NULL;
 	switch(type){
 		case FS_DELETE_T:
 			req->value=NULL;
@@ -528,6 +533,15 @@ bool inf_end_req( request * const req){
 		req->added_end_req(req);
 	}
 
+	if(req->type==FS_ITER_NXT_T){
+		inf_free_valueset(req->value,FS_MALLOC_R);
+	}
+	else if(req->type==FS_ITER_NXT_VALUE_T){
+		for(int i=0; i<req->num; i++){
+			inf_free_valueset(req->multi_value[i],FS_MALLOC_R);
+		}
+	}
+
 	if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){
 
 	}
@@ -591,7 +605,7 @@ void inf_print_debug(){
 
 
 bool inf_make_multi_req(char type, KEYT key,KEYT *keys,char **values,uint32_t lengths,bool (*added_end)(struct request *const)){
-	request *req=inf_get_req_instance(-1,key,NULL,PAGESIZE,0,false);
+	request *req=inf_get_req_instance(type,key,NULL,PAGESIZE,0,false);
 	cl_grap(flying);
 	uint32_t i;
 	switch(type){
@@ -601,10 +615,15 @@ bool inf_make_multi_req(char type, KEYT key,KEYT *keys,char **values,uint32_t le
 		case FS_ITER_CRT_T:
 			break;
 		case FS_ITER_NXT_T:
+			req->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
+			req->num=lengths;
+			break;
+		case FS_ITER_NXT_VALUE_T:
 			req->multi_value=(value_set**)malloc(sizeof(value_set*)*lengths);
 			for(i=0; i < lengths; i++){
 				req->multi_value[i]=inf_get_valueset(NULL,FS_GET_T,PAGESIZE);
 			}
+			req->num=lengths;
 			break;
 		case FS_ITER_RLS_T:
 
@@ -623,8 +642,13 @@ bool inf_make_multi_req(char type, KEYT key,KEYT *keys,char **values,uint32_t le
 bool inf_iter_create(KEYT start,bool (*added_end)(struct request *const)){
 	return inf_make_multi_req(FS_ITER_CRT_T,start,NULL,NULL,PAGESIZE,added_end);
 }
-bool inf_iter_next(KEYT iter_id,KEYT length,char **values,bool (*added_end)(struct request *const)){
-	return inf_make_multi_req(FS_ITER_NXT_T,iter_id,NULL,values,length,added_end);
+bool inf_iter_next(KEYT iter_id,KEYT length,char **values,bool (*added_end)(struct request *const),bool withvalue){
+	if(withvalue){
+		return inf_make_multi_req(FS_ITER_NXT_VALUE_T,iter_id,NULL,values,length,added_end);
+	}
+	else{
+		return inf_make_multi_req(FS_ITER_NXT_T,iter_id,NULL,values,length,added_end);
+	}
 }
 bool inf_iter_release(KEYT iter_id, bool (*added_end)(struct request *const)){
 	return inf_make_multi_req(FS_ITER_RLS_T,iter_id,NULL,NULL,0,added_end);

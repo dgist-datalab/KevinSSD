@@ -35,6 +35,7 @@ struct algorithm algo_lsm={
 	.remove=lsm_remove,
 	.iter_create=lsm_iter_create,
 	.iter_next=lsm_iter_next,
+	.iter_next_with_value=lsm_iter_next_with_value,
 	.iter_release=lsm_iter_release,
 	.multi_set=lsm_multi_set,
 	.range_get=lsm_range_get,

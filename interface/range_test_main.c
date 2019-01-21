@@ -21,7 +21,35 @@ extern lsmtree LSM;
 int skiplist_hit;
 #endif
 
+int range_target_cnt,range_now_cnt;
 bool last_end_req(struct request *const req){
+	int i=0;
+	switch(req->type){
+		case FS_MSET_T:
+			/*should implement*/
+			break;
+		case FS_ITER_CRT_T:
+			printf("create iter! id:%u [%u]\n",req->ppa,req->key);
+			break;
+		case FS_ITER_NXT_T:
+			for(i=0;i<req->num; i++){
+				keyset *k=&((keyset*)req->value->value)[i];
+				printf("keyset:%u-%u\n",k->lpa,k->ppa);
+			}
+			break;
+		case FS_ITER_NXT_VALUE_T:
+			for(i=0;i<req->num; i++){
+				KEYT k=req->multi_key[i];
+				printf("next_value: keyset:%u\n",k);
+			}		
+			break;
+		case FS_ITER_RLS_T:
+			break;
+		default:
+			printf("error in inf_make_multi_req\n");
+			return false;
+	}
+	range_now_cnt++;
 	return true;
 }
 
@@ -34,14 +62,20 @@ int main(int argc,char* argv[]){
 	bench_value *value;
 	value_set temp;
 	temp.dmatag=-1;
+	temp.value=NULL;
 	while((value=get_bench())){
 		inf_make_req(value->type,value->key,temp.value,value->length,value->mark);
 	}
 
-	int iter_id=inf_iter_create(rand()%((uint32_t)RANGE),last_end_req);
-	char *test_values[100];
-	inf_iter_next(iter_id,100,test_values,last_end_req);
-	inf_iter_release(iter_id,last_end_req);
+	range_target_cnt=3;
 
+//	int iter_id=
+	inf_iter_create(rand()%((uint32_t)RANGE),last_end_req);
+	char *test_values[100];
+	inf_iter_next(0/*iter_id*/,100,test_values,last_end_req,false);
+	inf_iter_next(0/*iter_id*/,100,test_values,last_end_req,true);
+//	inf_iter_release(0/*iter_id*/,last_end_req);
+
+	while(range_target_cnt!=range_now_cnt){}
 	return 0;
 }

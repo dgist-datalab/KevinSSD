@@ -11,8 +11,9 @@
 #define FS_MSET_T 8
 #define FS_ITER_CRT_T 9
 #define FS_ITER_NXT_T 10
-#define FS_ITER_RLS_T 11
-#define FS_RANGEGET_T 12
+#define FS_ITER_NXT_VALUE_T 11
+#define FS_ITER_RLS_T 12
+#define FS_RANGEGET_T 13
 
 #define LREQ_TYPE_NUM 9
 #define TRIM 0

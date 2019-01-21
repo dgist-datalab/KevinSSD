@@ -2,6 +2,7 @@
 #define __LSM_ITER_H__
 #include "../../include/data_struct/redblack.h"
 #include "../../include/settings.h"
+#include "../../include/sem_lock.h"
 #include "../../interface/queue.h"
 #include "lsmtree.h"
 #include "level.h"
@@ -20,12 +21,14 @@ typedef struct lsmtree_iterator{
 	int *iter_idx;
 	int datas_idx;
 	int *run_ptr;
-	Redblack rb;
+	//Redblack rb;
+	fdriver_lock_t initiated_lock;
 }lsm_iter;
 
 typedef struct lsmtree_iterator_params{
 	lsm_iter *target;
 	uint8_t lsm_type;
+	value_set *value;
 	KEYT ppa;
 	int idx;
 }lsmtree_iter_param;
