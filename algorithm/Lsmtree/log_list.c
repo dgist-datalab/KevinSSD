@@ -155,7 +155,7 @@ int llog_erase_cnt(llog *b){
 	return ecnt;
 }
 
-bool llog_isthere(llog *b,KEYT pba){
+bool llog_isthere(llog *b,uint32_t pba){
 	//printf("size: %d\n",b->size);
 	llog_node *head=b->head;
 	while(head){

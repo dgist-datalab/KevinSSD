@@ -19,7 +19,7 @@ typedef struct skiplist skiplist;
 
 typedef struct keyset{
 	KEYT lpa;
-	KEYT ppa;
+	uint32_t ppa;
 }keyset;
 
 typedef struct htable{
@@ -47,7 +47,7 @@ typedef struct htable_t{
 typedef struct run{ 
 	KEYT key;
 	KEYT end;
-	KEYT pbn;
+	uint32_t pbn;
 #ifdef BLOOM
 	BF *filter;
 #endif
@@ -151,7 +151,7 @@ typedef struct level_ops{
 }level_ops;
 
 void def_moveTo_fr_page( level*);
-KEYT def_get_page( level*, uint8_t plegnth);
+uint32_t def_get_page( level*, uint8_t plegnth);
 bool def_blk_fchk( level *);
 void def_move_heap( level *des,  level *src);
 bool def_fchk( level *);

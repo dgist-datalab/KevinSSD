@@ -80,7 +80,7 @@ uint32_t __lsm_range_get_sub(request* req,lsm_sub_req *sr,void *arg1, void *arg2
 	keyset *key_table;
 	snode *t_node;
 	lsm_range_params *params=(lsm_range_params*)req->params;
-	KEYT ppa=0;
+	uint32_t ppa=0;
 	switch(type){
 		case MEMTABLE:
 			memtable=(skiplist*)arg1;

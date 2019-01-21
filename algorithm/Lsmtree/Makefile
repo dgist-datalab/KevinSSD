@@ -30,9 +30,7 @@ SRCS +=\
 	   compaction.c\
 	   page.c\
 	   heap.c\
-	   footer.c\
 	   log_list.c\
-	   factory.c\
 	   nocpy.c\
 	   lops_default.c\
 	   cache.c\

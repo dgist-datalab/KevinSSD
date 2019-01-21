@@ -1,6 +1,7 @@
 #ifndef __LSM_HEADER__
 #define __LSM_HEADER__
 #include <pthread.h>
+#include <limits.h>
 #include "level.h"
 #include "skiplist.h"
 #include "bloomfilter.h"
@@ -14,6 +15,7 @@
 #include "../../include/lsm_settings.h"
 #include "../../include/utils/dl_sync.h"
 #include "../../include/types.h"
+#include "../../interface/interface.h"
 
 #define HEADERR MAPPINGR
 #define HEADERW MAPPINGW
@@ -39,7 +41,7 @@ typedef struct level_ops level_ops;
 typedef struct lsm_params{
 	dl_sync lock;
 	uint8_t lsm_type;
-	KEYT ppa;
+	uint32_t ppa;
 	void *entry_ptr;
 	PTR test;
 	PTR* target;
@@ -66,9 +68,9 @@ typedef struct lsm_range_params{
 }lsm_range_params;
 
 typedef struct lsmtree{
-	KEYT KEYNUM;
-	KEYT ORGHEADER;
-	KEYT FLUSHNUM;
+	uint32_t KEYNUM;
+	uint32_t ORGHEADER;
+	uint32_t FLUSHNUM;
 	bool inplace_compaction; 
 
 	level *disk[LEVELN];
@@ -112,9 +114,9 @@ htable *htable_copy(htable *);
 htable *htable_assign(char*,bool);
 htable *htable_dummy_assign();
 void htable_free(htable*);
-void htable_print(htable*,KEYT);
+void htable_print(htable*,uint32_t);
 algo_req *lsm_get_req_factory(request*,uint8_t);
-void htable_check(htable *in,KEYT lpa,KEYT ppa,char *);
+void htable_check(htable *in,KEYT lpa,uint32_t ppa,char *);
 
 uint32_t lsm_multi_set(request *const, uint32_t num);
 uint32_t lsm_range_get(request *const, uint32_t len);

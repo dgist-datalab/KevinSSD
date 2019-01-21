@@ -52,6 +52,7 @@
 //#define RANGE ((GIGAUNIT)*(M/PAGESIZE)*1024L*0.8)
 //#define RANGE (50*(M/PAGESIZE)*1024L*0.8)
 
+
 #define SIMULATION 0
 
 #define FSTYPE uint8_t

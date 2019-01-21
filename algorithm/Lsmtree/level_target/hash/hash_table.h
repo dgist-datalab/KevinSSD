@@ -5,6 +5,7 @@
 #define CUC_ENT_NUM ((int)(HENTRY*LOADF))
 
 #include <stdint.h>
+#include <limits.h>
 #include <sys/types.h>
 #include "../../skiplist.h"
 #include "../../level.h"

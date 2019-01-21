@@ -24,5 +24,5 @@ void llog_move_back(llog *body, llog_node *target);
 void llog_move_blv(llog *body,llog_node* target);
 int llog_erase_cnt(llog *body);
 void llog_print(llog *body);
-bool llog_isthere(llog*, KEYT pba);
+bool llog_isthere(llog*, uint32_t pba);
 #endif

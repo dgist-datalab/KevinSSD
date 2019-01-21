@@ -105,7 +105,7 @@ void MurmurHash3_x86_32( const void * key, int len,uint32_t seed, void * out )
 	*(uint32_t*)out = h1;
 } 
 
-KEYT hashfunction(KEYT key){
+uint32_t hashfunction(KEYT key){
 	key ^= key >> 15;
 	key *= UINT32_C(0x2c1b3c6d);
 	key ^= key >> 12;
@@ -160,7 +160,7 @@ void bf_set(BF *input, KEYT key){
 	if(input==NULL){
 		abort();
 	}
-	KEYT h;
+	uint32_t h;
 	int block;
 	int offset;
 	//printf("%u:",key);
@@ -178,7 +178,7 @@ void bf_set(BF *input, KEYT key){
 }
 
 bool bf_check(BF* input, KEYT key){
-	KEYT h;
+	uint32_t h;
 	int block,offset;
 	if(input==NULL) return true;
 

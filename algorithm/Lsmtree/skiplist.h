@@ -20,8 +20,8 @@ typedef struct htable htable;
 #endif
 typedef struct snode{ //skiplist's node
 	KEYT key;
-	KEYT ppa;
-	KEYT level;
+	uint32_t ppa;
+	uint32_t level;
 	value_set* value;
 	bool isvalid;
 
@@ -63,13 +63,13 @@ snode *skiplist_find(skiplist*,KEYT); //find snode having key in skiplist, retur
 snode *skiplist_range_search(skiplist *,KEYT);
 snode *skiplist_strict_range_search(skiplist *,KEYT);
 snode *skiplist_insert(skiplist*,KEYT,value_set *,bool); //insert skiplist, return inserted snode
-snode *skiplist_insert_iter(skiplist *,KEYT lpa, KEYT ppa);
+snode *skiplist_insert_iter(skiplist *,KEYT lpa, uint32_t ppa);
 #ifdef Lsmtree
 skiplist *skiplist_merge(skiplist *src,skiplist *des);
-snode *skiplist_insert_wP(skiplist*,KEYT,KEYT,bool);//with ppa;
-snode *skiplist_insert_existIgnore(skiplist *, KEYT,KEYT,bool); //insert skiplist, if key exists, input data be ignored
+snode *skiplist_insert_wP(skiplist*,KEYT,uint32_t,bool);//with ppa;
+snode *skiplist_insert_existIgnore(skiplist *, KEYT,uint32_t,bool); //insert skiplist, if key exists, input data be ignored
 value_set **skiplist_make_valueset(skiplist*,struct level *from);
-skiplist *skiplist_cut(skiplist*,KEYT size,KEYT limit, htable *,float fpr);
+skiplist *skiplist_cut(skiplist*,uint32_t size,KEYT limit, htable *,float fpr);
 snode *skiplist_general_insert(skiplist*,KEYT,void *,void (*overlap)(void*));
 #endif
 snode *skiplist_at(skiplist *,int idx);

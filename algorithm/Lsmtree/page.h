@@ -3,7 +3,6 @@
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
 #include "heap.h"
-#include "footer.h"
 #include "log_list.h"
 #include <pthread.h>
 
@@ -13,8 +12,8 @@
 
 struct level; 
 typedef struct{
-	KEYT ppa;
-	KEYT nppa;
+	uint32_t ppa;
+	uint32_t nppa;
 	KEYT lpa;
 	PTR value;
 	uint8_t plength;
@@ -30,7 +29,7 @@ typedef struct{
 	/*genearal pard*/
 	bool erased;
 	llog_node *l_node;//pm where the block assigned
-	KEYT ppa;//block start number
+	uint32_t ppa;//block start number
 	uint32_t invalid_n;
 
 	/*for data block*/
@@ -38,7 +37,7 @@ typedef struct{
 	uint8_t *length_data;
 	bool isflying;
 	llog *b_log;
-	KEYT *ppage_array;
+	uint32_t *ppage_array;
 	pthread_mutex_t lock;
 	KEYT ldp;//the page number has PVB data;
 #endif
@@ -49,22 +48,22 @@ typedef struct{
 	llog_node *hn_ptr;
 #endif
 	uint8_t *bitset;//page validate bit
-	KEYT ppage_idx;
+	uint32_t ppage_idx;
 	uint8_t level;
 }block;
 
 typedef struct{
 	uint32_t invalid_n;
-	KEYT trimed_block;
-	KEYT segment_idx; //next reserved block
+	uint32_t trimed_block;
+	uint32_t segment_idx; //next reserved block
 #ifdef COSTBENEFIT
-	KEYT cost;
+	uint32_t cost;
 #endif
-	KEYT ppa;
+	uint32_t ppa;
 }segment;
 
 typedef struct page_manager{
-	KEYT block_num;
+	uint32_t block_num;
 	llog *blocks;
 	llog_node *n_log;
 	segment *target;//gc_target;
@@ -84,9 +83,9 @@ void block_init();
 
 void pm_init();
 
-KEYT getPPA(uint8_t type, KEYT, bool);//in DVALUE return block id;
+uint32_t getPPA(uint8_t type, uint32_t, bool);//in DVALUE return block id;
 
-void invalidate_PPA(KEYT ppa);
+void invalidate_PPA(uint32_t ppa);
 void block_print();
 OOBT PBITSET(KEYT,bool);
 void gc_data_now_block_chg(struct level *in, block *);
@@ -94,19 +93,19 @@ void gc_data_now_block_chg(struct level *in, block *);
 void block_load(block *b);
 void block_save(block *b);
 void block_meta_init(block *b);
-KEYT getBPPA(KEYT);//block key
-void invalidate_DPPA(KEYT ppa);
-void invalidate_BPPA(KEYT ppa);
+uint32_t getBPPA(KEYT);//block key
+void invalidate_DPPA(uint32_t ppa);
+void invalidate_BPPA(uint32_t ppa);
 block **get_victim_Dblock(KEYT);
-int gc_block(KEYT tbn);
+int gc_block(uint32_t tbn);
 #endif
 int get_victim_block(pm *);
 bool PBITFULL(KEYT input,bool isrealppa);
-int gc_header(KEYT tbn);
-int gc_data(KEYT tbn);
+int gc_header(uint32_t tbn);
+int gc_data(uint32_t tbn);
 bool gc_check(uint8_t,bool);
 bool gc_segment_force();
-KEYT gc_victim_segment(uint8_t type,bool);
-void gc_trim_segment(uint8_t, KEYT pbn);
+uint32_t gc_victim_segment(uint8_t type,bool);
+void gc_trim_segment(uint8_t, uint32_t pbn);
 block *gc_getrblock_fromseg(uint8_t type);
 #endif

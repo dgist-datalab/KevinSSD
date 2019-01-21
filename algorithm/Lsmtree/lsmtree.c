@@ -12,7 +12,6 @@
 #include "lsmtree.h"
 #include "page.h"
 #include "nocpy.h"
-#include "factory.h"
 #include<stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -186,9 +185,6 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 		pthread_mutex_init(&LSM.level_lock[i],NULL);
 	}
 	compaction_init();
-#ifdef DVALUE
-	factory_init();
-#endif
 	q_init(&LSM.re_q,RQSIZE);
 
 
@@ -209,9 +205,6 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	//LSM.lop->all_print();
 	lsm_debug_print();
 	compaction_free();
-#ifdef DVALUE
-	factory_free();
-#endif
 
 	cache_free(LSM.lsm_cache);
 	printf("last summary-----\n");
@@ -240,7 +233,6 @@ extern pthread_mutex_t compaction_wait,gc_wait;
 extern int epc_check,gc_read_wait;
 extern int memcpy_cnt;
 volatile int comp_target_get_cnt=0,gc_target_get_cnt;
-extern pthread_cond_t factory_cond;
 void* lsm_end_req(algo_req* const req){
 	lsm_params *params=(lsm_params*)req->params;
 	request* parents=req->parents;
@@ -348,7 +340,6 @@ void* lsm_end_req(algo_req* const req){
 				memcpy(LSM.caching_value,parents->value->value,PAGESIZE);
 				pthread_mutex_unlock(&LSM.valueset_lock);
 				params->lsm_type=SDATAR;
-				ftry_assign(req); //return by factory thread
 				return NULL;
 			}
 #endif
@@ -491,7 +482,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 	if(!entry && !table && !list){
 		return 0;
 	}
-	KEYT ppa;
+	uint32_t ppa;
 	algo_req *lsm_req=NULL;
 	snode *target_node;
 	keyset *target_set;
@@ -610,7 +601,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 	}
 	return res;
 }
-void dummy_htable_read(KEYT pbn,request *req){
+void dummy_htable_read(uint32_t pbn,request *req){
 	algo_req *lsm_req=lsm_get_req_factory(req,DATAR);
 	lsm_params *params=(lsm_params*)lsm_req->params;
 	lsm_req->type=HEADERR;
@@ -861,7 +852,7 @@ htable *htable_dummy_assign(){
 	res->origin=NULL;
 	return res;
 }
-void htable_print(htable * input,KEYT ppa){
+void htable_print(htable * input,uint32_t ppa){
 	bool check=false;
 	int cnt=0;
 	for(uint32_t i=0; i<FULLMAPNUM; i++){
@@ -881,7 +872,7 @@ void htable_print(htable * input,KEYT ppa){
 	}
 }
 extern block bl[_NOB];
-void htable_check(htable *in, KEYT lpa, KEYT ppa,char *log){
+void htable_check(htable *in, KEYT lpa, uint32_t ppa,char *log){
 	keyset *target=NULL;
 #ifdef NOCPY
 	if(in->nocpy_table){

@@ -247,8 +247,8 @@ run_t *compaction_data_write(skiplist *mem){
 	return res;
 }
 
-KEYT compaction_htable_write(htable *input, KEYT lpa){
-	KEYT ppa=getPPA(HEADER,lpa,true);//set ppa;
+uint32_t compaction_htable_write(htable *input, uint32_t lpa){
+	uint32_t ppa=getPPA(HEADER,lpa,true);//set ppa;
 
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
@@ -271,7 +271,7 @@ KEYT compaction_htable_write(htable *input, KEYT lpa){
 	LSM.li->write(ppa,PAGESIZE,params->value,ASYNC,areq);
 	return ppa;
 }
-void dummy_meta_write(KEYT ppa){
+void dummy_meta_write(uint32_t ppa){
 	value_set *temp=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 
@@ -944,7 +944,7 @@ skip:
 #define MAPNUM(a) (a/FULLMAPNUM)
 #define MAPOFFSET(a) (a%FULLMAPNUM)
 void level_one_header_update(run_t *pre_run){
-	KEYT old_header_pbn=pre_run->pbn;
+	uint32_t old_header_pbn=pre_run->pbn;
 	if(!pre_run->c_entry && pre_run->cpt_data && cache_insertable(LSM.lsm_cache)){
 
 		char *cache_temp;
@@ -987,11 +987,11 @@ uint32_t level_one_processing(level *from, level *to, run_t *entry, pthread_mute
 
 	snode *node;
 	run_t *table;
-	KEYT pre_map_num=UINT_MAX;
+	uint32_t pre_map_num=UINT_MAX;
 	//printf("compaction_called\n");
 	compaction_sub_pre();
 	for_each_sk(node,body){ //read data
-		KEYT mapnum=MAPNUM(node->key);
+		uint32_t mapnum=MAPNUM(node->key);
 		if(pre_map_num==mapnum) continue;
 		table=&to->mappings[mapnum];
 		if(table->pbn==UINT_MAX) {
@@ -1029,12 +1029,12 @@ uint32_t level_one_processing(level *from, level *to, run_t *entry, pthread_mute
 	compaction_sub_wait(); //read req done
 	
 	pre_map_num=UINT_MAX;
-	KEYT old_header_pbn;
+	uint32_t old_header_pbn;
 	run_t * pre_run=NULL;
 
 	for_each_sk(node,body){
-		KEYT mapnum=MAPNUM(node->key);
-		KEYT offset=MAPOFFSET(node->key);
+		uint32_t mapnum=MAPNUM(node->key);
+		uint32_t offset=MAPOFFSET(node->key);
 		table=&to->mappings[mapnum];
 
 		keyset *map;

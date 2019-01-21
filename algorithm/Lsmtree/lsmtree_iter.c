@@ -245,7 +245,7 @@ uint32_t lsm_iter_next_with_value(request *req){
 uint32_t lsm_iter_release(request *req){
 	printf("release called\n");
 	Redblack target;
-	KEYT iter_id=req->key;
+	uint32_t iter_id=req->key;
 	rb_find_int(im.rb,iter_id,&target);
 	lsm_iter *temp=(lsm_iter*)target->item;
 

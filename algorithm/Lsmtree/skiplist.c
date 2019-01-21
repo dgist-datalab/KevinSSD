@@ -10,8 +10,7 @@
 #ifdef Lsmtree
 #include "lsmtree.h"
 #include "level.h"
-#include"page.h"
-#include "footer.h"
+#include "page.h"
 
 extern MeasureTime compaction_timer[3];
 extern OOBT *oob;
@@ -108,7 +107,7 @@ static int getLevel(){
 }
 
 #ifdef Lsmtree
-snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
+snode *skiplist_insert_wP(skiplist *list, KEYT key, uint32_t ppa,bool deletef){
 	if(key>RANGE){
 		printf("bad page read key:%u\n",key);
 		return NULL;
@@ -168,7 +167,7 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, KEYT ppa,bool deletef){
 	return x;
 }
 
-snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,KEYT ppa,bool deletef){	
+snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,uint32_t ppa,bool deletef){	
 	if(key>RANGE){
 		printf("bad page read\n");
 		return NULL;
@@ -289,7 +288,7 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overla
 
 }
 #endif
-snode *skiplist_insert_iter(skiplist *list,KEYT key,KEYT ppa){
+snode *skiplist_insert_iter(skiplist *list,KEYT key,uint32_t ppa){
 	snode *update[MAX_L+1];
 	snode *x=list->header;
 
@@ -590,7 +589,7 @@ void skiplist_dump(skiplist * list){
 	sk_iter *iter=skiplist_get_iterator(list);
 	snode *now;
 	while((now=skiplist_get_next(iter))!=NULL){
-		for(KEYT i=1; i<=now->level; i++){
+		for(uint32_t i=1; i<=now->level; i++){
 			printf("%u ",now->key);
 		}
 		printf("\n");

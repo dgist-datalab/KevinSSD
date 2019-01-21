@@ -2,7 +2,6 @@
 #include "compaction.h"
 #include "lsmtree.h"
 #include "../../interface/interface.h"
-#include "footer.h"
 #include "skiplist.h"
 #include "nocpy.h"
 #include "../../include/utils/rwlock.h"
@@ -14,12 +13,12 @@
 extern algorithm algo_lsm;
 extern lsmtree LSM;
 extern volatile int gc_target_get_cnt;
-KEYT getRPPA(uint8_t type,KEYT lpa,bool);
+uint32_t getRPPA(uint8_t type,KEYT lpa,bool);
 block* getRBLOCK(uint8_t type);
 volatile int gc_read_wait;
 pthread_mutex_t gc_wait;
 #ifdef NOGC
-KEYT __ppa;
+uint32_t __ppa;
 #endif
 
 block bl[_NOB];
@@ -29,11 +28,11 @@ pm data_m;//for data blocks
 pm header_m;//for header ppaa
 pm block_m;//for dynamic block;
 
-segment* WHICHSEG(KEYT ppa){
+segment* WHICHSEG(uint32_t ppa){
 	return &segs[ppa/(_PPS)];
 }
 
-uint8_t BLOCKTYPE(KEYT ppa){
+uint8_t BLOCKTYPE(uint32_t ppa){
 	if(ppa<HEADERSEG*_PPS){
 		return HEADER;
 	}
@@ -52,8 +51,8 @@ OOBT PBITSET(KEYT input,bool isFull){
 	return value;
 }
 
-KEYT PBITGET(KEYT ppa){
-	KEYT res=(KEYT)oob[ppa];
+KEYT PBITGET(uint32_t ppa){
+	KEYT res=(uint32_t)oob[ppa];
 #ifdef DVALUE
 	res>>=1;
 #endif
@@ -76,7 +75,7 @@ uint32_t all_invalid_num(){
 	return res;
 }
 
-void block_print(KEYT ppa){
+void block_print(uint32_t ppa){
 	block* b=&bl[ppa/_PPB];
 	printf("[%d] level:%d invalid_n:%u ppage_idx:%u erased:%d\n",ppa/_PPB,b->level,b->invalid_n, b->ppage_idx,b->erased?1:0);
 }
@@ -105,7 +104,7 @@ void segment_all_print(){
 
 int segment_print(int num){
 	segment *s=&segs[num];
-	KEYT start=s->ppa/_PPB;
+	uint32_t start=s->ppa/_PPB;
 	int cnt=0;
 	for(int i=0; i<BPS; i++){
 		block *b=&bl[i+start];
@@ -122,8 +121,8 @@ int segment_print(int num){
 }
 
 void block_free_ppa(uint8_t type, block* b){
-	KEYT start=b->ppa; //oob init
-	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
+	uint32_t start=b->ppa; //oob init
+	for(uint32_t i=0; i<algo_lsm.li->PPB; i++){
 		oob[start+i]=0;
 	}
 	switch(type){
@@ -214,7 +213,7 @@ void gc_change_reserve(pm *target_p, segment *seg,uint8_t type){
 	//printf("old reserve:%d new reserve:%d~%d\n",target_p->reserve->ppa,target_p->target->ppa,target_p->target->ppa+_PPS);
 }
 
-void gc_trim_segment(uint8_t type, KEYT pbn){
+void gc_trim_segment(uint8_t type, uint32_t pbn){
 	pm *target_p;
 	if(type==DATA){
 		target_p=&data_m;
@@ -262,7 +261,7 @@ void block_init(){
 	memset(oob,0,sizeof(OOBT)*_NOP);
 	pthread_mutex_init(&gc_wait,NULL);
 	gc_read_wait=0;
-	for(KEYT i=0; i<_NOB; i++){
+	for(uint32_t i=0; i<_NOB; i++){
 		bl[i].ppa=i*_PPB;
 #ifdef DVALUE
 		bl[i].ldp=UINT_MAX;
@@ -307,8 +306,8 @@ void block_apply_log(block *b){
 		while(temp){
 			prev=llog_next(temp);
 			KEYT *key=(KEYT*)temp->data;
-			KEYT idx_in_block=(*key/(PAGESIZE/PIECE))%_PPB;
-			KEYT idx_in_page=(*key%(PAGESIZE/PIECE));
+			uint32_t idx_in_block=(*key/(PAGESIZE/PIECE))%_PPB;
+			uint32_t idx_in_page=(*key%(PAGESIZE/PIECE));
 			uint8_t plength=b->length_data[idx_in_block*(PAGESIZE/PIECE)+idx_in_page]/2;
 			for(int i=0; i<plength; i++){
 				b->length_data[idx_in_block*(PAGESIZE/PIECE)+idx_in_page+i]|=1; //1 == invalid
@@ -346,7 +345,7 @@ void block_save(block *b){
 	params->htable_ptr=(PTR)b;
 
 	params->value=inf_get_valueset((PTR)b->length_data,FS_MALLOC_W,PAGESIZE);
-	KEYT ldp=getPPA(BLOCK,b->ppa,true);
+	uint32_t ldp=getPPA(BLOCK,b->ppa,true);
 	
 	LSM.li->write(ldp,PAGESIZE,params->value,ASYNC,lsm_req);
 	b->length_data=NULL;
@@ -358,7 +357,7 @@ void block_save(block *b){
 }
 #endif
 
-void gc_data_read(KEYT ppa,htable_t *value,bool isdata){
+void gc_data_read(uint32_t ppa,htable_t *value,bool isdata){
 	gc_read_wait++;
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
@@ -384,7 +383,7 @@ void gc_data_read(KEYT ppa,htable_t *value,bool isdata){
 	return;
 }
 
-void gc_data_write(KEYT ppa,htable_t *value,bool isdata){
+void gc_data_write(uint32_t ppa,htable_t *value,bool isdata){
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 
@@ -407,15 +406,15 @@ void gc_data_write(KEYT ppa,htable_t *value,bool isdata){
 	return;
 }
 
-void pm_a_init(pm *m,KEYT size,KEYT *_idx,bool isblock){
-	KEYT idx=*_idx;
+void pm_a_init(pm *m,uint32_t size,uint32_t *_idx,bool isblock){
+	uint32_t idx=*_idx;
 	if(idx+size+1 > _NOB){
 		printf("_NOB:%ld!!!!!!!\n",_NOB);
 		size=_NOB-idx-1;
 	}
 	m->blocks=llog_init();
 	m->block_num=size;
-	for(KEYT i=0; i<size; i++){
+	for(uint32_t i=0; i<size; i++){
 		bl[idx].l_node=llog_insert(m->blocks,(void*)&bl[idx]);
 		bl[idx].erased=true;
 #ifdef DVALUE
@@ -457,7 +456,7 @@ void segs_init(){
 void pm_init(){
 	block_init();
 	segs_init();
-	KEYT start=0;
+	uint32_t start=0;
 	//printf("DATASEG: %ld, HEADERSEG: %ld, BLOCKSEG: %ld, BPS:%ld\n",DATASEG,HEADERSEG,BLOCKSEG,BPS);
 	printf("headre block size : %lld(%d)\n",(long long int)HEADERSEG*BPS,HEADERSEG);
 	printf("data block size : %lld(%ld)\n",(long long int)(_NOS-HEADERSEG)*BPS,(_NOS-HEADERSEG));
@@ -479,7 +478,7 @@ void pm_init(){
 	printf("to : %d(data # of seg:%ld)\n",start,DATASEG);
 }
 
-KEYT getRPPA(uint8_t type,KEYT lpa,bool isfull){
+uint32_t getRPPA(uint8_t type,KEYT lpa,bool isfull){
 	pm *target_p=NULL;
 	switch(type){
 		case HEADER:
@@ -493,7 +492,7 @@ KEYT getRPPA(uint8_t type,KEYT lpa,bool isfull){
 			break;
 	}
 
-	KEYT pba=target_p->reserve->ppa/_PPB;
+	uint32_t pba=target_p->reserve->ppa/_PPB;
 	if(target_p->rblock==NULL || target_p->rblock->ppage_idx==_PPB){ 
 		pba+=target_p->reserve->segment_idx++;
 		target_p->rblock=&bl[pba];
@@ -506,7 +505,7 @@ KEYT getRPPA(uint8_t type,KEYT lpa,bool isfull){
 		active_block->bitset=(uint8_t*)malloc(_PPB/8);
 		memset(active_block->bitset,0,_PPB/8);
 	}
-	KEYT res=active_block->ppa+active_block->ppage_idx++;
+	uint32_t res=active_block->ppa+active_block->ppage_idx++;
 	oob[res]=PBITSET(lpa,isfull);
 
 	return res;
@@ -633,7 +632,7 @@ bool gc_check(uint8_t type, bool force){
 	pm *target_p=NULL;
 	//		int t,n;
 	for(int i=0; i<BPS; i++){
-		KEYT target_block=0;
+		uint32_t target_block=0;
 		
 		if(once){
 			once=false;
@@ -756,7 +755,7 @@ bool gc_check(uint8_t type, bool force){
 		//printf("after free block:%d\n",data_m.max_blkn-data_m.used_blkn);
 }
 
-KEYT getPPA(uint8_t type, KEYT lpa,bool isfull){
+uint32_t getPPA(uint8_t type, KEYT lpa,bool isfull){
 #ifdef NOGC
 	return __ppa++;
 #endif
@@ -794,7 +793,7 @@ KEYT getPPA(uint8_t type, KEYT lpa,bool isfull){
 		}
 	}
 
-	KEYT res=active_block->ppa+(type==DATA?0:active_block->ppage_idx++);
+	uint32_t res=active_block->ppa+(type==DATA?0:active_block->ppage_idx++);
 	if(type!=DATA){
 		oob[res]=PBITSET(lpa,true);
 		active_block->erased=false;
@@ -811,8 +810,8 @@ KEYT getPPA(uint8_t type, KEYT lpa,bool isfull){
 }
 
 char test__[256];
-void invalidate_PPA(KEYT _ppa){
-	KEYT ppa,bn,idx;
+void invalidate_PPA(uint32_t _ppa){
+	uint32_t ppa,bn,idx;
 	ppa=_ppa;
 	bn=ppa/algo_lsm.li->PPB;
 	idx=ppa%algo_lsm.li->PPB;
@@ -847,18 +846,18 @@ void invalidate_PPA(KEYT _ppa){
 }
 
 #ifdef DVALUE
-void invalidate_BPPA(KEYT ppa){
+void invalidate_BPPA(uint32_t ppa){
 	invalidate_PPA(ppa);
 }
-void invalidate_DPPA(KEYT ppa){
-	KEYT pn=ppa/(PAGESIZE/PIECE);
-	KEYT bn=pn/_PPB;	
+void invalidate_DPPA(uint32_t ppa){
+	uint32_t pn=ppa/(PAGESIZE/PIECE);
+	uint32_t bn=pn/_PPB;	
 	if(bl[bn].length_data==NULL && !bl[bn].isflying){
 		block_load(&bl[bn]);
 	}
 	else if(bl[bn].length_data){	
-		KEYT idx_in_block=(ppa/(PAGESIZE/PIECE))%_PPB;
-		KEYT idx_in_page=(ppa%(PAGESIZE/PIECE));
+		uint32_t idx_in_block=(ppa/(PAGESIZE/PIECE))%_PPB;
+		uint32_t idx_in_page=(ppa%(PAGESIZE/PIECE));
 		uint8_t plength=bl[bn].length_data[idx_in_block*(PAGESIZE/PIECE)+idx_in_page]/2;
 		for(int i=0; i<plength; i++){
 			bl[bn].length_data[idx_in_block*(PAGESIZE/PIECE)+idx_in_page+i]|=1; //1 == invalid
@@ -989,7 +988,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 					if(!in->istier) break;
 				}
 			}
-			KEYT temp_header=entries[j]->pbn;
+			uint32_t temp_header=entries[j]->pbn;
 #ifdef NOCPY
 			/*should change keep the value before invalidate*/
 			char *nocpy_temp_table=data->nocpy_table;
@@ -1099,7 +1098,7 @@ int gc_data_write_using_bucket(l_bucket *b,int target_level,char order){
 			gc_data_now_block_chg(in,reserve_block);
 		}
 		LSM.lop->moveTo_fr_page(in);
-		KEYT target_ppa=in->now_block->ppage_array[in->now_block->ppage_idx];
+		uint32_t target_ppa=in->now_block->ppage_array[in->now_block->ppage_idx];
 		oob[target_ppa/(PAGESIZE/PIECE)]=PBITSET(target_ppa,false);
 		res++;
 		uint8_t used_piece=0;
@@ -1164,7 +1163,7 @@ void gc_data_now_block_chg(level *in, block *reserve_block){
 #ifdef DVALUE
 	in->now_block->length_data=(uint8_t*)malloc(PAGESIZE);
 	memset(in->now_block->length_data,0,PAGESIZE);
-	in->now_block->ppage_array=(KEYT*)malloc(sizeof(KEYT)*_PPB*(PAGESIZE/PIECE));
+	in->now_block->ppage_array=(uint32_t*)malloc(sizeof(uint32_t)*_PPB*(PAGESIZE/PIECE));
 	int _idx=in->now_block->ppa*(PAGESIZE/PIECE);
 	for(int i=0; i<_PPB*(PAGESIZE/PIECE); i++){
 		in->now_block->ppage_array[i]=_idx+i;
@@ -1174,10 +1173,10 @@ void gc_data_now_block_chg(level *in, block *reserve_block){
 }
 
 int gc_data_cnt;
-KEYT gc_victim_segment(uint8_t type,bool isforcegc){ //gc for segment
+uint32_t gc_victim_segment(uint8_t type,bool isforcegc){ //gc for segment
 	int start=0,end=0;
-	KEYT cnt=0;
-	KEYT accumulate_cnt=0;
+	uint32_t cnt=0;
+	uint32_t accumulate_cnt=0;
 	pm *target_p=NULL;
 	switch(type){
 		case 0://for header
@@ -1236,7 +1235,7 @@ KEYT gc_victim_segment(uint8_t type,bool isforcegc){ //gc for segment
 	return target->ppa/_PPB+target->segment_idx++;
 }
 
-int gc_header(KEYT tbn){
+int gc_header(uint32_t tbn){
 	/*
 	static int gc_cnt=0;
 	printf("[%d]gc_header start -> block:%u\n",gc_cnt++,tbn);*/
@@ -1248,7 +1247,7 @@ int gc_header(KEYT tbn){
 
 	gc_general_wait_init();
 
-	KEYT start=target->ppa;
+	uint32_t start=target->ppa;
 	htable_t **tables=(htable_t**)malloc(sizeof(htable_t*)*algo_lsm.li->PPB);
 
 	run_t **target_ent=(run_t**)malloc(sizeof(run_t*)*algo_lsm.li->PPB);
@@ -1258,13 +1257,13 @@ int gc_header(KEYT tbn){
 	if(LSM.c_level)
 		LSM.lop->print(LSM.c_level);*/
 	//printf("--------------------------------------------------\n");
-	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
+	for(uint32_t i=0; i<algo_lsm.li->PPB; i++){
 		if(target->bitset[i/8]&(1<<(i%8))){
 			tables[i]=NULL;
 			target_ent[i]=NULL;
 			continue;
 		}
-		KEYT t_ppa=start+i;
+		uint32_t t_ppa=start+i;
 
 		KEYT lpa=PBITGET(t_ppa);
 		run_t **entries=NULL;
@@ -1352,11 +1351,11 @@ int gc_header(KEYT tbn){
 
 	run_t *test;
 	htable_t *table;
-	for(KEYT i=0; i<algo_lsm.li->PPB; i++){
+	for(uint32_t i=0; i<algo_lsm.li->PPB; i++){
 		if(tables[i]==NULL) continue;
-		KEYT t_ppa=start+i;
+		uint32_t t_ppa=start+i;
 		KEYT lpa=PBITGET(t_ppa);
-		KEYT n_ppa=getRPPA(HEADER,lpa,true);
+		uint32_t n_ppa=getRPPA(HEADER,lpa,true);
 
 		test=target_ent[i];
 		test->pbn=n_ppa;
@@ -1380,7 +1379,7 @@ int gc_header(KEYT tbn){
 	return 1;
 }
 static int gc_dataed_page;
-static bool gc_data_check_upper_lev_caching(KEYT lpa, KEYT ppa, int level){
+static bool gc_data_check_upper_lev_caching(KEYT lpa, uint32_t ppa, int level){
 	bool res=false;
 	for(int i=0; i<level; i++){
 		if(i>=LEVELCACHING) break;
@@ -1392,7 +1391,7 @@ static bool gc_data_check_upper_lev_caching(KEYT lpa, KEYT ppa, int level){
 	}
 	return res;
 }
-int gc_data(KEYT tbn){
+int gc_data(uint32_t tbn){
 //	gc_data_cnt++;
 //	printf("gc_data_cnt : %d\n",gc_data_cnt);
 	int data_read=0,data_write=0;
@@ -1442,19 +1441,19 @@ int gc_data(KEYT tbn){
 	}
 #endif
 	gc_general_wait_init();
-	KEYT start=target->ppa;
+	uint32_t start=target->ppa;
 	htable_t **tables=(htable_t**)malloc(sizeof(htable_t*)*algo_lsm.li->PPB);
 	memset(tables,0,sizeof(htable_t*)*algo_lsm.li->PPB);
 
 	/*data read request phase*/
 	htable_t dummy_table;//for invalid read
 #ifndef DVALUE	 
-	for(KEYT i=0; i<target->ppage_idx; i++){
+	for(uint32_t i=0; i<target->ppage_idx; i++){
 		if(target->bitset[i/8]&(1<<(i%8))){
 			continue;
 		}
 #else
-	for(KEYT i=0; i<_PPB; i++){
+	for(uint32_t i=0; i<_PPB; i++){
 		bool have_to_read_f=false;
 		if(target->length_data[i*(PAGESIZE/PIECE)]==0)
 			break;
@@ -1469,7 +1468,7 @@ int gc_data(KEYT tbn){
 		}
 #endif
 
-		KEYT t_ppa=start+i;
+		uint32_t t_ppa=start+i;
 		KEYT d_lpa=PBITGET(t_ppa);
 		
 		if(gc_data_check_upper_lev_caching(d_lpa,t_ppa,in->idx)){
@@ -1489,11 +1488,11 @@ int gc_data(KEYT tbn){
 #ifdef DVALUE
 	for(KEYT i=0; i<_PPB; i++){
 #else
-	for(KEYT i=0; i<target->ppage_idx; i++){
+	for(uint32_t i=0; i<target->ppage_idx; i++){
 #endif
 		if(!tables[i]){	continue;}
 		htable_t *data=tables[i]; //data
-		KEYT d_ppa=start+i;
+		uint32_t d_ppa=start+i;
 #ifdef DVALUE
 		if(PBITFULL(d_ppa,true)){
 #endif
@@ -1502,7 +1501,7 @@ int gc_data(KEYT tbn){
 				gc_data_now_block_chg(in,reserve_block);
 			}
 			LSM.lop->moveTo_fr_page(in);
-			KEYT n_ppa;
+			uint32_t n_ppa;
 			KEYT d_lpa=PBITGET(d_ppa);
 			if(data==&dummy_table){
 				n_ppa=UINT_MAX;
@@ -1581,7 +1580,7 @@ int gc_data(KEYT tbn){
 }
 
 bool gc_segment_force(){
-	KEYT target_pba=gc_victim_segment(1,true);
+	uint32_t target_pba=gc_victim_segment(1,true);
 	if(target_pba==UINT_MAX) return false;
 	return false;
 	static int cnt=0;
@@ -1590,7 +1589,7 @@ bool gc_segment_force(){
 	data_m.force_flag=true;
 	segment *target=&segs[target_pba/BPS];
 	
-	KEYT created_page=0;
+	uint32_t created_page=0;
 	if(data_m.reserve->segment_idx){
 		printf("gc_segment_force: ???\n");
 	}
@@ -1670,7 +1669,7 @@ block* getRBLOCK(uint8_t type){
 }
 
 #ifdef DVALUE
-int gc_block(KEYT tbn){
+int gc_block(uint32_t tbn){
 	printf("gc block! called\n");
 	return 0;
 }

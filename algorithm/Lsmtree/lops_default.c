@@ -13,7 +13,7 @@ void def_moveTo_fr_page( level* in){
 			block_save(in->now_block);
 		}
 #endif
-		KEYT blockn=getPPA(DATA,UINT_MAX,true);//get data block
+		uint32_t blockn=getPPA(DATA,UINT_MAX,true);//get data block
 		in->now_block=&bl[blockn/_PPB];
 		in->now_block->level=in->idx;
 #ifdef LEVELUSINGHEAP
@@ -27,7 +27,7 @@ void def_moveTo_fr_page( level* in){
 #ifdef DVALUE
 		block_meta_init(in->now_block);
 
-		in->now_block->ppage_array=(KEYT*)malloc(sizeof(KEYT)*(_PPB*(PAGESIZE/PIECE)));
+		in->now_block->ppage_array=(uint32_t*)malloc(sizeof(uint32_t)*(_PPB*(PAGESIZE/PIECE)));
 		int _idx=in->now_block->ppa*(PAGESIZE/PIECE);
 		for(int i=0; i<_PPB*(PAGESIZE/PIECE); i++){
 			in->now_block->ppage_array[i]=_idx+i;
@@ -41,8 +41,8 @@ void def_moveTo_fr_page( level* in){
 #endif
 }
 
-KEYT def_get_page( level* in, uint8_t plegnth){
-	KEYT res=0;
+uint32_t def_get_page( level* in, uint8_t plegnth){
+	uint32_t res=0;
 #ifdef DVALUE
 	res=in->now_block->ppage_array[in->now_block->ppage_idx];
 	in->now_block->length_data[in->now_block->ppage_idx]=plength<<1;
