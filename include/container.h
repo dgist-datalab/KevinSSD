@@ -24,20 +24,20 @@ typedef struct value_set{
 	PTR value;
 	uint32_t length;
 	int dmatag; //-1 == not dma_alloc, others== dma_alloc
-	KEYT ppa;
+	uint32_t ppa;
 	char *nocpy;//nocpy buffer for bdbm_drv
 	bool from_app;
 	PTR rmw_value;
 	uint8_t status;
-	KEYT len;
-	KEYT offset;
+	uint32_t len;
+	uint32_t offset;
 }value_set;
 
 struct request {
 	FSTYPE type;
-	KEYT key;/*it can be the iter_idx*/
-	KEYT ppa;
-	KEYT seq;
+	KEYT key;	
+	uint32_t ppa;/*it can be the iter_idx*/
+	uint32_t seq;
 	int num; /*length of requests*/
 	int not_found_cnt;
 	value_set *value;
@@ -75,7 +75,7 @@ struct request {
 };
 
 struct algo_req{
-	KEYT ppa;
+	uint32_t ppa;
 	request * parents;
 	MeasureTime latency_lower;
 	uint8_t type;
@@ -90,10 +90,10 @@ struct algo_req{
 struct lower_info {
 	uint32_t (*create)(struct lower_info*);
 	void* (*destroy)(struct lower_info*);
-	void* (*write)(KEYT ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
-	void* (*read)(KEYT ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
-	void* (*device_badblock_checker)(KEYT ppa,uint32_t size,void *(*process)(uint64_t, uint8_t));
-	void* (*trim_block)(KEYT ppa,bool async);
+	void* (*write)(uint32_t ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
+	void* (*read)(uint32_t ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
+	void* (*device_badblock_checker)(uint32_t ppa,uint32_t size,void *(*process)(uint64_t, uint8_t));
+	void* (*trim_block)(uint32_t ppa,bool async);
 	void* (*refresh)(struct lower_info*);
 	void (*stop)();
 	int (*lower_alloc) (int type, char** buf);

@@ -83,7 +83,7 @@ void block_init();
 
 void pm_init();
 
-uint32_t getPPA(uint8_t type, uint32_t, bool);//in DVALUE return block id;
+uint32_t getPPA(uint8_t type, KEYT, bool);//in DVALUE return block id;
 
 void invalidate_PPA(uint32_t ppa);
 void block_print();

@@ -1,6 +1,7 @@
 #include "lsmtree.h"
 #include "../../include/lsm_settings.h"
 #include "../../include/utils/debug_tools.h"
+#include "../../include/utils/kvssd.h"
 #include "cache.h"
 #include<stdlib.h>
 #include<string.h>
@@ -189,7 +190,11 @@ void cache_print(cache *c){
 		if(start->entry->c_entry!=start){
 			printf("fuck!!!\n");
 		}
+#ifdef KVSSD
+		printf("[%d]c->endtry->key:%s c->entry->pbn:%d d:%p\n",print_number++,kvssd_tostring(tent->key),tent->pbn,tent->cache_data);
+#else
 		printf("[%d]c->entry->key:%d c->entry->pbn:%d d:%p\n",print_number++,tent->key,tent->pbn,tent->cache_data);
+#endif
 		start=start->down;
 	}
 }

@@ -10,6 +10,7 @@
 #include "../bench/bench.h"
 #include "interface.h"
 #include "../algorithm/Lsmtree/lsmtree.h"
+#include "../include/utils/kvssd.h"
 extern int req_cnt_test;
 extern uint64_t dm_intr_cnt;
 extern int LOCALITY;
@@ -29,18 +30,30 @@ bool last_end_req(struct request *const req){
 			/*should implement*/
 			break;
 		case FS_ITER_CRT_T:
+#ifdef KVSSD
+			printf("create iter! id:%u [%s]\n",req->ppa,kvssd_tostring(req->key));
+#else
 			printf("create iter! id:%u [%u]\n",req->ppa,req->key);
+#endif
 			break;
 		case FS_ITER_NXT_T:
 			for(i=0;i<req->num; i++){
 				keyset *k=&((keyset*)req->value->value)[i];
+#ifdef KVSSD
+				printf("keyset:%s-%u\n",kvssd_tostring(k->lpa),k->ppa);
+#else
 				printf("keyset:%u-%u\n",k->lpa,k->ppa);
+#endif
 			}
 			break;
 		case FS_ITER_NXT_VALUE_T:
 			for(i=0;i<req->num; i++){
 				KEYT k=req->multi_key[i];
+#ifdef KVSSD
+				printf("next_value: keyset:%s\n",kvssd_tostring(k));
+#else
 				printf("next_value: keyset:%u\n",k);
+#endif
 			}		
 			break;
 		case FS_ITER_RLS_T:
@@ -55,6 +68,9 @@ bool last_end_req(struct request *const req){
 
 int main(int argc,char* argv[]){
 	inf_init();
+#ifdef KVSSD
+
+#else
 	bench_init();
 	bench_add(RANDSET,0,RANGE,RANGE);
 	bench_add(NOR,0,UINT_MAX,UINT_MAX);
@@ -77,5 +93,6 @@ int main(int argc,char* argv[]){
 //	inf_iter_release(0/*iter_id*/,last_end_req);
 
 	while(range_target_cnt!=range_now_cnt){}
+#endif
 	return 0;
 }

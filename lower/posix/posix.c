@@ -36,7 +36,7 @@ uint32_t posix_create(lower_info *li){
 	li->NOP=_NOP;
 	li->SOB=BLOCKSIZE * BPS;
 	li->SOP=PAGESIZE;
-	li->SOK=sizeof(KEYT);
+	li->SOK=sizeof(uint32_t);
 	li->PPB=_PPB;
 	li->PPS=_PPS;
 	li->TS=TOTALSIZE;
@@ -69,7 +69,7 @@ void *posix_destroy(lower_info *li){
 	return NULL;
 }
 
-void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
+void *posix_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	/*
 	if(PPA>6500)
 		printf("PPA : %u\n", PPA);
@@ -106,7 +106,7 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	return NULL;
 }
 
-void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){	
+void *posix_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,algo_req *const req){	
 	/*
 	if(PPA>6500)
 		printf("PPA : %u\n", PPA);
@@ -145,7 +145,7 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	return NULL;
 }
 
-void *posix_trim_block(KEYT PPA, bool async){
+void *posix_trim_block(uint32_t PPA, bool async){
 	bench_lower_t(&my_posix);
 	char *temp=(char *)malloc(my_posix.SOB);
 	memset(temp,0,my_posix.SOB);

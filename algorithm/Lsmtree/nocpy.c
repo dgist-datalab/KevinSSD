@@ -57,7 +57,7 @@ void nocpy_copy_from_change(char *des, uint32_t ppa){
 		page[ppa]=NULL;
 	}
 
-#if (LEVELN!=1)
+#if (LEVELN!=1) && !defined(KVSSD)
 	if(((keyset*)des)->lpa>1024 || ((keyset*)des)->lpa<=0){
 		abort();
 	}
@@ -75,7 +75,7 @@ void nocpy_copy_from_change(char *des, uint32_t ppa){
 }
 void nocpy_copy_from(char *src, uint32_t ppa){
 	if(page[ppa]==NULL){
-#if (LEVELN!=1)
+#if (LEVELN!=1) && !defined(KVSSD)
 		if(((keyset*)src)->lpa>1024 || ((keyset*)src)->lpa<=0){
 			abort();
 		}
@@ -91,7 +91,7 @@ void nocpy_copy_from(char *src, uint32_t ppa){
 }
 
 char *nocpy_pick(uint32_t ppa){
-#if (LEVELN!=1)
+#if (LEVELN!=1) && !defined(KVSSD)
 	if(page[ppa]->lpa<=0 || page[ppa]->lpa>1024) abort();
 #endif
 	return (char*)page[ppa];

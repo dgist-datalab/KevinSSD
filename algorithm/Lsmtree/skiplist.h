@@ -19,8 +19,8 @@ struct level;
 typedef struct htable htable;
 #endif
 typedef struct snode{ //skiplist's node
-	KEYT key;
 	uint32_t ppa;
+	KEYT key;
 	uint32_t level;
 	value_set* value;
 	bool isvalid;
@@ -36,7 +36,7 @@ typedef struct snode{ //skiplist's node
 
 #ifdef Lsmtree
 typedef struct length_bucket{
-	snode *bucket[PAGESIZE/PIECE+1][1024];
+	snode *bucket[PAGESIZE/PIECE+1][2048];
 	uint16_t idx[PAGESIZE/PIECE+1];
 	value_set** contents;
 	int contents_num;
@@ -46,6 +46,9 @@ typedef struct length_bucket{
 typedef struct skiplist{
 	uint8_t level;
 	uint64_t size;
+#if defined(KVSSD) && defined(Lsmtree)
+	uint32_t all_length;
+#endif
 	KEYT start;
 	KEYT end;
 	snode *header;
@@ -71,6 +74,7 @@ snode *skiplist_insert_existIgnore(skiplist *, KEYT,uint32_t,bool); //insert ski
 value_set **skiplist_make_valueset(skiplist*,struct level *from);
 skiplist *skiplist_cut(skiplist*,uint32_t size,KEYT limit, htable *,float fpr);
 snode *skiplist_general_insert(skiplist*,KEYT,void *,void (*overlap)(void*));
+snode *skiplist_pop(skiplist *);
 #endif
 snode *skiplist_at(skiplist *,int idx);
 int skiplist_delete(skiplist*,KEYT); //delete by key, return 0:normal -1:empty -2:no key

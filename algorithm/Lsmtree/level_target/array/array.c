@@ -1,0 +1,435 @@
+#include "array_header.h"
+#include "../../level.h"
+#include "../../bloomfilter.h"
+#include "../../lsmtree.h"
+#include "../../../../interface/interface.h"
+#include "../../../../include/utils/kvssd.h"
+extern KEYT key_max, key_min;
+extern lsmtree LSM;
+level_ops a_ops={
+	.init=array_init,
+	.release=array_free,
+	.insert=array_insert,
+	.find_keyset=array_find_keyset,
+	.full_check=def_fchk,
+	.tier_align=array_tier_align,
+	.move_heap=def_move_heap,
+	.chk_overlap=array_chk_overlap,
+	.range_find=array_range_find,
+	.unmatch_find=array_unmatch_find,
+	.range_find_start=array_range_find_start,
+	//.range_find_nxt_node=NULL,
+	.get_iter=array_get_iter,
+	.iter_nxt=array_iter_nxt,
+	.get_max_table_entry=a_max_table_entry,
+	.get_max_flush_entry=a_max_flush_entry,
+
+	.mem_cvt2table=array_mem_cvt2table,
+#ifdef STREAMCOMP
+	.stream_merger=array_stream_merger,
+	.stream_comp_wait=array_stream_comp_wait,
+#else
+	.merger=array_merger,
+#endif
+	.cutter=array_cutter,
+#ifdef BLOOM
+	.making_filter=array_making_filter,
+#endif
+	.make_run=array_make_run,
+	.find_run=array_find_run,
+	.release_run=array_free_run,
+	.run_cpy=array_run_cpy,
+
+	.moveTo_fr_page=def_moveTo_fr_page,
+	.get_page=def_get_page,
+	.block_fchk=def_blk_fchk,
+	.range_update=array_range_update,
+
+#ifdef LEVELCACHING
+	.cache_insert=array_cache_insert,
+	.cache_merge=array_cache_merge,
+	.cache_free=array_cache_free,
+	.cache_comp_formatting=array_cache_comp_formatting,
+	.cache_move=array_cache_move,
+	.cache_find=array_cache_find,
+	.cache_find_run=array_cache_find_run,
+	.cache_get_size=array_cache_get_sz,
+#endif
+	.print=array_print,
+	.all_print=array_all_print,
+};
+
+void array_range_update(level *lev,run_t* r, KEYT key){
+#ifdef KVSSD
+	if(KEYCMP(lev->start,key)>0) lev->start=key;
+	if(KEYCMP(lev->end,key)<0) lev->end=key;
+#else
+	if(lev->start>key) lev->start=key;
+	if(lev->end<key) lev->end=key;
+#endif
+}
+
+level* array_init(int size, int idx, float fpr, bool istier){
+	level *res=(level*)calloc(sizeof(level),1);
+	array_body *b=(array_body*)calloc(sizeof(array_body),1);
+
+	b->skip=NULL;
+	b->arrs=NULL;
+
+	res->idx=idx;
+	res->fpr=fpr;
+	res->istier=istier;
+	res->m_num=size;
+	res->n_num=0;
+#ifdef KVSSD
+	res->start=key_max;
+	res->end=key_min;
+#else
+	res->start=UINT_MAX;
+	res->end=0;
+#endif
+	res->level_data=(void*)b;
+	res->now_block=NULL;
+	res->h=llog_init();
+
+#if (LEVELN==1)
+	res->mappings=(run_t*)malloc(sizeof(run_t)*size);
+	memset(res->mappings,0,sizeof(run_t)*size);
+	for(int i=0; i<size;i++){
+		res->mappings[i].key=FULLMAPNUM*i;
+		res->mappings[i].end=FULLMAPNUM*(i+1)-1;
+		res->mappings[i].pbn=UINT_MAX;
+	}
+	res->n_num=size;
+#endif
+	return res;
+}
+
+void array_free(level* lev){
+	array_body *b=(array_body*)lev->level_data;
+	array_body_free(b->arrs,lev->n_num);
+
+	if(lev->h){
+#ifdef LEVELUSINGHEAP
+		heap_free(lev->h);
+#else
+		llog_free(lev->h);
+#endif
+	}
+
+#if LEVELN==1
+	for(int i=0; i<lev->n_num; i++){
+		array_free_run(&lev->mappings[i]);
+	}
+	free(lev->mappings);
+	//cache_print(LSM.lsm_cache);
+#endif
+	
+	//printf("skip->free\n");
+	skiplist_free(b->skip);
+	free(b);
+	free(lev);
+}
+
+void array_run_cpy_to(run_t *input, run_t *res){
+//	res->key=input->key;
+//	res->end=input->end;
+	kvssd_cpy_key(&res->key,&input->key);
+	kvssd_cpy_key(&res->end,&input->end);
+
+	res->pbn=input->pbn;
+#ifdef BLOOM
+	res->filter=input->filter;
+	input->filter=NULL;
+#endif
+
+	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+	if(input->c_entry){
+		res->cache_data=input->cache_data;
+		res->c_entry=input->c_entry;
+		res->c_entry->entry=res;
+		input->c_entry=NULL;
+		input->cache_data=NULL;
+	}else{
+		res->c_entry=NULL;
+		res->cache_data=NULL;
+	}
+	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+	res->isflying=0;
+	res->req=NULL;
+
+	res->cpt_data=NULL;
+	res->iscompactioning=false;
+}
+
+void array_body_free(run_t *runs, int size){
+	for(int i=0; i<size; i++){
+		array_free_run(&runs[i]);
+	}
+	free(runs);
+}
+
+void array_insert(level *lev, run_t* r){
+	if(lev->m_num<=lev->n_num){
+		array_print(lev);
+		abort();
+	}
+
+	array_body *b=(array_body*)lev->level_data;
+	if(b->arrs==NULL){
+		b->arrs=(run_t*)malloc(sizeof(run_t)*lev->m_num);
+	}
+	run_t *arrs=b->arrs;
+	run_t *target=&arrs[lev->n_num];
+	array_run_cpy_to(r,target);
+
+	if(!target->c_entry && r->cpt_data && cache_insertable(LSM.lsm_cache)){
+		char *cache_temp=(char*)r->cpt_data->sets;
+#ifdef NOCPY
+		target->cache_data=htable_dummy_assign();
+		target->cache_data->nocpy_table=(char*)cache_temp;
+#else
+		target->cache_data=htable_copy(r->cpt_data);
+#endif
+		target->c_entry=cache_insert(LSM.lsm_cache,target,0);
+		r->cpt_data->sets=NULL;
+	}
+
+	array_range_update(lev,NULL,target->key);
+	array_range_update(lev,NULL,target->end);
+
+	lev->n_num++;
+}
+
+keyset* array_find_keyset(char *data,KEYT lpa){
+	char *body=data;
+	uint16_t *bitmap=(uint16_t*)body;
+	uint16_t s=0,e=bitmap[0];
+	
+	KEYT target;
+	while(s<e){
+		uint16_t mid=(s+e)/2;
+		target.key=&body[bitmap[mid]];
+		target.len=bitmap[mid+1]-bitmap[mid]-sizeof(uint32_t);
+		int res=KEYCMP(target,lpa);
+		if(res==0){
+			return (keyset*)&body[bitmap[mid]];
+		}
+		else if(res<0){
+			s=e+1;
+		}
+		else{
+			e=s-1;
+		}
+	}
+	return NULL;
+}
+
+run_t **array_find_run( level* lev,KEYT lpa){
+	array_body *b=(array_body*)lev->level_data;
+	run_t *arrs=b->arrs;
+	if(!arrs || lev->n_num==0) return NULL;
+#ifdef KVSSD
+	if(KEYCMP(lev->start,lpa)>0 || KEYCMP(lev->end,lpa)<0) return NULL;
+#else
+	if(lev->start>lpa || lev->end<lpa) return NULL;
+#endif
+	if(lev->istier) return (run_t**)-1;
+
+	int target_idx=array_binary_search(arrs,lev->n_num,lpa);
+	if(target_idx==-1) return NULL;
+	run_t **res=(run_t**)calloc(sizeof(run_t*),2);
+	res[0]=&arrs[target_idx];
+	res[1]=NULL;
+	return res;
+}
+
+uint32_t array_range_find( level *lev ,KEYT s, KEYT e,  run_t ***rc){
+	static int cnt=0;
+	printf("cnt:%d\n",cnt++);
+	if(cnt==2){
+		printf("break\n");
+	}
+	array_body *b=(array_body*)lev->level_data;
+	run_t *arrs=b->arrs;
+	int res=0;
+	run_t *ptr;
+	run_t **r=(run_t**)malloc(sizeof(run_t*)*(lev->n_num+1));
+	int target_idx=array_binary_search(arrs,lev->n_num,s);
+	for(int i=target_idx; i!=-1 && i<lev->n_num; i++){
+		ptr=(run_t*)&arrs[i];
+#ifdef KVSSD
+		if(!(KEYCMP(ptr->end,s)<0 || KEYCMP(ptr->key,e)>0))
+#else
+		if(!(ptr->end<s || ptr->key>e))
+#endif
+		{
+			r[res++]=ptr;
+		}
+#ifdef KVSSD
+		else if(KEYCMP(e,ptr->key)<0)
+#else
+		else if(e< ptr->key)
+#endif
+		{
+			break;
+		}
+	}
+	r[res]=NULL;
+	*rc=r;
+	return res;
+}
+
+uint32_t array_unmatch_find( level *lev,KEYT s, KEYT e,  run_t ***rc){
+	array_body *b=(array_body*)lev->level_data;
+	run_t *arrs=b->arrs;
+	int res=0;
+	run_t *ptr;
+	run_t **r=(run_t**)malloc(sizeof(run_t*)*(lev->n_num+1));
+	for(int i=0; i!=-1 && i<lev->n_num; i++){
+		ptr=(run_t*)&arrs[i];
+#ifdef KVSSD
+		if(!(KEYCMP(ptr->end,s)<0 || KEYCMP(ptr->key,e)>0))
+#else
+		if(!(ptr->end<s || ptr->key>e))
+#endif
+		{
+			break;
+		}else{
+			r[res++]=ptr;
+		}
+	}
+/*
+	int target_idx=array_binary_search(arrs,lev->n_num, e);
+	for(int i=target_idx; i!=-1 && i<lev->n_num; i++){
+		ptr=(run_t*)&arrs[i];
+#ifdef KVSSD
+		if(!(KEYCMP(ptr->end,s)<0 || KEYCMP(ptr->key,e)>0))
+#else
+		if(!(ptr->end<s || ptr->key>e))
+#endif
+		{
+			//do nothing
+		}else{
+			r[res++]=ptr;
+		}
+	}*/
+	r[res]=NULL;
+	*rc=r;
+	return res;
+}
+
+void array_free_run(run_t *e){
+#ifdef BLOOM
+	if(e->filter) bf_free(e->filter);
+#endif
+	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+	if(e->cache_data){
+		htable_free(e->cache_data);
+		cache_delete_entry_only(LSM.lsm_cache,e);
+		//e->cache_data=NULL;
+	}
+	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+	free(e->key.key);
+	free(e->end.key);
+#if LEVELN!=1
+//	free(e);
+#endif
+}
+run_t * array_run_cpy( run_t *input){
+	run_t *res=(run_t*)malloc(sizeof(run_t));
+	res->key=input->key;
+	res->end=input->end;
+	res->pbn=input->pbn;
+#ifdef BLOOM
+	res->filter=input->filter;
+	input->filter=NULL;
+#endif
+
+	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+	if(input->c_entry){
+		res->cache_data=input->cache_data;
+		res->c_entry=input->c_entry;
+		res->c_entry->entry=res;
+		input->c_entry=NULL;
+		input->cache_data=NULL;
+	}else{
+		res->c_entry=NULL;
+		res->cache_data=NULL;
+	}
+	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+	res->isflying=0;
+	res->req=NULL;
+
+	res->cpt_data=NULL;
+	res->iscompactioning=false;
+	return res;
+}
+
+lev_iter* array_get_iter( level *lev,KEYT start, KEYT end){
+	return NULL;
+}
+run_t * array_iter_nxt( lev_iter* in){
+	return NULL;
+}
+
+void array_print(level *lev){
+	if(lev->idx<LEVELCACHING){
+		printf("we need a caching print\n");
+		return;
+	}
+	array_body *b=(array_body*)lev->level_data;
+	run_t *arrs=b->arrs;
+	for(int i=0; i<lev->n_num;i++){
+		run_t *rtemp=&arrs[i];
+#ifdef KVSSD
+		printf("[%d]%.*s~%.*s(%d)-ptr:%p cached:%s wait:%d\n",i,KEYFORMAT(rtemp->key),KEYFORMAT(rtemp->end),rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx);
+#else
+		printf("[%d]%d~%d(%d)-ptr:%p cached:%s wait:%d\n",i,rtemp->key,rtemp->end,rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx);,
+#endif
+	}
+}
+
+uint32_t a_max_table_entry(){
+#ifdef KVSSD
+	return 1;
+#else
+	return 1024;
+#endif
+}
+uint32_t a_max_flush_entry(uint32_t in){
+	return in;
+}
+
+void array_all_print(){
+	for(int i=0; i<LEVELN; i++)array_print(LSM.disk[i]);
+}
+
+int array_binary_search(run_t *body,uint32_t max_t, KEYT lpa){
+	uint32_t start=0;
+	uint32_t end=max_t-1;
+	uint32_t mid;
+
+	while(start==end ||start<end){
+		mid=start+end/2;
+		if(KEYCMP(body[mid].key,lpa)<=0 && KEYCMP(body[mid].end,lpa)>=0)
+			return mid;
+		if(KEYCMP(body[mid].key,lpa)>0) end=mid-1;
+		else if(KEYCMP(body[mid].end,lpa)<0) start=mid+1;
+	}
+	return -1;
+}
+
+run_t *array_make_run(KEYT start, KEYT end, uint32_t pbn){
+	run_t * res=(run_t*)calloc(sizeof(run_t),1);
+	kvssd_cpy_key(&res->key,&start);
+	kvssd_cpy_key(&res->end,&end);
+	res->pbn=pbn;
+	res->run_data=NULL;
+	res->c_entry=NULL;
+	res->wait_idx=0;
+#ifdef BLOOM
+	res->filter=NULL;
+#endif
+	return res;
+}

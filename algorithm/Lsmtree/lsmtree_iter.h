@@ -29,7 +29,7 @@ typedef struct lsmtree_iterator_params{
 	lsm_iter *target;
 	uint8_t lsm_type;
 	value_set *value;
-	KEYT ppa;
+	uint32_t ppa;
 	int idx;
 }lsmtree_iter_param;
 

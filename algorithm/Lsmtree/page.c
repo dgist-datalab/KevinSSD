@@ -5,6 +5,7 @@
 #include "skiplist.h"
 #include "nocpy.h"
 #include "../../include/utils/rwlock.h"
+#include "../../include/utils/kvssd.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -39,8 +40,10 @@ uint8_t BLOCKTYPE(uint32_t ppa){
 	else 
 		return DATA;
 }
-
 OOBT PBITSET(KEYT input,bool isFull){
+#ifdef KVSSD
+	return 0;
+#else
 #ifdef DVALUE
 	input<<=1;
 	if(isFull){
@@ -49,16 +52,21 @@ OOBT PBITSET(KEYT input,bool isFull){
 #endif
 	OOBT value=input;
 	return value;
+#endif
 }
-
-KEYT PBITGET(uint32_t ppa){
-	KEYT res=(uint32_t)oob[ppa];
+#ifdef KVSSD
+KEYT* KEYGET(char *data){
+	return (KEYT*)data;
+}
+#else
+uint32_t PBITGET(uint32_t ppa){
+	uint32_t res=(uint32_t)oob[ppa];
 #ifdef DVALUE
 	res>>=1;
 #endif
 	return res;
 }
-
+#endif
 #ifdef DVALUE
 bool PBITFULL(KEYT input,bool isrealppa){
 	if(isrealppa)
@@ -883,9 +891,14 @@ int gc_node_compare(const void *a, const void *b){
 
 	gc_node *v1=*v1_p;
 	gc_node *v2=*v2_p;
+
+#ifdef KVSSD
+	return KEYCMP(v1->lpa,v2->lpa);
+#else
 	if(v1->lpa>v2->lpa) return 1;
 	else if(v1->lpa == v2->lpa) return 0;
 	else return -1;
+#endif
 }
 
 void gc_data_header_update(gc_node **gn, int size,int target_level){
@@ -900,7 +913,11 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 		if(in->idx<LEVELCACHING){
 			keyset *find=LSM.lop->cache_find(in,target->lpa);
 			if(find==NULL){
+#ifdef KVSSD
+				printf("can't be! %s %d size %d\n",kvssd_tostring(target->lpa),target->ppa,LSM.lop->cache_get_size(in));
+#else
 				printf("can't be! %d %d size:%d\n",target->lpa,target->ppa,LSM.lop->cache_get_size(in));
+#endif
 //				assert(0);
 			}
 			find->ppa=target->nppa;
@@ -913,7 +930,11 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 	
 		if(entries==NULL){
 			LSM.lop->all_print();
+#ifdef KVSSD
+			printf("lpa:%s-ppa:%d\n",kvssd_tostring(target->lpa),target->ppa);
+#else
 			printf("lpa:%d-ppa:%d\n",target->lpa,target->ppa);
+#endif
 			printf("entry null!\n");
 		}
 
@@ -978,7 +999,11 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 					if(k==temp_i){
 						if(!in->istier || j==htable_idx-1){
 							//LSM.lop->print(in);
+#ifdef KVSSD
+							printf("lpa:%s-ppa:%d\n",kvssd_tostring(target->lpa),target->ppa);
+#else
 							printf("lpa:%d-ppa:%d\n",target->lpa,target->ppa);
+#endif
 							printf("what the fuck?\n"); //not founded in level
 							DEBUG_LOG("");
 							abort();
@@ -993,7 +1018,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			/*should change keep the value before invalidate*/
 			char *nocpy_temp_table=data->nocpy_table;
 			nocpy_force_freepage(entries[j]->pbn);
-#if (LEVELN!=1)
+#if (LEVELN!=1) && !defined(KVSSD)
 			if(((keyset*)data->nocpy_table)->lpa>1024){
 				abort();
 			}
@@ -1003,7 +1028,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			entries[j]->pbn=getPPA(HEADER,entries[j]->key,true);
 #ifdef NOCPY
 			data->nocpy_table=nocpy_temp_table;
-#if (LEVELN!=1)
+#if (LEVELN!=1) && !defined(KVSSD)
 			if(((keyset*)data->nocpy_table)->lpa>1024){
 				abort();
 			}
@@ -1052,7 +1077,12 @@ void gc_data_header_update_add(gc_node **gn,int size, int target_level, char ord
 						min=temp;
 						picked=j;
 					}else{
-						if(min->lpa>temp->lpa){;
+#ifdef KVSSD
+						if(KEYCMP(min->lpa,temp->lpa)>0)
+#else
+						if(min->lpa>temp->lpa)
+#endif
+						{
 							min=temp;
 							picked=j;
 						}
@@ -1236,6 +1266,7 @@ uint32_t gc_victim_segment(uint8_t type,bool isforcegc){ //gc for segment
 }
 
 int gc_header(uint32_t tbn){
+#ifndef KVSSD
 	/*
 	static int gc_cnt=0;
 	printf("[%d]gc_header start -> block:%u\n",gc_cnt++,tbn);*/
@@ -1342,7 +1373,11 @@ int gc_header(uint32_t tbn){
 		}
 		if(checkdone==false){
 			LSM.lop->all_print();
+#ifdef KVSSD
+			printf("[%s : %u]error!\n",kvssd_tostring(t_ppa),lpa);
+#else
 			printf("[%u : %u]error!\n",t_ppa,lpa);
+#endif
 			abort();
 		}
 	}
@@ -1376,6 +1411,7 @@ int gc_header(uint32_t tbn){
 
 	free(target_ent);
 	gc_trim_segment(HEADER,target->ppa);
+#endif
 	return 1;
 }
 static int gc_dataed_page;
@@ -1394,6 +1430,7 @@ static bool gc_data_check_upper_lev_caching(KEYT lpa, uint32_t ppa, int level){
 int gc_data(uint32_t tbn){
 //	gc_data_cnt++;
 //	printf("gc_data_cnt : %d\n",gc_data_cnt);
+#ifndef KVSSD
 	int data_read=0,data_write=0;
 	block *target=&bl[tbn];
 	char order;
@@ -1576,6 +1613,7 @@ int gc_data(uint32_t tbn){
 	if(data_write!=data_read){
 		printf("gc rw:%d,%d\n",data_read,data_write);
 	}
+#endif
 	return 1;
 }
 

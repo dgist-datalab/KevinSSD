@@ -36,7 +36,7 @@ uint32_t level_one_processing(level *, level *, run_t *, pthread_mutex_t *);
 //uint32_t tiering(int f, int t, struct Entry *);
 uint32_t leveling(level *,level* , run_t *, pthread_mutex_t *);
 uint32_t partial_leveling(struct level *,struct level *,struct skiplist *,struct level *upper);
-void compaction_check();
+void compaction_check(KEYT key);
 void compaction_free();
 bool compaction_force();
 bool compaction_force_levels(int nol);

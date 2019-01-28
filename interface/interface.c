@@ -39,9 +39,9 @@ MeasureTime mt4;
 master_processor mp;
 
 /*hit checker*/
-KEYT write_q_hit;
-KEYT read_q_hit;
-KEYT retry_hit;
+uint32_t write_q_hit;
+uint32_t read_q_hit;
+uint32_t retry_hit;
 
 //pthread_mutex_t inf_lock;
 void *p_main(void*);
@@ -55,9 +55,13 @@ pthread_mutex_t wq_lock;
 static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *value, int len,int mark, bool fromApp);
 
 static request *inf_get_multi_req_instance(const FSTYPE type, KEYT *key, char **value, int *len,int req_num,int mark, bool fromApp);
-
+#ifndef KVSSD
 static __hash * app_hash;
+#endif
 static bool inf_queue_check(request *req){
+#ifdef KVSSD
+	return false;
+#else
 	void *_data=__hash_find_data(app_hash,req->key);
 	if(_data){
 		request *d_req=(request*)_data;
@@ -66,6 +70,7 @@ static bool inf_queue_check(request *req){
 	}
 	else
 		return false;
+#endif
 }
 #endif
 static void assign_req(request* req){
@@ -85,6 +90,7 @@ static void assign_req(request* req){
 #ifdef interface_pq
 			if(req->type==FS_SET_T){
 				pthread_mutex_lock(&wq_lock);
+#ifndef KVSSD
 				if(t->req_q->size<QSIZE){
 					if((m_req=__hash_find_data(app_hash,req->key))){
 						request *t_req=(request*)m_req;
@@ -105,6 +111,8 @@ static void assign_req(request* req){
 					pthread_mutex_unlock(&wq_lock);
 					continue;
 				}
+#endif
+
 #endif
 
 				if(q_enqueue((void*)req,t->req_q)){
@@ -178,7 +186,9 @@ void *p_main(void *__input){
 			_this=&mp.processors[i];
 		}
 	}
+#ifndef KVSSD
 	__hash_node *t_h_node;
+#endif
 	//bool write_stop_chg=false;
 	//int control_cnt=0;
 	while(1){
@@ -209,11 +219,12 @@ void *p_main(void *__input){
 			}
 
 			inf_req=(request*)_inf_req;
-			
+#ifndef KVSSD	
 			if(inf_req->type==FS_SET_T){
 				t_h_node=(__hash_node*)inf_req->__hash_node;
 				__hash_delete_by_idx(app_hash,t_h_node->t_idx);
 			}
+#endif
 			pthread_mutex_unlock(&wq_lock);
 		}
 #endif
@@ -276,7 +287,7 @@ void *p_main(void *__input){
 	return NULL;
 }
 
-bool inf_make_req_fromApp(char _type, KEYT _key,KEYT offset, KEYT len,PTR _value,void *_req, void*(*end_func)(void*)){
+bool inf_make_req_fromApp(char _type, KEYT _key,uint32_t offset, uint32_t len,PTR _value,void *_req, void*(*end_func)(void*)){
 	/*
 	static bool start=false;
 	if(!start){
@@ -329,7 +340,9 @@ void inf_init(){
 		q_init(&t->req_q,QSIZE);
 		q_init(&t->req_rq,QSIZE);
 		q_init(&t->retry_q,QSIZE);
+#ifndef KVSSD
 		app_hash=__hash_init(QSIZE);
+#endif
 #else
 		q_init(&t->req_q,QSIZE);
 #endif
@@ -374,7 +387,7 @@ void inf_init(){
 }
 
 static request* inf_get_req_common(request *req, bool fromApp, int mark){
-	static KEYT seq_num=0;
+	static uint32_t seq_num=0;
 	req->end_req=inf_end_req;
 	req->isAsync=ASYNC;
 	req->params=NULL;
@@ -461,7 +474,7 @@ bool inf_make_multi_set(const FSTYPE type, KEYT *keys, char **values, int *lengt
 	return 0;
 }
 
-bool inf_make_req_special(const FSTYPE type, const KEYT key, char* value, int len,KEYT seq, void*(*special)(void*)){
+bool inf_make_req_special(const FSTYPE type, const KEYT key, char* value, int len,uint32_t seq, void*(*special)(void*)){
 	if(type==FS_RMW_T){
 		printf("here!\n");
 	}
@@ -603,8 +616,7 @@ void inf_print_debug(){
 
 }
 
-
-bool inf_make_multi_req(char type, KEYT key,KEYT *keys,char **values,uint32_t lengths,bool (*added_end)(struct request *const)){
+bool inf_make_multi_req(char type, KEYT key,KEYT *keys,uint32_t iter_id,char **values,uint32_t lengths,bool (*added_end)(struct request *const)){
 	request *req=inf_get_req_instance(type,key,NULL,PAGESIZE,0,false);
 	cl_grap(flying);
 	uint32_t i;
@@ -632,6 +644,7 @@ bool inf_make_multi_req(char type, KEYT key,KEYT *keys,char **values,uint32_t le
 			printf("error in inf_make_multi_req\n");
 			return false;
 	}
+	req->ppa=iter_id;
 	req->added_end_req=added_end;
 	req->isstart=false;
 	measure_init(&req->latency_checker);
@@ -640,18 +653,28 @@ bool inf_make_multi_req(char type, KEYT key,KEYT *keys,char **values,uint32_t le
 	return true;
 }
 bool inf_iter_create(KEYT start,bool (*added_end)(struct request *const)){
-	return inf_make_multi_req(FS_ITER_CRT_T,start,NULL,NULL,PAGESIZE,added_end);
+	return inf_make_multi_req(FS_ITER_CRT_T,start,NULL,0,NULL,PAGESIZE,added_end);
 }
-bool inf_iter_next(KEYT iter_id,KEYT length,char **values,bool (*added_end)(struct request *const),bool withvalue){
+bool inf_iter_next(uint32_t iter_id,uint32_t length,char **values,bool (*added_end)(struct request *const),bool withvalue){
+#ifdef KVSSD
+	static KEYT null_key={0,};
+#else
+	static KEYT null_key=0;
+#endif
 	if(withvalue){
-		return inf_make_multi_req(FS_ITER_NXT_VALUE_T,iter_id,NULL,values,length,added_end);
+		return inf_make_multi_req(FS_ITER_NXT_VALUE_T,null_key,NULL,iter_id,values,length,added_end);
 	}
 	else{
-		return inf_make_multi_req(FS_ITER_NXT_T,iter_id,NULL,values,length,added_end);
+		return inf_make_multi_req(FS_ITER_NXT_T,null_key,NULL,iter_id,values,length,added_end);
 	}
 }
-bool inf_iter_release(KEYT iter_id, bool (*added_end)(struct request *const)){
-	return inf_make_multi_req(FS_ITER_RLS_T,iter_id,NULL,NULL,0,added_end);
+bool inf_iter_release(uint32_t iter_id, bool (*added_end)(struct request *const)){
+#ifdef KVSSD
+	static KEYT null_key={0,};
+#else
+	static KEYT null_key=0;
+#endif
+	return inf_make_multi_req(FS_ITER_RLS_T,null_key,NULL,iter_id,NULL,0,added_end);
 }
 value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
 	value_set *res=(value_set*)malloc(sizeof(value_set));

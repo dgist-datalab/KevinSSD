@@ -6,6 +6,9 @@
 extern block bl[_NOB];
 extern int32_t SIZEFACTOR;
 extern lsmtree LSM;
+#ifdef KVSSD
+extern KEYT key_min,key_max;
+#endif
 void def_moveTo_fr_page( level* in){
 	if(def_blk_fchk(in)){
 #if DVALUE
@@ -13,7 +16,11 @@ void def_moveTo_fr_page( level* in){
 			block_save(in->now_block);
 		}
 #endif
+#ifdef KVSSD
+		uint32_t blockn=getPPA(DATA,key_max,true);
+#else
 		uint32_t blockn=getPPA(DATA,UINT_MAX,true);//get data block
+#endif
 		in->now_block=&bl[blockn/_PPB];
 		in->now_block->level=in->idx;
 #ifdef LEVELUSINGHEAP
@@ -126,4 +133,19 @@ bool def_fchk( level *input){
 	}
 	return false;
 
+}
+
+run_t *def_make_run(KEYT start, KEYT end, uint32_t pbn){
+	run_t * res=(run_t*)calloc(sizeof(run_t),1);
+	res->key=start;
+	res->end=end;
+	res->pbn=pbn;
+	res->run_data=NULL;
+	res->c_entry=NULL;
+	
+	res->wait_idx=0;
+#ifdef BLOOM
+	res->filter=NULL;
+#endif
+	return res;
 }

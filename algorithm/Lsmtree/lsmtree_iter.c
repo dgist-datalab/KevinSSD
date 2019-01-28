@@ -28,11 +28,15 @@ void lsm_make_iterator(lsm_iter *iter, KEYT min){
 		if(iter->datas[i]==NULL) continue;
 		for(int j=1; j<1024; j++){
 			keyset *key=&((keyset*)(iter->datas[i]))[j];
+#ifdef KVSSD
+			if(key->lpa.key==NULL)continue;
+#else
 			if(key->lpa==UINT_MAX)continue;
 			if(key->lpa<min){
 				printf("lpa:%u\n",key->lpa);
 				continue;
 			}
+#endif
 			skiplist_insert_iter(skip,key->lpa,key->ppa);
 		}
 	}
@@ -190,8 +194,8 @@ uint32_t lsm_iter_create(request *req){
 uint32_t lsm_iter_next(request *req){
 	/*find target node*/
 	Redblack t_rb;
-	rb_find_int(im.rb,req->key,&t_rb);
-		
+	rb_find_int(im.rb,req->ppa,&t_rb);
+
 	lsm_iter *iter=(lsm_iter*)t_rb->item;
 //	printf("lock_try\n");
 	fdriver_lock(&iter->initiated_lock);
@@ -208,7 +212,7 @@ uint32_t lsm_iter_next(request *req){
 
 uint32_t lsm_iter_next_with_value(request *req){
 	Redblack t_rb;
-	rb_find_int(im.rb,req->key,&t_rb);
+	rb_find_int(im.rb,req->ppa,&t_rb);
 		
 	lsm_iter *iter=(lsm_iter*)t_rb->item;
 
@@ -245,7 +249,7 @@ uint32_t lsm_iter_next_with_value(request *req){
 uint32_t lsm_iter_release(request *req){
 	printf("release called\n");
 	Redblack target;
-	uint32_t iter_id=req->key;
+	uint32_t iter_id=req->ppa;
 	rb_find_int(im.rb,iter_id,&target);
 	lsm_iter *temp=(lsm_iter*)target->item;
 

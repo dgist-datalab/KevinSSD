@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=posix_memory
+TARGET_LOWER=posix
 TARGET_ALGO=Lsmtree
 
 PPWD=$(pwd)
@@ -15,6 +15,7 @@ COMMONFLAGS=\
 			-Wno-write-strings\
 			-DLARGEFILE64_SOURCE\
 			-DSLC\
+			-DKVSSD\
 #			-O2\
 #			-DWRITESYNC\
 
@@ -36,7 +37,7 @@ export CFLAGS_LOWER=\
 export priority="false"
 export ORIGINAL_PATH=$(PPWD)
 
-#CFLAGS_ALGO+=-DCOMPACTIONLOG\
+CFLAGS_ALGO+=-DCOMPACTIONLOG\
 	
 CFLAGS_ALGO+=$(COMMONFLAGS)\
 			 -D$(TARGET_ALGO)\
@@ -77,6 +78,7 @@ SRCS +=\
 	./include/utils/dl_sync.c\
 	./include/utils/rwlock.c\
 	./include/utils/cond_lock.c\
+	./include/utils/kvssd.c\
 	./include/data_struct/hash.c\
 	./include/data_struct/list.c\
 	./include/data_struct/redblack.c\
@@ -104,11 +106,11 @@ LIBS +=\
 		-laio\
 -ljemalloc\
 
-all: range_driver
+all: driver
 
 DEBUG: debug_simulator
 
-duma_sim: duma_simulator
+duma_driver: duma_driver
 
 debug_simulator: ./interface/main.c libsimulator_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
@@ -119,7 +121,7 @@ driver: ./interface/main.c libsimulator.a
 range_driver: ./interface/range_test_main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
-duma_simulator: ./interface/main.c libsimulator.a
+duma_driver: ./interface/main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ -lduma $(ARCH) $(LIBS)
 	
 

@@ -24,8 +24,8 @@ typedef struct{
 }bench_value;
 
 typedef struct{
-	KEYT start;
-	KEYT end;
+	uint32_t start;
+	uint32_t end;
 	uint64_t number;
 	bench_type type;
 }bench_meta;
@@ -82,9 +82,9 @@ typedef struct{
 }master;
 
 void bench_init();
-void bench_add(bench_type type,KEYT start, KEYT end,uint64_t number);
+void bench_add(bench_type type,uint32_t start, uint32_t end,uint64_t number);
 bench_value* get_bench();
-void bench_refresh(bench_type, KEYT start, KEYT end, uint64_t number);
+void bench_refresh(bench_type, uint32_t start, uint32_t end, uint64_t number);
 void bench_free();
 
 void bench_print();
@@ -113,3 +113,10 @@ void bench_ftl_cdf_print(bench_data *_d);
 void free_bnech_all();
 void free_bench_one(bench_value *);
 #endif
+
+void seqget(uint32_t, uint32_t,monitor *);
+void seqset(uint32_t,uint32_t,monitor*);
+void seqrw(uint32_t,uint32_t,monitor *);
+void randget(uint32_t,uint32_t,monitor*);
+void randset(uint32_t,uint32_t,monitor*);
+void randrw(uint32_t,uint32_t,monitor*);

@@ -5,6 +5,7 @@
 #include<stdint.h>
 #include <stdlib.h>
 #include<stdio.h>
+#include <string.h>
 
 /*
 #define free(a) \
@@ -31,8 +32,8 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 16L
-#define TOTALSIZE ((GIGAUNIT)*G)
+#define GIGAUNIT 1L
+#define TOTALSIZE ((10L)*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
 #define PAGESIZE (8*K)
@@ -52,11 +53,31 @@
 //#define RANGE ((GIGAUNIT)*(M/PAGESIZE)*1024L*0.8)
 //#define RANGE (50*(M/PAGESIZE)*1024L*0.8)
 
-
 #define SIMULATION 0
 
 #define FSTYPE uint8_t
-#define KEYT uint32_t
+#ifdef KVSSD
+typedef struct str_key{
+	uint8_t len;
+	char *key;
+}str_key;
+
+	#define KEYT str_key
+static inline int KEYCMP(KEYT a,KEYT b){
+	if(!a.len && !b.len) return 0;
+	else if(a.len==0) return -1;
+	else if(b.len==0) return 1;
+
+	int r=memcmp(a.key,b.key,a.len>b.len?b.len:a.len);
+	if(r!=0 || a.len==b.len){
+		return r;
+	}
+	return a.len<b.len?-1:1;
+}
+#define KEYLEN(a) (a.len+sizeof(uint32_t))
+#else
+	#define KEYT uint32_t
+#endif
 #define BLOCKT uint32_t
 #define OOBT uint64_t
 #define V_PTR char * const

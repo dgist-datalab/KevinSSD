@@ -24,7 +24,10 @@
 		free(a);\
 	}while(0)
 */
-extern uint32_t hash_insert_cnt;
+#ifdef KVSSD
+KEYT key_max, key_min;
+#endif
+//extern uint32_t hash_insert_cnt;
 
 struct algorithm algo_lsm={
 	.create=lsm_create,
@@ -36,8 +39,10 @@ struct algorithm algo_lsm={
 	.iter_next=lsm_iter_next,
 	.iter_next_with_value=lsm_iter_next_with_value,
 	.iter_release=lsm_iter_release,
-	.multi_set=lsm_multi_set,
-	.range_get=lsm_range_get,
+	.multi_set=NULL,
+	.range_get=NULL,
+	//.multi_set=lsm_multi_set,
+	//.range_get=lsm_range_get,
 };
 extern OOBT *oob;
 lsmtree LSM;
@@ -65,15 +70,16 @@ void lsm_debug_print(){
 	printf("\n");
 }
 extern level_ops h_ops;
+extern level_ops a_ops;
 void lsm_bind_ops(lsmtree *l){
-	l->lop=&h_ops;
+	l->lop=&a_ops;
 	l->ORGHEADER=l->KEYNUM=l->lop->get_max_table_entry();
 #if (LEVELN!=1)
 	l->FLUSHNUM=l->lop->get_max_flush_entry(FULLMAPNUM);
 #else
 	l->FLUSHNUM=FULLMAPNUM;
 #endif
-	l->inplace_compaction=true;
+	l->inplace_compaction=false;
 }
 uint32_t __lsm_get(request *const);
 static int32_t get_sizefactor(uint64_t as){
@@ -101,6 +107,15 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 }
 
 uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
+#ifdef KVSSD
+	key_max.key=(char*)malloc(sizeof(char)*MAXKEYSIZE);
+	key_max.len=MAXKEYSIZE;
+	memset(key_max.key,-1,sizeof(char)*MAXKEYSIZE);
+
+	key_min.key=(char*)malloc(sizeof(char)*MAXKEYSIZE);
+	key_min.len=MAXKEYSIZE;
+	memset(key_min.key,0,sizeof(char)*MAXKEYSIZE);
+#endif
 #ifdef USINGSLAB
 	//slab_pagesize=(size_t)sysconf(_SC_PAGESIZE);
 	//slab_init(&snode_slab,sizeof(snode));
@@ -196,6 +211,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	nocpy_init();
 #endif
 	//measure_init(&__get_mt);
+
 	return 0;
 }
 
@@ -225,7 +241,7 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	for(int i=0; i<10; i++){
 		measure_adding_print(&level_get_time[i]);
 	}
-	printf("---------------------------hash_insert_cnt: %u\n",hash_insert_cnt);
+	//printf("---------------------------hash_insert_cnt: %u\n",hash_insert_cnt);
 	//SLAB_DUMP(snode_slab)
 }
 
@@ -383,7 +399,7 @@ uint32_t lsm_set(request * const req){
 	printf("key : %u\n",req->key);//for debug
 #endif
 
-	compaction_check();
+	compaction_check(req->key);
 	MS(&__get_mt2);
 	if(req->type==FS_DELETE_T){
 		skiplist_insert(LSM.memtable,req->key,req->value,false);
@@ -419,7 +435,7 @@ uint32_t lsm_proc_re_q(){
 					res_type=__lsm_get(tmp_req);
 					break;
 				case FS_RANGEGET_T:
-					res_type=__lsm_range_get(tmp_req);
+					//res_type=__lsm_range_get(tmp_req);
 					break;
 			}
 			if(res_type==0){
@@ -446,7 +462,7 @@ uint32_t lsm_get(request *const req){
 	}
 	lsm_proc_re_q();
 	if(!temp){
-		//		LSM.lop->all_print();
+		LSM.lop->all_print();
 		temp=true;
 	}
 	bench_algo_start(req);
@@ -856,7 +872,9 @@ void htable_print(htable * input,uint32_t ppa){
 	bool check=false;
 	int cnt=0;
 	for(uint32_t i=0; i<FULLMAPNUM; i++){
-		if(input->sets[i].lpa>RANGE && input->sets[i].lpa!=UINT_MAX){
+#ifndef KVSSD
+		if(input->sets[i].lpa>RANGE && input->sets[i].lpa!=UINT_MAX)
+		{
 			printf("bad reading %u\n",input->sets[i].lpa);
 			cnt++;
 			check=true;
@@ -865,6 +883,7 @@ void htable_print(htable * input,uint32_t ppa){
 			continue;
 		}
 		printf("[%d] %u %u\n",i, input->sets[i].lpa, input->sets[i].ppa);
+#endif
 	}
 	if(check){
 		printf("bad page at %d cnt:%d---------\n",ppa,cnt);
@@ -883,7 +902,7 @@ void htable_check(htable *in, KEYT lpa, uint32_t ppa,char *log){
 		//	printf("no table\n");
 		return;
 	}
-
+#ifndef KVSSD
 	for(int i=0; i<1024; i++){
 		if(target[i].lpa==lpa || target[i].ppa==ppa){
 			if(log){
@@ -896,5 +915,6 @@ void htable_check(htable *in, KEYT lpa, uint32_t ppa,char *log){
 			//printf("%u %u\n",target[i].lpa, target[i].ppa);
 		}
 	}
+#endif
 }
 

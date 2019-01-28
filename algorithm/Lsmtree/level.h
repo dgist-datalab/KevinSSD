@@ -18,8 +18,8 @@
 typedef struct skiplist skiplist;
 
 typedef struct keyset{
-	KEYT lpa;
 	uint32_t ppa;
+	KEYT lpa;
 }keyset;
 
 typedef struct htable{
@@ -72,7 +72,7 @@ typedef struct level{
 	llog *h;
 #endif
 	int idx,m_num,n_num;
-	uint32_t start,end;
+	KEYT start,end;
 	float fpr;
 	bool iscompactioning;
 	bool istier;
@@ -105,8 +105,8 @@ typedef struct level_ops{
 	//void* (*range_find_nxt_node)(level *l, void *node, run_t *);
 	lev_iter* (*get_iter)( level*,KEYT from, KEYT to);
 	run_t* (*iter_nxt)( lev_iter*);
-	KEYT (*get_max_table_entry)();
-	KEYT (*get_max_flush_entry)(uint32_t);
+	uint32_t (*get_max_table_entry)();
+	uint32_t (*get_max_flush_entry)(uint32_t);
 
 	/*compaciton operation*/
 	htable* (*mem_cvt2table)(skiplist *,run_t *);
@@ -123,14 +123,14 @@ typedef struct level_ops{
 #endif
 
 	/*run operation*/
-	run_t*(*make_run)(KEYT start, KEYT end, KEYT pbn);
+	run_t*(*make_run)(KEYT start, KEYT end, uint32_t pbn);
 	run_t**(*find_run)( level*,KEYT lpa);
 	void (*release_run)( run_t *);
 	run_t* (*run_cpy)( run_t *);
 
 	/*mapping operation*/
 	void (*moveTo_fr_page)( level*);
-	KEYT (*get_page)( level*, uint8_t plength);
+	uint32_t (*get_page)( level*, uint8_t plength);
 	bool (*block_fchk)( level*);
 	void (*range_update)(level *,run_t*,KEYT);
 #ifdef LEVELCACHING
@@ -154,5 +154,6 @@ void def_moveTo_fr_page( level*);
 uint32_t def_get_page( level*, uint8_t plegnth);
 bool def_blk_fchk( level *);
 void def_move_heap( level *des,  level *src);
+run_t *def_make_run(KEYT start, KEYT ent, uint32_t pbn);
 bool def_fchk( level *);
 #endif

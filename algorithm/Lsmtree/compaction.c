@@ -14,7 +14,12 @@
 #include "../../interface/interface.h"
 #include "../../include/types.h"
 #include "../../include/data_struct/list.h"
+#include "../../include/utils/kvssd.h"
 #ifdef DEBUG
+#endif
+
+#ifdef KVSSD
+extern KEYT key_min, key_max;
 #endif
 /*
 #define free(a) \
@@ -218,10 +223,12 @@ extern master_processor mp;
 bool isflushing;
 run_t *compaction_data_write(skiplist *mem){
 	//for data
+	//printf("data_write\n");
 	isflushing=true;
 	KEYT start=mem->start,end=mem->end;
 	run_t *res=LSM.lop->make_run(start,end,-1);
 	value_set **data_sets=skiplist_make_valueset(mem,LSM.disk[0]);
+	snode *t;
 	for(int i=0; data_sets[i]!=NULL; i++){	
 		algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 		lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
@@ -247,9 +254,12 @@ run_t *compaction_data_write(skiplist *mem){
 	return res;
 }
 
-uint32_t compaction_htable_write(htable *input, uint32_t lpa){
-	uint32_t ppa=getPPA(HEADER,lpa,true);//set ppa;
-
+uint32_t compaction_htable_write(htable *input, KEYT lpa){
+#ifdef KVSSD
+	uint32_t ppa=getPPA(HEADER,key_min,true);
+#else
+	uint32_t ppa=getPPA(HEADER,0,true);//set ppa;
+#endif
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 	areq->parents=NULL;
@@ -412,9 +422,14 @@ void *compaction_main(void *input){
 	return NULL;
 }
 
-void compaction_check(){
+void compaction_check(KEYT key){
 	compR *req;
-	if(unlikely(LSM.memtable->size==LSM.FLUSHNUM)){
+#ifdef KVSSD
+	if(unlikely(LSM.memtable->all_length+KEYLEN(key)+sizeof(uint16_t)>PAGESIZE-2048))
+#else
+	if(unlikely(LSM.memtable->size==LSM.FLUSHNUM))
+#endif
+	{
 		req=(compR*)malloc(sizeof(compR));
 		req->fromL=-1;
 		req->toL=0;
@@ -471,7 +486,6 @@ run_t* compaction_postprocessing(run_t *target){
 #else
 	table=htable_assign((char*)target->cpt_data->sets,true);
 #endif
-
 	target->pbn=compaction_htable_write(table,target->key);
 	return target;
 }
@@ -612,7 +626,12 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 #endif
 			skiplist_free(body);
 			bool target_processed=false;
-			if(entry->key > target_origin->end){
+#ifdef KVSSD
+			if(KEYCMP(entry->key,target_origin->end)>0)
+#else
+			if(entry->key > target_origin->end)
+#endif
+			{
 				target_processed=true;
 				compaction_lev_seq_processing(target_origin,target,target_origin->n_num);
 			}
@@ -652,7 +671,12 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 			DEBUG_LOG(log);
 #endif
 			bool target_processed=false;
-			if(target_origin->start>src->end){
+#ifdef KVSSD
+			if(KEYCMP(target_origin->start,src->end)>0)
+#else
+			if(target_origin->start>src->end)
+#endif
+			{
 				target_processed=true;
 				compaction_lev_seq_processing(src,target,src->n_num);
 			}
@@ -755,14 +779,15 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 #endif
 bool flag_value;
 uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
-	KEYT start=0;
-	KEYT end=0;
+	KEYT start=key_min;
+	KEYT end=key_min;
 	run_t **target_s=NULL;
 	run_t **data=NULL;
 	/*
 	static int cnt=0;
 	printf("partial_leveling:%d\n",cnt++);
 	*/
+	LSM.lop->print(origin);
 	if(!upper){
 #ifndef MONKEY
 		start=skip->start;

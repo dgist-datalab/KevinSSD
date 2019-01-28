@@ -11,11 +11,31 @@
 #include "../../level.h"
 #include "../../bloomfilter.h"
 
+#ifndef KVSSD
 inline KEYT f_h(KEYT a){ return (a*2654435761);}
+#else
+
+inline uint32_t f_h(KEYT a){
+	uint32_t hash=5381;
+	int c;
+
+	for(uint32_t i=0; i<a.len; i++){
+		c=a.key[i];
+		hash = ((hash<<5) + hash) + c;
+	}
+	return hash;
+}
+#endif
 typedef struct hash{
+#ifdef KVSSD
+	uint16_t n_num;
+	uint16_t t_num;
+	keyset *b;
+#else
 	uint32_t n_num;
 	uint32_t t_num;
 	keyset b[HENTRY];
+#endif
 }hash;
 
 typedef struct hash_body{
@@ -39,14 +59,14 @@ level* hash_init(int size, int idx, float fpr, bool istier);
 void hash_free(level*);
 void hash_insert(level *, run_t*);
 keyset* hash_find_keyset(char *data,KEYT lpa);
-run_t *hash_make_run(KEYT start, KEYT end, KEYT pbn);
+run_t *hash_make_run(KEYT start, KEYT end, uint32_t pbn);
 run_t **hash_find_run( level*,KEYT);
 uint32_t hash_range_find( level *,KEYT, KEYT,  run_t ***);
 uint32_t hash_unmatch_find( level *,KEYT, KEYT,  run_t ***);
 lev_iter* hash_get_iter( level *,KEYT start, KEYT end);
 run_t * hash_iter_nxt( lev_iter*);
-KEYT h_max_table_entry();
-KEYT h_max_flush_entry(uint32_t in);
+uint32_t h_max_table_entry();
+uint32_t h_max_flush_entry(uint32_t in);
 
 
 void hash_free_run( run_t*);
