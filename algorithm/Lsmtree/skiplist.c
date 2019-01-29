@@ -247,7 +247,7 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,uint32_t ppa,bool del
 #endif
 	snode *update[MAX_L+1];
 	snode *x=list->header;
-
+	
 	for(int i=list->level; i>=1; i--){
 #ifdef KVSSD
 		while(KEYCMP(x->list[i]->key,key)<0)

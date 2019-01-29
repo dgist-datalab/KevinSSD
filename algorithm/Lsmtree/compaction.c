@@ -425,7 +425,7 @@ void *compaction_main(void *input){
 void compaction_check(KEYT key){
 	compR *req;
 #ifdef KVSSD
-	if(unlikely(LSM.memtable->all_length+KEYLEN(key)+sizeof(uint16_t)>PAGESIZE-2048))
+	if(unlikely(LSM.memtable->all_length+KEYLEN(key)+sizeof(uint16_t)>PAGESIZE-KEYBITMAP))
 #else
 	if(unlikely(LSM.memtable->size==LSM.FLUSHNUM))
 #endif
@@ -778,6 +778,7 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 }
 #endif
 bool flag_value;
+bool debug_flag;
 uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 	KEYT start=key_min;
 	KEYT end=key_min;
@@ -785,9 +786,11 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 	run_t **data=NULL;
 	/*
 	static int cnt=0;
-	printf("partial_leveling:%d\n",cnt++);
-	*/
-	LSM.lop->print(origin);
+	printf("---------partial_leveling:%d\n",cnt++);
+	if(cnt==44){
+		debug_flag=true;
+	}*/
+	//LSM.lop->print(origin);
 	if(!upper){
 #ifndef MONKEY
 		start=skip->start;
@@ -815,7 +818,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 
 	compaction_sub_pre();
 	if(!upper){
-		test_b=LSM.lop->range_find(origin,start,end,&target_s);
+		test_b=LSM.lop->range_find_compaction(origin,start,end,&target_s);
 		if(!(test_a | test_b)){
 			DEBUG_LOG("can't be");
 		}
@@ -863,7 +866,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 	}
 	else{
 		int src_num, des_num; //for stream compaction
-		des_num=LSM.lop->range_find(origin,start,end,&target_s);//for stream compaction
+		des_num=LSM.lop->range_find_compaction(origin,start,end,&target_s);//for stream compaction
 #ifdef LEVELCACHING
 		if(upper->idx<LEVELCACHING){
 			//for caching more data
@@ -873,7 +876,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 		}
 		else{
 #endif
-			src_num=LSM.lop->range_find(upper,start,end,&data);	
+			src_num=LSM.lop->range_find_compaction(upper,start,end,&data);	
 #ifdef LEVELCACHING
 		}
 #endif

@@ -30,6 +30,13 @@ typedef struct array_body{
 	run_t *arrs;
 }array_body;
 
+typedef struct array_iter{
+	run_t *arrs;
+	int max;
+	int now;
+	bool ispartial;
+}a_iter;
+
 level* array_init(int size, int idx, float fpr, bool istier);
 void array_free(level*);
 void array_insert(level *, run_t*);
@@ -37,7 +44,9 @@ keyset* array_find_keyset(char *data,KEYT lpa);
 run_t *array_make_run(KEYT start, KEYT end, uint32_t pbn);
 run_t **array_find_run( level*,KEYT);
 uint32_t array_range_find( level *,KEYT, KEYT,  run_t ***);
+uint32_t array_range_find_compaction( level *,KEYT, KEYT,  run_t ***);
 uint32_t array_unmatch_find( level *,KEYT, KEYT,  run_t ***);
+//bool array_fchk(level *in);
 lev_iter* array_get_iter( level *,KEYT start, KEYT end);
 run_t * array_iter_nxt( lev_iter*);
 

@@ -471,11 +471,15 @@ uint32_t lsm_get(request *const req){
 		debug=true;
 	}
 	if(unlikely(res_type==0)){
-		//printf("not found seq: %d, key:%u\n",nor++,req->key);
-		//		LSM.lop->all_print();
+#ifdef KVSSD
+		printf("not found seq: %d, key:%.*s\n",nor++,KEYFORMAT(req->key));
+#else
+		printf("not found seq: %d, key:%u\n",nor++,req->key);
+#endif
+		LSM.lop->all_print();
 		req->type=req->type==FS_GET_T?FS_NOTFOUND_T:req->type;
 		req->end_req(req);
-		//abort();
+		abort();
 	}
 	return res_type;
 }
@@ -640,6 +644,12 @@ uint32_t __lsm_get(request *const req){
 	   if(LSM.lsm_cache->max_size < nc-1){
 	   printf("[lsmtree :%d] over cached! %d,%u\n",__LINE__,LSM.lsm_cache->max_size,nc);
 	   }*/
+	/*
+	static int cnt=0;
+	if(KEYCONSTCOMP(req->key,"52428")==0){
+		printf("break\n");
+	}*/
+//	printf("[%d]%.*s\n",cnt++,KEYFORMAT(req->key));
 	if(req->params==NULL){
 		/*memtable*/
 		res=__lsm_get_sub(req,NULL,NULL,LSM.memtable);
@@ -803,9 +813,9 @@ retry:
 		}
 
 		if(temp_data[3]){//bypass
-			run=0;
 			temp_data[3]=0;
 		}
+		run=0;
 		free(entries);
 	}
 	bench_algo_end(req);

@@ -16,6 +16,7 @@ level_ops a_ops={
 	.move_heap=def_move_heap,
 	.chk_overlap=array_chk_overlap,
 	.range_find=array_range_find,
+	.range_find_compaction=array_range_find_compaction,
 	.unmatch_find=array_unmatch_find,
 	.range_find_start=array_range_find_start,
 	//.range_find_nxt_node=NULL,
@@ -75,6 +76,10 @@ level* array_init(int size, int idx, float fpr, bool istier){
 
 	b->skip=NULL;
 	b->arrs=NULL;
+	if(idx<LEVELCACHING){
+		b->skip=skiplist_init();
+	}
+
 
 	res->idx=idx;
 	res->fpr=fpr;
@@ -160,6 +165,7 @@ void array_run_cpy_to(run_t *input, run_t *res){
 
 	res->cpt_data=NULL;
 	res->iscompactioning=false;
+	res->wait_idx=0;
 }
 
 void array_body_free(run_t *runs, int size){
@@ -204,22 +210,22 @@ void array_insert(level *lev, run_t* r){
 keyset* array_find_keyset(char *data,KEYT lpa){
 	char *body=data;
 	uint16_t *bitmap=(uint16_t*)body;
-	uint16_t s=0,e=bitmap[0];
+	int s=1,e=bitmap[0];
 	
 	KEYT target;
-	while(s<e){
-		uint16_t mid=(s+e)/2;
-		target.key=&body[bitmap[mid]];
+	while(s<=e){
+		int mid=(s+e)/2;
+		target.key=&body[bitmap[mid]+sizeof(uint32_t)];
 		target.len=bitmap[mid+1]-bitmap[mid]-sizeof(uint32_t);
 		int res=KEYCMP(target,lpa);
 		if(res==0){
 			return (keyset*)&body[bitmap[mid]];
 		}
 		else if(res<0){
-			s=e+1;
+			s=mid+1;
 		}
 		else{
-			e=s-1;
+			e=mid-1;
 		}
 	}
 	return NULL;
@@ -245,18 +251,14 @@ run_t **array_find_run( level* lev,KEYT lpa){
 }
 
 uint32_t array_range_find( level *lev ,KEYT s, KEYT e,  run_t ***rc){
-	static int cnt=0;
-	printf("cnt:%d\n",cnt++);
-	if(cnt==2){
-		printf("break\n");
-	}
 	array_body *b=(array_body*)lev->level_data;
 	run_t *arrs=b->arrs;
 	int res=0;
 	run_t *ptr;
 	run_t **r=(run_t**)malloc(sizeof(run_t*)*(lev->n_num+1));
 	int target_idx=array_binary_search(arrs,lev->n_num,s);
-	for(int i=target_idx; i!=-1 && i<lev->n_num; i++){
+	if(target_idx==-1) target_idx=0;
+	for(int i=target_idx;i<lev->n_num; i++){
 		ptr=(run_t*)&arrs[i];
 #ifdef KVSSD
 		if(!(KEYCMP(ptr->end,s)<0 || KEYCMP(ptr->key,e)>0))
@@ -274,6 +276,23 @@ uint32_t array_range_find( level *lev ,KEYT s, KEYT e,  run_t ***rc){
 		{
 			break;
 		}
+	}
+	r[res]=NULL;
+	*rc=r;
+	return res;
+}
+
+uint32_t array_range_find_compaction( level *lev ,KEYT s, KEYT e,  run_t ***rc){
+	array_body *b=(array_body*)lev->level_data;
+	run_t *arrs=b->arrs;
+	int res=0;
+	run_t *ptr;
+	run_t **r=(run_t**)malloc(sizeof(run_t*)*(lev->n_num+1));
+	int target_idx=array_binary_search(arrs,lev->n_num,s);
+	if(target_idx==-1) target_idx=0;
+	for(int i=target_idx;i<lev->n_num; i++){
+		ptr=(run_t*)&arrs[i];
+		r[res++]=ptr;
 	}
 	r[res]=NULL;
 	*rc=r;
@@ -299,21 +318,7 @@ uint32_t array_unmatch_find( level *lev,KEYT s, KEYT e,  run_t ***rc){
 			r[res++]=ptr;
 		}
 	}
-/*
-	int target_idx=array_binary_search(arrs,lev->n_num, e);
-	for(int i=target_idx; i!=-1 && i<lev->n_num; i++){
-		ptr=(run_t*)&arrs[i];
-#ifdef KVSSD
-		if(!(KEYCMP(ptr->end,s)<0 || KEYCMP(ptr->key,e)>0))
-#else
-		if(!(ptr->end<s || ptr->key>e))
-#endif
-		{
-			//do nothing
-		}else{
-			r[res++]=ptr;
-		}
-	}*/
+
 	r[res]=NULL;
 	*rc=r;
 	return res;
@@ -363,22 +368,58 @@ run_t * array_run_cpy( run_t *input){
 
 	res->cpt_data=NULL;
 	res->iscompactioning=false;
+	res->wait_idx=0;
 	return res;
 }
 
 lev_iter* array_get_iter( level *lev,KEYT start, KEYT end){
-	return NULL;
+	array_body *b=(array_body*)lev->level_data;
+	lev_iter *it=(lev_iter*)malloc(sizeof(lev_iter));
+	it->from=start;
+	it->to=end;
+	a_iter *iter=(a_iter*)malloc(sizeof(a_iter));
+
+	if(KEYCMP(start,lev->start)==0 && KEYCMP(end,lev->end)==0){
+		iter->ispartial=false;	
+	}
+	else{
+		printf("should do somthing!\n");
+		iter->ispartial=true;
+		abort();
+	}
+	iter->arrs=b->arrs;
+	iter->max=lev->n_num;
+	iter->now=0;
+	it->iter_data=(void*)iter;
+	return it;
 }
 run_t * array_iter_nxt( lev_iter* in){
+	run_t *res;
+	a_iter *iter=(a_iter*)in->iter_data;
+	if(iter->now==iter->max){
+		free(iter);
+		free(in);
+		return NULL;
+	}else{
+		if(iter->ispartial){
+			return NULL;
+		}else{
+			return &iter->arrs[iter->now++];
+		}
+	}
 	return NULL;
 }
 
 void array_print(level *lev){
+	array_body *b=(array_body*)lev->level_data;
 	if(lev->idx<LEVELCACHING){
-		printf("we need a caching print\n");
+		if(b->skip->size==0){
+			printf("[caching data] empty\n");	
+		}else{
+			printf("[caching data] %.*s ~ %.*s size:%d all_length:%d/%d(max)\n",KEYFORMAT(b->skip->start),KEYFORMAT(b->skip->end),b->skip->size, b->skip->all_length, lev->m_num *(PAGESIZE-KEYBITMAP));
+		}
 		return;
 	}
-	array_body *b=(array_body*)lev->level_data;
 	run_t *arrs=b->arrs;
 	for(int i=0; i<lev->n_num;i++){
 		run_t *rtemp=&arrs[i];
@@ -387,6 +428,15 @@ void array_print(level *lev){
 #else
 		printf("[%d]%d~%d(%d)-ptr:%p cached:%s wait:%d\n",i,rtemp->key,rtemp->end,rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx);,
 #endif
+	}
+}
+
+
+void array_all_print(){
+	for(int i=0; i<LEVELN; i++){
+		printf("[LEVEL : %d]\n",i);
+		array_print(LSM.disk[i]);
+		printf("\n");
 	}
 }
 
@@ -401,22 +451,19 @@ uint32_t a_max_flush_entry(uint32_t in){
 	return in;
 }
 
-void array_all_print(){
-	for(int i=0; i<LEVELN; i++)array_print(LSM.disk[i]);
-}
-
 int array_binary_search(run_t *body,uint32_t max_t, KEYT lpa){
-	uint32_t start=0;
-	uint32_t end=max_t-1;
-	uint32_t mid;
+	int start=0;
+	int end=max_t-1;
+	int mid;
 
 	while(start==end ||start<end){
-		mid=start+end/2;
+		mid=(start+end)/2;
 		if(KEYCMP(body[mid].key,lpa)<=0 && KEYCMP(body[mid].end,lpa)>=0)
 			return mid;
 		if(KEYCMP(body[mid].key,lpa)>0) end=mid-1;
 		else if(KEYCMP(body[mid].end,lpa)<0) start=mid+1;
 	}
+	
 	return -1;
 }
 

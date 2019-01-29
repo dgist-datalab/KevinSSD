@@ -32,7 +32,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 1L
+#define GIGAUNIT 4L
 #define TOTALSIZE ((10L)*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
@@ -57,6 +57,8 @@
 
 #define FSTYPE uint8_t
 #ifdef KVSSD
+#define KEYFORMAT(input) input.len,input.key
+#include<string.h>
 typedef struct str_key{
 	uint8_t len;
 	char *key;
@@ -73,6 +75,19 @@ static inline int KEYCMP(KEYT a,KEYT b){
 		return r;
 	}
 	return a.len<b.len?-1:1;
+}
+
+static inline int KEYCONSTCOMP(KEYT a, char *s){
+	int len=strlen(s);
+	if(!a.len && !len) return 0;
+	else if(a.len==0) return -1;
+	else if(len==0) return 1;
+
+	int r=memcmp(a.key,s,a.len>len?len:a.len);
+	if(r!=0 || a.len==len){
+		return r;
+	}
+	return a.len<len?-1:1;
 }
 #define KEYLEN(a) (a.len+sizeof(uint32_t))
 #else

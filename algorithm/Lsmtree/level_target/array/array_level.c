@@ -70,8 +70,8 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 	char *ptr=(char*)res->sets;
 	uint16_t *bitmap=(uint16_t*)ptr;
 	uint32_t idx=1;
-	memset(bitmap,-1,2048/sizeof(uint16_t));
-	uint16_t data_start=2048;
+	memset(bitmap,-1,KEYBITMAP/sizeof(uint16_t));
+	uint16_t data_start=KEYBITMAP;
 	bitmap[0]=mem->size;
 	
 	//printf("start:%.*s end:%.*s size:%d\n",KEYFORMAT(mem->start),KEYFORMAT(mem->end),mem->size);
@@ -126,6 +126,7 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	else{
 		for(int i=0; s[i]!=NULL; i++){
 			body=data_from_run(s[i]);
+//			array_header_print(body);
 			bitmap=(uint16_t*)body;
 			for_each_header_start(idx,key,ppa_ptr,bitmap,body)
 				skiplist_insert_existIgnore(des->skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
@@ -133,18 +134,23 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 		}
 	}
 }
-
+extern bool debug_flag;
 run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end){
 	array_body *b=(array_body*)d->level_data;
 	//skiplist *t_skip=skiplist_init();
+
 	skiplist *src_skip=b->skip;
 	//printf("cutter called[%d]\n",b->skip->all_length);
 	if(src_skip->all_length<=0) return NULL;
-
+	if(debug_flag){
+	//	printf("break\n");
+	}
 	snode *src_header=src_skip->header;
 	KEYT start=src_skip->header->list[1]->key, end;
 
 	/*assign pagesize for header*/
+	htable *res=htable_assign(NULL,0);
+	/*
 	value_set *temp=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
 	htable *res=(htable*)malloc(sizeof(htable));
 #ifdef NOCPY
@@ -152,16 +158,16 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 #else
 	res->sets=(keyset*)temp->value;
 #endif
-	res->origin=temp;
+	res->origin=temp;*/
 
 #ifdef BLOOM
-	BF* filter=bf_init(2048/sizeof(uint16_t),d->fpr);
+	BF* filter=bf_init(KEYBITMAP/sizeof(uint16_t),d->fpr);
 #endif
 	char *ptr=(char*)res->sets;
 	uint16_t *bitmap=(uint16_t*)ptr;
 	uint32_t idx=1;
-	memset(bitmap,-1,2048/sizeof(uint16_t));
-	uint16_t data_start=2048;
+	memset(bitmap,-1,KEYBITMAP/sizeof(uint16_t));
+	uint16_t data_start=KEYBITMAP;
 	/*end*/
 	uint32_t length=0;
 	do{	
@@ -181,7 +187,10 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 		free(temp->list);
 		free(temp);
 	}
-	while(length+KEYLEN(src_skip->header->list[1]->key)<PAGESIZE-2048);
+	while(src_skip->all_length && length+KEYLEN(src_skip->header->list[1]->key)<PAGESIZE-KEYBITMAP);
+	if(debug_flag){
+	//	printf("after\n");
+	}
 	bitmap[0]=idx-1;
 	bitmap[idx]=data_start;
 	//array_header_print(ptr);
@@ -203,7 +212,7 @@ BF* array_making_filter(run_t *data, float fpr){
 void array_cache_insert(level *lev,run_t* r){
 	array_body *b=(array_body*)lev->level_data;
 	skiplist *skip=b->skip;
-	
+
 	uint32_t idx;
 	uint32_t *ppa_ptr;
 	uint16_t *bitmap;
@@ -214,7 +223,7 @@ void array_cache_insert(level *lev,run_t* r){
 	body=(char*)r->cpt_data->sets;
 	bitmap=(uint16_t*)body;
 	for_each_header_start(idx,key,ppa_ptr,bitmap,body)
-		if(idx==0) start=key;
+		if(idx==1) start=key;
 		skiplist_insert_existIgnore(skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
 		end=key;
 	for_each_header_end
@@ -227,6 +236,7 @@ void array_cache_merge(level *src, level *des){
 	array_body *d=(array_body*)des->level_data;
 
 	snode *temp;
+
 	KEYT start=s->skip->header->list[1]->key,end;
 	for_each_sk(temp,s->skip){
 		end=temp->key;
@@ -245,6 +255,9 @@ int array_cache_comp_formatting(level *lev ,run_t ***des){
 	run_t **res=(run_t**)malloc(sizeof(run_t*)*array_cache_get_sz(lev));
 	int idx=0;
 	while((res[idx]=array_cutter(NULL,lev,NULL,NULL))!=NULL){idx++;}
+//	printf("[start]print in formatting :%p\n");
+//	array_header_print((char*)res[0]->cpt_data->sets);
+//	printf("[end]print in formatting: %p\n",res[0]->cpt_data->sets);
 	res[idx+1]=NULL;
 	*des=res;
 	return idx+1;
@@ -257,7 +270,9 @@ void array_cache_move(level *src, level *des){
 keyset *array_cache_find(level *lev, KEYT lpa){
 	array_body *b=(array_body*)lev->level_data;
 	snode *target=skiplist_find(b->skip,lpa);
-	return (keyset*)&target->key;
+	if(target)
+		return (keyset*)target;
+	else return NULL;
 }
 
 run_t *array_cache_find_run(level *,KEYT lpa){
@@ -266,7 +281,9 @@ run_t *array_cache_find_run(level *,KEYT lpa){
 
 int array_cache_get_sz(level* lev){
 	array_body *b=(array_body*)lev->level_data;
-	return b->skip->all_length/PAGESIZE+b->skip->all_length%PAGESIZE?1:0;
+	if(!b->skip) return 0;
+	int t=(PAGESIZE-KEYBITMAP);
+	return (b->skip->all_length/t)+(b->skip->all_length%t?1:0);
 }
 
 void array_header_print(char *data){

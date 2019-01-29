@@ -37,7 +37,7 @@ export CFLAGS_LOWER=\
 export priority="false"
 export ORIGINAL_PATH=$(PPWD)
 
-CFLAGS_ALGO+=-DCOMPACTIONLOG\
+#CFLAGS_ALGO+=-DCOMPACTIONLOG\
 	
 CFLAGS_ALGO+=$(COMMONFLAGS)\
 			 -D$(TARGET_ALGO)\
@@ -156,3 +156,6 @@ clean :
 	@$(RM) simulator_memory_check
 	@$(RM) debug_simulator
 	@$(RM) duma_simulator
+	@$(RM) driver
+	@$(RM) range_driver
+
