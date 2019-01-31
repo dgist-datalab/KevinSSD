@@ -4,6 +4,7 @@
 #include "../../include/lsm_settings.h"
 #include "heap.h"
 #include "log_list.h"
+#include "level.h"
 #include <pthread.h>
 
 #define HEADER 0
@@ -11,7 +12,7 @@
 #define BLOCK 2
 
 struct level; 
-typedef struct{
+typedef struct gc_node{
 	uint32_t ppa;
 	uint32_t nppa;
 	KEYT lpa;
@@ -19,13 +20,13 @@ typedef struct{
 	uint8_t plength;
 	uint8_t level;
 }gc_node;
-typedef struct{
+typedef struct gc_node_wrapper{
 	gc_node** datas[LEVELN][BPS+1];
 	int size[LEVELN][BPS+1];
 	int cnt[LEVELN];
 }gc_node_wrapper;
 
-typedef struct{
+typedef struct block{
 	/*genearal pard*/
 	bool erased;
 	llog_node *l_node;//pm where the block assigned
@@ -109,3 +110,13 @@ uint32_t gc_victim_segment(uint8_t type,bool);
 void gc_trim_segment(uint8_t, uint32_t pbn);
 block *gc_getrblock_fromseg(uint8_t type);
 #endif
+struct block* getRBLOCK(uint8_t type);
+uint32_t getRPPA(uint8_t type,KEYT lpa,bool);
+
+void gc_general_wait_init();
+void gc_general_waiting();
+void gc_data_read(uint32_t ppa,struct htable_t *value,bool isdata);
+void gc_data_write(uint32_t ppa,htable_t *value,bool isdata);
+void gc_data_header_update_add(struct gc_node **gn,int size, int target_level, char order);
+uint32_t PBITGET(uint32_t ppa);
+int gc_data_write_using_bucket(struct length_bucket *b,int target_level,char order);

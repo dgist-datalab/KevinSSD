@@ -89,6 +89,6 @@ keyset *array_cache_find(level *, KEYT lpa);
 run_t *array_cache_find_run(level *,KEYT lpa);
 int array_cache_get_sz(level*);
 #endif
-
+KEYT *array_get_lpa_from_data(char *data,bool isheader);
 int array_binary_search(run_t *body,uint32_t max_t, KEYT lpa);
 #endif

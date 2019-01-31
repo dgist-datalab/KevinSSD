@@ -77,7 +77,7 @@ typedef struct level{
 	bool iscompactioning;
 	bool istier;
 	struct level_ops *op;
-	block* now_block;
+	struct block* now_block;
 	void* level_data;
 #if (LEVELN==1)
 	run_t *mappings;
@@ -146,9 +146,14 @@ typedef struct level_ops{
 	int (*cache_get_size)(level *);
 #endif
 
+#ifdef KVSSD
+	KEYT *(*get_lpa_from_data)(char *data,bool isheader);
+#endif
+
 	/*for debugging*/
 	void (*print)( level*);
 	void (*all_print)();
+	void (*header_print)(char*);
 }level_ops;
 
 void def_moveTo_fr_page( level*);

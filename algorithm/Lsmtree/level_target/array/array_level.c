@@ -3,6 +3,7 @@
 #include "../../lsmtree.h"
 #include "../../../../interface/interface.h"
 #include "../../../../include/utils/kvssd.h"
+#include "../../../../include/settings.h"
 #include "array_header.h"
 
 static inline char *data_from_run(run_t *a){
@@ -113,6 +114,9 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 		bitmap=(uint16_t*)body;
 		//array_header_print(body);
 		for_each_header_start(idx,key,ppa_ptr,bitmap,body)
+			if(KEYCONSTCOMP(key,"789502")==0){
+				printf("789502 to %d\n",d->idx);
+			}
 			skiplist_insert_existIgnore(des->skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
 		for_each_header_end
 	}
@@ -129,6 +133,9 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 //			array_header_print(body);
 			bitmap=(uint16_t*)body;
 			for_each_header_start(idx,key,ppa_ptr,bitmap,body)
+				if(KEYCONSTCOMP(key,"789502")==0){
+					printf("789502 to %d\n",d->idx);
+				}
 				skiplist_insert_existIgnore(des->skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
 			for_each_header_end
 		}
@@ -145,7 +152,7 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 	if(debug_flag){
 	//	printf("break\n");
 	}
-	snode *src_header=src_skip->header;
+	/*snode *src_header=src_skip->header;*/
 	KEYT start=src_skip->header->list[1]->key, end;
 
 	/*assign pagesize for header*/

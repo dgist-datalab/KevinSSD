@@ -254,7 +254,7 @@ void* lsm_end_req(algo_req* const req){
 	request* parents=req->parents;
 	bool havetofree=true;
 	void *req_temp_params=NULL;
-#ifndef NOCPY
+#if !defined(NOCPY)||defined(KVSSD)
 	PTR target=NULL;
 #endif
 	htable **header=NULL;
@@ -319,7 +319,11 @@ void* lsm_end_req(algo_req* const req){
 			   if(params->lsm_type==GCHR)
 			   nocpy_copy_to((char*)target,params->ppa);
 			 */
-			//nothing to do
+			//nothing to doa
+#ifdef KVSSD
+			target=(PTR)params->target;
+			memcpy(target,params->value->value,PAGESIZE);
+#endif
 #else
 			target=(PTR)params->target;//gc has malloc in gc function
 			memcpy(target,params->value->value,PAGESIZE);
@@ -398,7 +402,10 @@ uint32_t lsm_set(request * const req){
 	printf("lsm_set!\n");
 	printf("key : %u\n",req->key);//for debug
 #endif
-
+#ifdef KVSSD
+	memcpy(req->value->value,&req->key.len,sizeof(req->key.len));
+	memcpy(&req->value->value[sizeof(req->key.len)],req->key.key,req->key.len);
+#endif
 	compaction_check(req->key);
 	MS(&__get_mt2);
 	if(req->type==FS_DELETE_T){
@@ -462,7 +469,7 @@ uint32_t lsm_get(request *const req){
 	}
 	lsm_proc_re_q();
 	if(!temp){
-		LSM.lop->all_print();
+		//LSM.lop->all_print();
 		temp=true;
 	}
 	bench_algo_start(req);
@@ -471,15 +478,18 @@ uint32_t lsm_get(request *const req){
 		debug=true;
 	}
 	if(unlikely(res_type==0)){
+		
 #ifdef KVSSD
 		printf("not found seq: %d, key:%.*s\n",nor++,KEYFORMAT(req->key));
 #else
 		printf("not found seq: %d, key:%u\n",nor++,req->key);
 #endif
-		LSM.lop->all_print();
+	
+		//LSM.lop->all_print();
 		req->type=req->type==FS_GET_T?FS_NOTFOUND_T:req->type;
 		req->end_req(req);
-		abort();
+	//	sleep(1);
+		//abort();
 	}
 	return res_type;
 }
@@ -634,21 +644,10 @@ uint32_t __lsm_get(request *const req){
 	int run;
 	int round;
 	int res;
+	int mark=req->mark;
 	htable mapinfo;
-//	printf("get\n");
 	run_t** entries;
 	run_t *entry;
-	bool comback_req=false;
-	/*
-	   uint32_t nc=hash_all_cached_entries();
-	   if(LSM.lsm_cache->max_size < nc-1){
-	   printf("[lsmtree :%d] over cached! %d,%u\n",__LINE__,LSM.lsm_cache->max_size,nc);
-	   }*/
-	/*
-	static int cnt=0;
-	if(KEYCONSTCOMP(req->key,"52428")==0){
-		printf("break\n");
-	}*/
 //	printf("[%d]%.*s\n",cnt++,KEYFORMAT(req->key));
 	if(req->params==NULL){
 		/*memtable*/
@@ -703,7 +702,6 @@ uint32_t __lsm_get(request *const req){
 #ifndef FLASHCHCK
 		run+=1;
 #endif
-		comback_req=true;
 	}
 
 retry:
@@ -757,7 +755,7 @@ retry:
 				if(res){
 					//	static int cnt=0;
 					//	printf("cache_hit:%d\n",cnt++);
-					bench_cache_hit(req->mark);
+					bench_cache_hit(mark);
 					cache_update(LSM.lsm_cache,entry);
 					free(entries);
 					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);

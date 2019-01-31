@@ -16,7 +16,8 @@ COMMONFLAGS=\
 			-DLARGEFILE64_SOURCE\
 			-DSLC\
 			-DKVSSD\
-#			-O2\
+			-O2\
+#			-fsanitize=address\
 #			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
@@ -36,6 +37,8 @@ export CFLAGS_LOWER=\
 
 export priority="false"
 export ORIGINAL_PATH=$(PPWD)
+
+export kv_flag="true"
 
 #CFLAGS_ALGO+=-DCOMPACTIONLOG\
 	

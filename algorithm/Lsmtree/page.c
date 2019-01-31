@@ -14,8 +14,7 @@
 extern algorithm algo_lsm;
 extern lsmtree LSM;
 extern volatile int gc_target_get_cnt;
-uint32_t getRPPA(uint8_t type,KEYT lpa,bool);
-block* getRBLOCK(uint8_t type);
+//block* getRBLOCK(uint8_t type);
 volatile int gc_read_wait;
 pthread_mutex_t gc_wait;
 #ifdef NOGC
@@ -58,15 +57,19 @@ OOBT PBITSET(KEYT input,bool isFull){
 KEYT* KEYGET(char *data){
 	return (KEYT*)data;
 }
-#else
+#endif
+
 uint32_t PBITGET(uint32_t ppa){
+#ifdef KVSSD
+	return ppa;
+#else
 	uint32_t res=(uint32_t)oob[ppa];
 #ifdef DVALUE
 	res>>=1;
 #endif
 	return res;
-}
 #endif
+}
 #ifdef DVALUE
 bool PBITFULL(KEYT input,bool isrealppa){
 	if(isrealppa)
@@ -242,8 +245,12 @@ void gc_trim_segment(uint8_t type, uint32_t pbn){
 		algo_lsm.li->trim_block(seg->ppa,0);
 
 #ifdef NOCPY
-		if(seg->ppa>=0 && seg->ppa<(HEADERSEG+1)*_PPS)
+		if(seg->ppa>=0 && seg->ppa<(HEADERSEG+1)*_PPS){
+#ifdef KVSSD
+#else
 			nocpy_free_block(seg->ppa);
+#endif
+		}
 #endif
 
 		//printf("seg->ppa:%d\n",seg->ppa);
@@ -647,7 +654,7 @@ bool gc_check(uint8_t type, bool force){
 	//		static int header_cnt=0;
 			switch(type){
 				case HEADER:
-					//printf("header gc:%d\n",header_gc_cnt++);
+					printf("header gc:%d\n",header_gc_cnt++);
 					target_p=&header_m;
 					header_gc_cnt++; 
 					break;
@@ -831,7 +838,9 @@ void invalidate_PPA(uint32_t _ppa){
 	segment *segs=WHICHSEG(bl[bn].ppa);
 	segs->invalid_n++;
 	//static int cnt=0;
-
+	if(_ppa==0){
+		printf("invalidate! %d\n",ppa);
+	}
 #ifdef NOCPY
 	if(_ppa>=0 && _ppa<(HEADERSEG+1)*_PPS)
 		nocpy_free_page(_ppa);
@@ -918,9 +927,12 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 #else
 				printf("can't be! %d %d size:%d\n",target->lpa,target->ppa,LSM.lop->cache_get_size(in));
 #endif
-//				assert(0);
+				assert(0);
 			}
 			find->ppa=target->nppa;
+#ifdef KVSSD
+			free(target->lpa.key);
+#endif
 			continue;
 		}
 #endif
@@ -991,7 +1003,11 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 
 					finded->ppa=target->nppa;
+#ifdef KVSSD
+					free(target->lpa.key);
+#endif
 					free(target);
+
 					gn[k]=NULL;
 					i++;
 				}
@@ -1265,8 +1281,8 @@ uint32_t gc_victim_segment(uint8_t type,bool isforcegc){ //gc for segment
 	return target->ppa/_PPB+target->segment_idx++;
 }
 
-int gc_header(uint32_t tbn){
 #ifndef KVSSD
+int gc_header(uint32_t tbn){
 	/*
 	static int gc_cnt=0;
 	printf("[%d]gc_header start -> block:%u\n",gc_cnt++,tbn);*/
@@ -1373,11 +1389,7 @@ int gc_header(uint32_t tbn){
 		}
 		if(checkdone==false){
 			LSM.lop->all_print();
-#ifdef KVSSD
-			printf("[%s : %u]error!\n",kvssd_tostring(t_ppa),lpa);
-#else
 			printf("[%u : %u]error!\n",t_ppa,lpa);
-#endif
 			abort();
 		}
 	}
@@ -1411,9 +1423,10 @@ int gc_header(uint32_t tbn){
 
 	free(target_ent);
 	gc_trim_segment(HEADER,target->ppa);
-#endif
 	return 1;
 }
+#endif
+#ifndef KVSSD
 static int gc_dataed_page;
 static bool gc_data_check_upper_lev_caching(KEYT lpa, uint32_t ppa, int level){
 	bool res=false;
@@ -1430,7 +1443,6 @@ static bool gc_data_check_upper_lev_caching(KEYT lpa, uint32_t ppa, int level){
 int gc_data(uint32_t tbn){
 //	gc_data_cnt++;
 //	printf("gc_data_cnt : %d\n",gc_data_cnt);
-#ifndef KVSSD
 	int data_read=0,data_write=0;
 	block *target=&bl[tbn];
 	char order;
@@ -1613,9 +1625,9 @@ int gc_data(uint32_t tbn){
 	if(data_write!=data_read){
 		printf("gc rw:%d,%d\n",data_read,data_write);
 	}
-#endif
 	return 1;
 }
+#endif
 
 bool gc_segment_force(){
 	uint32_t target_pba=gc_victim_segment(1,true);

@@ -565,6 +565,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 		LSM.lop->moveTo_fr_page(from);
 		res[res_idx]->ppa=LSM.lop->get_page(from,(PAGESIZE/PIECE));
 
+
 		/*checking new ppa in skiplist_valuset*/
 #ifdef DVALUE
 		oob[res[res_idx]->ppa/(PAGESIZE/PIECE)]=PBITSET(target->key,true);//OOB setting

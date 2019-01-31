@@ -56,8 +56,10 @@ level_ops a_ops={
 	.cache_find_run=array_cache_find_run,
 	.cache_get_size=array_cache_get_sz,
 #endif
+	.get_lpa_from_data=array_get_lpa_from_data,
 	.print=array_print,
 	.all_print=array_all_print,
+	.header_print=array_header_print
 };
 
 void array_range_update(level *lev,run_t* r, KEYT key){
@@ -394,7 +396,6 @@ lev_iter* array_get_iter( level *lev,KEYT start, KEYT end){
 	return it;
 }
 run_t * array_iter_nxt( lev_iter* in){
-	run_t *res;
 	a_iter *iter=(a_iter*)in->iter_data;
 	if(iter->now==iter->max){
 		free(iter);
@@ -416,7 +417,7 @@ void array_print(level *lev){
 		if(b->skip->size==0){
 			printf("[caching data] empty\n");	
 		}else{
-			printf("[caching data] %.*s ~ %.*s size:%d all_length:%d/%d(max)\n",KEYFORMAT(b->skip->start),KEYFORMAT(b->skip->end),b->skip->size, b->skip->all_length, lev->m_num *(PAGESIZE-KEYBITMAP));
+			printf("[caching data] %.*s ~ %.*s size:%lu all_length:%d/%d(max)\n",KEYFORMAT(b->skip->start),KEYFORMAT(b->skip->end),b->skip->size, b->skip->all_length, lev->m_num *(PAGESIZE-KEYBITMAP));
 		}
 		return;
 	}
@@ -424,7 +425,7 @@ void array_print(level *lev){
 	for(int i=0; i<lev->n_num;i++){
 		run_t *rtemp=&arrs[i];
 #ifdef KVSSD
-		printf("[%d]%.*s~%.*s(%d)-ptr:%p cached:%s wait:%d\n",i,KEYFORMAT(rtemp->key),KEYFORMAT(rtemp->end),rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx);
+		printf("[%d]%.*s~%.*s(%d)-ptr:%p cached:%s wait:%d iscomp:%d\n",i,KEYFORMAT(rtemp->key),KEYFORMAT(rtemp->end),rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx,rtemp->iscompactioning);
 #else
 		printf("[%d]%d~%d(%d)-ptr:%p cached:%s wait:%d\n",i,rtemp->key,rtemp->end,rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx);,
 #endif
@@ -478,5 +479,27 @@ run_t *array_make_run(KEYT start, KEYT end, uint32_t pbn){
 #ifdef BLOOM
 	res->filter=NULL;
 #endif
+	return res;
+}
+
+KEYT *array_get_lpa_from_data(char *data,bool isheader){
+	KEYT *res=(KEYT*)malloc(sizeof(KEYT));
+	if(isheader){
+		int idx;
+		KEYT key;
+		uint32_t *ppa;
+		uint16_t *bitmap;
+		char *body=data;
+		bitmap=(uint16_t*)body;
+
+		for_each_header_start(idx,key,ppa,bitmap,body)
+			kvssd_cpy_key(res,&key);
+			return res;
+		for_each_header_end
+	}
+	else{
+		res->len=*(uint8_t*)data;
+		res->key=&data[sizeof(uint8_t)];
+	}
 	return res;
 }

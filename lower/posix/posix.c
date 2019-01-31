@@ -30,6 +30,10 @@ lower_info my_posix={
 	.lower_free=NULL,
 	.lower_flying_req_wait=posix_flying_req_wait
 };
+static uint8_t test_type(uint8_t type){
+	uint8_t t_type=0xff>>1;
+	return type&t_type;
+}
 
 uint32_t posix_create(lower_info *li){
 	li->NOB=_NOS;
@@ -66,6 +70,9 @@ void *posix_destroy(lower_info *li){
 	pthread_mutex_destroy(&my_posix.lower_lock);
 	pthread_mutex_destroy(&fd_lock);
 	close(_fd);
+	for(int i=0; i<LREQ_TYPE_NUM;i++){
+		printf("%s %lu\n",bench_lower_type(i),li->req_type_cnt[i]);
+	}
 	return NULL;
 }
 
@@ -74,6 +81,11 @@ void *posix_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 	if(PPA>6500)
 		printf("PPA : %u\n", PPA);
 	*/
+	uint8_t t_type=test_type(req->type);
+	if(t_type < LREQ_TYPE_NUM){
+		my_posix.req_type_cnt[t_type]++;
+	}
+
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
 		exit(1);
@@ -111,6 +123,10 @@ void *posix_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 	if(PPA>6500)
 		printf("PPA : %u\n", PPA);
 	*/
+	uint8_t t_type=test_type(req->type);
+	if(t_type < LREQ_TYPE_NUM){
+		my_posix.req_type_cnt[t_type]++;
+	}
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
 		exit(1);

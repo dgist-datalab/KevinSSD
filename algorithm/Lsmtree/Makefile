@@ -33,9 +33,11 @@ SRCS +=\
 	   nocpy.c\
 	   lops_default.c\
 	   cache.c\
+	   page_kv.c\
 #merge_compaction.c\
 	   run_array.c\
 	   lsmtree_multi.c\
+
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\

@@ -228,7 +228,7 @@ run_t *compaction_data_write(skiplist *mem){
 	KEYT start=mem->start,end=mem->end;
 	run_t *res=LSM.lop->make_run(start,end,-1);
 	value_set **data_sets=skiplist_make_valueset(mem,LSM.disk[0]);
-	snode *t;
+	//snode *t;
 	for(int i=0; data_sets[i]!=NULL; i++){	
 		algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 		lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
@@ -279,6 +279,7 @@ uint32_t compaction_htable_write(htable *input, KEYT lpa){
 	areq->type=HEADERW;
 	params->ppa=ppa;
 	LSM.li->write(ppa,PAGESIZE,params->value,ASYNC,areq);
+	//printf("%u\n",ppa);
 	return ppa;
 }
 void dummy_meta_write(uint32_t ppa){
@@ -562,8 +563,13 @@ skiplist *leveling_preprocessing(level * from, level* to){
 	return res;
 }
 
-
+extern bool gc_debug_flag;
+int level_cnt;
 uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
+	//printf("level_cnt:%d\n",level_cnt);
+	if(level_cnt==1196){
+	//	LSM.lop->all_print();
+	}
 #ifdef COMPACTIONLOG
 	char log[1024];
 #endif
@@ -720,9 +726,11 @@ chg_level:
 	(*des_ptr)=target;
 	LSM.lop->release(to);
 	pthread_mutex_unlock(lock);
-	
-	//LSM.lop->all_print();
-	//printf("\n\n");
+	if(gc_debug_flag){
+	//	LSM.lop->all_print();
+	//	printf("\n\n");
+	//	abort();
+	}
 #ifdef DVALUE
 	/*
 	if(from){
@@ -731,6 +739,7 @@ chg_level:
 	}*/
 #endif
 	LSM.c_level=NULL;
+//	printf("level_cnt:%d end\n\n",level_cnt++);
 	return 1;
 }	
 
@@ -880,7 +889,10 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 #ifdef LEVELCACHING
 		}
 #endif
-
+		if(src_num && des_num == 0 ){
+			printf("can't be\n");
+			abort();
+		}
 #ifdef STREAMCOMP
 		LSM.lop->stream_merger(NULL,data,target_s,t);
 #endif

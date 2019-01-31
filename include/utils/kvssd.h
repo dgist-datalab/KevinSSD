@@ -2,5 +2,5 @@
 #define __H_KVSSD__
 #include "../settings.h"
 char* kvssd_tostring(KEYT);
-void kvssd_cpy_key(KEYT *,KEYT*);
+void kvssd_cpy_key(KEYT *des,KEYT* src);
 #endif
