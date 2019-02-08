@@ -1,8 +1,8 @@
 *.o
 *.a
 *.out
-simulator
-simulator_memory_check
+driver
+driver_memory_check
 server
 duma_*
 data/
