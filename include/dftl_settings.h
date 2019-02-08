@@ -2,7 +2,7 @@
 #define __H_SETDFTL__
 
 // clean cache flag
-#define C_CACHE 1
+#define C_CACHE 0
 
 // memcpy op gc flag
 #define MEMCPY_ON_GC 0

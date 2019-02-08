@@ -4,8 +4,8 @@
 algorithm __demand = {
     .create  = demand_create,
     .destroy = demand_destroy,
-    .get     = demand_get,
-    .set     = demand_set,
+    .read    = demand_get,
+    .write   = demand_set,
     .remove  = demand_remove
 };
 
@@ -434,7 +434,7 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
         temp_req = assign_pseudo_req(MAPPING_R, dummy_vs, req);
 
         bench_algo_end(req);
-        __demand.li->pull_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+        __demand.li->read(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
 
         return 1;
     }
@@ -463,7 +463,7 @@ static uint32_t demand_write_flying(request *const req, char req_t) {
         temp_req = assign_pseudo_req(MAPPING_R, dummy_vs, req);
 
         bench_algo_end(req);
-        __demand.li->pull_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+        __demand.li->read(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
 
         return 1;
 
@@ -519,7 +519,7 @@ static uint32_t demand_read_flying(request *const req, char req_t) {
         temp_req = assign_pseudo_req(MAPPING_R, dummy_vs, req);
 
         bench_algo_end(req);
-        __demand.li->pull_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+        __demand.li->read(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
 
         puts("wtf");
 
@@ -651,7 +651,7 @@ uint32_t __demand_get(request *const req){
 	}
 	bench_algo_end(req);
 	// Get data in ppa
-	__demand.li->pull_data(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req));
+	__demand.li->read(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req));
 
 	return 1;
 }
@@ -693,7 +693,7 @@ uint32_t __demand_set(request *const req){
             /* Actual part of data push */
             ppa = dp_alloc();
             my_req = assign_pseudo_req(DATA_W, temp->value, NULL);
-            __demand.li->push_data(ppa, PAGESIZE, temp->value, ASYNC, my_req);
+            __demand.li->write(ppa, PAGESIZE, temp->value, ASYNC, my_req);
 
             // Save ppa to snode (-> to update mapping info later)
             temp->ppa = ppa;
@@ -718,7 +718,7 @@ uint32_t __demand_set(request *const req){
 						temp_req = assign_pseudo_req(MAPPING_R, dummy_vs, NULL);
 						((demand_params *)temp_req->params)->sn = temp;
                         temp->t_ppa = t_ppa;
-						__demand.li->pull_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+						__demand.li->read(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
 
 						BM_InvalidatePage(bm, t_ppa);
 
@@ -733,7 +733,7 @@ uint32_t __demand_set(request *const req){
 						temp_req = assign_pseudo_req(MAPPING_R, dummy_vs, NULL);
 						((demand_params *)temp_req->params)->sn = temp;
 
-						__demand.li->pull_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+						__demand.li->read(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
 
 						continue;
 					}
@@ -947,7 +947,7 @@ uint32_t __demand_remove(request *const req) {
         temp_req = assign_pseudo_req(MAPPING_M, NULL, NULL);
         params = (demand_params *)temp_req->params;
 
-        __demand.li->pull_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+        __demand.li->read(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
         MS(&req->latency_poll);
         dl_sync_wait(&params->dftl_mutex);
         MA(&req->latency_poll);
@@ -1094,7 +1094,7 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
 		if (!sn) sn = dummy_snode;
 		sn->write_flying = true;
 		((demand_params *)temp_req->params)->sn = sn;
-        __demand.li->push_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+        __demand.li->write(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
         demand_OOB[t_ppa].lpa = cache_ptr->idx;
         BM_ValidatePage(bm, t_ppa);
 
@@ -1148,7 +1148,7 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
 #if EVICT_POLL
         params = (demand_params*)temp_req->params;
 #endif
-        __demand.li->push_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+        __demand.li->write(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
 #if EVICT_POLL
         pthread_mutex_lock(&params->dftl_mutex);
         pthread_mutex_destroy(&params->dftl_mutex);

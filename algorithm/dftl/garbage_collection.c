@@ -227,7 +227,7 @@ int32_t dpage_GC(){
             temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
             temp_req = assign_pseudo_req(TGC_M, temp_value_set, NULL);
             params = (demand_params*)temp_req->params;
-            __demand.li->pull_data(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req);
+            __demand.li->read(t_ppa, PAGESIZE, temp_value_set, ASYNC, temp_req);
             dl_sync_wait(&params->dftl_mutex);
             //memcpy(temp_table, temp_value_set->value, PAGESIZE);
             temp_table = mem_arr[tce].mem_p;
@@ -251,7 +251,7 @@ int32_t dpage_GC(){
             t_ppa = tp_alloc('D', NULL);
             //temp_value_set = inf_get_valueset((PTR)temp_table, FS_MALLOC_W, PAGESIZE); // Make valueset to WRITEMODE
             dummy_vs = inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
-            __demand.li->push_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, assign_pseudo_req(TGC_W, dummy_vs, NULL)); // Unload page to ppa
+            __demand.li->write(t_ppa, PAGESIZE, dummy_vs, ASYNC, assign_pseudo_req(TGC_W, dummy_vs, NULL)); // Unload page to ppa
             demand_OOB[t_ppa].lpa = c_table->idx;
             BM_ValidatePage(bm, t_ppa);
             c_table->t_ppa = t_ppa; // Update CMT t_ppa

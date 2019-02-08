@@ -5,8 +5,8 @@
 algorithm __demand = {
     .create  = demand_create,
     .destroy = demand_destroy,
-    .get     = demand_get,
-    .set     = demand_set,
+    .read    = demand_get,
+    .write   = demand_set,
     .remove  = demand_remove
 };
 
@@ -457,7 +457,7 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
         temp_req = assign_pseudo_req(MAPPING_R, dummy_vs, req);
 
         bench_algo_end(req);
-        __demand.li->pull_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+        __demand.li->read(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
 
         return 1;
     }
@@ -486,7 +486,7 @@ static uint32_t demand_write_flying(request *const req, char req_t) {
         temp_req = assign_pseudo_req(MAPPING_R, dummy_vs, req);
 
         bench_algo_end(req);
-        __demand.li->pull_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+        __demand.li->read(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
 
         return 1;
 
@@ -542,7 +542,7 @@ static uint32_t demand_read_flying(request *const req, char req_t) {
         temp_req = assign_pseudo_req(MAPPING_R, dummy_vs, req);
 
         bench_algo_end(req);
-        __demand.li->pull_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+        __demand.li->read(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
 
         return 1;
     }
@@ -669,7 +669,7 @@ static uint32_t __demand_get(request *const req){
     }
     bench_algo_end(req);
     // Get data in ppa
-    __demand.li->pull_data(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req));
+    __demand.li->read(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req));
 
     return 1;
 }
@@ -705,7 +705,7 @@ static uint32_t __demand_set(request *const req){
             /* Actual part of data push */
             /* Push the buffered data to pre-fetched ppa */
             my_req = assign_pseudo_req(DATA_W, temp->value, NULL);
-            __demand.li->push_data(temp->ppa, PAGESIZE, temp->value, ASYNC, my_req);
+            __demand.li->write(temp->ppa, PAGESIZE, temp->value, ASYNC, my_req);
 
             temp->value = NULL; // this memory area will be freed in end_req
         }
@@ -716,7 +716,7 @@ static uint32_t __demand_set(request *const req){
             temp = skiplist_get_next(iter);
 
             my_req = assign_pseudo_req(DATA_W, temp->value, NULL);
-            __demand.li->push_data(temp->ppa, PAGESIZE, temp->value, ASYNC, my_req);
+            __demand.li->write(temp->ppa, PAGESIZE, temp->value, ASYNC, my_req);
 
             temp->value = NULL; // this memory area will be freed in end_req
         }
@@ -869,7 +869,7 @@ static uint32_t __demand_remove(request *const req) {
         temp_req = assign_pseudo_req(MAPPING_M, NULL, NULL);
         params = (demand_params *)temp_req->params;
 
-        __demand.li->pull_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+        __demand.li->read(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
         MS(&req->latency_poll);
         dl_sync_wait(&params->dftl_mutex);
         MA(&req->latency_poll);
@@ -1017,7 +1017,7 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
 #if EVICT_POLL
         params = (demand_params *)temp_req->params;
 #endif
-        __demand.li->push_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+        __demand.li->write(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
 #if EVICT_POLL
         pthread_mutex_lock(&params->dftl_mutex);
         pthread_mutex_destory(&params->dftl_mutex);
@@ -1089,7 +1089,7 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
 #if EVICT_POLL
         params = (demand_params*)temp_req->params;
 #endif
-        __demand.li->push_data(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+        __demand.li->write(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
 #if EVICT_POLL
         pthread_mutex_lock(&params->dftl_mutex);
         pthread_mutex_destroy(&params->dftl_mutex);
