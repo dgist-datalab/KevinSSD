@@ -3,4 +3,5 @@
 #include "../settings.h"
 char* kvssd_tostring(KEYT);
 void kvssd_cpy_key(KEYT *des,KEYT* src);
+void kvssd_free_key(KEYT *des);
 #endif

@@ -16,8 +16,8 @@ COMMONFLAGS=\
 			-DLARGEFILE64_SOURCE\
 			-DSLC\
 			-DKVSSD\
-			-O2\
-#			-fsanitize=address\
+			-fsanitize=address\
+#			-O2\
 #			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
@@ -118,7 +118,7 @@ duma_driver: duma_driver
 debug_simulator: ./interface/main.c libsimulator_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
 
-driver: ./interface/main.c libsimulator.a
+driver: ./interface/main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 range_driver: ./interface/range_test_main.c libsimulator.a
@@ -128,7 +128,7 @@ duma_driver: ./interface/main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ -lduma $(ARCH) $(LIBS)
 	
 
-libsimulator.a: $(TARGETOBJ)
+libdriver.a: $(TARGETOBJ)
 	mkdir -p object && mkdir -p data
 	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) clean && $(MAKE) && cd ../../
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 

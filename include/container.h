@@ -4,6 +4,7 @@
 #include "settings.h"
 #include "types.h"
 #include "utils.h"
+#include "sem_lock.h"
 #include <stdarg.h>
 #include <pthread.h>
 
@@ -48,11 +49,11 @@ struct request {
 	bool (*added_end_req)(struct request *const);
 	bool isAsync;
 	void *p_req;
-	void *(*p_end_req)(void*);
+	void (*p_end_req)(uint32_t,void*);
 	void *params;
 	void *__hash_node;
-	pthread_mutex_t async_mutex;
-
+	//pthread_mutex_t async_mutex;
+	fdriver_lock_t sync_lock;
 	int mark;
 
 /*s:for application req*/
@@ -137,8 +138,10 @@ struct algorithm{
 	uint32_t (*iter_next)(request *const);
 	uint32_t (*iter_next_with_value)(request *const);
 	uint32_t (*iter_release)(request *const);
+	uint32_t (*iter_all_key)(request *const);
+	uint32_t (*iter_all_value)(request *const);
 	uint32_t (*multi_set)(request *const,uint32_t num);
-	uint32_t (*range_get)(request *const,uint32_t len);
+	uint32_t (*multi_get)(request *const,uint32_t num);
 	lower_info* li;
 	void *algo_body;
 };

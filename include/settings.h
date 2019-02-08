@@ -32,7 +32,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 4L
+#define GIGAUNIT 2L
 #define TOTALSIZE ((4L)*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)

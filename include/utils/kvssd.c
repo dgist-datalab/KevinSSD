@@ -9,8 +9,12 @@ char* kvssd_tostring(KEYT key){
 	return key.key;
 }
 
-void *kvssd_cpy_key(KEYT *des, KEYT *key){
+void kvssd_cpy_key(KEYT *des, KEYT *key){
 	des->key=(char*)malloc(sizeof(char)*key->len);
 	des->len=key->len;
 	memcpy(des->key,key->key,key->len);
+}
+void kvssd_free_key(KEYT *des){
+	free(des->key);
+	free(des);
 }

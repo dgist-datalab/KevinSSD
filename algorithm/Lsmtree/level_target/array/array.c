@@ -11,6 +11,9 @@ level_ops a_ops={
 	.release=array_free,
 	.insert=array_insert,
 	.find_keyset=array_find_keyset,
+	.find_idx_lower_bound=array_find_idx_lower_bound,
+	.find_keyset_first=array_find_keyset_first,
+	.find_keyset_last=array_find_keyset_last,
 	.full_check=def_fchk,
 	.tier_align=array_tier_align,
 	.move_heap=def_move_heap,
@@ -18,12 +21,16 @@ level_ops a_ops={
 	.range_find=array_range_find,
 	.range_find_compaction=array_range_find_compaction,
 	.unmatch_find=array_unmatch_find,
-	.range_find_start=array_range_find_start,
+	//.range_find_lowerbound=array_range_find_lowerbound,
+	.next_run=array_next_run,
 	//.range_find_nxt_node=NULL,
 	.get_iter=array_get_iter,
 	.iter_nxt=array_iter_nxt,
 	.get_max_table_entry=a_max_table_entry,
 	.get_max_flush_entry=a_max_flush_entry,
+
+	.keyset_iter_init=array_key_iter_init,
+	.keyset_iter_nxt=array_key_iter_nxt,
 
 	.mem_cvt2table=array_mem_cvt2table,
 #ifdef STREAMCOMP
@@ -53,7 +60,11 @@ level_ops a_ops={
 	.cache_comp_formatting=array_cache_comp_formatting,
 	.cache_move=array_cache_move,
 	.cache_find=array_cache_find,
-	.cache_find_run=array_cache_find_run,
+	.cache_find_run_data=array_cache_find_run_data,
+	.cache_next_run_data=array_cache_next_run_data,
+	.cache_get_iter=array_cache_get_iter,
+	.cache_iter_nxt=array_cache_iter_nxt,
+	//.cache_find_lowerbound=array_cache_find_lowerbound,
 	.cache_get_size=array_cache_get_sz,
 #endif
 	.get_lpa_from_data=array_get_lpa_from_data,
@@ -383,15 +394,17 @@ lev_iter* array_get_iter( level *lev,KEYT start, KEYT end){
 
 	if(KEYCMP(start,lev->start)==0 && KEYCMP(end,lev->end)==0){
 		iter->ispartial=false;	
+		iter->max=lev->n_num;
+		iter->now=0;
 	}
 	else{
-		printf("should do somthing!\n");
+	//	printf("should do somthing!\n");
+		iter->now=array_bound_search(b->arrs,lev->n_num,start,true);
+		iter->max=array_bound_search(b->arrs,lev->n_num,end,true);
 		iter->ispartial=true;
-		abort();
 	}
 	iter->arrs=b->arrs;
-	iter->max=lev->n_num;
-	iter->now=0;
+
 	it->iter_data=(void*)iter;
 	return it;
 }
@@ -403,7 +416,7 @@ run_t * array_iter_nxt( lev_iter* in){
 		return NULL;
 	}else{
 		if(iter->ispartial){
-			return NULL;
+			return &iter->arrs[iter->now++];
 		}else{
 			return &iter->arrs[iter->now++];
 		}
@@ -457,15 +470,41 @@ int array_binary_search(run_t *body,uint32_t max_t, KEYT lpa){
 	int end=max_t-1;
 	int mid;
 
+	int res1, res2; //1:compare with start, 2:compare with end
 	while(start==end ||start<end){
 		mid=(start+end)/2;
-		if(KEYCMP(body[mid].key,lpa)<=0 && KEYCMP(body[mid].end,lpa)>=0)
+		res1=KEYCMP(body[mid].key,lpa);
+		res2=KEYCMP(body[mid].end,lpa);
+		if(res1<=0 && res2>=0)
 			return mid;
-		if(KEYCMP(body[mid].key,lpa)>0) end=mid-1;
-		else if(KEYCMP(body[mid].end,lpa)<0) start=mid+1;
+		if(res1>0) end=mid-1;
+		else if(res2<0) start=mid+1;
+	}
+	return -1;
+}
+
+//int array_lowerbound_search(run_t *body, uint32_t max_t, KEYT lpa){
+int array_bound_search(run_t *body, uint32_t max_t, KEYT lpa, bool islower){
+	int start=0;
+	int end=max_t-1;
+	int mid;
+
+	int res1, res2; //1:compare with start, 2:compare with end
+	while(start==end ||start<end){
+		mid=(start+end)/2;
+		res1=KEYCMP(body[mid].key,lpa);
+		res2=KEYCMP(body[mid].end,lpa);
+		if(res1<=0 && res2>=0){
+			if(islower)return mid;
+			else return mid+1;
+		}
+		if(res1>0) end=mid-1;
+		else if(res2<0) start=mid+1;
 	}
 	
-	return -1;
+	if(res1>0) return mid;
+	else if (res2<0 && mid < (int)max_t-1) return mid+1;
+	else return -1;
 }
 
 run_t *array_make_run(KEYT start, KEYT end, uint32_t pbn){
@@ -503,3 +542,81 @@ KEYT *array_get_lpa_from_data(char *data,bool isheader){
 	}
 	return res;
 }
+
+keyset_iter *array_key_iter_init(char *key_data, int start){
+	keyset_iter *res=(keyset_iter*)malloc(sizeof(keyset_iter));
+	a_key_iter *data=(a_key_iter*)malloc(sizeof(a_key_iter));
+
+	res->private_data=(void*)data;
+	data->idx=start;
+	data->body=key_data;
+	data->bitmap=(uint16_t*)data->body;
+	return res;
+}
+
+keyset *array_key_iter_nxt(keyset_iter *k_iter, keyset *target){
+	a_key_iter *ds=(a_key_iter*)k_iter->private_data;
+	if(ds->bitmap[ds->idx]==UINT16_MAX || ds->idx>ds->bitmap[0]){
+		free(ds);
+		free(k_iter);
+		return NULL;
+	}
+	ds->ppa=(uint32_t*)&ds->body[ds->bitmap[ds->idx]];
+	ds->key.key=(char*)&ds->body[ds->bitmap[ds->idx]+sizeof(uint32_t)];
+	ds->key.len=ds->bitmap[ds->idx+1]-ds->bitmap[ds->idx]-sizeof(uint32_t);
+
+	target->lpa=ds->key;
+	target->ppa=*ds->ppa;
+	ds->idx++;
+	return target;
+}
+
+void array_find_keyset_first(char *data, KEYT *des){
+	char *body=data;
+	uint16_t *bitmap=(uint16_t *)body;
+	
+	des->key=&body[bitmap[1]+sizeof(uint32_t)];
+	des->len=bitmap[1]-bitmap[2]-sizeof(uint32_t);
+}
+
+void array_find_keyset_last(char *data, KEYT *des){
+	char *body=data;
+	uint16_t *bitmap=(uint16_t *)body;
+	int e=bitmap[0];
+	des->key=&body[bitmap[e]+sizeof(uint32_t)];
+	des->len=bitmap[e]-bitmap[e+1]-sizeof(uint32_t);
+}
+
+uint32_t array_find_idx_lower_bound(char *data, KEYT lpa){
+	char *body=data;
+	uint16_t *bitmap=(uint16_t*)body;
+	int s=1, e=bitmap[0];
+	int mid,res;
+	KEYT target;
+	while(s<=e){
+		mid=(s+e)/2;
+		target.key=&body[bitmap[mid]+sizeof(uint32_t)];
+		target.len=bitmap[mid+1]-bitmap[mid]-sizeof(uint32_t);
+		res=KEYCMP(target,lpa);
+		if(res==0){
+			return mid;
+		}
+		else if(res<0){
+			s=mid+1;
+		}
+		else{
+			e=mid-1;
+		}
+	}
+
+	if(res<0){
+		//lpa is bigger
+		return mid+1;
+	}
+	else{
+		//lpa is smaller
+		return mid;
+	}
+}
+
+

@@ -73,6 +73,23 @@ snode *skiplist_find(skiplist *list, KEYT key){
 	return NULL;
 }
 
+snode *skiplist_find_lowerbound(skiplist *list, KEYT key){
+	if(!list) return NULL;
+	if(list->size==0) return NULL;
+	snode *x=list->header;
+	for(int i=list->level; i>=1; i--){
+
+#if defined(KVSSD) && defined(Lsmtree)
+		while(KEYCMP(x->list[i]->key,key)<0)
+#else
+		while(x->list[i]->key<key)
+#endif
+			x=x->list[i];
+	}
+
+	return x->list[1];
+}
+
 snode *skiplist_range_search(skiplist *list,KEYT key){
 	if(list->size==0) return NULL;
 	snode *x=list->header;

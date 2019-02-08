@@ -14,6 +14,11 @@
 			node!=skip->header;\
 			node=node->list[1])
 
+#define for_each_sk_from(node,from,skip)\
+	for(node=from;\
+			node!=skip->header;\
+			node=node->list[1])
+
 #ifdef Lsmtree
 struct level;
 typedef struct htable htable;
@@ -63,6 +68,7 @@ typedef struct{
 skiplist *skiplist_init(); //return initialized skiplist*
 skiplist *skiplist_copy(skiplist* input);
 snode *skiplist_find(skiplist*,KEYT); //find snode having key in skiplist, return NULL:no snode
+snode *skiplist_find_lowerbound(skiplist *,KEYT );
 snode *skiplist_range_search(skiplist *,KEYT);
 snode *skiplist_strict_range_search(skiplist *,KEYT);
 snode *skiplist_insert(skiplist*,KEYT,value_set *,bool); //insert skiplist, return inserted snode

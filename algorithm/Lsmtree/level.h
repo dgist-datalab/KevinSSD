@@ -89,12 +89,19 @@ typedef struct lev_iter{
 	void *iter_data;
 }lev_iter;
 
+typedef struct keyset_iter{
+	void *private_data;
+}keyset_iter;
+
 typedef struct level_ops{
 	/*level operation*/
 	level* (*init)(int size, int idx, float fpr, bool istier);
 	void (*release)( level*);
 	void (*insert)( level* des, run_t *r);
 	keyset *(*find_keyset)(char *data,KEYT lpa);//find one
+	uint32_t (*find_idx_lower_bound)(char *data,KEYT lpa);
+	void (*find_keyset_first)(char *data,KEYT *des);
+	void (*find_keyset_last)(char *data,KEYT *des);
 	bool (*full_check)( level*);
 	void (*tier_align)( level*);
 	void (*move_heap)( level* des,  level *src);
@@ -102,13 +109,17 @@ typedef struct level_ops{
 	uint32_t (*range_find)( level *l,KEYT start, KEYT end,  run_t ***r);
 	uint32_t (*range_find_compaction)( level *l,KEYT start, KEYT end,  run_t ***r);
 	uint32_t (*unmatch_find)( level *,KEYT start, KEYT end, run_t ***r);
-	run_t* (*range_find_start)(level *l, KEYT start);
+	//run_t* (*range_find_lowerbound)(level *l, KEYT start);
+	//run_t* (*range_find_upperbound)(level *l, KEYT lpa);
 	//void* (*range_find_nxt_node)(level *l, void *node, run_t *);
-	lev_iter* (*get_iter)( level*,KEYT from, KEYT to);
+	run_t* (*next_run)(level *,KEYT key);
+	lev_iter* (*get_iter)( level*,KEYT from, KEYT to); //from<= x <to
 	run_t* (*iter_nxt)( lev_iter*);
 	uint32_t (*get_max_table_entry)();
 	uint32_t (*get_max_flush_entry)(uint32_t);
 
+	keyset_iter *(*keyset_iter_init)(char *keyset_data, int from);
+	keyset *(*keyset_iter_nxt)(keyset_iter*,keyset *target);
 	/*compaciton operation*/
 	htable* (*mem_cvt2table)(skiplist *,run_t *);
 #ifdef STREAMCOMP
@@ -142,7 +153,12 @@ typedef struct level_ops{
 	int (*cache_comp_formatting)(level *,run_t ***);
 	void (*cache_move)(level*, level *);
 	keyset *(*cache_find)(level *,KEYT);
-	run_t *(*cache_find_run)(level *,KEYT);
+	char *(*cache_find_run_data)(level *,KEYT);
+	char *(*cache_next_run_data)(level *, KEYT );
+	lev_iter *(*cache_get_iter)(level *,KEYT from, KEYT to); //from<= x < to
+	char *(*cache_iter_nxt)(lev_iter*);
+	//char *(*cache_find_lowerbound)(level *,KEYT, KEYT *start, KEYT *end, bool datareturn);
+	//char *(*cache_find_upperbound)(level *,KEYT, KEYT *start, KEYT *end, bool datareturn);
 	int (*cache_get_size)(level *);
 #endif
 

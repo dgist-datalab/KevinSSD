@@ -80,5 +80,24 @@ void cl_release(cl_lock *cl){;
 
 
 void cl_free(cl_lock *cl){
+	pthread_mutex_destroy(&cl->mutex);
+	pthread_cond_destroy(&cl->cond);
 	free(cl);
 }
+
+void cl_grep_with_f(cl_lock *cl, int s, int d, bool (*cmp)(int,int)){
+	pthread_mutex_lock(&cl->mutex);
+	if(cmp(s,d)){
+		pthread_cond_wait(&cl->cond,&cl->mutex);
+	}
+	pthread_mutex_unlock(&cl->mutex);
+}
+
+void cl_release_with_f(cl_lock *cl, int s, int d, bool (*cmp)(int,int)){
+	pthread_mutex_lock(&cl->mutex);
+	if(cmp(s,d)){
+		pthread_cond_broadcast(&cl->cond);
+	}
+	pthread_mutex_unlock(&cl->mutex);
+}
+

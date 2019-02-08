@@ -39,8 +39,10 @@ struct algorithm algo_lsm={
 	.iter_next=lsm_iter_next,
 	.iter_next_with_value=lsm_iter_next_with_value,
 	.iter_release=lsm_iter_release,
+	.iter_all_key=lsm_iter_all_key,
+	.iter_all_value=lsm_iter_all_value,
 	.multi_set=NULL,
-	.range_get=NULL,
+	.multi_get=NULL,
 	//.multi_set=lsm_multi_set,
 	//.range_get=lsm_range_get,
 };
@@ -222,7 +224,6 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	lsm_debug_print();
 	compaction_free();
 
-	cache_free(LSM.lsm_cache);
 	printf("last summary-----\n");
 	for(int i=0; i<LEVELN; i++){
 		LSM.lop->release(LSM.disk[i]);
@@ -230,6 +231,8 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	skiplist_free(LSM.memtable);
 	if(LSM.temptable)
 		skiplist_free(LSM.temptable);
+
+	cache_free(LSM.lsm_cache);
 	printf("data gc: %d\n",data_gc_cnt);
 	printf("header gc: %d\n",header_gc_cnt);
 	printf("block gc: %d\n",block_gc_cnt);
@@ -852,8 +855,9 @@ void htable_free(htable *input){
 		inf_free_valueset(input->origin,input->t_b);
 	}else{
 		free(input->sets);
-		free(input);
+		//free(input);
 	}
+	free(input);
 }
 
 htable *htable_copy(htable *input){

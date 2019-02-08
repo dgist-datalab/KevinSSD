@@ -25,13 +25,14 @@ int skiplist_hit;
 int range_target_cnt,range_now_cnt;
 bool last_end_req(struct request *const req){
 	int i=0;
+	static int cnt=0;
 	switch(req->type){
 		case FS_MSET_T:
 			/*should implement*/
 			break;
 		case FS_ITER_CRT_T:
 #ifdef KVSSD
-			printf("create iter! id:%u [%s]\n",req->ppa,kvssd_tostring(req->key));
+			printf("create iter! id:%u [%.*s]\n",req->ppa,KEYFORMAT(req->key));
 #else
 			printf("create iter! id:%u [%u]\n",req->ppa,req->key);
 #endif
@@ -40,7 +41,7 @@ bool last_end_req(struct request *const req){
 			for(i=0;i<req->num; i++){
 				keyset *k=&((keyset*)req->value->value)[i];
 #ifdef KVSSD
-				printf("keyset:%s-%u\n",kvssd_tostring(k->lpa),k->ppa);
+				printf("[%d]keyset:%.*s-%u\n",cnt++,KEYFORMAT(k->lpa),k->ppa);
 #else
 				printf("keyset:%u-%u\n",k->lpa,k->ppa);
 #endif
@@ -50,7 +51,7 @@ bool last_end_req(struct request *const req){
 			for(i=0;i<req->num; i++){
 				KEYT k=req->multi_key[i];
 #ifdef KVSSD
-				printf("next_value: keyset:%s\n",kvssd_tostring(k));
+				printf("next_value: %*.s\n",KEYFORMAT(k));
 #else
 				printf("next_value: keyset:%u\n",k);
 #endif
@@ -68,9 +69,7 @@ bool last_end_req(struct request *const req){
 
 int main(int argc,char* argv[]){
 	inf_init();
-#ifdef KVSSD
 
-#else
 	bench_init();
 	bench_add(RANDSET,0,RANGE,RANGE);
 	bench_add(NOR,0,UINT_MAX,UINT_MAX);
@@ -79,20 +78,37 @@ int main(int argc,char* argv[]){
 	value_set temp;
 	temp.dmatag=-1;
 	temp.value=NULL;
+#ifdef KVSSD
+	int cnt=0;
+	int idx=rand()%((int)RANGE);
+	KEYT t_key;
+#endif
 	while((value=get_bench())){
+#ifdef KVSSD
+		if(cnt++==idx){
+			kvssd_cpy_key(&t_key,&value->key);
+		}
+#endif
 		inf_make_req(value->type,value->key,temp.value,value->length,value->mark);
 	}
 
-	range_target_cnt=3;
+	range_target_cnt=10;
 
 //	int iter_id=
+	t_key.len-=3;
+#ifdef KVSSD
+	inf_iter_create(t_key,last_end_req);
+#else
 	inf_iter_create(rand()%((uint32_t)RANGE),last_end_req);
+#endif
 	char *test_values[100];
-	inf_iter_next(0/*iter_id*/,100,test_values,last_end_req,false);
-	inf_iter_next(0/*iter_id*/,100,test_values,last_end_req,true);
-//	inf_iter_release(0/*iter_id*/,last_end_req);
+	//inf_iter_next(0/*iter_id*/,100,test_values,last_end_req,true);
+	for(int i=0; i<10; i++){
+		inf_iter_next(0/*iter_id*/,test_values,last_end_req,false);
+	}
+
+	inf_iter_release(0/*iter_id*/,last_end_req);
 
 	while(range_target_cnt!=range_now_cnt){}
-#endif
 	return 0;
 }

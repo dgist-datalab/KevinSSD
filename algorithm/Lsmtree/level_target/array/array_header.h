@@ -37,10 +37,28 @@ typedef struct array_iter{
 	bool ispartial;
 }a_iter;
 
+typedef struct array_cache_iter{
+	skiplist *body;
+	snode *temp;
+	snode *last;
+	bool isfinish;
+}c_iter;
+
+typedef struct array_key_iter{
+	int idx;
+	KEYT key;
+	uint32_t *ppa;
+	uint16_t *bitmap;
+	char *body;
+}a_key_iter;
+
 level* array_init(int size, int idx, float fpr, bool istier);
 void array_free(level*);
 void array_insert(level *, run_t*);
 keyset* array_find_keyset(char *data,KEYT lpa);
+uint32_t array_find_idx_lower_bound(char *data, KEYT lpa);
+void array_find_keyset_first(char *data,KEYT *des);
+void array_find_keyset_last(char *data,KEYT *des);
 run_t *array_make_run(KEYT start, KEYT end, uint32_t pbn);
 run_t **array_find_run( level*,KEYT);
 uint32_t array_range_find( level *,KEYT, KEYT,  run_t ***);
@@ -65,8 +83,9 @@ void array_stream_comp_wait();
 void array_merger( skiplist*,  run_t**,  run_t**,  level*);
 void array_merger_wrapper(skiplist *, run_t**, run_t**, level *);
 run_t *array_cutter( skiplist*,  level*, KEYT *start,KEYT *end);
-run_t *array_range_find_start(level *,KEYT );
+//run_t *array_range_find_lowerbound(level *,KEYT );
 
+run_t *array_next_run(level *,KEYT);
 bool array_chk_overlap( level *, KEYT, KEYT);
 void array_overlap(void *);
 void array_tier_align( level *);
@@ -86,9 +105,22 @@ void array_cache_free(level *);
 int array_cache_comp_formatting(level *,run_t ***);
 void array_cache_move(level *, level *);
 keyset *array_cache_find(level *, KEYT lpa);
-run_t *array_cache_find_run(level *,KEYT lpa);
+
+char *array_cache_find_run_data(level *,KEYT lpa);
+char *array_cache_next_run_data(level *,KEYT);
+lev_iter *array_cache_get_iter(level *,KEYT from, KEYT to);
+char *array_cache_iter_nxt(lev_iter *);
+//char *array_cache_find_lowerbound(level *, KEYT lpa, KEYT *start,bool);
 int array_cache_get_sz(level*);
 #endif
 KEYT *array_get_lpa_from_data(char *data,bool isheader);
 int array_binary_search(run_t *body,uint32_t max_t, KEYT lpa);
+//int array_lowerbound_search(run_t *body,uint32_t max_t, KEYT lpa);
+int array_bound_search(run_t *body,uint32_t max_t, KEYT lpa,bool islower);
+
+keyset_iter *array_key_iter_init(char *key_data,int from);
+keyset *array_key_iter_nxt(keyset_iter *,keyset *);
+
+//run_t *array_lsm_lower_bound_run(lsmtree *lsm, KEYT lpa);
+
 #endif

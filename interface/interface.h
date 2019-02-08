@@ -17,11 +17,15 @@ bool inf_make_req_special(const FSTYPE type, KEYT key, char* value, int len,KEYT
 bool inf_make_req_fromApp(char type, KEYT key,KEYT offset,KEYT len,PTR value,void *req, void*(end_func)(void*));
 
 bool inf_iter_create(KEYT start,bool (*added_end)(struct request *const));
-bool inf_iter_next(KEYT iter_id,KEYT length, char **values,bool (*added_end)(struct request *const),bool withvalue);
-bool inf_iter_release(KEYT iter_id, bool (*added_end)(struct request *const));
-
+bool inf_iter_next(uint32_t iter_id, char **values,bool (*added_end)(struct request *const),bool withvalue);
+bool inf_iter_release(uint32_t iter_id, bool (*added_end)(struct request *const));
 
 bool inf_make_multi_req(char type, KEYT key,KEYT *keys,uint32_t iter_id,char **values,uint32_t lengths,bool (*added_end)(struct request *const));
+#ifdef KVSSD
+bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value, int seq,void *req,void (*end_req)(uint32_t,void*));
+bool inf_make_mreq_apps(char type, char **keys, uint8_t *key_len, char **values,int num, int seq, void *req,void (*end_req)(uint32_t, void*));
+bool inf_iter_req_apps(char type, char *prefix, uint8_t key_len,char **value, int seq,void *req, void (*end_req)(uint32_t, void *));
+#endif
 
 bool inf_end_req(request*const);
 bool inf_assign_try(request *req);

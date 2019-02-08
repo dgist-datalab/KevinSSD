@@ -35,6 +35,7 @@ extern block bl[_NOB];
 extern volatile int comp_target_get_cnt;
 volatile int epc_check=0;
 int upper_table=0;
+bool debug_condition;
 compM compactor;
 pthread_mutex_t compaction_wait;
 pthread_mutex_t compaction_flush_wait;
@@ -249,7 +250,6 @@ run_t *compaction_data_write(skiplist *mem){
 	free(data_sets);
 
 	LSM.lop->mem_cvt2table(mem,res); //res's filter and table will be set
-
 	isflushing=false;
 	return res;
 }
@@ -350,6 +350,7 @@ bool compaction_force_levels(int nol){
 	}
 	return true;
 }
+
 extern pm data_m;
 void *compaction_main(void *input){
 	void *_req;
@@ -384,6 +385,7 @@ void *compaction_main(void *input){
 
 		int start_level=0,des_level;
 		req=(compR*)_req;
+
 		if(req->fromL==-1){
 			while(!gc_check(DATA,false)){
 			}
@@ -474,19 +476,22 @@ run_t* compaction_postprocessing(run_t *target){
 #ifdef NOCPY
 	table=htable_assign(NULL,true);
 	table->sets=(keyset*)malloc(PAGESIZE);
-#if LEVELN==1
+	#if LEVELN==1
 	if(target->cpt_data->nocpy_table)
 		memcpy(table->sets,target->cpt_data->nocpy_table,PAGESIZE);
 	else{
-#endif
+	#endif
+
 		memcpy(table->sets,target->cpt_data->sets,PAGESIZE);
-#if LEVELN==1
+
+	#if LEVELN==1
 	}
-#endif
+	#endif
 
 #else
 	table=htable_assign((char*)target->cpt_data->sets,true);
 #endif
+
 	target->pbn=compaction_htable_write(table,target->key);
 	return target;
 }
@@ -511,8 +516,12 @@ void compaction_subprocessing(skiplist *top,run_t** src, run_t** org, level *des
 			LSM.lop->insert(des,target);
 			LSM.lop->release_run(target);
 		}
+		if(target->cpt_data->t_b){
+			printf("can't be\n");
+		}
 		htable_free(target->cpt_data);
 		target->cpt_data=NULL;
+		free(target);
 	}
 	//LSM.lop->print(des);
 }
@@ -596,6 +605,8 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 
 			pthread_mutex_lock(&LSM.entrylock);
 			LSM.lop->release_run(entry);
+			free(entry);
+
 			LSM.tempent=NULL;
 			pthread_mutex_unlock(&LSM.entrylock);
 		}else{
@@ -650,6 +661,7 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 			pthread_mutex_unlock(&LSM.entrylock);
 			LSM.lop->insert(target,entry);
 			LSM.lop->release_run(entry);
+			free(entry);
 
 			if(!target_processed){
 				compaction_lev_seq_processing(target_origin,target,target_origin->n_num);
@@ -666,7 +678,9 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 			LSM.tempent=NULL;
 			pthread_mutex_unlock(&LSM.entrylock);
 			compaction_heap_setting(target,target_origin);
+			htable_free(entry->cpt_data);
 			LSM.lop->release_run(entry);
+			free(entry);
 		}
 	}else{
 		src=from;

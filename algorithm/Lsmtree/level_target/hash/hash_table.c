@@ -125,6 +125,7 @@ void hash_body_free(hash_body *h){
 	while(now!=h->body->header){
 		if(now->value){
 			hash_free_run((run_t*)now->value);
+			free(now->value);
 		}
 		free(now->list);
 #ifdef USINGSLAB
@@ -343,7 +344,7 @@ void hash_free_run( run_t *e){
 	}
 	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #if LEVELN!=1
-	free(e);
+	//free(e);
 #endif
 }
 
