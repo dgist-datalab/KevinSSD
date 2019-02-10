@@ -38,6 +38,8 @@ MeasureTime mt;
 MeasureTime mt4;
 master_processor mp;
 
+bool sync_apps;
+
 /*hit checker*/
 uint32_t write_q_hit;
 uint32_t read_q_hit;
@@ -177,6 +179,12 @@ void *p_main(void *__input){
 			_this=&mp.processors[i];
 		}
 	}
+
+	char thread_name[128]={0};
+	sprintf(thread_name,"%s","inf_main_thread");
+	pthread_setname_np(pthread_self(),thread_name);
+
+
 #ifndef KVSSD
 	__hash_node *t_h_node;
 #endif
@@ -186,7 +194,8 @@ void *p_main(void *__input){
 		cl_grap(inf_cond);
 		if(force_write_start ||(write_stop && _this->req_q->size==QDEPTH)){
 			write_stop=false;
-			//write_stop_chg=true;
+		}else if(sync_apps){
+			write_stop=false;
 		}
 
 		if(mp.stopflag)
@@ -199,7 +208,6 @@ void *p_main(void *__input){
 			pthread_mutex_lock(&wq_lock);
 			if(_this->retry_q->size || write_stop || !(_inf_req=q_dequeue(_this->req_q))){
 				pthread_mutex_unlock(&wq_lock);
-				//#else	//else if(!(_inf_req=q_dequeue(_this->req_q))){
 #endif	
 				cl_release(inf_cond);
 				continue;
@@ -221,8 +229,6 @@ void *p_main(void *__input){
 #endif
 		inf_req=(request*)_inf_req;
 		inter_cnt++;
-		//		printf("inf:%u\n",inf_req->seq);
-		//printf("lock now:%d - %s\n",inf_cond->now,write_stop?"stop":"no");
 #ifdef CDF
 		inf_req->isstart=true;
 #endif
@@ -232,16 +238,12 @@ void *p_main(void *__input){
 				MS(&mt4);
 				if(first_get){
 					first_get=false;
-					//mp.li->lower_flying_req_wait();
 				}
-				//			printf("read key :%d\n",inf_req->key);
 				mp.algo->read(inf_req);
 				MA(&mt4);
 				break;
 			case FS_SET_T:
-				//			printf("write key :%d\n",inf_req->key);
 				write_stop=mp.algo->write(inf_req);
-				//	write_stop=false;
 				break;
 			case FS_DELETE_T:
 				mp.algo->remove(inf_req);
@@ -323,7 +325,7 @@ bool inf_make_req_fromApp(char _type, KEYT _key,uint32_t offset, uint32_t len,PT
 	return true;
 }
 
-void inf_init(){
+void inf_init(int apps_flag){
 	flying=cl_init(QDEPTH,false);
 	inf_cond=cl_init(QDEPTH,true);
 	mp.processors=(processor*)malloc(sizeof(processor)*THREADSIZE);
@@ -376,6 +378,12 @@ void inf_init(){
 #elif defined(badblock)
 	mp.algo=&__badblock;
 #endif
+
+	if(apps_flag){
+		bench_init();
+		bench_add(NOR,0,-1,-1);
+		sync_apps=true;
+	}
 
 	mp.li->create(mp.li);
 	mp.algo->create(mp.li,mp.algo);
@@ -570,7 +578,7 @@ bool inf_end_req( request * const req){
 	req_cnt_test++;
 
 	if(req->p_req){
-		req->p_end_req(req->seq,req->p_req);
+		req->p_end_req(req->seq,req->ppa,req->p_req);
 	}
 	
 	free(req);
@@ -675,9 +683,9 @@ bool inf_iter_release(uint32_t iter_id, bool (*added_end)(struct request *const)
 }
 
 
-bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value, int seq,void *_req,void (*end_req)(uint32_t,void*)){
+bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value, int seq,void *_req,void (*end_req)(uint32_t,uint32_t,void*)){
 	static KEYT null_key={0,};
-	request *req=inf_get_req_instance(type,null_key,value,0,0,false);
+	request *req=inf_get_req_instance(type,null_key,value,PAGESIZE,0,false);
 	req->key.key=keys;
 	req->key.len=key_len;
 	req->seq=seq;
@@ -693,13 +701,13 @@ bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value, int s
 	return true;
 }
 
-bool inf_make_mreq_apps(char type, char **keys, uint8_t *key_len, char **values,int num, int seq, void *_req,void (*end_req)(uint32_t, void*)){
+bool inf_make_mreq_apps(char type, char **keys, uint8_t *key_len, char **values,int num, int seq, void *_req,void (*end_req)(uint32_t,uint32_t, void*)){
 #ifdef KVSSD
 	static KEYT null_key={0,};
 #else
 	static KEYT null_key=0;
 #endif
-	request *req=inf_get_req_instance(type,null_key,NULL,0,0,false);
+	request *req=inf_get_req_instance(type,null_key,NULL,PAGESIZE,0,false);
 	req->multi_key=(KEYT*)malloc(sizeof(KEYT)*num);
 	req->multi_value=(value_set**)malloc(sizeof(value_set*)*num);
 	for(int i=0; i<num; i++){
@@ -720,7 +728,7 @@ bool inf_make_mreq_apps(char type, char **keys, uint8_t *key_len, char **values,
 	return true;
 }
 
-bool inf_iter_req_apps(char type, char *prefix, uint8_t key_len,char **value, int seq,void *_req, void (*end_req)(uint32_t, void *)){
+bool inf_iter_req_apps(char type, char *prefix, uint8_t key_len,char **value, int seq,void *_req, void (*end_req)(uint32_t,uint32_t, void *)){
 #ifdef KVSSD
 	static KEYT null_key={0,};
 #else
@@ -732,6 +740,7 @@ bool inf_iter_req_apps(char type, char *prefix, uint8_t key_len,char **value, in
 		case FS_ITER_ALL_T:
 			req->key.key=prefix;
 			req->key.len=key_len;
+			req->app_result=value;
 			break;
 		case FS_ITER_RLS_T:
 			break;
