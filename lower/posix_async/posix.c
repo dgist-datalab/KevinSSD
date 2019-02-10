@@ -53,6 +53,11 @@ lower_info my_posix={
 void *l_main(void *__input){
 	posix_request *inf_req;
 
+	char thread_name[128]={0};
+	sprintf(thread_name,"%s","device_thread");
+	prctl(PR_SET_NAME, thread_name);
+	pthread_setname_np(thread_name);
+
 	while(1){
 		if(stopflag){
 			//printf("posix bye bye!\n");

@@ -19,19 +19,6 @@ typedef struct lsmtree_iterator{
 	KEYT *target_key;
 	KEYT *last_key;
 	char ***datas; //mappings
-//	char **datas;
-/*
-	KEYT **readed_key;//for next read
-
-	bool original_first;
-	keyset *key_array;
-	int max_idx;
-	int now_idx;
-
-	keyset *key_temp_array;
-	int t_max_idx;
-	int t_now_idx;
- */	
 	int max_idx;
 	int now_idx;
 	int *iter_idx;

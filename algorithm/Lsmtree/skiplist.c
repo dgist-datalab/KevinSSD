@@ -446,7 +446,7 @@ snode *skiplist_insert_iter(skiplist *list,KEYT key,uint32_t ppa){
 
 		x->ppa=ppa;
 		x->value=NULL;
-
+		list->all_length+=key.len;
 		// ++ ctoc
 		x->t_ppa = -1;
 		x->bypass = false;

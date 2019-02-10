@@ -43,13 +43,15 @@ struct request {
 	int not_found_cnt;
 	value_set *value;
 	value_set **multi_value;
+	char **app_result;
+
 	KEYT *multi_key;
 	bool (*end_req)(struct request *const);
 	void *(*special_func)(void *);
 	bool (*added_end_req)(struct request *const);
 	bool isAsync;
 	void *p_req;
-	void (*p_end_req)(uint32_t,void*);
+	void (*p_end_req)(uint32_t,uint32_t,void*);
 	void *params;
 	void *__hash_node;
 	//pthread_mutex_t async_mutex;

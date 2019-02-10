@@ -4,7 +4,7 @@
 #include "../include/container.h"
 #include "threading.h"
 
-void inf_init();
+void inf_init(int apps_flag);
 #ifdef USINGAPP
 bool inf_make_req(const FSTYPE,const KEYT, char *);
 #else
@@ -22,9 +22,9 @@ bool inf_iter_release(uint32_t iter_id, bool (*added_end)(struct request *const)
 
 bool inf_make_multi_req(char type, KEYT key,KEYT *keys,uint32_t iter_id,char **values,uint32_t lengths,bool (*added_end)(struct request *const));
 #ifdef KVSSD
-bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value, int seq,void *req,void (*end_req)(uint32_t,void*));
-bool inf_make_mreq_apps(char type, char **keys, uint8_t *key_len, char **values,int num, int seq, void *req,void (*end_req)(uint32_t, void*));
-bool inf_iter_req_apps(char type, char *prefix, uint8_t key_len,char **value, int seq,void *req, void (*end_req)(uint32_t, void *));
+bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value, int seq,void *req,void (*end_req)(uint32_t,uint32_t, void*));
+bool inf_make_mreq_apps(char type, char **keys, uint8_t *key_len, char **values,int num, int seq, void *req,void (*end_req)(uint32_t,uint32_t, void*));
+bool inf_iter_req_apps(char type, char *prefix, uint8_t key_len,char **value, int seq,void *req, void (*end_req)(uint32_t,uint32_t, void *));
 #endif
 
 bool inf_end_req(request*const);

@@ -48,8 +48,18 @@ void lsm_make_iterator(lsm_iter *iter, KEYT min){
 #endif
 		}
 	}
+
+	/*memtable*/
+	snode *from=skiplist_find_lowerbound(LSM.memtable,*iter->target_key);
+	snode *to=skiplist_find_lowerbound(LSM.memtable,*iter->last_key);
+	snode *temp;
+	for(temp=from; temp!=to; temp=temp->list[1]){
+		skiplist_insert_iter(skip,temp->key,UINT_MAX);
+	}
+
 	iter->max_idx=skip->size;
 	iter->body=skip;
+	fdriver_unlock(&iter->initiated_lock);
 }
 
 
@@ -74,18 +84,24 @@ void lsm_multi_handler(void *arg, int id){
 			cl_grep_with_f(iter->conditional_lock,iter->target,iter->received,checking_multi_handler_start);
 			lsm_make_iterator(req_param->iter,req->key);
 			req->ppa=*req_param->iter->iter_idx;
+			/*
 			if(req->type!=FS_ITER_NXT_T){
 				fdriver_unlock(&req_param->iter->initiated_lock);
 			}
-			/*
 			   should free in iter release
 			for(i=0; i<LEVELN; i++){
 				inf_free_valueset(req->multi_value[i],FS_MALLOC_R);
 			}
-			 */		
+			 */	
+			req->end_req(req);
+			break;
+		case FS_ITER_ALL_T:
+		case FS_ITER_ALL_VALUE_T:
+			cl_grep_with_f(iter->conditional_lock,iter->target,iter->received,checking_multi_handler_start);
+			lsm_make_iterator(req_param->iter,req->key);
+			req->ppa=*req_param->iter->iter_idx;
 			break;
 	}
-	req->end_req(req);
 
 	if(req->type==FS_ITER_NXT_T){
 		fdriver_unlock(&req_param->iter->initiated_lock);
@@ -156,15 +172,17 @@ void lsm_iter_shot_readreq(run_t *r,request *req, int level, int idx){
 }
 
 void lsm_iter_read_header(lsm_iter *iter, lsmtree_iter_req_param *req_param, request *req,bool ismore){
-	KEYT end;
-	kvssd_cpy_key(&end,&req->key);
-	end.key[end.len-1]+=1;
+	KEYT *end=(KEYT*)malloc(sizeof(KEYT));
+	kvssd_cpy_key(end,&req->key);
+	end->key[end->len-1]+=1;
+	iter->last_key=end;
+
 	char *target_data;
 	iter->target=iter->received=0;
 	for(int i=0; i<LEVELCACHING; i++){
 		iter->datas[i]=(char**)malloc(sizeof(char*)*(LSM.disk[i]->m_num+1));
 		int idx=0;
-		lev_iter *t_iter=LSM.lop->cache_get_iter(LSM.disk[i],req->key,end);
+		lev_iter *t_iter=LSM.lop->cache_get_iter(LSM.disk[i],req->key,*end);
 		while((target_data=LSM.lop->cache_iter_nxt(t_iter))!=NULL){
 			//lsm_iter_shot_readreq(target_run,req,i,idx);
 			iter->datas[i][idx]=target_data;
@@ -177,7 +195,7 @@ void lsm_iter_read_header(lsm_iter *iter, lsmtree_iter_req_param *req_param, req
 	for(int i=LEVELCACHING; i<LEVELN; i++){
 		iter->datas[i]=(char**)malloc(sizeof(char*)*(LSM.disk[i]->m_num+1));
 		int idx=0;
-		lev_iter *t_iter=LSM.lop->get_iter(LSM.disk[i],req->key,end);
+		lev_iter *t_iter=LSM.lop->get_iter(LSM.disk[i],req->key,*end);
 		while((target_run=LSM.lop->iter_nxt(t_iter))!=NULL){
 			iter->target++;
 			lsm_iter_shot_readreq(target_run,req,i,idx);
@@ -253,19 +271,24 @@ uint32_t lsm_iter_next(request *req){
 	snode *from=iter->last_node;
 	if(from==NULL)
 		from=iter->body->header->list[1];
-	snode *temp;
-	char *t_body=value->value;
+
+	char *res;
+	int res_size=iter->body->all_length+iter->body->size;
+	res=(char*)malloc(res_size+1);
+
 	int idx=0;
+	snode *temp;
 	for_each_sk_from(temp,from,iter->body){
 		/*make header*/
-		memcpy(&t_body[idx],temp->key.key,temp->key.len);
+		memcpy(&res[idx],temp->key.key,temp->key.len);
 		idx+=temp->key.len;
-		t_body[idx]=0;
+		res[idx]=0;
 		idx++;
-		if(idx+temp->list[1]->key.len+1>PAGESIZE) break;
+		//if(idx+temp->list[1]->key.len+1>PAGESIZE) break;
 	}
-	iter->last_node=temp->list[1];
-
+	//iter->last_node=temp->list[1];
+	res[idx]=0;
+	*req->app_result=res;
 	fdriver_unlock(&iter->initiated_lock);
 	req->end_req(req);
 	fdriver_unlock(&iter->use_lock);
@@ -284,7 +307,6 @@ uint32_t lsm_iter_next_with_value(request *req){
 	snode *temp;
 	snode *from=iter->last_node;
 	
-
 	req->multi_value=(value_set**)malloc(sizeof(value_set*)*iter->max_idx);
 	lsmtree_iter_req_param* req_param=(lsmtree_iter_req_param*)malloc(sizeof(lsmtree_iter_req_param));
 	req_param->value_target=iter->max_idx;
@@ -314,11 +336,21 @@ uint32_t lsm_iter_release(request *req){
 	rb_find_int(im.rb,iter_id,&target);
 	lsm_iter *temp=(lsm_iter*)target->item;
 	fdriver_lock(&temp->use_lock);
+	
+	for(int i=LEVELN-1; i>=0; i--){
+		for(int j=0; temp->datas[i][j]!=NULL; j++){
+			free(temp->datas[i][j]);
+		}
+		free(temp->datas[i]);
+	}
 
 	free(temp->datas);
-
+	skiplist_free(temp->body);
+	kvssd_free_key(temp->last_key);
+	cl_free(temp->conditional_lock);
 	rb_delete(target);
 	q_enqueue((void*)temp->iter_idx,im.q);
+	free(temp);
 	req->end_req(req);
 	return 1;
 }

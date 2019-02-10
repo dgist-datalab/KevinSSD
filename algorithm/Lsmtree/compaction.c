@@ -357,6 +357,10 @@ void *compaction_main(void *input){
 	compR*req;
 	compP *_this=NULL;
 	//static int ccnt=0;
+	char thread_name[128]={0};
+	sprintf(thread_name,"%s","compaction_thread");
+	pthread_setname_np(pthread_self(),thread_name);
+
 	for(int i=0; i<CTHREAD; i++){
 		if(pthread_self()==compactor.processors[i].t_id){
 			_this=&compactor.processors[i];
