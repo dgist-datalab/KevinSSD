@@ -55,7 +55,6 @@ snode *skiplist_find(skiplist *list, KEYT key){
 	if(list->size==0) return NULL;
 	snode *x=list->header;
 	for(int i=list->level; i>=1; i--){
-
 #if defined(KVSSD) && defined(Lsmtree)
 		while(KEYCMP(x->list[i]->key,key)<0)
 #else

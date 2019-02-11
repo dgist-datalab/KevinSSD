@@ -15,9 +15,9 @@ COMMONFLAGS=\
 			-Wno-write-strings\
 			-DLARGEFILE64_SOURCE\
 			-DSLC\
+			-O2\
 			-DKVSSD\
-			-fsanitize=address\
-#			-O2\
+#			-fsanitize=address\
 #			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
@@ -81,13 +81,13 @@ SRCS +=\
 	./include/utils/dl_sync.c\
 	./include/utils/rwlock.c\
 	./include/utils/cond_lock.c\
-	./include/utils/kvssd.c\
 	./include/data_struct/hash.c\
 	./include/data_struct/list.c\
 	./include/data_struct/redblack.c\
 	./bench/measurement.c\
 	./bench/bench.c\
 	./include/utils/thpool.c\
+	./include/utils/kvssd.c\
 
 TARGETOBJ =\
 			$(patsubst %.c,%.o,$(SRCS))\

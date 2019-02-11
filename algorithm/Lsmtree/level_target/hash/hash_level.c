@@ -11,19 +11,25 @@ level_ops h_ops={
 	.release=hash_free,
 	.insert=hash_insert,
 	.find_keyset=hash_find_keyset,
+	.find_keyset_first=NULL,
+	.find_keyset_last=NULL,
 	.full_check=def_fchk,
 	.tier_align=hash_tier_align,
 	.move_heap=def_move_heap,
 	.chk_overlap=hash_chk_overlap,
 	.range_find=hash_range_find,
+	.range_find_compaction=hash_range_find,
 	.unmatch_find=hash_unmatch_find,
-	.range_find_start=hash_range_find_start,
+	//.range_find_start=hash_range_find_start,
 	//.range_find_nxt_node=NULL,
+	.next_run=NULL,
 	.get_iter=hash_get_iter,
 	.iter_nxt=hash_iter_nxt,
 	.get_max_table_entry=h_max_table_entry,
 	.get_max_flush_entry=h_max_flush_entry,
 
+	.keyset_iter_init=NULL,
+	.keyset_iter_nxt=NULL,
 	.mem_cvt2table=hash_mem_cvt2table,
 #ifdef STREAMCOMP
 	.stream_merger=hash_stream_merger,
@@ -52,11 +58,15 @@ level_ops h_ops={
 	.cache_comp_formatting=hash_cache_comp_formatting,
 	.cache_move=hash_cache_move,
 	.cache_find=hash_cache_find,
-	.cache_find_run=hash_cache_find_run,
+	//.cache_find_run=hash_cache_find_run,
+	.cache_find_run_data=NULL,
+	.cache_next_run_data=NULL,
+	.cache_get_iter=NULL,
 	.cache_get_size=hash_cache_get_sz,
 #endif
 	.print=hash_print,
 	.all_print=hash_all_print,
+	.header_print=NULL,
 };
 
 #ifdef STREAMCOMP

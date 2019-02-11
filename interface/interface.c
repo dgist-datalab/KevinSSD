@@ -682,7 +682,7 @@ bool inf_iter_release(uint32_t iter_id, bool (*added_end)(struct request *const)
 	return inf_make_multi_req(FS_ITER_RLS_T,null_key,NULL,iter_id,NULL,0,added_end);
 }
 
-
+#ifdef KVSSD
 bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value, int seq,void *_req,void (*end_req)(uint32_t,uint32_t,void*)){
 	static KEYT null_key={0,};
 	request *req=inf_get_req_instance(type,null_key,value,PAGESIZE,0,false);
@@ -762,7 +762,7 @@ bool inf_iter_req_apps(char type, char *prefix, uint8_t key_len,char **value, in
 	assign_req(req);
 	return true;
 }
-
+#endif
 value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
 	value_set *res=(value_set*)malloc(sizeof(value_set));
 	//check dma alloc type
