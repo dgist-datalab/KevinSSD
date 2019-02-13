@@ -9,6 +9,7 @@ PPWD=$(pwd)
 DEBUGFLAGS=\
 			-rdynamic\
 			-Wno-pointer-arith\
+			-fsanitize=address\
 #	-DBUSE_DEBUG
 
 COMMONFLAGS=\
@@ -16,6 +17,7 @@ COMMONFLAGS=\
 			-DLARGEFILE64_SOURCE\
 			-DSLC\
 			-DKVSSD\
+			-Wno-unused-but-set-variable\
 			-fsanitize=address\
 #			-DWRITESYNC\
 			-O2\

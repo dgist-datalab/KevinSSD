@@ -258,6 +258,7 @@ void array_cache_free(level *lev){
 }
 int array_cache_comp_formatting(level *lev ,run_t ***des){
 	//array_body *b=(array_body*)lev->level_data;
+
 	run_t **res=(run_t**)malloc(sizeof(run_t*)*array_cache_get_sz(lev));
 	int idx=0;
 	while((res[idx]=array_cutter(NULL,lev,NULL,NULL))!=NULL){idx++;}
@@ -270,6 +271,8 @@ int array_cache_comp_formatting(level *lev ,run_t ***des){
 }
 
 void array_cache_move(level *src, level *des){
+	if(src->n_num==0)
+		return;
 	array_cache_merge(src,des);
 }
 
