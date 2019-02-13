@@ -495,7 +495,6 @@ run_t* compaction_postprocessing(run_t *target){
 #else
 	table=htable_assign((char*)target->cpt_data->sets,true);
 #endif
-
 	target->pbn=compaction_htable_write(table,target->key);
 	return target;
 }

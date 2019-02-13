@@ -405,10 +405,6 @@ uint32_t lsm_set(request * const req){
 	printf("lsm_set!\n");
 	printf("key : %u\n",req->key);//for debug
 #endif
-#ifdef KVSSD
-	memcpy(req->value->value,&req->key.len,sizeof(req->key.len));
-	memcpy(&req->value->value[sizeof(req->key.len)],req->key.key,req->key.len);
-#endif
 	compaction_check(req->key);
 	MS(&__get_mt2);
 	if(req->type==FS_DELETE_T){

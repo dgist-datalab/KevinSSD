@@ -22,7 +22,7 @@
 //#define LEVELUSINGHEAP
 //#define TIERING
 
-#define LEVELCACHING 1
+#define LEVELCACHING 0
 #define CACHINGSIZE 0.05f
 //#define LEVELEMUL 
 //#define MERGECOMPACTION 4
