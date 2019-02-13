@@ -13,8 +13,8 @@ bool inf_make_req(const FSTYPE,const KEYT, char *,int len,int mark);
 
 bool inf_make_multi_set(const FSTYPE, KEYT *keys, char **values, int *lengths, int req_num, int makr);
 //bool inf_make_range_query(const FSTYPE, KEYT start, char **values,)
-bool inf_make_req_special(const FSTYPE type, KEYT key, char* value, int len,KEYT seq, void*(*special)(void*));
-bool inf_make_req_fromApp(char type, KEYT key,KEYT offset,KEYT len,PTR value,void *req, void*(end_func)(void*));
+bool inf_make_req_special(const FSTYPE type, const KEYT key, char* value, int len,uint32_t seq, void*(*special)(void*));
+bool inf_make_req_fromApp(char type, KEYT key,uint32_t offset,uint32_t len,PTR value,void *req, void*(*end_func)(void*));
 
 bool inf_iter_create(KEYT start,bool (*added_end)(struct request *const));
 bool inf_iter_next(uint32_t iter_id, char **values,bool (*added_end)(struct request *const),bool withvalue);

@@ -45,5 +45,6 @@ bool compaction_force_target(int from, int to);
 #ifdef MONKEY
 void compaction_seq_MONKEY(level *,int, level *);
 #endif
-void compaction_subprocessing(struct skiplist *,struct level *, struct level *, struct level *);
+void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des);
+
 #endif
