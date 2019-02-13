@@ -489,7 +489,7 @@ int array_bound_search(run_t *body, uint32_t max_t, KEYT lpa, bool islower){
 	int end=max_t-1;
 	int mid;
 
-	int res1, res2; //1:compare with start, 2:compare with end
+	int res1=0, res2=0; //1:compare with start, 2:compare with end
 	while(start==end ||start<end){
 		mid=(start+end)/2;
 		res1=KEYCMP(body[mid].key,lpa);
@@ -591,7 +591,7 @@ uint32_t array_find_idx_lower_bound(char *data, KEYT lpa){
 	char *body=data;
 	uint16_t *bitmap=(uint16_t*)body;
 	int s=1, e=bitmap[0];
-	int mid,res;
+	int mid=0,res=0;
 	KEYT target;
 	while(s<=e){
 		mid=(s+e)/2;
