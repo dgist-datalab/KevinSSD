@@ -501,7 +501,7 @@ run_t* compaction_postprocessing(run_t *target){
 }
 
 
-void compaction_subprocessing(skiplist *top,run_t** src, run_t** org, level *des){
+void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
 	compaction_sub_wait();
 #ifdef STREAMCOMP
 	MS(&compaction_timer[0]);

@@ -487,7 +487,7 @@ int array_binary_search(run_t *body,uint32_t max_t, KEYT lpa){
 int array_bound_search(run_t *body, uint32_t max_t, KEYT lpa, bool islower){
 	int start=0;
 	int end=max_t-1;
-	int mid;
+	int mid=0;
 
 	int res1=0, res2=0; //1:compare with start, 2:compare with end
 	while(start==end ||start<end){

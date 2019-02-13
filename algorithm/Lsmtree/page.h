@@ -12,6 +12,8 @@
 #define BLOCK 2
 
 struct level; 
+struct htable_t;
+struct length_bucket;
 typedef struct gc_node{
 	uint32_t ppa;
 	uint32_t nppa;
@@ -109,14 +111,15 @@ bool gc_segment_force();
 uint32_t gc_victim_segment(uint8_t type,bool);
 void gc_trim_segment(uint8_t, uint32_t pbn);
 block *gc_getrblock_fromseg(uint8_t type);
-#endif
+
 struct block* getRBLOCK(uint8_t type);
 uint32_t getRPPA(uint8_t type,KEYT lpa,bool);
 
 void gc_general_wait_init();
 void gc_general_waiting();
 void gc_data_read(uint32_t ppa,struct htable_t *value,bool isdata);
-void gc_data_write(uint32_t ppa,htable_t *value,bool isdata);
+void gc_data_write(uint32_t ppa,struct htable_t *value,bool isdata);
 void gc_data_header_update_add(struct gc_node **gn,int size, int target_level, char order);
 uint32_t PBITGET(uint32_t ppa);
 int gc_data_write_using_bucket(struct length_bucket *b,int target_level,char order);
+#endif

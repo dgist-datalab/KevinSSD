@@ -1,4 +1,4 @@
-export CC=g++
+export CC=gcc
 
 TARGET_INF=interface
 TARGET_LOWER=posix
@@ -120,6 +120,7 @@ debug_simulator: ./interface/main.c libsimulator_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
 
 driver: ./interface/main.c libdriver.a
+	echo $(CC)
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 range_driver: ./interface/range_test_main.c libsimulator.a
@@ -149,6 +150,8 @@ libdriver.a: $(TARGETOBJ)
 .c.o :
 	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS)
 
+submodule:libdriver.a
+	mv libdriver.a ../objects/
 
 clean :
 	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) clean && cd ../../

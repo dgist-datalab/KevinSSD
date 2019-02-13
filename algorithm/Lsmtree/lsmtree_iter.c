@@ -115,6 +115,8 @@ void *lsm_iter_end_req(algo_req *const req){
 	request *parents=req->parents;
 	lsmtree_iter_req_param *req_param=(lsmtree_iter_req_param*)parents->params;
 	lsm_iter *iter=req_param->iter;
+
+//	bool multi_handler_start=false;
 	switch(param->lsm_type){
 		case DATAR:
 			req_param->value_received++;
@@ -137,6 +139,8 @@ void *lsm_iter_end_req(algo_req *const req){
 
 			if(!iter->multi_handler_start_check){
 				iter->multi_handler_start_check=true;
+
+	//			multi_handler_start=true;
 			}
 			break;
 	}
@@ -261,6 +265,9 @@ uint32_t lsm_iter_next(request *req){
 	lsm_iter *iter=(lsm_iter*)t_rb->item;
 	fdriver_lock(&iter->initiated_lock);
 	fdriver_try_lock(&iter->use_lock);
+
+	//int len;
+	//len=req->num;
 	//value_set *value=req->value;
 
 	snode *from=iter->last_node;
