@@ -54,7 +54,6 @@ uint64_t caching_size;
 
 MeasureTime __get_mt;
 MeasureTime __get_mt2;
-MeasureTime level_get_time[10];
 #ifdef USINGSLAB
 //struct slab_chain snode_slab;
 //extern size_t slab_pagesize;
@@ -125,9 +124,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 #endif
 	measure_init(&__get_mt);
 	measure_init(&__get_mt2);
-	for(int i=0; i<10; i++){
-		measure_init(&level_get_time[i]);
-	}
+
 	lsm_bind_ops(&LSM);
 	LSM.memtable=skiplist_init();
 	SIZEFACTOR=get_sizefactor(TOTALSIZE);
@@ -213,12 +210,15 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	nocpy_init();
 #endif
 	//measure_init(&__get_mt);
-
+	for(int i=0; i<sizeof(LSM.timers)/sizeof(MeasureTime); i++){
+		measure_init(&LSM.timers[i]);
+	}
 	return 0;
 }
 
 
 extern uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
+extern uint32_t all_kn_run,run_num;
 void lsm_destroy(lower_info *li, algorithm *lsm){
 	//LSM.lop->all_print();
 	lsm_debug_print();
@@ -241,11 +241,17 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 #ifdef NOCPY
 	nocpy_free();
 #endif
-	for(int i=0; i<10; i++){
-		measure_adding_print(&level_get_time[i]);
-	}
+
 	//printf("---------------------------hash_insert_cnt: %u\n",hash_insert_cnt);
 	//SLAB_DUMP(snode_slab)
+
+	printf("avg kn run:%u\n",all_kn_run/run_num);
+		
+
+	for(int i=0; i<sizeof(LSM.timers)/sizeof(MeasureTime); i++){
+		printf("[%d]",i);
+		measure_adding_print(&LSM.timers[i]);
+	}
 }
 
 extern pthread_mutex_t compaction_wait,gc_wait;
@@ -438,7 +444,9 @@ uint32_t lsm_proc_re_q(){
 			bench_algo_start(tmp_req);
 			switch(tmp_req->type){
 				case FS_GET_T:
+					MS(&LSM.timers[6]);
 					res_type=__lsm_get(tmp_req);
+					MA(&LSM.timers[6]);
 					break;
 				case FS_RANGEGET_T:
 					//res_type=__lsm_range_get(tmp_req);
@@ -468,11 +476,13 @@ uint32_t lsm_get(request *const req){
 	}
 	lsm_proc_re_q();
 	if(!temp){
-		//LSM.lop->all_print();
+//		LSM.lop->all_print();
 		temp=true;
 	}
 	bench_algo_start(req);
+	MS(&LSM.timers[6]);
 	res_type=__lsm_get(req);
+	MA(&LSM.timers[6]);
 	if(!debug && LSM.disk[0]->n_num>0){
 		debug=true;
 	}
@@ -487,8 +497,8 @@ uint32_t lsm_get(request *const req){
 		//LSM.lop->all_print();
 		req->type=req->type==FS_GET_T?FS_NOTFOUND_T:req->type;
 		req->end_req(req);
-	//	sleep(1);
-		//abort();
+	//sleep(1);
+	//abort();
 	}
 	return res_type;
 }
@@ -506,6 +516,7 @@ algo_req* lsm_get_req_factory(request *parents, uint8_t type){
 	lsm_req->type=type;
 	return lsm_req;
 }
+
 int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 	int res=0;
 	if(!entry && !table && !list){
@@ -620,7 +631,6 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 	}
 
 	if(likely(lsm_req)){
-
 #ifdef DVALUE
 		LSM.li->read(ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
 #else
@@ -685,7 +695,6 @@ uint32_t __lsm_get(request *const req){
 #else
 		mapinfo.sets=(keyset*)req->value->value;
 #endif
-
 		_entry=LSM.lop->find_run(LSM.disk[level],req->key);
 
 		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);

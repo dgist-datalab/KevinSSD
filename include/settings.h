@@ -15,6 +15,8 @@
 	}while(0)
 */
 
+#define LOWER_FILE_NAME "./data/simulator.data"
+
 #define K (1024)
 #define M (1024*K)
 #define G (1024*M)
@@ -32,7 +34,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 16L
+#define GIGAUNIT 8L
 #define TOTALSIZE ((16L)*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)

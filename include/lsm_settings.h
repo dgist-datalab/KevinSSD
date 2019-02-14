@@ -5,11 +5,11 @@
 /*lsmtree structure*/
 #define FULLMAPNUM  1024
 #ifdef KVSSD
-#define KEYBITMAP 2048
+#define KEYBITMAP 1536
 #endif
 
 #define RAF 0.01
-#define LEVELN 3
+#define LEVELN 2
 
 
 #if LEVELN!=1

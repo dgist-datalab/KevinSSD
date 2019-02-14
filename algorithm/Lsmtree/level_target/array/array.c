@@ -224,7 +224,7 @@ keyset* array_find_keyset(char *data,KEYT lpa){
 	char *body=data;
 	uint16_t *bitmap=(uint16_t*)body;
 	int s=1,e=bitmap[0];
-	
+	MS(&LSM.timers[4]);
 	KEYT target;
 	while(s<=e){
 		int mid=(s+e)/2;
@@ -232,6 +232,7 @@ keyset* array_find_keyset(char *data,KEYT lpa){
 		target.len=bitmap[mid+1]-bitmap[mid]-sizeof(uint32_t);
 		int res=KEYCMP(target,lpa);
 		if(res==0){
+			MA(&LSM.timers[4]);
 			return (keyset*)&body[bitmap[mid]];
 		}
 		else if(res<0){
@@ -241,6 +242,7 @@ keyset* array_find_keyset(char *data,KEYT lpa){
 			e=mid-1;
 		}
 	}
+	MA(&LSM.timers[4]);
 	return NULL;
 }
 

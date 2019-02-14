@@ -46,10 +46,9 @@ uint32_t posix_create(lower_info *li){
 	li->TS=TOTALSIZE;
 
 	li->write_op=li->read_op=li->trim_op=0;
-	_fd=open("/home/leia/kukania_workspace/koofs/data/simulator.data",O_RDWR|O_CREAT|O_TRUNC,0666);
-//	_fd=open("/dev/robusta",O_RDWR|O_DIRECT|O_DIRECT,0666);
+	_fd=open(LOWER_FILE_NAME,O_RDWR|O_CREAT|O_TRUNC,0666);
 	if(_fd==-1){
-		printf("file open error%d!\n",errno);
+		printf("file open errorno:%d!\n",errno);
 		exit(-1);
 	}
 	pthread_mutex_init(&fd_lock,NULL);

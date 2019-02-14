@@ -71,6 +71,7 @@ typedef struct lsmtree{
 	uint32_t KEYNUM;
 	uint32_t ORGHEADER;
 	uint32_t FLUSHNUM;
+	MeasureTime timers[10];
 	bool inplace_compaction; 
 
 	level *disk[LEVELN];

@@ -6,7 +6,7 @@
 #include "../../../../include/utils/kvssd.h"
 #include "../../../../include/settings.h"
 #include "array_header.h"
-
+extern lsmtree LSM;
 static inline char *data_from_run(run_t *a){
 #ifdef NOCPY
 	if(a->cpt_data->nocpy_table){
@@ -86,6 +86,7 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 	bitmap[0]=mem->size;
 
 	//printf("start:%.*s end:%.*s size:%d\n",KEYFORMAT(mem->start),KEYFORMAT(mem->end),mem->size);
+	MS(&LSM.timers[0]);
 	for_each_sk(temp,mem){
 		memcpy(&ptr[data_start],&temp->ppa,sizeof(temp->ppa));
 		memcpy(&ptr[data_start+sizeof(temp->ppa)],temp->key.key,temp->key.len);
@@ -97,6 +98,7 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 		data_start+=temp->key.len+sizeof(temp->ppa);
 		idx++;
 	}
+	MA(&LSM.timers[0]);
 	bitmap[idx]=data_start;
 #else
 	not implemented
@@ -119,15 +121,14 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	uint16_t *bitmap;
 	char *body;
 	int idx;
+	MS(&LSM.timers[1]);
 	for(int i=0; o[i]!=NULL; i++){
 		body=data_from_run(o[i]);
 		bitmap=(uint16_t*)body;
 		//array_header_print(body);
 		for_each_header_start(idx,key,ppa_ptr,bitmap,body)
-			if(KEYCONSTCOMP(key,"789502")==0){
-				printf("789502 to %d\n",d->idx);
-			}
-		skiplist_insert_existIgnore(des->skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
+			//fprintf(stderr,"[%d:%d] - %.*s\n",idx,*ppa_ptr,KEYFORMAT(key));
+			skiplist_insert_existIgnore(des->skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
 		for_each_header_end
 	}
 
@@ -143,15 +144,15 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 			//			array_header_print(body);
 			bitmap=(uint16_t*)body;
 			for_each_header_start(idx,key,ppa_ptr,bitmap,body)
-				if(KEYCONSTCOMP(key,"789502")==0){
-					printf("789502 to %d\n",d->idx);
-				}
-			skiplist_insert_existIgnore(des->skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
+				//fprintf(stderr,"[%d:%d] - %.*s\n",idx,*ppa_ptr,KEYFORMAT(key));
+				skiplist_insert_existIgnore(des->skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
 			for_each_header_end
 		}
 	}
+	MA(&LSM.timers[1]);
 }
 extern bool debug_flag;
+uint32_t all_kn_run,run_num;
 run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end){
 	array_body *b=(array_body*)d->level_data;
 
@@ -173,10 +174,13 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 	char *ptr=(char*)res->sets;
 	uint16_t *bitmap=(uint16_t*)ptr;
 	uint32_t idx=1;
+	uint32_t cnt=0;
 	memset(bitmap,-1,KEYBITMAP/sizeof(uint16_t));
 	uint16_t data_start=KEYBITMAP;
 	/*end*/
 	uint32_t length=0;
+
+	MS(&LSM.timers[2]);
 	do{	
 		snode *temp=skiplist_pop(src_skip);
 		memcpy(&ptr[data_start],&temp->ppa,sizeof(temp->ppa));
@@ -189,19 +193,25 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 		data_start+=temp->key.len+sizeof(temp->ppa);
 		length+=KEYLEN(temp->key);
 		idx++;
+		cnt++;
 		end=temp->key;
 		//free the skiplist
 		free(temp->list);
 		free(temp);
 	}
-	while(src_skip->all_length && length+KEYLEN(src_skip->header->list[1]->key)<PAGESIZE-KEYBITMAP);
+	while(src_skip->all_length && (length+KEYLEN(src_skip->header->list[1]->key)<PAGESIZE-KEYBITMAP) && (cnt<KEYBITMAP/sizeof(uint16_t)));
 	if(debug_flag){
 		//	printf("after\n");
 	}
 	bitmap[0]=idx-1;
 	bitmap[idx]=data_start;
+
+	all_kn_run+=cnt;
+	run_num++;
 	//array_header_print(ptr);
 	//printf("new_header size:%d\n",idx);
+
+	MA(&LSM.timers[2]);
 	run_t *res_r=array_make_run(start,end,-1);
 	res_r->cpt_data=res;
 #ifdef BLOOM
@@ -244,10 +254,12 @@ void array_cache_merge(level *src, level *des){
 	snode *temp;
 
 	KEYT start=s->skip->header->list[1]->key,end;
+	MS(&LSM.timers[5]);
 	for_each_sk(temp,s->skip){
 		end=temp->key;
 		skiplist_insert_existIgnore(d->skip,temp->key,temp->ppa,temp->ppa==UINT32_MAX?false:true);
 	}
+	MA(&LSM.timers[5]);
 	array_range_update(des,NULL,start);
 	array_range_update(des,NULL,end);
 }
@@ -258,20 +270,25 @@ void array_cache_free(level *lev){
 }
 int array_cache_comp_formatting(level *lev ,run_t ***des){
 	//array_body *b=(array_body*)lev->level_data;
-
-	run_t **res=(run_t**)malloc(sizeof(run_t*)*array_cache_get_sz(lev));
+	
+	run_t **res=(run_t**)malloc(sizeof(run_t*)*(array_cache_get_sz(lev)+1));
 	int idx=0;
-	while((res[idx]=array_cutter(NULL,lev,NULL,NULL))!=NULL){idx++;}
+
+	MS(&LSM.timers[6]);
+	while((res[idx]=array_cutter(NULL,lev,NULL,NULL))!=NULL){
+		idx++;
+	}
+	MA(&LSM.timers[6]);
 	//	printf("[start]print in formatting :%p\n");
 	//	array_header_print((char*)res[0]->cpt_data->sets);
 	//	printf("[end]print in formatting: %p\n",res[0]->cpt_data->sets);
-	res[idx+1]=NULL;
+	res[idx]=NULL;
 	*des=res;
-	return idx+1;
+	return idx;
 }
 
 void array_cache_move(level *src, level *des){
-	if(src->n_num==0)
+	if(array_cache_get_sz(src)==0)
 		return;
 	array_cache_merge(src,des);
 }

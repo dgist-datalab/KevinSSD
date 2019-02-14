@@ -1,7 +1,7 @@
-export CC=gcc
+export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=posix_memory
+TARGET_LOWER=linux_aio
 TARGET_ALGO=Lsmtree
 
 PPWD=$(pwd)
@@ -9,7 +9,7 @@ PPWD=$(pwd)
 DEBUGFLAGS=\
 			-rdynamic\
 			-Wno-pointer-arith\
-			-fsanitize=address\
+#	-fsanitize=address\
 #	-DBUSE_DEBUG
 
 COMMONFLAGS=\
@@ -18,9 +18,8 @@ COMMONFLAGS=\
 			-DSLC\
 			-DKVSSD\
 			-Wno-unused-but-set-variable\
-			-fsanitize=address\
-#			-DWRITESYNC\
 			-O2\
+#			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 

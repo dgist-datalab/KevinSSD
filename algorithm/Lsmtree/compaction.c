@@ -44,7 +44,6 @@ pthread_cond_t compaction_req_cond;
 volatile int compaction_req_cnt;
 bool compaction_idle;
 volatile int compactino_target_cnt;
-MeasureTime compaction_timer[5];
 #if (LEVELN==1)
 void onelevel_processing(run_t *);
 #endif
@@ -105,9 +104,6 @@ void compaction_heap_setting(level *a, level* b){
 }
 
 bool compaction_init(){
-	for(int i=0; i<5; i++){
-		measure_init(&compaction_timer[i]);
-	}
 	compactor.processors=(compP*)malloc(sizeof(compP)*CTHREAD);
 	memset(compactor.processors,0,sizeof(compP)*CTHREAD);
 
@@ -134,10 +130,6 @@ bool compaction_init(){
 
 
 void compaction_free(){
-	for(int i=0; i<5; i++){
-		uint64_t all_time=compaction_timer[i].adding.tv_sec*1000000+compaction_timer[i].adding.tv_usec;
-		printf("cpt timer:%.2lf\n",(double)all_time/1000000);
-	}
 	compactor.stopflag=true;
 	int *temp;
 	for(int i=0; i<CTHREAD; i++){
@@ -432,7 +424,7 @@ void *compaction_main(void *input){
 void compaction_check(KEYT key){
 	compR *req;
 #ifdef KVSSD
-	if(unlikely(LSM.memtable->all_length+KEYLEN(key)+sizeof(uint16_t)>PAGESIZE-KEYBITMAP))
+	if(unlikely(LSM.memtable->all_length+KEYLEN(key)+sizeof(uint16_t)>PAGESIZE-KEYBITMAP || LSM.memtable->size >= KEYBITMAP/sizeof(uint16_t)))
 #else
 	if(unlikely(LSM.memtable->size==LSM.FLUSHNUM))
 #endif
@@ -503,13 +495,9 @@ run_t* compaction_postprocessing(run_t *target){
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
 	compaction_sub_wait();
 #ifdef STREAMCOMP
-	MS(&compaction_timer[0]);
 	LSM.lop->stream_comp_wait();
-	MA(&compaction_timer[0]);
 #else
-	MS(&compaction_timer[0]);
 	LSM.lop->merger(top,src,org,des);
-	MA(&compaction_timer[0]);
 #endif
 	KEYT key,end;
 	run_t* target=NULL;
