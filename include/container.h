@@ -142,8 +142,8 @@ struct algorithm{
 	uint32_t (*iter_release)(request *const);
 	uint32_t (*iter_all_key)(request *const);
 	uint32_t (*iter_all_value)(request *const);
-	uint32_t (*multi_set)(request *const,uint32_t num);
-	uint32_t (*multi_get)(request *const,uint32_t num);
+	uint32_t (*multi_set)(request *const,int num);
+	uint32_t (*multi_get)(request *const,int num);
 	lower_info* li;
 	void *algo_body;
 };

@@ -34,6 +34,7 @@ SRCS +=\
 	   lops_default.c\
 	   cache.c\
 	   page_kv.c\
+	   lsmtree_mop.c\
 #merge_compaction.c\
 	   run_array.c\
 	   lsmtree_multi.c\

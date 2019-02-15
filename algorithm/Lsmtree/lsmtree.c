@@ -41,10 +41,8 @@ struct algorithm algo_lsm={
 	.iter_release=lsm_iter_release,
 	.iter_all_key=lsm_iter_all_key,
 	.iter_all_value=lsm_iter_all_value,
-	.multi_set=NULL,
-	.multi_get=NULL,
-	//.multi_set=lsm_multi_set,
-	//.range_get=lsm_range_get,
+	.multi_set=lsm_multi_set,
+	.multi_get=lsm_multi_get,
 };
 extern OOBT *oob;
 lsmtree LSM;
@@ -210,7 +208,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	nocpy_init();
 #endif
 	//measure_init(&__get_mt);
-	for(int i=0; i<sizeof(LSM.timers)/sizeof(MeasureTime); i++){
+	for(uint32_t i=0; i<sizeof(LSM.timers)/sizeof(MeasureTime); i++){
 		measure_init(&LSM.timers[i]);
 	}
 	return 0;
@@ -248,7 +246,7 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	printf("avg kn run:%u\n",all_kn_run/run_num);
 		
 
-	for(int i=0; i<sizeof(LSM.timers)/sizeof(MeasureTime); i++){
+	for(uint32_t i=0; i<sizeof(LSM.timers)/sizeof(MeasureTime); i++){
 		printf("[%d]",i);
 		measure_adding_print(&LSM.timers[i]);
 	}
@@ -428,9 +426,10 @@ uint32_t lsm_set(request * const req){
 	req->end_req(req); //end write
 
 	//MA(&__get_mt);
+	/*
 	if(LSM.memtable->size==LSM.KEYNUM)
 		return 1;
-	else
+	else*/
 		return 0;
 }
 int nor;
@@ -510,13 +509,22 @@ algo_req* lsm_get_req_factory(request *parents, uint8_t type){
 	lsm_req->params=params;
 	lsm_req->parents=parents;
 	dl_sync_init(&params->lock,1);
-	lsm_req->end_req=lsm_end_req;
+
+	if(parents->type==FS_MGET_T && type==DATAR){//data read in FS_MGET_T type
+		lsm_req->end_req=lsm_mget_end_req;
+	}else{
+		lsm_req->end_req=lsm_end_req;
+	}
 	lsm_req->type_lower=0;
 	lsm_req->rapid=true;
 	lsm_req->type=type;
 	return lsm_req;
 }
-
+inline algo_req *lsm_get_empty_algoreq(request *parents){
+	algo_req *res=(algo_req *)calloc(sizeof(algo_req),1);
+	res->parents=parents;
+	return res;
+}
 int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 	int res=0;
 	if(!entry && !table && !list){
@@ -533,7 +541,12 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 		if(target_node->value){
 			memcpy(req->value->value,target_node->value->value,PAGESIZE);
 			bench_algo_end(req);
-			req->end_req(req);
+			if(req->type==FS_MGET_T){
+				lsm_mget_end_req(lsm_get_empty_algoreq(req));						
+			}
+			else{
+				req->end_req(req);
+			}
 			return 2;
 		}
 		else{

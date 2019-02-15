@@ -102,6 +102,8 @@ uint32_t __lsm_create_normal(lower_info *, algorithm *);
 void lsm_destroy(lower_info*, algorithm*);
 uint32_t lsm_get(request *const);
 uint32_t lsm_set(request *const);
+uint32_t lsm_multi_set(request *const, int num);
+uint32_t lsm_multi_get(request *const, int num);
 uint32_t lsm_proc_re_q();
 uint32_t lsm_remove(request *const);
 
@@ -109,8 +111,10 @@ uint32_t __lsm_get(request *const);
 uint32_t __lsm_range_get(request *const);
 
 void* lsm_end_req(struct algo_req*const);
+void* lsm_mget_end_req(struct algo_req *const);
 bool lsm_kv_validcheck(uint8_t *, int idx);
 void lsm_kv_validset(uint8_t *,int idx);
+
 htable *htable_copy(htable *);
 htable *htable_assign(char*,bool);
 htable *htable_dummy_assign();
@@ -119,8 +123,8 @@ void htable_print(htable*,uint32_t);
 algo_req *lsm_get_req_factory(request*,uint8_t);
 void htable_check(htable *in,KEYT lpa,uint32_t ppa,char *);
 
-uint32_t lsm_multi_set(request *const, uint32_t num);
-uint32_t lsm_range_get(request *const, uint32_t len);
+uint32_t lsm_multi_set(request *const, int num);
+uint32_t lsm_range_get(request *const, int len);
 /*
 void lsm_save(lsmtree *);
 void lsm_trim_set(value_set* ,uint8_t *);
