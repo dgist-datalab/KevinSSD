@@ -1,4 +1,4 @@
-export CC=g++
+export CC=gcc
 
 TARGET_INF=interface
 TARGET_LOWER=linux_aio

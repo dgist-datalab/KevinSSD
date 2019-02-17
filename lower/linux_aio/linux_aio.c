@@ -139,7 +139,11 @@ uint32_t aio_create(lower_info *li){
 
 	li->write_op=li->read_op=li->trim_op=0;
 	//_fd=open(LOWER_FILE_NAME,O_RDWR|O_DIRECT,0644);
+#ifdef __cplusplus
 	_fd=open(LOWER_FILE_NAME,O_RDWR|O_CREAT|O_DIRECT,0666);
+#else
+	_fd=open(LOWER_FILE_NAME,O_RDWR|O_CREAT,0666);
+#endif
 	//_fd=open64(LOWER_FILE_NAME,O_RDWR|O_CREAT|O_DIRECT,0666);
 	if(_fd==-1){
 		printf("file open error!\n");
