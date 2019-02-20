@@ -2,7 +2,7 @@ export CC=g++
 
 TARGET_INF=interface
 TARGET_LOWER=posix_memory
-TARGET_ALGO=Lsmtree
+TARGET_ALGO=dftl
 
 PPWD=$(pwd)
 
@@ -79,10 +79,10 @@ SRCS +=\
 	./include/utils/cond_lock.c\
 	./include/data_struct/hash.c\
 	./include/data_struct/list.c\
-	./include/data_struct/redblack.c\
 	./bench/measurement.c\
 	./bench/bench.c\
 	./include/utils/thpool.c\
+#	./include/data_struct/redblack.c\
 
 TARGETOBJ =\
 			$(patsubst %.c,%.o,$(SRCS))\
@@ -101,10 +101,10 @@ endif
 LIBS +=\
 		-lpthread\
 		-lm\
-		-laio\
--ljemalloc\
+#		-laio\
+		-ljemalloc\
 
-all: range_driver
+all: driver
 
 DEBUG: debug_driver
 
