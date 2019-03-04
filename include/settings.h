@@ -23,6 +23,10 @@
 #define T (1024L*G)
 #define P (1024L*T)
 
+#define PIECE 64
+#define NPCINPAGE (PAGESIZE/PIECE)
+#define MINVALUE 64
+
 #ifdef MLC
 
 #define TOTALSIZE (300L*G)
@@ -34,8 +38,8 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 8L
-#define TOTALSIZE ((16L)*G)
+#define GIGAUNIT 1L
+#define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
 #define PAGESIZE (8*K)
@@ -91,12 +95,10 @@ static inline int KEYCONSTCOMP(KEYT a, char *s){
 	}
 	return a.len<len?-1:1;
 }
-#define KEYLEN(a) (a.len+sizeof(uint32_t))
 #else
 	#define KEYT uint32_t
 #endif
 #define BLOCKT uint32_t
-#define OOBT uint64_t
 #define V_PTR char * const
 #define PTR char*
 #define ASYNC 1

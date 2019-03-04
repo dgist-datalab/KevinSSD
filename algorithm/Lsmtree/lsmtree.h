@@ -23,8 +23,6 @@
 #define GCHW GCMW
 #define SDATAR 9
 #define RANGER 10
-#define BLOCKW 11
-#define BLOCKR 12
 #define OLDDATA 13
 
 #define DONE 1
@@ -41,7 +39,7 @@ typedef struct level_ops level_ops;
 typedef struct lsm_params{
 	dl_sync lock;
 	uint8_t lsm_type;
-	uint32_t ppa;
+	ppa_t ppa;
 	void *entry_ptr;
 	PTR test;
 	PTR* target;
@@ -119,9 +117,9 @@ htable *htable_copy(htable *);
 htable *htable_assign(char*,bool);
 htable *htable_dummy_assign();
 void htable_free(htable*);
-void htable_print(htable*,uint32_t);
+void htable_print(htable*,ppa_t);
 algo_req *lsm_get_req_factory(request*,uint8_t);
-void htable_check(htable *in,KEYT lpa,uint32_t ppa,char *);
+void htable_check(htable *in,KEYT lpa,ppa_t ppa,char *);
 
 uint32_t lsm_multi_set(request *const, int num);
 uint32_t lsm_range_get(request *const, int len);

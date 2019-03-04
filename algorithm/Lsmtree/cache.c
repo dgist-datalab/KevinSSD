@@ -191,7 +191,7 @@ void cache_print(cache *c){
 			printf("fuck!!!\n");
 		}
 #ifdef KVSSD
-		printf("[%d]c->endtry->key:%s c->entry->pbn:%d d:%p\n",print_number++,kvssd_tostring(tent->key),tent->pbn,tent->cache_data);
+		printf("[%d]c->endtry->key:%s c->entry->pbn:%lu d:%p\n",print_number++,kvssd_tostring(tent->key),tent->pbn,tent->cache_data);
 #else
 		printf("[%d]c->entry->key:%d c->entry->pbn:%d d:%p\n",print_number++,tent->key,tent->pbn,tent->cache_data);
 #endif

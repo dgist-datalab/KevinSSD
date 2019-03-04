@@ -124,12 +124,7 @@ void llog_print(llog *b){
 		block* target=(block*)head->data;
 		if(target->erased)
 			ecnt++;
-#ifndef DVALUE
 		printf("[%d]ppa:%d(%d) ppage_idx:%d invalid_n:%d level:%d erased:%d\n",target->ppa/_PPB,target->ppa,target->ppa/BPS/_PPB,target->ppage_idx,target->invalid_n,target->level,target->erased?1:0);
-#else
-		printf("[%d]ppa:%d(%d) ppage_idx:%d invalid_n:%d level:%d erased:%d ldp:%u\n",target->ppa/_PPB,target->ppa,target->ppa/BPS/_PPB,target->ppage_idx,target->invalid_n,target->level,target->erased?1:0,target->ldp);
-
-#endif
 		head=head->next;
 		cnt++;
 		if(cnt>b->size) break;

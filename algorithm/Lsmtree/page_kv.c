@@ -114,6 +114,7 @@ int gc_header(uint32_t tbn){
 		if(!shouldwrite) continue;
 		/*write data*/
 		n_ppa=getRPPA(HEADER,*lpa,true);
+		printf("should setting oob!!\n");
 		target_entry->pbn=n_ppa;
 		nocpy_force_freepage(t_ppa);
 		gc_data_write(n_ppa,tables[i],false);
@@ -127,8 +128,9 @@ int gc_header(uint32_t tbn){
 	gc_trim_segment(HEADER,target->ppa);
 	return 0;
 }
-
+static int gc_data_kv;
 int gc_data(uint32_t tbn){
+	//printf("gc_data_kv:%d, %u\n",gc_data_kv++,tbn);
 	block *target=&bl[tbn];
 	char order;
 	if(tbn%BPS==0)	order=0;
@@ -159,65 +161,145 @@ int gc_data(uint32_t tbn){
 
 	uint32_t start=target->ppa;
 
-#ifdef DVALUE
-	if(target->length_data==NULL){
-		block_load(target);
-		pthread_mutex_lock(&target->lock);
-		pthread_mutex_unlock(&target->lock);
-	}
-	else if(target->isflying){
-		pthread_mutex_lock(&target->lock);	
-		pthread_mutex_unlock(&target->lock);
-	}	
-	if(target->b_log){//remain invalidate info apply at block
-		block_apply_log(target);
-	}
-#endif
 	gc_general_wait_init();
 	
-	htable_t **tables=(htable_t**)malloc(sizeof(htable_t*)*algo_lsm.li->PPB);
-	/*data_read phase*/
-	for(uint32_t i=0; i<target->ppage_idx; i++){
-		if(target->bitset[i/8]&(1<<(i%8))){
+	htable_t **tables=(htable_t**)calloc(sizeof(htable_t*),algo_lsm.li->PPB);
+	/*
+	   data_read phase 
+		i: index of table
+		j: index of checking bitset 
+	 */
+#ifdef DVALUE
+	uint8_t invalid_cnt_forpage=0;
+	for(uint32_t j=0,i=0; j<(target->ppage_idx+1)* NPCINPAGE; j++)
+#else
+	for(uint32_t j=0,i=0; j<target->ppage_idx; i++,j++)
+#endif
+	{
+		if(j%NPCINPAGE==0) invalid_cnt_forpage=0;
+
+		if(target->bitset[j/8]&(1<<(j%8)))
+		{
+		#ifdef DVALUE
+			invalid_cnt_forpage++;
+			if((j+1)%NPCINPAGE==0 && invalid_cnt_forpage==NPCINPAGE){
+				tables[i]=NULL;
+				i++;
+			}
+			continue;
+		#else
 			tables[i]=NULL;
 			continue;
+		#endif
 		}
 		uint32_t t_ppa=start+i;
+		//printf("table %d assignd\n",i);
 		tables[i]=(htable_t*)malloc(sizeof(htable_t));
 		gc_data_read(t_ppa,tables[i],true);
+
+#ifdef DVALUE
+		j=(j/NPCINPAGE+1)*NPCINPAGE-1;
+		i++;
+#endif
 	}
 	
 	gc_general_waiting(); //wait for read req
 
-	/*data move phase*/
-	for(uint32_t i=0; i<target->ppage_idx; i++){
-		if(!tables[i]) continue;
-		uint32_t t_ppa=PBITGET(start+i);
-		uint32_t n_ppa;
-		KEYT* lpa=LSM.lop->get_lpa_from_data((char*)tables[i]->sets,false);
+	/*
+	   data move phase
+		i: index of table
+		j: index of checking bitset  
+	 */
+	//printf("\n");
+#ifdef DVALUE
+	for(uint32_t j=0,i=0; j<(target->ppage_idx+1)*NPCINPAGE; j++)
+#else
+	for(uint32_t j=0,i=0; j<target->ppage_idx; j++,i++)
+#endif
+	{
+		if(!tables[i])
+		{
+		#ifdef DAVLUE
+			j=(j/NPCINPAGE+1)*NPCINPAGE-1;
+		#endif
+			continue;
+		}
+#ifdef DVALUE
+		if(target->bitset[j/8]&(1<<(j%8))) continue; //for invalid
+		uint8_t chunk_idx=j%NPCINPAGE;
+		footer *foot=GETFOOTER(((char*)tables[i]->sets));
+		if(foot->map[chunk_idx]==0){
+			if(chunk_idx==NPCINPAGE-1){
+				//printf("table %d used\n",i);
+				i++;
+			}
+			continue;
+		}
+		uint64_t t_ppa=start*NPCINPAGE+j;//for DVALUE
 
+		KEYT *lpa=LSM.lop->get_lpa_from_data(&((char*)tables[i]->sets)[PIECE*(t_ppa%NPCINPAGE)],false);
+#else
+		uint32_t t_ppa=PBITGET(start+i);//for normal
+		KEYT* lpa=LSM.lop->get_lpa_from_data((char*)tables[i]->sets,false);
+#endif
+		uint32_t n_ppa;
 		if(LSM.lop->block_fchk(in)){
 			block *reserve_block=getRBLOCK(DATA);
 			gc_data_now_block_chg(in,reserve_block);
 		}
-		LSM.lop->moveTo_fr_page(in);
-		n_ppa=LSM.lop->get_page(in,PAGESIZE/PIECE); /*make the new page belong to level*/
 
-		gc_data_write(n_ppa,tables[i],true);
+#ifdef DVALUE
+		if(t_ppa%NPCINPAGE==0 && oob[t_ppa/NPCINPAGE].length[t_ppa%NPCINPAGE]==1)//full check
+		{
+#endif
+			LSM.lop->moveTo_fr_page(in);
+			n_ppa=LSM.lop->get_page(in,PAGESIZE/PIECE); /*make the new page belong to level*/
+			gc_data_write(n_ppa,tables[i],true);
 
-		gc_node *temp_g=(gc_node*)malloc(sizeof(gc_node));
-		temp_g->plength=(PAGESIZE/PIECE);
-		temp_g->value=NULL;
-		temp_g->nppa=n_ppa;
-		temp_g->ppa=t_ppa;
-		kvssd_cpy_key(&temp_g->lpa,lpa);
-		temp_g->level=target_level;
+			gc_node *temp_g=(gc_node*)malloc(sizeof(gc_node));
+			temp_g->plength=(PAGESIZE/PIECE);
+			temp_g->value=NULL;
+			temp_g->nppa=n_ppa;
+			temp_g->ppa=t_ppa;
+			kvssd_cpy_key(&temp_g->lpa,lpa);
+			//printf("gc lpa:%.*s(origin) copied:%.*s\n",lpa->len,lpa->key,temp_g->lpa.len,temp_g->lpa.key);
+			temp_g->level=target_level;
 
-		bucket.bucket[temp_g->plength][bucket.idx[temp_g->plength]++]=(snode*)temp_g;	
-		bucket.contents_num++;
+			bucket.bucket[temp_g->plength][bucket.idx[temp_g->plength]++]=(snode*)temp_g;	
+			bucket.contents_num++;
+			//printf("full page table %d used\n",i);
+			free(tables[i]);
+			i++;
 		//free(lpa->key);
+#ifdef DVALUE
+		}else{
+			gc_node *temp_g=(gc_node*)malloc(sizeof(gc_node));
+			temp_g->plength=foot->map[chunk_idx];
+			PTR t_value=(PTR)malloc(PIECE*temp_g->plength);
+			memcpy(t_value,&((PTR)tables[i]->sets)[(t_ppa%NPCINPAGE)*PIECE],temp_g->plength*PIECE);
+			temp_g->value=t_value;
+			temp_g->nppa=-1;
+			temp_g->ppa=t_ppa;
+			kvssd_cpy_key(&temp_g->lpa,lpa);
+			/*
+			if(KEYCONSTCOMP(temp_g->lpa,"1")==0){
+				printf("here!\n");
+			}*/
+			//printf("gc lpa:%.*s(origin) copied:%.*s\n",lpa->len,lpa->key,temp_g->lpa.len,temp_g->lpa.key);
+			temp_g->level=target_level;
+
+			bucket.bucket[temp_g->plength][bucket.idx[temp_g->plength]++]=(snode*)temp_g;	
+			bucket.contents_num++;
+
+		}
+		if(chunk_idx==NPCINPAGE-1){
+			//printf("table %d used\n",i);
+			free(tables[i]);
+			i++;
+		}
+		j+=foot->map[chunk_idx]-1;
+#endif
 		free(lpa);
-		free(tables[i]);
 	}
 	gc_data_write_using_bucket(&bucket,target_level,order);
 	gc_trim_segment(DATA,target->ppa);

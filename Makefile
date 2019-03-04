@@ -1,7 +1,7 @@
-export CC=gcc
+export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=linux_aio
+TARGET_LOWER=posix
 TARGET_ALGO=Lsmtree
 
 PPWD=$(pwd)
@@ -9,29 +9,29 @@ PPWD=$(pwd)
 DEBUGFLAGS=\
 			-rdynamic\
 			-Wno-pointer-arith\
-#	-fsanitize=address\
+			-g\
+	-fsanitize=address\
 #	-DBUSE_DEBUG
 
 COMMONFLAGS=\
 			-Wno-write-strings\
+			-Wno-unused-function\
 			-DLARGEFILE64_SOURCE\
+			-D_GNU_SOURCE\
 			-DSLC\
 			-DKVSSD\
 			-Wno-unused-but-set-variable\
-			-O2\
+#-O2\
 #			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 
 export CFLAGS_ALGO=\
-			 -g\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
-#-DDVALUE\
-
+			 -DDVALUE\
 
 export CFLAGS_LOWER=\
-			-g\
 			 -lpthread\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\
@@ -120,7 +120,6 @@ debug_simulator: ./interface/main.c libsimulator_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
 
 driver: ./interface/main.c libdriver.a
-	echo $(CC)
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 range_driver: ./interface/range_test_main.c libsimulator.a

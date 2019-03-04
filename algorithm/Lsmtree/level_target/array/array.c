@@ -228,8 +228,8 @@ keyset* array_find_keyset(char *data,KEYT lpa){
 	KEYT target;
 	while(s<=e){
 		int mid=(s+e)/2;
-		target.key=&body[bitmap[mid]+sizeof(uint32_t)];
-		target.len=bitmap[mid+1]-bitmap[mid]-sizeof(uint32_t);
+		target.key=&body[bitmap[mid]+sizeof(ppa_t)];
+		target.len=bitmap[mid+1]-bitmap[mid]-sizeof(ppa_t);
 		int res=KEYCMP(target,lpa);
 		if(res==0){
 			MA(&LSM.timers[4]);
@@ -440,7 +440,7 @@ void array_print(level *lev){
 	for(int i=0; i<lev->n_num;i++){
 		run_t *rtemp=&arrs[i];
 #ifdef KVSSD
-		printf("[%d]%.*s~%.*s(%d)-ptr:%p cached:%s wait:%d iscomp:%d\n",i,KEYFORMAT(rtemp->key),KEYFORMAT(rtemp->end),rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx,rtemp->iscompactioning);
+		printf("[%d]%.*s~%.*s(%lu)-ptr:%p cached:%s wait:%d iscomp:%d\n",i,KEYFORMAT(rtemp->key),KEYFORMAT(rtemp->end),rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx,rtemp->iscompactioning);
 #else
 		printf("[%d]%d~%d(%d)-ptr:%p cached:%s wait:%d\n",i,rtemp->key,rtemp->end,rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx);,
 #endif
@@ -528,7 +528,7 @@ KEYT *array_get_lpa_from_data(char *data,bool isheader){
 	if(isheader){
 		int idx;
 		KEYT key;
-		uint32_t *ppa;
+		ppa_t *ppa;
 		uint16_t *bitmap;
 		char *body=data;
 		bitmap=(uint16_t*)body;

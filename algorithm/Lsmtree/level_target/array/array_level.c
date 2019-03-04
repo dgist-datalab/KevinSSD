@@ -88,10 +88,20 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 	//printf("start:%.*s end:%.*s size:%d\n",KEYFORMAT(mem->start),KEYFORMAT(mem->end),mem->size);
 	MS(&LSM.timers[0]);
 	for_each_sk(temp,mem){
+		/*
+		KEYT cmp_key;
+		cmp_key.key="145287";
+		cmp_key.len=strlen("145287");
+		if(KEYCMP(temp->key,cmp_key)==0){
+			printf("key:%.*s , ppa:%lu\n",KEYFORMAT(temp->key),temp->ppa);
+		}*/
+		/*if(temp->ppa==31460224){
+			printf("31460224 key:%.*s\n",KEYFORMAT(temp->key));
+		}*/
 		memcpy(&ptr[data_start],&temp->ppa,sizeof(temp->ppa));
 		memcpy(&ptr[data_start+sizeof(temp->ppa)],temp->key.key,temp->key.len);
 		bitmap[idx]=data_start;
-		//fprintf(stderr,"[%d:%d] - %.*s\n",idx,data_start,KEYFORMAT(temp->key));
+//		fprintf(stderr,"[%d:%d] - %.*s : (%p)%.*s\n",idx,data_start,KEYFORMAT(temp->key),&ptr[data_start+sizeof(temp->ppa)],temp->key.len,&ptr[data_start+sizeof(temp->ppa)]);
 #ifdef BLOOM
 		bf_set(filter,temp->key);
 #endif
@@ -103,10 +113,10 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 #else
 	not implemented
 #endif
-		//array_header_print((char*)res->sets);
+//	array_header_print((char*)res->sets);
 	return res;
 }
-
+static int merger_cnt;
 void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	array_body *des=(array_body*)d->level_data;
 	if(des->skip){
@@ -115,8 +125,9 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	}else{
 		des->skip=skiplist_init();
 	}
-
-	uint32_t *ppa_ptr;
+	
+//	printf("merger start: %d\n",merger_cnt);
+	ppa_t *ppa_ptr;
 	KEYT key;
 	uint16_t *bitmap;
 	char *body;
@@ -150,6 +161,7 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 		}
 	}
 	MA(&LSM.timers[1]);
+	//printf("merger end: %d\n",merger_cnt++);
 }
 extern bool debug_flag;
 uint32_t all_kn_run,run_num;
@@ -230,7 +242,7 @@ void array_cache_insert(level *lev,run_t* r){
 	skiplist *skip=b->skip;
 
 	uint32_t idx;
-	uint32_t *ppa_ptr;
+	ppa_t *ppa_ptr;
 	uint16_t *bitmap;
 	char *body;
 	KEYT key;
@@ -364,7 +376,7 @@ int array_cache_get_sz(level* lev){
 void array_header_print(char *data){
 	int idx;
 	KEYT key;
-	uint32_t *ppa;
+	ppa_t *ppa;
 	uint16_t *bitmap;
 	char *body;
 
@@ -372,7 +384,11 @@ void array_header_print(char *data){
 	bitmap=(uint16_t*)body;
 	//	printf("header_num:%d : %p\n",bitmap[0],data);
 	for_each_header_start(idx,key,ppa,bitmap,body)
-		fprintf(stderr,"[%d:%d] key:%.*s(%d) ,%u\n",idx,bitmap[idx],key.len,kvssd_tostring(key),key.len,*ppa);
+#ifdef DVALUE
+		fprintf(stderr,"[%d:%d] key(%p):%.*s(%d) ,%lu\n",idx,bitmap[idx],&data[bitmap[idx]],key.len,key.key,key.len,*ppa);
+#else
+		fprintf(stderr,"[%d:%d] key(%p):%.*s(%d) ,%u\n",idx,bitmap[idx],&data[bitmap[idx]],key.len,key.key,key.len,*ppa);
+#endif
 	for_each_header_end
 }
 

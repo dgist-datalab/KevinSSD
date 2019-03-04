@@ -78,7 +78,7 @@ static bool inf_queue_check(request *req){
 static void assign_req(request* req){
 	bool flag=false;
 
-#ifdef interface_pq
+#ifndef KVSSD
 	int write_hash_res=0;
 	void *m_req=NULL;
 #endif
@@ -423,10 +423,15 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 			req->value=NULL;
 			break;
 		case FS_SET_T:
-			req->value=inf_get_valueset(_value,FS_SET_T,len);
+			req->value=inf_get_valueset(NULL,FS_SET_T,len+key.len+sizeof(key.len));
+#ifdef DVALUE
+			memcpy(req->value->value,&key.len,sizeof(key.len));
+			memcpy(&req->value->value[sizeof(key.len)],key.key,key.len);
+			memcpy(&req->value->value[key.len+sizeof(key.len)],_value,len);
+#endif
 			break;
 		case FS_GET_T:
-			req->value=inf_get_valueset(_value,FS_GET_T,len);
+			req->value=inf_get_valueset(NULL,FS_GET_T,len);
 			break;
 		case FS_MSET_T:
 			break;
@@ -435,6 +440,7 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 		default:
 			break;
 	}
+
 	return inf_get_req_common(req,fromApp,mark);
 }
 
@@ -769,6 +775,7 @@ value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
 	if(length==PAGESIZE)
 		res->dmatag=F_malloc((void**)&(res->value),PAGESIZE,type);
 	else{
+		length=(length/PIECE+(length%PIECE?1:0))*PIECE;
 		res->dmatag=-1;
 		res->value=(PTR)malloc(length);
 	}

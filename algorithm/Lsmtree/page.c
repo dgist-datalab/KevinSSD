@@ -1,11 +1,12 @@
 #include "page.h"
 #include "compaction.h"
 #include "lsmtree.h"
-#include "../../interface/interface.h"
 #include "skiplist.h"
 #include "nocpy.h"
+#include "variable.h"
 #include "../../include/utils/rwlock.h"
 #include "../../include/utils/kvssd.h"
+#include "../../interface/interface.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -39,6 +40,17 @@ uint8_t BLOCKTYPE(uint32_t ppa){
 	else 
 		return DATA;
 }
+#ifdef DVALUE
+void PBITSET(ppa_t input, uint8_t len){
+	uint64_t ppa=input/NPCINPAGE;
+	uint64_t off=input%NPCINPAGE;
+	oob[ppa].length[off]=len*2+1;
+	/*
+	 if full page is set as 1 : 128*2+1
+	 in 64bytest page is set as 3 : 1*2+1
+	 */
+}
+#else
 OOBT PBITSET(KEYT input,bool isFull){
 #ifdef KVSSD
 	return 0;
@@ -53,6 +65,8 @@ OOBT PBITSET(KEYT input,bool isFull){
 	return value;
 #endif
 }
+#endif
+
 #ifdef KVSSD
 KEYT* KEYGET(char *data){
 	return (KEYT*)data;
@@ -70,14 +84,7 @@ uint32_t PBITGET(uint32_t ppa){
 	return res;
 #endif
 }
-#ifdef DVALUE
-bool PBITFULL(KEYT input,bool isrealppa){
-	if(isrealppa)
-		return oob[input]&1;
-	else
-		return oob[input/(PAGESIZE/PIECE)]&1;
-}
-#endif
+
 uint32_t all_invalid_num(){
 	uint32_t res=0;
 	for(int i=0; i<_NOS; i++){
@@ -121,12 +128,8 @@ int segment_print(int num){
 		block *b=&bl[i+start];
 		if(b->erased==0)
 			cnt++;
-#ifdef DVALUE
-		printf("[%d] level:%d invalid_n:%u ppage_idx:%u erased:%d ldp:%u\n",start+i,b->level,b->invalid_n, b->ppage_idx,b->erased?1:0,b->ldp);
-#else
-	//	printf("%d : level-%d invalid-:%u\n",start+i,b->level,b->invalid_n);
+		printf("%d : level-%d invalid-:%u\n",start+i,b->level,b->invalid_n);
 		block_print(b->ppa);
-#endif
 	}
 	return cnt;
 }
@@ -134,7 +137,12 @@ int segment_print(int num){
 void block_free_ppa(uint8_t type, block* b){
 	uint32_t start=b->ppa; //oob init
 	for(uint32_t i=0; i<algo_lsm.li->PPB; i++){
+#ifdef DVALUE
+		memset(&oob[start+i],0,sizeof(OOBT));
+#else
 		oob[start+i]=0;
+#endif
+
 	}
 	switch(type){
 		case DATA:
@@ -148,24 +156,6 @@ void block_free_ppa(uint8_t type, block* b){
 			b->level=0;
 			b->hn_ptr=NULL;
 			//printf("block free : %d\n",b->ppa);
-#ifdef DVALUE //bitset data
-			free(b->length_data);
-			b->length_data=NULL;
-			b->invalid_n=0;
-			if(b->b_log){
-				llog_free(b->b_log);
-				b->b_log=NULL;
-			}
-			free(b->ppage_array);
-			b->ppage_array=NULL;
-			b->bitset=NULL;
-			if(b->ldp!=UINT_MAX)
-				invalidate_PPA(b->ldp);
-			b->ldp=UINT_MAX;
-			b->erased=true;
-			b->ppage_idx=0;
-			break;
-#endif
 		default:
 			free(b->bitset);
 			b->invalid_n=0;
@@ -176,6 +166,7 @@ void block_free_ppa(uint8_t type, block* b){
 	}
 }
 #ifdef DVALUE
+/*
 void block_meta_init(block *b){
 	b->length_data=(uint8_t *)malloc(PAGESIZE);
 	memset(b->length_data,0,PAGESIZE);
@@ -184,6 +175,7 @@ void block_meta_init(block *b){
 	//printf("block %d made\n",b->ppa);
 	pthread_mutex_init(&b->lock,NULL);
 }
+*/
 #endif
 
 void gc_change_reserve(pm *target_p, segment *seg,uint8_t type){
@@ -194,10 +186,15 @@ void gc_change_reserve(pm *target_p, segment *seg,uint8_t type){
 		if(type!=DATA){
 #endif
 			if(!bl[reserve->ppa/_PPB+i].bitset){
-				bl[reserve->ppa/_PPB+i].bitset=(uint8_t*)malloc(_PPB/8);
-				memset(bl[reserve->ppa/_PPB+i].bitset,0,_PPB/8);
+				bl[reserve->ppa/_PPB+i].bitset=(uint8_t*)calloc(_PPB/8,1);
 			}
 #ifdef DVALUE
+		}
+		else{
+			if(!bl[reserve->ppa/_PPB+i].bitset){
+				bl[reserve->ppa/_PPB+i].bitset=(uint8_t*)calloc(_PPB*(NPCINPAGE)/8,1);
+			
+			}
 		}
 #endif
 		bl[reserve->ppa/_PPB+i].l_node=llog_insert(target_p->blocks,(void*)&bl[reserve->ppa/_PPB+i]);
@@ -278,101 +275,13 @@ void block_init(){
 	gc_read_wait=0;
 	for(uint32_t i=0; i<_NOB; i++){
 		bl[i].ppa=i*_PPB;
-#ifdef DVALUE
-		bl[i].ldp=UINT_MAX;
-#endif
 	}
 	printf("last ppa:%ld\n",_NOP);
 	printf("# of block: %ld\n",_NOB);
 }
 
-#ifdef DVALUE
-void block_load(block *b){
-	if(b->ldp==UINT_MAX)
-		return;
-	b->b_log=llog_init();
 
-	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
-	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-	lsm_req->parents=NULL;
-	lsm_req->end_req=lsm_end_req;
-	lsm_req->params=(void*)params;
-	lsm_req->type_lower=0;
-	lsm_req->rapid=false;
-	lsm_req->type=BLOCKR;
-
-	pthread_mutex_init(&b->lock,NULL);
-	pthread_mutex_lock(&b->lock);
-
-	params->lsm_type=BLOCKR;
-	params->htable_ptr=(PTR)b;
-	b->length_data=(uint8_t*)malloc(PAGESIZE);
-
-	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
-	b->isflying=true;
-	LSM.li->read(b->ldp,PAGESIZE,params->value,ASYNC,lsm_req);
-}
-
-void block_apply_log(block *b){
-	llog* l=b->b_log;
-	if(l){
-		llog_node *temp=l->tail;
-		llog_node *prev;
-		while(temp){
-			prev=llog_next(temp);
-			KEYT *key=(KEYT*)temp->data;
-			uint32_t idx_in_block=(*key/(PAGESIZE/PIECE))%_PPB;
-			uint32_t idx_in_page=(*key%(PAGESIZE/PIECE));
-			uint8_t plength=b->length_data[idx_in_block*(PAGESIZE/PIECE)+idx_in_page]/2;
-			for(int i=0; i<plength; i++){
-				b->length_data[idx_in_block*(PAGESIZE/PIECE)+idx_in_page+i]|=1; //1 == invalid
-			}
-			free(key);
-			temp=prev;
-			b->invalid_n+=plength;
-			segment *segs=WHICHSEG(b->ppa);
-			segs->invalid_n+=plength;
-		}
-		llog_free(b->b_log);
-#ifdef LEVELUSINGHEAP
-		level *lev=LSM.disk[b->level];
-		heap_update_from(lev->h,b->hn_ptr);
-#endif
-	}
-	b->b_log=NULL;
-}
-
-void block_save(block *b){	
-	if(!b->length_data){
-		printf("no data in save!\n");
-	}
-	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
-	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-	lsm_req->parents=NULL;
-	lsm_req->end_req=lsm_end_req;
-	lsm_req->params=(void*)params;
-	lsm_req->rapid=false;
-	lsm_req->type=BLOCKW;
-
-	block_apply_log(b);
-
-	params->lsm_type=BLOCKW;
-	params->htable_ptr=(PTR)b;
-
-	params->value=inf_get_valueset((PTR)b->length_data,FS_MALLOC_W,PAGESIZE);
-	uint32_t ldp=getPPA(BLOCK,b->ppa,true);
-	
-	LSM.li->write(ldp,PAGESIZE,params->value,ASYNC,lsm_req);
-	b->length_data=NULL;
-	if(b->ldp!=UINT_MAX){
-		invalidate_BPPA(b->ldp);
-	}
-
-	b->ldp=ldp;
-}
-#endif
-
-void gc_data_read(uint32_t ppa,htable_t *value,bool isdata){
+void gc_data_read(uint64_t ppa,htable_t *value,bool isdata){
 	gc_read_wait++;
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
@@ -398,7 +307,7 @@ void gc_data_read(uint32_t ppa,htable_t *value,bool isdata){
 	return;
 }
 
-void gc_data_write(uint32_t ppa,htable_t *value,bool isdata){
+void gc_data_write(uint64_t ppa,htable_t *value,bool isdata){
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 
@@ -421,7 +330,8 @@ void gc_data_write(uint32_t ppa,htable_t *value,bool isdata){
 	return;
 }
 
-void pm_a_init(pm *m,uint32_t size,uint32_t *_idx,bool isblock){
+void pm_a_init(pm *m,uint32_t size,uint32_t *_idx,bool isdata){
+	printf("different bitset needed in data and header segments\n");
 	uint32_t idx=*_idx;
 	if(idx+size+1 > _NOB){
 		printf("_NOB:%ld!!!!!!!\n",_NOB);
@@ -433,13 +343,15 @@ void pm_a_init(pm *m,uint32_t size,uint32_t *_idx,bool isblock){
 		bl[idx].l_node=llog_insert(m->blocks,(void*)&bl[idx]);
 		bl[idx].erased=true;
 #ifdef DVALUE
-		if(isblock){
-			bl[idx].ldp=UINT_MAX;
-			idx++; continue; //no bitset setting
+		if(isdata){
+			bl[idx].bitset=(uint8_t*)calloc(_PPB*(PAGESIZE/PIECE)/8,1);
+		}
+		else{
+#endif
+			bl[idx].bitset=(uint8_t*)calloc(_PPB/8,1);
+#ifdef DVALUE
 		}
 #endif
-		bl[idx].bitset=(uint8_t*)malloc(_PPB/8);
-		memset(bl[idx].bitset,0,_PPB/8);
 		idx++;
 	}
 	//printf("size: %d mb\n",size*_PPB*8/1024);
@@ -467,7 +379,6 @@ void segs_init(){
 	}
 };
 
-
 void pm_init(){
 	block_init();
 	segs_init();
@@ -482,14 +393,8 @@ void pm_init(){
 	pm_a_init(&header_m,HEADERSEG*BPS,&start,false);
 	printf("to : %d (header # of seg:%d)\n",start,HEADERSEG);
 	printf("from : %d ",start);	
-#ifdef DVALUE
-	pm_a_init(&block_m,BLOCKSEG*BPS,&start,false);
-	printf("to : %d (block # of seg:%d)\n",start,BLOCKSEG);
-	printf("from : %d ",start);
-	pm_a_init(&data_m,DATASEG*BPS,&start,true);
-#else
+	//pm_a_init(&data_m,DATASEG*BPS,&start,true);
 	pm_a_init(&data_m,_NOB-start-BPS,&start,true);
-#endif
 	printf("to : %d(data # of seg:%ld)\n",start,DATASEG);
 }
 
@@ -521,8 +426,9 @@ uint32_t getRPPA(uint8_t type,KEYT lpa,bool isfull){
 		memset(active_block->bitset,0,_PPB/8);
 	}
 	uint32_t res=active_block->ppa+active_block->ppage_idx++;
+#ifndef DVALUE
 	oob[res]=PBITSET(lpa,isfull);
-
+#endif
 	return res;
 }
 
@@ -612,7 +518,6 @@ bool gc_check(uint8_t type, bool force){
 				//static int c_cnt=0;
 	//			printf("check_cnt:%d\n",c_cnt++);
 				erased_blkn=data_m.max_blkn-data_m.used_blkn;
-
 				if(erased_blkn!=0){
 			//		printf("here! %d\n",erased_blkn);
 					erased_blks=(block**)malloc(sizeof(block*)*(erased_blkn+1));
@@ -659,7 +564,8 @@ bool gc_check(uint8_t type, bool force){
 					header_gc_cnt++; 
 					break;
 				case DATA:
-	//				printf("data gc:%d %d\n",data_gc_cnt,false);
+					//LSM.lop->all_print();
+//					printf("data gc:%d %d\n",data_gc_cnt,false);
 
 					//compaction_force_levels(1);
 
@@ -734,11 +640,6 @@ bool gc_check(uint8_t type, bool force){
 				/*add some gc*/
 				gc_data(target_block);
 				break;
-#ifdef DVALUE
-			case BLOCK:
-				gc_block(target_block);
-				break;
-#endif
 		}
 		target_p->n_log=target_p->blocks->head;
 	}
@@ -810,7 +711,12 @@ uint32_t getPPA(uint8_t type, KEYT lpa,bool isfull){
 
 	uint32_t res=active_block->ppa+(type==DATA?0:active_block->ppage_idx++);
 	if(type!=DATA){
+#ifndef DVALUE
 		oob[res]=PBITSET(lpa,true);
+#else
+		PBITSET(res,PAGESIZE/PIECE);
+	//	printf("should setting oob!! in getPPA\n");
+#endif
 		active_block->erased=false;
 	}
 	else{
@@ -830,7 +736,6 @@ void invalidate_PPA(uint32_t _ppa){
 	ppa=_ppa;
 	bn=ppa/algo_lsm.li->PPB;
 	idx=ppa%algo_lsm.li->PPB;
-
 
 	bl[bn].bitset[idx/8]|=(1<<(idx%8));
 	bl[bn].invalid_n++;
@@ -861,37 +766,30 @@ void invalidate_PPA(uint32_t _ppa){
 	heap_update_from(l->h,bl[bn].hn_ptr);
 #endif
 }
-
 #ifdef DVALUE
-void invalidate_BPPA(uint32_t ppa){
-	invalidate_PPA(ppa);
-}
-void invalidate_DPPA(uint32_t ppa){
-	uint32_t pn=ppa/(PAGESIZE/PIECE);
-	uint32_t bn=pn/_PPB;	
-	if(bl[bn].length_data==NULL && !bl[bn].isflying){
-		block_load(&bl[bn]);
+void invalidate_DPPA(ppa_t input){
+	uint32_t bn,idx,page;
+	page=input/NPCINPAGE;
+	bn=page/algo_lsm.li->PPB;
+	idx=input%(algo_lsm.li->PPB*(PAGESIZE/PIECE));
+
+	if(input==13172621){
+		printf("invalidating 13172621!!\n");
 	}
-	else if(bl[bn].length_data){	
-		uint32_t idx_in_block=(ppa/(PAGESIZE/PIECE))%_PPB;
-		uint32_t idx_in_page=(ppa%(PAGESIZE/PIECE));
-		uint8_t plength=bl[bn].length_data[idx_in_block*(PAGESIZE/PIECE)+idx_in_page]/2;
-		for(int i=0; i<plength; i++){
-			bl[bn].length_data[idx_in_block*(PAGESIZE/PIECE)+idx_in_page+i]|=1; //1 == invalid
-		}
-		bl[bn].invalid_n+=plength;
-		segment *segs=WHICHSEG(bl[bn].ppa);
-		segs->invalid_n+=plength;
-#ifdef LEVELUSINGHEAP
-		level *l=LSM.disk[bl[bn].level];
-		heap_update_from(l->h,bl[bn].hn_ptr);
-#endif
-		return;
+	bl[bn].bitset[idx/8]|=(1<<(idx%8));
+	bl[bn].invalid_n++;
+	/*
+	if(bn==384){
+		printf("invalidate %lu : %lu(page), %lu(page offset)\n",input,input/NPCINPAGE,(input/NPCINPAGE)%256);
+	}*/
+
+	segment *segs=WHICHSEG(bl[bn].ppa);
+	segs->invalid_n++;
+
+	if(bl[bn].invalid_n>algo_lsm.li->PPB*(PAGESIZE/PIECE)){
+		printf("invalidate:??\n");
+		abort();
 	}
-	//logging
-	KEYT *lpn=(KEYT*)malloc(sizeof(KEYT));
-	*lpn=ppa;
-	llog_insert(bl[bn].b_log,(void*)lpn);
 }
 #endif
 int gc_node_compare(const void *a, const void *b){
@@ -1059,28 +957,26 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 }
 void gc_data_header_update_add(gc_node **gn,int size, int target_level, char order){
 	static gc_node_wrapper *wrapper;
+	static int total_size=0;
 	if(order==0){
-		wrapper=(gc_node_wrapper*)malloc(sizeof(gc_node_wrapper));
-		memset(wrapper,0,sizeof(gc_node_wrapper));
+		wrapper=(gc_node_wrapper*)calloc(sizeof(gc_node_wrapper),1);
+		total_size=0;
 	}
-	
+
+	//printf("target_level:%d\n",target_level);
 	if(gn!=NULL){
 		qsort(gn,size,sizeof(gc_node**),gc_node_compare);//sort
 		wrapper->datas[target_level][wrapper->cnt[target_level]]=gn;
 		wrapper->size[target_level][wrapper->cnt[target_level]++]=size;
+		total_size+=size;
 	}
-
+	
 	if(order==2){
 		for(int i=0; i<LEVELN; i++){
 			if(wrapper->cnt[i]==0) continue;
-			int total_size=0;
-			for(int j=0; j<wrapper->cnt[i]; j++){
-				total_size+=wrapper->size[i][j];
-			}
 			
 			gc_node **total_gc=(gc_node**)malloc(sizeof(gc_node*)*total_size);
-			int *level_cnt=(int*)malloc(sizeof(int)*wrapper->cnt[i]);
-			memset(level_cnt,0,sizeof(int)*wrapper->cnt[i]);
+			int *level_cnt=(int*)calloc(sizeof(int)*wrapper->cnt[i],1);
 			int idx=0;
 
 			while(idx<total_size){
@@ -1132,20 +1028,20 @@ int gc_data_write_using_bucket(l_bucket *b,int target_level,char order){
 	res+=b->idx[PAGESIZE/PIECE]; //for full data
 #ifdef DVALUE
 	level *in=LSM.disk[target_level];
+	variable_value2Page(in,b,(value_set***)&gc_container,&gc_idx,true);
+	/*
 	gc_node *target;
 	while(1){
 		htable_t *table_data=(htable_t*)malloc(sizeof(htable_t));
 		PTR page=(PTR)table_data->sets;
 		int ptr=0;
-		int remain=PAGESIZE-PIECE;
-		footer *foot=f_init();
+		int remain=PAGESIZE-sizeof(footer);
+		footer *foot=(footer*)malloc(sizeof(footer));
 		if(LSM.lop->block_fchk(in)){			
 			block *reserve_block=getRBLOCK(DATA);
 			gc_data_now_block_chg(in,reserve_block);
 		}
-		LSM.lop->moveTo_fr_page(in);
-		uint32_t target_ppa=in->now_block->ppage_array[in->now_block->ppage_idx];
-		oob[target_ppa/(PAGESIZE/PIECE)]=PBITSET(target_ppa,false);
+		uint32_t target_ppa=LSM.lop->moveTo_fr_page(in);
 		res++;
 		uint8_t used_piece=0;
 		while(remain>0){
@@ -1158,11 +1054,11 @@ int gc_data_write_using_bucket(l_bucket *b,int target_level,char order){
 			target=(gc_node*)b->bucket[target_length][b->idx[target_length]-1];
 
 			target->nppa=LSM.lop->get_page(in,target->plength);//level==new ppa
+			PBITSET(target->nppa,target_length);
+			foot->map[target->ppa%(PAGESIZE/PIECE)]=target_length;
 			gc_container[gc_idx++]=target;
 			used_piece+=target_length;
 			//end
-			f_insert(foot,target->lpa,target->nppa,target_length);
-
 			memcpy(&page[ptr],target->value,target_length*PIECE);
 			b->idx[target_length]--;
 
@@ -1171,9 +1067,9 @@ int gc_data_write_using_bucket(l_bucket *b,int target_level,char order){
 			free(target->value);
 			target->value=NULL;
 		}
-		memcpy(&page[(PAGESIZE/PIECE-1)*PIECE],foot,sizeof(footer));
+		memcpy(&page[PAGESIZE-sizeof(foot)],foot,sizeof(footer));
 
-		gc_data_write(target_ppa/(PAGESIZE/PIECE),table_data);
+		gc_data_write(target_ppa/(PAGESIZE/PIECE),table_data,true);
 
 		free(table_data);
 		free(foot);
@@ -1184,18 +1080,13 @@ int gc_data_write_using_bucket(l_bucket *b,int target_level,char order){
 			if(i==PAGESIZE/PIECE-1) stop=true;
 		}
 		if(stop) break;
-	}
+	}*/
 #endif
 	gc_data_header_update_add(gc_container,b->contents_num,target_level,order);
 	return res;
 }
 
 void gc_data_now_block_chg(level *in, block *reserve_block){
-#ifdef DVALUE
-	if(in->now_block!=NULL){
-		block_save(in->now_block);
-	}
-#endif
 	in->now_block=reserve_block;
 	in->now_block->ppage_idx=0;
 	
@@ -1205,17 +1096,6 @@ void gc_data_now_block_chg(level *in, block *reserve_block){
 	reserve_block->hn_ptr=llog_insert(in->h,reserve_block);
 #endif
 	reserve_block->level=in->idx;
-
-#ifdef DVALUE
-	in->now_block->length_data=(uint8_t*)malloc(PAGESIZE);
-	memset(in->now_block->length_data,0,PAGESIZE);
-	in->now_block->ppage_array=(uint32_t*)malloc(sizeof(uint32_t)*_PPB*(PAGESIZE/PIECE));
-	int _idx=in->now_block->ppa*(PAGESIZE/PIECE);
-	for(int i=0; i<_PPB*(PAGESIZE/PIECE); i++){
-		in->now_block->ppage_array[i]=_idx+i;
-	}
-	pthread_mutex_init(&reserve_block->lock,NULL);
-#endif
 }
 
 int gc_data_cnt;
@@ -1232,20 +1112,16 @@ uint32_t gc_victim_segment(uint8_t type,bool isforcegc){ //gc for segment
 			break;
 		case 1://for data
 			target_p=&data_m;
-#ifndef DVALUE
 			start=HEADERSEG+1;
-			end=start+DATASEG;
-			break;
-#else
-			start=HEADERSEG+2+BLOCKSEG;
 			end=start+DATASEG;
 			break;
 		case 2://for block
+			printf("not implemented");
+			/*
 			target_p=&block_m;
 			start=HEADERSEG+1;
-			end=start+BLOCKSEG;
+			end=start;*/
 			break;
-#endif
 	}
 
 	segment *target=target_p->target;
@@ -1711,10 +1587,11 @@ block* getRBLOCK(uint8_t type){
 		target->temp=NULL;
 	}
 #ifdef DVALUE
-	return r;
+	if(type==DATA){
+		r->bitset=(uint8_t*)calloc(_PPB*(PAGESIZE/PIECE)/8,1);
+	}else
 #endif
-	r->bitset=(uint8_t*)malloc(_PPB/8);
-	memset(r->bitset,0,_PPB/8);
+		r->bitset=(uint8_t*)calloc(_PPB/8,1);
 	return r;
 }
 
@@ -1724,3 +1601,88 @@ int gc_block(uint32_t tbn){
 	return 0;
 }
 #endif
+
+/*
+#ifdef DVALUE
+void block_load(block *b){
+	b->b_log=llog_init();
+
+	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
+	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
+	lsm_req->parents=NULL;
+	lsm_req->end_req=lsm_end_req;
+	lsm_req->params=(void*)params;
+	lsm_req->type_lower=0;
+	lsm_req->rapid=false;
+	lsm_req->type=BLOCKR;
+
+	pthread_mutex_init(&b->lock,NULL);
+	pthread_mutex_lock(&b->lock);
+
+	params->lsm_type=BLOCKR;
+	params->htable_ptr=(PTR)b;
+	b->length_data=(uint8_t*)malloc(PAGESIZE);
+
+	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
+	b->isflying=true;
+	LSM.li->read(b->ldp,PAGESIZE,params->value,ASYNC,lsm_req);
+}
+
+void block_apply_log(block *b){
+	llog* l=b->b_log;
+	if(l){
+		llog_node *temp=l->tail;
+		llog_node *prev;
+		while(temp){
+			prev=llog_next(temp);
+			KEYT *key=(KEYT*)temp->data;
+			uint32_t idx_in_block=(*key/(PAGESIZE/PIECE))%_PPB;
+			uint32_t idx_in_page=(*key%(PAGESIZE/PIECE));
+			uint8_t plength=b->length_data[idx_in_block*(PAGESIZE/PIECE)+idx_in_page]/2;
+			for(int i=0; i<plength; i++){
+				b->length_data[idx_in_block*(PAGESIZE/PIECE)+idx_in_page+i]|=1; //1 == invalid
+			}
+			free(key);
+			temp=prev;
+			b->invalid_n+=plength;
+			segment *segs=WHICHSEG(b->ppa);
+			segs->invalid_n+=plength;
+		}
+		llog_free(b->b_log);
+#ifdef LEVELUSINGHEAP
+		level *lev=LSM.disk[b->level];
+		heap_update_from(lev->h,b->hn_ptr);
+#endif
+	}
+	b->b_log=NULL;
+}
+
+void block_save(block *b){	
+	if(!b->length_data){
+		printf("no data in save!\n");
+	}
+	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
+	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
+	lsm_req->parents=NULL;
+	lsm_req->end_req=lsm_end_req;
+	lsm_req->params=(void*)params;
+	lsm_req->rapid=false;
+	lsm_req->type=BLOCKW;
+
+	block_apply_log(b);
+
+	params->lsm_type=BLOCKW;
+	params->htable_ptr=(PTR)b;
+
+	params->value=inf_get_valueset((PTR)b->length_data,FS_MALLOC_W,PAGESIZE);
+	uint32_t ldp=getPPA(BLOCK,b->ppa,true);
+	
+	LSM.li->write(ldp,PAGESIZE,params->value,ASYNC,lsm_req);
+	b->length_data=NULL;
+	if(b->ldp!=UINT_MAX){
+		invalidate_BPPA(b->ldp);
+	}
+
+	b->ldp=ldp;
+}
+#endif*/

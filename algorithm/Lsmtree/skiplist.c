@@ -5,6 +5,7 @@
 #include<unistd.h>
 #include<sys/types.h>
 #include"skiplist.h"
+#include"variable.h"
 #include"../../interface/interface.h"
 #include "../../include/slab.h"
 #ifdef Lsmtree
@@ -178,7 +179,7 @@ static int getLevel(){
 }
 
 #ifdef Lsmtree
-snode *skiplist_insert_wP(skiplist *list, KEYT key, uint32_t ppa,bool deletef){
+snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
 #if !(defined(KVSSD) && defined(Lsmtree))
 	if(key>RANGE){
 		printf("bad page read key:%u\n",key);
@@ -217,8 +218,6 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, uint32_t ppa,bool deletef){
 #else
 		invalidate_DPPA(ppa);
 #endif
-		//x->ppa=ppa;
-		//x->isvalid=deletef;
 		return x;
 	}
 	else{
@@ -254,7 +253,7 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, uint32_t ppa,bool deletef){
 	return x;
 }
 
-snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,uint32_t ppa,bool deletef){
+snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool deletef){
 #ifndef KVSSD
 	if(key>RANGE){
 		printf("bad page read\n");
@@ -286,10 +285,13 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,uint32_t ppa,bool del
 #endif
 	{
 		//delete exists ppa; input ppa
-
 #ifndef DVALUE
 		invalidate_PPA(x->ppa);
 #else
+		/*
+		if(x->ppa/NPCINPAGE/256==384){
+			printf("%.*s\n",KEYFORMAT(x->key));
+		}*/
 		invalidate_DPPA(x->ppa);
 #endif
 		x->ppa=ppa;
@@ -395,7 +397,7 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overla
 
 }
 #endif
-snode *skiplist_insert_iter(skiplist *list,KEYT key,uint32_t ppa){
+snode *skiplist_insert_iter(skiplist *list,KEYT key,ppa_t ppa){
 	snode *update[MAX_L+1];
 	snode *x=list->header;
 
@@ -577,19 +579,15 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 	for(int i=0; i<b.idx[PAGESIZE/PIECE]; i++){//full page
 		target=b.bucket[PAGESIZE/PIECE][i];
 		res[res_idx]=target->value;
-
-		LSM.lop->moveTo_fr_page(from);
-		res[res_idx]->ppa=LSM.lop->get_page(from,(PAGESIZE/PIECE));
-
-
+		res[res_idx]->ppa=LSM.lop->moveTo_fr_page(from);//real physical index
 		/*checking new ppa in skiplist_valuset*/
 #ifdef DVALUE
-		oob[res[res_idx]->ppa/(PAGESIZE/PIECE)]=PBITSET(target->key,true);//OOB setting
+		//oob[res[res_idx]->ppa/(PAGESIZE/PIECE)]=PBITSET(target->key,true);//OOB setting
+		PBITSET(res[res_idx]->ppa,PAGESIZE/PIECE);
 #else
 		oob[res[res_idx]->ppa]=PBITSET(target->key,true);
 #endif
-		target->ppa=res[res_idx]->ppa;
-
+		target->ppa=LSM.lop->get_page(from,(PAGESIZE/PIECE));//64byte chunk index
 		target->value=NULL;
 		res_idx++;
 	}
@@ -598,7 +596,6 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 		printf("%d----------end fuck!\n",flag);
 	}
 	
-	//level_moveTo_front_page(from);//setting to erased block started;
 	for(int i=1; i<PAGESIZE/PIECE+1; i++){
 		if(b.idx[i]!=0)
 			break;
@@ -608,20 +605,17 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 	}
 
 #ifdef DVALUE
+	variable_value2Page(from,&b,&res,&res_idx,false);
+	/*
 	while(1){
 		PTR page=NULL;
 		int ptr=0;
-		int remain=PAGESIZE-PIECE;
-		footer *foot=f_init();
+		int remain=PAGESIZE-sizeof(footer);
+		footer *foot=(footer*)malloc(sizeof(footer));
 
 		res[res_idx]=inf_get_valueset(page,FS_MALLOC_W,PAGESIZE); 
-		LSM.lop->moveTo_fr_page(from);
-
-		res[res_idx]->ppa=from->now_block->ppage_array[from->now_block->ppage_idx];
-
-		oob[res[res_idx]->ppa/(PAGESIZE/PIECE)]=PBITSET(res[res_idx]->ppa,false);
-		page=res[res_idx]->value;//assign new dma in page
-
+		res[res_idx]->ppa=LSM.lop->moveTo_fr_page(from);
+		page=res[res_idx]->value;//assign new dma in page	
 		uint8_t used_piece=0;
 		while(remain>0){
 			int target_length=remain/PIECE;
@@ -631,17 +625,16 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 			}
 			target=b.bucket[target_length][b.idx[target_length]-1];
 			target->ppa=LSM.lop->get_page(from,target->value->length);
-
+			PBITSET(target->ppa,target_length);
+			foot->map[target->ppa%(PAGESIZE/PIECE)]=target_length;
 			used_piece+=target_length;
-			f_insert(foot,target->key,target->ppa,target_length);
-
 			memcpy(&page[ptr],target->value->value,target_length*PIECE);
 			b.idx[target_length]--;
 
 			ptr+=target_length*PIECE;
 			remain-=target_length*PIECE;
 		}
-		memcpy(&page[(PAGESIZE/PIECE-1)*PIECE],foot,sizeof(footer));
+		memcpy(&page[PAGESIZE-sizeof(footer)],foot,sizeof(footer));
 
 		res_idx++;
 
@@ -653,8 +646,9 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 			if(i==PAGESIZE/PIECE) stop=true;
 		}
 		if(stop) break;
-	}
+	}*/
 #endif
+	res[res_idx]=NULL;
 	return res;
 }
 #endif

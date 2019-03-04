@@ -233,15 +233,20 @@ run_t *compaction_data_write(skiplist *mem){
 		lsm_req->rapid=true;
 		////while(mp.processors[0].retry_q->size){}
 		lsm_req->type=DATAW;
-#ifdef DVALUE
-		LSM.li->write(data_sets[i]->ppa/(PAGESIZE/PIECE),PAGESIZE,params->value,ASYNC,lsm_req);
-#else
+		//data_sets already have profit ppa;
+		/*
+		if(data_sets[i]->ppa==98304){
+			footer *foot=GETFOOTER(data_sets[i]->value);
+			for(int k=0;k<NPCINPAGE; k++){
+				printf("checking %d:%d\n",k,foot->map[k]);
+			}
+		}*/
 		LSM.li->write(data_sets[i]->ppa,PAGESIZE,params->value,ASYNC,lsm_req);
-#endif
 	}
 	free(data_sets);
 
 	LSM.lop->mem_cvt2table(mem,res); //res's filter and table will be set
+//	LSM.lop->header_print((char*)res->cpt_data->sets);
 	isflushing=false;
 	return res;
 }
@@ -264,12 +269,12 @@ uint32_t compaction_htable_write(htable *input, KEYT lpa){
 	nocpy_copy_from_change((char*)input->sets,ppa);
 	/*because we will use input->sets (free(input->sets);)*/
 #endif
-	
-	//htable_print(input);
+	//LSM.lop->header_print((char*)input->sets);
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
 	areq->type=HEADERW;
 	params->ppa=ppa;
+	
 	LSM.li->write(ppa,PAGESIZE,params->value,ASYNC,areq);
 	//printf("%u\n",ppa);
 	return ppa;
@@ -575,7 +580,12 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 #endif
 	skiplist *body;
 	level *target_origin=to;
-	level *target=LSM.lop->init(target_origin->m_num, target_origin->idx,target_origin->fpr,false);
+	level *target;
+	if(to->idx==LEVELN-1 && from->n_num+to->n_num > to->m_num){
+		target=LSM.lop->init(target_origin->m_num*2, target_origin->idx,target_origin->fpr,false);
+	}else{
+		target=LSM.lop->init(target_origin->m_num, target_origin->idx,target_origin->fpr,false);
+	}
 
 	LSM.c_level=target;
 	level *src=NULL;

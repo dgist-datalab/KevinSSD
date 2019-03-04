@@ -9,9 +9,9 @@
 #include "../../bloomfilter.h"
 #define for_each_header_start(idx,key,ppa_ptr,bitmap,body)\
 	for(idx=1; bitmap[idx]!=UINT16_MAX && idx<=bitmap[0]; idx++){\
-		ppa_ptr=(uint32_t*)&body[bitmap[idx]];\
-		key.key=(char*)&body[bitmap[idx]+sizeof(uint32_t)];\
-		key.len=bitmap[idx+1]-bitmap[idx]-sizeof(uint32_t);\
+		ppa_ptr=(ppa_t*)&body[bitmap[idx]];\
+		key.key=(char*)&body[bitmap[idx]+sizeof(ppa_t)];\
+		key.len=bitmap[idx+1]-bitmap[idx]-sizeof(ppa_t);\
 
 #define for_each_header_end }
 

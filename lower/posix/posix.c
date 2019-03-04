@@ -80,6 +80,9 @@ void *posix_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 	if(PPA>6500)
 		printf("PPA : %u\n", PPA);
 	*/
+	if(PPA==195904){
+		printf("write the data!\n");
+	}
 	uint8_t t_type=test_type(req->type);
 	if(t_type < LREQ_TYPE_NUM){
 		my_posix.req_type_cnt[t_type]++;
@@ -142,8 +145,8 @@ void *posix_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 	int res;
 	if(!(res=read(_fd,value->value,size))){
 		printf("%d:read none!\n",res);
+		abort();
 	}
-	//}
 	pthread_mutex_unlock(&fd_lock);
 
 	if(req->parents)

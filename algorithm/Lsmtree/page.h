@@ -22,6 +22,7 @@ typedef struct gc_node{
 	uint8_t plength;
 	uint8_t level;
 }gc_node;
+
 typedef struct gc_node_wrapper{
 	gc_node** datas[LEVELN][BPS+1];
 	int size[LEVELN][BPS+1];
@@ -29,22 +30,12 @@ typedef struct gc_node_wrapper{
 }gc_node_wrapper;
 
 typedef struct block{
-	/*genearal pard*/
+	/*genearal part*/
 	bool erased;
 	llog_node *l_node;//pm where the block assigned
 	uint32_t ppa;//block start number
 	uint32_t invalid_n;
-
-	/*for data block*/
-#ifdef DVALUE
-	uint8_t *length_data;
-	bool isflying;
-	llog *b_log;
-	uint32_t *ppage_array;
-	pthread_mutex_t lock;
-	KEYT ldp;//the page number has PVB data;
-#endif
-
+	uint32_t idx_of_ppa;
 #ifdef LEVELUSINGHEAP
 	h_node *hn_ptr;
 #else
@@ -90,20 +81,16 @@ uint32_t getPPA(uint8_t type, KEYT, bool);//in DVALUE return block id;
 
 void invalidate_PPA(uint32_t ppa);
 void block_print();
-OOBT PBITSET(KEYT,bool);
+#ifdef DVALUE
+void PBITSET(ppa_t input,uint8_t);
+#else
+OOBT PBITSET(KEYT,uint8_t);
+#endif
 void gc_data_now_block_chg(struct level *in, block *);
 #ifdef DVALUE
-void block_load(block *b);
-void block_save(block *b);
-void block_meta_init(block *b);
-uint32_t getBPPA(KEYT);//block key
-void invalidate_DPPA(uint32_t ppa);
-void invalidate_BPPA(uint32_t ppa);
-block **get_victim_Dblock(KEYT);
-int gc_block(uint32_t tbn);
+void invalidate_DPPA(ppa_t ppa);
 #endif
 int get_victim_block(pm *);
-bool PBITFULL(KEYT input,bool isrealppa);
 int gc_header(uint32_t tbn);
 int gc_data(uint32_t tbn);
 bool gc_check(uint8_t,bool);
@@ -117,8 +104,8 @@ uint32_t getRPPA(uint8_t type,KEYT lpa,bool);
 
 void gc_general_wait_init();
 void gc_general_waiting();
-void gc_data_read(uint32_t ppa,struct htable_t *value,bool isdata);
-void gc_data_write(uint32_t ppa,struct htable_t *value,bool isdata);
+void gc_data_read(uint64_t ppa,struct htable_t *value,bool isdata);
+void gc_data_write(uint64_t ppa,struct htable_t *value,bool isdata);
 void gc_data_header_update_add(struct gc_node **gn,int size, int target_level, char order);
 uint32_t PBITGET(uint32_t ppa);
 int gc_data_write_using_bucket(struct length_bucket *b,int target_level,char order);

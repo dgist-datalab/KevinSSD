@@ -37,7 +37,7 @@ typedef struct value_set{
 struct request {
 	FSTYPE type;
 	KEYT key;	
-	uint32_t ppa;/*it can be the iter_idx*/
+	uint64_t ppa;/*it can be the iter_idx*/
 	uint32_t seq;
 	int num; /*length of requests*/
 	int not_found_cnt;
@@ -78,7 +78,7 @@ struct request {
 };
 
 struct algo_req{
-	uint32_t ppa;
+	uint64_t ppa;
 	request * parents;
 	MeasureTime latency_lower;
 	uint8_t type;

@@ -267,9 +267,6 @@ void* lsm_end_req(algo_req* const req){
 	htable **header=NULL;
 	htable *table=NULL;
 	//htable mapinfo;
-#ifdef DVALUE
-	block *bl=NULL;
-#endif
 	switch(params->lsm_type){
 		case OLDDATA:
 			//do nothing
@@ -357,39 +354,10 @@ void* lsm_end_req(algo_req* const req){
 			}
 			parents->type_lower=req->type_lower;
 			free(req_temp_params);
-#ifdef DVALUE
-			if(!PBITFULL(parents->value->ppa,false)){//small data
-
-				pthread_mutex_lock(&LSM.valueset_lock);
-				if(!LSM.caching_value){
-					LSM.caching_value=(PTR)malloc(PAGESIZE);
-				}
-				memcpy(LSM.caching_value,parents->value->value,PAGESIZE);
-				pthread_mutex_unlock(&LSM.valueset_lock);
-				params->lsm_type=SDATAR;
-				return NULL;
-			}
-#endif
 			break;
 		case DATAW:
 			inf_free_valueset(params->value,FS_MALLOC_W);
 			break;
-#ifdef DVALUE
-		case BLOCKW:
-			bl=(block*)params->htable_ptr;
-			free(bl->length_data);
-			bl->length_data=NULL;
-			inf_free_valueset(params->value,FS_MALLOC_W);
-			break;
-		case BLOCKR:
-			bl=(block*)params->htable_ptr;
-			memcpy(bl->length_data,params->value->value,PAGESIZE);
-			inf_free_valueset(params->value,FS_MALLOC_R);
-			bl->isflying=false;
-
-			pthread_mutex_unlock(&bl->lock);
-			break;
-#endif
 		default:
 			break;
 	}
@@ -409,6 +377,8 @@ uint32_t lsm_set(request * const req){
 	printf("lsm_set!\n");
 	printf("key : %u\n",req->key);//for debug
 #endif
+	//printf("set:%*.s\n",KEYFORMAT(req->key));
+//	printf("set:%s\n",req->key.key);
 	compaction_check(req->key);
 	MS(&__get_mt2);
 	if(req->type==FS_DELETE_T){
@@ -430,7 +400,7 @@ uint32_t lsm_set(request * const req){
 	if(LSM.memtable->size==LSM.KEYNUM)
 		return 1;
 	else*/
-		return 0;
+	return 0;
 }
 int nor;
 MeasureTime lsm_mt;
@@ -475,7 +445,7 @@ uint32_t lsm_get(request *const req){
 	}
 	lsm_proc_re_q();
 	if(!temp){
-//		LSM.lop->all_print();
+		LSM.lop->all_print();
 		temp=true;
 	}
 	bench_algo_start(req);
@@ -520,7 +490,7 @@ algo_req* lsm_get_req_factory(request *parents, uint8_t type){
 	lsm_req->type=type;
 	return lsm_req;
 }
-inline algo_req *lsm_get_empty_algoreq(request *parents){
+algo_req *lsm_get_empty_algoreq(request *parents){
 	algo_req *res=(algo_req *)calloc(sizeof(algo_req),1);
 	res->parents=parents;
 	return res;
@@ -539,7 +509,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 		if(!target_node) return 0;
 		bench_cache_hit(req->mark);
 		if(target_node->value){
-			memcpy(req->value->value,target_node->value->value,PAGESIZE);
+		//	memcpy(req->value->value,target_node->value->value,PAGESIZE);
 			bench_algo_end(req);
 			if(req->type==FS_MGET_T){
 				lsm_mget_end_req(lsm_get_empty_algoreq(req));						
@@ -612,7 +582,11 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 				if(new_target_set){
 					new_lsm_req=lsm_get_req_factory(temp_req,DATAR);
 					temp_req->value->ppa=new_target_set->ppa;
+#ifdef DVALUE
+					LSM.li->read(temp_req->value->ppa/NPCINPAGE,PAGESIZE,temp_req->value,ASYNC,new_lsm_req);
+#else
 					LSM.li->read(temp_req->value->ppa,PAGESIZE,temp_req->value,ASYNC,new_lsm_req);
+#endif
 				}
 				else{
 					while(1){
@@ -645,7 +619,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 
 	if(likely(lsm_req)){
 #ifdef DVALUE
-		LSM.li->read(ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+		LSM.li->read(ppa/(NPCINPAGE),PAGESIZE,req->value,ASYNC,lsm_req);
 #else
 		//printf("get ppa:%u\n",ppa);
 		LSM.li->read(ppa,PAGESIZE,req->value,ASYNC,lsm_req);
@@ -659,7 +633,11 @@ void dummy_htable_read(uint32_t pbn,request *req){
 	lsm_req->type=HEADERR;
 	params->lsm_type=HEADERR;
 	params->ppa=pbn;
+#ifdef DAVLUE
+	LSM.li->read(params->ppa/NPCINPAGE,PAGESIZE,req->value,ASYNC,lsm_req);
+#else
 	LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+#endif
 }
 uint32_t __lsm_get(request *const req){
 	int level;
@@ -823,6 +801,8 @@ retry:
 #ifdef NOCPY
 			req->value->nocpy=nocpy_pick(params->ppa);
 #endif
+
+			/*using normal ppa when read header */
 			LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 			__header_read_cnt++;
 
@@ -898,7 +878,7 @@ htable *htable_dummy_assign(){
 	res->origin=NULL;
 	return res;
 }
-void htable_print(htable * input,uint32_t ppa){
+void htable_print(htable * input,ppa_t ppa){
 	bool check=false;
 	int cnt=0;
 	for(uint32_t i=0; i<FULLMAPNUM; i++){
@@ -916,12 +896,12 @@ void htable_print(htable * input,uint32_t ppa){
 #endif
 	}
 	if(check){
-		printf("bad page at %d cnt:%d---------\n",ppa,cnt);
+		printf("bad page at %ld cnt:%d---------\n",ppa,cnt);
 		abort();
 	}
 }
 extern block bl[_NOB];
-void htable_check(htable *in, KEYT lpa, uint32_t ppa,char *log){
+void htable_check(htable *in, KEYT lpa, ppa_t ppa,char *log){
 	keyset *target=NULL;
 #ifdef NOCPY
 	if(in->nocpy_table){
