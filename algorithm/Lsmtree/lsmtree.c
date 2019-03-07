@@ -425,6 +425,11 @@ uint32_t lsm_proc_re_q(){
 				tmp_req->type=FS_NOTFOUND_T;
 				tmp_req->end_req(tmp_req);
 				//tmp_req->type=tmp_req->type==FS_GET_T?FS_NOTFOUND_T:tmp_req->type;
+#ifdef KVSSD
+				printf("not found seq: %d, key:%.*s\n",nor++,KEYFORMAT(tmp_req->key));
+#else
+				printf("not found seq: %d, key:%u\n",nor++,tmp_req->key);
+#endif
 			}
 		}
 		else 
@@ -550,7 +555,9 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 			if(entry && !entry->cache_data && cache_insertable(LSM.lsm_cache)){
 #ifdef NOCPY
 				entry->cache_data=htable_dummy_assign();
-				entry->cache_data->nocpy_table=nocpy_pick(entry->pbn);
+				char *src=nocpy_pick(entry->pbn);
+				entry->cache_data->nocpy_table=(char*)malloc(PAGESIZE);
+				memcpy(entry->cache_data->nocpy_table,src,PAGESIZE);
 #else
 				htable temp; temp.sets=table;
 				entry->cache_data=htable_copy(&temp);
@@ -853,7 +860,6 @@ void htable_free(htable *input){
 		inf_free_valueset(input->origin,input->t_b);
 	}else{
 		free(input->sets);
-		//free(input);
 	}
 	free(input);
 }

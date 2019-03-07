@@ -32,7 +32,7 @@ bool last_end_req(struct request *const req){
 			break;
 		case FS_ITER_CRT_T:
 #ifdef KVSSD
-			printf("create iter! id:%u [%.*s]\n",req->ppa,KEYFORMAT(req->key));
+			printf("create iter! id:%lu [%.*s]\n",req->ppa,KEYFORMAT(req->key));
 #else
 			printf("create iter! id:%u [%u]\n",req->ppa,req->key);
 #endif
@@ -41,7 +41,7 @@ bool last_end_req(struct request *const req){
 			for(i=0;i<req->num; i++){
 				keyset *k=&((keyset*)req->value->value)[i];
 #ifdef KVSSD
-				printf("[%d]keyset:%.*s-%u\n",cnt++,KEYFORMAT(k->lpa),k->ppa);
+				printf("[%d]keyset:%.*s-%lu\n",cnt++,KEYFORMAT(k->lpa),k->ppa);
 #else
 				printf("keyset:%u-%u\n",k->lpa,k->ppa);
 #endif
@@ -68,16 +68,17 @@ bool last_end_req(struct request *const req){
 }
 
 int main(int argc,char* argv[]){
-	inf_init();
+	inf_init(0);
 
 	bench_init();
 	bench_add(RANDSET,0,RANGE,RANGE);
 	bench_add(NOR,0,UINT_MAX,UINT_MAX);
-
+	char temp_v[PAGESIZE];
+	memset(temp_v,'x',PAGESIZE);
 	bench_value *value;
 	value_set temp;
 	temp.dmatag=-1;
-	temp.value=NULL;
+	temp.value=temp_v;
 #ifdef KVSSD
 	int cnt=0;
 	int idx=rand()%((int)RANGE);

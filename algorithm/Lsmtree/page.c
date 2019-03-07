@@ -559,13 +559,13 @@ bool gc_check(uint8_t type, bool force){
 	//		static int header_cnt=0;
 			switch(type){
 				case HEADER:
-					printf("header gc:%d\n",header_gc_cnt++);
+		//			printf("header gc:%d\n",header_gc_cnt++);
 					target_p=&header_m;
 					header_gc_cnt++; 
 					break;
 				case DATA:
 					//LSM.lop->all_print();
-//					printf("data gc:%d %d\n",data_gc_cnt,false);
+		//			printf("data gc:%d %d\n",data_gc_cnt,false);
 
 					//compaction_force_levels(1);
 
@@ -743,9 +743,6 @@ void invalidate_PPA(uint32_t _ppa){
 	segment *segs=WHICHSEG(bl[bn].ppa);
 	segs->invalid_n++;
 	//static int cnt=0;
-	if(_ppa==0){
-		printf("invalidate! %d\n",ppa);
-	}
 #ifdef NOCPY
 	if(_ppa>=0 && _ppa<(HEADERSEG+1)*_PPS)
 		nocpy_free_page(_ppa);
@@ -831,6 +828,10 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 #ifdef KVSSD
 			free(target->lpa.key);
 #endif
+
+#ifdef DVALUE
+			free(target->value);
+#endif
 			continue;
 		}
 #endif
@@ -903,6 +904,10 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 					finded->ppa=target->nppa;
 #ifdef KVSSD
 					free(target->lpa.key);
+#endif
+
+#ifdef DVALUE
+					free(target->value);
 #endif
 					free(target);
 

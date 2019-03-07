@@ -48,6 +48,7 @@ cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
 	cache_entry *c_ent=(cache_entry*)malloc(sizeof(cache_entry));
 
 	c_ent->entry=ent;
+	ent->cache_data->iscached=2;
 	if(c->bottom==NULL){
 		c->bottom=c_ent;
 		c->top=c_ent;
@@ -73,11 +74,21 @@ bool cache_delete(cache *c, run_t * ent){
 	}
 	//printf("cache delete\n");
 	cache_entry *c_ent=ent->c_entry;
+	/*
+	   will be free at level_free
 	if(ent->cache_data){
 		free(ent->cache_data->sets);
+#ifdef NOCPY
+		
+		if(ent->cache_data->iscached==2){
+			printf("free! %p\n",ent);
+			free(ent->cache_data->nocpy_table);
+		}
+#endif
 		free(ent->cache_data);
 	}
 	ent->cache_data=NULL;
+	*/
 	c->n_size--;
 	free(c_ent);
 	ent->c_entry=NULL;

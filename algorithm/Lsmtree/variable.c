@@ -22,8 +22,8 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 	else{/*v_idx for value_set*/
 		v_des=*target_valueset;
 	}
-
-	int max_piece=127;
+	/*127 * 64 */
+	uint8_t max_piece=126;
 	while(src->idx[max_piece]==0) --max_piece;
 
 //	bool debuging=false;

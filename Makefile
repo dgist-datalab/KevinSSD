@@ -1,4 +1,4 @@
-export CC=g++
+export CC=gcc
 
 TARGET_INF=interface
 TARGET_LOWER=posix
@@ -122,7 +122,7 @@ debug_simulator: ./interface/main.c libsimulator_d.a
 driver: ./interface/main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
-range_driver: ./interface/range_test_main.c libsimulator.a
+range_driver: ./interface/range_test_main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 duma_driver: ./interface/main.c libsimulator.a

@@ -116,7 +116,7 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 //	array_header_print((char*)res->sets);
 	return res;
 }
-static int merger_cnt;
+//static int merger_cnt;
 void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	array_body *des=(array_body*)d->level_data;
 	if(des->skip){
@@ -179,7 +179,7 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 
 	/*assign pagesize for header*/
 	htable *res=htable_assign(NULL,0);
-
+//	printf("alloc %p\n",res->sets);
 #ifdef BLOOM
 	BF* filter=bf_init(KEYBITMAP/sizeof(uint16_t),d->fpr);
 #endif
@@ -255,7 +255,6 @@ void array_cache_insert(level *lev,run_t* r){
 	skiplist_insert_existIgnore(skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
 	end=key;
 	for_each_header_end
-
 		array_range_update(lev,NULL,start);
 	array_range_update(lev,NULL,end);
 }

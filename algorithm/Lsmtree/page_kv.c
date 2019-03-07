@@ -128,7 +128,7 @@ int gc_header(uint32_t tbn){
 	gc_trim_segment(HEADER,target->ppa);
 	return 0;
 }
-static int gc_data_kv;
+//static int gc_data_kv;
 int gc_data(uint32_t tbn){
 	//printf("gc_data_kv:%d, %u\n",gc_data_kv++,tbn);
 	block *target=&bl[tbn];
@@ -170,16 +170,23 @@ int gc_data(uint32_t tbn){
 		j: index of checking bitset 
 	 */
 #ifdef DVALUE
-	uint8_t invalid_cnt_forpage=0;
 	for(uint32_t j=0,i=0; j<(target->ppage_idx+1)* NPCINPAGE; j++)
 #else
 	for(uint32_t j=0,i=0; j<target->ppage_idx; i++,j++)
 #endif
 	{
-		if(j%NPCINPAGE==0) invalid_cnt_forpage=0;
-
+		uint32_t t_ppa=start+i;
+#ifdef DVALUE
+		//we can't know the invalid chunk before it read
+		tables[i]=(htable_t*)malloc(sizeof(htable_t));
+		gc_data_read(t_ppa,tables[i],true);
+		j=(j/NPCINPAGE+1)*NPCINPAGE-1;
+		i++;
+		continue;
+#endif
 		if(target->bitset[j/8]&(1<<(j%8)))
 		{
+		/*	
 		#ifdef DVALUE
 			invalid_cnt_forpage++;
 			if((j+1)%NPCINPAGE==0 && invalid_cnt_forpage==NPCINPAGE){
@@ -187,20 +194,20 @@ int gc_data(uint32_t tbn){
 				i++;
 			}
 			continue;
-		#else
+		#else*/
 			tables[i]=NULL;
 			continue;
-		#endif
+//		#endif
 		}
-		uint32_t t_ppa=start+i;
 		//printf("table %d assignd\n",i);
 		tables[i]=(htable_t*)malloc(sizeof(htable_t));
 		gc_data_read(t_ppa,tables[i],true);
-
+/*
 #ifdef DVALUE
 		j=(j/NPCINPAGE+1)*NPCINPAGE-1;
 		i++;
 #endif
+*/
 	}
 	
 	gc_general_waiting(); //wait for read req
@@ -231,6 +238,7 @@ int gc_data(uint32_t tbn){
 		if(foot->map[chunk_idx]==0){
 			if(chunk_idx==NPCINPAGE-1){
 				//printf("table %d used\n",i);
+				free(tables[i]);
 				i++;
 			}
 			continue;
@@ -247,11 +255,13 @@ int gc_data(uint32_t tbn){
 			block *reserve_block=getRBLOCK(DATA);
 			gc_data_now_block_chg(in,reserve_block);
 		}
-
+	
+		uint8_t oob_len=oob[t_ppa/NPCINPAGE].length[t_ppa%NPCINPAGE];
+		oob_len=oob_len-1 ? oob_len/2:128;
 #ifdef DVALUE
-		if(t_ppa%NPCINPAGE==0 && oob[t_ppa/NPCINPAGE].length[t_ppa%NPCINPAGE]==1)//full check
+		if(t_ppa%NPCINPAGE==0 && (oob_len==NPCINPAGE || oob_len==NPCINPAGE-1))//full check & full-1 chunck check
 		{
-#endif
+#endif	
 			LSM.lop->moveTo_fr_page(in);
 			n_ppa=LSM.lop->get_page(in,PAGESIZE/PIECE); /*make the new page belong to level*/
 			gc_data_write(n_ppa,tables[i],true);
@@ -272,6 +282,7 @@ int gc_data(uint32_t tbn){
 			i++;
 		//free(lpa->key);
 #ifdef DVALUE
+			PBITSET(temp_g->nppa,oob_len);
 		}else{
 			gc_node *temp_g=(gc_node*)malloc(sizeof(gc_node));
 			temp_g->plength=foot->map[chunk_idx];
@@ -301,7 +312,9 @@ int gc_data(uint32_t tbn){
 #endif
 		free(lpa);
 	}
-	gc_data_write_using_bucket(&bucket,target_level,order);
+	free(tables);
+	if(bucket.contents_num)
+		gc_data_write_using_bucket(&bucket,target_level,order);
 	gc_trim_segment(DATA,target->ppa);
 	return 1;
 }

@@ -241,10 +241,12 @@ run_t *compaction_data_write(skiplist *mem){
 				printf("checking %d:%d\n",k,foot->map[k]);
 			}
 		}*/
+		if(params->value->dmatag==-1){
+			abort();
+		}
 		LSM.li->write(data_sets[i]->ppa,PAGESIZE,params->value,ASYNC,lsm_req);
 	}
 	free(data_sets);
-
 	LSM.lop->mem_cvt2table(mem,res); //res's filter and table will be set
 //	LSM.lop->header_print((char*)res->cpt_data->sets);
 	isflushing=false;
@@ -482,9 +484,7 @@ run_t* compaction_postprocessing(run_t *target){
 		memcpy(table->sets,target->cpt_data->nocpy_table,PAGESIZE);
 	else{
 	#endif
-
 		memcpy(table->sets,target->cpt_data->sets,PAGESIZE);
-
 	#if LEVELN==1
 	}
 	#endif
@@ -515,6 +515,7 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 		if(target->cpt_data->t_b){
 			printf("can't be\n");
 		}
+		//printf("free %p\n",target->cpt_data->sets);
 		htable_free(target->cpt_data);
 		target->cpt_data=NULL;
 		free(target);
@@ -631,7 +632,6 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 		goto chg_level;
 	}
 #endif
-	
 	if(from==NULL){
 		pthread_mutex_lock(&LSM.templock);
 		LSM.temptable=NULL;
@@ -679,6 +679,9 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 			LSM.tempent=NULL;
 			pthread_mutex_unlock(&LSM.entrylock);
 			compaction_heap_setting(target,target_origin);
+#ifdef NOCPY
+			free(entry->cpt_data->sets);
+#endif
 			htable_free(entry->cpt_data);
 			LSM.lop->release_run(entry);
 			free(entry);
@@ -858,6 +861,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 #ifdef NOCPY
 				target_s[j]->cpt_data=htable_dummy_assign();
 				target_s[j]->cpt_data->nocpy_table=target_s[j]->cache_data->nocpy_table;
+				target_s[j]->cpt_data->iscached=1;
 #else
 				target_s[j]->cpt_data=htable_copy(target_s[j]->cache_data);
 #endif
@@ -867,6 +871,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 			else{
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 				target_s[j]->cpt_data=htable_assign(NULL,false);
+				target_s[j]->cpt_data->iscached=0;
 				compaction_htable_read(target_s[j],(PTR*)&target_s[j]->cpt_data);
 			}
 			if(!target_s[j]->iscompactioning){
@@ -882,6 +887,11 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 				invalidate_PPA(target_s[j]->pbn);//invalidate_PPA
 			}
 			if(target_s[j]->cpt_data){
+#ifdef NOCPY
+				if(target_s[j]->cpt_data->iscached==1 && !target_s[j]->cache_data){
+					free(target_s[j]->cpt_data->nocpy_table);
+				}
+#endif
 				htable_free(target_s[j]->cpt_data);
 				target_s[j]->cpt_data=NULL;
 			}
@@ -923,6 +933,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 #ifdef NOCPY
 				temp->cpt_data=htable_dummy_assign();
 				temp->cpt_data->nocpy_table=temp->cache_data->nocpy_table;
+				temp->cpt_data->iscached=1;
 #else
 				temp->cpt_data=htable_copy(temp->cache_data);
 #endif
@@ -933,6 +944,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 			else{
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 				temp->cpt_data=htable_assign(NULL,false);
+				temp->cpt_data->iscached=0;
 				compaction_htable_read(temp,(PTR*)&temp->cpt_data);
 			}
 			//htable_check(temp->cpt_data,8499,81665);
@@ -952,6 +964,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 #ifdef NOCPY
 				temp->cpt_data=htable_dummy_assign();
 				temp->cpt_data->nocpy_table=temp->cache_data->nocpy_table;
+				temp->cpt_data->iscached=1;
 #else
 				temp->cpt_data=htable_copy(temp->cache_data);
 #endif
@@ -962,6 +975,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 			else{
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 				temp->cpt_data=htable_assign(NULL,false);
+				temp->cpt_data->iscached=0;
 				compaction_htable_read(temp,(PTR*)&temp->cpt_data);
 			}
 			epc_check++;
@@ -974,6 +988,11 @@ skip:
 
 			if(temp->iscompactioning!=3 && temp->pbn!=UINT_MAX)
 				invalidate_PPA(temp->pbn);
+#ifdef NOCPY
+				if(temp->cpt_data->iscached==1 && !temp->cache_data){
+					free(temp->cpt_data->nocpy_table);
+				}
+#endif
 			htable_free(temp->cpt_data);
 			temp->cpt_data=NULL;
 		}
@@ -984,6 +1003,11 @@ skip:
 
 			if(temp->iscompactioning!=3)
 				invalidate_PPA(temp->pbn);
+#ifdef NOCPY
+				if(temp->cpt_data->iscached==1 && !temp->cache_data){
+					free(temp->cpt_data->nocpy_table);
+				}
+#endif
 			htable_free(temp->cpt_data);
 			temp->cpt_data=NULL;
 		}

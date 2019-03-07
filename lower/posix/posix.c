@@ -80,9 +80,6 @@ void *posix_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 	if(PPA>6500)
 		printf("PPA : %u\n", PPA);
 	*/
-	if(PPA==195904){
-		printf("write the data!\n");
-	}
 	uint8_t t_type=test_type(req->type);
 	if(t_type < LREQ_TYPE_NUM){
 		my_posix.req_type_cnt[t_type]++;
@@ -90,7 +87,7 @@ void *posix_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
-		exit(1);
+		abort();
 	}
 	bench_lower_w_start(&my_posix);
 	if(req->parents)
@@ -131,7 +128,7 @@ void *posix_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 	}
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
-		exit(1);
+		abort();
 	}
 	bench_lower_r_start(&my_posix);
 	if(req->parents)

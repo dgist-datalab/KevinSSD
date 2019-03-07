@@ -345,6 +345,9 @@ void array_free_run(run_t *e){
 #endif
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(e->cache_data){
+#ifdef NOCPY
+		free(e->cache_data->nocpy_table);
+#endif
 		htable_free(e->cache_data);
 		cache_delete_entry_only(LSM.lsm_cache,e);
 		//e->cache_data=NULL;

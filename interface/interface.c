@@ -112,7 +112,6 @@ static void assign_req(request* req){
 #endif
 
 #endif
-
 				if(q_enqueue((void*)req,t->req_q)){
 					flag=true;
 #ifdef interface_pq
@@ -431,7 +430,7 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 #endif
 			break;
 		case FS_GET_T:
-			req->value=inf_get_valueset(NULL,FS_GET_T,len);
+			req->value=inf_get_valueset(NULL,FS_GET_T,PAGESIZE);
 			break;
 		case FS_MSET_T:
 			break;
@@ -485,7 +484,6 @@ bool inf_make_req(const FSTYPE type, const KEYT key,char* value){
 
 
 bool inf_make_multi_set(const FSTYPE type, KEYT *keys, char **values, int *lengths, int req_num, int mark){
-	
 	return 0;
 }
 
@@ -689,9 +687,11 @@ bool inf_iter_release(uint32_t iter_id, bool (*added_end)(struct request *const)
 }
 
 #ifdef KVSSD
-bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value, int seq,void *_req,void (*end_req)(uint32_t,uint32_t,void*)){
-	static KEYT null_key={0,};
-	request *req=inf_get_req_instance(type,null_key,value,PAGESIZE,0,false);
+bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value,int len, int seq,void *_req,void (*end_req)(uint32_t,uint32_t,void*)){
+	KEYT t_key;
+	t_key.key=keys;
+	t_key.len=key_len;
+	request *req=inf_get_req_instance(type,t_key,value,len,0,false);
 	req->key.key=keys;
 	req->key.len=key_len;
 	req->seq=seq;
@@ -785,8 +785,9 @@ value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
 	if(in_v){
 		memcpy(res->value,in_v,length);
 	}
-	else
+	else{
 		memset(res->value,0,length);
+	}
 	return res;
 }
 

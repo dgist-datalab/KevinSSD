@@ -25,6 +25,14 @@ typedef struct keyset{
 typedef struct htable{
 	keyset *sets;
 	//	uint8_t *bitset;
+	uint8_t iscached;//for compaction(partial_leveling)
+	/*
+	   when the cache is used for header reading in compaction, but It can be evicted by new inserted cache after compaction, so we should check it
+	   0->not cached
+	   1->cached but it is used in compaction
+	   2->cached but it isn't used in compaction.
+
+	 */
 #ifdef NOCPY
 	char *nocpy_table;
 #endif
