@@ -72,6 +72,10 @@ struct request {
 	MeasureTime latency_poll;
 	bool isstart;
 	MeasureTime latency_checker;
+
+#ifdef hash_dftl
+	void *hash_params;
+#endif
 };
 
 struct algo_req{
