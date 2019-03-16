@@ -582,7 +582,8 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 	skiplist *body;
 	level *target_origin=to;
 	level *target;
-	if(to->idx==LEVELN-1 && from->n_num+to->n_num > to->m_num){
+
+	if(to->idx==LEVELN-1 && from->n_num+LSM.lop->cache_get_size(from)+to->n_num > to->m_num){
 		target=LSM.lop->init(target_origin->m_num*2, target_origin->idx,target_origin->fpr,false);
 	}else{
 		target=LSM.lop->init(target_origin->m_num, target_origin->idx,target_origin->fpr,false);
@@ -927,8 +928,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 				continue;
 			}
 			if(!temp->iscompactioning) temp->iscompactioning=true;
-			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-			
+			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);		
 			if(temp->c_entry){
 #ifdef NOCPY
 				temp->cpt_data=htable_dummy_assign();

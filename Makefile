@@ -1,8 +1,9 @@
 export CC=gcc
 
 TARGET_INF=interface
-TARGET_LOWER=posix
+TARGET_LOWER=linux_aio
 TARGET_ALGO=Lsmtree
+JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
 PPWD=$(pwd)
 
@@ -18,20 +19,22 @@ COMMONFLAGS=\
 			-Wno-unused-function\
 			-DLARGEFILE64_SOURCE\
 			-D_GNU_SOURCE\
-			-DSLC\
 			-DKVSSD\
+			-DSLC\
 			-Wno-unused-but-set-variable\
-#-O2\
+-O2\
 #			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 
 export CFLAGS_ALGO=\
+			 -fPIC\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
-			 -DDVALUE\
+#			 -DDVALUE\
 
 export CFLAGS_LOWER=\
+		     -fPIC\
 			 -lpthread\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\
@@ -108,7 +111,7 @@ LIBS +=\
 		-lpthread\
 		-lm\
 		-laio\
--ljemalloc\
+#		-ljemalloc\
 
 all: driver
 
@@ -122,18 +125,24 @@ debug_simulator: ./interface/main.c libsimulator_d.a
 driver: ./interface/main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
+kv_driver: ./interface/KV_main.c libdriver.a
+	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
+
 range_driver: ./interface/range_test_main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 duma_driver: ./interface/main.c libsimulator.a
 	$(CC) $(CFLAGS) -o $@ $^ -lduma $(ARCH) $(LIBS)
+
+jni: libdriver.a ./jni/DriverInterface.c
+	$(CC) -fPIC -o libdriver.so -shared -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux ./object/* $(LIBS)
 	
 
 libdriver.a: $(TARGETOBJ)
 	mkdir -p object && mkdir -p data
 	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) clean && $(MAKE) && cd ../../
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
-	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
+#	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
 #cd ./include/kuk_socket_lib/ && $(MAKE) && mv ./*.o ../../object/ && cd ../../
 	mv ./include/data_struct/*.o ./object/
 	mv ./include/utils/*.o ./object/
@@ -162,6 +171,6 @@ clean :
 	@$(RM) simulator_memory_check
 	@$(RM) debug_simulator
 	@$(RM) duma_simulator
-	@$(RM) driver
-	@$(RM) range_driver
+	@$(RM) *driver
+	@$(RM) libdriver.so
 

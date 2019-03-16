@@ -39,13 +39,13 @@ int main(int argc,char* argv[]){
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
 
-	bench_add(SEQSET,0,RANGE,RANGE*4);
-	bench_add(RANDRW,0,RANGE,RANGE*8);
+	bench_add(SEQSET,0,RANGE,RANGE);
+//	bench_add(RANDRW,0,RANGE,RANGE*2);
 //	bench_add(RANDGET,0,RANGE,RANGE);
 //	bench_add(RANDSET,0,RANGE/2,RANGE);
 //	bench_add(SEQGET,0,RANGE,RANGE);
 //	bench_add(RANDSET,0,RANGE,RANGE);
-//	bench_add(MIXED,0,RANGE,RANGE);
+	bench_add(MIXED,0,RANGE,RANGE);
 //	bench_add(SEQLATENCY,0,RANGE,RANGE);
 //	bench_add(RANDSET,0,RANGE,RANGE);
 //	bench_add(RANDLATENCY,0,RANGE,RANGE-RANGE/10);
@@ -86,7 +86,7 @@ int main(int argc,char* argv[]){
 			memcpy(&temp.value[0],&value->key,sizeof(value->key));
 		}
 
-		inf_make_req(value->type,value->key,temp.value ,value->length,value->mark);
+		inf_make_req(value->type,value->key,temp.value ,value->length-value->key.len-sizeof(value->key.len),value->mark);
 		if(!tflag &&value->type==FS_GET_T){
 			tflag=true;
 		}

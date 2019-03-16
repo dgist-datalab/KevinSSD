@@ -34,8 +34,8 @@ typedef struct OOBT{
 
 #define KEYLEN(a) (a.len+sizeof(ppa_t))
 
-#define LEVELCACHING 0
-#define CACHINGSIZE 0.05f
+#define LEVELCACHING 1
+#define CACHINGSIZE 0.04f
 //#define LEVELEMUL 
 //#define MERGECOMPACTION 4
 #define READCACHE

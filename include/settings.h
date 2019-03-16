@@ -38,7 +38,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 16L
+#define GIGAUNIT 8L
 #define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
@@ -111,10 +111,10 @@ static inline int KEYCONSTCOMP(KEYT a, char *s){
 
 #define TCP 1
 //#define IP "10.42.0.2"
-//#define IP "127.0.0.1"
+#define IP "127.0.0.1"
 //#define IP "10.42.0.1"
-#define IP "192.168.0.1"
-#define PORT 9999
+//#define IP "192.168.0.1"
+#define PORT 7777
 #define NETWORKSET
 #define DATATRANS
 
