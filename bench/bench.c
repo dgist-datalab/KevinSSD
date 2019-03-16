@@ -302,8 +302,10 @@ void bench_print(){
 			printf("[SUCCESS RATIO] %lf\n",sr);
 			printf("[throughput1] %lf(kb/s)\n",throughput1);
 			printf("             %lf(mb/s)\n",throughput1/1024);
+			printf("[IOPS 1] %lf\n",_m->m_num/total_time1/2);
 			printf("[throughput2] %lf(kb/s)\n",throughput2);
 			printf("             %lf(mb/s)\n",throughput2/1024);
+			printf("[IOPS 2] %lf\n",_m->m_num/total_time2/2);
 			printf("[cache hit cnt,ratio] %ld, %lf\n",_m->cache_hit,(double)_m->cache_hit/(_m->m_num/2));
 			printf("[READ WRITE CNT] %ld %ld\n",_m->read_cnt,_m->write_cnt);
 		}
@@ -321,6 +323,7 @@ void bench_print(){
 			printf("[SUCCESS RATIO] %lf\n",sr);
 			printf("[throughput] %lf(kb/s)\n",throughput);
 			printf("             %lf(mb/s)\n",throughput/1024);
+			printf("[IOPS] %lf\n",_m->m_num/total_time);
 			if(_m->read_cnt){
 				printf("[cache hit cnt,ratio] %ld, %lf\n",_m->cache_hit,(double)_m->cache_hit/(_m->read_cnt));
 				printf("[cache hit cnt,ratio dftl] %ld, %lf\n",_m->cache_hit,(double)_m->cache_hit/(_m->read_cnt+_m->write_cnt));
@@ -362,17 +365,11 @@ void bench_lower_end(request *const req){
 }
 
 void bench_update_ftltime(bench_data *_d, request *const req){
+	/*
 	bench_ftl_time *temp;
 	MC(&req->latency_ftl);
 	temp = &_d->ftl_poll[req->type_ftl][req->type_lower];
 	req->latency_ftl.micro_time += req->latency_ftl.adding.tv_sec*1000000 + req->latency_ftl.adding.tv_usec;
-	temp->total_micro += req->latency_ftl.micro_time;
-	temp->max = temp->max < req->latency_ftl.micro_time ? req->latency_ftl.micro_time : temp->max;
-	temp->min = temp->min > req->latency_ftl.micro_time ? req->latency_ftl.micro_time : temp->min;
-	temp->cnt++;
-	/*
-	temp = &_d->ftl_npoll[req->type_ftl][req->type_lower];
-	req->latency_ftl.micro_time -= req->latency_poll.adding.tv_sec*1000000 + req->latency_poll.adding.tv_usec;
 	temp->total_micro += req->latency_ftl.micro_time;
 	temp->max = temp->max < req->latency_ftl.micro_time ? req->latency_ftl.micro_time : temp->max;
 	temp->min = temp->min > req->latency_ftl.micro_time ? req->latency_ftl.micro_time : temp->min;

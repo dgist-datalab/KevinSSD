@@ -3,6 +3,7 @@ export CC=g++
 TARGET_INF=interface
 TARGET_LOWER=posix
 TARGET_ALGO=hash_dftl
+JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
 PPWD=$(pwd)
 
@@ -18,20 +19,22 @@ COMMONFLAGS=\
 			-Wno-unused-function\
 			-DLARGEFILE64_SOURCE\
 			-D_GNU_SOURCE\
-			-DSLC\
 			-DKVSSD\
+			-DSLC\
 			-Wno-unused-but-set-variable\
-#-O2\
+-O2\
 #			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 
 export CFLAGS_ALGO=\
+			 -fPIC\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
 #			 -DDVALUE\
 
 export CFLAGS_LOWER=\
+		     -fPIC\
 			 -lpthread\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\
@@ -107,8 +110,8 @@ endif
 LIBS +=\
 		-lpthread\
 		-lm\
-#		-laio\
-		-ljemalloc\
+		-laio\
+#		-ljemalloc\
 
 all: driver
 
@@ -122,11 +125,17 @@ debug_driver: ./interface/main.c libdriver_d.a
 driver: ./interface/main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
+kv_driver: ./interface/KV_main.c libdriver.a
+	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
+
 range_driver: ./interface/range_test_main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 duma_driver: ./interface/main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ -lduma $(ARCH) $(LIBS)
+
+jni: libdriver.a ./jni/DriverInterface.c
+	$(CC) -fPIC -o libdriver.so -shared -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux ./object/* $(LIBS)
 	
 
 libdriver.a: $(TARGETOBJ)
@@ -158,9 +167,10 @@ clean :
 	@$(RM) ./data/*
 	@$(RM) ./object/*.o
 	@$(RM) *.a
-	@$(RM) driver
 	@$(RM) driver_memory_check
 	@$(RM) debug_driver
 	@$(RM) duma_driver
 	@$(RM) range_driver
+	@$(RM) *driver
+	@$(RM) libdriver.so
 

@@ -51,7 +51,7 @@ void PBITSET(ppa_t input, uint8_t len){
 	 */
 }
 #else
-OOBT PBITSET(KEYT input,bool isFull){
+OOBT PBITSET(KEYT input,uint8_t isFull){
 #ifdef KVSSD
 	return 0;
 #else
@@ -565,7 +565,7 @@ bool gc_check(uint8_t type, bool force){
 					break;
 				case DATA:
 					//LSM.lop->all_print();
-		//			printf("data gc:%d %d\n",data_gc_cnt,false);
+					printf("data gc:%d %d\n",data_gc_cnt,false);
 
 					//compaction_force_levels(1);
 
@@ -842,11 +842,12 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 		if(entries==NULL){
 			LSM.lop->all_print();
 #ifdef KVSSD
-			printf("lpa:%s-ppa:%d\n",kvssd_tostring(target->lpa),target->ppa);
+			printf("lpa:%.*s-ppa:%d\n",KEYFORMAT(target->lpa),target->ppa);
 #else
 			printf("lpa:%d-ppa:%d\n",target->lpa,target->ppa);
 #endif
 			printf("entry null!\n");
+			abort();
 		}
 
 #ifdef LEVELEMUL

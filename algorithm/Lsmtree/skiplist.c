@@ -575,7 +575,12 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 		flag=1;
 	}
 	int res_idx=0;
-	for(int j=0; j<2; j++){
+#ifdef DVALUE
+	for(int j=0; j<2; j++)
+#else
+	for(int j=0; j<1; j++)
+#endif
+	{
 		for(int i=0; i<b.idx[PAGESIZE/PIECE-j]; i++){//full page
 			target=b.bucket[PAGESIZE/PIECE-j][i];
 #ifdef DVALUE
@@ -590,7 +595,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 			//oob[res[res_idx]->ppa/(PAGESIZE/PIECE)]=PBITSET(target->key,true);//OOB setting
 			PBITSET(res[res_idx]->ppa,PAGESIZE/PIECE-j);
 #else
-			oob[res[res_idx]->ppa]=PBITSET(target->key,true);
+			oob[res[res_idx]->ppa]=PBITSET(target->key,(uint8_t)1);
 #endif
 			//127 chunk & 128 chunk is same
 			target->ppa=LSM.lop->get_page(from,(PAGESIZE/PIECE));//64byte chunk index
@@ -613,47 +618,6 @@ value_set **skiplist_make_valueset(skiplist *input, level *from){
 
 #ifdef DVALUE
 	variable_value2Page(from,&b,&res,&res_idx,false);
-	/*
-	while(1){
-		PTR page=NULL;
-		int ptr=0;
-		int remain=PAGESIZE-sizeof(footer);
-		footer *foot=(footer*)malloc(sizeof(footer));
-
-		res[res_idx]=inf_get_valueset(page,FS_MALLOC_W,PAGESIZE); 
-		res[res_idx]->ppa=LSM.lop->moveTo_fr_page(from);
-		page=res[res_idx]->value;//assign new dma in page	
-		uint8_t used_piece=0;
-		while(remain>0){
-			int target_length=remain/PIECE;
-			while(b.idx[target_length]==0 && target_length!=0) --target_length;
-			if(target_length==0){
-				break;
-			}
-			target=b.bucket[target_length][b.idx[target_length]-1];
-			target->ppa=LSM.lop->get_page(from,target->value->length);
-			PBITSET(target->ppa,target_length);
-			foot->map[target->ppa%(PAGESIZE/PIECE)]=target_length;
-			used_piece+=target_length;
-			memcpy(&page[ptr],target->value->value,target_length*PIECE);
-			b.idx[target_length]--;
-
-			ptr+=target_length*PIECE;
-			remain-=target_length*PIECE;
-		}
-		memcpy(&page[PAGESIZE-sizeof(footer)],foot,sizeof(footer));
-
-		res_idx++;
-
-		free(foot);
-		bool stop=0;
-		for(int i=0; i<PAGESIZE/PIECE+1; i++){
-			if(b.idx[i]!=0)
-				break;
-			if(i==PAGESIZE/PIECE) stop=true;
-		}
-		if(stop) break;
-	}*/
 #endif
 	res[res_idx]=NULL;
 	return res;

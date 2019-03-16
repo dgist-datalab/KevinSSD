@@ -234,12 +234,11 @@ void *p_main(void *__input){
 		static bool first_get=true;
 		switch(inf_req->type){
 			case FS_GET_T:
-				MS(&mt4);
 				if(first_get){
 					first_get=false;
 				}
 				mp.algo->read(inf_req);
-				MA(&mt4);
+				//inf_end_req(inf_req);
 				break;
 			case FS_SET_T:
 				write_stop=mp.algo->write(inf_req);
@@ -417,10 +416,14 @@ static request* inf_get_req_common(request *req, bool fromApp, int mark){
 static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, int len,int mark,bool fromApp){
 	request *req=(request*)malloc(sizeof(request));
 	req->type=type;
-	req->key=key;	
+//	req->key=key;
 	req->ppa=0;
 	req->multi_value=NULL;
 	req->multi_key=NULL;
+
+	req->key.len=key.len;
+	req->key.key=(char*)malloc(key.len);
+	memcpy(req->key.key,key.key,key.len);
 	switch(type){
 		case FS_DELETE_T:
 			req->value=NULL;
@@ -699,11 +702,13 @@ bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value,int le
 	t_key.key=keys;
 	t_key.len=key_len;
 	request *req=inf_get_req_instance(type,t_key,value,len,0,false);
-	req->key.key=keys;
-	req->key.len=key_len;
+	//req->key.key=keys;
+	//req->key.len=key_len;
 	req->seq=seq;
 	req->p_req=_req;
 	req->p_end_req=end_req;
+	//inf_end_req(req);
+	
 	cl_grap(flying);
 #ifdef CDF
 	req->isstart=false;

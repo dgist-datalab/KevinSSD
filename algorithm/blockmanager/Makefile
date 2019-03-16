@@ -1,4 +1,4 @@
-
+$(CC) = g++
 
 SRCS +=\
 		BM_Block.c\

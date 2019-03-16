@@ -207,6 +207,8 @@ void array_insert(level *lev, run_t* r){
 #ifdef NOCPY
 		target->cache_data=htable_dummy_assign();
 		target->cache_data->nocpy_table=(char*)cache_temp;
+//		target->cache_data->nocpy_table=(char*)malloc(PAGESIZE);
+//		memcpy(target->cache_data->nocpy_table,cache_temp,PAGESIZE);
 #else
 		target->cache_data=htable_copy(r->cpt_data);
 #endif
@@ -340,6 +342,7 @@ uint32_t array_unmatch_find( level *lev,KEYT s, KEYT e,  run_t ***rc){
 }
 
 void array_free_run(run_t *e){
+	static int cnt=0;
 #ifdef BLOOM
 	if(e->filter) bf_free(e->filter);
 #endif
@@ -443,7 +446,7 @@ void array_print(level *lev){
 	for(int i=0; i<lev->n_num;i++){
 		run_t *rtemp=&arrs[i];
 #ifdef KVSSD
-		printf("[%d]%.*s~%.*s(%lu)-ptr:%p cached:%s wait:%d iscomp:%d\n",i,KEYFORMAT(rtemp->key),KEYFORMAT(rtemp->end),rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx,rtemp->iscompactioning);
+		printf("[%d]%.*s~%.*s(%u)-ptr:%p cached:%s wait:%d iscomp:%d\n",i,KEYFORMAT(rtemp->key),KEYFORMAT(rtemp->end),rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx,rtemp->iscompactioning);
 #else
 		printf("[%d]%d~%d(%d)-ptr:%p cached:%s wait:%d\n",i,rtemp->key,rtemp->end,rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx);,
 #endif

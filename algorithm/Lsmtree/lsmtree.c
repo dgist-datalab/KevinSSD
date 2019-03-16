@@ -810,7 +810,9 @@ retry:
 #endif
 
 			/*using normal ppa when read header */
+			MS(&LSM.timers[7]);
 			LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+			MA(&LSM.timers[7]);
 			__header_read_cnt++;
 
 			free(entries);

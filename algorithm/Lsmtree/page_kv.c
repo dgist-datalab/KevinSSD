@@ -241,7 +241,6 @@ int gc_data(uint32_t tbn){
 				free(tables[i]);
 				i++;
 			}
-			continue;
 		}
 		uint64_t t_ppa=start*NPCINPAGE+j;//for DVALUE
 
@@ -256,9 +255,9 @@ int gc_data(uint32_t tbn){
 			gc_data_now_block_chg(in,reserve_block);
 		}
 	
+#ifdef DVALUE
 		uint8_t oob_len=oob[t_ppa/NPCINPAGE].length[t_ppa%NPCINPAGE];
 		oob_len=oob_len-1 ? oob_len/2:128;
-#ifdef DVALUE
 		if(t_ppa%NPCINPAGE==0 && (oob_len==NPCINPAGE || oob_len==NPCINPAGE-1))//full check & full-1 chunck check
 		{
 #endif	
@@ -279,9 +278,9 @@ int gc_data(uint32_t tbn){
 			bucket.contents_num++;
 			//printf("full page table %d used\n",i);
 			free(tables[i]);
-			i++;
 		//free(lpa->key);
 #ifdef DVALUE
+			i++;
 			PBITSET(temp_g->nppa,oob_len);
 		}else{
 			gc_node *temp_g=(gc_node*)malloc(sizeof(gc_node));

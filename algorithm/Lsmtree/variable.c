@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 extern lsmtree LSM;
+extern OOBT *oob;
 void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset, int* target_valueset_from, bool isgc){
 	int v_idx;
 	/*for normal data*/
@@ -62,7 +63,11 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 			if(isgc){
 				gc_node *target=(gc_node*)src->bucket[target_length][src->idx[target_length]-1];
 				target->nppa=LSM.lop->get_page(in,target->plength);
+#ifdef DVALUE
 				PBITSET(target->nppa,target_length);
+#else
+				oob[target->nppa]=PBITSET(target->lpa,0);
+#endif
 				gc_container[v_idx++]=target;
 				memcpy(&page[ptr],target->value,target_length*PIECE);
 				foot->map[target->nppa%NPCINPAGE]=target_length;
@@ -70,7 +75,11 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 			}else{
 				snode *target=src->bucket[target_length][src->idx[target_length]-1];
 				target->ppa=LSM.lop->get_page(in,target->value->length);
+#ifdef DVALUE
 				PBITSET(target->ppa,target_length);
+#else
+				oob[target->ppa]=PBITSET(target->key,0);
+#endif
 				memcpy(&page[ptr],target->value->value,target_length*PIECE);
 				foot->map[target->ppa%NPCINPAGE]=target_length;
 			}
