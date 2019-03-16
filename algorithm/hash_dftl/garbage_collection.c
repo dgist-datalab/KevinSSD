@@ -35,7 +35,8 @@ int32_t tpage_GC(){
         BM_InitializeBlock(bm, victim->PBA);
         return new_block;
     }
-    printf("tpage_GC()");
+
+	printf("tpage_GC()");
 
     valid_page_num = 0;
     trans_gc_poll = 0;
@@ -84,7 +85,7 @@ int32_t tpage_GC(){
     while(trans_gc_poll != valid_page_num) {} // polling for reading all mapping data
 #endif
 
-//    free(temp_set);
+    free(temp_set);
     free(d_sram);
 
     /* Trim block */
@@ -108,9 +109,9 @@ int32_t dpage_GC(){
     Block *victim;
     C_TABLE *c_table;
     //value_set *p_table_vs;
-    D_TABLE *p_table;
+    int32_t *p_table;
     //D_TABLE* on_dma;
-    D_TABLE *temp_table;
+    int32_t *temp_table;
     D_SRAM *d_sram; // SRAM for contain block data temporarily
     algo_req *temp_req;
     demand_params *params;
@@ -124,6 +125,7 @@ int32_t dpage_GC(){
     victim = BM_Heap_Get_Max(data_b);
     if(victim->Invalid == p_p_b){ // if all invalid block
         all = 1;
+		puts(" * full eviction");
     }
     else if(victim->Invalid == 0){
         printf("\n!!!dp_full!!!\n");
@@ -138,7 +140,7 @@ int32_t dpage_GC(){
     d_reserved->hn_ptr = BM_Heap_Insert(data_b, d_reserved);
     d_reserved = victim;
     if(all){ // if all page is invalid, then just trim and return
-    	puts("dpage_GC - all");
+		puts("dpage_GC - all");
         __demand.li->trim_block(old_block, false);
         return new_block;
     }
@@ -149,7 +151,7 @@ int32_t dpage_GC(){
     data_gc_poll = 0;
     twrite = 0;
     tce = INT32_MAX; // Initial state
-    temp_table = (D_TABLE *)malloc(PAGESIZE);
+    temp_table = (int32_t *)malloc(PAGESIZE);
     d_sram = (D_SRAM*)malloc(sizeof(D_SRAM) * p_p_b);
     temp_set = (value_set**)malloc(sizeof(value_set*) * p_p_b);
 
@@ -197,24 +199,24 @@ int32_t dpage_GC(){
         p_table = c_table->p_table;
 
         if(p_table){ // cache hit
-            if(c_table->state == DIRTY && p_table[P_IDX].ppa != d_sram[i].origin_ppa){
+            if(c_table->state == DIRTY && p_table[P_IDX] != d_sram[i].origin_ppa){
                 d_sram[i].origin_ppa = -1; // if not same as origin, it mean this is actually invalid data
                 continue;
             }
-            else{ // but CLEAN state couldn't have this case, so just change ppa
-                p_table[P_IDX].ppa = new_block + real_valid;
+            else{ // but flag 0 couldn't have this case, so just change ppa
+                p_table[P_IDX] = new_block + real_valid;
                 real_valid++;
                 if(c_table->state == CLEAN){
                     c_table->state = DIRTY;
                     BM_InvalidatePage(bm, t_ppa);
 #if C_CACHE
-                    if (num_caching == num_max_cache) {
+                    /*if (num_caching == num_max_cache) {
                         bool gc_flag, d_flag;
-                        demand_eviction(NULL, 'D', &gc_flag, &d_flag);
+                        demand_eviction(NULL, 'D', &gc_flag, &d_flag, NULL);
                     }
 
                     c_table->queue_ptr = lru_push(lru, (void *)c_table);
-                    num_caching++;
+                    num_caching++; */
 #endif
                 }
             }
@@ -235,7 +237,7 @@ int32_t dpage_GC(){
             free(temp_req);
             inf_free_valueset(temp_value_set, FS_MALLOC_R);
         }
-        temp_table[P_IDX].ppa = new_block + real_valid;
+        temp_table[P_IDX] = new_block + real_valid;
         real_valid++;
         if(i != valid_num -1){ // check for flush changed t_page.
             if(tce != d_sram[i + 1].OOB_RAM.lpa/EPP && tce != INT32_MAX){
@@ -282,7 +284,6 @@ int32_t dpage_GC(){
     __demand.li->trim_block(old_block, false);
 
 	printf(" - %d\n", real_valid);
-
     return new_block + real_valid;
 }
 

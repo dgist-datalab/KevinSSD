@@ -95,7 +95,7 @@ void *l_main(void *__input){
 	return NULL;
 }
 
-void *posix_make_push(KEYT PPA, uint32_t size, value_set* value, bool async, algo_req *const req){
+void *posix_make_push(uint32_t PPA, uint32_t size, value_set* value, bool async, algo_req *const req){
 	bool flag=false;
 	posix_request *p_req=(posix_request*)malloc(sizeof(posix_request));
 	p_req->type=FS_LOWER_W;
@@ -115,7 +115,7 @@ void *posix_make_push(KEYT PPA, uint32_t size, value_set* value, bool async, alg
 	return NULL;
 }
 
-void *posix_make_pull(KEYT PPA, uint32_t size, value_set* value, bool async, algo_req *const req){
+void *posix_make_pull(uint32_t PPA, uint32_t size, value_set* value, bool async, algo_req *const req){
 	bool flag=false;
 	posix_request *p_req=(posix_request*)malloc(sizeof(posix_request));
 	p_req->type=FS_LOWER_R;
@@ -139,7 +139,7 @@ void *posix_make_pull(KEYT PPA, uint32_t size, value_set* value, bool async, alg
 	return NULL;
 }
 
-void *posix_make_trim(KEYT PPA, bool async){
+void *posix_make_trim(uint32_t PPA, bool async){
 	bool flag=false;
 	posix_request *p_req=(posix_request*)malloc(sizeof(posix_request));
 	p_req->type=FS_LOWER_T;
@@ -161,7 +161,7 @@ uint32_t posix_create(lower_info *li){
 	li->NOP=_NOP;
 	li->SOB=BLOCKSIZE*BPS;
 	li->SOP=PAGESIZE;
-	li->SOK=sizeof(KEYT);
+	li->SOK=sizeof(uint32_t);
 	li->PPB=_PPB;
 	li->PPS=_PPS;
 	li->TS=TOTALSIZE;
@@ -230,7 +230,7 @@ static uint8_t convert_type(uint8_t type) {
 	return (type & (0xff));
 }
 
-void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
+void *posix_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	uint8_t test_type;
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
@@ -262,7 +262,7 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	return NULL;
 }
 
-void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
+void *posix_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	uint8_t test_type;
 	if(req->type_lower!=1 && req->type_lower!=0){
 		req->type_lower=0;
@@ -297,7 +297,7 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	return NULL;
 }
 
-void *posix_trim_block(KEYT PPA, bool async){
+void *posix_trim_block(uint32_t PPA, bool async){
 	bench_lower_t(&my_posix);
 	char *temp=(char *)malloc(my_posix.SOB);
 	memset(temp,0,my_posix.SOB);

@@ -124,12 +124,7 @@ void llog_print(llog *b){
 		block* target=(block*)head->data;
 		if(target->erased)
 			ecnt++;
-#ifndef DVALUE
 		printf("[%d]ppa:%d(%d) ppage_idx:%d invalid_n:%d level:%d erased:%d\n",target->ppa/_PPB,target->ppa,target->ppa/BPS/_PPB,target->ppage_idx,target->invalid_n,target->level,target->erased?1:0);
-#else
-		printf("[%d]ppa:%d(%d) ppage_idx:%d invalid_n:%d level:%d erased:%d ldp:%u\n",target->ppa/_PPB,target->ppa,target->ppa/BPS/_PPB,target->ppage_idx,target->invalid_n,target->level,target->erased?1:0,target->ldp);
-
-#endif
 		head=head->next;
 		cnt++;
 		if(cnt>b->size) break;
@@ -155,7 +150,7 @@ int llog_erase_cnt(llog *b){
 	return ecnt;
 }
 
-bool llog_isthere(llog *b,KEYT pba){
+bool llog_isthere(llog *b,uint32_t pba){
 	//printf("size: %d\n",b->size);
 	llog_node *head=b->head;
 	while(head){

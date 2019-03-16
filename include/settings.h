@@ -5,6 +5,7 @@
 #include<stdint.h>
 #include <stdlib.h>
 #include<stdio.h>
+#include <string.h>
 
 /*
 #define free(a) \
@@ -14,11 +15,17 @@
 	}while(0)
 */
 
+#define LOWER_FILE_NAME "./data/simulator.data"
+
 #define K (1024)
 #define M (1024*K)
 #define G (1024*M)
 #define T (1024L*G)
 #define P (1024L*T)
+
+#define PIECE 64
+#define NPCINPAGE (PAGESIZE/PIECE)
+#define MINVALUE 64
 
 #ifdef MLC
 
@@ -31,8 +38,8 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 16L
-#define TOTALSIZE ((GIGAUNIT)*G)
+#define GIGAUNIT 4L
+#define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
 #define PAGESIZE (8*K)
@@ -55,9 +62,43 @@
 #define SIMULATION 0
 
 #define FSTYPE uint8_t
-#define KEYT uint32_t
+#ifdef KVSSD
+#define KEYFORMAT(input) input.len,input.key
+#include<string.h>
+typedef struct str_key{
+	uint8_t len;
+	char *key;
+}str_key;
+
+	#define KEYT str_key
+static inline int KEYCMP(KEYT a,KEYT b){
+	if(!a.len && !b.len) return 0;
+	else if(a.len==0) return -1;
+	else if(b.len==0) return 1;
+
+	int r=memcmp(a.key,b.key,a.len>b.len?b.len:a.len);
+	if(r!=0 || a.len==b.len){
+		return r;
+	}
+	return a.len<b.len?-1:1;
+}
+
+static inline int KEYCONSTCOMP(KEYT a, char *s){
+	int len=strlen(s);
+	if(!a.len && !len) return 0;
+	else if(a.len==0) return -1;
+	else if(len==0) return 1;
+
+	int r=memcmp(a.key,s,a.len>len?len:a.len);
+	if(r!=0 || a.len==len){
+		return r;
+	}
+	return a.len<len?-1:1;
+}
+#else
+	#define KEYT uint32_t
+#endif
 #define BLOCKT uint32_t
-#define OOBT uint64_t
 #define V_PTR char * const
 #define PTR char*
 #define ASYNC 1

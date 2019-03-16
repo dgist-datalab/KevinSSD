@@ -6,14 +6,16 @@
 extern block bl[_NOB];
 extern int32_t SIZEFACTOR;
 extern lsmtree LSM;
-void def_moveTo_fr_page( level* in){
-	if(def_blk_fchk(in)){
-#if DVALUE
-		if(in->now_block!=NULL){
-			block_save(in->now_block);
-		}
+#ifdef KVSSD
+extern KEYT key_min,key_max;
 #endif
-		KEYT blockn=getPPA(DATA,UINT_MAX,true);//get data block
+ppa_t def_moveTo_fr_page( level* in){
+	if(def_blk_fchk(in)){
+#ifdef KVSSD
+		uint32_t blockn=getPPA(DATA,key_max,true);
+#else
+		uint32_t blockn=getPPA(DATA,UINT_MAX,true);//get data block
+#endif
 		in->now_block=&bl[blockn/_PPB];
 		in->now_block->level=in->idx;
 #ifdef LEVELUSINGHEAP
@@ -23,45 +25,54 @@ void def_moveTo_fr_page( level* in){
 		in->now_block->hn_ptr=llog_insert(in->h,(void*)in->now_block);
 	//	printf("header:%p\n",in->h->head);
 #endif
-
+/*
 #ifdef DVALUE
 		block_meta_init(in->now_block);
-
-		in->now_block->ppage_array=(KEYT*)malloc(sizeof(KEYT)*(_PPB*(PAGESIZE/PIECE)));
+		in->now_block->ppage_array=(uint32_t*)malloc(sizeof(uint32_t)*(_PPB*(PAGESIZE/PIECE)));
 		int _idx=in->now_block->ppa*(PAGESIZE/PIECE);
 		for(int i=0; i<_PPB*(PAGESIZE/PIECE); i++){
 			in->now_block->ppage_array[i]=_idx+i;
 		}
+#endif
+ */
 	}
+#ifdef DVALUE
 	else{
-		level_move_next_page(in);
-	}
-#else
+
+		if(in->now_block->idx_of_ppa){
+			in->now_block->idx_of_ppa=0;
+			in->now_block->ppage_idx++;
+		}
 	}
 #endif
+	return in->now_block->ppa+in->now_block->ppage_idx;
 }
 
-KEYT def_get_page( level* in, uint8_t plegnth){
-	KEYT res=0;
+ppa_t def_get_page( level* in, uint8_t plength){
+	ppa_t res=0;
+	if(in->now_block->ppage_idx>255){
+		abort();
+	}
 #ifdef DVALUE
-	res=in->now_block->ppage_array[in->now_block->ppage_idx];
-	in->now_block->length_data[in->now_block->ppage_idx]=plength<<1;
-	in->now_block->ppage_idx+=plength;
+	res=in->now_block->ppa+in->now_block->ppage_idx;
+	res*=NPCINPAGE;
+	res+=in->now_block->idx_of_ppa;
+	in->now_block->idx_of_ppa+=plength;
 #else
 	res=in->now_block->ppa+in->now_block->ppage_idx++;
 #endif
-	/*
-	if(in->now_block->erased){
-		in->now_block->erased=false;
-		data_m.used_blkn++;
-	}*/
+	if(!in->now_block->bitset){
+		printf("fuck!\n");
+		abort();
+	}
 	return res;
 }
 
 bool def_blk_fchk( level *in){
 	bool res=false;
+	
 #ifdef DVALUE
-	if(!in->now_block || in->now_block->ppage_idx>=(_PPB-1)*(PAGESIZE/PIECE)){
+	if(!in->now_block || in->now_block->ppage_idx>=_PPB-1){
 #else
 	if(!in->now_block || in->now_block->ppage_idx==_PPB){
 #endif
@@ -126,4 +137,19 @@ bool def_fchk( level *input){
 	}
 	return false;
 
+}
+
+run_t *def_make_run(KEYT start, KEYT end, uint32_t pbn){
+	run_t * res=(run_t*)calloc(sizeof(run_t),1);
+	res->key=start;
+	res->end=end;
+	res->pbn=pbn;
+	res->run_data=NULL;
+	res->c_entry=NULL;
+	
+	res->wait_idx=0;
+#ifdef BLOOM
+	res->filter=NULL;
+#endif
+	return res;
 }

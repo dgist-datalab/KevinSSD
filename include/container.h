@@ -4,6 +4,7 @@
 #include "settings.h"
 #include "types.h"
 #include "utils.h"
+#include "sem_lock.h"
 #include <stdarg.h>
 #include <pthread.h>
 
@@ -24,35 +25,37 @@ typedef struct value_set{
 	PTR value;
 	uint32_t length;
 	int dmatag; //-1 == not dma_alloc, others== dma_alloc
-	KEYT ppa;
+	uint32_t ppa;
 	char *nocpy;//nocpy buffer for bdbm_drv
 	bool from_app;
 	PTR rmw_value;
 	uint8_t status;
-	KEYT len;
-	KEYT offset;
+	uint32_t len;
+	uint32_t offset;
 }value_set;
 
 struct request {
 	FSTYPE type;
-	KEYT key;/*it can be the iter_idx*/
-	KEYT ppa;
-	KEYT seq;
+	KEYT key;	
+	uint64_t ppa;/*it can be the iter_idx*/
+	uint32_t seq;
 	int num; /*length of requests*/
 	int not_found_cnt;
 	value_set *value;
 	value_set **multi_value;
+	char **app_result;
+
 	KEYT *multi_key;
 	bool (*end_req)(struct request *const);
 	void *(*special_func)(void *);
 	bool (*added_end_req)(struct request *const);
 	bool isAsync;
 	void *p_req;
-	void *(*p_end_req)(void*);
+	void (*p_end_req)(uint32_t,uint32_t,void*);
 	void *params;
 	void *__hash_node;
-	pthread_mutex_t async_mutex;
-
+	//pthread_mutex_t async_mutex;
+	fdriver_lock_t sync_lock;
 	int mark;
 
 /*s:for application req*/
@@ -79,14 +82,13 @@ struct request {
 };
 
 struct algo_req{
-	KEYT ppa;
+	uint64_t ppa;
 	request * parents;
 	MeasureTime latency_lower;
 	uint8_t type;
 	bool rapid;
 	uint8_t type_lower;
 	//0: normal, 1 : no tag, 2: read delay 4:write delay
-
 	void *(*end_req)(struct algo_req *const);
 	void *params;
 };
@@ -94,10 +96,10 @@ struct algo_req{
 struct lower_info {
 	uint32_t (*create)(struct lower_info*);
 	void* (*destroy)(struct lower_info*);
-	void* (*write)(KEYT ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
-	void* (*read)(KEYT ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
-	void* (*device_badblock_checker)(KEYT ppa,uint32_t size,void *(*process)(uint64_t, uint8_t));
-	void* (*trim_block)(KEYT ppa,bool async);
+	void* (*write)(uint32_t ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
+	void* (*read)(uint32_t ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
+	void* (*device_badblock_checker)(uint32_t ppa,uint32_t size,void *(*process)(uint64_t, uint8_t));
+	void* (*trim_block)(uint32_t ppa,bool async);
 	void* (*refresh)(struct lower_info*);
 	void (*stop)();
 	int (*lower_alloc) (int type, char** buf);
@@ -139,9 +141,12 @@ struct algorithm{
 	uint32_t (*remove)(request *const);
 	uint32_t (*iter_create)(request *const);
 	uint32_t (*iter_next)(request *const);
+	uint32_t (*iter_next_with_value)(request *const);
 	uint32_t (*iter_release)(request *const);
-	uint32_t (*multi_set)(request *const,uint32_t num);
-	uint32_t (*range_get)(request *const,uint32_t len);
+	uint32_t (*iter_all_key)(request *const);
+	uint32_t (*iter_all_value)(request *const);
+	uint32_t (*multi_set)(request *const,int num);
+	uint32_t (*multi_get)(request *const,int num);
 	lower_info* li;
 	void *algo_body;
 };

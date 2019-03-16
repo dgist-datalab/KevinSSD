@@ -3,7 +3,6 @@
 algo_req* assign_pseudo_req(TYPE type, value_set *temp_v, request *req){
     algo_req *pseudo_my_req = (algo_req*)malloc(sizeof(algo_req));
     demand_params *params = (demand_params*)malloc(sizeof(demand_params));
-	params->sn = NULL;
     pseudo_my_req->parents = req;
     pseudo_my_req->type    = type;
     params->type = type;
@@ -40,8 +39,11 @@ algo_req* assign_pseudo_req(TYPE type, value_set *temp_v, request *req){
             pseudo_my_req->rapid = false;
             break;
     }
-
-    if(type == TGC_M || type == MAPPING_M){
+#if EVICT_POLL
+    if(type == TGC_M || type == MAPPING_W){
+#else
+    if(type == TGC_M){
+#endif
         dl_sync_init(&params->dftl_mutex, 1);
     }
     pseudo_my_req->type_lower = 0;
@@ -149,7 +151,7 @@ int32_t dp_alloc(){ // Data page allocation
     return ppa++;
 }
 
-value_set* SRAM_load(D_SRAM* d_sram, int32_t ppa, int idx, char t){
+value_set* SRAM_load(D_SRAM* d_sram, int32_t ppa, int idx, char t) {
     value_set *temp_value_set;
     temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
     if(t == 'T'){

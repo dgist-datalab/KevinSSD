@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <linux/fs.h>
 #include<semaphore.h>
 #include <string.h>
@@ -97,7 +98,7 @@ void *poller(void *input) {
 				if(r->res==-22){
 					printf("error! %s %lu %llu\n",strerror(-r->res),r->res2,cb->u.c.offset);
 				}else if(r->res!=PAGESIZE){
-					printf("data size error %d!\n");
+					printf("data size error %d!\n",errno);
 				}
 				else{
 				//	printf("cb->offset:%d cb->nbytes:%d\n",cb->u.c.offset,cb->u.c.nbytes);
@@ -129,7 +130,7 @@ uint32_t aio_create(lower_info *li){
 	li->NOP=_NOP;
 	li->SOB=BLOCKSIZE * BPS;
 	li->SOP=PAGESIZE;
-	li->SOK=sizeof(KEYT);
+	li->SOK=sizeof(uint32_t);
 	li->PPB=_PPB;
 	li->PPS=_PPS;
 	li->TS=TOTALSIZE;
@@ -137,8 +138,13 @@ uint32_t aio_create(lower_info *li){
 	li->all_pages_in_dev=DEVSIZE/PAGESIZE;
 
 	li->write_op=li->read_op=li->trim_op=0;
-	_fd=open("/dev/robusta",O_RDWR|O_DIRECT,0644);
-	//_fd=open64("/media/robusta/data",O_RDWR|O_CREAT|O_DIRECT,0666);
+	//_fd=open(LOWER_FILE_NAME,O_RDWR|O_DIRECT,0644);
+#ifdef __cplusplus
+	_fd=open(LOWER_FILE_NAME,O_RDWR|O_CREAT|O_DIRECT,0666);
+#else
+	_fd=open(LOWER_FILE_NAME,O_RDWR|O_CREAT,0666);
+#endif
+	//_fd=open64(LOWER_FILE_NAME,O_RDWR|O_CREAT|O_DIRECT,0666);
 	if(_fd==-1){
 		printf("file open error!\n");
 		exit(1);
@@ -210,7 +216,7 @@ uint64_t offset_hooker(uint64_t origin_offset, uint8_t req_type){
 	}
 	return res%(aio_info.DEV_SIZE);
 }
-void *aio_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
+void *aio_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	req->ppa = PPA;
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
@@ -248,7 +254,7 @@ void *aio_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_r
 	return NULL;
 }
 
-void *aio_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){	
+void *aio_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,algo_req *const req){	
 	req->ppa = PPA;
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
@@ -283,7 +289,7 @@ void *aio_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_r
 	return NULL;
 }
 
-void *aio_trim_block(KEYT PPA, bool async){
+void *aio_trim_block(uint32_t PPA, bool async){
 	aio_info.req_type_cnt[TRIM]++;
 	uint64_t range[2];
 	//range[0]=PPA*aio_info.SOP;

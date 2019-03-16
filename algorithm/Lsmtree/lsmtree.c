@@ -8,10 +8,10 @@
 #include "../../bench/bench.h"
 #include "./level_target/hash/hash_table.h"
 #include "compaction.h"
+#include "lsmtree_iter.h"
 #include "lsmtree.h"
 #include "page.h"
 #include "nocpy.h"
-#include "factory.h"
 #include<stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -24,14 +24,25 @@
 		free(a);\
 	}while(0)
 */
-extern uint32_t hash_insert_cnt;
+#ifdef KVSSD
+KEYT key_max, key_min;
+#endif
+//extern uint32_t hash_insert_cnt;
 
 struct algorithm algo_lsm={
 	.create=lsm_create,
 	.destroy=lsm_destroy,
-	.get=lsm_get,
-	.set=lsm_set,
-	.remove=lsm_remove
+	.read=lsm_get,
+	.write=lsm_set,
+	.remove=lsm_remove,
+	.iter_create=lsm_iter_create,
+	.iter_next=lsm_iter_next,
+	.iter_next_with_value=lsm_iter_next_with_value,
+	.iter_release=lsm_iter_release,
+	.iter_all_key=lsm_iter_all_key,
+	.iter_all_value=lsm_iter_all_value,
+	.multi_set=lsm_multi_set,
+	.multi_get=lsm_multi_get,
 };
 extern OOBT *oob;
 lsmtree LSM;
@@ -41,7 +52,6 @@ uint64_t caching_size;
 
 MeasureTime __get_mt;
 MeasureTime __get_mt2;
-MeasureTime level_get_time[10];
 #ifdef USINGSLAB
 //struct slab_chain snode_slab;
 //extern size_t slab_pagesize;
@@ -59,15 +69,16 @@ void lsm_debug_print(){
 	printf("\n");
 }
 extern level_ops h_ops;
+extern level_ops a_ops;
 void lsm_bind_ops(lsmtree *l){
-	l->lop=&h_ops;
+	l->lop=&a_ops;
 	l->ORGHEADER=l->KEYNUM=l->lop->get_max_table_entry();
 #if (LEVELN!=1)
 	l->FLUSHNUM=l->lop->get_max_flush_entry(FULLMAPNUM);
 #else
 	l->FLUSHNUM=FULLMAPNUM;
 #endif
-	l->inplace_compaction=true;
+	l->inplace_compaction=false;
 }
 uint32_t __lsm_get(request *const);
 static int32_t get_sizefactor(uint64_t as){
@@ -80,7 +91,7 @@ static int32_t get_sizefactor(uint64_t as){
 	res=caching_size;
 	//res=_f?ceil(pow(10,((log10(as/PAGESIZE/LSM.FLUSHNUM-caching_size)))/(_f-1))):as/PAGESIZE/LSM.FLUSHNUM;
 #else
-	double temp_res=pow(10,log10(as/PAGESIZE/LSM.FLUSHNUM)/(_f));
+	//double temp_res=pow(10,log10(as/PAGESIZE/LSM.FLUSHNUM)/(_f));
 	res=_f?ceil(pow(10,log10(as/PAGESIZE/LSM.FLUSHNUM)/(_f))):as/PAGESIZE/LSM.FLUSHNUM;
 #endif
 	return res;
@@ -95,6 +106,15 @@ uint32_t lsm_create(lower_info *li, algorithm *lsm){
 }
 
 uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
+#ifdef KVSSD
+	key_max.key=(char*)malloc(sizeof(char)*MAXKEYSIZE);
+	key_max.len=MAXKEYSIZE;
+	memset(key_max.key,-1,sizeof(char)*MAXKEYSIZE);
+
+	key_min.key=(char*)malloc(sizeof(char)*MAXKEYSIZE);
+	key_min.len=MAXKEYSIZE;
+	memset(key_min.key,0,sizeof(char)*MAXKEYSIZE);
+#endif
 #ifdef USINGSLAB
 	//slab_pagesize=(size_t)sysconf(_SC_PAGESIZE);
 	//slab_init(&snode_slab,sizeof(snode));
@@ -102,9 +122,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 #endif
 	measure_init(&__get_mt);
 	measure_init(&__get_mt2);
-	for(int i=0; i<10; i++){
-		measure_init(&level_get_time[i]);
-	}
+
 	lsm_bind_ops(&LSM);
 	LSM.memtable=skiplist_init();
 	SIZEFACTOR=get_sizefactor(TOTALSIZE);
@@ -179,9 +197,6 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 		pthread_mutex_init(&LSM.level_lock[i],NULL);
 	}
 	compaction_init();
-#ifdef DVALUE
-	factory_init();
-#endif
 	q_init(&LSM.re_q,RQSIZE);
 
 
@@ -193,20 +208,20 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	nocpy_init();
 #endif
 	//measure_init(&__get_mt);
+	for(uint32_t i=0; i<sizeof(LSM.timers)/sizeof(MeasureTime); i++){
+		measure_init(&LSM.timers[i]);
+	}
 	return 0;
 }
 
 
 extern uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
+extern uint32_t all_kn_run,run_num;
 void lsm_destroy(lower_info *li, algorithm *lsm){
 	//LSM.lop->all_print();
 	lsm_debug_print();
 	compaction_free();
-#ifdef DVALUE
-	factory_free();
-#endif
 
-	cache_free(LSM.lsm_cache);
 	printf("last summary-----\n");
 	for(int i=0; i<LEVELN; i++){
 		LSM.lop->release(LSM.disk[i]);
@@ -214,6 +229,8 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	skiplist_free(LSM.memtable);
 	if(LSM.temptable)
 		skiplist_free(LSM.temptable);
+
+	cache_free(LSM.lsm_cache);
 	printf("data gc: %d\n",data_gc_cnt);
 	printf("header gc: %d\n",header_gc_cnt);
 	printf("block gc: %d\n",block_gc_cnt);
@@ -222,32 +239,34 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 #ifdef NOCPY
 	nocpy_free();
 #endif
-	for(int i=0; i<10; i++){
-		measure_adding_print(&level_get_time[i]);
-	}
-	printf("---------------------------hash_insert_cnt: %u\n",hash_insert_cnt);
+
+	//printf("---------------------------hash_insert_cnt: %u\n",hash_insert_cnt);
 	//SLAB_DUMP(snode_slab)
+
+	printf("avg kn run:%u\n",all_kn_run/run_num);
+		
+
+	for(uint32_t i=0; i<sizeof(LSM.timers)/sizeof(MeasureTime); i++){
+		printf("[%d]",i);
+		measure_adding_print(&LSM.timers[i]);
+	}
 }
 
 extern pthread_mutex_t compaction_wait,gc_wait;
 extern int epc_check,gc_read_wait;
 extern int memcpy_cnt;
 volatile int comp_target_get_cnt=0,gc_target_get_cnt;
-extern pthread_cond_t factory_cond;
 void* lsm_end_req(algo_req* const req){
 	lsm_params *params=(lsm_params*)req->params;
 	request* parents=req->parents;
 	bool havetofree=true;
 	void *req_temp_params=NULL;
-#ifndef NOCPY
+#if !defined(NOCPY)||defined(KVSSD)
 	PTR target=NULL;
 #endif
 	htable **header=NULL;
 	htable *table=NULL;
 	//htable mapinfo;
-#ifdef DVALUE
-	block *bl=NULL;
-#endif
 	switch(params->lsm_type){
 		case OLDDATA:
 			//do nothing
@@ -304,7 +323,11 @@ void* lsm_end_req(algo_req* const req){
 			   if(params->lsm_type==GCHR)
 			   nocpy_copy_to((char*)target,params->ppa);
 			 */
-			//nothing to do
+			//nothing to doa
+#ifdef KVSSD
+			target=(PTR)params->target;
+			memcpy(target,params->value->value,PAGESIZE);
+#endif
 #else
 			target=(PTR)params->target;//gc has malloc in gc function
 			memcpy(target,params->value->value,PAGESIZE);
@@ -331,40 +354,10 @@ void* lsm_end_req(algo_req* const req){
 			}
 			parents->type_lower=req->type_lower;
 			free(req_temp_params);
-#ifdef DVALUE
-			if(!PBITFULL(parents->value->ppa,false)){//small data
-
-				pthread_mutex_lock(&LSM.valueset_lock);
-				if(!LSM.caching_value){
-					LSM.caching_value=(PTR)malloc(PAGESIZE);
-				}
-				memcpy(LSM.caching_value,parents->value->value,PAGESIZE);
-				pthread_mutex_unlock(&LSM.valueset_lock);
-				params->lsm_type=SDATAR;
-				ftry_assign(req); //return by factory thread
-				return NULL;
-			}
-#endif
 			break;
 		case DATAW:
 			inf_free_valueset(params->value,FS_MALLOC_W);
 			break;
-#ifdef DVALUE
-		case BLOCKW:
-			bl=(block*)params->htable_ptr;
-			free(bl->length_data);
-			bl->length_data=NULL;
-			inf_free_valueset(params->value,FS_MALLOC_W);
-			break;
-		case BLOCKR:
-			bl=(block*)params->htable_ptr;
-			memcpy(bl->length_data,params->value->value,PAGESIZE);
-			inf_free_valueset(params->value,FS_MALLOC_R);
-			bl->isflying=false;
-
-			pthread_mutex_unlock(&bl->lock);
-			break;
-#endif
 		default:
 			break;
 	}
@@ -384,8 +377,9 @@ uint32_t lsm_set(request * const req){
 	printf("lsm_set!\n");
 	printf("key : %u\n",req->key);//for debug
 #endif
-
-	compaction_check();
+	//printf("set:%*.s\n",KEYFORMAT(req->key));
+//	printf("set:%s\n",req->key.key);
+	compaction_check(req->key);
 	MS(&__get_mt2);
 	if(req->type==FS_DELETE_T){
 		skiplist_insert(LSM.memtable,req->key,req->value,false);
@@ -402,15 +396,49 @@ uint32_t lsm_set(request * const req){
 	req->end_req(req); //end write
 
 	//MA(&__get_mt);
+	/*
 	if(LSM.memtable->size==LSM.KEYNUM)
 		return 1;
-	else
-		return 0;
+	else*/
+	return 0;
 }
 int nor;
 MeasureTime lsm_mt;
-uint32_t lsm_get(request *const req){
+uint32_t lsm_proc_re_q(){
 	void *re_q;
+	int res_type;
+	while(1){
+		if((re_q=q_dequeue(LSM.re_q))){
+			request *tmp_req=(request*)re_q;
+			bench_algo_start(tmp_req);
+			switch(tmp_req->type){
+				case FS_GET_T:
+					MS(&LSM.timers[6]);
+					res_type=__lsm_get(tmp_req);
+					MA(&LSM.timers[6]);
+					break;
+				case FS_RANGEGET_T:
+					//res_type=__lsm_range_get(tmp_req);
+					break;
+			}
+			if(res_type==0){
+				tmp_req->type=FS_NOTFOUND_T;
+				tmp_req->end_req(tmp_req);
+				//tmp_req->type=tmp_req->type==FS_GET_T?FS_NOTFOUND_T:tmp_req->type;
+#ifdef KVSSD
+				printf("not found seq: %d, key:%.*s\n",nor++,KEYFORMAT(tmp_req->key));
+#else
+				printf("not found seq: %d, key:%u\n",nor++,tmp_req->key);
+#endif
+			}
+		}
+		else 
+			break;
+	}
+	return 1;
+}
+
+uint32_t lsm_get(request *const req){
 	static bool temp=false;
 	static bool level_show=false;
 	static bool debug=false;
@@ -420,62 +448,64 @@ uint32_t lsm_get(request *const req){
 		measure_init(&lsm_mt);
 		//		cache_print(LSM.lsm_cache);
 	}
-
-	//printf("seq: %d, key:%u\n",nor++,req->key);
-	while(1){
-		if((re_q=q_dequeue(LSM.re_q))){
-			request *tmp_req=(request*)re_q;
-			bench_algo_start(tmp_req);
-			res_type=__lsm_get(tmp_req);
-			if(res_type==0){
-				//printf("from req not found seq: %d, key:%u\n",nor++,req->key);
-				//			LSM.lop->all_print();
-				tmp_req->type=tmp_req->type==FS_GET_T?FS_NOTFOUND_T:tmp_req->type;
-				tmp_req->end_req(tmp_req);
-				//	abort();
-			}
-		}
-		else 
-			break;
-	}
+	lsm_proc_re_q();
 	if(!temp){
-		//		LSM.lop->all_print();
+		LSM.lop->all_print();
 		temp=true;
 	}
 	bench_algo_start(req);
+	MS(&LSM.timers[6]);
 	res_type=__lsm_get(req);
+	MA(&LSM.timers[6]);
 	if(!debug && LSM.disk[0]->n_num>0){
 		debug=true;
 	}
 	if(unlikely(res_type==0)){
-		//printf("not found seq: %d, key:%u\n",nor++,req->key);
-		//		LSM.lop->all_print();
+		
+#ifdef KVSSD
+		printf("not found seq: %d, key:%.*s\n",nor++,KEYFORMAT(req->key));
+#else
+		printf("not found seq: %d, key:%u\n",nor++,req->key);
+#endif
+	
+		//LSM.lop->all_print();
 		req->type=req->type==FS_GET_T?FS_NOTFOUND_T:req->type;
 		req->end_req(req);
-		//abort();
+	//sleep(1);
+	//abort();
 	}
 	return res_type;
 }
 
-algo_req* lsm_get_req_factory(request *parents){
+algo_req* lsm_get_req_factory(request *parents, uint8_t type){
 	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-	params->lsm_type=DATAR;
+	params->lsm_type=type;
 	lsm_req->params=params;
 	lsm_req->parents=parents;
 	dl_sync_init(&params->lock,1);
-	lsm_req->end_req=lsm_end_req;
+
+	if(parents->type==FS_MGET_T && type==DATAR){//data read in FS_MGET_T type
+		lsm_req->end_req=lsm_mget_end_req;
+	}else{
+		lsm_req->end_req=lsm_end_req;
+	}
 	lsm_req->type_lower=0;
 	lsm_req->rapid=true;
-	lsm_req->type=DATAR;
+	lsm_req->type=type;
 	return lsm_req;
+}
+algo_req *lsm_get_empty_algoreq(request *parents){
+	algo_req *res=(algo_req *)calloc(sizeof(algo_req),1);
+	res->parents=parents;
+	return res;
 }
 int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 	int res=0;
 	if(!entry && !table && !list){
 		return 0;
 	}
-	KEYT ppa;
+	uint32_t ppa;
 	algo_req *lsm_req=NULL;
 	snode *target_node;
 	keyset *target_set;
@@ -484,13 +514,18 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 		if(!target_node) return 0;
 		bench_cache_hit(req->mark);
 		if(target_node->value){
-			memcpy(req->value->value,target_node->value->value,PAGESIZE);
+		//	memcpy(req->value->value,target_node->value->value,PAGESIZE);
 			bench_algo_end(req);
-			req->end_req(req);
+			if(req->type==FS_MGET_T){
+				lsm_mget_end_req(lsm_get_empty_algoreq(req));						
+			}
+			else{
+				req->end_req(req);
+			}
 			return 2;
 		}
 		else{
-			lsm_req=lsm_get_req_factory(req);
+			lsm_req=lsm_get_req_factory(req,DATAR);
 			req->value->ppa=target_node->ppa;
 			ppa=target_node->ppa;
 			res=4;
@@ -500,7 +535,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 	if(entry && !table){ //tempent check
 		target_set=LSM.lop->find_keyset((char*)entry->cpt_data->sets,req->key);
 		if(target_set){
-			lsm_req=lsm_get_req_factory(req);
+			lsm_req=lsm_get_req_factory(req,DATAR);
 			bench_cache_hit(req->mark);	
 			req->value->ppa=target_set->ppa;
 			ppa=target_set->ppa;
@@ -520,7 +555,9 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 			if(entry && !entry->cache_data && cache_insertable(LSM.lsm_cache)){
 #ifdef NOCPY
 				entry->cache_data=htable_dummy_assign();
-				entry->cache_data->nocpy_table=nocpy_pick(entry->pbn);
+				char *src=nocpy_pick(entry->pbn);
+				entry->cache_data->nocpy_table=(char*)malloc(PAGESIZE);
+				memcpy(entry->cache_data->nocpy_table,src,PAGESIZE);
 #else
 				htable temp; temp.sets=table;
 				entry->cache_data=htable_copy(&temp);
@@ -529,7 +566,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 				entry->c_entry=c_entry;
 			}
 
-			lsm_req=lsm_get_req_factory(req);
+			lsm_req=lsm_get_req_factory(req,DATAR);
 			req->value->ppa=target_set->ppa;
 			ppa=target_set->ppa;
 			res=4;
@@ -550,9 +587,13 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 				int *temp_params=(int*)temp_req->params;
 				temp_params[3]++;
 				if(new_target_set){
-					new_lsm_req=lsm_get_req_factory(temp_req);
+					new_lsm_req=lsm_get_req_factory(temp_req,DATAR);
 					temp_req->value->ppa=new_target_set->ppa;
-					LSM.li->pull_data(temp_req->value->ppa,PAGESIZE,temp_req->value,ASYNC,new_lsm_req);
+#ifdef DVALUE
+					LSM.li->read(temp_req->value->ppa/NPCINPAGE,PAGESIZE,temp_req->value,ASYNC,new_lsm_req);
+#else
+					LSM.li->read(temp_req->value->ppa,PAGESIZE,temp_req->value,ASYNC,new_lsm_req);
+#endif
 				}
 				else{
 					while(1){
@@ -584,39 +625,37 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 	}
 
 	if(likely(lsm_req)){
-
 #ifdef DVALUE
-		LSM.li->pull_data(ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+		LSM.li->read(ppa/(NPCINPAGE),PAGESIZE,req->value,ASYNC,lsm_req);
 #else
 		//printf("get ppa:%u\n",ppa);
-		LSM.li->pull_data(ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+		LSM.li->read(ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 #endif
 	}
 	return res;
 }
-void dummy_htable_read(KEYT pbn,request *req){
-	algo_req *lsm_req=lsm_get_req_factory(req);
+void dummy_htable_read(uint32_t pbn,request *req){
+	algo_req *lsm_req=lsm_get_req_factory(req,DATAR);
 	lsm_params *params=(lsm_params*)lsm_req->params;
 	lsm_req->type=HEADERR;
 	params->lsm_type=HEADERR;
 	params->ppa=pbn;
-	LSM.li->pull_data(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+#ifdef DAVLUE
+	LSM.li->read(params->ppa/NPCINPAGE,PAGESIZE,req->value,ASYNC,lsm_req);
+#else
+	LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+#endif
 }
 uint32_t __lsm_get(request *const req){
 	int level;
 	int run;
 	int round;
 	int res;
+	int mark=req->mark;
 	htable mapinfo;
-//	printf("get\n");
 	run_t** entries;
 	run_t *entry;
-	bool comback_req=false;
-	/*
-	   uint32_t nc=hash_all_cached_entries();
-	   if(LSM.lsm_cache->max_size < nc-1){
-	   printf("[lsmtree :%d] over cached! %d,%u\n",__LINE__,LSM.lsm_cache->max_size,nc);
-	   }*/
+//	printf("[%d]%.*s\n",cnt++,KEYFORMAT(req->key));
 	if(req->params==NULL){
 		/*memtable*/
 		res=__lsm_get_sub(req,NULL,NULL,LSM.memtable);
@@ -654,7 +693,6 @@ uint32_t __lsm_get(request *const req){
 #else
 		mapinfo.sets=(keyset*)req->value->value;
 #endif
-
 		_entry=LSM.lop->find_run(LSM.disk[level],req->key);
 
 		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
@@ -670,12 +708,10 @@ uint32_t __lsm_get(request *const req){
 #ifndef FLASHCHCK
 		run+=1;
 #endif
-		comback_req=true;
 	}
 
 retry:
 	for(int i=level; i<LEVELN; i++){
-#ifdef LEVELCACHING
 		if(LEVELCACHING && i<LEVELCACHING){
 			/*
 			   static int log_cnt=0;
@@ -688,19 +724,18 @@ retry:
 			keyset *find=LSM.lop->cache_find(LSM.disk[i],req->key);
 			pthread_mutex_unlock(&LSM.level_lock[i]);
 			if(find){
-				algo_req *lsm_req=lsm_get_req_factory(req);
+				algo_req *lsm_req=lsm_get_req_factory(req,DATAR);
 				req->value->ppa=find->ppa;
 #ifdef DVALUE
-				LSM.li->pull_data(find->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
+				LSM.li->read(find->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
 #else
-				LSM.li->pull_data(find->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+				LSM.li->read(find->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 #endif
 				res=1;
 			}
 			if(res){ return res;}
 			else continue;
 		}
-#endif
 		pthread_mutex_lock(&LSM.level_lock[i]);
 		entries=LSM.lop->find_run(LSM.disk[i],req->key);
 		pthread_mutex_unlock(&LSM.level_lock[i]);
@@ -726,7 +761,7 @@ retry:
 				if(res){
 					//	static int cnt=0;
 					//	printf("cache_hit:%d\n",cnt++);
-					bench_cache_hit(req->mark);
+					bench_cache_hit(mark);
 					cache_update(LSM.lsm_cache,entry);
 					free(entries);
 					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
@@ -749,19 +784,18 @@ retry:
 			}
 #endif
 
-			algo_req *lsm_req=lsm_get_req_factory(req);
+			algo_req *lsm_req=lsm_get_req_factory(req,HEADERR);
 			lsm_params* params=(lsm_params*)lsm_req->params;
-			lsm_req->type=HEADERR;
-			params->lsm_type=HEADERR;
 			params->ppa=entry->pbn;
-
+	//		lsm_req->type=HEADERR;
+	//		params->lsm_type=HEADERR;
 
 			if(entry->isflying==1){
 				entry->waitreq[entry->wait_idx++]=req;
 				return 3;
 			}
 			else{
-				static int overlap_cnt=0;
+				//static int overlap_cnt=0;
 				//printf("[%d]overlap :%p\n",overlap_cnt++,entry);
 				entry->isflying=1;
 				memset(entry->waitreq,0,sizeof(entry->waitreq));
@@ -774,10 +808,10 @@ retry:
 #ifdef NOCPY
 			req->value->nocpy=nocpy_pick(params->ppa);
 #endif
-			LSM.li->pull_data(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+
+			/*using normal ppa when read header */
+			LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 			__header_read_cnt++;
-
-
 
 			free(entries);
 			bench_algo_end(req);
@@ -785,9 +819,9 @@ retry:
 		}
 
 		if(temp_data[3]){//bypass
-			run=0;
 			temp_data[3]=0;
 		}
+		run=0;
 		free(entries);
 	}
 	bench_algo_end(req);
@@ -826,8 +860,8 @@ void htable_free(htable *input){
 		inf_free_valueset(input->origin,input->t_b);
 	}else{
 		free(input->sets);
-		free(input);
 	}
+	free(input);
 }
 
 htable *htable_copy(htable *input){
@@ -850,11 +884,13 @@ htable *htable_dummy_assign(){
 	res->origin=NULL;
 	return res;
 }
-void htable_print(htable * input,KEYT ppa){
+void htable_print(htable * input,ppa_t ppa){
 	bool check=false;
 	int cnt=0;
 	for(uint32_t i=0; i<FULLMAPNUM; i++){
-		if(input->sets[i].lpa>RANGE && input->sets[i].lpa!=UINT_MAX){
+#ifndef KVSSD
+		if(input->sets[i].lpa>RANGE && input->sets[i].lpa!=UINT_MAX)
+		{
 			printf("bad reading %u\n",input->sets[i].lpa);
 			cnt++;
 			check=true;
@@ -863,14 +899,15 @@ void htable_print(htable * input,KEYT ppa){
 			continue;
 		}
 		printf("[%d] %u %u\n",i, input->sets[i].lpa, input->sets[i].ppa);
+#endif
 	}
 	if(check){
-		printf("bad page at %d cnt:%d---------\n",ppa,cnt);
+		printf("bad page at %ld cnt:%d---------\n",ppa,cnt);
 		abort();
 	}
 }
 extern block bl[_NOB];
-void htable_check(htable *in, KEYT lpa, KEYT ppa,char *log){
+void htable_check(htable *in, KEYT lpa, ppa_t ppa,char *log){
 	keyset *target=NULL;
 #ifdef NOCPY
 	if(in->nocpy_table){
@@ -881,7 +918,7 @@ void htable_check(htable *in, KEYT lpa, KEYT ppa,char *log){
 		//	printf("no table\n");
 		return;
 	}
-
+#ifndef KVSSD
 	for(int i=0; i<1024; i++){
 		if(target[i].lpa==lpa || target[i].ppa==ppa){
 			if(log){
@@ -894,5 +931,6 @@ void htable_check(htable *in, KEYT lpa, KEYT ppa,char *log){
 			//printf("%u %u\n",target[i].lpa, target[i].ppa);
 		}
 	}
+#endif
 }
 

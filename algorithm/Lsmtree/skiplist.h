@@ -14,16 +14,30 @@
 			node!=skip->header;\
 			node=node->list[1])
 
+#define for_each_sk_from(node,from,skip)\
+	for(node=from;\
+			node!=skip->header;\
+			node=node->list[1])
+
 #ifdef Lsmtree
 struct level;
 typedef struct htable htable;
+#define GETFOOTER(a) (footer*)&((a)[PAGESIZE-sizeof(footer)])
+
+typedef struct footer{
+	uint8_t map[PAGESIZE/PIECE];
+}footer;
 #endif
 typedef struct snode{ //skiplist's node
+	ppa_t ppa;
 	KEYT key;
-	KEYT ppa;
-	KEYT level;
+	uint32_t level;
 	value_set* value;
 	bool isvalid;
+
+#ifdef hash_dftl
+	int32_t hash_key;
+#endif
 
 	// ++ ctoc
 	bool bypass;
@@ -36,7 +50,7 @@ typedef struct snode{ //skiplist's node
 
 #ifdef Lsmtree
 typedef struct length_bucket{
-	snode *bucket[PAGESIZE/PIECE+1][1024];
+	snode *bucket[PAGESIZE/PIECE+1][2048];
 	uint16_t idx[PAGESIZE/PIECE+1];
 	value_set** contents;
 	int contents_num;
@@ -46,6 +60,9 @@ typedef struct length_bucket{
 typedef struct skiplist{
 	uint8_t level;
 	uint64_t size;
+#if defined(KVSSD)
+	uint32_t all_length;
+#endif
 	KEYT start;
 	KEYT end;
 	snode *header;
@@ -60,16 +77,19 @@ typedef struct{
 skiplist *skiplist_init(); //return initialized skiplist*
 skiplist *skiplist_copy(skiplist* input);
 snode *skiplist_find(skiplist*,KEYT); //find snode having key in skiplist, return NULL:no snode
+snode *skiplist_find_lowerbound(skiplist *,KEYT );
 snode *skiplist_range_search(skiplist *,KEYT);
 snode *skiplist_strict_range_search(skiplist *,KEYT);
 snode *skiplist_insert(skiplist*,KEYT,value_set *,bool); //insert skiplist, return inserted snode
+snode *skiplist_insert_iter(skiplist *,KEYT lpa, ppa_t ppa);
 #ifdef Lsmtree
 skiplist *skiplist_merge(skiplist *src,skiplist *des);
-snode *skiplist_insert_wP(skiplist*,KEYT,KEYT,bool);//with ppa;
-snode *skiplist_insert_existIgnore(skiplist *, KEYT,KEYT,bool); //insert skiplist, if key exists, input data be ignored
+snode *skiplist_insert_wP(skiplist*,KEYT,ppa_t,bool);//with ppa;
+snode *skiplist_insert_existIgnore(skiplist *, KEYT,ppa_t,bool); //insert skiplist, if key exists, input data be ignored
 value_set **skiplist_make_valueset(skiplist*,struct level *from);
-skiplist *skiplist_cut(skiplist*,KEYT size,KEYT limit, htable *,float fpr);
+skiplist *skiplist_cut(skiplist*,uint32_t size,KEYT limit, htable *,float fpr);
 snode *skiplist_general_insert(skiplist*,KEYT,void *,void (*overlap)(void*));
+snode *skiplist_pop(skiplist *);
 #endif
 snode *skiplist_at(skiplist *,int idx);
 int skiplist_delete(skiplist*,KEYT); //delete by key, return 0:normal -1:empty -2:no key
@@ -77,7 +97,7 @@ void skiplist_free(skiplist *list);  //free skiplist
 void skiplist_clear(skiplist *list); //clear all snode in skiplist and  reinit skiplist
 sk_iter* skiplist_get_iterator(skiplist *list); //get read only iterator
 snode *skiplist_get_next(sk_iter* iter); //get next snode by iterator
-#ifdef DVALUE
+#if defined(Lsmtree) && defined(DVALUE)
 int bucket_page_cnt(l_bucket *);
 #endif
 void skiplist_save(skiplist *);

@@ -13,7 +13,7 @@ void nocpy_init(){
 	printf("------------# of copy%d\n",(HEADERSEG+1)*_PPS);
 }
 
-void nocpy_free_page(KEYT ppa){
+void nocpy_free_page(uint32_t ppa){
 	free(page[ppa]);
 	static int cnt=0;
 	if(ppa==16384){
@@ -26,7 +26,7 @@ void nocpy_free_page(KEYT ppa){
 	page[ppa]=NULL;
 }
 
-void nocpy_free_block(KEYT ppa){
+void nocpy_free_block(uint32_t ppa){
 	for(uint32_t i=ppa; i<ppa+_PPS; i++){
 		if(!page[i]) continue;
 		if(i==16384 && page[i]){
@@ -37,7 +37,7 @@ void nocpy_free_block(KEYT ppa){
 	}
 }
 
-void nocpy_copy_to(char *des, KEYT ppa){
+void nocpy_copy_to(char *des, uint32_t ppa){
 	//if(page[ppa]==NULL) page[ppa]=(keyset*)malloc(PAGESIZE);
 	memcpy(des,page[ppa],PAGESIZE);
 }
@@ -50,14 +50,14 @@ void nocpy_free(){
 	free(page);
 }
 
-void nocpy_copy_from_change(char *des, KEYT ppa){
+void nocpy_copy_from_change(char *des, uint32_t ppa){
 	if(page[ppa]){
 		abort();
 		free(page[ppa]);
 		page[ppa]=NULL;
 	}
 
-#if (LEVELN!=1)
+#if (LEVELN!=1) && !defined(KVSSD)
 	if(((keyset*)des)->lpa>1024 || ((keyset*)des)->lpa<=0){
 		abort();
 	}
@@ -73,9 +73,9 @@ void nocpy_copy_from_change(char *des, KEYT ppa){
 	}
 	page[ppa]=(keyset*)des;
 }
-void nocpy_copy_from(char *src, KEYT ppa){
+void nocpy_copy_from(char *src, uint32_t ppa){
 	if(page[ppa]==NULL){
-#if (LEVELN!=1)
+#if (LEVELN!=1) && !defined(KVSSD)
 		if(((keyset*)src)->lpa>1024 || ((keyset*)src)->lpa<=0){
 			abort();
 		}
@@ -90,13 +90,13 @@ void nocpy_copy_from(char *src, KEYT ppa){
 	}
 }
 
-char *nocpy_pick(KEYT ppa){
-#if (LEVELN!=1)
+char *nocpy_pick(uint32_t ppa){
+#if (LEVELN!=1) && !defined(KVSSD)
 	if(page[ppa]->lpa<=0 || page[ppa]->lpa>1024) abort();
 #endif
 	return (char*)page[ppa];
 }
-void nocpy_force_freepage(KEYT ppa){
+void nocpy_force_freepage(uint32_t ppa){
 	page[ppa]=NULL;
 }
 

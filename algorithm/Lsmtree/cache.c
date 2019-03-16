@@ -1,6 +1,7 @@
 #include "lsmtree.h"
 #include "../../include/lsm_settings.h"
 #include "../../include/utils/debug_tools.h"
+#include "../../include/utils/kvssd.h"
 #include "cache.h"
 #include<stdlib.h>
 #include<string.h>
@@ -47,6 +48,7 @@ cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
 	cache_entry *c_ent=(cache_entry*)malloc(sizeof(cache_entry));
 
 	c_ent->entry=ent;
+	ent->cache_data->iscached=2;
 	if(c->bottom==NULL){
 		c->bottom=c_ent;
 		c->top=c_ent;
@@ -72,11 +74,21 @@ bool cache_delete(cache *c, run_t * ent){
 	}
 	//printf("cache delete\n");
 	cache_entry *c_ent=ent->c_entry;
+	/*
+	   will be free at level_free
 	if(ent->cache_data){
 		free(ent->cache_data->sets);
+#ifdef NOCPY
+		
+		if(ent->cache_data->iscached==2){
+			printf("free! %p\n",ent);
+			free(ent->cache_data->nocpy_table);
+		}
+#endif
 		free(ent->cache_data);
 	}
 	ent->cache_data=NULL;
+	*/
 	c->n_size--;
 	free(c_ent);
 	ent->c_entry=NULL;
@@ -189,7 +201,11 @@ void cache_print(cache *c){
 		if(start->entry->c_entry!=start){
 			printf("fuck!!!\n");
 		}
+#ifdef KVSSD
+		printf("[%d]c->endtry->key:%s c->entry->pbn:%lu d:%p\n",print_number++,kvssd_tostring(tent->key),tent->pbn,tent->cache_data);
+#else
 		printf("[%d]c->entry->key:%d c->entry->pbn:%d d:%p\n",print_number++,tent->key,tent->pbn,tent->cache_data);
+#endif
 		start=start->down;
 	}
 }

@@ -30,22 +30,25 @@ lower_info my_posix={
 	.lower_free=NULL,
 	.lower_flying_req_wait=posix_flying_req_wait
 };
+static uint8_t test_type(uint8_t type){
+	uint8_t t_type=0xff>>1;
+	return type&t_type;
+}
 
 uint32_t posix_create(lower_info *li){
 	li->NOB=_NOS;
 	li->NOP=_NOP;
 	li->SOB=BLOCKSIZE * BPS;
 	li->SOP=PAGESIZE;
-	li->SOK=sizeof(KEYT);
+	li->SOK=sizeof(uint32_t);
 	li->PPB=_PPB;
 	li->PPS=_PPS;
 	li->TS=TOTALSIZE;
 
 	li->write_op=li->read_op=li->trim_op=0;
-	_fd=open("data/simulator.data",O_RDWR|O_CREAT|O_TRUNC,0666);
-//	_fd=open("/dev/robusta",O_RDWR|O_DIRECT|O_DIRECT,0666);
+	_fd=open(LOWER_FILE_NAME,O_RDWR|O_CREAT|O_TRUNC,0666);
 	if(_fd==-1){
-		printf("file open error%d!\n",errno);
+		printf("file open errorno:%d!\n",errno);
 		exit(-1);
 	}
 	pthread_mutex_init(&fd_lock,NULL);
@@ -66,17 +69,25 @@ void *posix_destroy(lower_info *li){
 	pthread_mutex_destroy(&my_posix.lower_lock);
 	pthread_mutex_destroy(&fd_lock);
 	close(_fd);
+	for(int i=0; i<LREQ_TYPE_NUM;i++){
+		printf("%s %lu\n",bench_lower_type(i),li->req_type_cnt[i]);
+	}
 	return NULL;
 }
 
-void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
+void *posix_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	/*
 	if(PPA>6500)
 		printf("PPA : %u\n", PPA);
 	*/
+	uint8_t t_type=test_type(req->type);
+	if(t_type < LREQ_TYPE_NUM){
+		my_posix.req_type_cnt[t_type]++;
+	}
+
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
-		exit(1);
+		abort();
 	}
 	bench_lower_w_start(&my_posix);
 	if(req->parents)
@@ -106,14 +117,18 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	return NULL;
 }
 
-void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){	
+void *posix_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,algo_req *const req){	
 	/*
 	if(PPA>6500)
 		printf("PPA : %u\n", PPA);
 	*/
+	uint8_t t_type=test_type(req->type);
+	if(t_type < LREQ_TYPE_NUM){
+		my_posix.req_type_cnt[t_type]++;
+	}
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
-		exit(1);
+		abort();
 	}
 	bench_lower_r_start(&my_posix);
 	if(req->parents)
@@ -127,8 +142,8 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	int res;
 	if(!(res=read(_fd,value->value,size))){
 		printf("%d:read none!\n",res);
+		abort();
 	}
-	//}
 	pthread_mutex_unlock(&fd_lock);
 
 	if(req->parents)
@@ -145,7 +160,7 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	return NULL;
 }
 
-void *posix_trim_block(KEYT PPA, bool async){
+void *posix_trim_block(uint32_t PPA, bool async){
 	bench_lower_t(&my_posix);
 	char *temp=(char *)malloc(my_posix.SOB);
 	memset(temp,0,my_posix.SOB);

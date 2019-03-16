@@ -14,7 +14,12 @@
 #include "../../interface/interface.h"
 #include "../../include/types.h"
 #include "../../include/data_struct/list.h"
+#include "../../include/utils/kvssd.h"
 #ifdef DEBUG
+#endif
+
+#ifdef KVSSD
+extern KEYT key_min, key_max;
 #endif
 /*
 #define free(a) \
@@ -30,6 +35,7 @@ extern block bl[_NOB];
 extern volatile int comp_target_get_cnt;
 volatile int epc_check=0;
 int upper_table=0;
+bool debug_condition;
 compM compactor;
 pthread_mutex_t compaction_wait;
 pthread_mutex_t compaction_flush_wait;
@@ -38,7 +44,6 @@ pthread_cond_t compaction_req_cond;
 volatile int compaction_req_cnt;
 bool compaction_idle;
 volatile int compactino_target_cnt;
-MeasureTime compaction_timer[5];
 #if (LEVELN==1)
 void onelevel_processing(run_t *);
 #endif
@@ -99,9 +104,6 @@ void compaction_heap_setting(level *a, level* b){
 }
 
 bool compaction_init(){
-	for(int i=0; i<5; i++){
-		measure_init(&compaction_timer[i]);
-	}
 	compactor.processors=(compP*)malloc(sizeof(compP)*CTHREAD);
 	memset(compactor.processors,0,sizeof(compP)*CTHREAD);
 
@@ -128,10 +130,6 @@ bool compaction_init(){
 
 
 void compaction_free(){
-	for(int i=0; i<5; i++){
-		uint64_t all_time=compaction_timer[i].adding.tv_sec*1000000+compaction_timer[i].adding.tv_usec;
-		printf("cpt timer:%.2lf\n",(double)all_time/1000000);
-	}
 	compactor.stopflag=true;
 	int *temp;
 	for(int i=0; i<CTHREAD; i++){
@@ -218,10 +216,12 @@ extern master_processor mp;
 bool isflushing;
 run_t *compaction_data_write(skiplist *mem){
 	//for data
+	//printf("data_write\n");
 	isflushing=true;
 	KEYT start=mem->start,end=mem->end;
 	run_t *res=LSM.lop->make_run(start,end,-1);
 	value_set **data_sets=skiplist_make_valueset(mem,LSM.disk[0]);
+	//snode *t;
 	for(int i=0; data_sets[i]!=NULL; i++){	
 		algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 		lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
@@ -233,23 +233,32 @@ run_t *compaction_data_write(skiplist *mem){
 		lsm_req->rapid=true;
 		////while(mp.processors[0].retry_q->size){}
 		lsm_req->type=DATAW;
-#ifdef DVALUE
-		LSM.li->push_data(data_sets[i]->ppa/(PAGESIZE/PIECE),PAGESIZE,params->value,ASYNC,lsm_req);
-#else
-		LSM.li->push_data(data_sets[i]->ppa,PAGESIZE,params->value,ASYNC,lsm_req);
-#endif
+		//data_sets already have profit ppa;
+		/*
+		if(data_sets[i]->ppa==98304){
+			footer *foot=GETFOOTER(data_sets[i]->value);
+			for(int k=0;k<NPCINPAGE; k++){
+				printf("checking %d:%d\n",k,foot->map[k]);
+			}
+		}*/
+		if(params->value->dmatag==-1){
+			abort();
+		}
+		LSM.li->write(data_sets[i]->ppa,PAGESIZE,params->value,ASYNC,lsm_req);
 	}
 	free(data_sets);
-
 	LSM.lop->mem_cvt2table(mem,res); //res's filter and table will be set
-
+//	LSM.lop->header_print((char*)res->cpt_data->sets);
 	isflushing=false;
 	return res;
 }
 
-KEYT compaction_htable_write(htable *input, KEYT lpa){
-	KEYT ppa=getPPA(HEADER,lpa,true);//set ppa;
-
+uint32_t compaction_htable_write(htable *input, KEYT lpa){
+#ifdef KVSSD
+	uint32_t ppa=getPPA(HEADER,key_min,true);
+#else
+	uint32_t ppa=getPPA(HEADER,0,true);//set ppa;
+#endif
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 	areq->parents=NULL;
@@ -262,16 +271,17 @@ KEYT compaction_htable_write(htable *input, KEYT lpa){
 	nocpy_copy_from_change((char*)input->sets,ppa);
 	/*because we will use input->sets (free(input->sets);)*/
 #endif
-	
-	//htable_print(input);
+	//LSM.lop->header_print((char*)input->sets);
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
 	areq->type=HEADERW;
 	params->ppa=ppa;
-	LSM.li->push_data(ppa,PAGESIZE,params->value,ASYNC,areq);
+	
+	LSM.li->write(ppa,PAGESIZE,params->value,ASYNC,areq);
+	//printf("%u\n",ppa);
 	return ppa;
 }
-void dummy_meta_write(KEYT ppa){
+void dummy_meta_write(uint32_t ppa){
 	value_set *temp=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 
@@ -286,7 +296,7 @@ void dummy_meta_write(KEYT ppa){
 	areq->params=(void*)params;
 	areq->type=HEADERW;
 	params->ppa=ppa;
-	LSM.li->push_data(ppa,PAGESIZE,params->value,ASYNC,areq);
+	LSM.li->write(ppa,PAGESIZE,params->value,ASYNC,areq);
 }
 
 bool compaction_force(){
@@ -339,12 +349,17 @@ bool compaction_force_levels(int nol){
 	}
 	return true;
 }
+
 extern pm data_m;
 void *compaction_main(void *input){
 	void *_req;
 	compR*req;
 	compP *_this=NULL;
 	//static int ccnt=0;
+	char thread_name[128]={0};
+	sprintf(thread_name,"%s","compaction_thread");
+	pthread_setname_np(pthread_self(),thread_name);
+
 	for(int i=0; i<CTHREAD; i++){
 		if(pthread_self()==compactor.processors[i].t_id){
 			_this=&compactor.processors[i];
@@ -373,6 +388,7 @@ void *compaction_main(void *input){
 
 		int start_level=0,des_level;
 		req=(compR*)_req;
+
 		if(req->fromL==-1){
 			while(!gc_check(DATA,false)){
 			}
@@ -412,9 +428,14 @@ void *compaction_main(void *input){
 	return NULL;
 }
 
-void compaction_check(){
+void compaction_check(KEYT key){
 	compR *req;
-	if(unlikely(LSM.memtable->size==LSM.FLUSHNUM)){
+#ifdef KVSSD
+	if(unlikely(LSM.memtable->all_length+KEYLEN(key)+sizeof(uint16_t)>PAGESIZE-KEYBITMAP || LSM.memtable->size >= KEYBITMAP/sizeof(uint16_t)))
+#else
+	if(unlikely(LSM.memtable->size==LSM.FLUSHNUM))
+#endif
+	{
 		req=(compR*)malloc(sizeof(compR));
 		req->fromL=-1;
 		req->toL=0;
@@ -449,7 +470,7 @@ void compaction_htable_read(run_t *ent,PTR* value){
 	params->value->nocpy=nocpy_pick(ent->pbn);
 #endif
 	//printf("R %u\n",ent->pbn);
-	LSM.li->pull_data(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
+	LSM.li->read(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
 	return;
 }
 
@@ -458,35 +479,30 @@ run_t* compaction_postprocessing(run_t *target){
 #ifdef NOCPY
 	table=htable_assign(NULL,true);
 	table->sets=(keyset*)malloc(PAGESIZE);
-#if LEVELN==1
+	#if LEVELN==1
 	if(target->cpt_data->nocpy_table)
 		memcpy(table->sets,target->cpt_data->nocpy_table,PAGESIZE);
 	else{
-#endif
+	#endif
 		memcpy(table->sets,target->cpt_data->sets,PAGESIZE);
-#if LEVELN==1
+	#if LEVELN==1
 	}
-#endif
+	#endif
 
 #else
 	table=htable_assign((char*)target->cpt_data->sets,true);
 #endif
-
 	target->pbn=compaction_htable_write(table,target->key);
 	return target;
 }
 
 
-void compaction_subprocessing(skiplist *top,run_t** src, run_t** org, level *des){
+void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
 	compaction_sub_wait();
 #ifdef STREAMCOMP
-	MS(&compaction_timer[0]);
 	LSM.lop->stream_comp_wait();
-	MA(&compaction_timer[0]);
 #else
-	MS(&compaction_timer[0]);
 	LSM.lop->merger(top,src,org,des);
-	MA(&compaction_timer[0]);
 #endif
 	KEYT key,end;
 	run_t* target=NULL;
@@ -496,8 +512,13 @@ void compaction_subprocessing(skiplist *top,run_t** src, run_t** org, level *des
 			LSM.lop->insert(des,target);
 			LSM.lop->release_run(target);
 		}
+		if(target->cpt_data->t_b){
+			printf("can't be\n");
+		}
+		//printf("free %p\n",target->cpt_data->sets);
 		htable_free(target->cpt_data);
 		target->cpt_data=NULL;
+		free(target);
 	}
 	//LSM.lop->print(des);
 }
@@ -548,14 +569,24 @@ skiplist *leveling_preprocessing(level * from, level* to){
 	return res;
 }
 
-
+extern bool gc_debug_flag;
+int level_cnt;
 uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
+	//printf("level_cnt:%d\n",level_cnt);
+	if(level_cnt==1196){
+	//	LSM.lop->all_print();
+	}
 #ifdef COMPACTIONLOG
 	char log[1024];
 #endif
 	skiplist *body;
 	level *target_origin=to;
-	level *target=LSM.lop->init(target_origin->m_num, target_origin->idx,target_origin->fpr,false);
+	level *target;
+	if(to->idx==LEVELN-1 && from->n_num+to->n_num > to->m_num){
+		target=LSM.lop->init(target_origin->m_num*2, target_origin->idx,target_origin->fpr,false);
+	}else{
+		target=LSM.lop->init(target_origin->m_num, target_origin->idx,target_origin->fpr,false);
+	}
 
 	LSM.c_level=target;
 	level *src=NULL;
@@ -576,6 +607,8 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 
 			pthread_mutex_lock(&LSM.entrylock);
 			LSM.lop->release_run(entry);
+			free(entry);
+
 			LSM.tempent=NULL;
 			pthread_mutex_unlock(&LSM.entrylock);
 		}else{
@@ -599,7 +632,6 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 		goto chg_level;
 	}
 #endif
-	
 	if(from==NULL){
 		pthread_mutex_lock(&LSM.templock);
 		LSM.temptable=NULL;
@@ -612,7 +644,12 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 #endif
 			skiplist_free(body);
 			bool target_processed=false;
-			if(entry->key > target_origin->end){
+#ifdef KVSSD
+			if(KEYCMP(entry->key,target_origin->end)>0)
+#else
+			if(entry->key > target_origin->end)
+#endif
+			{
 				target_processed=true;
 				compaction_lev_seq_processing(target_origin,target,target_origin->n_num);
 			}
@@ -625,6 +662,7 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 			pthread_mutex_unlock(&LSM.entrylock);
 			LSM.lop->insert(target,entry);
 			LSM.lop->release_run(entry);
+			free(entry);
 
 			if(!target_processed){
 				compaction_lev_seq_processing(target_origin,target,target_origin->n_num);
@@ -641,7 +679,12 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 			LSM.tempent=NULL;
 			pthread_mutex_unlock(&LSM.entrylock);
 			compaction_heap_setting(target,target_origin);
+#ifdef NOCPY
+			free(entry->cpt_data->sets);
+#endif
+			htable_free(entry->cpt_data);
 			LSM.lop->release_run(entry);
+			free(entry);
 		}
 	}else{
 		src=from;
@@ -652,7 +695,12 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 			DEBUG_LOG(log);
 #endif
 			bool target_processed=false;
-			if(target_origin->start>src->end){
+#ifdef KVSSD
+			if(KEYCMP(target_origin->start,src->end)>0)
+#else
+			if(target_origin->start>src->end)
+#endif
+			{
 				target_processed=true;
 				compaction_lev_seq_processing(src,target,src->n_num);
 			}
@@ -696,9 +744,11 @@ chg_level:
 	(*des_ptr)=target;
 	LSM.lop->release(to);
 	pthread_mutex_unlock(lock);
-	
-	//LSM.lop->all_print();
-	//printf("\n\n");
+	if(gc_debug_flag){
+	//	LSM.lop->all_print();
+	//	printf("\n\n");
+	//	abort();
+	}
 #ifdef DVALUE
 	/*
 	if(from){
@@ -707,6 +757,7 @@ chg_level:
 	}*/
 #endif
 	LSM.c_level=NULL;
+//	printf("level_cnt:%d end\n\n",level_cnt++);
 	return 1;
 }	
 
@@ -754,15 +805,19 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 }
 #endif
 bool flag_value;
+bool debug_flag;
 uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
-	KEYT start=0;
-	KEYT end=0;
+	KEYT start=key_min;
+	KEYT end=key_min;
 	run_t **target_s=NULL;
 	run_t **data=NULL;
 	/*
 	static int cnt=0;
-	printf("partial_leveling:%d\n",cnt++);
-	*/
+	printf("---------partial_leveling:%d\n",cnt++);
+	if(cnt==44){
+		debug_flag=true;
+	}*/
+	//LSM.lop->print(origin);
 	if(!upper){
 #ifndef MONKEY
 		start=skip->start;
@@ -790,7 +845,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 
 	compaction_sub_pre();
 	if(!upper){
-		test_b=LSM.lop->range_find(origin,start,end,&target_s);
+		test_b=LSM.lop->range_find_compaction(origin,start,end,&target_s);
 		if(!(test_a | test_b)){
 			DEBUG_LOG("can't be");
 		}
@@ -806,6 +861,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 #ifdef NOCPY
 				target_s[j]->cpt_data=htable_dummy_assign();
 				target_s[j]->cpt_data->nocpy_table=target_s[j]->cache_data->nocpy_table;
+				target_s[j]->cpt_data->iscached=1;
 #else
 				target_s[j]->cpt_data=htable_copy(target_s[j]->cache_data);
 #endif
@@ -815,6 +871,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 			else{
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 				target_s[j]->cpt_data=htable_assign(NULL,false);
+				target_s[j]->cpt_data->iscached=0;
 				compaction_htable_read(target_s[j],(PTR*)&target_s[j]->cpt_data);
 			}
 			if(!target_s[j]->iscompactioning){
@@ -830,6 +887,11 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 				invalidate_PPA(target_s[j]->pbn);//invalidate_PPA
 			}
 			if(target_s[j]->cpt_data){
+#ifdef NOCPY
+				if(target_s[j]->cpt_data->iscached==1 && !target_s[j]->cache_data){
+					free(target_s[j]->cpt_data->nocpy_table);
+				}
+#endif
 				htable_free(target_s[j]->cpt_data);
 				target_s[j]->cpt_data=NULL;
 			}
@@ -838,7 +900,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 	}
 	else{
 		int src_num, des_num; //for stream compaction
-		des_num=LSM.lop->range_find(origin,start,end,&target_s);//for stream compaction
+		des_num=LSM.lop->range_find_compaction(origin,start,end,&target_s);//for stream compaction
 #ifdef LEVELCACHING
 		if(upper->idx<LEVELCACHING){
 			//for caching more data
@@ -848,11 +910,14 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 		}
 		else{
 #endif
-			src_num=LSM.lop->range_find(upper,start,end,&data);	
+			src_num=LSM.lop->range_find_compaction(upper,start,end,&data);	
 #ifdef LEVELCACHING
 		}
 #endif
-
+		if(src_num && des_num == 0 ){
+			printf("can't be\n");
+			abort();
+		}
 #ifdef STREAMCOMP
 		LSM.lop->stream_merger(NULL,data,target_s,t);
 #endif
@@ -868,6 +933,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 #ifdef NOCPY
 				temp->cpt_data=htable_dummy_assign();
 				temp->cpt_data->nocpy_table=temp->cache_data->nocpy_table;
+				temp->cpt_data->iscached=1;
 #else
 				temp->cpt_data=htable_copy(temp->cache_data);
 #endif
@@ -878,6 +944,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 			else{
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 				temp->cpt_data=htable_assign(NULL,false);
+				temp->cpt_data->iscached=0;
 				compaction_htable_read(temp,(PTR*)&temp->cpt_data);
 			}
 			//htable_check(temp->cpt_data,8499,81665);
@@ -897,6 +964,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 #ifdef NOCPY
 				temp->cpt_data=htable_dummy_assign();
 				temp->cpt_data->nocpy_table=temp->cache_data->nocpy_table;
+				temp->cpt_data->iscached=1;
 #else
 				temp->cpt_data=htable_copy(temp->cache_data);
 #endif
@@ -907,6 +975,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 			else{
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 				temp->cpt_data=htable_assign(NULL,false);
+				temp->cpt_data->iscached=0;
 				compaction_htable_read(temp,(PTR*)&temp->cpt_data);
 			}
 			epc_check++;
@@ -919,6 +988,11 @@ skip:
 
 			if(temp->iscompactioning!=3 && temp->pbn!=UINT_MAX)
 				invalidate_PPA(temp->pbn);
+#ifdef NOCPY
+				if(temp->cpt_data->iscached==1 && !temp->cache_data){
+					free(temp->cpt_data->nocpy_table);
+				}
+#endif
 			htable_free(temp->cpt_data);
 			temp->cpt_data=NULL;
 		}
@@ -929,6 +1003,11 @@ skip:
 
 			if(temp->iscompactioning!=3)
 				invalidate_PPA(temp->pbn);
+#ifdef NOCPY
+				if(temp->cpt_data->iscached==1 && !temp->cache_data){
+					free(temp->cpt_data->nocpy_table);
+				}
+#endif
 			htable_free(temp->cpt_data);
 			temp->cpt_data=NULL;
 		}
@@ -944,7 +1023,7 @@ skip:
 #define MAPNUM(a) (a/FULLMAPNUM)
 #define MAPOFFSET(a) (a%FULLMAPNUM)
 void level_one_header_update(run_t *pre_run){
-	KEYT old_header_pbn=pre_run->pbn;
+	uint32_t old_header_pbn=pre_run->pbn;
 	if(!pre_run->c_entry && pre_run->cpt_data && cache_insertable(LSM.lsm_cache)){
 
 		char *cache_temp;
@@ -987,11 +1066,11 @@ uint32_t level_one_processing(level *from, level *to, run_t *entry, pthread_mute
 
 	snode *node;
 	run_t *table;
-	KEYT pre_map_num=UINT_MAX;
+	uint32_t pre_map_num=UINT_MAX;
 	//printf("compaction_called\n");
 	compaction_sub_pre();
 	for_each_sk(node,body){ //read data
-		KEYT mapnum=MAPNUM(node->key);
+		uint32_t mapnum=MAPNUM(node->key);
 		if(pre_map_num==mapnum) continue;
 		table=&to->mappings[mapnum];
 		if(table->pbn==UINT_MAX) {
@@ -1029,12 +1108,12 @@ uint32_t level_one_processing(level *from, level *to, run_t *entry, pthread_mute
 	compaction_sub_wait(); //read req done
 	
 	pre_map_num=UINT_MAX;
-	KEYT old_header_pbn;
+	uint32_t old_header_pbn;
 	run_t * pre_run=NULL;
 
 	for_each_sk(node,body){
-		KEYT mapnum=MAPNUM(node->key);
-		KEYT offset=MAPOFFSET(node->key);
+		uint32_t mapnum=MAPNUM(node->key);
+		uint32_t offset=MAPOFFSET(node->key);
 		table=&to->mappings[mapnum];
 
 		keyset *map;

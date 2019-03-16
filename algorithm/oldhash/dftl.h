@@ -31,22 +31,24 @@
 #define DGC_R GCDR
 #define DGC_W GCDW
 
-#define EPP (PAGESIZE / 4) //Number of table entries per page
+#define EPP (PAGESIZE / 4)  // Number of table entries per page
 #define D_IDX (lpa / EPP)   // Idx of directory table
 #define P_IDX (lpa % EPP)   // Idx of page table
 
 #define CLEAN 0
 #define DIRTY 1
 
-#define HASH_KEY_INITIAL
-#define HASH_KEY_NOKEY
-#define HASH_KEY_SAMEKEY
-#define HASH_KEY_DIFFERKEY
+#define HASH_KEY_INITIAL 0
+#define HASH_KEY_NONE    1
+#define HASH_KEY_SAME    2
+#define HASH_KEY_DIFF    3
 
 struct hash_params {
-	uint32_t hkey;
+	uint32_t hash;
 	int cnt;
-	int finding;
+	int find;
+
+	uint32_t hash_key;
 };
 
 // Page table data structure
@@ -58,25 +60,18 @@ typedef struct demand_mapping_table{
 typedef struct cached_table{
     int32_t t_ppa;
     int32_t idx;
-    int32_t *p_table;
-    //value_set *p_table_vs;
-    //NODE *queue_ptr; // for dirty pages (or general use)
+    D_TABLE *p_table;
+    NODE *queue_ptr; // for dirty pages (or general use)
 #if C_CACHE
     NODE *clean_ptr; // for clean pages
 #endif
-    bool state;
+    bool state; // CLEAN or DIRTY
     bool flying;
-	bool wflying;
     request **flying_arr;
     int32_t num_waiting;
-	snode **flying_snodes;
-	int32_t num_snode;
 
 	uint32_t read_hit;
 	uint32_t write_hit;
-
-    uint32_t dirty_cnt;
-    bool *dirty_bitmap;
 } C_TABLE;
 
 // OOB data structure
@@ -95,7 +90,6 @@ typedef struct demand_params{
     value_set *value;
     dl_sync dftl_mutex;
     TYPE type;
-	snode *sn;
 } demand_params;
 
 typedef struct read_params{
@@ -104,8 +98,13 @@ typedef struct read_params{
 } read_params;
 
 typedef struct mem_table{
-    int32_t *mem_p;
+    D_TABLE *mem_p;
 } mem_table;
+
+struct prefetch_struct {
+    int32_t ppa;
+    snode *sn;
+};
 
 /* extern variables */
 extern algorithm __demand;
@@ -126,8 +125,8 @@ extern BM_T *bm;
 extern Block *t_reserved;
 extern Block *d_reserved;
 
-extern volatile int32_t trans_gc_poll;
-extern volatile int32_t data_gc_poll;
+volatile extern int32_t trans_gc_poll;
+volatile extern int32_t data_gc_poll;
 
 extern int32_t num_page;
 extern int32_t num_block;
@@ -149,19 +148,16 @@ extern int32_t read_tgc_count;
 extern int32_t tgc_w_dgc_count;
 /* extern variables */
 
-//dftl.c
+// dftl.c
 uint32_t demand_create(lower_info*, algorithm*);
-void demand_destroy(lower_info*, algorithm*);
-void *demand_end_req(algo_req*);
-uint32_t demand_set(request *const);
+void     demand_destroy(lower_info*, algorithm*);
 uint32_t demand_get(request *const);
+uint32_t demand_set(request *const);
 uint32_t demand_remove(request *const);
-uint32_t __demand_set(request *const);
-uint32_t __demand_get(request *const);
-uint32_t __demand_remove(request *const);
-uint32_t demand_eviction(request *const, char, bool*, bool*, snode *);
+uint32_t demand_eviction(request *const, char, bool *, bool *);
+void    *demand_end_req(algo_req*);
 
-//dftl_utils.c
+// dftl_utils.c
 algo_req* assign_pseudo_req(TYPE type, value_set *temp_v, request *req);
 D_TABLE* mem_deq(b_queue *q);
 void mem_enq(b_queue *q, D_TABLE *input);
@@ -173,7 +169,7 @@ value_set* SRAM_load(D_SRAM* d_sram, int32_t ppa, int idx, char t);
 void SRAM_unload(D_SRAM* d_sram, int32_t ppa, int idx, char t);
 void cache_show(char* dest);
 
-//garbage_collection.c
+// garbage_collection.c
 int32_t tpage_GC();
 int32_t dpage_GC();
 
