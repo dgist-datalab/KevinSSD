@@ -156,10 +156,11 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
     /* Cache control & Init */
     //num_max_cache = max_cache_entry; // Full cache
-    num_max_cache = max_cache_entry / 4; // 25%
+    //num_max_cache = max_cache_entry / 4; // 25%
     //num_max_cache = max_cache_entry / 8; // 12.5%
     //num_max_cache = max_cache_entry / 10; // 10%
     //num_max_cache = max_cache_entry / 20; // 5%
+	num_max_cache = max_cache_entry / 25; // 4%
     //num_max_cache = 1; // 1 cache
 
     real_max_cache = num_max_cache;
@@ -476,6 +477,7 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
 	c_table->p_table   = mem_arr[D_IDX].mem_p;
 	c_table->clean_ptr = lru_push(c_lru, (void *)c_table);
 	c_table->state     = CLEAN;
+	num_clean++;
 
     return 0;
 }
