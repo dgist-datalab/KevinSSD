@@ -14,7 +14,7 @@ typedef struct mget_params{
 uint32_t lsm_multi_set(request *const req, int num){
 	bench_algo_start(req);
 	for(int i=0;i<num; i++){
-		compaction_check(req->multi_key[i]);
+		compaction_check(req->multi_key[i],false);
 		skiplist_insert(LSM.memtable,req->multi_key[i],req->multi_value[i],true);
 	}
 	MP(&req->latency_ftl);

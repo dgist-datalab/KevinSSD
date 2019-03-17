@@ -365,7 +365,7 @@ void bench_lower_end(request *const req){
 }
 
 void bench_update_ftltime(bench_data *_d, request *const req){
-	/*
+	
 	bench_ftl_time *temp;
 	MC(&req->latency_ftl);
 	temp = &_d->ftl_poll[req->type_ftl][req->type_lower];
@@ -373,7 +373,7 @@ void bench_update_ftltime(bench_data *_d, request *const req){
 	temp->total_micro += req->latency_ftl.micro_time;
 	temp->max = temp->max < req->latency_ftl.micro_time ? req->latency_ftl.micro_time : temp->max;
 	temp->min = temp->min > req->latency_ftl.micro_time ? req->latency_ftl.micro_time : temp->min;
-	temp->cnt++;*/
+	temp->cnt++;
 }
 
 void bench_ftl_cdf_print(bench_data *_d){

@@ -23,7 +23,6 @@ typedef struct netdata_t{
 }netdata;
 MeasureTime temp;
 int client_socket;
-int input_num, send_num;
 queue *n_q;
 
 void log_print(int sig){
@@ -80,15 +79,10 @@ void *ack_to_client(void *arg){
 		net_data=(netdata*)req;
 		//printf("write:");
 		//print_byte((char*)&net_data->seq,sizeof(net_data->seq));
-
 		write_socket_len((char*)&net_data->seq,sizeof(net_data->seq));
 	//	if(net_data->type==2){
 			free(net_data);
 	//	}
-		send_num++;
-		if(send_num%10000==0){
-	//		printf("%d - %d \n",input_num,send_num);
-		}
 	}
 }
 
@@ -99,7 +93,7 @@ void kv_main_end_req(uint32_t a, uint32_t b, void *req){
 	switch(net_data->type){
 		case FS_GET_T:
 			//printf("insert_queue\n");
-			while(!q_enqueue((void*)net_data,n_q));
+	//		while(!q_enqueue((void*)net_data,n_q));
 	//		printf("assign seq:%d\n",a);
 			break;
 		case FS_SET_T:
@@ -108,7 +102,8 @@ void kv_main_end_req(uint32_t a, uint32_t b, void *req){
 	}
 }
 
-int main(){
+int main(int argc, char *argv[]){
+	/*
 	struct sigaction sa;
 	sa.sa_handler = log_print;
 	sigaction(SIGINT, &sa, NULL);
@@ -134,12 +129,16 @@ int main(){
 
 	if(-1 == listen(server_socket, 5)){
 		exit(1);
+	}*/
+	//pthread_t t_id;
+	//pthread_create(&t_id,NULL,ack_to_client,NULL);
+	if(argc<2){
+		printf("insert argumen!\n");
+		return 1;
 	}
-
-	pthread_t t_id;
-	pthread_create(&t_id,NULL,ack_to_client,NULL);
 	inf_init(1);
-
+	FILE *fp = fopen(argv[1], "r");
+/*
 	printf("server ip:%s port:%d\n",IP,PORT);
 	printf("server waiting.....\n");
 	client_addr_size  = sizeof( client_addr);
@@ -155,32 +154,19 @@ int main(){
 	}
 	else{
 		printf("blocking socket!\n");
-	}
+	}*/
 	netdata *data;
 	char temp[8192]={0,};
 	char data_temp[6];
 	data=(netdata*)malloc(sizeof(netdata));
+	static int cnt=0;
 	//measure_init(&data->temp);
-	while(1){
-		read_socket_len((char*)data_temp,sizeof(data->keylen)+sizeof(data->type)+sizeof(data->seq));
-		data->type=data_temp[0];
-		data->keylen=data_temp[1];
-		data->seq=*(uint32_t*)&data_temp[2];
-		/*
-		if(data->type==1){
-			read_socket_len(data->key,data->keylen);
-		}
-		else if(data->type==2){
-			read_socket_len((char*)&data->seq,data->keylen+sizeof(data->seq));
-		}*/
-		//print_byte((char*)&data->seq,sizeof(data->seq));
-		read_socket_len(data->key,data->keylen);
-		input_num++;
-		//fprintf(stderr,"%d %.*s\n",data->keylen,data->keylen,data->key);
+	while((fscanf(fp,"%d %s",&data->keylen,data->key))!=EOF){
+		data->type=1;
 	    inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),data->seq,data->type==2?data:NULL,kv_main_end_req);
-		if(data->type==1){
-			while(!q_enqueue((void*)data,n_q));
+		data=(netdata*)malloc(sizeof(netdata));
+		if(cnt++%10240==0){
+			printf("cnt:%d\n",cnt);
 		}
-		data=(netdata*)malloc(sizeof(netdata));	
 	}
 }

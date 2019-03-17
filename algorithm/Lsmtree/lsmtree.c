@@ -373,13 +373,14 @@ void* lsm_end_req(algo_req* const req){
 uint32_t lsm_set(request * const req){
 	//MS(&__get_mt);
 	bench_algo_start(req);
+	static bool force = 0 ;
 #ifdef DEBUG
 	printf("lsm_set!\n");
 	printf("key : %u\n",req->key);//for debug
 #endif
 	//printf("set:%*.s\n",KEYFORMAT(req->key));
 //	printf("set:%s\n",req->key.key);
-	compaction_check(req->key);
+	compaction_check(req->key,force);
 	MS(&__get_mt2);
 	if(req->type==FS_DELETE_T){
 		skiplist_insert(LSM.memtable,req->key,req->value,false);
@@ -400,7 +401,14 @@ uint32_t lsm_set(request * const req){
 	if(LSM.memtable->size==LSM.KEYNUM)
 		return 1;
 	else*/
-	return 0;
+	if(unlikely(LSM.memtable->all_length+(KEYLEN(req->key)+sizeof(uint16_t))>PAGESIZE-KEYBITMAP)){
+		force=1;
+		return 1;
+	}
+	else{
+		force=0;
+		return 0;
+	}
 }
 int nor;
 MeasureTime lsm_mt;
@@ -450,7 +458,7 @@ uint32_t lsm_get(request *const req){
 	}
 	lsm_proc_re_q();
 	if(!temp){
-		LSM.lop->all_print();
+		//LSM.lop->all_print();
 		temp=true;
 	}
 	bench_algo_start(req);

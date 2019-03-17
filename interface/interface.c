@@ -49,6 +49,7 @@ uint32_t retry_hit;
 void *p_main(void*);
 int req_cnt_test=0;
 int write_stop;
+int traffic_cnt_th,traffic_cnt_rt;
 cl_lock *flying,*inf_cond;
 
 #ifdef interface_pq
@@ -596,6 +597,7 @@ bool inf_end_req( request * const req){
 	}
 	
 	free(req);
+	traffic_cnt_rt++;
 	cl_release(flying);
 	return true;
 }
@@ -710,6 +712,7 @@ bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value,int le
 	//inf_end_req(req);
 	
 	cl_grap(flying);
+	traffic_cnt_th++;
 #ifdef CDF
 	req->isstart=false;
 	measure_init(&req->latency_checker);
