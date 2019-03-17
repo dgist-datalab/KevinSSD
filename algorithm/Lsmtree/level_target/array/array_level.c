@@ -189,9 +189,9 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 	uint32_t cnt=0;
 	memset(bitmap,-1,KEYBITMAP/sizeof(uint16_t));
 	uint16_t data_start=KEYBITMAP;
+	uint32_t length_before=src_skip->all_length;
 	/*end*/
 	uint32_t length=0;
-
 	MS(&LSM.timers[2]);
 	do{	
 		snode *temp=skiplist_pop(src_skip);
@@ -281,8 +281,10 @@ void array_cache_free(level *lev){
 }
 int array_cache_comp_formatting(level *lev ,run_t ***des){
 	//array_body *b=(array_body*)lev->level_data;
+	static int cnt=0;
+	//can't caculate the exact nubmer of run...
+	run_t **res=(run_t**)malloc(sizeof(run_t*)*(array_cache_get_sz(lev)*2));
 	
-	run_t **res=(run_t**)malloc(sizeof(run_t*)*(array_cache_get_sz(lev)+1));
 	int idx=0;
 
 	MS(&LSM.timers[6]);

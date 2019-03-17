@@ -428,10 +428,10 @@ void *compaction_main(void *input){
 	return NULL;
 }
 
-void compaction_check(KEYT key){
+void compaction_check(KEYT key, bool force){
 	compR *req;
 #ifdef KVSSD
-	if(unlikely(LSM.memtable->all_length+KEYLEN(key)+sizeof(uint16_t)>PAGESIZE-KEYBITMAP || LSM.memtable->size >= KEYBITMAP/sizeof(uint16_t)))
+	if(force || unlikely(LSM.memtable->all_length+KEYLEN(key)+sizeof(uint16_t)>PAGESIZE-KEYBITMAP || LSM.memtable->size >= KEYBITMAP/sizeof(uint16_t)))
 #else
 	if(unlikely(LSM.memtable->size==LSM.FLUSHNUM))
 #endif
