@@ -77,6 +77,9 @@ int32_t max_clean_cache;
 
 KEYT key_max, key_min;
 int max_try;
+int cnt_arr[1024];
+int cnt_sum;
+int data_written;
 
 int32_t data_r;
 int32_t trig_data_r;
@@ -318,6 +321,17 @@ void demand_destroy(lower_info *li, algorithm *algo){
     printf("num_clean:   %d\n", num_clean);
 #endif
     printf("num_flying: %d\n\n", num_flying);
+
+
+	puts("<hash collsion count info(insertion)>");
+	for (int i = 0; i < 1024; i++) {
+		if (cnt_arr[i]) {
+			printf("%d, %d\n", i, cnt_arr[i]);
+			cnt_sum += i*cnt_arr[i];
+			data_written += cnt_arr[i];
+		}
+	}
+	printf("cnt avg: %f\n\n", (float)cnt_sum/data_written);
 
     /* Clear modules */
     q_free(dftl_q);
@@ -926,6 +940,10 @@ retry:
 
     temp = skiplist_insert(mem_buf, req->key, req->value, true);
 	temp->hash_key = lpa;
+
+	if (cnt < 1024) {
+		cnt_arr[cnt]++;
+	}
 
 	req->hash_params = NULL;
     req->value = NULL; // moved to value field of snode
