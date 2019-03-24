@@ -649,6 +649,10 @@ uint32_t __demand_get(request *const req){
     h_params->hash_key = (h_params->hash + cnt*cnt + cnt) % num_dpage;
 	lpa = h_params->hash_key;
 
+	/*if (req->key.len == 23 && strncmp(req->key.key, "user4892736263638437930", req->key.len)==0) {
+		printf("user4892736263638437930 in!");
+	}*/
+
 #if W_BUFF
     /* Check skiplist first */
     if((temp = skiplist_find(mem_buf, req->key))){
@@ -674,10 +678,6 @@ uint32_t __demand_get(request *const req){
     c_table = &CMT[D_IDX];
     p_table = c_table->p_table;
     t_ppa   = c_table->t_ppa;
-
-	/*if (req->key.len == 6 && strncmp(req->key.key, "363712", req->key.len) == 0) {
-		printf("[GET]cnt: %d, hash_key: %d, ppa: %d\n", cnt, lpa, p_table[P_IDX]);
-	}*/
 
     if (req->params == NULL) {
 		if (c_table->dirty_bitmap[P_IDX] == true) {
@@ -731,6 +731,7 @@ uint32_t __demand_get(request *const req){
     /* Get actual data from device */
     p_table = c_table->p_table;
     if (ppa == -1) ppa = p_table[P_IDX];
+
     if (ppa == -1) {
 		printf("[ERROR:NOT_FOUND] TABLE_ENTRY_NONE error2! %d\n", ++entry_err_cnt);
         bench_algo_end(req);
@@ -778,9 +779,6 @@ uint32_t __demand_set(request *const req){
 
             /* Actual part of data push */
             ppa = dp_alloc();
-			/*if (temp->key.len == 6 && strncmp(temp->key.key, "363712", temp->key.len) == 0) {
-				printf("inserted ppa: %d, i: %d\n", ppa, i);
-			}*/
             my_req = assign_pseudo_req(DATA_W, temp->value, NULL);
             __demand.li->write(ppa, PAGESIZE, temp->value, ASYNC, my_req);
 
@@ -869,7 +867,7 @@ retry:
     p_table = c_table->p_table;
 
 	ppa = -1;
-	
+
     if (req->params == NULL) {
 		if (c_table->dirty_bitmap[P_IDX] == true) {
 			ppa = mem_arr[D_IDX].mem_p[P_IDX];
@@ -899,10 +897,6 @@ retry:
     req->params = NULL;
 
 	c_table->write_hit++;
-
-	/*if (req->key.len == 6 && strncmp(req->key.key, "363712", req->key.len) == 0) {
-		printf("[SET]cnt: %d, hash_key: %d, ppa: %d\n", cnt, lpa, (p_table) ? p_table[P_IDX] : -2);
-	}*/
 
 	// If exist in mapping table, check it first
 	p_table = c_table->p_table;

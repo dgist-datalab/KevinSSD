@@ -95,9 +95,10 @@ void kv_main_end_req(uint32_t a, uint32_t b, void *req){
 			//printf("insert_queue\n");
 	//		while(!q_enqueue((void*)net_data,n_q));
 	//		printf("assign seq:%d\n",a);
+			free(net_data);
 			break;
 		case FS_SET_T:
-	//		free(net_data);
+			free(net_data);
 			break;
 	}
 }
@@ -161,8 +162,7 @@ int main(int argc, char *argv[]){
 	data=(netdata*)malloc(sizeof(netdata));
 	static int cnt=0;
 	//measure_init(&data->temp);
-	while((fscanf(fp,"%d %s",&data->keylen,data->key))!=EOF){
-		data->type=1;
+	while((fscanf(fp,"%d %d %s",&data->type, &data->keylen,data->key))!=EOF){
 	    inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),data->seq,data->type==2?data:NULL,kv_main_end_req);
 		data=(netdata*)malloc(sizeof(netdata));
 		if(cnt++%10240==0){

@@ -156,6 +156,7 @@ int main(){
 	else{
 		printf("blocking socket!\n");
 	}
+
 	netdata *data;
 	char temp[8192]={0,};
 	char data_temp[6];
@@ -176,7 +177,7 @@ int main(){
 		//print_byte((char*)&data->seq,sizeof(data->seq));
 		read_socket_len(data->key,data->keylen);
 		input_num++;
-		//fprintf(stderr,"%d %.*s\n",data->keylen,data->keylen,data->key);
+		//fprintf(stderr,"%d %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
 	    inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),data->seq,data->type==2?data:NULL,kv_main_end_req);
 		if(data->type==1){
 			while(!q_enqueue((void*)data,n_q));
