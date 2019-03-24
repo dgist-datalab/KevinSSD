@@ -39,7 +39,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 16L
+#define GIGAUNIT 10L
 #define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
@@ -71,7 +71,7 @@ typedef struct str_key{
 	char *key;
 }str_key;
 
-	#define KEYT str_key
+#define KEYT str_key
 static inline int KEYCMP(KEYT a,KEYT b){
 	if(!a.len && !b.len) return 0;
 	else if(a.len==0) return -1;

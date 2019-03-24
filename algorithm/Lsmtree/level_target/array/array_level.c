@@ -86,7 +86,6 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 	bitmap[0]=mem->size;
 
 	//printf("start:%.*s end:%.*s size:%d\n",KEYFORMAT(mem->start),KEYFORMAT(mem->end),mem->size);
-	MS(&LSM.timers[0]);
 	for_each_sk(temp,mem){
 		/*
 		KEYT cmp_key;
@@ -108,7 +107,6 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 		data_start+=temp->key.len+sizeof(temp->ppa);
 		idx++;
 	}
-	MA(&LSM.timers[0]);
 	bitmap[idx]=data_start;
 #else
 	not implemented
@@ -132,7 +130,6 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	uint16_t *bitmap;
 	char *body;
 	int idx;
-	MS(&LSM.timers[1]);
 	for(int i=0; o[i]!=NULL; i++){
 		body=data_from_run(o[i]);
 		bitmap=(uint16_t*)body;
@@ -160,7 +157,6 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 			for_each_header_end
 		}
 	}
-	MA(&LSM.timers[1]);
 	//printf("merger end: %d\n",merger_cnt++);
 }
 extern bool debug_flag;
@@ -192,7 +188,6 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 	uint32_t length_before=src_skip->all_length;
 	/*end*/
 	uint32_t length=0;
-	MS(&LSM.timers[2]);
 	do{	
 		snode *temp=skiplist_pop(src_skip);
 		memcpy(&ptr[data_start],&temp->ppa,sizeof(temp->ppa));
@@ -223,7 +218,6 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 	//array_header_print(ptr);
 	//printf("new_header size:%d\n",idx);
 
-	MA(&LSM.timers[2]);
 	run_t *res_r=array_make_run(start,end,-1);
 	res_r->cpt_data=res;
 #ifdef BLOOM
@@ -265,12 +259,10 @@ void array_cache_merge(level *src, level *des){
 	snode *temp;
 
 	KEYT start=s->skip->header->list[1]->key,end;
-	MS(&LSM.timers[5]);
 	for_each_sk(temp,s->skip){
 		end=temp->key;
 		skiplist_insert_existIgnore(d->skip,temp->key,temp->ppa,temp->ppa==UINT32_MAX?false:true);
 	}
-	MA(&LSM.timers[5]);
 	array_range_update(des,NULL,start);
 	array_range_update(des,NULL,end);
 }
@@ -287,11 +279,9 @@ int array_cache_comp_formatting(level *lev ,run_t ***des){
 	
 	int idx=0;
 
-	MS(&LSM.timers[6]);
 	while((res[idx]=array_cutter(NULL,lev,NULL,NULL))!=NULL){
 		idx++;
 	}
-	MA(&LSM.timers[6]);
 	//	printf("[start]print in formatting :%p\n");
 	//	array_header_print((char*)res[0]->cpt_data->sets);
 	//	printf("[end]print in formatting: %p\n",res[0]->cpt_data->sets);

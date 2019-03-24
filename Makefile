@@ -22,7 +22,7 @@ COMMONFLAGS=\
 			-DKVSSD\
 			-DSLC\
 			-Wno-unused-but-set-variable\
--O2\
+-O3\
 #			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
@@ -111,7 +111,7 @@ LIBS +=\
 		-lpthread\
 		-lm\
 		-laio\
-#		-ljemalloc\
+		-ljemalloc\
 
 all: driver
 

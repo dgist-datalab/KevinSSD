@@ -96,7 +96,6 @@ static int32_t get_sizefactor(uint64_t as){
 #endif
 	return res;
 }
-
 uint32_t lsm_create(lower_info *li, algorithm *lsm){
 #if(SIMULATION)
 	//return __lsm_create_simulation(li,lsm);
@@ -217,6 +216,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 
 extern uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
 extern uint32_t all_kn_run,run_num;
+extern int existrInsert_cnt,max_skip_cnt, max_skip_level;
 void lsm_destroy(lower_info *li, algorithm *lsm){
 	//LSM.lop->all_print();
 	lsm_debug_print();
@@ -250,6 +250,9 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 		printf("[%d]",i);
 		measure_adding_print(&LSM.timers[i]);
 	}
+	printf("existrInsert_cnt:%d\n",existrInsert_cnt);
+	printf("max_skip_cnt:%d\n",max_skip_cnt);
+	printf("max_skip_level:%d\n",max_skip_level);
 }
 
 extern pthread_mutex_t compaction_wait,gc_wait;
@@ -421,9 +424,7 @@ uint32_t lsm_proc_re_q(){
 			bench_algo_start(tmp_req);
 			switch(tmp_req->type){
 				case FS_GET_T:
-					MS(&LSM.timers[6]);
 					res_type=__lsm_get(tmp_req);
-					MA(&LSM.timers[6]);
 					break;
 				case FS_RANGEGET_T:
 					//res_type=__lsm_range_get(tmp_req);
@@ -462,9 +463,7 @@ uint32_t lsm_get(request *const req){
 		temp=true;
 	}
 	bench_algo_start(req);
-	MS(&LSM.timers[6]);
 	res_type=__lsm_get(req);
-	MA(&LSM.timers[6]);
 	if(!debug && LSM.disk[0]->n_num>0){
 		debug=true;
 	}
@@ -818,9 +817,7 @@ retry:
 #endif
 
 			/*using normal ppa when read header */
-			MS(&LSM.timers[7]);
 			LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
-			MA(&LSM.timers[7]);
 			__header_read_cnt++;
 
 			free(entries);

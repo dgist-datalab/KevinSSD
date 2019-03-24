@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <limits.h>
+#include <sched.h>
 
 #include "../../interface/interface.h"
 #include "../../include/types.h"
@@ -54,6 +55,7 @@ void compaction_sub_pre(){
 
 static void compaction_selector(level *a, level *b, run_t *r, pthread_mutex_t* lock){
 	compaction_cnt++;
+	MS(&LSM.timers[4]);
 #if LEVELN==1
 	level_one_processing(a,b,r,lock);
 	return;
@@ -64,6 +66,7 @@ static void compaction_selector(level *a, level *b, run_t *r, pthread_mutex_t* l
 	else{
 		leveling(a,b,r,lock);
 	}
+	MA(&LSM.timers[4]);
 }
 
 void compaction_sub_wait(){
@@ -357,6 +360,7 @@ void *compaction_main(void *input){
 	compP *_this=NULL;
 	//static int ccnt=0;
 	char thread_name[128]={0};
+	pthread_t current_thread=pthread_self();
 	sprintf(thread_name,"%s","compaction_thread");
 	pthread_setname_np(pthread_self(),thread_name);
 
@@ -375,6 +379,11 @@ void *compaction_main(void *input){
 		}
 		_req=q_dequeue(_this->q);
 		pthread_mutex_unlock(&compaction_req_lock);
+		cpu_set_t cpuset;
+		CPU_ZERO(&cpuset);
+		CPU_SET(1,&cpuset);
+		pthread_setaffinity_np(current_thread,sizeof(cpu_set_t),&cpuset);
+
 		/*
 		if(!(_req=q_dequeue(_this->q))){
 			//sleep or nothing
@@ -392,9 +401,13 @@ void *compaction_main(void *input){
 		if(req->fromL==-1){
 			while(!gc_check(DATA,false)){
 			}
+			
+			MS(&LSM.timers[0]);
 			pthread_mutex_lock(&LSM.templock);
+
 			run_t *entry=compaction_data_write(LSM.temptable);
 			pthread_mutex_unlock(&LSM.templock);
+			MS(&LSM.timers[0]);
 
 			pthread_mutex_lock(&LSM.entrylock);
 			LSM.tempent=entry;
@@ -499,13 +512,18 @@ run_t* compaction_postprocessing(run_t *target){
 
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
 	compaction_sub_wait();
+
+	MS(&LSM.timers[3]);
 #ifdef STREAMCOMP
 	LSM.lop->stream_comp_wait();
 #else
 	LSM.lop->merger(top,src,org,des);
 #endif
+	MA(&LSM.timers[3]);
+
 	KEYT key,end;
 	run_t* target=NULL;
+	MS(&LSM.timers[2]);
 	while((target=LSM.lop->cutter(top,des,&key,&end))){
 		target=compaction_postprocessing(target);
 		if(!LSM.inplace_compaction){
@@ -520,6 +538,7 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 		target->cpt_data=NULL;
 		free(target);
 	}
+	MA(&LSM.timers[2]);
 	//LSM.lop->print(des);
 }
 
@@ -603,8 +622,10 @@ uint32_t leveling(level *from, level* to, run_t *entry, pthread_mutex_t *lock){
 			LSM.temptable=NULL;
 			pthread_mutex_unlock(&LSM.templock);
 
+			MS(&LSM.timers[1]);
 			LSM.lop->cache_move(to,target);
 			LSM.lop->cache_insert(target,entry);
+			MA(&LSM.timers[1]);
 
 			pthread_mutex_lock(&LSM.entrylock);
 			LSM.lop->release_run(entry);

@@ -78,7 +78,6 @@ snode *skiplist_find_lowerbound(skiplist *list, KEYT key){
 	if(list->size==0) return NULL;
 	snode *x=list->header;
 	for(int i=list->level; i>=1; i--){
-
 #if defined(KVSSD) && defined(Lsmtree)
 		while(KEYCMP(x->list[i]->key,key)<0)
 #else
@@ -253,6 +252,7 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
 	return x;
 }
 
+int existrInsert_cnt, max_skip_cnt, max_skip_level;
 snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool deletef){
 #ifndef KVSSD
 	if(key>RANGE){
@@ -262,16 +262,24 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 #endif
 	snode *update[MAX_L+1];
 	snode *x=list->header;
+	existrInsert_cnt++;
+	if(list->size > max_skip_cnt) max_skip_cnt=list->size;
+	if(list->level > max_skip_level) max_skip_level=list->level;
 	
+	fprintf(stderr,"%d %.*s\n",key.len, key.len,key.key);
+	MS(&LSM.timers[5]);
 	for(int i=list->level; i>=1; i--){
 #ifdef KVSSD
 		while(KEYCMP(x->list[i]->key,key)<0)
 #else
 		while(x->list[i]->key<key)
 #endif
+		{
 			x=x->list[i];
+		}
 		update[i]=x;
 	}
+	MA(&LSM.timers[5]);
 
 	x=x->list[1];
 #ifdef KVSSD
@@ -299,7 +307,6 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 		return x;
 	}
 	else{
-		
 		int level=getLevel();
 		if(level>list->level){
 			for(int i=list->level+1; i<=level; i++){

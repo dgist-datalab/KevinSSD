@@ -11,12 +11,12 @@
 
 extern int save_fd;
 
-void BITSET(char *input, char offset){
+inline void BITSET(char *input, char offset){
 	char test=1;
 	test<<=offset;
 	(*input)|=test;
 }
-bool BITGET(char input, char offset){
+inline bool BITGET(char input, char offset){
 	char test=1;
 	test<<=offset;
 	return input&test;
@@ -105,7 +105,7 @@ void MurmurHash3_x86_32( const void * key, int len,uint32_t seed, void * out )
 	*(uint32_t*)out = h1;
 } 
 #ifndef KVSSD
-uint32_t hashfunction(KEYT key){
+static inline uint32_t hashfunction(KEYT key){
 	key ^= key >> 15;
 	key *= UINT32_C(0x2c1b3c6d);
 	key ^= key >> 12;
