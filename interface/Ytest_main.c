@@ -104,12 +104,13 @@ void kv_main_end_req(uint32_t a, uint32_t b, void *req){
 }
 
 int main(int argc, char *argv[]){
-	/*
+	
 	struct sigaction sa;
 	sa.sa_handler = log_print;
 	sigaction(SIGINT, &sa, NULL);
 	printf("signal add!\n");
 
+	/*
 	q_init(&n_q,128);
 
 	struct sockaddr_in server_addr;
@@ -169,4 +170,5 @@ int main(int argc, char *argv[]){
 			printf("cnt:%d\n",cnt);
 		}
 	}
+	inf_free();
 }

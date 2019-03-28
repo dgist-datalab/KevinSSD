@@ -67,7 +67,7 @@ typedef struct cached_table{
     NODE *clean_ptr; // for clean pages
 #endif
     bool state;
-    bool flying;
+	bool flying;
 	bool wflying;
     request **flying_arr;
     int32_t num_waiting;

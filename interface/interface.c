@@ -451,6 +451,8 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 			break;
 	}
 
+	//fprintf(stderr, "[IN]  type: %d req.key: %.*s\n", req->type, (int)req->key.len, req->key.key);
+
 	return inf_get_req_common(req,fromApp,mark);
 }
 
@@ -525,6 +527,8 @@ bool inf_make_req_special(const FSTYPE type, const KEYT key, char* value, int le
 
 //static int end_req_num=0;
 bool inf_end_req( request * const req){
+	//fprintf(stderr, "[OUT] type: %d req.key: %.*s\n", req->type, (int)req->key.len, req->key.key);
+
 	if(req->type==FS_RMW_T){
 		req->type=FS_SET_T;
 		value_set *original=req->value;

@@ -7,7 +7,7 @@ algorithm __demand = {
     .destroy = demand_destroy,
     .read    = demand_get,
     .write   = demand_set,
-    .remove  = demand_remove
+    .remove  = demand_remove,
 };
 
 /*
@@ -80,6 +80,8 @@ int max_try;
 int cnt_arr[1024];
 int cnt_sum;
 int data_written;
+
+bool is_flying[1024];
 
 int32_t data_r;
 int32_t trig_data_r;
@@ -154,6 +156,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     num_tpage       = num_tblock * p_p_b;
     num_dblock      = num_block - num_tblock - 2;
     num_dpage       = num_dblock * p_p_b;
+	//num_dpage_real  = num_dpage;
     max_cache_entry = (num_page / EPP) + ((num_page % EPP != 0) ? 1 : 0);
 
 
@@ -269,6 +272,16 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 }
 
 void demand_destroy(lower_info *li, algorithm *algo){
+
+	puts("<flying status>");
+	for (int i = 0; i < max_cache_entry; i++) {
+		//if (CMT[i].num_flying) {
+			printf("%d %d\n", i, CMT[i].num_waiting);
+		//}
+	}
+	puts("");
+
+
     /* Print information */
     printf("# of gc: %d\n", tgc_count + dgc_count);
     printf("# of translation page gc: %d\n", tgc_count);
@@ -412,6 +425,7 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
 
     // Reserve requests that share flying mapping table
     if (c_table->flying) {
+	//if (is_flying[D_IDX]) {
         c_table->flying_arr[c_table->num_waiting++] = req;
         bench_algo_end(req);
         return 1;
@@ -470,6 +484,8 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
 
     if (t_ppa != -1) {
         c_table->flying = true;
+		//is_flying[D_IDX] = true;
+		fprintf(stderr, "CMT[%d] on by req %x\n", D_IDX, req);
         num_flying++;
 
         dummy_vs = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
@@ -611,6 +627,8 @@ static uint32_t demand_read_flying(request *const req, char req_t) {
     }
     c_table->num_waiting = 0;
     c_table->flying = false;
+	//is_flying[D_IDX] = false;
+	fprintf(stderr, "CMT[%d] off by req %x\n", D_IDX, req);
     num_flying--;
     for (int i = 0; i < waiting; i++) {
         if (!inf_assign_try(waiting_arr[i])) {
@@ -1340,12 +1358,11 @@ void *demand_end_req(algo_req* input){
     switch(params->type){
         case DATA_R:
 			h_params = (struct hash_params *)res->hash_params;
+			check_key.len = *((uint8_t *)res->value->value);
+			check_key.key = (char *)malloc(check_key.len);
+			memcpy(check_key.key, res->value->value+1, check_key.len);
 
 			if (res->type == FS_GET_T) {
-				check_key.len = *((uint8_t *)res->value->value);
-				check_key.key = (char *)malloc(check_key.len);
-				memcpy(check_key.key, res->value->value+1, check_key.len);
-
 				if (KEYCMP(res->key, check_key)) {
 					h_params->find = HASH_KEY_DIFF;
 					h_params->cnt++;
@@ -1354,7 +1371,9 @@ void *demand_end_req(algo_req* input){
 						h_params->find = HASH_KEY_NONE;
 					}
 
-					inf_assign_try(res);
+					if (!inf_assign_try(res)) {
+						puts("not queued 6");
+					}
 
 				} else {
 					free(h_params);
@@ -1367,10 +1386,6 @@ void *demand_end_req(algo_req* input){
 					}
 				}
 			} else { // Read check for data write/remove
-				check_key.len = *((uint8_t *)res->value->value);
-				check_key.key = (char *)malloc(check_key.len);
-				memcpy(check_key.key, res->value->value+1, check_key.len);
-
 				if (KEYCMP(res->key, check_key)) {
 					h_params->find = HASH_KEY_DIFF;
 					h_params->cnt++;
@@ -1379,7 +1394,9 @@ void *demand_end_req(algo_req* input){
 					h_params->find = HASH_KEY_SAME;
 				}
 
-				inf_assign_try(res);
+				if (!inf_assign_try(res)) {
+					puts("not queued 7");
+				}
 			}
 			free(check_key.key);
             break;
