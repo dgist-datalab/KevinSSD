@@ -16,6 +16,7 @@ bool inf_make_multi_set(const FSTYPE, KEYT *keys, char **values, int *lengths, i
 bool inf_make_req_special(const FSTYPE type, const KEYT key, char* value, int len,uint32_t seq, void*(*special)(void*));
 bool inf_make_req_fromApp(char type, KEYT key,uint32_t offset,uint32_t len,PTR value,void *req, void*(*end_func)(void*));
 
+
 bool inf_iter_create(KEYT start,bool (*added_end)(struct request *const));
 bool inf_iter_next(uint32_t iter_id, char **values,bool (*added_end)(struct request *const),bool withvalue);
 bool inf_iter_release(uint32_t iter_id, bool (*added_end)(struct request *const));
@@ -23,6 +24,9 @@ bool inf_iter_release(uint32_t iter_id, bool (*added_end)(struct request *const)
 bool inf_make_multi_req(char type, KEYT key,KEYT *keys,uint32_t iter_id,char **values,uint32_t lengths,bool (*added_end)(struct request *const));
 #ifdef KVSSD
 bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value,int value_len,int seq,void *req,void (*end_req)(uint32_t,uint32_t, void*));
+
+bool inf_make_range_query_apps(char type, char *keys, uint8_t key_len,int seq, int length,void *req,void (*end_req)(uint32_t,uint32_t, void*));
+
 bool inf_make_mreq_apps(char type, char **keys, uint8_t *key_len, char **values,int num, int seq, void *req,void (*end_req)(uint32_t,uint32_t, void*));
 bool inf_iter_req_apps(char type, char *prefix, uint8_t key_len,char **value, int seq,void *req, void (*end_req)(uint32_t,uint32_t, void *));
 #endif

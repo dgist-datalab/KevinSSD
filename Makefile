@@ -11,7 +11,7 @@ DEBUGFLAGS=\
 			-rdynamic\
 			-Wno-pointer-arith\
 			-g\
-#	-fsanitize=address\
+	-fsanitize=address\
 #	-DBUSE_DEBUG
 
 COMMONFLAGS=\
@@ -22,7 +22,7 @@ COMMONFLAGS=\
 			-DKVSSD\
 			-DSLC\
 			-Wno-unused-but-set-variable\
--O3\
+#-O3\
 #			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
@@ -125,7 +125,7 @@ debug_simulator: ./interface/main.c libsimulator_d.a
 driver: ./interface/main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
-kv_driver: ./interface/KV_main.c libdriver.a
+kv_driver: ./interface/Ytest_main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 range_driver: ./interface/range_test_main.c libdriver.a

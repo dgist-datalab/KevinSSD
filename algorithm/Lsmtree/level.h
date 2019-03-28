@@ -43,7 +43,6 @@ typedef struct htable{
 	volatile uint8_t done;
 }htable;
 
-
 typedef struct htable_t{
 	keyset sets[PAGESIZE/KEYSETSIZE];
 #ifdef NOCPY
@@ -145,6 +144,7 @@ typedef struct level_ops{
 	/*run operation*/
 	run_t*(*make_run)(KEYT start, KEYT end, uint32_t pbn);
 	run_t**(*find_run)( level*,KEYT lpa);
+	run_t**(*find_run_num)( level*,KEYT lpa, uint32_t num);
 	void (*release_run)( run_t *);
 	run_t* (*run_cpy)( run_t *);
 
@@ -169,7 +169,9 @@ typedef struct level_ops{
 	//char *(*cache_find_upperbound)(level *,KEYT, KEYT *start, KEYT *end, bool datareturn);
 	int (*cache_get_size)(level *);
 #endif
-
+	keyset_iter* (*header_get_keyiter)(level *, char *, KEYT *);
+	keyset (*header_next_key)(level *, keyset_iter *);
+	void (*header_next_key_pick)(level *, keyset_iter *, keyset *);
 #ifdef KVSSD
 	KEYT *(*get_lpa_from_data)(char *data,bool isheader);
 #endif

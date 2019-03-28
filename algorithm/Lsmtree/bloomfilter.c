@@ -11,12 +11,12 @@
 
 extern int save_fd;
 
-inline void BITSET(char *input, char offset){
+void BITSET(char *input, char offset){
 	char test=1;
 	test<<=offset;
 	(*input)|=test;
 }
-inline bool BITGET(char input, char offset){
+bool BITGET(char input, char offset){
 	char test=1;
 	test<<=offset;
 	return input&test;

@@ -45,6 +45,7 @@ level_ops a_ops={
 #endif
 	.make_run=array_make_run,
 	.find_run=array_find_run,
+	.find_run_num=array_find_run_num,
 	.release_run=array_free_run,
 	.run_cpy=array_run_cpy,
 
@@ -67,6 +68,11 @@ level_ops a_ops={
 	//.cache_find_lowerbound=array_cache_find_lowerbound,
 	.cache_get_size=array_cache_get_sz,
 #endif
+	
+	.header_get_keyiter=array_header_get_keyiter,
+	.header_next_key=array_header_next_key,
+	.header_next_key_pick=array_header_next_key_pick,
+
 	.get_lpa_from_data=array_get_lpa_from_data,
 	.print=array_print,
 	.all_print=array_all_print,
@@ -261,6 +267,32 @@ run_t **array_find_run( level* lev,KEYT lpa){
 	run_t **res=(run_t**)calloc(sizeof(run_t*),2);
 	res[0]=&arrs[target_idx];
 	res[1]=NULL;
+	return res;
+}
+
+run_t **array_find_run_num( level* lev,KEYT lpa, uint32_t num){
+	array_body *b=(array_body*)lev->level_data;
+	run_t *arrs=b->arrs;
+	if(!arrs || lev->n_num==0) return NULL;
+#ifdef KVSSD
+	if(KEYCMP(lev->start,lpa)>0 || KEYCMP(lev->end,lpa)<0) return NULL;
+#else
+	if(lev->start>lpa || lev->end<lpa) return NULL;
+#endif
+	if(lev->istier) return (run_t**)-1;
+
+	int target_idx=array_binary_search(arrs,lev->n_num,lpa);
+	if(target_idx==-1) return NULL;
+	run_t **res=(run_t**)calloc(sizeof(run_t*),num+1);
+	int idx;
+	for(idx=0; idx<num; idx++){
+		if(target_idx<lev->m_num){
+			res[idx]=&arrs[target_idx++];
+		}else{
+			break;
+		}
+	}
+	res[idx]=NULL;
 	return res;
 }
 

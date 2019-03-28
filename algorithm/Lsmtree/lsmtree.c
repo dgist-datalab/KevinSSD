@@ -41,8 +41,9 @@ struct algorithm algo_lsm={
 	.iter_release=lsm_iter_release,
 	.iter_all_key=lsm_iter_all_key,
 	.iter_all_value=lsm_iter_all_value,
-	.multi_set=lsm_multi_set,
-	.multi_get=lsm_multi_get,
+	.multi_set=NULL,
+	.multi_get=NULL,
+	.range_query=lsm_range_get,
 };
 extern OOBT *oob;
 lsmtree LSM;
@@ -392,12 +393,11 @@ uint32_t lsm_set(request * const req){
 		skiplist_insert(LSM.memtable,req->key,req->value,true);
 	}
 	MA(&__get_mt2);
-
+	
 	req->value=NULL;
 	//req->value will be ignored at free
 	MP(&req->latency_ftl);
 	bench_algo_end(req);
-	req->end_req(req); //end write
 
 	//MA(&__get_mt);
 	/*
@@ -406,10 +406,12 @@ uint32_t lsm_set(request * const req){
 	else*/
 	if(unlikely(LSM.memtable->all_length+(KEYLEN(req->key)+sizeof(uint16_t))>PAGESIZE-KEYBITMAP)){
 		force=1;
+		req->end_req(req); //end write
 		return 1;
 	}
 	else{
 		force=0;
+		req->end_req(req); //end write
 		return 0;
 	}
 }
@@ -427,7 +429,7 @@ uint32_t lsm_proc_re_q(){
 					res_type=__lsm_get(tmp_req);
 					break;
 				case FS_RANGEGET_T:
-					//res_type=__lsm_range_get(tmp_req);
+					res_type=__lsm_range_get(tmp_req);
 					break;
 			}
 			if(res_type==0){
@@ -493,7 +495,7 @@ algo_req* lsm_get_req_factory(request *parents, uint8_t type){
 	dl_sync_init(&params->lock,1);
 
 	if(parents->type==FS_MGET_T && type==DATAR){//data read in FS_MGET_T type
-		lsm_req->end_req=lsm_mget_end_req;
+//		lsm_req->end_req=lsm_mget_end_req;
 	}else{
 		lsm_req->end_req=lsm_end_req;
 	}
@@ -524,7 +526,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 		//	memcpy(req->value->value,target_node->value->value,PAGESIZE);
 			bench_algo_end(req);
 			if(req->type==FS_MGET_T){
-				lsm_mget_end_req(lsm_get_empty_algoreq(req));						
+				//lsm_mget_end_req(lsm_get_empty_algoreq(req));						
 			}
 			else{
 				req->end_req(req);

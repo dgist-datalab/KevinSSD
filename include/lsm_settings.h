@@ -40,6 +40,7 @@ typedef struct OOBT{
 //#define MERGECOMPACTION 4
 #define READCACHE
 #define NOCPY
+#define RANGEGETNUM 2
 //#define USINGSLAB
 
 

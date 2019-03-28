@@ -19,6 +19,7 @@ typedef struct netdata_t{
 	uint8_t type;
 	uint8_t keylen;
 	uint32_t seq;
+	uint32_t scanlength;
 	char key[UINT8_MAX];
 }netdata;
 MeasureTime temp;
@@ -27,7 +28,7 @@ int input_num, send_num;
 queue *n_q;
 
 void log_print(int sig){
-	inf_free();
+	//inf_free();
 	exit(1);
 }
 
@@ -82,12 +83,12 @@ void *ack_to_client(void *arg){
 		//print_byte((char*)&net_data->seq,sizeof(net_data->seq));
 
 		write_socket_len((char*)&net_data->seq,sizeof(net_data->seq));
-	//	if(net_data->type==2){
-			free(net_data);
-	//	}
+		//	if(net_data->type==2){
+		free(net_data);
+		//	}
 		send_num++;
 		if(send_num%10000==0){
-	//		printf("%d - %d \n",input_num,send_num);
+			//		printf("%d - %d \n",input_num,send_num);
 		}
 	}
 }
@@ -95,15 +96,15 @@ void *ack_to_client(void *arg){
 void kv_main_end_req(uint32_t a, uint32_t b, void *req){
 	if(req==NULL) return;
 	netdata *net_data=(netdata*)req;
-//	net_data->seq=a;
+	//	net_data->seq=a;
 	switch(net_data->type){
 		case FS_GET_T:
 			//printf("insert_queue\n");
 			while(!q_enqueue((void*)net_data,n_q));
-	//		printf("assign seq:%d\n",a);
+			//		printf("assign seq:%d\n",a);
 			break;
 		case FS_SET_T:
-	//		free(net_data);
+			//		free(net_data);
 			break;
 	}
 }
@@ -121,7 +122,7 @@ int main(){
 	server_socket = socket(PF_INET,SOCK_STREAM,0);
 	int option = 1;
 	setsockopt( server_socket, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option) );
-	
+
 	memset(&server_addr, 0, sizeof(server_addr));
 	server_addr.sin_family     = AF_INET;
 	server_addr.sin_port       = htons(PORT);
@@ -148,7 +149,7 @@ int main(){
 	if (-1 == client_socket){
 		exit(1);
 	}
-	
+
 	int flags=fcntl(client_socket,F_GETFL,0);
 	if(flags & O_NONBLOCK){
 		printf("non blocking!\n");
@@ -166,18 +167,27 @@ int main(){
 		data->type=data_temp[0];
 		data->keylen=data_temp[1];
 		data->seq=*(uint32_t*)&data_temp[2];
-		/*
-		if(data->type==1){
+		if(data->type==3){
+			data->type=2;
+			read_socket_len(&data->scanlength,sizeof(data->scanlength));
+	//		print_byte((char*)&data->scanlength,sizeof(data->scanlength));
+			data->scanlength=htobe32(data->scanlength);
+	//		printf("scanlength:%d\n",data->scanlength);
+	//		data->type=FS_RANGEGET_T;
 			read_socket_len(data->key,data->keylen);
+			fprintf(stderr,"%d %d %d %.*s\n",3,data->scanlength,data->keylen,data->keylen,data->key);
+		}else{
+			read_socket_len(data->key,data->keylen);
+			fprintf(stderr,"%d 0 %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
 		}
-		else if(data->type==2){
-			read_socket_len((char*)&data->seq,data->keylen+sizeof(data->seq));
-		}*/
 		//print_byte((char*)&data->seq,sizeof(data->seq));
-		read_socket_len(data->key,data->keylen);
+		if(data->type==3){
+			inf_make_range_query_apps(data->type,data->key,data->keylen,data->scanlength,data->seq,data,kv_main_end_req);
+		}
+		else{
+			inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),data->seq,data->type==2?data:NULL,kv_main_end_req);
+		}
 		input_num++;
-		//fprintf(stderr,"%d %.*s\n",data->keylen,data->keylen,data->key);
-	    inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),data->seq,data->type==2?data:NULL,kv_main_end_req);
 		if(data->type==1){
 			while(!q_enqueue((void*)data,n_q));
 		}

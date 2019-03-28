@@ -448,3 +448,83 @@ char *array_cache_iter_nxt(lev_iter *it){
 	iter->temp=temp;
 	return res;
 }
+
+typedef struct header_iter{
+	snode *cache_data;
+	char *header_data;
+	uint32_t idx;
+}header_iter;
+
+keyset_iter* array_header_get_keyiter(level *lev, char *data,KEYT *key){
+	keyset_iter *res=(keyset_iter*)malloc(sizeof(keyset_iter));
+	header_iter *p_data=(header_iter*)malloc(sizeof(header_iter));
+	res->private_data=(void*)p_data;
+
+	if(lev->idx<LEVELCACHING){
+		array_body *b=(array_body*)lev->level_data;
+		skiplist *skip=b->skip;
+		p_data->cache_data=skiplist_find_lowerbound(skip,*key);
+	}else{
+		p_data->header_data=data;
+		if(key==NULL)
+			p_data->idx=0;
+		else
+			p_data->idx=array_find_idx_lower_bound(data,*key);
+	}
+	return res;
+}
+
+keyset array_header_next_key(level *lev, keyset_iter *k_iter){
+	header_iter *p_data=(header_iter*)k_iter->private_data;
+	keyset res;
+	res.ppa=-1;
+
+	if(lev->idx<LEVELCACHING){
+		array_body *b=(array_body*)lev->level_data;
+		skiplist *skip=b->skip;
+		if(p_data->cache_data!=skip->header){
+			res.ppa=p_data->cache_data->ppa;
+			res.lpa=p_data->cache_data->key;
+		}
+		p_data->cache_data=p_data->cache_data->list[1];
+	}else{
+		if(GETNUMKEY(p_data->header_data)<p_data->idx){
+			uint16_t *bitmap=GETBITMAP(p_data->header_data);
+			char *data=p_data->header_data;	
+			int idx=p_data->idx;
+			res.ppa=*((ppa_t*)&data[bitmap[idx]]);
+			res.lpa.key=((char*)&(data[bitmap[idx]+sizeof(ppa_t)]));	
+			res.lpa.len=bitmap[idx+1]-bitmap[idx]-sizeof(ppa_t);
+			p_data->idx++;
+		}
+	}
+	return res;
+}
+
+void array_header_next_key_pick(level *lev, keyset_iter * k_iter,keyset *res){
+	header_iter *p_data=(header_iter*)k_iter->private_data;
+	if(lev->idx<LEVELCACHING){
+		array_body *b=(array_body*)lev->level_data;
+		skiplist *skip=b->skip;
+		if(p_data->cache_data!=skip->header){
+			res->ppa=p_data->cache_data->ppa;
+			res->lpa=p_data->cache_data->key;
+		}
+		else{
+			res->ppa=-1;
+		}
+	}
+	else{
+		if(GETNUMKEY(p_data->header_data)<p_data->idx){
+			uint16_t *bitmap=GETBITMAP(p_data->header_data);
+			char *data=p_data->header_data;	
+			int idx=p_data->idx;
+			res->ppa=*((ppa_t*)&data[bitmap[idx]]);
+			res->lpa.key=((char*)&(data[bitmap[idx]+sizeof(ppa_t)]));	
+			res->lpa.len=bitmap[idx+1]-bitmap[idx]-sizeof(ppa_t);
+		}
+		else{
+			res->ppa=-1;
+		}
+	}
+}
