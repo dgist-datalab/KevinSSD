@@ -15,6 +15,13 @@
 
 #define for_each_header_end }
 
+#define GETNUMKEY(data) ((uint16_t*)(data))[0]
+#define GETBITMAP(data) (uint16_t*)(data)
+#define GETKEYGET(data,idx,bitmap,ppa_ptr,key)\
+	(ppa_ptr)=(ppa_t*)&(data[bitmap[idx]])\
+	(key).key=(char*)&(data[bitmap[idx]+sizeof(ppa_t)]);\
+	(key).len=bitmap[idx+1]-bitmap[idx]-sizeof(ppa_t);\
+
 /*
  0k----- bit map -- 1k-1
  1k
@@ -61,6 +68,8 @@ void array_find_keyset_first(char *data,KEYT *des);
 void array_find_keyset_last(char *data,KEYT *des);
 run_t *array_make_run(KEYT start, KEYT end, uint32_t pbn);
 run_t **array_find_run( level*,KEYT);
+run_t **array_find_run_num( level*,KEYT, uint32_t);
+
 uint32_t array_range_find( level *,KEYT, KEYT,  run_t ***);
 uint32_t array_range_find_compaction( level *,KEYT, KEYT,  run_t ***);
 uint32_t array_unmatch_find( level *,KEYT, KEYT,  run_t ***);
@@ -113,6 +122,11 @@ char *array_cache_iter_nxt(lev_iter *);
 //char *array_cache_find_lowerbound(level *, KEYT lpa, KEYT *start,bool);
 int array_cache_get_sz(level*);
 #endif
+
+keyset_iter* array_header_get_keyiter(level *, char *,KEYT *);
+keyset array_header_next_key(level *, keyset_iter *);
+void array_header_next_key_pick(level *, keyset_iter *, keyset *res);
+
 KEYT *array_get_lpa_from_data(char *data,bool isheader);
 int array_binary_search(run_t *body,uint32_t max_t, KEYT lpa);
 //int array_lowerbound_search(run_t *body,uint32_t max_t, KEYT lpa);

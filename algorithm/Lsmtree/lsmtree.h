@@ -15,6 +15,7 @@
 #include "../../include/lsm_settings.h"
 #include "../../include/utils/dl_sync.h"
 #include "../../include/types.h"
+#include "../../include/sem_lock.h"
 #include "../../interface/interface.h"
 
 #define HEADERR MAPPINGR
@@ -56,12 +57,14 @@ typedef struct lsm_sub_req{
 }lsm_sub_req;
 
 typedef struct lsm_range_params{
-	uint8_t type;
+	uint8_t lsm_type;
 	int now;
 	int not_found;
 	int max;
 	uint32_t now_level;
 	uint8_t status;
+	char **mapping_data;
+	fdriver_lock_t global_lock;
 	lsm_sub_req *children;
 }lsm_range_params;
 
@@ -100,7 +103,6 @@ uint32_t __lsm_create_normal(lower_info *, algorithm *);
 void lsm_destroy(lower_info*, algorithm*);
 uint32_t lsm_get(request *const);
 uint32_t lsm_set(request *const);
-uint32_t lsm_multi_set(request *const, int num);
 uint32_t lsm_multi_get(request *const, int num);
 uint32_t lsm_proc_re_q();
 uint32_t lsm_remove(request *const);
@@ -121,8 +123,8 @@ void htable_print(htable*,ppa_t);
 algo_req *lsm_get_req_factory(request*,uint8_t);
 void htable_check(htable *in,KEYT lpa,ppa_t ppa,char *);
 
-uint32_t lsm_multi_set(request *const, int num);
-uint32_t lsm_range_get(request *const, int len);
+uint32_t lsm_multi_set(request *const, uint32_t num);
+uint32_t lsm_range_get(request *const);
 /*
 void lsm_save(lsmtree *);
 void lsm_trim_set(value_set* ,uint8_t *);

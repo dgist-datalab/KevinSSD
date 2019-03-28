@@ -41,8 +41,9 @@ struct algorithm algo_lsm={
 	.iter_release=lsm_iter_release,
 	.iter_all_key=lsm_iter_all_key,
 	.iter_all_value=lsm_iter_all_value,
-	.multi_set=lsm_multi_set,
-	.multi_get=lsm_multi_get,
+	.multi_set=NULL,
+	.multi_get=NULL,
+	.range_query=lsm_range_get,
 };
 extern OOBT *oob;
 lsmtree LSM;
@@ -96,7 +97,6 @@ static int32_t get_sizefactor(uint64_t as){
 #endif
 	return res;
 }
-
 uint32_t lsm_create(lower_info *li, algorithm *lsm){
 #if(SIMULATION)
 	//return __lsm_create_simulation(li,lsm);
@@ -217,6 +217,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 
 extern uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
 extern uint32_t all_kn_run,run_num;
+extern int existrInsert_cnt,max_skip_cnt, max_skip_level;
 void lsm_destroy(lower_info *li, algorithm *lsm){
 	//LSM.lop->all_print();
 	lsm_debug_print();
@@ -250,6 +251,9 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 		printf("[%d]",i);
 		measure_adding_print(&LSM.timers[i]);
 	}
+	printf("existrInsert_cnt:%d\n",existrInsert_cnt);
+	printf("max_skip_cnt:%d\n",max_skip_cnt);
+	printf("max_skip_level:%d\n",max_skip_level);
 }
 
 extern pthread_mutex_t compaction_wait,gc_wait;
@@ -389,12 +393,11 @@ uint32_t lsm_set(request * const req){
 		skiplist_insert(LSM.memtable,req->key,req->value,true);
 	}
 	MA(&__get_mt2);
-
+	
 	req->value=NULL;
 	//req->value will be ignored at free
 	MP(&req->latency_ftl);
 	bench_algo_end(req);
-	req->end_req(req); //end write
 
 	//MA(&__get_mt);
 	/*
@@ -403,10 +406,12 @@ uint32_t lsm_set(request * const req){
 	else*/
 	if(unlikely(LSM.memtable->all_length+(KEYLEN(req->key)+sizeof(uint16_t))>PAGESIZE-KEYBITMAP)){
 		force=1;
+		req->end_req(req); //end write
 		return 1;
 	}
 	else{
 		force=0;
+		req->end_req(req); //end write
 		return 0;
 	}
 }
@@ -421,12 +426,10 @@ uint32_t lsm_proc_re_q(){
 			bench_algo_start(tmp_req);
 			switch(tmp_req->type){
 				case FS_GET_T:
-					MS(&LSM.timers[6]);
 					res_type=__lsm_get(tmp_req);
-					MA(&LSM.timers[6]);
 					break;
 				case FS_RANGEGET_T:
-					//res_type=__lsm_range_get(tmp_req);
+					res_type=__lsm_range_get(tmp_req);
 					break;
 			}
 			if(res_type==0){
@@ -462,9 +465,7 @@ uint32_t lsm_get(request *const req){
 		temp=true;
 	}
 	bench_algo_start(req);
-	MS(&LSM.timers[6]);
 	res_type=__lsm_get(req);
-	MA(&LSM.timers[6]);
 	if(!debug && LSM.disk[0]->n_num>0){
 		debug=true;
 	}
@@ -494,7 +495,7 @@ algo_req* lsm_get_req_factory(request *parents, uint8_t type){
 	dl_sync_init(&params->lock,1);
 
 	if(parents->type==FS_MGET_T && type==DATAR){//data read in FS_MGET_T type
-		lsm_req->end_req=lsm_mget_end_req;
+//		lsm_req->end_req=lsm_mget_end_req;
 	}else{
 		lsm_req->end_req=lsm_end_req;
 	}
@@ -525,7 +526,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 		//	memcpy(req->value->value,target_node->value->value,PAGESIZE);
 			bench_algo_end(req);
 			if(req->type==FS_MGET_T){
-				lsm_mget_end_req(lsm_get_empty_algoreq(req));						
+				//lsm_mget_end_req(lsm_get_empty_algoreq(req));						
 			}
 			else{
 				req->end_req(req);
@@ -818,9 +819,7 @@ retry:
 #endif
 
 			/*using normal ppa when read header */
-			MS(&LSM.timers[7]);
 			LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
-			MA(&LSM.timers[7]);
 			__header_read_cnt++;
 
 			free(entries);

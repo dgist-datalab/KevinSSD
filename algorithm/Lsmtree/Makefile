@@ -34,11 +34,11 @@ SRCS +=\
 	   lops_default.c\
 	   cache.c\
 	   page_kv.c\
-	   lsmtree_mop.c\
 	   variable.c\
+	   lsmtree_multi.c\
 #merge_compaction.c\
 	   run_array.c\
-	   lsmtree_multi.c\
+	   lsmtree_mop.c\
 
 
 OBJS :=\

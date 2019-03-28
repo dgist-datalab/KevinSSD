@@ -147,6 +147,7 @@ struct algorithm{
 	uint32_t (*iter_all_value)(request *const);
 	uint32_t (*multi_set)(request *const,int num);
 	uint32_t (*multi_get)(request *const,int num);
+	uint32_t (*range_query)(request *const);
 	lower_info* li;
 	void *algo_body;
 };

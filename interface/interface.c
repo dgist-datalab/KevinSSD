@@ -184,7 +184,6 @@ void *p_main(void *__input){
 	sprintf(thread_name,"%s","inf_main_thread");
 	pthread_setname_np(pthread_self(),thread_name);
 
-
 #ifndef KVSSD
 	__hash_node *t_h_node;
 #endif
@@ -270,6 +269,9 @@ void *p_main(void *__input){
 				break;
 			case FS_ITER_ALL_VALUE_T:
 				mp.algo->iter_all_value(inf_req);
+				break;
+			case FS_RANGEGET_T:
+				mp.algo->range_query(inf_req);
 				break;
 			case FS_ITER_RLS_T:
 				mp.algo->iter_release(inf_req);
@@ -421,7 +423,8 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 	req->ppa=0;
 	req->multi_value=NULL;
 	req->multi_key=NULL;
-
+	req->num=len;
+	
 	req->key.len=key.len;
 	req->key.key=(char*)malloc(key.len);
 	memcpy(req->key.key,key.key,key.len);
@@ -443,6 +446,12 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 		case FS_GET_T:
 			req->value=inf_get_valueset(NULL,FS_GET_T,PAGESIZE);
 			break;
+		case FS_RANGEGET_T:
+			req->multi_value=(value_set**)malloc(sizeof(value_set*)*req->num);
+			for(int i=0; i<req->num; i++){
+				req->multi_value[i]=inf_get_valueset(NULL,FS_GET_T,PAGESIZE);
+			}
+			break;
 		case FS_MSET_T:
 			break;
 		case FS_MGET_T:
@@ -450,8 +459,6 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 		default:
 			break;
 	}
-
-	//fprintf(stderr, "[IN]  type: %d req.key: %.*s\n", req->type, (int)req->key.len, req->key.key);
 
 	return inf_get_req_common(req,fromApp,mark);
 }
@@ -527,8 +534,6 @@ bool inf_make_req_special(const FSTYPE type, const KEYT key, char* value, int le
 
 //static int end_req_num=0;
 bool inf_end_req( request * const req){
-	//fprintf(stderr, "[OUT] type: %d req.key: %.*s\n", req->type, (int)req->key.len, req->key.key);
-
 	if(req->type==FS_RMW_T){
 		req->type=FS_SET_T;
 		value_set *original=req->value;
@@ -708,12 +713,29 @@ bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value,int le
 	t_key.key=keys;
 	t_key.len=key_len;
 	request *req=inf_get_req_instance(type,t_key,value,len,0,false);
-	//req->key.key=keys;
-	//req->key.len=key_len;
 	req->seq=seq;
 	req->p_req=_req;
 	req->p_end_req=end_req;
-	//inf_end_req(req);
+	
+	cl_grap(flying);
+	traffic_cnt_th++;
+#ifdef CDF
+	req->isstart=false;
+	measure_init(&req->latency_checker);
+	measure_start(&req->latency_checker);
+#endif
+	assign_req(req);
+	return true;
+}
+
+bool inf_make_range_query_apps(char type, char *keys, uint8_t key_len,int seq, int length,void *_req,void (*end_req)(uint32_t,uint32_t, void*)){
+	KEYT t_key;
+	t_key.key=keys;
+	t_key.len=key_len;
+	request *req=inf_get_req_instance(type,t_key,NULL,length,0,false);
+	req->seq=seq;
+	req->p_req=_req;
+	req->p_end_req=end_req;
 	
 	cl_grap(flying);
 	traffic_cnt_th++;

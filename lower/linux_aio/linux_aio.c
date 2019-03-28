@@ -103,9 +103,9 @@ void *poller(void *input) {
 				else{
 				//	printf("cb->offset:%d cb->nbytes:%d\n",cb->u.c.offset,cb->u.c.nbytes);
 				}
-				if(req->parents){
-					bench_lower_end(req->parents);
-				}
+				//if(req->parents){
+					//bench_lower_end(req->parents);
+				//}
 				req->end_req(req);
 				cl_release(lower_flying);
 

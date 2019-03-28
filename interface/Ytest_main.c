@@ -16,8 +16,9 @@
 #include "queue.h"
 
 typedef struct netdata_t{
-	uint8_t type;
+	uint32_t type;
 	uint8_t keylen;
+	uint32_t scanlength;
 	uint32_t seq;
 	char key[UINT8_MAX];
 }netdata;
@@ -104,71 +105,37 @@ void kv_main_end_req(uint32_t a, uint32_t b, void *req){
 }
 
 int main(int argc, char *argv[]){
-	
 	struct sigaction sa;
 	sa.sa_handler = log_print;
 	sigaction(SIGINT, &sa, NULL);
 	printf("signal add!\n");
 
-	/*
-	q_init(&n_q,128);
-
-	struct sockaddr_in server_addr;
-
-	server_socket = socket(PF_INET,SOCK_STREAM,0);
-	int option = 1;
-	setsockopt( server_socket, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option) );
-	
-	memset(&server_addr, 0, sizeof(server_addr));
-	server_addr.sin_family     = AF_INET;
-	server_addr.sin_port       = htons(PORT);
-	server_addr.sin_addr.s_addr= inet_addr(IP);
-
-	if(-1 == bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr))){
-		printf("bind error!\n");
-		exit(1);
-	}
-
-	if(-1 == listen(server_socket, 5)){
-		exit(1);
-	}*/
-	//pthread_t t_id;
-	//pthread_create(&t_id,NULL,ack_to_client,NULL);
 	if(argc<2){
 		printf("insert argumen!\n");
 		return 1;
 	}
 	inf_init(1);
 	FILE *fp = fopen(argv[1], "r");
-/*
-	printf("server ip:%s port:%d\n",IP,PORT);
-	printf("server waiting.....\n");
-	client_addr_size  = sizeof( client_addr);
-	client_socket     = accept( server_socket, (struct sockaddr*)&client_addr, &client_addr_size);
-	printf("connected!!!\n");
-	if (-1 == client_socket){
-		exit(1);
-	}
-	
-	int flags=fcntl(client_socket,F_GETFL,0);
-	if(flags & O_NONBLOCK){
-		printf("non blocking!\n");
-	}
-	else{
-		printf("blocking socket!\n");
-	}*/
 	netdata *data;
 	char temp[8192]={0,};
 	char data_temp[6];
 	data=(netdata*)malloc(sizeof(netdata));
 	static int cnt=0;
 	//measure_init(&data->temp);
-	while((fscanf(fp,"%d %d %s",&data->type, &data->keylen,data->key))!=EOF){
-	    inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),data->seq,data->type==2?data:NULL,kv_main_end_req);
-		data=(netdata*)malloc(sizeof(netdata));
-		if(cnt++%10240==0){
-			printf("cnt:%d\n",cnt);
+	while((fscanf(fp,"%d %d %d %s",&data->type,&data->scanlength,&data->keylen,data->key))!=EOF){
+		if(data->type==1){
+		//	printf("%d %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
+		    inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),cnt++,NULL,kv_main_end_req);	
 		}
+		else{
+			data->type=FS_RANGEGET_T;
+	//		printf("%d %d %d %.*s\n",data->type,data->scanlength,data->keylen,data->keylen,data->key);
+			inf_make_range_query_apps(data->type,data->key,data->keylen,cnt++,data->scanlength,data,kv_main_end_req);
+		}
+		data=(netdata*)malloc(sizeof(netdata));
+		//if(cnt++%10240==0){
+			//printf("cnt:%d\n",cnt++);
+		//}
 	}
 	inf_free();
 }

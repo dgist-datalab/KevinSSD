@@ -86,7 +86,6 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 	bitmap[0]=mem->size;
 
 	//printf("start:%.*s end:%.*s size:%d\n",KEYFORMAT(mem->start),KEYFORMAT(mem->end),mem->size);
-	MS(&LSM.timers[0]);
 	for_each_sk(temp,mem){
 		/*
 		KEYT cmp_key;
@@ -108,7 +107,6 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 		data_start+=temp->key.len+sizeof(temp->ppa);
 		idx++;
 	}
-	MA(&LSM.timers[0]);
 	bitmap[idx]=data_start;
 #else
 	not implemented
@@ -132,7 +130,6 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	uint16_t *bitmap;
 	char *body;
 	int idx;
-	MS(&LSM.timers[1]);
 	for(int i=0; o[i]!=NULL; i++){
 		body=data_from_run(o[i]);
 		bitmap=(uint16_t*)body;
@@ -160,7 +157,6 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 			for_each_header_end
 		}
 	}
-	MA(&LSM.timers[1]);
 	//printf("merger end: %d\n",merger_cnt++);
 }
 extern bool debug_flag;
@@ -192,7 +188,6 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 	uint32_t length_before=src_skip->all_length;
 	/*end*/
 	uint32_t length=0;
-	MS(&LSM.timers[2]);
 	do{	
 		snode *temp=skiplist_pop(src_skip);
 		memcpy(&ptr[data_start],&temp->ppa,sizeof(temp->ppa));
@@ -223,7 +218,6 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 	//array_header_print(ptr);
 	//printf("new_header size:%d\n",idx);
 
-	MA(&LSM.timers[2]);
 	run_t *res_r=array_make_run(start,end,-1);
 	res_r->cpt_data=res;
 #ifdef BLOOM
@@ -265,12 +259,10 @@ void array_cache_merge(level *src, level *des){
 	snode *temp;
 
 	KEYT start=s->skip->header->list[1]->key,end;
-	MS(&LSM.timers[5]);
 	for_each_sk(temp,s->skip){
 		end=temp->key;
 		skiplist_insert_existIgnore(d->skip,temp->key,temp->ppa,temp->ppa==UINT32_MAX?false:true);
 	}
-	MA(&LSM.timers[5]);
 	array_range_update(des,NULL,start);
 	array_range_update(des,NULL,end);
 }
@@ -287,11 +279,9 @@ int array_cache_comp_formatting(level *lev ,run_t ***des){
 	
 	int idx=0;
 
-	MS(&LSM.timers[6]);
 	while((res[idx]=array_cutter(NULL,lev,NULL,NULL))!=NULL){
 		idx++;
 	}
-	MA(&LSM.timers[6]);
 	//	printf("[start]print in formatting :%p\n");
 	//	array_header_print((char*)res[0]->cpt_data->sets);
 	//	printf("[end]print in formatting: %p\n",res[0]->cpt_data->sets);
@@ -457,4 +447,84 @@ char *array_cache_iter_nxt(lev_iter *it){
 	}
 	iter->temp=temp;
 	return res;
+}
+
+typedef struct header_iter{
+	snode *cache_data;
+	char *header_data;
+	uint32_t idx;
+}header_iter;
+
+keyset_iter* array_header_get_keyiter(level *lev, char *data,KEYT *key){
+	keyset_iter *res=(keyset_iter*)malloc(sizeof(keyset_iter));
+	header_iter *p_data=(header_iter*)malloc(sizeof(header_iter));
+	res->private_data=(void*)p_data;
+
+	if(lev->idx<LEVELCACHING){
+		array_body *b=(array_body*)lev->level_data;
+		skiplist *skip=b->skip;
+		p_data->cache_data=skiplist_find_lowerbound(skip,*key);
+	}else{
+		p_data->header_data=data;
+		if(key==NULL)
+			p_data->idx=0;
+		else
+			p_data->idx=array_find_idx_lower_bound(data,*key);
+	}
+	return res;
+}
+
+keyset array_header_next_key(level *lev, keyset_iter *k_iter){
+	header_iter *p_data=(header_iter*)k_iter->private_data;
+	keyset res;
+	res.ppa=-1;
+
+	if(lev->idx<LEVELCACHING){
+		array_body *b=(array_body*)lev->level_data;
+		skiplist *skip=b->skip;
+		if(p_data->cache_data!=skip->header){
+			res.ppa=p_data->cache_data->ppa;
+			res.lpa=p_data->cache_data->key;
+		}
+		p_data->cache_data=p_data->cache_data->list[1];
+	}else{
+		if(GETNUMKEY(p_data->header_data)<p_data->idx){
+			uint16_t *bitmap=GETBITMAP(p_data->header_data);
+			char *data=p_data->header_data;	
+			int idx=p_data->idx;
+			res.ppa=*((ppa_t*)&data[bitmap[idx]]);
+			res.lpa.key=((char*)&(data[bitmap[idx]+sizeof(ppa_t)]));	
+			res.lpa.len=bitmap[idx+1]-bitmap[idx]-sizeof(ppa_t);
+			p_data->idx++;
+		}
+	}
+	return res;
+}
+
+void array_header_next_key_pick(level *lev, keyset_iter * k_iter,keyset *res){
+	header_iter *p_data=(header_iter*)k_iter->private_data;
+	if(lev->idx<LEVELCACHING){
+		array_body *b=(array_body*)lev->level_data;
+		skiplist *skip=b->skip;
+		if(p_data->cache_data!=skip->header){
+			res->ppa=p_data->cache_data->ppa;
+			res->lpa=p_data->cache_data->key;
+		}
+		else{
+			res->ppa=-1;
+		}
+	}
+	else{
+		if(GETNUMKEY(p_data->header_data)<p_data->idx){
+			uint16_t *bitmap=GETBITMAP(p_data->header_data);
+			char *data=p_data->header_data;	
+			int idx=p_data->idx;
+			res->ppa=*((ppa_t*)&data[bitmap[idx]]);
+			res->lpa.key=((char*)&(data[bitmap[idx]+sizeof(ppa_t)]));	
+			res->lpa.len=bitmap[idx+1]-bitmap[idx]-sizeof(ppa_t);
+		}
+		else{
+			res->ppa=-1;
+		}
+	}
 }
