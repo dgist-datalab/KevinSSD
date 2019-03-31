@@ -8,6 +8,15 @@ algorithm __demand = {
     .read    = demand_get,
     .write   = demand_set,
     .remove  = demand_remove,
+	.iter_create = NULL,
+	.iter_next = NULL,
+	.iter_next_with_value = NULL,
+	.iter_release = NULL,
+	.iter_all_key = NULL,
+	.iter_all_value = NULL,
+	.multi_set = NULL,
+	.multi_get = NULL,
+	.range_query = demand_range_query
 };
 
 /*
@@ -75,6 +84,7 @@ int32_t num_clean; // Number of clean translation page on cache
 int32_t max_clean_cache;
 #endif
 
+Redblack rb_tree;
 KEYT key_max, key_min;
 int max_try;
 int cnt_arr[1024];
@@ -179,8 +189,9 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     num_clean = 0;
 #endif
     //max_sl = num_max_cache;
-    max_sl = 1024;
+    //max_sl = 1024;
     //max_sl = 512;
+	max_sl = 1;
 
     /* Print information */
     print_algo_log();
@@ -243,6 +254,8 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	key_min.key = (char *)malloc(sizeof(char) * MAXKEYSIZE);
 	key_min.len = MAXKEYSIZE;
 	memset(key_min.key, 0, sizeof(char) * MAXKEYSIZE);
+
+	rb_tree = rb_create();
 
 #if W_BUFF
     mem_buf = skiplist_init();
@@ -354,6 +367,7 @@ void demand_destroy(lower_info *li, algorithm *algo){
     BM_Free(bm);
     for (int i = 0; i < max_cache_entry; i++) {
         free(mem_arr[i].mem_p);
+		free(CMT[i].dirty_bitmap);
     }
 
     lru_free(lru);
@@ -703,6 +717,7 @@ uint32_t __demand_get(request *const req){
 			// TODO: linear search?
             ppa = mem_arr[D_IDX].mem_p[P_IDX];
             dirty_hit_on_read++;
+            cache_hit_on_read++;
             req->type_ftl = 1;
 
 		} else if (p_table) { // Cache hit
@@ -953,6 +968,9 @@ retry:
     temp = skiplist_insert(mem_buf, req->key, req->value, true);
 	temp->hash_key = lpa;
 
+	rb_insert_str(rb_tree, req->key, NULL);
+	//printf("%d\n", rb_count(rb_tree));
+
 	if (cnt < 1024) {
 		cnt_arr[cnt]++;
 	}
@@ -1166,6 +1184,7 @@ uint32_t demand_set(request *const req){
     request *temp_req;
     if(req->params==NULL){
         demand_req_num++;
+		printf("%d\n", demand_req_num);
     }
     if (trig_data_r > 100000) {
         printf("\nWAF: %.2f\n", (float)(data_r+dirty_evict_on_write)/data_r);

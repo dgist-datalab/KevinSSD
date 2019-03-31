@@ -424,6 +424,7 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 	req->multi_value=NULL;
 	req->multi_key=NULL;
 	req->num=len;
+	req->cpl=0;
 	
 	req->key.len=key.len;
 	req->key.key=(char*)malloc(key.len);

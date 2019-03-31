@@ -4,6 +4,7 @@ CFLAGS_ALGO +=\
 
 SRCS +=\
 	   dftl.c\
+	   dftl_range.c\
 	   garbage_collection.c\
 	   dftl_utils.c\
 	   lru_list.c\

@@ -36,10 +36,11 @@ typedef struct value_set{
 
 struct request {
 	FSTYPE type;
-	KEYT key;	
+	KEYT key;
 	uint64_t ppa;/*it can be the iter_idx*/
 	uint32_t seq;
 	int num; /*length of requests*/
+	int cpl; /*number of completed requests*/
 	int not_found_cnt;
 	value_set *value;
 	value_set **multi_value;
@@ -78,6 +79,7 @@ struct request {
 
 #ifdef hash_dftl
 	void *hash_params;
+	struct request *parents;
 #endif
 };
 

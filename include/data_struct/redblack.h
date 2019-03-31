@@ -58,6 +58,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include<stdint.h>
+#include "../settings.h"
+
+/* typedef struct str_key{
+	uint8_t len;
+	//char key[30];
+	char *key;
+}str_key;
+#define KEYT str_key */
 
 typedef struct redblack {
 	void *item;
@@ -65,6 +74,7 @@ typedef struct redblack {
 		int ikey;
 		char *key;
 	}k;
+	KEYT key;
 	struct redblack *parent;
 	struct redblack *left;
 	struct redblack *right;
@@ -76,16 +86,19 @@ typedef struct redblack {
 	unsigned red : 1;
 } *Redblack;
 
+
 void print_stat(void);
 
 Redblack rb_create (void);
 
 int rb_find_int (Redblack rb, int key, Redblack *node);
-int rb_find_str (Redblack rb, char *key, Redblack *node);
+//int rb_find_str (Redblack rb, char *key, Redblack *node);
+int rb_find_str (Redblack rb, KEYT key, Redblack *node);
 int rb_find_fnt (Redblack rb, char *key, Redblack *node, int (*func)(char *,char *));
 
 Redblack rb_insert_int (Redblack rb, int key, void *item);
-Redblack rb_insert_str (Redblack rb, char *key, void *item);
+Redblack rb_insert_str (Redblack rb, KEYT key, void *item);
+//Redblack rb_insert_str (Redblack rb, char* key, void *item);
 Redblack rb_insert_fnt (Redblack rb, char *key, void *item, int (*func)(char *,char*));
 
 void rb_delete      (Redblack node);

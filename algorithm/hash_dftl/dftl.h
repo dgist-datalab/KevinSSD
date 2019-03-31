@@ -18,6 +18,7 @@
 #endif
 #include "../blockmanager/BM.h"
 #include "lru_list.h"
+#include "../../include/data_struct/redblack.h"
 
 #define TYPE uint8_t
 #define DATA_R DATAR
@@ -131,6 +132,8 @@ extern Block *d_reserved;
 extern volatile int32_t trans_gc_poll;
 extern volatile int32_t data_gc_poll;
 
+extern Redblack rb_tree;
+
 extern int32_t num_page;
 extern int32_t num_block;
 extern int32_t p_p_b;
@@ -162,6 +165,10 @@ uint32_t __demand_set(request *const);
 uint32_t __demand_get(request *const);
 uint32_t __demand_remove(request *const);
 uint32_t demand_eviction(request *const, char, bool*, bool*, snode *);
+
+//dftl_range.c
+uint32_t demand_range_query(request *const);
+bool range_end_req(request *);
 
 //dftl_utils.c
 algo_req* assign_pseudo_req(TYPE type, value_set *temp_v, request *req);
