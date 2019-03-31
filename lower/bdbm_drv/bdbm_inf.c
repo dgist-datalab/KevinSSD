@@ -32,7 +32,7 @@ uint32_t memio_info_create(lower_info *li){
 	li->NOP=_NOP;
 	li->SOB=BLOCKSIZE;
 	li->SOP=PAGESIZE;
-	li->SOK=sizeof(KEYT);
+	li->SOK=sizeof(uint32_t);
 	li->PPB=_PPB;
 	li->TS=TOTALSIZE;
 
@@ -77,7 +77,7 @@ void *memio_info_destroy(lower_info *li){
 	return NULL;
 }
 
-void *memio_info_push_data(KEYT ppa, uint32_t size, value_set *value, bool async, algo_req *const req){
+void *memio_info_push_data(uint32_t ppa, uint32_t size, value_set *value, bool async, algo_req *const req){
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
 		exit(1);
@@ -96,7 +96,7 @@ void *memio_info_push_data(KEYT ppa, uint32_t size, value_set *value, bool async
 	return NULL;
 }
 
-void *memio_info_pull_data(KEYT ppa, uint32_t size, value_set *value, bool async, algo_req *const req){
+void *memio_info_pull_data(uint32_t ppa, uint32_t size, value_set *value, bool async, algo_req *const req){
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
 		exit(1);
@@ -114,7 +114,7 @@ void *memio_info_pull_data(KEYT ppa, uint32_t size, value_set *value, bool async
 	return NULL;
 }
 
-void *memio_info_trim_block(KEYT ppa, bool async){
+void *memio_info_trim_block(uint32_t ppa, bool async){
 	//int value=memio_trim(mio,bb_checker_fix_ppa(ppa),(1<<14)*PAGESIZE,NULL);
 	int value=memio_trim(mio,bb_checker_fixed_segment(ppa),(1<<14)*PAGESIZE,NULL);
 	value=memio_trim(mio,bb_checker_paired_segment(ppa),(1<<14)*PAGESIZE,NULL);
@@ -133,7 +133,7 @@ void *memio_info_refresh(struct lower_info* li){
 	li->write_op=li->read_op=li->trim_op=0;
 	return NULL;
 }
-void *memio_badblock_checker(KEYT ppa,uint32_t size, void*(*process)(uint64_t,uint8_t)){
+void *memio_badblock_checker(uint32_t ppa,uint32_t size, void*(*process)(uint64_t,uint8_t)){
 	memio_trim(mio,ppa,size,process);
 	return NULL;
 }

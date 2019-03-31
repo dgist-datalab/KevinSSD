@@ -53,7 +53,7 @@ uint8_t lsm_filter_checking(BF *filter, lsm_sub_req *sr_sets,request *req){
 uint32_t lsm_range_get(request *const req){
 	uint32_t res_type=0;
 	lsm_proc_re_q();
-
+	//bench_algo_start(req);
 	res_type=__lsm_range_get(req);
 	if(res_type==0){
 		req->type=FS_NOTFOUND_T;
@@ -61,8 +61,8 @@ uint32_t lsm_range_get(request *const req){
 	}
 	return res_type;
 }
-
-
+int cnt3;
+static int retry;
 void *lsm_range_end_req(algo_req *const req){
 	lsm_range_params* range_params=(lsm_range_params*)req->params;
 	request *original_req=req->parents;
@@ -89,19 +89,32 @@ void *lsm_range_end_req(algo_req *const req){
 
 	if(header_flag){
 		while(!inf_assign_try(original_req)){};
+		retry++;
 	}
 	else if(data_flag){
+		int realloc_cnt=(LEVELN-LEVELCACHING) *2;
+		if(original_req->num < realloc_cnt){
+			for(int i=original_req->num; i<realloc_cnt; i++){
+				inf_free_valueset(original_req->multi_value[i],FS_MALLOC_R);
+			}
+		}
+		free(range_params->mapping_data);
 		free(range_params);
+	//	printf("cnt3: %d\n",cnt3++);
 		original_req->end_req(original_req);
 	}
+	free(req);
 	return NULL;
 }
 
+int cnt2=0;
+int cnt=0;
 uint32_t __lsm_range_get_after_header(request *req){
 	lsm_range_params *params=(lsm_range_params*)req->params;
 	keyset_iter* level_iter[LEVELN]; //memtable
 	keyset *target_keys=(keyset*)malloc(sizeof(keyset)*req->num);
 	int level_mapping_cnt[LEVELN];
+//	printf("cnt2:%d\n",cnt2++);
 	//memtable;
 	//HEADER
 	snode *mem_node=skiplist_find_lowerbound(LSM.memtable,req->key);
@@ -122,7 +135,7 @@ uint32_t __lsm_range_get_after_header(request *req){
 		for(int i=0; i<LEVELN+1; i++){
 			if(i==0){
 				if(mem_node==LSM.memtable->header) continue;
-				min.ppa=mem_node->ppa;
+				min.ppa=0;
 				min.lpa=mem_node->key;
 				target=-1;
 			}
@@ -131,14 +144,21 @@ uint32_t __lsm_range_get_after_header(request *req){
 again:
 				if(level_iter[level]==NULL) continue;
 				LSM.lop->header_next_key_pick(LSM.disk[level],level_iter[level],&temp);
-				if(temp.ppa==-1){
-					//it is called when the level is not caching
+
+				if(temp.ppa==UINT_MAX){
 					if(level<LEVELCACHING || level_mapping_cnt[level]>=RANGEGETNUM) continue;
+					if(params->mapping_data[level*RANGEGETNUM + level_mapping_cnt[level]]==NULL) continue;
+					//it is called when the level is not caching
+					if(level_iter[level]->private_data) free(level_iter[level]->private_data);
+					free(level_iter[level]);
+	//				printf("changed iter!\n");
 					level_iter[level]=LSM.lop->header_get_keyiter(LSM.disk[level],params->mapping_data[level*RANGEGETNUM+level_mapping_cnt[level]++],&req->key);
 					goto again;
 				}
-				if(min.ppa==-1){
+
+				if(min.ppa==UINT_MAX){
 					min=temp;
+					target=level;
 				}
 				else if(KEYCMP(min.lpa,temp.lpa)>0){
 					target=level;
@@ -147,24 +167,49 @@ again:
 			}
 		}
 
+		if(min.ppa==UINT_MAX){
+			params->max--;
+			target_keys[j].ppa=-1;
+			continue;
+		}
+
 		if(target==-1){
 			mem_node=mem_node->list[1];
 			params->max--;
+			target_keys[j].ppa=-1;
 		}else{
 			target_keys[j]=LSM.lop->header_next_key(LSM.disk[target],level_iter[target]);
 		}
 	}
-
+	
 	algo_req *ar_req;
-	for(int i=0; i<req->num; i++){
-		ar_req=lsm_range_get_req_factory(req,params,DATAR);
-		LSM.li->read(target_keys[i].ppa,PAGESIZE,req->multi_value[i],ASYNC,ar_req);
+	int throw_req=0;
+	int temp_num=req->num;
+	int i;
+
+	if(params->max==0){
+		free(params->mapping_data);
+		free(params);
+		req->end_req(req);
+		goto finish;
 	}
 
+	for(i=0; i<temp_num; i++){
+		if(target_keys[i].ppa==-1){continue;}
+		throw_req++;
+		ar_req=lsm_range_get_req_factory(req,params,DATAR);	
+		LSM.li->read(target_keys[i].ppa,PAGESIZE,req->multi_value[i],ASYNC,ar_req);
+	}
+finish:
+	for(i=0; i<LEVELN; i++){
+		if(level_iter[i]!=NULL){
+			if(level_iter[i]->private_data) free(level_iter[i]->private_data);
+			free(level_iter[i]);
+		}
+	}
 	free(target_keys);
-	return 0;
+	return 1;
 }
-
 uint32_t __lsm_range_get(request *const req){
 	lsm_range_params *params;
 	/*after read all headers*/
@@ -174,6 +219,15 @@ uint32_t __lsm_range_get(request *const req){
 		params->max=req->num;
 		return __lsm_range_get_after_header(req);		
 	}
+	//printf("cnt:%d\n",cnt++);
+	int realloc_cnt=(LEVELN-LEVELCACHING) *2;
+	if(req->num < realloc_cnt){
+		req->multi_value=(value_set**)realloc(req->multi_value,realloc_cnt*sizeof(value_set));
+		for(int i=req->num; i<realloc_cnt; i++){
+			req->multi_value[i]=inf_get_valueset(NULL,FS_GET_T,PAGESIZE);
+		}
+	}
+	uint32_t read_header[LEVELN*RANGEGETNUM]={0,};
 	/*req all headers read*/
 	params=(lsm_range_params*)malloc(sizeof(lsm_range_params));
 	fdriver_lock_init(&params->global_lock,1);
@@ -186,6 +240,7 @@ uint32_t __lsm_range_get(request *const req){
 	/*Mapping read section*/
 	run_t **rs;
 	algo_req *ar_req;
+	int use_valueset_cnt=0;
 	for(int i=LEVELCACHING; i<LEVELN; i++){
 		pthread_mutex_lock(&LSM.level_lock[i]);
 		rs=LSM.lop->find_run_num(LSM.disk[i],req->key,RANGEGETNUM);
@@ -198,22 +253,35 @@ uint32_t __lsm_range_get(request *const req){
 
 		for(int j=0; rs[j]!=NULL; j++){
 			if(rs[j]->c_entry){
-				params->mapping_data[i]=(char*)malloc(PAGESIZE);
-				memcpy(params->mapping_data[i],rs[0]->cpt_data->sets,PAGESIZE);
+#ifdef NOCPY
+				params->mapping_data[i*RANGEGETNUM+j]=rs[j]->cache_data->nocpy_table;
+#else
+				params->mapping_data[i*RANGEGETNUM+j]=(char*)malloc(PAGESIZE);
+				memcpy(params->mapping_data[i*RANGEGETNUM+j],rs[j]->cache_data->sets,PAGESIZE);
+#endif
 				params->max--;
 				continue;
 			}
 			if(rs[j+1]==NULL && j+1 <RANGEGETNUM){
 				params->max-=(RANGEGETNUM-(j+1));
 			}
-			ar_req=lsm_range_get_req_factory(req,params,HEADERR);
-			LSM.li->read(rs[j]->pbn,PAGESIZE,req->multi_value[i],ASYNC,ar_req);
+#ifdef NOCPY
+			params->mapping_data[i*RANGEGETNUM+j]=(char*)nocpy_pick(rs[j]->pbn);
+#else
+			params->mapping_data[i*RANGEGETNUM+j]=req->multi_value[use_valueset_cnt]->value;
+#endif
+			read_header[use_valueset_cnt++]=rs[j]->pbn;
 		}
 	}
-	if(params->max==0){//all target header in level caching or caching
+	if(params->max==params->now){//all target header in level caching or caching
 		__lsm_range_get(req);
+	}else{
+		for(int i=0;i<use_valueset_cnt;i++){
+			ar_req=lsm_range_get_req_factory(req,params,HEADERR);
+			LSM.li->read(read_header[i],PAGESIZE,req->multi_value[i],ASYNC,ar_req);
+		}
 	}
-	return 0;
+	return 1;
 }
 
 //uint32_t __lsm_range_get(request *const req){

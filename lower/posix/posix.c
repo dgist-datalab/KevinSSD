@@ -137,7 +137,8 @@ void *posix_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 	pthread_mutex_lock(&fd_lock);
 	//if(((lsm_params*)req->params)->lsm_type!=4){
 	if(lseek64(_fd,((off64_t)my_posix.SOP)*PPA,SEEK_SET)==-1){
-		printf("lseek error in read\n");
+		printf("lseek error in read:%d\n",PPA);
+		abort();
 	}
 	int res;
 	if(!(res=read(_fd,value->value,size))){

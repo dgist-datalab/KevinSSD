@@ -423,7 +423,7 @@ uint32_t lsm_proc_re_q(){
 	while(1){
 		if((re_q=q_dequeue(LSM.re_q))){
 			request *tmp_req=(request*)re_q;
-			bench_algo_start(tmp_req);
+	//		bench_algo_start(tmp_req);
 			switch(tmp_req->type){
 				case FS_GET_T:
 					res_type=__lsm_get(tmp_req);

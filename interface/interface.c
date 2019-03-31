@@ -238,7 +238,6 @@ void *p_main(void *__input){
 					first_get=false;
 				}
 				mp.algo->read(inf_req);
-				//inf_end_req(inf_req);
 				break;
 			case FS_SET_T:
 				write_stop=mp.algo->write(inf_req);
@@ -533,6 +532,7 @@ bool inf_make_req_special(const FSTYPE type, const KEYT key, char* value, int le
 	return true;
 }
 
+//int range_getcnt=0;
 //static int end_req_num=0;
 bool inf_end_req( request * const req){
 	if(req->type==FS_RMW_T){
@@ -554,8 +554,6 @@ bool inf_end_req( request * const req){
 		bench_reap_nostart(req);
 	}
 #endif
-
-
 #ifdef DEBUG
 	printf("inf_end_req!\n");
 #endif
@@ -579,33 +577,36 @@ bool inf_end_req( request * const req){
 	if(req->added_end_req){
 		req->added_end_req(req);
 	}
+	
+	int i;//rw_check_type=0;
+	switch(req->type){
+		case FS_ITER_NXT_T:
+			inf_free_valueset(req->value,FS_MALLOC_R);
+			break;
+		case FS_RANGEGET_T:
+		case FS_ITER_NXT_VALUE_T:
+	//		printf("end_req : %d\n",range_getcnt++);
+			free(req->key.key);
+			for(i=0; i<req->num; i++){
+				inf_free_valueset(req->multi_value[i],FS_MALLOC_R);
+			}
+			free(req->multi_value);
+			break;
 
-	if(req->type==FS_ITER_NXT_T){
-		inf_free_valueset(req->value,FS_MALLOC_R);
-	}
-	else if(req->type==FS_ITER_NXT_VALUE_T){
-		for(int i=0; i<req->num; i++){
-			inf_free_valueset(req->multi_value[i],FS_MALLOC_R);
-		}
-	}
-
-	if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){
-
-	}
-	if(req->value){
-		if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){
-			inf_free_valueset(req->value, FS_MALLOC_R);
-		}
-		else if(req->type==FS_SET_T){
-			inf_free_valueset(req->value, FS_MALLOC_W);
-		}
+		case FS_GET_T:
+		case FS_NOTFOUND_T:
+			free(req->key.key);
+			if(req->value) inf_free_valueset(req->value,FS_MALLOC_R);
+			break;
+		case FS_SET_T:
+			if(req->value) inf_free_valueset(req->value,FS_MALLOC_W);
+			break;
 	}
 	req_cnt_test++;
 
 	if(req->p_req){
 		req->p_end_req(req->seq,req->ppa,req->p_req);
 	}
-	
 	free(req);
 	traffic_cnt_rt++;
 	cl_release(flying);
@@ -728,7 +729,6 @@ bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value,int le
 	assign_req(req);
 	return true;
 }
-
 bool inf_make_range_query_apps(char type, char *keys, uint8_t key_len,int seq, int length,void *_req,void (*end_req)(uint32_t,uint32_t, void*)){
 	KEYT t_key;
 	t_key.key=keys;
@@ -739,6 +739,7 @@ bool inf_make_range_query_apps(char type, char *keys, uint8_t key_len,int seq, i
 	req->p_end_req=end_req;
 	
 	cl_grap(flying);
+//	printf("seq:%d\n",req->seq);
 	traffic_cnt_th++;
 #ifdef CDF
 	req->isstart=false;
