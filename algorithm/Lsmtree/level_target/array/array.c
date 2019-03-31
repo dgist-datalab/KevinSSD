@@ -284,7 +284,7 @@ run_t **array_find_run_num( level* lev,KEYT lpa, uint32_t num){
 	int target_idx=array_binary_search(arrs,lev->n_num,lpa);
 	if(target_idx==-1) return NULL;
 	run_t **res=(run_t**)calloc(sizeof(run_t*),num+1);
-	int idx;
+	uint32_t idx;
 	for(idx=0; idx<num; idx++){
 		if(target_idx<lev->m_num){
 			res[idx]=&arrs[target_idx++];
@@ -371,7 +371,7 @@ uint32_t array_unmatch_find( level *lev,KEYT s, KEYT e,  run_t ***rc){
 }
 
 void array_free_run(run_t *e){
-	static int cnt=0;
+	//static int cnt=0;
 #ifdef BLOOM
 	if(e->filter) bf_free(e->filter);
 #endif

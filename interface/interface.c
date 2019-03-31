@@ -568,7 +568,7 @@ bool inf_end_req( request * const req){
 		req->added_end_req(req);
 	}
 	
-	int i,rw_check_type=0;
+	int i;//rw_check_type=0;
 	switch(req->type){
 		case FS_ITER_NXT_T:
 			inf_free_valueset(req->value,FS_MALLOC_R);

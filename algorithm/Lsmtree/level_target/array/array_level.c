@@ -274,7 +274,7 @@ void array_cache_free(level *lev){
 }
 int array_cache_comp_formatting(level *lev ,run_t ***des){
 	//array_body *b=(array_body*)lev->level_data;
-	static int cnt=0;
+	//static int cnt=0;
 	//can't caculate the exact nubmer of run...
 	run_t **res=(run_t**)malloc(sizeof(run_t*)*(array_cache_get_sz(lev)*2));
 	

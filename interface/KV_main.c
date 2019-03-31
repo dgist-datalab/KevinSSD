@@ -170,7 +170,7 @@ int main(){
 		data->keylen=data_temp[1];
 		data->seq=*(uint32_t*)&data_temp[2];
 		if(data->type==3){
-			read_socket_len(&data->scanlength,sizeof(data->scanlength));
+			read_socket_len((char*)&data->scanlength,sizeof(data->scanlength));
 			data->scanlength=htobe32(data->scanlength);
 		//	data->type=FS_GET_T;
 			data->type=FS_RANGEGET_T;

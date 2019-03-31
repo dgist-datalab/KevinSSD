@@ -1,7 +1,7 @@
-export CC=gcc
+export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=posix
+TARGET_LOWER=bdbm_drv
 TARGET_ALGO=Lsmtree
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
@@ -110,8 +110,8 @@ endif
 LIBS +=\
 		-lpthread\
 		-lm\
-		-laio\
 		-ljemalloc\
+	#	-laio\
 
 all: driver
 

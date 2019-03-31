@@ -145,7 +145,7 @@ again:
 				if(level_iter[level]==NULL) continue;
 				LSM.lop->header_next_key_pick(LSM.disk[level],level_iter[level],&temp);
 
-				if(temp.ppa==-1){
+				if(temp.ppa==UINT_MAX){
 					if(level<LEVELCACHING || level_mapping_cnt[level]>=RANGEGETNUM) continue;
 					if(params->mapping_data[level*RANGEGETNUM + level_mapping_cnt[level]]==NULL) continue;
 					//it is called when the level is not caching
@@ -156,7 +156,7 @@ again:
 					goto again;
 				}
 
-				if(min.ppa==-1){
+				if(min.ppa==UINT_MAX){
 					min=temp;
 					target=level;
 				}
@@ -167,7 +167,7 @@ again:
 			}
 		}
 
-		if(min.ppa==-1){
+		if(min.ppa==UINT_MAX){
 			params->max--;
 			target_keys[j].ppa=-1;
 			continue;
@@ -182,6 +182,11 @@ again:
 		}
 	}
 	
+	algo_req *ar_req;
+	int throw_req=0;
+	int temp_num=req->num;
+	int i;
+
 	if(params->max==0){
 		free(params->mapping_data);
 		free(params);
@@ -189,10 +194,6 @@ again:
 		goto finish;
 	}
 
-	algo_req *ar_req;
-	int throw_req=0;
-	int temp_num=req->num;
-	int i;
 	for(i=0; i<temp_num; i++){
 		if(target_keys[i].ppa==-1){continue;}
 		throw_req++;
@@ -221,7 +222,7 @@ uint32_t __lsm_range_get(request *const req){
 	//printf("cnt:%d\n",cnt++);
 	int realloc_cnt=(LEVELN-LEVELCACHING) *2;
 	if(req->num < realloc_cnt){
-		req->multi_value=realloc(req->multi_value,realloc_cnt*sizeof(value_set));
+		req->multi_value=(value_set**)realloc(req->multi_value,realloc_cnt*sizeof(value_set));
 		for(int i=req->num; i<realloc_cnt; i++){
 			req->multi_value[i]=inf_get_valueset(NULL,FS_GET_T,PAGESIZE);
 		}
