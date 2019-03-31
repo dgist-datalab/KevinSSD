@@ -87,9 +87,10 @@ void *ack_to_client(void *arg){
 		free(net_data);
 		//	}
 		send_num++;
-		if(send_num%10000==0){
-			//		printf("%d - %d \n",input_num,send_num);
-		}
+		/*
+		if(send_num%100==0){
+			printf("%d - %d \n",input_num,send_num);
+		}*/
 	}
 }
 
@@ -98,6 +99,7 @@ void kv_main_end_req(uint32_t a, uint32_t b, void *req){
 	netdata *net_data=(netdata*)req;
 	//	net_data->seq=a;
 	switch(net_data->type){
+		case FS_RANGEGET_T:
 		case FS_GET_T:
 			//printf("insert_queue\n");
 			while(!q_enqueue((void*)net_data,n_q));
@@ -168,25 +170,19 @@ int main(){
 		data->keylen=data_temp[1];
 		data->seq=*(uint32_t*)&data_temp[2];
 		if(data->type==3){
-			data->type=2;
 			read_socket_len(&data->scanlength,sizeof(data->scanlength));
-	//		print_byte((char*)&data->scanlength,sizeof(data->scanlength));
 			data->scanlength=htobe32(data->scanlength);
-	//		printf("scanlength:%d\n",data->scanlength);
-	//		data->type=FS_RANGEGET_T;
+		//	data->type=FS_GET_T;
+			data->type=FS_RANGEGET_T;
 			read_socket_len(data->key,data->keylen);
-			fprintf(stderr,"%d %d %d %.*s\n",3,data->scanlength,data->keylen,data->keylen,data->key);
+		//	fprintf(stderr,"%d %d %d %.*s\n",3,data->scanlength,data->keylen,data->keylen,data->key);
+			inf_make_range_query_apps(data->type,data->key,data->keylen,data->seq,data->scanlength,data,kv_main_end_req);
 		}else{
 			read_socket_len(data->key,data->keylen);
-			fprintf(stderr,"%d 0 %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
-		}
-		//print_byte((char*)&data->seq,sizeof(data->seq));
-		if(data->type==3){
-			inf_make_range_query_apps(data->type,data->key,data->keylen,data->scanlength,data->seq,data,kv_main_end_req);
-		}
-		else{
 			inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),data->seq,data->type==2?data:NULL,kv_main_end_req);
+		//	fprintf(stderr,"%d 0 %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
 		}
+//		inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),data->seq,data->type==2?data:NULL,kv_main_end_req);
 		input_num++;
 		if(data->type==1){
 			while(!q_enqueue((void*)data,n_q));

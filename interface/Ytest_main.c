@@ -97,8 +97,9 @@ void kv_main_end_req(uint32_t a, uint32_t b, void *req){
 	//		while(!q_enqueue((void*)net_data,n_q));
 	//		printf("assign seq:%d\n",a);
 			break;
+		case FS_RANGEGET_T:
 		case FS_SET_T:
-	//		free(net_data);
+			free(net_data);
 			break;
 	}
 }
@@ -119,7 +120,7 @@ int main(int argc, char *argv[]){
 	while((fscanf(fp,"%d %d %d %s",&data->type,&data->scanlength,&data->keylen,data->key))!=EOF){
 		if(data->type==1){
 		//	printf("%d %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
-		    inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),cnt++,NULL,kv_main_end_req);	
+		    inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),cnt++,data,kv_main_end_req);	
 		}
 		else{
 			data->type=FS_RANGEGET_T;
