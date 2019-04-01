@@ -185,8 +185,6 @@ int main(){
 		}
 //		inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),data->seq,data->type==2?data:NULL,kv_main_end_req);
 		input_num++;
-		//fprintf(stderr,"%d %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
-	    inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),data->seq,data->type==2?data:NULL,kv_main_end_req);
 		if(data->type==1){
 			while(!q_enqueue((void*)data,n_q));
 		}

@@ -189,9 +189,9 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     num_clean = 0;
 #endif
     //max_sl = num_max_cache;
-    //max_sl = 1024;
+    max_sl = 1024;
     //max_sl = 512;
-	max_sl = 1;
+	//max_sl = 1;
 
     /* Print information */
     print_algo_log();
@@ -499,7 +499,7 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
     if (t_ppa != -1) {
         c_table->flying = true;
 		//is_flying[D_IDX] = true;
-		fprintf(stderr, "CMT[%d] on by req %x\n", D_IDX, req);
+		//fprintf(stderr, "CMT[%d] on by req %x\n", D_IDX, req);
         num_flying++;
 
         dummy_vs = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
@@ -642,7 +642,7 @@ static uint32_t demand_read_flying(request *const req, char req_t) {
     c_table->num_waiting = 0;
     c_table->flying = false;
 	//is_flying[D_IDX] = false;
-	fprintf(stderr, "CMT[%d] off by req %x\n", D_IDX, req);
+	//fprintf(stderr, "CMT[%d] off by req %x\n", D_IDX, req);
     num_flying--;
     for (int i = 0; i < waiting; i++) {
         if (!inf_assign_try(waiting_arr[i])) {
@@ -1184,7 +1184,7 @@ uint32_t demand_set(request *const req){
     request *temp_req;
     if(req->params==NULL){
         demand_req_num++;
-		printf("%d\n", demand_req_num);
+		//printf("%d\n", demand_req_num);
     }
     if (trig_data_r > 100000) {
         printf("\nWAF: %.2f\n", (float)(data_r+dirty_evict_on_write)/data_r);

@@ -595,7 +595,7 @@ bool inf_end_req( request * const req){
 
 		case FS_GET_T:
 		case FS_NOTFOUND_T:
-			free(req->key.key);
+			//free(req->key.key);
 			if(req->value) inf_free_valueset(req->value,FS_MALLOC_R);
 			break;
 		case FS_SET_T:
