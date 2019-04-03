@@ -63,6 +63,8 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 	res->sets=(keyset*)temp_v->value;
 #endif
 	res->origin=temp_v;*/
+	static int cnt=0;
+	printf("cnt:%d\n",cnt++);
 #ifdef NOCPY
 	htable *res=htable_assign(NULL,1);
 	res->sets=(keyset*)malloc(PAGESIZE);
@@ -176,7 +178,6 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 
 	/*assign pagesize for header*/
 	htable *res=htable_assign(NULL,0);
-//	printf("alloc %p\n",res->sets);
 #ifdef BLOOM
 	BF* filter=bf_init(KEYBITMAP/sizeof(uint16_t),d->fpr);
 #endif
@@ -186,7 +187,7 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 	uint32_t cnt=0;
 	memset(bitmap,-1,KEYBITMAP/sizeof(uint16_t));
 	uint16_t data_start=KEYBITMAP;
-	uint32_t length_before=src_skip->all_length;
+	//uint32_t length_before=src_skip->all_length;
 	/*end*/
 	uint32_t length=0;
 	do{	

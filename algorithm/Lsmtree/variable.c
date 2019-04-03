@@ -9,7 +9,7 @@ extern OOBT *oob;
 void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset, int* target_valueset_from, bool isgc){
 	int v_idx;
 	/*for normal data*/
-	value_set **v_des;
+	value_set **v_des=NULL;
 
 	/*for gc*/
 	gc_node **gc_container;

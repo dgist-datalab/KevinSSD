@@ -64,8 +64,8 @@ int gc_header(uint32_t tbn){
 #else
 		KEYT *lpa=LSM.lop->get_lpa_from_data((char*)tables[i]->sets,true);
 #endif
-		run_t **entries;
-		run_t *target_entry;
+		run_t **entries=NULL;
+		run_t *target_entry=NULL;
 		bool checkdone=false;
 		bool shouldwrite=false;
 		/*find target_level from level*/

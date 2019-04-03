@@ -217,7 +217,6 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 
 extern uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
 extern uint32_t all_kn_run,run_num;
-extern int existrInsert_cnt,max_skip_cnt, max_skip_level;
 void lsm_destroy(lower_info *li, algorithm *lsm){
 	//LSM.lop->all_print();
 	lsm_debug_print();
@@ -251,9 +250,6 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 		printf("[%d]",i);
 		measure_adding_print(&LSM.timers[i]);
 	}
-	printf("existrInsert_cnt:%d\n",existrInsert_cnt);
-	printf("max_skip_cnt:%d\n",max_skip_cnt);
-	printf("max_skip_level:%d\n",max_skip_level);
 }
 
 extern pthread_mutex_t compaction_wait,gc_wait;
@@ -419,7 +415,7 @@ int nor;
 MeasureTime lsm_mt;
 uint32_t lsm_proc_re_q(){
 	void *re_q;
-	int res_type;
+	int res_type=0;
 	while(1){
 		if((re_q=q_dequeue(LSM.re_q))){
 			request *tmp_req=(request*)re_q;
@@ -592,7 +588,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 			algo_req *new_lsm_req;
 			for(int i=0; i<entry->wait_idx; i++){
 				temp_req=entry->waitreq[i];
-				new_target_set=LSM.lop->find_keyset((char*)table,temp_req->key);	
+				new_target_set=LSM.lop->find_keyset((char*)table,temp_req->key);
 				int *temp_params=(int*)temp_req->params;
 				temp_params[3]++;
 				if(new_target_set){
@@ -911,7 +907,7 @@ void htable_print(htable * input,ppa_t ppa){
 #endif
 	}
 	if(check){
-		printf("bad page at %ld cnt:%d---------\n",ppa,cnt);
+		printf("bad page at %u cnt:%d---------\n",ppa,cnt);
 		abort();
 	}
 }

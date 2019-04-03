@@ -743,10 +743,12 @@ void invalidate_PPA(uint32_t _ppa){
 	segment *segs=WHICHSEG(bl[bn].ppa);
 	segs->invalid_n++;
 	//static int cnt=0;
+/*
 #ifdef NOCPY
 	if(_ppa>=0 && _ppa<(HEADERSEG+1)*_PPS)
 		nocpy_free_page(_ppa);
 #endif
+*/
 	if(bl[bn].invalid_n>algo_lsm.li->PPB){
 		printf("%u\n",algo_lsm.li->PPB);
 		printf("invalidate:??\n");

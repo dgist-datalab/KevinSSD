@@ -54,6 +54,7 @@ typedef struct OOBT{
 #define RQSIZE 1024
 #define WRITEWAIT
 #define MAXKEYSIZE 255
+#define WRITEOPTIMIZE
 //#define STREAMCOMP
 //#define NOGC
 //#define COSTBENEFIT

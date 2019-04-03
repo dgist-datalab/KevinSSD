@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=bdbm_drv
+TARGET_LOWER=posix
 TARGET_ALGO=Lsmtree
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
@@ -11,7 +11,7 @@ DEBUGFLAGS=\
 			-rdynamic\
 			-Wno-pointer-arith\
 			-g\
-#	-fsanitize=address\
+	-fsanitize=address\
 #	-DBUSE_DEBUG
 
 COMMONFLAGS=\
@@ -22,7 +22,7 @@ COMMONFLAGS=\
 			-DKVSSD\
 			-DSLC\
 			-Wno-unused-but-set-variable\
--O3\
+#-O3\
 #			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\

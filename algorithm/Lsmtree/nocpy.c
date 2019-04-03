@@ -1,9 +1,7 @@
 #include "nocpy.h"
 #include "../../include/lsm_settings.h"
 extern lsmtree LSM;
-
 keyset **page;
-
 void nocpy_init(){
 	page=(keyset**)malloc(sizeof(keyset*)*((HEADERSEG+1)*_PPS));
 	for(int i=0; i<(HEADERSEG+1)*_PPS; i++){
@@ -45,6 +43,7 @@ void nocpy_copy_to(char *des, uint32_t ppa){
 
 void nocpy_free(){
 	for(int i=0; i<(HEADERSEG+1)*_PPS; i++){
+		fprintf(stderr,"%d %p\n",i,page[i]);
 		free(page[i]);
 	}
 	free(page);

@@ -39,7 +39,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 16L
+#define GIGAUNIT 4L
 #define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
@@ -96,6 +96,7 @@ static inline int KEYCONSTCOMP(KEYT a, char *s){
 	}
 	return a.len<len?-1:1;
 }
+
 #else
 	#define KEYT uint32_t
 #endif

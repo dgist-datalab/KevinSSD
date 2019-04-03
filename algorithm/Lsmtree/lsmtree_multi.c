@@ -195,7 +195,7 @@ again:
 	}
 
 	for(i=0; i<temp_num; i++){
-		if(target_keys[i].ppa==-1){continue;}
+		if(target_keys[i].ppa==UINT_MAX){continue;}
 		throw_req++;
 		ar_req=lsm_range_get_req_factory(req,params,DATAR);	
 		LSM.li->read(target_keys[i].ppa,PAGESIZE,req->multi_value[i],ASYNC,ar_req);

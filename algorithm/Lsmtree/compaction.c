@@ -4,6 +4,7 @@
 #include "page.h"
 #include "bloomfilter.h"
 #include "nocpy.h"
+#include "lsmtree_scheduling.h"
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -128,6 +129,11 @@ bool compaction_init(){
 #ifdef MERGECOMPACTION
 	merge_compaction_init();
 #endif
+
+#ifdef WRITEOPTIMIZE
+	lsm_io_sched_init();
+#endif
+
 	return true;
 }
 
@@ -201,15 +207,6 @@ void compaction_assign(compR* req){
 			else{
 				pthread_mutex_unlock(&compaction_req_lock);
 			}
-
-			/* "before cond wait"
-			if(q_enqueue((void*)req,proc->q)){
-				//compaction_idle=false;
-				compaction_idle=false;
-				flag=true;
-				//pthread_mutex_unlock(&compaction_assign_lock);
-				break;
-			}*/
 		}
 		if(flag) break;
 	}
@@ -224,34 +221,29 @@ run_t *compaction_data_write(skiplist *mem){
 	KEYT start=mem->start,end=mem->end;
 	run_t *res=LSM.lop->make_run(start,end,-1);
 	value_set **data_sets=skiplist_make_valueset(mem,LSM.disk[0]);
-	//snode *t;
+
+#ifdef WRITEOPTIMIZE
+	lsm_io_sched_push(SCHED_FLUSH,(void*)data_sets);//make flush background job
+#else
 	for(int i=0; data_sets[i]!=NULL; i++){	
 		algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 		lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-		lsm_req->parents=NULL;
 		params->lsm_type=DATAW;
 		params->value=data_sets[i];
+		lsm_req->parents=NULL;
 		lsm_req->params=(void*)params;
 		lsm_req->end_req=lsm_end_req;
 		lsm_req->rapid=true;
-		////while(mp.processors[0].retry_q->size){}
 		lsm_req->type=DATAW;
-		//data_sets already have profit ppa;
-		/*
-		if(data_sets[i]->ppa==98304){
-			footer *foot=GETFOOTER(data_sets[i]->value);
-			for(int k=0;k<NPCINPAGE; k++){
-				printf("checking %d:%d\n",k,foot->map[k]);
-			}
-		}*/
 		if(params->value->dmatag==-1){
 			abort();
 		}
 		LSM.li->write(data_sets[i]->ppa,PAGESIZE,params->value,ASYNC,lsm_req);
 	}
 	free(data_sets);
+#endif
+
 	LSM.lop->mem_cvt2table(mem,res); //res's filter and table will be set
-//	LSM.lop->header_print((char*)res->cpt_data->sets);
 	isflushing=false;
 	return res;
 }
@@ -284,6 +276,7 @@ uint32_t compaction_htable_write(htable *input, KEYT lpa){
 	//printf("%u\n",ppa);
 	return ppa;
 }
+
 void dummy_meta_write(uint32_t ppa){
 	value_set *temp=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
@@ -303,10 +296,7 @@ void dummy_meta_write(uint32_t ppa){
 }
 
 bool compaction_force(){
-	/*
-	static int cnt=0;
-	printf("\nbefore :%d\n",cnt++);
-	level_summary();*/
+
 	for(int i=LEVELN-2; i>=0; i--){
 		if(LSM.disk[i]->n_num){
 			compaction_selector(LSM.disk[i],LSM.disk[LEVELN-1],NULL,&LSM.level_lock[LEVELN-1]);
@@ -384,13 +374,6 @@ void *compaction_main(void *input){
 		CPU_SET(1,&cpuset);
 		pthread_setaffinity_np(current_thread,sizeof(cpu_set_t),&cpuset);
 
-		/*
-		if(!(_req=q_dequeue(_this->q))){
-			//sleep or nothing
-			compaction_idle=true;
-			continue;
-		}*/
-
 		if(compactor.stopflag)
 			break;
 
@@ -428,13 +411,12 @@ void *compaction_main(void *input){
 			}
 		}
 #endif
-		//printf("compaction_done!\n");
 
 #ifdef WRITEWAIT
 		LSM.li->lower_flying_req_wait();
 		pthread_mutex_unlock(&compaction_flush_wait);
 #endif
-		//LSM.li->lower_show_info();
+		lsm_io_sched_flush();
 		free(req);
 	}
 	
@@ -501,7 +483,6 @@ run_t* compaction_postprocessing(run_t *target){
 	#if LEVELN==1
 	}
 	#endif
-
 #else
 	table=htable_assign((char*)target->cpt_data->sets,true);
 #endif
@@ -766,20 +747,8 @@ chg_level:
 	(*des_ptr)=target;
 	LSM.lop->release(to);
 	pthread_mutex_unlock(lock);
-	if(gc_debug_flag){
-	//	LSM.lop->all_print();
-	//	printf("\n\n");
-	//	abort();
-	}
-#ifdef DVALUE
-	/*
-	if(from){
-		level_save_blocks(target);
-		target->now_block=NULL;
-	}*/
-#endif
+
 	LSM.c_level=NULL;
-//	printf("level_cnt:%d end\n\n",level_cnt++);
 	return 1;
 }	
 
@@ -833,13 +802,7 @@ uint32_t partial_leveling(level* t,level *origin,skiplist *skip, level* upper){
 	KEYT end=key_min;
 	run_t **target_s=NULL;
 	run_t **data=NULL;
-	/*
-	static int cnt=0;
-	printf("---------partial_leveling:%d\n",cnt++);
-	if(cnt==44){
-		debug_flag=true;
-	}*/
-	//LSM.lop->print(origin);
+
 	if(!upper){
 #ifndef MONKEY
 		start=skip->start;
@@ -1149,9 +1112,6 @@ uint32_t level_one_processing(level *from, level *to, run_t *entry, pthread_mute
 #endif
 
 		if(map[offset].ppa!=UINT_MAX){
-	//		static int cnt=0;
-	//		printf("[%d] %u invalidate :%u, new :%u\n",cnt++,map[offset].lpa,map[offset].ppa,node->ppa);
-	//		printf("invalidate ppa:%u\n",map[offset].ppa);
 			invalidate_PPA(map[offset].ppa);
 		}
 		map[offset].lpa=node->key;
@@ -1160,18 +1120,6 @@ uint32_t level_one_processing(level *from, level *to, run_t *entry, pthread_mute
 		LSM.lop->range_update(new_level,NULL,node->key);
 
 		if(pre_map_num!=UINT_MAX &&pre_map_num!=mapnum){
-			/*
-			old_header_pbn=pre_run->pbn;
-			compaction_postprocessing(pre_run);
-			if(old_header_pbn!=UINT_MAX && pre_run->iscompactioning!=3)
-				invalidate_PPA(old_header_pbn);
-			if(table->iscompactioning==5){
-				free(pre_run->cpt_data->sets);
-				pre_run->cpt_data->sets=NULL;
-			}
-			pre_run->iscompactioning=0;
-			htable_free(pre_run->cpt_data);
-			pre_run->cpt_data=NULL;*/
 			level_one_header_update(pre_run);
 		}
 		pre_run=table;
@@ -1179,18 +1127,6 @@ uint32_t level_one_processing(level *from, level *to, run_t *entry, pthread_mute
 	}
 	
 	level_one_header_update(pre_run);
-	/*
-	old_header_pbn=pre_run->pbn;
-	compaction_postprocessing(pre_run);
-	if(old_header_pbn!=UINT_MAX && pre_run->iscompactioning!=3)
-		invalidate_PPA(old_header_pbn);
-	if(table->iscompactioning==5){
-		free(pre_run->cpt_data->sets);
-		pre_run->cpt_data->sets=NULL;
-	}
-	htable_free(pre_run->cpt_data);
-	pre_run->cpt_data=NULL;*/
-
 
 	pthread_mutex_lock(&LSM.entrylock);
 	LSM.tempent=NULL;

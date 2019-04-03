@@ -252,7 +252,6 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
 	return x;
 }
 
-int existrInsert_cnt, max_skip_cnt, max_skip_level;
 snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool deletef){
 #ifndef KVSSD
 	if(key>RANGE){
@@ -262,10 +261,6 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 #endif
 	snode *update[MAX_L+1];
 	snode *x=list->header;
-	existrInsert_cnt++;
-	if(list->size > max_skip_cnt) max_skip_cnt=list->size;
-	if(list->level > max_skip_level) max_skip_level=list->level;
-	
 	//fprintf(stderr,"%d %.*s\n",key.len, key.len,key.key);
 	MS(&LSM.timers[5]);
 	for(int i=list->level; i>=1; i--){

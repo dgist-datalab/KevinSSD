@@ -544,8 +544,7 @@ void bench_reap_data(request *const req,lower_info *li){
 #endif
 		MA(&_m->benchTime);
 	}
-	if(req->type==FS_GET_T)
-		free(req->key.key);
+
 	_m->r_num++;
 	pthread_mutex_unlock(&bench_lock);
 }
