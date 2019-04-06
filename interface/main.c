@@ -87,6 +87,7 @@ int main(int argc,char* argv[]){
 		}
 
 		inf_make_req(value->type,value->key,temp.value ,value->length-value->key.len-sizeof(value->key.len),value->mark);
+		free(value->key.key);
 		if(!tflag &&value->type==FS_GET_T){
 			tflag=true;
 		}

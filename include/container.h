@@ -26,7 +26,6 @@ typedef struct value_set{
 	uint32_t length;
 	int dmatag; //-1 == not dma_alloc, others== dma_alloc
 	uint32_t ppa;
-	char *nocpy;//nocpy buffer for bdbm_drv
 	bool from_app;
 	PTR rmw_value;
 	uint8_t status;

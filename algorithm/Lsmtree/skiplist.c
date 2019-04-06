@@ -7,11 +7,13 @@
 #include"skiplist.h"
 #include"variable.h"
 #include"../../interface/interface.h"
+#include "../../include/utils/kvssd.h"
 #include "../../include/slab.h"
 #ifdef Lsmtree
 #include "lsmtree.h"
 #include "level.h"
 #include "page.h"
+
 
 extern MeasureTime compaction_timer[3];
 extern OOBT *oob;
@@ -39,8 +41,6 @@ skiplist *skiplist_init(){
 #if defined(KVSSD) && defined(Lsmtree)
 	point->all_length=0;
 	point->header->key=key_max;
-	point->start=key_max;
-	point->end=key_min;
 #else
 	point->header->key=UINT_MAX;
 	point->start=UINT_MAX;
@@ -202,8 +202,8 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
 	x=x->list[1];
 
 #if defined(KVSSD) && defined(Lsmtree)
-	if(KEYCMP(key,list->start)<0) list->start=key;
-	if(KEYCMP(key,list->end)>0) list->end=key;
+//	if(KEYCMP(key,list->start)<0) list->start=key;
+//	if(KEYCMP(key,list->end)>0) list->end=key;
 	if(KEYCMP(key,x->key)==0)
 #else
 	if(key<list->start) list->start=key;
@@ -253,6 +253,14 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
 }
 
 snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool deletef){
+/*	if(KEYCONSTCOMP(key,"100834")==0){
+		static int cnt_k=0;
+		if(cnt_k==18 || cnt_k==19){
+			printf("break\n");
+		}
+		printf("[%d]here! in skip_insert_exit\n",cnt_k++);
+	}*/
+
 #ifndef KVSSD
 	if(key>RANGE){
 		printf("bad page read\n");
@@ -278,8 +286,8 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 
 	x=x->list[1];
 #ifdef KVSSD
-	if(KEYCMP(key,list->start)<0) list->start=key;
-	if(KEYCMP(key,list->end)>0) list->end=key;
+//	if(KEYCMP(key,list->start)<0) list->start=key;
+//	if(KEYCMP(key,list->end)>0) list->end=key;
 	if(KEYCMP(key,x->key)==0)
 #else
 	if(key<list->start) list->start=key;
@@ -297,6 +305,8 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 		}*/
 		invalidate_DPPA(x->ppa);
 #endif
+	//	printf("free key:%.*s %p\n",key.len, key.key,key.key);
+	//	free(key.key);
 		x->ppa=ppa;
 		x->isvalid=deletef;
 		return x;
@@ -332,7 +342,7 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 		x->level=level;
 		list->size++;
 	}
-	return x;
+	return NULL;
 }
 
 snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overlap)(void*)){
@@ -352,8 +362,8 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overla
 
 	run_t *t_r=(run_t*)value;
 #if defined(KVSSD) && defined(Lsmtree)
-	if(KEYCMP(key,list->start)<0) list->start=key;
-	if(KEYCMP(key,list->end)>0) list->end=key;
+//	if(KEYCMP(key,list->start)<0) list->start=key;
+//	if(KEYCMP(key,list->end)>0) list->end=key;
 	if(KEYCMP(key,x->key)==0)
 #else
 	if(key<list->start) list->start=key;
@@ -414,8 +424,8 @@ snode *skiplist_insert_iter(skiplist *list,KEYT key,ppa_t ppa){
 	}
 	x=x->list[1];
 #if defined(KVSSD) && defined(Lsmtree)
-	if(KEYCMP(key,list->start)<0) list->start=key;
-	if(KEYCMP(key,list->end)>0) list->end=key;
+//	if(KEYCMP(key,list->start)<0) list->start=key;
+//	if(KEYCMP(key,list->end)>0) list->end=key;
 	if(KEYCMP(key,x->key)==0)
 #else
 	if(key<list->start) list->start=key;
@@ -478,6 +488,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		update[i]=x;
 	}
 	x=x->list[1];
+/*
 #if defined(KVSSD) && defined(Lsmtree)
 	if(KEYCMP(key,list->start)<0) list->start=key;
 	if(KEYCMP(key,list->end)>0) list->end=key;
@@ -485,6 +496,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 	if(key<list->start) list->start=key;
 	if(key>list->end) list->end=key;
 #endif
+*/
 	if(value!=NULL){
 		value->length=(value->length/PIECE)+(value->length%PIECE?1:0);
 	}
@@ -503,6 +515,10 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		
 		if(x->value)
 			inf_free_valueset(x->value,FS_MALLOC_W);
+		
+#if defined(KVSSD) && defined(Lsmtree)
+		free(key.key);
+#endif
 	//	old_req->end_req(old_req);
 
 		x->value=value;
@@ -553,25 +569,28 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 
 #ifdef Lsmtree
 //static int make_value_cnt=0;
-value_set **skiplist_make_valueset(skiplist *input, level *from){
-//	printf("make_value_cnt:%d\n",++make_value_cnt);
-//	if(make_value_cnt==89){
-//		printf("break\n");
-//	}
+value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEYT *end){
 	value_set **res=(value_set**)malloc(sizeof(value_set*)*(input->size+1));
 	memset(res,0,sizeof(value_set*)*(input->size+1));
 	l_bucket b;
 	memset(&b,0,sizeof(b));
 
+	uint32_t idx=1;
 	snode *target;
-	sk_iter* iter=skiplist_get_iterator(input);
 	int total_size=0;
-	while((target=skiplist_get_next(iter))){
+	for_each_sk(target,input){
+		if(idx==1){
+			kvssd_cpy_key(start,&target->key);
+		}
+		else if (idx==input->size){
+			kvssd_cpy_key(end,&target->key);
+		}
+		idx++;
+
 		if(target->value==0) continue;
 		b.bucket[target->value->length][b.idx[target->value->length]++]=target;
 		total_size+=target->value->length;
 	}
-	free(iter);
 	bool flag=0;
 	if(from->idx!=0){
 		printf("start fuck!\n");
@@ -715,7 +734,7 @@ void skiplist_clear(skiplist *list){
 		if(now->value){
 			inf_free_valueset(now->value,FS_MALLOC_W);//not only length<PAGESIZE also length==PAGESIZE, just free req from inf
 		}
-
+		free(now->key.key);
 		free(now->list);
 		/*
 		if(now->req){
@@ -762,6 +781,7 @@ skiplist *skiplist_merge(skiplist* src, skiplist *des){
 	return des;
 }
 #endif
+
 void skiplist_free(skiplist *list){
 	if(list==NULL) return;
 	skiplist_clear(list);
@@ -772,6 +792,7 @@ void skiplist_free(skiplist *list){
 #else
 	free(list->header);
 #endif
+
 	free(list);
 	return;
 }

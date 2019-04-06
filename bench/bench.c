@@ -199,7 +199,7 @@ bench_value* get_bench(){
 		printf("\r testing.....[%f%%]",head/body*100);
 	}
 	else if(_m->n_num%(PRINTPER*(_m->m_num/10000))==0){
-#ifdef BENCH
+#ifdef PROGRESS
 		printf("\r testing...... [%.2lf%%]",(double)(_m->n_num)/(_m->m_num/100));
 		fflush(stdout);
 #endif

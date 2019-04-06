@@ -108,7 +108,7 @@ BF* array_making_filter(run_t *,float );
 #endif
 
 #ifdef LEVELCACHING
-void array_cache_insert(level *,run_t*);
+void array_cache_insert(level *,skiplist*);
 void array_cache_merge(level *, level *);
 void array_cache_free(level *);
 int array_cache_comp_formatting(level *,run_t ***);

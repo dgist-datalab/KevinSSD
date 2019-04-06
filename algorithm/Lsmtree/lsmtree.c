@@ -189,9 +189,8 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 #endif
 	printf("| -------- algorithm_log END\n\n");
 
-	pthread_mutex_init(&LSM.templock,NULL);
 	pthread_mutex_init(&LSM.memlock,NULL);
-	pthread_mutex_init(&LSM.entrylock,NULL);
+	pthread_mutex_init(&LSM.templock,NULL);
 	pthread_mutex_init(&LSM.valueset_lock,NULL);
 	for(int i=0; i< LEVELN; i++){
 		pthread_mutex_init(&LSM.level_lock[i],NULL);
@@ -243,9 +242,8 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	//printf("---------------------------hash_insert_cnt: %u\n",hash_insert_cnt);
 	//SLAB_DUMP(snode_slab)
 
-	printf("avg kn run:%u\n",all_kn_run/run_num);
-		
-
+	//printf("avg kn run:%u\n",all_kn_run/run_num);
+	
 	for(uint32_t i=0; i<sizeof(LSM.timers)/sizeof(MeasureTime); i++){
 		printf("[%d]",i);
 		measure_adding_print(&LSM.timers[i]);
@@ -273,13 +271,10 @@ void* lsm_end_req(algo_req* const req){
 			break;
 		case HEADERR:
 			if(!parents){ //end_req for compaction
-				//mem cpy for compaction
 				header=(htable**)params->target;
 				table=*header;
 #ifdef NOCPY
-				//nocpy_copy_to((char*)table->sets,params->ppa);
-				table->nocpy_table=params->value->nocpy;
-				//nothing to do
+				//nothing to do;
 #else
 				memcpy(table->sets,params->value->value,PAGESIZE);
 #endif
@@ -314,10 +309,9 @@ void* lsm_end_req(algo_req* const req){
 			break;
 		case HEADERW:
 			inf_free_valueset(params->value,FS_MALLOC_W);
-			free(params->htable_ptr);
+			htable_free(params->htable_ptr);
 			break;
 		case GCDR:
-		case GCHR:
 #ifdef NOCPY
 			/*
 			   if(params->lsm_type==GCHR)
@@ -328,11 +322,13 @@ void* lsm_end_req(algo_req* const req){
 			target=(PTR)params->target;
 			memcpy(target,params->value->value,PAGESIZE);
 #endif
+		case GCHR:
 #else
+		case GCDR:
+		case GCHR:
 			target=(PTR)params->target;//gc has malloc in gc function
 			memcpy(target,params->value->value,PAGESIZE);
 #endif
-
 			if(gc_read_wait==gc_target_get_cnt){
 #ifdef MUTEXLOCK
 				pthread_mutex_unlock(&gc_wait);
@@ -489,12 +485,7 @@ algo_req* lsm_get_req_factory(request *parents, uint8_t type){
 	lsm_req->params=params;
 	lsm_req->parents=parents;
 	dl_sync_init(&params->lock,1);
-
-	if(parents->type==FS_MGET_T && type==DATAR){//data read in FS_MGET_T type
-//		lsm_req->end_req=lsm_mget_end_req;
-	}else{
-		lsm_req->end_req=lsm_end_req;
-	}
+	lsm_req->end_req=lsm_end_req;
 	lsm_req->type_lower=0;
 	lsm_req->rapid=true;
 	lsm_req->type=type;
@@ -557,12 +548,10 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 
 		target_set=LSM.lop->find_keyset((char*)table,req->key);
 		if(likely(target_set)){
-			if(entry && !entry->cache_data && cache_insertable(LSM.lsm_cache)){
+			if(entry && !entry->c_entry && cache_insertable(LSM.lsm_cache)){
 #ifdef NOCPY
-				entry->cache_data=htable_dummy_assign();
 				char *src=nocpy_pick(entry->pbn);
-				entry->cache_data->nocpy_table=(char*)malloc(PAGESIZE);
-				memcpy(entry->cache_data->nocpy_table,src,PAGESIZE);
+				entry->cache_nocpy_data_ptr=src;
 #else
 				htable temp; temp.sets=table;
 				entry->cache_data=htable_copy(&temp);
@@ -669,11 +658,7 @@ uint32_t __lsm_get(request *const req){
 		pthread_mutex_lock(&LSM.templock);
 		res=__lsm_get_sub(req,NULL,NULL,LSM.temptable);
 		pthread_mutex_unlock(&LSM.templock);
-		if(unlikely(res)) return res;
 
-		pthread_mutex_lock(&LSM.entrylock);
-		res=__lsm_get_sub(req,LSM.tempent,NULL,NULL);
-		pthread_mutex_unlock(&LSM.entrylock);
 		if(unlikely(res)) return res;
 
 		int *_temp_data=(int *)malloc(sizeof(int)*4);
@@ -694,10 +679,11 @@ uint32_t __lsm_get(request *const req){
 			goto retry;
 		}
 #ifdef NOCPY
-		mapinfo.sets=(keyset*)req->value->nocpy;
+		mapinfo.sets=(keyset*)nocpy_pick(req->ppa);
 #else
 		mapinfo.sets=(keyset*)req->value->value;
 #endif
+		//it can be optimize;
 		_entry=LSM.lop->find_run(LSM.disk[level],req->key);
 
 		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
@@ -717,14 +703,7 @@ uint32_t __lsm_get(request *const req){
 
 retry:
 	for(int i=level; i<LEVELN; i++){
-		if(LEVELCACHING && i<LEVELCACHING){
-			/*
-			   static int log_cnt=0;
-			   int a=LSM.lsm_cache->n_size;
-			   int b=LSM.lop->cache_get_size(LSM.disk[i]);
-			   if(log_cnt++%128==0){
-			   fprintf(stderr,"%d %d sum:%d\n",a,b,a+b);
-			   }*/
+		if(i<LEVELCACHING){
 			pthread_mutex_lock(&LSM.level_lock[i]);
 			keyset *find=LSM.lop->cache_find(LSM.disk[i],req->key);
 			pthread_mutex_unlock(&LSM.level_lock[i]);
@@ -759,7 +738,7 @@ retry:
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(entry->c_entry){
 #ifdef NOCPY
-				res=__lsm_get_sub(req,NULL,(keyset*)entry->cache_data->nocpy_table,NULL);
+				res=__lsm_get_sub(req,NULL,(keyset*)entry->cache_nocpy_data_ptr,NULL);
 #else
 				res=__lsm_get_sub(req,NULL,entry->cache_data->sets,NULL);
 #endif
@@ -792,16 +771,12 @@ retry:
 			algo_req *lsm_req=lsm_get_req_factory(req,HEADERR);
 			lsm_params* params=(lsm_params*)lsm_req->params;
 			params->ppa=entry->pbn;
-	//		lsm_req->type=HEADERR;
-	//		params->lsm_type=HEADERR;
 
 			if(entry->isflying==1){
 				entry->waitreq[entry->wait_idx++]=req;
 				return 3;
 			}
 			else{
-				//static int overlap_cnt=0;
-				//printf("[%d]overlap :%p\n",overlap_cnt++,entry);
 				entry->isflying=1;
 				memset(entry->waitreq,0,sizeof(entry->waitreq));
 				entry->wait_idx=0;
@@ -811,10 +786,8 @@ retry:
 
 			req->ppa=params->ppa;
 #ifdef NOCPY
-			req->value->nocpy=nocpy_pick(params->ppa);
+			//the data get from nocpy_sets when the req retry this function		
 #endif
-
-			/*using normal ppa when read header */
 			LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 			__header_read_cnt++;
 
@@ -847,7 +820,6 @@ htable *htable_assign(char *cpy_src, bool using_dma){
 		res->t_b=0;
 		res->origin=NULL;
 		if(cpy_src) memcpy(res->sets,cpy_src,PAGESIZE);
-		else memset(res->sets,-1,PAGESIZE);
 	}else{
 		value_set *temp;
 		if(cpy_src) temp=inf_get_valueset(cpy_src,FS_MALLOC_W,PAGESIZE);

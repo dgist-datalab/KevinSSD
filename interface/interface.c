@@ -423,11 +423,12 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 	req->key.len=key.len;
 	req->key.key=(char*)malloc(key.len);
 	memcpy(req->key.key,key.key,key.len);
+
 	switch(type){
 		case FS_DELETE_T:
 			req->value=NULL;
 			break;
-		case FS_SET_T:
+		case FS_SET_T:	
 
 			req->value=inf_get_valueset(NULL,FS_SET_T,len+key.len+sizeof(key.len));
 			memcpy(req->value->value,&key.len,sizeof(key.len));
@@ -603,7 +604,6 @@ bool inf_end_req( request * const req){
 	return true;
 }
 void inf_free(){
-
 	bench_print();
 	bench_free();
 	mp.li->stop();

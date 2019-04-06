@@ -59,8 +59,6 @@ typedef struct skiplist{
 #if defined(KVSSD) && defined(Lsmtree)
 	uint32_t all_length;
 #endif
-	KEYT start;
-	KEYT end;
 	snode *header;
 }skiplist;
 
@@ -81,8 +79,8 @@ snode *skiplist_insert_iter(skiplist *,KEYT lpa, ppa_t ppa);
 #ifdef Lsmtree
 skiplist *skiplist_merge(skiplist *src,skiplist *des);
 snode *skiplist_insert_wP(skiplist*,KEYT,ppa_t,bool);//with ppa;
-snode *skiplist_insert_existIgnore(skiplist *, KEYT,ppa_t,bool); //insert skiplist, if key exists, input data be ignored
-value_set **skiplist_make_valueset(skiplist*,struct level *from);
+snode *skiplist_insert_existIgnore(skiplist *, KEYT,ppa_t,bool isvalid); //insert skiplist, if key exists, input data be ignored
+value_set **skiplist_make_valueset(skiplist*,struct level *from, KEYT *start, KEYT *end);
 skiplist *skiplist_cut(skiplist*,uint32_t size,KEYT limit, htable *,float fpr);
 snode *skiplist_general_insert(skiplist*,KEYT,void *,void (*overlap)(void*));
 snode *skiplist_pop(skiplist *);

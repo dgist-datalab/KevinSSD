@@ -61,9 +61,12 @@ typedef struct run{
 	//for caching
 	cache_entry *c_entry;
 	volatile char isflying;
+#ifdef NOCPY
+	char *cache_nocpy_data_ptr;
+#else
 	htable *cache_data;
+#endif
 	void *req;
-
 	struct request* waitreq[QDEPTH];
 	int wait_idx;
 
@@ -155,7 +158,7 @@ typedef struct level_ops{
 	void (*range_update)(level *,run_t*,KEYT);
 #ifdef LEVELCACHING
 	/*level caching*/
-	void (*cache_insert)(level *,run_t *);
+	void (*cache_insert)(level *,skiplist *);
 	void (*cache_merge)(level *from, level *to);
 	void (*cache_free)(level*);
 	int (*cache_comp_formatting)(level *,run_t ***);

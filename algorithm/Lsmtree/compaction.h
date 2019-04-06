@@ -18,6 +18,12 @@ struct compaction_req{
 	int seq;
 };
 
+typedef struct leveling_node{
+	skiplist *mem;
+	KEYT start;
+	KEYT end;
+}leveling_node;
+
 struct compaction_processor{
 	pthread_t t_id;
 	compM *master;
@@ -34,8 +40,8 @@ bool compaction_init();
 void *compaction_main(void *);
 uint32_t level_one_processing(level *, level *, run_t *, pthread_mutex_t *);
 //uint32_t tiering(int f, int t, struct Entry *);
-uint32_t leveling(level *,level* , run_t *, pthread_mutex_t *);
-uint32_t partial_leveling(struct level *,struct level *,struct skiplist *,struct level *upper);
+uint32_t leveling(level *,level*, leveling_node *,pthread_mutex_t *);
+uint32_t partial_leveling(struct level *,struct level *,leveling_node *,struct level *upper);
 void compaction_check(KEYT key,bool force);
 void compaction_free();
 bool compaction_force();

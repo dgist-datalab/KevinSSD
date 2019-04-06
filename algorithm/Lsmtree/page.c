@@ -559,7 +559,7 @@ bool gc_check(uint8_t type, bool force){
 	//		static int header_cnt=0;
 			switch(type){
 				case HEADER:
-		//			printf("header gc:%d\n",header_gc_cnt++);
+					printf("header gc:%d\n",header_gc_cnt++);
 					target_p=&header_m;
 					header_gc_cnt++; 
 					break;
@@ -811,6 +811,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 	level *in=LSM.disk[target_level];
 	htable_t **datas=(htable_t**)malloc(sizeof(htable_t*)*in->m_num);
 	run_t **entries;
+	printf("gc\n");
 	//bool debug=false;
 	for(int i=0; i<size; i++){
 		if(gn[i]==NULL) continue;
@@ -837,6 +838,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			continue;
 		}
 #endif
+	
 		entries=LSM.lop->find_run(in,target->lpa);
 		int htable_idx=0;
 		gc_general_wait_init();
@@ -844,7 +846,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 		if(entries==NULL){
 			LSM.lop->all_print();
 #ifdef KVSSD
-			printf("lpa:%.*s-ppa:%d\n",KEYFORMAT(target->lpa),target->ppa);
+			printf("lpa:%.*s-ppa:%d\n",target->lpa.len, target->lpa.key,target->ppa);
 #else
 			printf("lpa:%d-ppa:%d\n",target->lpa,target->ppa);
 #endif
@@ -860,7 +862,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			if(entries[j]->c_entry){
 				pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 #ifdef NOCPY
-				datas[htable_idx]->nocpy_table=entries[j]->cache_data->nocpy_table;
+				datas[htable_idx]->nocpy_table=entries[j]->cache_nocpy_data_ptr;
 #else
 				memcpy(datas[htable_idx]->sets,entries[j]->cache_data->sets,PAGESIZE);
 #endif			
@@ -880,8 +882,12 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			int temp_i=i;
 			for(int k=temp_i; k<size; k++){
 				target=gn[k];
-			
+
 				if(target==NULL) continue;
+				if(target->ppa==481630){
+					printf("break\n");
+					//LSM.lop->header_print(data->nocpy_table);
+				}
 #ifdef NOCPY
 				keyset *finded=LSM.lop->find_keyset((char*)data->nocpy_table,target->lpa);
 #else
@@ -894,7 +900,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 					pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 					if(entries[j]->c_entry){					
 #ifdef NOCPY
-						keyset *c_finded=LSM.lop->find_keyset((char*)entries[j]->cache_data->nocpy_table,target->lpa);
+						keyset *c_finded=LSM.lop->find_keyset((char*)entries[j]->cache_nocpy_data_ptr,target->lpa);
 #else
 						keyset *c_finded=LSM.lop->find_keyset((char*)entries[j]->cache_data->sets,target->lpa);
 #endif
@@ -922,12 +928,11 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 						if(!in->istier || j==htable_idx-1){
 							//LSM.lop->print(in);
 #ifdef KVSSD
-							printf("lpa:%s-ppa:%d\n",kvssd_tostring(target->lpa),target->ppa);
+							printf("lpa:%.*s-ppa:%d\n",target->lpa.len, target->lpa.key,target->ppa);
 #else
 							printf("lpa:%d-ppa:%d\n",target->lpa,target->ppa);
 #endif
-							printf("what the fuck?\n"); //not founded in level
-							DEBUG_LOG("");
+							DEBUG_LOG("gc notfound in level");
 							abort();
 						}
 					}

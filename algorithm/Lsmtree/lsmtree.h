@@ -45,7 +45,7 @@ typedef struct lsm_params{
 	PTR test;
 	PTR* target;
 	value_set* value;
-	PTR htable_ptr;
+	htable * htable_ptr;
 }lsm_params;
 
 typedef struct lsm_sub_req{
@@ -82,7 +82,6 @@ typedef struct lsmtree{
 	PTR level_addr[LEVELN];
 	pthread_mutex_t memlock;
 	pthread_mutex_t templock;
-	pthread_mutex_t entrylock;
 
 	pthread_mutex_t valueset_lock;
 	pthread_mutex_t level_lock[LEVELN];
@@ -91,7 +90,6 @@ typedef struct lsmtree{
 	struct skiplist *memtable;
 	struct skiplist *temptable;
 	struct queue *re_q;
-	run_t *tempent;
 
 	struct cache* lsm_cache;
 	lower_info* li;

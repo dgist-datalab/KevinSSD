@@ -47,8 +47,11 @@ cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
 	insert++;
 	cache_entry *c_ent=(cache_entry*)malloc(sizeof(cache_entry));
 
+	c_ent->locked=false;
 	c_ent->entry=ent;
+#ifndef NOCPY
 	ent->cache_data->iscached=2;
+#endif
 	if(c->bottom==NULL){
 		c->bottom=c_ent;
 		c->top=c_ent;
@@ -164,16 +167,33 @@ run_t* cache_get(cache *c){
 	if(c->n_size==0){
 		return NULL;
 	}
-	cache_entry *res=c->bottom;
-	cache_entry *up=res->up;
 
-	if(up==NULL){
+//	cache_entry *res=c->bottom;
+//	cache_entry *up=res->up;
+	int c_cnt=1;
+	cache_entry *res=c->bottom, *up;
+	while(res && res->locked){
+		res=res->up; 
+		c_cnt=0;
+	}
+	up=res->up;
+
+	if(up==NULL && c_cnt){
 		c->bottom=c->top=NULL;
 	}
-	else{
-		up->down=NULL;
-		c->bottom=up;
+	else if(c_cnt && res->locked){
+		return NULL;
 	}
+	else{
+		if(res==c->bottom){	
+			up->down=NULL;
+			c->bottom=up;
+		}else{
+			up->down=res->down;
+			res->down->up=up;
+		}
+	}
+
 	if(!res->entry->c_entry || res->entry->c_entry!=res){
 		cache_print(c);
 		printf("hello\n");
@@ -202,7 +222,7 @@ void cache_print(cache *c){
 			printf("fuck!!!\n");
 		}
 #ifdef KVSSD
-		printf("[%d]c->endtry->key:%s c->entry->pbn:%u d:%p\n",print_number++,kvssd_tostring(tent->key),tent->pbn,tent->cache_data);
+//		printf("[%d]c->endtry->key:%s c->entry->pbn:%u d:%p\n",print_number++,kvssd_tostring(tent->key),tent->pbn,tent->cache_dataa);
 #else
 		printf("[%d]c->entry->key:%d c->entry->pbn:%d d:%p\n",print_number++,tent->key,tent->pbn,tent->cache_data);
 #endif
@@ -212,4 +232,14 @@ void cache_print(cache *c){
 
 bool cache_insertable(cache *c){
 	return c->m_size==0?0:1;
+}
+
+void cache_entry_lock(cache *c, cache_entry *entry){
+	c->locked_entry++;
+	entry->locked=true;
+}
+
+void cache_entry_unlock(cache *c, cache_entry *entry){
+	c->locked_entry--;
+	entry->locked=false;
 }

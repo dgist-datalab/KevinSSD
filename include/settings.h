@@ -14,7 +14,7 @@
 		free(a)\
 	}while(0)
 */
-
+//#define PROGRESS
 #define LOWER_FILE_NAME "./data/simulator.data"
 //#define LOWER_FILE_NAME "/dev/robusta"
 

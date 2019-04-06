@@ -43,7 +43,7 @@ void nocpy_copy_to(char *des, uint32_t ppa){
 
 void nocpy_free(){
 	for(int i=0; i<(HEADERSEG+1)*_PPS; i++){
-		fprintf(stderr,"%d %p\n",i,page[i]);
+//		fprintf(stderr,"%d %p\n",i,page[i]);
 		free(page[i]);
 	}
 	free(page);

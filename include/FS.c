@@ -35,10 +35,11 @@ int F_malloc(void **ptr, int size,int rw){
 	return dmatag;
 }
 void F_free(void *ptr,int tag,int rw){
+	/*
 	static int c=0;
 	if(rw==FS_MALLOC_R){
 		fprintf(stderr,"%d free tag:%p\n",c++,ptr);
-	}
+	}*/
 #ifdef bdbm_drv
 	memio_info.lower_free(rw,tag);
 #else 

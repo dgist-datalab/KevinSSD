@@ -7,6 +7,7 @@ typedef struct cache_entry{
 	struct run* entry;
 	struct cache_entry *up;
 	struct cache_entry *down;
+	bool locked;
 	int dmatag;
 }cache_entry;
 
@@ -14,6 +15,7 @@ typedef struct cache{
 	int m_size;
 	int n_size;
 	int max_size;
+	int locked_entry;
 	cache_entry *top;
 	cache_entry *bottom;
 	pthread_mutex_t cache_lock;
@@ -30,4 +32,6 @@ void cache_evict(cache *);
 void cache_size_update(cache *c, int m_size);
 void cache_free(cache *);
 void cache_print(cache *);
+void cache_entry_lock(cache *,cache_entry *);
+void cache_entry_unlock(cache *,cache_entry *);
 #endif
