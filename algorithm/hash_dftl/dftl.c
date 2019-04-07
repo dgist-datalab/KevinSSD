@@ -64,7 +64,7 @@ int32_t num_max_cache;
 int32_t real_max_cache;
 uint32_t max_sl;
 
-volatile int32_t updated;
+volatile uint32_t updated;
 int32_t num_flying;
 int32_t num_wflying;
 int32_t waiting;
@@ -91,7 +91,6 @@ int cnt_arr[1024];
 int cnt_sum;
 int data_written;
 
-bool is_flying[1024];
 
 int32_t data_r;
 int32_t trig_data_r;
@@ -288,9 +287,9 @@ void demand_destroy(lower_info *li, algorithm *algo){
 
 	puts("<flying status>");
 	for (int i = 0; i < max_cache_entry; i++) {
-		//if (CMT[i].num_flying) {
-			printf("%d %d\n", i, CMT[i].num_waiting);
-		//}
+		if (CMT[i].num_waiting) {
+			printf("CMT[%d] cnt:%d\n", i, CMT[i].num_waiting);
+		}
 	}
 	puts("");
 
@@ -367,6 +366,8 @@ void demand_destroy(lower_info *li, algorithm *algo){
     BM_Free(bm);
     for (int i = 0; i < max_cache_entry; i++) {
         free(mem_arr[i].mem_p);
+		free(CMT[i].flying_arr);
+		free(CMT[i].flying_snodes);
 		free(CMT[i].dirty_bitmap);
     }
 
@@ -389,10 +390,10 @@ static uint32_t demand_cache_update(request *const req, char req_t) {
     int lpa = h_params->hash_key;
 
     C_TABLE *c_table = &CMT[D_IDX];
-    int32_t t_ppa = c_table->t_ppa;
+    //int32_t t_ppa = c_table->t_ppa;
 
 #if C_CACHE
-    bool gc_flag = false, d_flag = false;
+    //bool gc_flag = false, d_flag = false;
 #endif
 
     if (req_t == 'R') {
@@ -439,8 +440,19 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
 
     // Reserve requests that share flying mapping table
     if (c_table->flying) {
-	//if (is_flying[D_IDX]) {
         c_table->flying_arr[c_table->num_waiting++] = req;
+
+		if (c_table->num_waiting == QDEPTH) {
+			static int bug_cnt = 0;
+			printf("flying hole bug! %d\n", bug_cnt++);
+			for (int i = 0; i < c_table->num_waiting; i++) {
+				inf_assign_try(c_table->flying_arr[i]);
+			}
+			c_table->flying = false;
+			c_table->num_waiting = 0;
+			num_flying--;
+		}
+
         bench_algo_end(req);
         return 1;
     }
@@ -498,7 +510,6 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
 
     if (t_ppa != -1) {
         c_table->flying = true;
-		//is_flying[D_IDX] = true;
 		//fprintf(stderr, "CMT[%d] on by req %x\n", D_IDX, req);
         num_flying++;
 
@@ -606,8 +617,6 @@ static uint32_t demand_read_flying(request *const req, char req_t) {
         bench_algo_end(req);
         __demand.li->read(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
 
-        //puts("wtf");
-
         return 1;
     }
 
@@ -641,7 +650,6 @@ static uint32_t demand_read_flying(request *const req, char req_t) {
     }
     c_table->num_waiting = 0;
     c_table->flying = false;
-	//is_flying[D_IDX] = false;
 	//fprintf(stderr, "CMT[%d] off by req %x\n", D_IDX, req);
     num_flying--;
     for (int i = 0; i < waiting; i++) {
@@ -789,8 +797,8 @@ uint32_t __demand_set(request *const req){
     algo_req *my_req; // pseudo request pointer
     bool gc_flag;
     bool d_flag;
-    algo_req *temp_req;
-    value_set *dummy_vs;
+    //algo_req *temp_req;
+    //value_set *dummy_vs;
 
 #if W_BUFF
     snode *temp;
@@ -936,7 +944,7 @@ retry:
 	if (ppa == -1) ppa = (p_table) ? p_table[P_IDX] : -1;
 	if (h_params->find != HASH_KEY_SAME) {
 		iter = skiplist_get_iterator(mem_buf);
-		for (int i = 0; i < mem_buf->size; i++) {
+		for (size_t i = 0; i < mem_buf->size; i++) {
 			temp = skiplist_get_next(iter);
 
 			if (temp->hash_key == lpa) {
@@ -975,6 +983,7 @@ retry:
 		cnt_arr[cnt]++;
 	}
 
+	free(req->hash_params);
 	req->hash_params = NULL;
     req->value = NULL; // moved to value field of snode
 
@@ -986,18 +995,18 @@ retry:
 
 uint32_t __demand_remove(request *const req) {
     int32_t lpa;
-    int32_t ppa;
+    //int32_t ppa;
     int32_t t_ppa;
     C_TABLE *c_table;
     //value_set *p_table_vs;
     int32_t *p_table;
     bool gc_flag;
     bool d_flag;
-    value_set *dummy_vs;
+    //value_set *dummy_vs;
 
     //value_set *temp_value_set;
-    algo_req *temp_req;
-    demand_params *params;
+    //algo_req *temp_req;
+    //demand_params *params;
 
 	struct hash_params *h_params;
 	int cnt;
@@ -1368,8 +1377,8 @@ void *demand_end_req(algo_req* input){
     demand_params *params = (demand_params*)input->params;
     value_set *temp_v = params->value;
     request *res = input->parents;
-    snode *temp = params->sn;
-    int32_t lpa;
+    //snode *temp = params->sn;
+    //int32_t lpa;
 
 	struct hash_params *h_params;
 	KEYT check_key;

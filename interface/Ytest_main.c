@@ -124,8 +124,8 @@ int main(int argc, char *argv[]){
 	static int cnt=0;
 	//measure_init(&data->temp);
 	while((fscanf(fp,"%d %d %d %s",&data->type,&data->scanlength,&data->keylen,data->key))!=EOF){
-		if(data->type==1){
-		//	printf("%d %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
+		if(data->type==1 || data->type==2){
+			//printf("%d %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
 		    inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),cnt++,data,kv_main_end_req);	
 		}
 		else{
@@ -134,9 +134,9 @@ int main(int argc, char *argv[]){
 			inf_make_range_query_apps(data->type,data->key,data->keylen,cnt++,data->scanlength,data,kv_main_end_req);
 		}
 		data=(netdata*)malloc(sizeof(netdata));
-		//if(cnt++%10240==0){
-			//printf("cnt:%d\n",cnt++);
-		//}
+		if(cnt%10240==0){
+			printf("cnt:%d\n",cnt++);
+		}
 	}
 	inf_free();
 }
