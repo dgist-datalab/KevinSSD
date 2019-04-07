@@ -7,6 +7,7 @@
 
 #define SCHED_FLUSH 0
 #define SCHED_HWRITE 1
+#define SCHED_HREAD 2
 
 typedef struct sched_node{
 	uint8_t type;

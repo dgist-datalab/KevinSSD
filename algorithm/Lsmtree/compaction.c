@@ -17,6 +17,7 @@
 #include "../../include/types.h"
 #include "../../include/data_struct/list.h"
 #include "../../include/utils/kvssd.h"
+#include "../../include/sem_lock.h"
 #ifdef DEBUG
 #endif
 
@@ -720,6 +721,8 @@ chg_level:
 	LSM.lop->release(to);
 	pthread_mutex_unlock(lock);
 	LSM.c_level=NULL;
+
+	//LSM.lop->all_print();
 	return 1;
 }	
 
@@ -766,6 +769,292 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 	free(target_s);
 }
 #endif
+
+bool htable_read_preproc(run_t *r){
+	bool res=false;
+	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
+	if(r->c_entry){
+		cache_entry_lock(LSM.lsm_cache,r->c_entry);
+#ifndef WRITEOPTMIZE
+		memcpy_cnt++;
+#endif
+
+#ifndef NOCPY
+		r->cpt_data=htable_copy(target_s[j]->cache_data);
+		r->cpt_data->done=true;
+#endif//when the data is cached, the data will be loaded from memory in merger logic
+		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);		
+		res=true;
+	}
+	else{
+		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+		r->cpt_data=htable_assign(NULL,false);
+		r->cpt_data->iscached=0;
+	}
+	if(!r->iscompactioning) r->iscompactioning=true;
+	return res;
+}
+
+void htable_read_postproc(run_t *r){
+	if(r->iscompactioning!=3){
+		if(r->pbn!=UINT32_MAX)
+			invalidate_PPA(r->pbn);
+		else{
+			//the run belong to levelcaching lev
+		}
+	}
+	if(r->c_entry){
+		cache_entry_unlock(LSM.lsm_cache,r->c_entry);
+	}else{
+		htable_free(r->cpt_data);
+		r->cpt_data=NULL;
+	}
+}
+
+
+#ifdef WRITEOPTIMIZE
+void compaction_bg_htable_bulkread(run_t **r,fdriver_lock_t **locks){
+	void **argv=(void**)malloc(sizeof(void*)*2);
+	argv[0]=(void*)r;
+	argv[1]=(void*)locks;
+	lsm_io_sched_push(SCHED_HREAD,(void*)argv);
+}
+
+
+uint32_t compaction_bg_htable_write(htable *input, KEYT lpa, char *nocpy_data){
+#ifdef KVSSD
+	uint32_t ppa=getPPA(HEADER,key_min,true);
+#else
+	uint32_t ppa=getPPA(HEADER,0,true);//set ppa;
+#endif
+	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
+	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
+	areq->parents=NULL;
+	areq->rapid=false;
+	params->lsm_type=HEADERW;
+	if(input->origin){
+		printf("can't be - %s:%d\n",__FILE__,__LINE__);
+		params->value=input->origin;
+	}else{
+		//this logic should process when the memtable's header write
+		params->value=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
+	}
+
+#ifdef NOCPY
+	nocpy_copy_from_change((char*)nocpy_data,ppa);
+	input->sets=NULL;
+#endif
+	params->htable_ptr=input;
+	areq->end_req=lsm_end_req;
+	areq->params=(void*)params;
+	areq->type=HEADERW;
+	params->ppa=ppa;
+	
+	lsm_io_sched_push(SCHED_HWRITE,(void*)areq);
+	//LSM.li->write(ppa,PAGESIZE,params->value,ASYNC,areq);
+	return ppa;
+}
+
+
+
+uint32_t memtable_partial_leveling(leveling_node *lnode, level *t, level *origin, run_t *sr, run_t *er){
+	skiplist *mem=lnode->mem;
+	KEYT start=lnode->start;
+	KEYT end=lnode->end;
+	run_t *now,*result;
+	lev_iter *iter=LSM.lop->get_iter_from_run(origin,sr,er);
+	int idx=0,read_idx=0;
+	
+	fdriver_lock_t **wait=(fdriver_lock_t**)malloc(origin->n_num * sizeof(fdriver_lock_t*));
+	run_t **bunch_data=(run_t**)malloc(sizeof(run_t*)*(origin->n_num+1));
+
+	fdriver_lock_t **read_wait=(fdriver_lock_t**)malloc(origin->n_num * sizeof(fdriver_lock_t*));
+	run_t **read_bunch_data=(run_t**)malloc(sizeof(run_t*)*(origin->n_num+1));
+	while((now=LSM.lop->iter_nxt(iter))){
+		bunch_data[idx]=now;
+		wait[idx]=(fdriver_lock_t*)malloc(sizeof(fdriver_lock_t));
+		if(htable_read_preproc(now)){
+			fdriver_lock_init(wait[idx++],1);
+		}
+		else{
+			read_bunch_data[read_idx]=now;
+			fdriver_lock_init(wait[idx],0);
+			read_wait[read_idx++]=wait[idx];
+			idx++;
+		}
+	}
+	bunch_data[idx]=NULL;
+	read_bunch_data[read_idx]=NULL;
+	compaction_bg_htable_bulkread(read_bunch_data,read_wait);
+
+	run_t *container[2]={0,};
+	fdriver_lock_t *target;	
+	for(int i=0; i<idx; i++){
+		//waiting
+		now=bunch_data[i];
+		target=wait[i];
+		fdriver_lock(target);
+		fdriver_destroy(target);
+		free(target);
+
+		//sort
+		container[0]=now;
+		result=LSM.lop->partial_merger_cutter(mem,NULL,container);
+
+		//write operation
+		result->pbn=compaction_bg_htable_write(result->cpt_data,result->key,(char*)result->cpt_data->sets);
+		LSM.lop->insert(t,result);
+		LSM.lop->release_run(result);
+		free(result);
+	}
+	
+	while((result=LSM.lop->partial_merger_cutter(mem,NULL,NULL))){
+		result->pbn=compaction_bg_htable_write(result->cpt_data,result->key,(char*)result->cpt_data->sets);
+		LSM.lop->insert(t,result);
+		LSM.lop->release_run(result);
+		free(result);
+	}
+	//release runs;
+	for(int i=0; i<idx; i++) htable_read_postproc(bunch_data[i]);
+
+	free(bunch_data);
+	free(wait);
+	return 1;
+}
+
+uint32_t partial_leveling(level *t, level *origin, leveling_node* lnode, level *upper){
+	run_t **target_s=NULL;
+	KEYT start_k=lnode?lnode->start:upper->start;
+	KEYT end_k=lnode?lnode->end:upper->end;
+	uint32_t max_nc_min=LSM.lop->unmatch_find(origin,start_k,end_k,&target_s);
+	max_nc_min= max_nc_min?max_nc_min:-1;
+	/*if(!lnode){
+		//static int lev_cnt=0;
+//		printf("lev_cnt %d\n",lev_cnt++);
+	}*/
+	int all_skip_run=0;
+	for(int i=0; target_s[i]!=NULL; i++){
+		all_skip_run++;
+		LSM.lop->insert(t,target_s[i]);
+		target_s[i]->iscompactioning=4;
+	}
+	free(target_s);
+	
+	run_t* start_r=LSM.lop->get_run_idx(origin,max_nc_min+1);
+	run_t* end_r=LSM.lop->get_run_idx(origin,origin->n_num);
+	if(!upper){
+		return memtable_partial_leveling(lnode, t,origin,start_r, end_r);
+	}
+
+	bool fix=false;
+	int idx=0,which_level,read_idx=0;
+	run_t *container[2]={0,};
+	skiplist *mem=skiplist_init();
+	run_t *now, *result;
+	lev_iter *up_iter=LSM.lop->get_iter(upper,upper->start,upper->end);
+	lev_iter *org_iter=LSM.lop->get_iter_from_run(origin,start_r,end_r);
+	//uint32_t all_run_num=origin->n_num+upper->n_num+1;
+	uint32_t all_run_num=origin->n_num+1;
+	all_run_num+=upper->idx<LEVELCACHING?LSM.lop->cache_get_size(upper):upper->n_num;
+	int up_run_num=0,org_run_num=0;
+
+	fdriver_lock_t **wait=(fdriver_lock_t**)malloc(all_run_num*sizeof(fdriver_lock_t));
+	run_t **bunch_data=(run_t**)malloc(all_run_num*sizeof(run_t*));
+	bool read_up_level=false;
+
+	fdriver_lock_t **read_wait=(fdriver_lock_t**)malloc(all_run_num* sizeof(fdriver_lock_t*));
+	run_t **read_bunch_data=(run_t**)malloc(sizeof(run_t*)*(all_run_num));
+	while(1){
+		if(!fix){
+			now=(idx%2 ? LSM.lop->iter_nxt(org_iter):LSM.lop->iter_nxt(up_iter));
+			if(idx%2){ org_run_num++; read_up_level=false;}
+			else {up_run_num++; read_up_level=true;}
+		}else{
+			now=(which_level ? LSM.lop->iter_nxt(org_iter):LSM.lop->iter_nxt(up_iter));
+			if(which_level) {org_run_num++; read_up_level=false;}
+			else {up_run_num++; read_up_level=true;}
+		}
+
+		if(!fix && !now){
+			fix=true;
+			which_level=idx%2;
+			which_level=!which_level;
+			continue;
+		}else if(fix && !now){
+			break;
+		}
+
+		bunch_data[idx]=now;
+		wait[idx]=(fdriver_lock_t*)malloc(sizeof(fdriver_lock_t));
+		if((read_up_level && upper->idx<LEVELCACHING) || htable_read_preproc(now)){
+			fdriver_lock_init(wait[idx++],1);
+		}
+		else{
+			read_bunch_data[read_idx]=now;
+			fdriver_lock_init(wait[idx],0);
+			read_wait[read_idx++]=wait[idx];
+			idx++;
+		}
+	}
+	bunch_data[idx]=NULL;
+	read_bunch_data[read_idx]=NULL;
+	compaction_bg_htable_bulkread(read_bunch_data,read_wait);
+
+
+	fdriver_lock_t *target;
+	for(int i=0; i<idx; i++){
+		//waiting
+		now=bunch_data[i];
+		target=wait[i];
+		fdriver_lock(target);
+		fdriver_destroy(target);
+		free(target);
+
+		//sort
+		container[0]=now;
+		if(up_run_num && org_run_num){
+			if(i%2){
+				org_run_num--;
+				result=LSM.lop->partial_merger_cutter(mem,NULL,container);
+			}else{
+				up_run_num--;
+				LSM.lop->partial_merger_cutter(mem,container,NULL);	
+				continue;
+			}
+		}else{
+			if(org_run_num){
+				org_run_num--;
+				result=LSM.lop->partial_merger_cutter(mem,NULL,container);
+			}else{
+				up_run_num--;
+				LSM.lop->partial_merger_cutter(mem,container,NULL);	
+				continue;
+			}
+		}
+
+		//write operation
+		result->pbn=compaction_bg_htable_write(result->cpt_data,result->key,(char*)result->cpt_data->sets);
+		LSM.lop->insert(t,result);
+		LSM.lop->release_run(result);
+		free(result);
+	}
+
+	while((result=LSM.lop->partial_merger_cutter(mem,NULL,NULL))){
+		result->pbn=compaction_bg_htable_write(result->cpt_data,result->key,(char*)result->cpt_data->sets);
+		LSM.lop->insert(t,result);
+		LSM.lop->release_run(result);
+		free(result);
+	}
+		
+	//LSM.lop->print(t);
+	//release runs;
+	for(int i=0; i<idx; i++) htable_read_postproc(bunch_data[i]);
+
+	free(bunch_data);
+	free(wait);
+	return 1;
+}	
+#else
 bool flag_value;
 uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* upper){
 	KEYT start={0,0};
@@ -841,11 +1130,6 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 			}
 			if(target_s[j]->c_entry){
 				cache_entry_unlock(LSM.lsm_cache,target_s[j]->c_entry);
-/*#ifdef NOCPY
-				if(target_s[j]->cpt_data->iscached==1 && !target_s[j]->cache_data){
-					free(target_s[j]->cpt_data->nocpy_table);
-				}
-#endif*/
 			}
 			else{	
 				htable_free(target_s[j]->cpt_data);
@@ -967,6 +1251,7 @@ skip:
 	if(!lnode) skiplist_free(skip);
 	return 1;
 }
+#endif
 
 #if (LEVELN==1)
 #define MAPNUM(a) (a/FULLMAPNUM)

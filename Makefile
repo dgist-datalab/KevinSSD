@@ -11,7 +11,7 @@ DEBUGFLAGS=\
 			-rdynamic\
 			-Wno-pointer-arith\
 			-g\
-	-fsanitize=address\
+#	-fsanitize=address\
 #	-DBUSE_DEBUG
 
 COMMONFLAGS=\
@@ -22,7 +22,7 @@ COMMONFLAGS=\
 			-DKVSSD\
 			-DSLC\
 			-Wno-unused-but-set-variable\
-#-O3\
+-O3\
 #			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
@@ -44,7 +44,7 @@ export ORIGINAL_PATH=$(PPWD)
 
 export kv_flag="true"
 
-CFLAGS_ALGO+=-DCOMPACTIONLOG\
+#CFLAGS_ALGO+=-DCOMPACTIONLOG\
 	
 CFLAGS_ALGO+=$(COMMONFLAGS)\
 			 -D$(TARGET_ALGO)\

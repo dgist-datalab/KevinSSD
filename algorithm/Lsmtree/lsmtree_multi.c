@@ -127,7 +127,7 @@ uint32_t __lsm_range_get_after_header(request *req){
 		level_mapping_cnt[i]=1;
 	}
 
-	keyset min, temp;
+	keyset min={0,0}, temp;
 	for(int j=0;j<req->num; j++){
 		int target;
 		min.ppa=-1;

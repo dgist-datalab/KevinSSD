@@ -26,6 +26,7 @@ level_ops a_ops={
 	.next_run=array_next_run,
 	//.range_find_nxt_node=NULL,
 	.get_iter=array_get_iter,
+	.get_iter_from_run=array_get_iter_from_run,
 	.iter_nxt=array_iter_nxt,
 	.get_max_table_entry=a_max_table_entry,
 	.get_max_flush_entry=a_max_flush_entry,
@@ -41,9 +42,11 @@ level_ops a_ops={
 	.merger=array_merger,
 #endif
 	.cutter=array_cutter,
+	.partial_merger_cutter=array_p_merger_cutter,
 #ifdef BLOOM
 	.making_filter=array_making_filter,
 #endif
+	.get_run_idx=array_get_run_idx,
 	.make_run=array_make_run,
 	.find_run=array_find_run,
 	.find_run_num=array_find_run_num,
@@ -362,13 +365,11 @@ uint32_t array_unmatch_find( level *lev,KEYT s, KEYT e,  run_t ***rc){
 	for(int i=0; i!=-1 && i<lev->n_num; i++){
 		ptr=(run_t*)&arrs[i];
 #ifdef KVSSD
-		if(!(KEYCMP(ptr->end,s)<0 || KEYCMP(ptr->key,e)>0))
+		if((KEYCMP(ptr->end,s)<0))
 #else
 		if(!(ptr->end<s || ptr->key>e))
 #endif
 		{
-			break;
-		}else{
 			r[res++]=ptr;
 		}
 	}
@@ -441,6 +442,9 @@ run_t * array_run_cpy( run_t *input){
 }
 
 lev_iter* array_get_iter( level *lev,KEYT start, KEYT end){
+	if(lev->idx<LEVELCACHING){
+		return array_cache_get_iter(lev, start, end);
+	}
 	array_body *b=(array_body*)lev->level_data;
 	lev_iter *it=(lev_iter*)malloc(sizeof(lev_iter));
 	it->from=start;
@@ -461,9 +465,28 @@ lev_iter* array_get_iter( level *lev,KEYT start, KEYT end){
 	iter->arrs=b->arrs;
 
 	it->iter_data=(void*)iter;
+	it->lev_idx=lev->idx;
 	return it;
 }
+
+lev_iter *array_get_iter_from_run(level *lev, run_t *sr, run_t *er){
+	array_body *b=(array_body*)lev->level_data;
+	lev_iter *it=(lev_iter*)malloc(sizeof(lev_iter));
+	a_iter *iter=(a_iter*)malloc(sizeof(a_iter));
+
+	iter->now=(sr - b->arrs)/sizeof(run_t*);
+	iter->max=lev->n_num;
+	iter->arrs=b->arrs;
+	it->iter_data=(void*)iter;
+	it->lev_idx=lev->idx;
+	return it;
+}
+
+
 run_t * array_iter_nxt( lev_iter* in){
+	if(in->lev_idx<LEVELCACHING){
+		return array_cache_iter_nxt(in);
+	}
 	a_iter *iter=(a_iter*)in->iter_data;
 	if(iter->now==iter->max){
 		free(iter);
@@ -672,6 +695,11 @@ uint32_t array_find_idx_lower_bound(char *data, KEYT lpa){
 		//lpa is smaller
 		return mid;
 	}
+}
+
+run_t *array_get_run_idx(level *lev, int idx){
+	array_body *b=(array_body*)lev->level_data;
+	return &b->arrs[idx];
 }
 
 

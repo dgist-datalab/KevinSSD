@@ -95,6 +95,7 @@ typedef struct level{
 }level;
 
 typedef struct lev_iter{
+	int lev_idx;
 	KEYT from,to;
 	void *iter_data;
 }lev_iter;
@@ -119,11 +120,9 @@ typedef struct level_ops{
 	uint32_t (*range_find)( level *l,KEYT start, KEYT end,  run_t ***r);
 	uint32_t (*range_find_compaction)( level *l,KEYT start, KEYT end,  run_t ***r);
 	uint32_t (*unmatch_find)( level *,KEYT start, KEYT end, run_t ***r);
-	//run_t* (*range_find_lowerbound)(level *l, KEYT start);
-	//run_t* (*range_find_upperbound)(level *l, KEYT lpa);
-	//void* (*range_find_nxt_node)(level *l, void *node, run_t *);
 	run_t* (*next_run)(level *,KEYT key);
 	lev_iter* (*get_iter)( level*,KEYT from, KEYT to); //from<= x <to
+	lev_iter* (*get_iter_from_run)(level *,run_t *sr,run_t * er);
 	run_t* (*iter_nxt)( lev_iter*);
 	uint32_t (*get_max_table_entry)();
 	uint32_t (*get_max_flush_entry)(uint32_t);
@@ -139,12 +138,14 @@ typedef struct level_ops{
 	void (*merger)( skiplist*, run_t** src,  run_t** org,  level *des);
 #endif
 	run_t *(*cutter)( skiplist *,  level* des, KEYT* start, KEYT* end);
+	run_t *(*partial_merger_cutter)(skiplist*,run_t **src,run_t **des);
 
 #ifdef BLOOM
 	BF *(*making_filter)(run_t *,float);
 #endif
 
 	/*run operation*/
+	run_t*(*get_run_idx)(level *, int idx);
 	run_t*(*make_run)(KEYT start, KEYT end, uint32_t pbn);
 	run_t**(*find_run)( level*,KEYT lpa);
 	run_t**(*find_run_num)( level*,KEYT lpa, uint32_t num);
@@ -167,9 +168,7 @@ typedef struct level_ops{
 	char *(*cache_find_run_data)(level *,KEYT);
 	char *(*cache_next_run_data)(level *, KEYT );
 	lev_iter *(*cache_get_iter)(level *,KEYT from, KEYT to); //from<= x < to
-	char *(*cache_iter_nxt)(lev_iter*);
-	//char *(*cache_find_lowerbound)(level *,KEYT, KEYT *start, KEYT *end, bool datareturn);
-	//char *(*cache_find_upperbound)(level *,KEYT, KEYT *start, KEYT *end, bool datareturn);
+	run_t *(*cache_iter_nxt)(lev_iter*);
 	int (*cache_get_size)(level *);
 #endif
 	keyset_iter* (*header_get_keyiter)(level *, char *, KEYT *);

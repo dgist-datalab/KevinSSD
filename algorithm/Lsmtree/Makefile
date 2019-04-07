@@ -25,7 +25,6 @@ SRCS +=\
 	   skiplist.c\
 	   bloomfilter.c\
 	   lsmtree.c\
-	   lsmtree_iter.c\
 	   compaction.c\
 	   page.c\
 	   heap.c\
@@ -40,6 +39,7 @@ SRCS +=\
 #merge_compaction.c\
 	   run_array.c\
 	   lsmtree_mop.c\
+	   lsmtree_iter.c\
 
 
 OBJS :=\

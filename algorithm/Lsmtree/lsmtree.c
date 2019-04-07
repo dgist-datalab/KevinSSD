@@ -35,12 +35,21 @@ struct algorithm algo_lsm={
 	.read=lsm_get,
 	.write=lsm_set,
 	.remove=lsm_remove,
+/*
 	.iter_create=lsm_iter_create,
 	.iter_next=lsm_iter_next,
 	.iter_next_with_value=lsm_iter_next_with_value,
 	.iter_release=lsm_iter_release,
 	.iter_all_key=lsm_iter_all_key,
 	.iter_all_value=lsm_iter_all_value,
+*/
+	.iter_create=NULL,
+	.iter_next=NULL,
+	.iter_next_with_value=NULL,
+	.iter_release=NULL,
+	.iter_all_key=NULL,
+	.iter_all_value=NULL,
+
 	.multi_set=NULL,
 	.multi_get=NULL,
 	.range_query=lsm_range_get,
@@ -290,7 +299,6 @@ void* lsm_end_req(algo_req* const req){
 			}
 			else{
 				if(!parents->isAsync){ // end_req for lsm_get
-					dl_sync_arrive(&params->lock);
 					havetofree=false;
 				}
 				else{
@@ -307,6 +315,7 @@ void* lsm_end_req(algo_req* const req){
 				parents=NULL;
 			}
 			break;
+		case BGWRITE:
 		case HEADERW:
 			inf_free_valueset(params->value,FS_MALLOC_W);
 			htable_free(params->htable_ptr);
@@ -353,6 +362,17 @@ void* lsm_end_req(algo_req* const req){
 			break;
 		case DATAW:
 			inf_free_valueset(params->value,FS_MALLOC_W);
+			break;
+		case BGREAD:
+			header=(htable**)params->target;
+			table=*header;
+#ifdef NOCPY
+
+#else
+			memcpy(table->sets,params->value->value,PAGESIZE);
+#endif	
+			inf_free_valueset(params->value,FS_MALLOC_R);
+			fdriver_unlock(params->lock);
 			break;
 		default:
 			break;
@@ -484,7 +504,6 @@ algo_req* lsm_get_req_factory(request *parents, uint8_t type){
 	params->lsm_type=type;
 	lsm_req->params=params;
 	lsm_req->parents=parents;
-	dl_sync_init(&params->lock,1);
 	lsm_req->end_req=lsm_end_req;
 	lsm_req->type_lower=0;
 	lsm_req->rapid=true;

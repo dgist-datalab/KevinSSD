@@ -14,7 +14,7 @@
 		free(a)\
 	}while(0)
 */
-//#define PROGRESS
+#define PROGRESS
 #define LOWER_FILE_NAME "./data/simulator.data"
 //#define LOWER_FILE_NAME "/dev/robusta"
 
@@ -97,6 +97,11 @@ static inline int KEYCONSTCOMP(KEYT a, char *s){
 	return a.len<len?-1:1;
 }
 
+static inline char KEYTEST(KEYT a, KEYT b){
+	if(a.len != b.len) return 0;
+	int alen=a.len, blen=b.len;
+	return memcmp(a.key,b.key,alen>blen?blen:alen)?0:1;
+}
 #else
 	#define KEYT uint32_t
 #endif

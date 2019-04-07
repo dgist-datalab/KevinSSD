@@ -884,10 +884,6 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 				target=gn[k];
 
 				if(target==NULL) continue;
-				if(target->ppa==481630){
-					printf("break\n");
-					//LSM.lop->header_print(data->nocpy_table);
-				}
 #ifdef NOCPY
 				keyset *finded=LSM.lop->find_keyset((char*)data->nocpy_table,target->lpa);
 #else
@@ -926,7 +922,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 				else{
 					if(k==temp_i){
 						if(!in->istier || j==htable_idx-1){
-							//LSM.lop->print(in);
+							LSM.lop->print(in);
 #ifdef KVSSD
 							printf("lpa:%.*s-ppa:%d\n",target->lpa.len, target->lpa.key,target->ppa);
 #else

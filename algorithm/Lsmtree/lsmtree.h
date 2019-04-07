@@ -25,6 +25,8 @@
 #define SDATAR 9
 #define RANGER 10
 #define OLDDATA 13
+#define BGREAD 15
+#define BGWRITE 16
 
 #define DONE 1
 #define FLYING 2
@@ -32,13 +34,15 @@
 #define NOTCHECK 4
 #define NOTFOUND 5
 
+
+
 //lower type, algo type
 typedef struct level level;
 typedef struct run run_t;
 typedef struct level_ops level_ops;
 
 typedef struct lsm_params{
-	dl_sync lock;
+	//dl_sync lock;
 	uint8_t lsm_type;
 	ppa_t ppa;
 	void *entry_ptr;
@@ -46,6 +50,7 @@ typedef struct lsm_params{
 	PTR* target;
 	value_set* value;
 	htable * htable_ptr;
+	fdriver_lock_t *lock;
 }lsm_params;
 
 typedef struct lsm_sub_req{

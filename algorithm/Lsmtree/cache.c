@@ -40,7 +40,7 @@ cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
 	if(c->m_size < c->n_size){
 		int target=c->n_size-c->m_size+1;
 		for(int i=0; i<target; i++){
-			cache_delete(c,cache_get(c));
+			if(!cache_delete(c,cache_get(c))) return NULL;
 		}
 	}
 
@@ -72,26 +72,16 @@ cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
 }
 bool cache_delete(cache *c, run_t * ent){
 	delete_++;
-	if(c->n_size==0){
+	if(c->n_size==0 || !ent){
 		return false;
 	}
 	//printf("cache delete\n");
-	cache_entry *c_ent=ent->c_entry;
-	/*
-	   will be free at level_free
-	if(ent->cache_data){
-		free(ent->cache_data->sets);
-#ifdef NOCPY
-		
-		if(ent->cache_data->iscached==2){
-			printf("free! %p\n",ent);
-			free(ent->cache_data->nocpy_table);
-		}
-#endif
-		free(ent->cache_data);
+	cache_entry *c_ent=ent->c_entry;	
+	if(c_ent==c->bottom){
+		c->bottom=c_ent->up;
+	}else if(c_ent==c->top){
+		c->top=c_ent->down;
 	}
-	ent->cache_data=NULL;
-	*/
 	c->n_size--;
 	free(c_ent);
 	ent->c_entry=NULL;
@@ -176,7 +166,10 @@ run_t* cache_get(cache *c){
 		res=res->up; 
 		c_cnt=0;
 	}
-	up=res->up;
+	if(res)
+		up=res->up;
+	else 
+		return NULL;
 
 	if(up==NULL && c_cnt){
 		c->bottom=c->top=NULL;
@@ -189,8 +182,10 @@ run_t* cache_get(cache *c){
 			up->down=NULL;
 			c->bottom=up;
 		}else{
-			up->down=res->down;
-			res->down->up=up;
+			if(up){
+				up->down=res->down;
+				res->down->up=up;
+			}else res->down->up=NULL;
 		}
 	}
 

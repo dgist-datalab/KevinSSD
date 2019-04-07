@@ -66,6 +66,7 @@ keyset* array_find_keyset(char *data,KEYT lpa);
 uint32_t array_find_idx_lower_bound(char *data, KEYT lpa);
 void array_find_keyset_first(char *data,KEYT *des);
 void array_find_keyset_last(char *data,KEYT *des);
+run_t *array_get_run_idx(level *, int idx);
 run_t *array_make_run(KEYT start, KEYT end, uint32_t pbn);
 run_t **array_find_run( level*,KEYT);
 run_t **array_find_run_num( level*,KEYT, uint32_t);
@@ -75,6 +76,7 @@ uint32_t array_range_find_compaction( level *,KEYT, KEYT,  run_t ***);
 uint32_t array_unmatch_find( level *,KEYT, KEYT,  run_t ***);
 //bool array_fchk(level *in);
 lev_iter* array_get_iter( level *,KEYT start, KEYT end);
+lev_iter* array_get_iter_from_run(level *, run_t *sr, run_t *er);
 run_t * array_iter_nxt( lev_iter*);
 
 uint32_t a_max_table_entry();
@@ -118,7 +120,7 @@ keyset *array_cache_find(level *, KEYT lpa);
 char *array_cache_find_run_data(level *,KEYT lpa);
 char *array_cache_next_run_data(level *,KEYT);
 lev_iter *array_cache_get_iter(level *,KEYT from, KEYT to);
-char *array_cache_iter_nxt(lev_iter *);
+run_t *array_cache_iter_nxt(lev_iter *);
 //char *array_cache_find_lowerbound(level *, KEYT lpa, KEYT *start,bool);
 int array_cache_get_sz(level*);
 #endif
@@ -134,6 +136,7 @@ int array_bound_search(run_t *body,uint32_t max_t, KEYT lpa,bool islower);
 
 keyset_iter *array_key_iter_init(char *key_data,int from);
 keyset *array_key_iter_nxt(keyset_iter *,keyset *);
+run_t *array_p_merger_cutter(skiplist *,run_t **, run_t **);
 
 //run_t *array_lsm_lower_bound_run(lsmtree *lsm, KEYT lpa);
 

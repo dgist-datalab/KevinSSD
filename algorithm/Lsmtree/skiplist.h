@@ -42,6 +42,7 @@ typedef struct snode{ //skiplist's node
 	// -- ctoc
 
 	struct snode **list;
+	struct snode *back;
 }snode;
 
 #ifdef Lsmtree
@@ -91,6 +92,7 @@ void skiplist_free(skiplist *list);  //free skiplist
 void skiplist_clear(skiplist *list); //clear all snode in skiplist and  reinit skiplist
 sk_iter* skiplist_get_iterator(skiplist *list); //get read only iterator
 snode *skiplist_get_next(sk_iter* iter); //get next snode by iterator
+skiplist *skiplist_divide(skiplist *in, snode *target);
 #ifdef DVALUE
 int bucket_page_cnt(l_bucket *);
 #endif

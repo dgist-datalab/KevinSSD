@@ -38,6 +38,9 @@ skiplist *skiplist_init(){
 #endif
 	point->header->list=(snode**)malloc(sizeof(snode*)*(MAX_L+1));
 	for(int i=0; i<MAX_L; i++) point->header->list[i]=point->header;
+	//back;
+	point->header->back=point->header;
+
 #if defined(KVSSD) && defined(Lsmtree)
 	point->all_length=0;
 	point->header->key=key_max;
@@ -65,7 +68,7 @@ snode *skiplist_find(skiplist *list, KEYT key){
 	}
 
 #if defined(KVSSD) && defined(Lsmtree)
-	if(KEYCMP(x->list[1]->key,key)==0)
+	if(KEYTEST(x->list[1]->key,key))
 #else
 	if(x->list[1]->key==key)
 #endif
@@ -188,7 +191,6 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
 	snode *update[MAX_L+1];
 	snode *x=list->header;
 
-
 	for(int i=list->level; i>=1; i--){
 #if defined(KVSSD) && defined(Lsmtree)
 		while(KEYCMP(x->list[i]->key,key)<0)
@@ -202,9 +204,7 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
 	x=x->list[1];
 
 #if defined(KVSSD) && defined(Lsmtree)
-//	if(KEYCMP(key,list->start)<0) list->start=key;
-//	if(KEYCMP(key,list->end)>0) list->end=key;
-	if(KEYCMP(key,x->key)==0)
+	if(KEYTEST(key,x->key))
 #else
 	if(key<list->start) list->start=key;
 	if(key>list->end) list->end=key;
@@ -246,6 +246,11 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
 			x->list[i]=update[i]->list[i];
 			update[i]->list[i]=x;
 		}
+
+		//new back
+		x->back=x->list[1]->back;
+		x->list[1]->back=x;
+
 		x->level=level;
 		list->size++;
 	}
@@ -288,7 +293,7 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 #ifdef KVSSD
 //	if(KEYCMP(key,list->start)<0) list->start=key;
 //	if(KEYCMP(key,list->end)>0) list->end=key;
-	if(KEYCMP(key,x->key)==0)
+	if(KEYTEST(key,x->key))
 #else
 	if(key<list->start) list->start=key;
 	if(key>list->end) list->end=key;
@@ -339,6 +344,11 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 			x->list[i]=update[i]->list[i];
 			update[i]->list[i]=x;
 		}
+
+		//new back
+		x->back=x->list[1]->back;
+		x->list[1]->back=x;
+
 		x->level=level;
 		list->size++;
 	}
@@ -364,7 +374,7 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overla
 #if defined(KVSSD) && defined(Lsmtree)
 //	if(KEYCMP(key,list->start)<0) list->start=key;
 //	if(KEYCMP(key,list->end)>0) list->end=key;
-	if(KEYCMP(key,x->key)==0)
+	if(KEYTEST(key,x->key))
 #else
 	if(key<list->start) list->start=key;
 	if(key>list->end) list->end=key;
@@ -402,6 +412,11 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overla
 			x->list[i]=update[i]->list[i];
 			update[i]->list[i]=x;
 		}
+
+		//new back
+		x->back=x->list[1]->back;
+		x->list[1]->back=x;
+
 		x->level=level;
 		list->size++;
 	}
@@ -426,7 +441,7 @@ snode *skiplist_insert_iter(skiplist *list,KEYT key,ppa_t ppa){
 #if defined(KVSSD) && defined(Lsmtree)
 //	if(KEYCMP(key,list->start)<0) list->start=key;
 //	if(KEYCMP(key,list->end)>0) list->end=key;
-	if(KEYCMP(key,x->key)==0)
+	if(KEYTEST(key,x->key))
 #else
 	if(key<list->start) list->start=key;
 	if(key>list->end) list->end=key;
@@ -469,6 +484,11 @@ snode *skiplist_insert_iter(skiplist *list,KEYT key,ppa_t ppa){
 			x->list[i]=update[i]->list[i];
 			update[i]->list[i]=x;
 		}
+
+		//new back
+		x->back=x->list[1]->back;
+		x->list[1]->back=x;
+
 		x->level=level;
 		list->size++;
 	}
@@ -501,7 +521,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		value->length=(value->length/PIECE)+(value->length%PIECE?1:0);
 	}
 #if defined(KVSSD) && defined(Lsmtree)
-	if(KEYCMP(key,x->key)==0)
+	if(KEYTEST(key,x->key))
 #else
 	if(key==x->key)
 #endif
@@ -561,6 +581,11 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 			x->list[i]=update[i]->list[i];
 			update[i]->list[i]=x;
 		}
+
+		//new back
+		x->back=x->list[1]->back;
+		x->list[1]->back=x;
+
 		x->level=level;
 		list->size++;
 	}
@@ -836,41 +861,81 @@ skiplist *skiplist_load(){
 	return res;
 }
 
-/*
-   int main(){
-   skiplist * temp=skiplist_init(); //make new skiplist
-   char cont[VALUESIZE]={0,}; //value;
-   for(int i=0; i<INPUTSIZE; i++){
-   memcpy(cont,&i,sizeof(i));
-   skiplist_insert(temp,i,cont); //the value is copied
-   }
+void skiplist_print(skiplist *skip){
+	snode *temp;
+	
+	for_each_sk(temp,skip){
+		printf("[lev:%d]%p\t",temp->level,temp);
+		for(uint32_t i=0; i<temp->level; i++){
+			printf("[%.*s] ", temp->key.len,temp->key.key);
+		}
+		printf("\n");
+	}
 
-   snode *node;
-   int cnt=0;
-   while(temp->size != 0){
-   sk_iter *iter=skiplist_get_iterator(temp); //read only iterator
-   while((node=skiplist_get_next(iter))!=NULL){ 
-   if(node->level==temp->level){
-   skiplist_delete(temp,node->key); //if iterator's now node is deleted, can't use the iterator! 
-//should make new iterator
-cnt++;
-break;
-}
-}
-free(iter); //must free iterator 
-if(cnt==10)
-break;
+	printf("max level ptr:");
+	for(uint32_t i=skip->level; i>=1; i--){
+		printf("%p ",skip->header->list[i]);
+	}
+	printf("\n");
+	
 }
 
-for(int i=INPUTSIZE; i<2*INPUTSIZE; i++){
-memcpy(cont,&i,sizeof(i));
-skiplist_insert(temp,i,cont);
+skiplist *skiplist_divide(skiplist *in, snode *target){
+	skiplist *res=skiplist_init();
+
+	
+	//static int sd_cnt=0;
+//	printf("sd_cnt %d\n",sd_cnt++);
+	
+	if(target==in->header){
+		skiplist swap;
+		memcpy(&swap,in,sizeof(skiplist));
+		memcpy(in,res,sizeof(skiplist));
+		memcpy(res,&swap,sizeof(skiplist));
+		return res;
+	}
+	uint32_t origin_level=in->level;
+	res->level=in->level;
+
+	snode *x=in->header->list[res->level],*temp,*temp2;
+	uint32_t t_level=target==in->header?1:target->level;
+	for(uint32_t i=res->level; i>t_level; i--){
+		while(KEYCMP(x->list[i]->key,target->key)<0)
+			x=x->list[i];
+
+		if(KEYCMP(x->key,target->key)>0){
+			res->level--;
+			x=in->header->list[i-1];
+			continue;
+		}
+		else if(x->list[i]==in->header){
+			in->level--;
+		}
+
+		temp=in->header->list[i];
+		temp2=x;
+
+		in->header->list[i]=x->list[i];
+		res->header->list[i]=temp;
+		temp2->list[i]=res->header;
+
+	}
+
+	for(uint32_t i=t_level; i>=1; i--){
+		res->header->list[i]=in->header->list[i];
+		in->header->list[i]=target->list[i];
+		if(target->list[i]==in->header){
+			in->level--;
+		}
+		target->list[i]=res->header;
+	}
+
+	
+	if((origin_level!=in->level && origin_level!=res->level) ||(in->level!=0 && (in->header->list[in->level]==in->header || res->header->list[res->level]==res->header))){
+		printf("skiplist_divide error!\n");
+		abort();
+	}
+	if(in->level==0) in->level=1;
+
+	return res;
 }
-
-
-skiplist_dump(temp); //dump key and node's level
-snode *finded=skiplist_find(temp,100);
-printf("find : [%d]\n",finded->key);
-skiplist_free(temp);
-return 0;
-}*/
