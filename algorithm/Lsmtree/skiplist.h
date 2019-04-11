@@ -90,6 +90,7 @@ snode *skiplist_at(skiplist *,int idx);
 int skiplist_delete(skiplist*,KEYT); //delete by key, return 0:normal -1:empty -2:no key
 void skiplist_free(skiplist *list);  //free skiplist
 void skiplist_clear(skiplist *list); //clear all snode in skiplist and  reinit skiplist
+void skiplist_container_free(skiplist *list);
 sk_iter* skiplist_get_iterator(skiplist *list); //get read only iterator
 snode *skiplist_get_next(sk_iter* iter); //get next snode by iterator
 skiplist *skiplist_divide(skiplist *in, snode *target);

@@ -396,7 +396,7 @@ uint32_t lsm_set(request * const req){
 #endif
 	//printf("set:%*.s\n",KEYFORMAT(req->key));
 //	printf("set:%s\n",req->key.key);
-	compaction_check(req->key,force);
+	compaction_check(req->key,force);	
 	MS(&__get_mt2);
 	if(req->type==FS_DELETE_T){
 		skiplist_insert(LSM.memtable,req->key,req->value,false);
@@ -435,7 +435,6 @@ uint32_t lsm_proc_re_q(){
 	while(1){
 		if((re_q=q_dequeue(LSM.re_q))){
 			request *tmp_req=(request*)re_q;
-	//		bench_algo_start(tmp_req);
 			switch(tmp_req->type){
 				case FS_GET_T:
 					res_type=__lsm_get(tmp_req);

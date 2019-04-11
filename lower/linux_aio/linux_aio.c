@@ -51,7 +51,7 @@ bool wait_flag;
 bool stopflag;
 uint64_t lower_micro_latency;
 MeasureTime total_time;
-long int a, b, sum1, sum2, max1, max2, cnt;
+long int a, b, sum1, sum2, max1, max2;
 
 int type_dist[9][1000];
 int read_dist[1000], write_dist[1000];

@@ -27,9 +27,6 @@ void nocpy_free_page(uint32_t ppa){
 void nocpy_free_block(uint32_t ppa){
 	for(uint32_t i=ppa; i<ppa+_PPS; i++){
 		if(!page[i]) continue;
-		if(i==16384 && page[i]){
-	//		printf("16384 delete from block\n");
-		}
 		free(page[i]);
 		page[i]=NULL;
 	}

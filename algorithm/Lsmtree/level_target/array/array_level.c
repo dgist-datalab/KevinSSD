@@ -567,7 +567,7 @@ void array_header_next_key_pick(level *lev, keyset_iter * k_iter,keyset *res){
 		}
 	}
 }
-
+extern int now_compaction_idx;
 run_t *array_p_merger_cutter(skiplist *skip,run_t **src, run_t **org){
 	ppa_t *ppa_ptr;
 	KEYT key;
@@ -640,6 +640,7 @@ run_t *array_p_merger_cutter(skiplist *skip,run_t **src, run_t **org){
 #ifdef BLOOM
 	res_r->filter=filter;
 #endif
-	skiplist_divide(skip,temp);
+	skiplist *temp_skip=skiplist_divide(skip,temp);
+	skiplist_container_free(temp_skip);
 	return res_r;
 }

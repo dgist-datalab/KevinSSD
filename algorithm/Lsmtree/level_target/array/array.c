@@ -474,7 +474,7 @@ lev_iter *array_get_iter_from_run(level *lev, run_t *sr, run_t *er){
 	lev_iter *it=(lev_iter*)malloc(sizeof(lev_iter));
 	a_iter *iter=(a_iter*)malloc(sizeof(a_iter));
 
-	iter->now=(sr - b->arrs)/sizeof(run_t*);
+	iter->now=(sr - b->arrs);
 	iter->max=lev->n_num;
 	iter->arrs=b->arrs;
 	it->iter_data=(void*)iter;

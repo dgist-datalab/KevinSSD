@@ -69,6 +69,9 @@ int gc_header(uint32_t tbn){
 		bool checkdone=false;
 		bool shouldwrite=false;
 		/*find target_level from level*/
+		if(KEYCONSTCOMP(*lpa,"user1002699360563762793")==0){
+			printf("break!\n");
+		}
 		for(int j=0; j<LEVELN; j++){
 			entries=LSM.lop->find_run(LSM.disk[j],*lpa);
 			if(entries==NULL) continue;

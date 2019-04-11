@@ -337,20 +337,25 @@ void bench_print(){
 
 
 void bench_algo_start(request *const req){
+	
 	measure_init(&req->algo);
 	if(req->params==NULL){
 	//	measure_init(&req->latency_poll);
 		measure_init(&req->latency_ftl);
 		MS(&req->latency_ftl);
 	}
+	 
 #ifdef BENCH
-	MS(&req->algo);
+	//MS(&req->algo);
 #endif
+	
 }
 void bench_algo_end(request *const req){
+	/*
 #ifdef BENCH
 	MA(&req->algo);
 #endif
+	 */
 }
 void bench_lower_start(request *const req){
 	measure_init(&req->lower);

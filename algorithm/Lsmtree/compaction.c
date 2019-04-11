@@ -38,6 +38,7 @@ volatile int memcpy_cnt;
 extern lsmtree LSM;
 extern block bl[_NOB];
 extern volatile int comp_target_get_cnt;
+extern MeasureTime write_opt_time[10];
 volatile int epc_check=0;
 int upper_table=0;
 bool debug_condition;
@@ -426,7 +427,9 @@ void *compaction_main(void *input){
 		LSM.li->lower_flying_req_wait();
 		pthread_mutex_unlock(&compaction_flush_wait);
 #endif
+		MS(&write_opt_time[1]);
 		lsm_io_sched_flush();	
+		MA(&write_opt_time[1]);
 		q_dequeue(_this->q);
 	}
 	
@@ -543,6 +546,8 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 #endif
 			datas[i]->pbn=compaction_htable_write(datas[i]->cpt_data,datas[i]->key,(char*)datas[i]->cpt_data->sets);
 			LSM.lop->insert(des,datas[i]);
+			LSM.lop->release_run(datas[i]);
+			free(datas[i]);
 		}
 		free(datas);
 		return;
@@ -574,7 +579,6 @@ skiplist *leveling_preprocessing(level * from, level* to){
 	return res;
 }*/
 
-extern bool gc_debug_flag;
 int level_cnt;
 uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *lock){
 #ifdef COMPACTIONLOG
@@ -591,7 +595,6 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 
 	LSM.c_level=target;
 	level *src=NULL;
-
 	level **src_ptr=NULL, **des_ptr=NULL;
 	//body=leveling_preprocessing(from,to);
 #ifdef LEVELCACHING
@@ -698,6 +701,7 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 #endif
 			partial_leveling(target,target_origin,NULL,src);
 			compaction_heap_setting(target,target_origin);
+
 		}
 		LSM.lop->move_heap(target,src);
 	}
@@ -796,7 +800,7 @@ bool htable_read_preproc(run_t *r){
 }
 
 void htable_read_postproc(run_t *r){
-	if(r->iscompactioning!=3){
+	if(r->iscompactioning!=3 && r->iscompactioning!=4){
 		if(r->pbn!=UINT32_MAX)
 			invalidate_PPA(r->pbn);
 		else{
@@ -808,6 +812,10 @@ void htable_read_postproc(run_t *r){
 	}else{
 		htable_free(r->cpt_data);
 		r->cpt_data=NULL;
+		if(r->pbn==UINT32_MAX){
+			LSM.lop->release_run(r);
+			free(r);
+		}
 	}
 }
 
@@ -927,7 +935,7 @@ uint32_t partial_leveling(level *t, level *origin, leveling_node* lnode, level *
 	KEYT start_k=lnode?lnode->start:upper->start;
 	KEYT end_k=lnode?lnode->end:upper->end;
 	uint32_t max_nc_min=LSM.lop->unmatch_find(origin,start_k,end_k,&target_s);
-	max_nc_min= max_nc_min?max_nc_min:-1;
+//	max_nc_min= max_nc_min?max_nc_min:0;
 	/*if(!lnode){
 		//static int lev_cnt=0;
 //		printf("lev_cnt %d\n",lev_cnt++);
@@ -940,7 +948,7 @@ uint32_t partial_leveling(level *t, level *origin, leveling_node* lnode, level *
 	}
 	free(target_s);
 	
-	run_t* start_r=LSM.lop->get_run_idx(origin,max_nc_min+1);
+	run_t* start_r=LSM.lop->get_run_idx(origin,max_nc_min);
 	run_t* end_r=LSM.lop->get_run_idx(origin,origin->n_num);
 	if(!upper){
 		return memtable_partial_leveling(lnode, t,origin,start_r, end_r);
@@ -1048,8 +1056,11 @@ uint32_t partial_leveling(level *t, level *origin, leveling_node* lnode, level *
 		
 	//LSM.lop->print(t);
 	//release runs;
-	for(int i=0; i<idx; i++) htable_read_postproc(bunch_data[i]);
-
+	for(int i=0; i<idx; i++){
+		htable_read_postproc(bunch_data[i]);
+	}
+	
+	skiplist_free(mem);
 	free(bunch_data);
 	free(wait);
 	return 1;

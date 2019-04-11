@@ -31,6 +31,7 @@ void log_print(int sig){
 	exit(1);
 }
 
+
 int server_socket;
 struct sockaddr_in client_addr;
 socklen_t client_addr_size;
@@ -104,19 +105,27 @@ void kv_main_end_req(uint32_t a, uint32_t b, void *req){
 	}
 }
 
+MeasureTime write_opt_time[10];
 int main(int argc, char *argv[]){
 	if(argc<2){
-		printf("insert argumen!\n");
-		return 1;
+//		printf("insert argumen!\n");
+//		return 1;
 	}
 	inf_init(1);
-	FILE *fp = fopen(argv[1], "r");
+	FILE *fp = fopen("ycsb_load_1M", "r");
 	netdata *data;
 	char temp[8192]={0,};
 	char data_temp[6];
 	data=(netdata*)malloc(sizeof(netdata));
 	static int cnt=0;
+	static int req_cnt=0;
 	//measure_init(&data->temp);
+
+	for(int i=0; i<10; i++){
+		measure_init(&write_opt_time[i]);
+	}
+	
+	MS(&write_opt_time[0]);
 	while((fscanf(fp,"%d %d %d %s",&data->type,&data->scanlength,&data->keylen,data->key))!=EOF){
 		if(data->type==1){
 		//	printf("%d %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
@@ -128,8 +137,14 @@ int main(int argc, char *argv[]){
 			inf_make_range_query_apps(data->type,data->key,data->keylen,cnt++,data->scanlength,data,kv_main_end_req);
 		}
 		data=(netdata*)malloc(sizeof(netdata));
-		//if(cnt++%10240==0){
-			//printf("cnt:%d\n",cnt++);
-		//}
+		if(req_cnt++%10240==0){
+			printf("cnt:%d\n",req_cnt);
+		}
+	}
+	MA(&write_opt_time[0]);
+	
+	for(int i=0; i<10; i++){
+		printf("%d:",i);
+		measure_adding_print(&write_opt_time[i]);
 	}
 }

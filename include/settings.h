@@ -15,8 +15,8 @@
 	}while(0)
 */
 #define PROGRESS
-#define LOWER_FILE_NAME "./data/simulator.data"
-//#define LOWER_FILE_NAME "/dev/robusta"
+//#define LOWER_FILE_NAME "./data/simulator.data"
+#define LOWER_FILE_NAME "/dev/robusta"
 
 #define K (1024)
 #define M (1024*K)
@@ -39,7 +39,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 4L
+#define GIGAUNIT 16L
 #define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)

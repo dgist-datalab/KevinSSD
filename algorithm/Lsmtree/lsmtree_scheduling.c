@@ -55,7 +55,9 @@ void lsm_io_sched_push(uint8_t type, void *req){
 }
 
 void lsm_io_sched_flush(){
+#ifdef WRITEOPTIMIZE
 	while(scheduler.q->size);
+#endif
 }
 
 void lsm_io_sched_finish(){

@@ -817,9 +817,35 @@ void skiplist_free(skiplist *list){
 #else
 	free(list->header);
 #endif
-
 	free(list);
 	return;
+}
+
+void skiplist_container_free(skiplist *list){
+	if(list==NULL) return;
+	snode *now=list->header->list[1];
+	snode *next=now->list[1];
+	while(now!=list->header){
+		free(now->list);
+#ifdef USINGSLAB
+		kmem_cache_free(snode_slab,now);
+#else
+		free(now);
+#endif
+		now=next;
+		next=now->list[1];
+	}
+	list->size=0;
+	list->level=0;
+
+	free(list->header->list);
+#ifdef USINGSLAB
+	//slab_free(&snode_slab,list->header);
+	kmem_cache_free(snode_slab,list->header);
+#else
+	free(list->header);
+#endif
+	free(list);
 }
 snode *skiplist_pop(skiplist *list){
 	if(list->size==0) return NULL;

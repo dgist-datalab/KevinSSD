@@ -243,10 +243,7 @@ void gc_trim_segment(uint8_t type, uint32_t pbn){
 
 #ifdef NOCPY
 		if(seg->ppa>=0 && seg->ppa<(HEADERSEG+1)*_PPS){
-#ifdef KVSSD
-#else
 			nocpy_free_block(seg->ppa);
-#endif
 		}
 #endif
 
@@ -561,7 +558,6 @@ bool gc_check(uint8_t type, bool force){
 				case HEADER:
 					printf("header gc:%d\n",header_gc_cnt++);
 					target_p=&header_m;
-					header_gc_cnt++; 
 					break;
 				case DATA:
 					//LSM.lop->all_print();
@@ -750,8 +746,8 @@ void invalidate_PPA(uint32_t _ppa){
 #endif
 */
 	if(bl[bn].invalid_n>algo_lsm.li->PPB){
-		printf("%u\n",algo_lsm.li->PPB);
 		printf("invalidate:??\n");
+		printf("%u\n",algo_lsm.li->PPB);
 		abort();
 	}
 #ifdef COSTBENEFIT
