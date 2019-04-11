@@ -18,6 +18,8 @@
 #include "../../include/data_struct/list.h"
 #include "../../include/utils/kvssd.h"
 #include "../../include/sem_lock.h"
+#include "../../bench/bench.h"
+
 #ifdef DEBUG
 #endif
 
@@ -31,8 +33,6 @@ extern KEYT key_min, key_max;
 		free(a);\
 	}while(0)
 */
-
-
 volatile int memcpy_cnt;
 
 extern lsmtree LSM;
@@ -423,13 +423,13 @@ void *compaction_main(void *input){
 		pthread_mutex_unlock(&LSM.templock);
 
 		free(req);
+		bench_custom_start(write_opt_time,1);
 #ifdef WRITEWAIT
 		LSM.li->lower_flying_req_wait();
 		pthread_mutex_unlock(&compaction_flush_wait);
 #endif
-		MS(&write_opt_time[1]);
 		lsm_io_sched_flush();	
-		MA(&write_opt_time[1]);
+		bench_custom_A(write_opt_time,1);
 		q_dequeue(_this->q);
 	}
 	
@@ -482,43 +482,18 @@ void compaction_htable_read(run_t *ent,PTR* value){
 	return;
 }
 
-//run_t* compaction_postprocessing(run_t *target){
-//	htable *table;
-//#ifdef NOCPY
-//	table=htable_assign(NULL,true);
-///*#if LEVELN==1
-//	if(target->cpt_data->nocpy_table)
-//		memcpy(table->sets,target->cpt_data->nocpy_table,PAGESIZE);
-//	else{
-//	#endif
-//		memcpy(table->sets,target->cpt_data->sets,PAGESIZE);
-//	#if LEVELN==1
-//	}
-//	#endif*/
-//#else
-//	table=htable_assign((char*)target->cpt_data->sets,true);
-//#endif
-//	target->pbn=compaction_htable_write(table,target->key,(char*)target->cpt_data->sets);
-//	return target;
-//}
-
-
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
 	compaction_sub_wait();
-
-	MS(&LSM.timers[3]);
+	bench_custom_start(write_opt_time,5);
 #ifdef STREAMCOMP
 	LSM.lop->stream_comp_wait();
 #else
 	LSM.lop->merger(top,src,org,des);
 #endif
-	MA(&LSM.timers[3]);
 
 	KEYT key,end;
 	run_t* target=NULL;
-	MS(&LSM.timers[2]);
 	while((target=LSM.lop->cutter(top,des,&key,&end))){
-		//target=compaction_postprocessing(target);
 		target->pbn=compaction_htable_write(target->cpt_data,target->key,(char*)target->cpt_data->sets);
 		if(!LSM.inplace_compaction){
 			LSM.lop->insert(des,target);
@@ -529,7 +504,7 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 		target->cpt_data=NULL;
 		free(target);
 	}
-	MA(&LSM.timers[2]);
+	bench_custom_A(write_opt_time,5);
 }
 
 void compaction_lev_seq_processing(level *src, level *des, int headerSize){
@@ -907,7 +882,9 @@ uint32_t memtable_partial_leveling(leveling_node *lnode, level *t, level *origin
 
 		//sort
 		container[0]=now;
+		bench_custom_start(write_opt_time,5);
 		result=LSM.lop->partial_merger_cutter(mem,NULL,container);
+		bench_custom_A(write_opt_time,5);
 
 		//write operation
 		result->pbn=compaction_bg_htable_write(result->cpt_data,result->key,(char*)result->cpt_data->sets);
@@ -916,7 +893,11 @@ uint32_t memtable_partial_leveling(leveling_node *lnode, level *t, level *origin
 		free(result);
 	}
 	
-	while((result=LSM.lop->partial_merger_cutter(mem,NULL,NULL))){
+	while(1){
+		bench_custom_start(write_opt_time,5);
+		result=LSM.lop->partial_merger_cutter(mem,NULL,NULL);
+		bench_custom_A(write_opt_time,5);
+		if(result==NULL) break;
 		result->pbn=compaction_bg_htable_write(result->cpt_data,result->key,(char*)result->cpt_data->sets);
 		LSM.lop->insert(t,result);
 		LSM.lop->release_run(result);
@@ -1023,19 +1004,28 @@ uint32_t partial_leveling(level *t, level *origin, leveling_node* lnode, level *
 		if(up_run_num && org_run_num){
 			if(i%2){
 				org_run_num--;
+
+				bench_custom_start(write_opt_time,5);
 				result=LSM.lop->partial_merger_cutter(mem,NULL,container);
+				bench_custom_A(write_opt_time,5);
 			}else{
 				up_run_num--;
+				bench_custom_start(write_opt_time,5);
 				LSM.lop->partial_merger_cutter(mem,container,NULL);	
+				bench_custom_A(write_opt_time,5);
 				continue;
 			}
 		}else{
 			if(org_run_num){
 				org_run_num--;
+				bench_custom_start(write_opt_time,5);
 				result=LSM.lop->partial_merger_cutter(mem,NULL,container);
+				bench_custom_A(write_opt_time,5);
 			}else{
 				up_run_num--;
+				bench_custom_start(write_opt_time,5);
 				LSM.lop->partial_merger_cutter(mem,container,NULL);	
+				bench_custom_A(write_opt_time,5);
 				continue;
 			}
 		}
@@ -1047,7 +1037,12 @@ uint32_t partial_leveling(level *t, level *origin, leveling_node* lnode, level *
 		free(result);
 	}
 
-	while((result=LSM.lop->partial_merger_cutter(mem,NULL,NULL))){
+	while(1){
+		bench_custom_start(write_opt_time,5);
+		result=LSM.lop->partial_merger_cutter(mem,NULL,NULL);
+		bench_custom_A(write_opt_time,5);
+
+		if(result==NULL) break;
 		result->pbn=compaction_bg_htable_write(result->cpt_data,result->key,(char*)result->cpt_data->sets);
 		LSM.lop->insert(t,result);
 		LSM.lop->release_run(result);

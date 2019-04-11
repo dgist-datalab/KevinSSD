@@ -183,7 +183,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	printf("| WRITE WAF:%f\n",(float)SIZEFACTOR * LEVELN /LSM.KEYNUM);
 	printf("| top level size:%d(MB)\n",LSM.disk[0]->m_num*8);
 	printf("| bloomfileter : %fMB\n",(float)bloomfilter_memory/1024/1024);
-
+	
 	int32_t calc_cache=(caching_size-lev_caching_entry-bloomfilter_memory/PAGESIZE);
 	uint32_t cached_entry=calc_cache<0?0:calc_cache;
 	//	uint32_t cached_entry=0;
@@ -197,7 +197,8 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	printf("| start cache :%luMB(%lu page)%.2f(%%)\n",(cached_entry+lev_caching_entry)*PAGESIZE/M,cached_entry+lev_caching_entry,(float)cached_entry/(TOTALSIZE/PAGESIZE/K)*100);
 #endif
 	printf("| -------- algorithm_log END\n\n");
-
+	fprintf(stderr,"TOTALSIZE(GB) :%lu HEADERSEG:%d DATASEG:%d\n",TOTALSIZE/G,HEADERSEG,DATASEG);
+	fprintf(stderr,"LEVELN:%d (LEVELCACHING(%d), MEMORY:%f\n",LEVELN,LEVELCACHING,CACHINGSIZE);
 	pthread_mutex_init(&LSM.memlock,NULL);
 	pthread_mutex_init(&LSM.templock,NULL);
 	pthread_mutex_init(&LSM.valueset_lock,NULL);

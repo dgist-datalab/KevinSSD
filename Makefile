@@ -23,6 +23,7 @@ COMMONFLAGS=\
 			-DSLC\
 			-Wno-unused-but-set-variable\
 -O3\
+#			-DCHECKINGTIME\
 #			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
@@ -110,8 +111,8 @@ endif
 LIBS +=\
 		-lpthread\
 		-lm\
-		-ljemalloc\
-		-laio\
+	#	-ljemalloc\
+	#	-laio\
 
 all: driver
 
@@ -125,7 +126,7 @@ debug_simulator: ./interface/main.c libsimulator_d.a
 driver: ./interface/main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
-kv_driver: ./interface/Ytest_main.c libdriver.a
+kv_driver: ./interface/KV_main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 range_driver: ./interface/range_test_main.c libdriver.a

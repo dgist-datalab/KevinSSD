@@ -70,7 +70,7 @@ void *posix_destroy(lower_info *li){
 	pthread_mutex_destroy(&fd_lock);
 	close(_fd);
 	for(int i=0; i<LREQ_TYPE_NUM;i++){
-		printf("%s %lu\n",bench_lower_type(i),li->req_type_cnt[i]);
+		fprintf(stderr,"%s %lu\n",bench_lower_type(i),li->req_type_cnt[i]);
 	}
 	return NULL;
 }

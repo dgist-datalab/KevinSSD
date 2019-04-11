@@ -21,7 +21,7 @@ extern lsmtree LSM;
 #ifdef Lsmtree
 int skiplist_hit;
 #endif
-
+MeasureTime write_opt_time[10];
 int main(int argc,char* argv[]){
 	if(argc==3){
 		LOCALITY=atoi(argv[1]);

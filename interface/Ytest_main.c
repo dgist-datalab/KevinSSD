@@ -120,12 +120,10 @@ int main(int argc, char *argv[]){
 	static int cnt=0;
 	static int req_cnt=0;
 	//measure_init(&data->temp);
-
-	for(int i=0; i<10; i++){
-		measure_init(&write_opt_time[i]);
-	}
 	
-	MS(&write_opt_time[0]);
+	bench_custom_init(write_opt_time,10);
+	
+	bench_custom_start(write_opt_time,0);
 	while((fscanf(fp,"%d %d %d %s",&data->type,&data->scanlength,&data->keylen,data->key))!=EOF){
 		if(data->type==1){
 		//	printf("%d %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
@@ -141,10 +139,7 @@ int main(int argc, char *argv[]){
 			printf("cnt:%d\n",req_cnt);
 		}
 	}
-	MA(&write_opt_time[0]);
-	
-	for(int i=0; i<10; i++){
-		printf("%d:",i);
-		measure_adding_print(&write_opt_time[i]);
-	}
+	bench_custom_adding_end(write_opt_time,0);
+	bench_custom_print(write_opt_time,10);
+	inf_free();
 }

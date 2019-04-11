@@ -1,6 +1,9 @@
 #include "lsmtree_scheduling.h"
 #include "nocpy.h"
+#include "../../bench/bench.h"
+
 extern lsmtree LSM;
+extern MeasureTime write_opt_time[10];
 lsm_io_scheduler scheduler;
 static pthread_t sched_id;
 void processing_flush(void *param);
@@ -22,13 +25,19 @@ void *sched_main(void *param){//sched main
 
 		switch(sc_node.type){
 			case SCHED_FLUSH:
+				bench_custom_start(write_opt_time,2);
 				processing_flush(sc_node.param);
+				bench_custom_A(write_opt_time,2);
 				break;
 			case SCHED_HWRITE:
+				bench_custom_start(write_opt_time,3);
 				processing_header_write(sc_node.param);
+				bench_custom_A(write_opt_time,3);
 				break;
 			case SCHED_HREAD:
+				bench_custom_start(write_opt_time,4);
 				processing_header_read(sc_node.param);
+				bench_custom_A(write_opt_time,4);
 				break;
 		}
 		q_dequeue(scheduler.q);

@@ -299,14 +299,14 @@ void bench_print(){
 			printf("[size]: %lf(mb)\n",(double)total_data/1024);
 
 			printf("[FAIL NUM] %ld\n",_m->notfound);
-			printf("[SUCCESS RATIO] %lf\n",sr);
-			printf("[throughput1] %lf(kb/s)\n",throughput1);
-			printf("             %lf(mb/s)\n",throughput1/1024);
-			printf("[IOPS 1] %lf\n",_m->m_num/total_time1/2);
-			printf("[throughput2] %lf(kb/s)\n",throughput2);
-			printf("             %lf(mb/s)\n",throughput2/1024);
+			fprintf(stderr,"[SUCCESS RATIO] %lf\n",sr);
+			fprintf(stderr,"[throughput1] %lf(kb/s)\n",throughput1);
+			fprintf(stderr,"             %lf(mb/s)\n",throughput1/1024);
+			fprintf(stderr,"[IOPS 1] %lf\n",_m->m_num/total_time1/2);
+			fprintf(stderr,"[throughput2] %lf(kb/s)\n",throughput2);
+			fprintf(stderr,"             %lf(mb/s)\n",throughput2/1024);
 			printf("[IOPS 2] %lf\n",_m->m_num/total_time2/2);
-			printf("[cache hit cnt,ratio] %ld, %lf\n",_m->cache_hit,(double)_m->cache_hit/(_m->m_num/2));
+			fprintf(stderr,"[cache hit cnt,ratio] %ld, %lf\n",_m->cache_hit,(double)_m->cache_hit/(_m->m_num/2));
 			printf("[READ WRITE CNT] %ld %ld\n",_m->read_cnt,_m->write_cnt);
 		}
 		else{
@@ -320,9 +320,9 @@ void bench_print(){
 			double sr=1-((double)_m->notfound/_m->m_num);
 			throughput*=sr;
 			printf("[FAIL NUM] %ld\n",_m->notfound);
-			printf("[SUCCESS RATIO] %lf\n",sr);
-			printf("[throughput] %lf(kb/s)\n",throughput);
-			printf("             %lf(mb/s)\n",throughput/1024);
+			fprintf(stderr,"[SUCCESS RATIO] %lf\n",sr);
+			fprintf(stderr,"[throughput] %lf(kb/s)\n",throughput);
+			fprintf(stderr,"             %lf(mb/s)\n",throughput/1024);
 			printf("[IOPS] %lf\n",_m->m_num/total_time);
 			if(_m->read_cnt){
 				printf("[cache hit cnt,ratio] %ld, %lf\n",_m->cache_hit,(double)_m->cache_hit/(_m->read_cnt));
@@ -454,7 +454,7 @@ void bench_cdf_print(uint64_t nor, uint8_t type, bench_data *_d){//number of req
 		for(int i=0; i<1000000/TIMESLOT+1; i++){
 			cumulate_number+=_d->read_cdf[i];
 			if(_d->read_cdf[i]==0) continue;
-			printf("%d\t%ld\t%f\n",i * 10,_d->read_cdf[i],(float)cumulate_number/_d->read_cnt);	
+			fprintf(stderr,"%d,%ld,%f\n",i * 10,_d->read_cdf[i],(float)cumulate_number/_d->read_cnt);	
 			if(nor==cumulate_number)
 				break;
 		}
@@ -963,4 +963,33 @@ char *bench_lower_type(int a){
 		case 8:return "GCDW";
 	}
 	return NULL;
+}
+
+void bench_custom_init(MeasureTime *mt,int idx){
+#ifdef CHECKINGTIME
+	for(int i=0; i<idx; i++){
+		measure_init(&mt[i]);
+	}
+#endif
+}
+
+void bench_custom_start(MeasureTime *mt,int idx){
+#ifdef CHECKINGTIME
+	MS(&mt[idx]);
+#endif
+}
+
+void bench_custom_A(MeasureTime *mt,int idx){
+#ifdef CHECKING
+	MA(&mt[idx]);
+#endif
+}
+
+void bench_custom_print(MeasureTime *mt,int idx){
+#ifdef CHECKING
+	for(int i=0; i<idx; i++){
+		printf("%d:");
+		measure_adding_print(&mt[i]);
+	}
+#endif
 }

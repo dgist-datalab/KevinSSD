@@ -15,8 +15,9 @@
 	}while(0)
 */
 #define PROGRESS
-//#define LOWER_FILE_NAME "./data/simulator.data"
-#define LOWER_FILE_NAME "/dev/robusta"
+#define LOWER_FILE_NAME "./data/simulator.data"
+//#define LOWER_FILE_NAME "/dev/robusta"
+#define BENCH_LOG "./result/"
 
 #define K (1024)
 #define M (1024*K)

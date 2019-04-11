@@ -27,8 +27,9 @@ int client_socket;
 int input_num, send_num;
 queue *n_q;
 
+MeasureTime write_opt_time[10];
 void log_print(int sig){
-	//inf_free();
+	inf_free();
 	exit(1);
 }
 
@@ -110,7 +111,6 @@ void kv_main_end_req(uint32_t a, uint32_t b, void *req){
 			break;
 	}
 }
-
 int main(){
 	struct sigaction sa;
 	sa.sa_handler = log_print;
@@ -179,8 +179,8 @@ int main(){
 			inf_make_range_query_apps(data->type,data->key,data->keylen,data->seq,data->scanlength,data,kv_main_end_req);
 		}else{
 			read_socket_len(data->key,data->keylen);
-		//	inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),data->seq,data->type==2?data:NULL,kv_main_end_req);
-			fprintf(stderr,"%d 0 %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
+			inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),data->seq,data->type==2?data:NULL,kv_main_end_req);
+		//	fprintf(stderr,"%d 0 %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
 		}
 //		inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),data->seq,data->type==2?data:NULL,kv_main_end_req);
 		input_num++;
