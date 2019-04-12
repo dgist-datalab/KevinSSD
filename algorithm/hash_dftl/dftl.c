@@ -857,6 +857,10 @@ data_check:
 
 		updated = 0;
 
+		while (num_clean + num_flying > max_clean_cache) {
+			demand_eviction(req, 'R', &gc_flag, &d_flag, NULL);
+		}
+
 		// Wait until all flying requests are finished
 		__demand.li->lower_flying_req_wait();
 	}
