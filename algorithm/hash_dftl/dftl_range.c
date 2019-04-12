@@ -1,6 +1,6 @@
 #include "dftl.h"
 
-static request *make_range_req(request *const req, KEYT key, value_set *value) {
+static request *split_range_req(request *const req, KEYT key, value_set *value) {
 	request *ret = (request *)malloc(sizeof(request));
 
 	ret->type = FS_GET_T;
@@ -68,7 +68,7 @@ uint32_t demand_range_query(request *const req) {
 	req->num = query_len;
 	for (int i = 0; i < query_len; i++) {
 		//printf("issue range[%d] on key:%.*s\n", i, range_key[i].len, range_key[i].key);
-		range_req[i] = make_range_req(req, range_key[i], req->multi_value[i]);
+		range_req[i] = split_range_req(req, range_key[i], req->multi_value[i]);
 		demand_get(range_req[i]);
 	}
 
