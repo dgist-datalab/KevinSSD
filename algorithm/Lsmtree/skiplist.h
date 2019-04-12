@@ -37,6 +37,7 @@ typedef struct snode{ //skiplist's node
 
 #ifdef hash_dftl
 	int32_t hash_key;
+	void *hash_params;
 #endif
 
 	// ++ ctoc

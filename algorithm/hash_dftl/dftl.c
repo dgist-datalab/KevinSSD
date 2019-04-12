@@ -63,6 +63,8 @@ int32_t num_flying;
 int32_t num_wflying;
 int32_t waiting;
 
+volatile int32_t updated;
+
 int32_t tgc_count;
 int32_t dgc_count;
 int32_t tgc_w_dgc_count;
@@ -336,7 +338,8 @@ void demand_destroy(lower_info *li, algorithm *algo){
 #if C_CACHE
 	printf("num_clean:   %d\n", num_clean);
 #endif
-	printf("num_flying: %d\n\n", num_flying);
+	printf("num_flying: %d\n", num_flying);
+	printf("num_wflying: %d\n\n", num_wflying);
 
 
 	puts("<hash collsion count info(insertion)>");
@@ -590,10 +593,6 @@ uint32_t __demand_get(request *const req){
 	h_params->hash_key = QUADRATIC_PROBING(h_params->hash, cnt) % num_dpage;
 	lpa = h_params->hash_key;
 
-	/*if (req->key.len == 23 && strncmp(req->key.key, "user4892736263638437930", req->key.len)==0) {
-	  printf("user4892736263638437930 in!");
-	  }*/
-
 #if W_BUFF
 	/* Check skiplist first */
 	if(req->params == NULL && (temp = skiplist_find(write_buffer, req->key))){
@@ -690,6 +689,9 @@ uint32_t __demand_set(request *const req){
 	int32_t *p_table; // pointer of p_table on cme
 	algo_req *my_req; // pseudo request pointer
 
+	value_set *dummy_vs;
+	algo_req *temp_req;
+
 	bool gc_flag;
 	bool d_flag;
 
@@ -720,19 +722,98 @@ uint32_t __demand_set(request *const req){
 			// Save ppa to snode (-> to update mapping info later)
 			temp->ppa = ppa;
 			temp->value = NULL; // this memory area will be freed in end_req
+
+			q_enqueue((void *)temp, write_q);
 		}
-		free(iter);
 
 		/* Update mapping information */
-		iter = skiplist_get_iterator(write_buffer);
-		for (size_t i = 0; i < max_write_buf; i++) {
-			temp = skiplist_get_next(iter);
+		while (updated != max_write_buf) {
+			temp = (snode *)q_dequeue(flying_q);
+			if (temp == NULL) goto write_deque;
 
-			lpa = temp->hash_key;
+			h_params = (struct hash_params *)temp->hash_params;
+			cnt = h_params->cnt;
+			h_params->hash_key = QUADRATIC_PROBING(h_params->hash, cnt) % num_dpage;
+			lpa = h_params->hash_key;
+
+			c_table = &CMT[D_IDX];
+			c_table->p_table   = mem_arr[D_IDX].mem_p;
+			c_table->clean_ptr = lru_push(c_lru, (void *)c_table);
+			num_clean++;
+
+			ppa = c_table->p_table[P_IDX];
+
+			for (int i = 0; i < c_table->num_snode; i++) {
+				q_enqueue((void *)c_table->flying_snodes[i], wait_q);
+				c_table->flying_snodes[i] = NULL;
+			}
+			c_table->num_snode = 0;
+			c_table->wflying   = false;
+			num_wflying--;
+
+			goto data_check;
+
+write_deque:
+			if (num_wflying == max_clean_cache) continue;
+
+			temp = (snode *)q_dequeue(wait_q);
+			if (temp == NULL) temp = (snode *)q_dequeue(write_q);
+			if (temp == NULL) continue;
+
+			h_params = (struct hash_params *)temp->hash_params;
+			cnt = h_params->cnt;
+			h_params->hash_key = QUADRATIC_PROBING(h_params->hash, cnt) % num_dpage;
+			lpa = h_params->hash_key;
 
 			c_table = &CMT[D_IDX];
 			p_table = c_table->p_table;
 			t_ppa   = c_table->t_ppa;
+
+			if (c_table->dirty_bitmap[P_IDX] == true) {
+				dirty_hit_on_write++;
+				cache_hit_on_write++;
+				ppa = mem_arr[D_IDX].mem_p[P_IDX];
+
+			} else if (p_table) {
+				clean_hit_on_write++;
+				cache_hit_on_write++;
+				ppa = p_table[P_IDX];
+
+			} else {
+				if (c_table->wflying) {
+					c_table->flying_snodes[c_table->num_snode++] = temp;
+					continue;
+				}
+
+				cache_miss_on_write++;
+				if (num_clean + num_wflying == max_clean_cache) {
+					demand_eviction(req, 'R', &gc_flag, &d_flag, NULL);
+				}
+
+				if (t_ppa != -1) {
+					c_table->wflying = true;
+					num_wflying++;
+
+					dummy_vs = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
+					temp_req = assign_pseudo_req(MAPPING_R, dummy_vs, NULL);
+					((demand_params *)temp_req->params)->sn = temp;
+					temp->t_ppa = t_ppa;
+					__demand.li->read(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+					
+					continue;
+				} else {
+					ppa = -1;
+				}
+			}
+
+data_check:
+			if (ppa != -1 && h_params->find != HASH_KEY_SAME) {
+				dummy_vs = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
+				temp_req = assign_pseudo_req(DATA_R, dummy_vs, NULL);
+				((demand_params *)temp_req->params)->sn = temp;
+				__demand.li->read(ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+				continue;
+			}
 
 			if (!c_table->dirty_bitmap[P_IDX]) {
 				if (num_caching == num_max_cache) {
@@ -742,6 +823,7 @@ uint32_t __demand_set(request *const req){
 				c_table->dirty_bitmap[P_IDX] = true;
 				++c_table->dirty_cnt;
 				++num_caching;
+				//printf("%d\n", num_caching);
 			}
 
 			// TODO: this would be done at eviction phase
@@ -758,6 +840,14 @@ uint32_t __demand_set(request *const req){
 			if (p_table) { // Cache hit
 				lru_update(c_lru, c_table->clean_ptr);
 			}
+
+			updated++;
+
+			if (cnt < 1024) {
+				hash_collision_cnt[cnt]++;
+			}
+
+			free(temp->hash_params);
 		}
 
 		// Clear the skiplist
@@ -765,12 +855,15 @@ uint32_t __demand_set(request *const req){
 		skiplist_free(write_buffer);
 		write_buffer = skiplist_init();
 
+		updated = 0;
+
 		// Wait until all flying requests are finished
 		__demand.li->lower_flying_req_wait();
 	}
 	//--write_buffer
 
 
+/*
 	h_params = (struct hash_params *)req->hash_params;
 	cnt = h_params->cnt;
 	h_params->hash_key = QUADRATIC_PROBING(h_params->hash, cnt) % num_dpage;
@@ -838,22 +931,21 @@ uint32_t __demand_set(request *const req){
 			bench_algo_end(req);
 			return 1;
 		}
-	}
+	} */
 
 	/* Insert data to skiplist (default) */
 	memcpy(req->value->value, &req->key.len, sizeof(uint8_t));
 	memcpy(req->value->value+1, req->key.key, req->key.len);
 
 	temp = skiplist_insert(write_buffer, req->key, req->value, true);
-	temp->hash_key = lpa;
+	temp->hash_params = req->hash_params;
 
 	rb_insert_str(rb_tree, req->key, NULL);
 
-	if (cnt < 1024) {
-		hash_collision_cnt[cnt]++;
-	}
+//	if (cnt < 1024) {
+//		hash_collision_cnt[cnt]++;
+//	}
 
-	free(req->hash_params);
 	req->hash_params = NULL;
 	req->value = NULL; // moved to value field of snode
 
@@ -1135,18 +1227,20 @@ void *demand_end_req(algo_req* input){
 	value_set *temp_v = params->value;
 	request *res = input->parents;
 	read_params *read_checker;
+	snode *temp;
 
 	struct hash_params *h_params;
 	KEYT check_key;
 
 	switch(params->type){
 		case DATA_R:
-			h_params = (struct hash_params *)res->hash_params;
-			check_key.len = *((uint8_t *)res->value->value);
-			check_key.key = (char *)malloc(check_key.len);
-			memcpy(check_key.key, res->value->value+1, check_key.len);
+			//if (res->type == FS_GET_T) {
+			if (res) {
+				h_params = (struct hash_params *)res->hash_params;
+				check_key.len = *((uint8_t *)res->value->value);
+				check_key.key = (char *)malloc(check_key.len);
+				memcpy(check_key.key, res->value->value+1, check_key.len);
 
-			if (res->type == FS_GET_T) {
 				if (KEYCMP(res->key, check_key)) {
 					h_params->find = HASH_KEY_DIFF;
 					h_params->cnt++;
@@ -1169,8 +1263,14 @@ void *demand_end_req(algo_req* input){
 						res->end_req(res);
 					}
 				}
-			} else { // Read check for data write/remove
-				if (KEYCMP(res->key, check_key)) {
+			} else { // Read check for data write
+				temp = params->sn;
+				h_params = (struct hash_params *)temp->hash_params;
+				check_key.len = *((uint8_t *)temp_v->value);
+				check_key.key = (char *)malloc(check_key.len);
+				memcpy(check_key.key, temp_v->value+1, check_key.len);
+	
+				if (KEYCMP(temp->key, check_key)) {
 					h_params->find = HASH_KEY_DIFF;
 					h_params->cnt++;
 					max_try = (h_params->cnt > max_try) ? h_params->cnt : max_try;
@@ -1178,9 +1278,13 @@ void *demand_end_req(algo_req* input){
 					h_params->find = HASH_KEY_SAME;
 				}
 
-				if (!inf_assign_try(res)) {
+				q_enqueue((void *)params->sn, write_q);
+
+				inf_free_valueset(temp_v, FS_MALLOC_R);
+
+				/*if (!inf_assign_try(res)) {
 					puts("not queued 7");
-				}
+				}*/
 			}
 			free(check_key.key);
 			break;
@@ -1197,6 +1301,13 @@ void *demand_end_req(algo_req* input){
 
 		case MAPPING_R: // ASYNC mapping read
 			trans_r++;
+
+			if (params->sn) {
+				temp = params->sn;
+				q_enqueue((void *)temp, flying_q);
+				inf_free_valueset(temp_v, FS_MALLOC_R);
+				break;
+			}
 
 			read_checker = (read_params *)res->params;
 			read_checker->read = 1;

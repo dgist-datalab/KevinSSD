@@ -49,7 +49,7 @@ struct hash_params {
 	int cnt;
 	int find;
 
-	uint32_t hash_key;
+	int32_t hash_key;
 };
 
 // Page table data structure
