@@ -39,8 +39,8 @@ struct request {
 	KEYT key;
 	uint64_t ppa;/*it can be the iter_idx*/
 	uint32_t seq;
-	int num; /*length of requests*/
-	int cpl; /*number of completed requests*/
+	volatile int num; /*length of requests*/
+	volatile int cpl; /*number of completed requests*/
 	int not_found_cnt;
 	value_set *value;
 	value_set **multi_value;

@@ -133,6 +133,9 @@ extern volatile int32_t trans_gc_poll;
 extern volatile int32_t data_gc_poll;
 
 extern Redblack rb_tree;
+extern pthread_mutex_t rb_lock;
+extern pthread_mutex_t cpl_lock;
+extern queue *range_q;
 
 extern int32_t num_page;
 extern int32_t num_block;

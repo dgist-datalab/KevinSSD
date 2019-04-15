@@ -180,7 +180,7 @@ int main(){
 			inf_make_range_query_apps(data->type,data->key,data->keylen,data->seq,data->scanlength,data,kv_main_end_req);
 		}else{
 			read_socket_len(data->key,data->keylen);
-			fprintf(stderr,"%d 0 %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
+			//fprintf(stderr,"%d 0 %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
 			inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),data->seq,data->type==2?data:NULL,kv_main_end_req);
 		}
 //		inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),data->seq,data->type==2?data:NULL,kv_main_end_req);

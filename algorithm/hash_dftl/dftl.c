@@ -33,6 +33,7 @@ snode *dummy_snode;
 queue *wait_q;
 queue *write_q;
 queue *flying_q;
+queue *range_q;
 
 C_TABLE *CMT; // Cached Mapping Table
 D_OOB *demand_OOB; // Page OOB
@@ -81,6 +82,8 @@ int32_t max_clean_cache;
 #endif
 
 Redblack rb_tree;
+pthread_mutex_t rb_lock;
+pthread_mutex_t cpl_lock;
 KEYT key_max, key_min;
 int max_try;
 int hash_collision_cnt[1024];
@@ -238,6 +241,8 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	memset(key_min.key, 0, sizeof(char) * MAXKEYSIZE);
 
 	rb_tree = rb_create();
+	pthread_mutex_init(&rb_lock, NULL);
+	pthread_mutex_init(&cpl_lock, NULL);
 
 #if W_BUFF
 	write_buffer = skiplist_init();
@@ -254,6 +259,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	q_init(&wait_q, max_write_buf);
 	q_init(&write_q, max_write_buf);
 	q_init(&flying_q, max_write_buf);
+	q_init(&range_q, 1024);
 	BM_Queue_Init(&free_b);
 	for(int i = 0; i < num_block - 2; i++){
 		BM_Enqueue(free_b, &bm->barray[i]);
@@ -547,7 +553,9 @@ static uint32_t demand_read_flying(request *const req, char req_t) {
 	// Register reserved requests
 	for (int i = 0; i < c_table->num_waiting; i++) {
 		//while (!inf_assign_try(c_table->flying_arr[i])) {}
-		if (!inf_assign_try(c_table->flying_arr[i])) {
+		if (c_table->flying_arr[i]->type == FS_RANGEGET_T) {
+			q_enqueue((void *)c_table->flying_arr[i], range_q);
+		} else if (!inf_assign_try(c_table->flying_arr[i])) {
 			puts("not queued 4");
 			q_enqueue((void *)c_table->flying_arr[i], dftl_q);
 		}
@@ -557,7 +565,9 @@ static uint32_t demand_read_flying(request *const req, char req_t) {
 	//fprintf(stderr, "CMT[%d] off by req %x\n", D_IDX, req);
 	num_flying--;
 	for (int i = 0; i < waiting; i++) {
-		if (!inf_assign_try(waiting_arr[i])) {
+		if (waiting_arr[i]->type == FS_RANGEGET_T) {
+			q_enqueue((void *)waiting_arr[i], range_q);
+		} else if (!inf_assign_try(waiting_arr[i])) {
 			puts("not queued 5");
 			q_enqueue((void *)waiting_arr[i], dftl_q);
 		}
@@ -944,7 +954,7 @@ data_check:
 	temp = skiplist_insert(write_buffer, req->key, req->value, true);
 	temp->hash_params = req->hash_params;
 
-	rb_insert_str(rb_tree, req->key, NULL);
+	//rb_insert_str(rb_tree, req->key, NULL);
 
 //	if (cnt < 1024) {
 //		hash_collision_cnt[cnt]++;
@@ -1134,6 +1144,10 @@ uint32_t demand_get(request *const req){
 uint32_t demand_set(request *const req){
 	uint32_t rc;
 
+	// Debug
+	//static int write_cnt = 0;
+	//printf("write %d\n", ++write_cnt);
+
 	if (!req->hash_params) {
 		req->hash_params = (void *)make_hash_params(req);
 	}
@@ -1253,7 +1267,9 @@ void *demand_end_req(algo_req* input){
 						h_params->find = HASH_KEY_NONE;
 					}
 
-					if (!inf_assign_try(res)) {
+					if (res->type == FS_RANGEGET_T) {
+						q_enqueue((void *)res, range_q);
+					} else if (!inf_assign_try(res)) {
 						puts("not queued 6");
 					}
 
@@ -1316,7 +1332,11 @@ void *demand_end_req(algo_req* input){
 			read_checker = (read_params *)res->params;
 			read_checker->read = 1;
 
-			inf_assign_try(res);
+			if (res->type == FS_RANGEGET_T) {
+				q_enqueue((void *)res, range_q);
+			} else {
+				inf_assign_try(res);
+			}
 			inf_free_valueset(temp_v, FS_MALLOC_R);
 			break;
 		case MAPPING_M: // SYNC mapping read

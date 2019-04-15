@@ -138,5 +138,6 @@ int main(int argc, char *argv[]){
 			printf("cnt:%d\n",cnt++);
 		}
 	}
+	sleep(1);
 	inf_free();
 }

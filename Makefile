@@ -85,7 +85,7 @@ SRCS +=\
 	./include/utils/dl_sync.c\
 	./include/utils/rwlock.c\
 	./include/utils/cond_lock.c\
-	./include/data_struct/hash.c\
+	./include/data_struct/hash_kv.c\
 	./include/data_struct/list.c\
 	./include/data_struct/redblack.c\
 	./bench/measurement.c\
