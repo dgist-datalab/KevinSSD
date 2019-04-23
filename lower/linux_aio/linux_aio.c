@@ -236,7 +236,7 @@ void *aio_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,al
 	cl_grap(lower_flying);
 
 	//io_prep_pwrite(cb,_fd,(void*)value->value,PAGESIZE,aio_info.SOP*PPA);
-	io_prep_pwrite(cb,_fd,(void*)value->value,PAGESIZE,offset_hooker(aio_info.SOP*PPA,t_type));
+	io_prep_pwrite(cb,_fd,(void*)value->value,PAGESIZE,offset_hooker((uint64_t)aio_info.SOP*PPA,t_type));
 	cb->data=(void*)req;	
 
 #ifdef THPOOL
@@ -271,7 +271,7 @@ void *aio_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,al
 		bench_lower_start(req->parents);
 	struct iocb *cb=(struct iocb*)malloc(sizeof(struct iocb));
 	cl_grap(lower_flying);
-	io_prep_pread(cb,_fd,(void*)value->value,PAGESIZE,offset_hooker(aio_info.SOP*PPA,t_type));
+	io_prep_pread(cb,_fd,(void*)value->value,PAGESIZE,offset_hooker((uint64_t)aio_info.SOP*PPA,t_type));
 	cb->data=(void*)req;
 
 #ifdef THPOOL
@@ -294,7 +294,7 @@ void *aio_trim_block(uint32_t PPA, bool async){
 	aio_info.req_type_cnt[TRIM]++;
 	uint64_t range[2];
 	//range[0]=PPA*aio_info.SOP;
-	range[0]=offset_hooker(PPA*aio_info.SOP,TRIM);
+	range[0]=offset_hooker((uint64_t)PPA*aio_info.SOP,TRIM);
 	range[1]=16384*aio_info.SOP;
 	ioctl(_fd,BLKDISCARD,&range);
 	return NULL;

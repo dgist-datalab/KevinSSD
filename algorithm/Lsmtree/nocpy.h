@@ -14,6 +14,8 @@ void nocpy_force_freepage(uint32_t ppa);
 void nocpy_free_block(uint32_t ppa);
 void nocpy_copy_from(char *src, uint32_t ppa);
 void nocpy_copy_from_change(char *src, uint32_t ppa);
+bool nocpy_ptr_check(char *data);
 char* nocpy_pick(uint32_t ppa);
+uint32_t nocpy_size();
 
 #endif

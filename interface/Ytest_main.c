@@ -12,6 +12,7 @@
 #include <errno.h>
 
 #include "../include/settings.h"
+#include "../bench/bench.h"
 #include "interface.h"
 #include "queue.h"
 
@@ -111,7 +112,7 @@ int main(int argc, char *argv[]){
 //		printf("insert argumen!\n");
 //		return 1;
 	}
-	inf_init(1);
+	inf_init(1,1000000);
 	FILE *fp = fopen("ycsb_load_1M", "r");
 	netdata *data;
 	char temp[8192]={0,};
@@ -122,16 +123,14 @@ int main(int argc, char *argv[]){
 	//measure_init(&data->temp);
 	
 	bench_custom_init(write_opt_time,10);
-	
 	bench_custom_start(write_opt_time,0);
+	
 	while((fscanf(fp,"%d %d %d %s",&data->type,&data->scanlength,&data->keylen,data->key))!=EOF){
 		if(data->type==1){
-		//	printf("%d %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
 		    inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),cnt++,data,kv_main_end_req);	
 		}
 		else{
 			data->type=FS_RANGEGET_T;
-	//		printf("%d %d %d %.*s\n",data->type,data->scanlength,data->keylen,data->keylen,data->key);
 			inf_make_range_query_apps(data->type,data->key,data->keylen,cnt++,data->scanlength,data,kv_main_end_req);
 		}
 		data=(netdata*)malloc(sizeof(netdata));
@@ -139,7 +138,8 @@ int main(int argc, char *argv[]){
 			printf("cnt:%d\n",req_cnt);
 		}
 	}
-	bench_custom_adding_end(write_opt_time,0);
+	while(!bench_is_finish()){}
+	bench_custom_A(write_opt_time,0);
 	bench_custom_print(write_opt_time,10);
 	inf_free();
 }

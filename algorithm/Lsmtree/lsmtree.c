@@ -474,6 +474,8 @@ uint32_t lsm_get(request *const req){
 	lsm_proc_re_q();
 	if(!temp){
 		//LSM.lop->all_print();
+		//printf("nocpy size:%d\n",nocpy_size()/M);
+		//printf("lsmtree size:%d\n",lsm_memory_size()/M);
 		temp=true;
 	}
 	bench_algo_start(req);
@@ -722,7 +724,9 @@ uint32_t __lsm_get(request *const req){
 
 retry:
 	for(int i=level; i<LEVELN; i++){
+		int *temp_data=(int*)req->params;
 		if(i<LEVELCACHING){
+			temp_data[2]=i;
 			pthread_mutex_lock(&LSM.level_lock[i]);
 			keyset *find=LSM.lop->cache_find(LSM.disk[i],req->key);
 			pthread_mutex_unlock(&LSM.level_lock[i]);
@@ -747,7 +751,6 @@ retry:
 			continue;
 		}
 
-		int *temp_data=(int*)req->params;
 		for(int j=run; entries[j]!=NULL; j++){
 			entry=entries[j];
 			//read mapinfo
@@ -807,6 +810,7 @@ retry:
 #ifdef NOCPY
 			//the data get from nocpy_sets when the req retry this function		
 #endif
+			printf("header read !\n");
 			LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 			__header_read_cnt++;
 
@@ -930,3 +934,19 @@ void htable_check(htable *in, KEYT lpa, ppa_t ppa,char *log){
 #endif
 }
 
+uint32_t lsm_memory_size(){
+	uint32_t res=0;
+	snode *temp;
+	res+=skiplist_memory_size(LSM.memtable);
+	for_each_sk(temp,LSM.memtable){
+		if(temp->value) res+=PAGESIZE;
+	}
+
+	res+=skiplist_memory_size(LSM.temptable);
+	if(LSM.temptable)
+		for_each_sk(temp,LSM.temptable){
+			if(temp->value) res+=PAGESIZE;
+		}
+	res+=sizeof(lsmtree);
+	return res;
+}

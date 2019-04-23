@@ -127,3 +127,4 @@ void seqrw(uint32_t,uint32_t,monitor *);
 void randget(uint32_t,uint32_t,monitor*);
 void randset(uint32_t,uint32_t,monitor*);
 void randrw(uint32_t,uint32_t,monitor*);
+void mixed(uint32_t,uint32_t,int percentage,monitor*);

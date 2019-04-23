@@ -177,7 +177,8 @@ typedef struct level_ops{
 #ifdef KVSSD
 	KEYT *(*get_lpa_from_data)(char *data,bool isheader);
 #endif
-
+	
+	uint32_t (*get_level_mem_size)(level *);
 	/*for debugging*/
 	void (*print)( level*);
 	void (*all_print)();

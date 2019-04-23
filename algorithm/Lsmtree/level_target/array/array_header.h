@@ -139,5 +139,5 @@ keyset *array_key_iter_nxt(keyset_iter *,keyset *);
 run_t *array_p_merger_cutter(skiplist *,run_t **, run_t **);
 
 //run_t *array_lsm_lower_bound_run(lsmtree *lsm, KEYT lpa);
-
+uint32_t array_get_level_mem_size(level *lev);
 #endif

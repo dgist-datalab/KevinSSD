@@ -325,7 +325,7 @@ bool inf_make_req_fromApp(char _type, KEYT _key,uint32_t offset, uint32_t len,PT
 	return true;
 }
 
-void inf_init(int apps_flag){
+void inf_init(int apps_flag, int total_num){
 	flying=cl_init(QDEPTH,false);
 	inf_cond=cl_init(QDEPTH,true);
 	mp.processors=(processor*)malloc(sizeof(processor)*THREADSIZE);
@@ -381,7 +381,7 @@ void inf_init(int apps_flag){
 
 	if(apps_flag){
 		bench_init();
-		bench_add(NOR,0,-1,-1);
+		bench_add(NOR,0,-1,total_num);
 		sync_apps=true;
 	}
 

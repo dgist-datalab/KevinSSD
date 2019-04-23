@@ -4,7 +4,7 @@
 #include "../include/container.h"
 #include "threading.h"
 
-void inf_init(int apps_flag);
+void inf_init(int apps_flag,int test_num);
 #ifdef USINGAPP
 bool inf_make_req(const FSTYPE,const KEYT, char *);
 #else

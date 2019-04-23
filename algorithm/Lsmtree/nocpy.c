@@ -96,4 +96,10 @@ void nocpy_force_freepage(uint32_t ppa){
 	page[ppa]=NULL;
 }
 
-
+uint32_t nocpy_size(){
+	uint32_t res=0;
+	for(int i=0; i<(HEADERSEG+1)*_PPS; i++){
+		if(page[i]) res+=PAGESIZE;
+	}
+	return res;
+}

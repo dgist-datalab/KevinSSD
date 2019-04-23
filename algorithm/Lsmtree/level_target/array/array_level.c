@@ -284,7 +284,8 @@ void array_cache_merge(level *src, level *des){
 
 void array_cache_free(level *lev){
 	array_body *b=(array_body*)lev->level_data;
-	skiplist_free(b->skip);
+	skiplist_container_free(b->skip);
+	b->skip=NULL;
 }
 int array_cache_comp_formatting(level *lev ,run_t ***des){
 	//array_body *b=(array_body*)lev->level_data;

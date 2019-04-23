@@ -476,9 +476,11 @@ snode *skiplist_insert_iter(skiplist *list,KEYT key,ppa_t ppa){
 		x->value=NULL;
 		list->all_length+=key.len;
 		// ++ ctoc
+#ifndef Lsmtree
 		x->t_ppa = -1;
 		x->bypass = false;
 		x->write_flying = false;
+#endif
 		// -- ctoc
 		for(int i=1; i<=level; i++){
 			x->list[i]=update[i]->list[i];
@@ -572,9 +574,11 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 #endif
 
 		// ++ ctoc
+#ifndef Lsmtree
 		x->t_ppa = -1;
 		x->bypass = false;
 		x->write_flying = false;
+#endif
 		// -- ctoc
 
 		for(int i=1; i<=level; i++){
@@ -963,5 +967,17 @@ skiplist *skiplist_divide(skiplist *in, snode *target){
 	}
 	if(in->level==0) in->level=1;
 
+	return res;
+}
+
+uint32_t skiplist_memory_size(skiplist *skip){
+	if(!skip) return 0;
+	uint32_t res=0;
+	snode *temp;
+	for_each_sk(temp,skip){
+		res+=sizeof(snode)+temp->level*sizeof(snode*);
+		res+=temp->key.len;
+		res+=sizeof(temp->key);
+	}
 	return res;
 }

@@ -36,11 +36,12 @@ typedef struct snode{ //skiplist's node
 	bool isvalid;
 
 	// ++ ctoc
+#ifndef Lsmtree
 	bool bypass;
 	bool write_flying;
 	int32_t t_ppa;
+#endif
 	// -- ctoc
-
 	struct snode **list;
 	struct snode *back;
 }snode;
@@ -98,5 +99,6 @@ skiplist *skiplist_divide(skiplist *in, snode *target);
 int bucket_page_cnt(l_bucket *);
 #endif
 void skiplist_save(skiplist *);
+uint32_t skiplist_memory_size(skiplist *);
 skiplist *skiplist_load();
 #endif

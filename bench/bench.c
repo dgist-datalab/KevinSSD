@@ -18,7 +18,7 @@ extern int32_t write_stop;
 master *_master;
 #ifndef KVSSD
 void latency(uint32_t,uint32_t,monitor*);
-void mixed(uint32_t,uint32_t,int percentage,monitor*);
+
 void rand_latency(uint32_t start, uint32_t end,int percentage, monitor *m);
 void seq_latency(uint32_t start, uint32_t end,int percentage, monitor *m);
 #endif
@@ -120,10 +120,11 @@ void bench_make_data(){
 		case RANDSET:
 			randset(start,end,_m);
 			break;
-#ifndef KVSSD
 		case MIXED:
 			mixed(start,end,50,_m);
 			break;
+#ifndef KVSSD
+
 		case SEQLATENCY:
 			seq_latency(start,end,50,_m);
 			break;
@@ -153,6 +154,14 @@ void bench_add(bench_type type, uint32_t start, uint32_t end, uint64_t number){
 			_master->datas[idx].ftl_poll[j][k].min = UINT64_MAX;
 			//_master->datas[i].ftl_npoll[j][k].min = UINT64_MAX;
 		}
+	}
+	if(type==NOR){
+		bench_meta *_meta=&_master->meta[idx];
+		monitor *_m=&_master->m[idx];
+		_m->n_num=0;
+		_m->r_num=0;
+		_m->m_num=_meta->number;
+		_m->type=_meta->type;
 	}
 	_master->m_num++;
 #ifndef KVSSD
@@ -233,7 +242,7 @@ bool bench_is_finish_n(volatile int n){
 }
 bool bench_is_finish(){
 	for(int i=0; i<_master->m_num; i++){
-		if(!_master->m[i].finish){
+		if(!bench_is_finish_n(i)){
 			return false;
 		}
 	}
@@ -383,12 +392,12 @@ void bench_update_ftltime(bench_data *_d, request *const req){
 
 void bench_ftl_cdf_print(bench_data *_d){
 	//printf("polling\n");
-	printf("a_type\tl_type\tmax\tmin\tavg\tcnt\tpercentage\n");
+	fprintf(stderr,"a_type\tl_type\tmax\tmin\tavg\tcnt\tpercentage\n");
 	for(int i = 0; i < ALGOTYPE; i++){
 		for(int j = 0; j < LOWERTYPE; j++){
 			if(!_d->ftl_poll[i][j].cnt)
 				continue;
-			printf("%d\t%d\t%lu\t%lu\t%.3f\t%lu\t%.5f%%\n",i,j,_d->ftl_poll[i][j].max,_d->ftl_poll[i][j].min,(float)_d->ftl_poll[i][j].total_micro/_d->ftl_poll[i][j].cnt,_d->ftl_poll[i][j].cnt,(float)_d->ftl_poll[i][j].cnt/_d->read_cnt*100);
+			fprintf(stderr,"%d\t%d\t%lu\t%lu\t%.3f\t%lu\t%.5f%%\n",i,j,_d->ftl_poll[i][j].max,_d->ftl_poll[i][j].min,(float)_d->ftl_poll[i][j].total_micro/_d->ftl_poll[i][j].cnt,_d->ftl_poll[i][j].cnt,(float)_d->ftl_poll[i][j].cnt/_d->read_cnt*100);
 		}
 	}
 	/*
@@ -510,7 +519,6 @@ void bench_reap_data(request *const req,lower_info *li){
 	}
 #endif
 	if(_m->empty){
-		_m->m_num++;
 		if(req->type==FS_GET_T){
 			_m->read_cnt++;
 			_data->read_cnt++;
@@ -519,6 +527,7 @@ void bench_reap_data(request *const req,lower_info *li){
 			_m->write_cnt++;
 			_data->write_cnt++;
 		}
+		_m->r_num++;
 		pthread_mutex_unlock(&bench_lock);
 		return;
 	}
@@ -758,6 +767,7 @@ void randrw(uint32_t start, uint32_t end, monitor *m){
 	#endif
 		bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #endif
+
 		m->body[i/m->bech][i%m->bech].type=FS_SET_T;
 #ifdef DVALUE
 		m->body[i/m->bech][i%m->bech].length=(rand()%NPCINPAGE)*PIECE;
@@ -780,19 +790,34 @@ void randrw(uint32_t start, uint32_t end, monitor *m){
 	}
 	printf("last set:%lu\n",(m->m_num-1)/m->bech);
 }
-#ifndef KVSSD
 void mixed(uint32_t start, uint32_t end,int percentage, monitor *m){
 	printf("making mixed bench!\n");
 	for(uint32_t i=0; i<m->m_num; i++){
-#ifdef KEYGEN
-		m->body[i/m->bech][i%m->bech].key=keygenerator(end);
+#ifdef KVSSD
+		uint32_t t_k;
+		KEYT *t=&m->body[i/m->bech][i%m->bech].key;
+	#ifdef KEYGEN
+		t_k=keygenerator(end);	
+	#else
+		t_k=start+rand()%(end-start);
+	#endif
+		t->len=my_itoa(t_k,&t->key);
 #else
+	#ifdef KEYGEN
+		m->body[i/m->bech][i%m->bech].key=keygenerator(end);
+	#else
 		m->body[i/m->bech][i%m->bech].key=start+rand()%(end-start);
+	#endif
+
 #endif
 
 		if(rand()%100<percentage){
 			m->body[i/m->bech][i%m->bech].type=FS_SET_T;
+#ifdef KVSSD
+			bitmap_set(t_k);
+#else
 			bitmap_set(m->body[i/m->bech][i%m->bech].key);
+#endif
 #ifdef DVALUE
 			m->body[i/m->bech][i%m->bech].length=(rand()%NPCINPAGE)*PIECE;
 #else
@@ -809,6 +834,7 @@ void mixed(uint32_t start, uint32_t end,int percentage, monitor *m){
 	}
 }
 
+#ifndef KVSSD
 void seq_latency(uint32_t start, uint32_t end,int percentage, monitor *m){
 	printf("making latency bench!\n");
 	//seqset process

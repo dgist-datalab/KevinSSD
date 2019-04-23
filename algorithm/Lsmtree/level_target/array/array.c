@@ -76,8 +76,10 @@ level_ops a_ops={
 	.header_get_keyiter=array_header_get_keyiter,
 	.header_next_key=array_header_next_key,
 	.header_next_key_pick=array_header_next_key_pick,
-
+#ifdef KVSSD
 	.get_lpa_from_data=array_get_lpa_from_data,
+#endif
+	.get_level_mem_size=array_get_level_mem_size,
 	.print=array_print,
 	.all_print=array_all_print,
 	.header_print=array_header_print
@@ -525,11 +527,14 @@ void array_print(level *lev){
 
 
 void array_all_print(){
+	uint32_t res=0;
 	for(int i=0; i<LEVELN; i++){
 		printf("[LEVEL : %d]\n",i);
 		array_print(LSM.disk[i]);
 		printf("\n");
+		res+=array_get_level_mem_size(LSM.disk[i]);
 	}
+	printf("all level mem size :%dMB\n",res/M);
 }
 
 uint32_t a_max_table_entry(){
@@ -702,4 +707,10 @@ run_t *array_get_run_idx(level *lev, int idx){
 	return &b->arrs[idx];
 }
 
-
+uint32_t array_get_level_mem_size(level *lev){
+	uint32_t res=0;
+	array_body *b=(array_body*)lev->level_data;
+	res+=skiplist_memory_size(b->skip);
+	res+=sizeof(level)+sizeof(run_t)*lev->m_num;
+	return res;
+}
