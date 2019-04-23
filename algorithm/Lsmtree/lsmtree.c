@@ -217,9 +217,6 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	nocpy_init();
 #endif
 	//measure_init(&__get_mt);
-	for(uint32_t i=0; i<sizeof(LSM.timers)/sizeof(MeasureTime); i++){
-		measure_init(&LSM.timers[i]);
-	}
 	return 0;
 }
 
@@ -254,10 +251,6 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 
 	//printf("avg kn run:%u\n",all_kn_run/run_num);
 	
-	for(uint32_t i=0; i<sizeof(LSM.timers)/sizeof(MeasureTime); i++){
-		printf("[%d]",i);
-		measure_adding_print(&LSM.timers[i]);
-	}
 }
 
 extern pthread_mutex_t compaction_wait,gc_wait;

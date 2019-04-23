@@ -60,7 +60,6 @@ void compaction_sub_pre(){
 
 static void compaction_selector(level *a, level *b,leveling_node *lnode, pthread_mutex_t* lock){
 	compaction_cnt++;
-	MS(&LSM.timers[4]);
 #if LEVELN==1
 	level_one_processing(a,b,r,lock);
 	return;
@@ -71,7 +70,6 @@ static void compaction_selector(level *a, level *b,leveling_node *lnode, pthread
 	else{
 		leveling(a,b,lnode,lock);
 	}
-	MA(&LSM.timers[4]);
 }
 
 void compaction_sub_wait(){
@@ -577,10 +575,8 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 	if(to->idx<LEVELCACHING){
 		before=LSM.lop->cache_get_size(to);
 		if(from==NULL){
-			MS(&LSM.timers[1]);
 			LSM.lop->cache_move(to,target);
 			LSM.lop->cache_insert(target,lnode->mem);
-			MA(&LSM.timers[1]);
 		}else{
 			src=from;
 			LSM.lop->cache_merge(from,to);

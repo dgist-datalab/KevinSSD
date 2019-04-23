@@ -275,7 +275,6 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 	snode *update[MAX_L+1];
 	snode *x=list->header;
 	//fprintf(stderr,"%d %.*s\n",key.len, key.len,key.key);
-	MS(&LSM.timers[5]);
 	for(int i=list->level; i>=1; i--){
 #ifdef KVSSD
 		while(KEYCMP(x->list[i]->key,key)<0)
@@ -287,7 +286,6 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 		}
 		update[i]=x;
 	}
-	MA(&LSM.timers[5]);
 
 	x=x->list[1];
 #ifdef KVSSD

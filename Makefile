@@ -11,7 +11,7 @@ DEBUGFLAGS=\
 			-rdynamic\
 			-Wno-pointer-arith\
 			-g\
-	-fsanitize=address\
+#	-fsanitize=address\
 #	-DBUSE_DEBUG
 
 COMMONFLAGS=\

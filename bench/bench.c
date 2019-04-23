@@ -1006,15 +1006,15 @@ void bench_custom_start(MeasureTime *mt,int idx){
 }
 
 void bench_custom_A(MeasureTime *mt,int idx){
-#ifdef CHECKING
+#ifdef CHECKINGTIME
 	MA(&mt[idx]);
 #endif
 }
 
 void bench_custom_print(MeasureTime *mt,int idx){
-#ifdef CHECKING
+#ifdef CHECKINGTIME
 	for(int i=0; i<idx; i++){
-		printf("%d:");
+		printf("%d:",i);
 		measure_adding_print(&mt[i]);
 	}
 #endif

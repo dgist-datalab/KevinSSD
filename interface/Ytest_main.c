@@ -107,6 +107,7 @@ void kv_main_end_req(uint32_t a, uint32_t b, void *req){
 }
 
 MeasureTime write_opt_time[10];
+MeasureTime temp_time;
 int main(int argc, char *argv[]){
 	if(argc<2){
 //		printf("insert argumen!\n");
@@ -124,7 +125,6 @@ int main(int argc, char *argv[]){
 	
 	bench_custom_init(write_opt_time,10);
 	bench_custom_start(write_opt_time,0);
-	
 	while((fscanf(fp,"%d %d %d %s",&data->type,&data->scanlength,&data->keylen,data->key))!=EOF){
 		if(data->type==1){
 		    inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),cnt++,data,kv_main_end_req);	
@@ -140,6 +140,6 @@ int main(int argc, char *argv[]){
 	}
 	while(!bench_is_finish()){}
 	bench_custom_A(write_opt_time,0);
-	bench_custom_print(write_opt_time,10);
 	inf_free();
+	bench_custom_print(write_opt_time,10);
 }
