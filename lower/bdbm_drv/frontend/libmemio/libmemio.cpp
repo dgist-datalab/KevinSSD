@@ -67,26 +67,6 @@ static void __dm_intr_handler (
 	bdbm_drv_info_t* bdi, 
 	bdbm_llm_req_t* r)
 {
-	/*
-	lsmtree_req_t *lsm_req;
-	lsmtree_gc_req_t *lsm_gc_req;
-	static int cnt = 0;*/
-	/* it is called by an interrupt handler */
-//	call lsm_end_req
-	//if ( r->req ) r->req->end_req(r->req);
-/*
-	switch(r->req_type) {
-	case REQTYPE_META_WRITE:
-	case REQTYPE_WRITE:
-	case REQTYPE_READ:
-		lsm_req = (lsmtree_req_t*)(r->req);
-		if ( lsm_req->end_req ) lsm_req->end_req(lsm_req);
-		break;
-	case REQTYPE_META_READ:
-		lsm_gc_req = (lsmtree_gc_req_t*)(r->req);
-		if ( lsm_gc_req->end_req ) lsm_gc_req->end_req(lsm_gc_req);
-		break;
-	}*/
 	if(r->req_type!=REQTYPE_GC_ERASE){
 		dm_intr_cnt++;
 		algo_req *my_algo_req=(algo_req*)r->req;
@@ -95,17 +75,11 @@ static void __dm_intr_handler (
 		}
 		
 
-	//	printf("test-time:%ld type:%u\n",my_algo_req->lower_latency_data,my_algo_req->lower_path_flag);*/
 		if(r->req_type==REQTYPE_READ){
-			//my_algo_req->type_lower=r->path_type+4;
-	//		my_algo_req->type_lower=r->path_type>r->before_path_type?r->path_type:r->before_path_type;
 			if(my_algo_req->type_lower<r->path_type)
 				my_algo_req->type_lower=r->path_type;
 
-			MC(&my_algo_req->latency_lower);
 			my_algo_req->end_req(my_algo_req);
-	//		MS(&_mt);
-	//		MT(&_mt);
 		}
 		else{
 			my_algo_req->end_req(my_algo_req);
@@ -116,20 +90,7 @@ static void __dm_intr_handler (
 			r->bad_seg_func(r->segnum,r->isbad);
 		}
 	}
-	/*
-	lsmtree_req_t* lsm_req=(lsmtree_req_t*)r->req;
-	if(lsm_req->isgc){
-		lsmtree_gc_req_t *gc=(lsmtree_gc_req_t*)lsm_req;
-		gc->end_req(gc);
-	}
-	else{
-		lsm_req->end_req(lsm_req);
-	}*/
 	__memio_free_llm_req((memio_t*)bdi->private_data,r);
-	//printf("unlock!\n");
-	//printf("lsm_req :%p \n",r->req);
-	
-	//printf("free llm\n");
 }
 
 static int __memio_init_llm_reqs (memio_t* mio)
@@ -143,8 +104,6 @@ static int __memio_init_llm_reqs (memio_t* mio)
 	} else {
 		int i = 0;
 		for (i = 0; i < mio->nr_tags; i++) {
-//			mio->rr[i].done = (bdbm_sema_t*)bdbm_malloc (sizeof (bdbm_sema_t));
-//			bdbm_sema_init (mio->rr[i].done); /* start with unlock */
 			mio->tagQ->push(i);
 			mio->rr[i].tag = i;
 		}
@@ -241,49 +200,16 @@ static bdbm_llm_req_t* __memio_alloc_llm_req (memio_t* mio)
 	r = (bdbm_llm_req_t*)&mio->rr[mio->tagQ->front()];
 	mio->tagQ->pop();
 	bdbm_mutex_unlock(&mio->tagQMutex);
-//	do {
-//		bdbm_mutex_lock(&mio->tagQMutex);
-//		if (!mio->tagQ->empty()) {
-//			i = mio->tagQ->front();
-//			mio->tagQ->pop();
-//			r = (bdbm_llm_req_t*)&mio->rr[i];
-//		}
-//		bdbm_mutex_unlock(&mio->tagQMutex);
-//	} while (!r);
-//	
-
-//	/* get available llm_req */
-//	do {
-//		for (i = 0; i < mio->nr_tags; i++) { /* <= FIXME: use the linked-list instead of loop! */
-//			if (!bdbm_sema_try_lock (mio->rr[i].done))
-//				continue;
-//			r = (bdbm_llm_req_t*)&mio->rr[i];
-//			r->tag = i;
-//			break;
-//		}
-//	} while (!r); /* <= FIXME: use the event instead of loop! */
-
 	return r;
 }
 
 static void __memio_free_llm_req (memio_t* mio, bdbm_llm_req_t* r)
 {
 	bdbm_mutex_lock(&mio->tagQMutex);
-	/*
-	if ( r->req_type == REQTYPE_READ && r->async == 0) {
-		if( --(*r->counter) <= 0 )
-			bdbm_cond_broadcast(r->cond);
-	}*/
-//	bool wasEmpty = mio->tagQ->empty();
 	r->req=NULL;
 	mio->tagQ->push(r->tag);
-//	if (wasEmpty)
 		bdbm_cond_broadcast(&mio->tagQCond); // wakes up threads waiting for a tag
 	bdbm_mutex_unlock(&mio->tagQMutex);
-
-//	/* release semaphore */
-//	r->tag = -1;
-//	bdbm_sema_unlock (r->done);
 }
 
 static void __memio_check_alignment (uint64_t length, uint64_t alignment)
@@ -296,10 +222,8 @@ static void __memio_check_alignment (uint64_t length, uint64_t alignment)
 }
 uint64_t do_io_cnt;
 bool flag=false;
-
-//static int __memio_do_io (memio_t* mio, int dir, uint64_t lba, uint64_t len, uint8_t* data, int async, lsmtree_req_t *req, int dmaTag) // async == 0 : sync,  == 1 : async
 static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uint8_t* data, int async, void *req, int dmaTag) // async == 0 : sync,  == 1 : async
-//static int __memio_do_io (memio_t* mio, int dir, uint64_t lba, uint64_t len, uint8_t* data, int async, int dmaTag, void (*end_req)(void)) // async == 0 : sync,  == 1 : async
+
 {
 	do_io_cnt++;
 	bdbm_llm_req_t* r = NULL;
@@ -318,10 +242,6 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 	__memio_check_alignment (len, mio->io_size);
 
 	mio->req_flag=0;
-
-	if(dir==0){
-		MS(&bdbm_mt);
-	}
 	/* fill up logaddr; note that phyaddr is not used here */
 	while (cur_lba < lba + (len/mio->io_size)) {
 		/* get an empty llm_req */
@@ -332,15 +252,7 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 		r->path_type+=mio->req_flag;
 		/* setup llm_req */
 		switch(dir) {
-		case 0:/*
-			if(!flag){
-				flag=true;
-				MS(&mt);
-			}
-			else{
-				ME(&mt,"get req");
-				MS(&mt);
-			}*/
+		case 0:
 			r->req_type = REQTYPE_READ;
 			break;
 		case 1:
@@ -365,16 +277,13 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 		/*before path type*/
 		
 
-		/*kukania*/
 		r->req = req;
-		//r->dmaTag = req->req->dmaTag;
 		r->dmaTag = dmatag;
 		if (dir==0) {
 			r->cond = &readCond;
 			r->counter = &counter;
 		}
 		
-	//	printf("[%d] before locked!\n",cnt++);
 		/* send I/O requets to the device */
 		if(r->req_type==REQTYPE_READ){
 			if(my_algo_req->type_lower!=0){
@@ -383,7 +292,6 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 				}
 			}
 			measure_init(&my_algo_req->latency_lower);
-			MS(&my_algo_req->latency_lower);
 		}
 
 
@@ -397,24 +305,6 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 		cur_buf += mio->io_size;
 		sent += mio->io_size;
 	}
-
-/*
-	//FIXME: if write, just return. if read, wait until my read request finishes	
-	if ( dir == 0 && async == 0) {
-		bdbm_mutex_lock(&mio->tagQMutex);
-		while (counter > 0) {
-			bdbm_cond_wait(&readCond, &mio->tagQMutex);
-		}
-		bdbm_mutex_unlock(&mio->tagQMutex);
-	}
-	bdbm_cond_free(&readCond);
-*/	
-	if(dir==0){
-		//MCM(&bdbm_mt);
-	}
-
-	/* return the length of bytes transferred */
-	//ME(&mt,"memio test");
 	return sent;
 }
 
@@ -425,59 +315,30 @@ void memio_wait (memio_t* mio)
 	do {
 		bdbm_mutex_lock(&mio->tagQMutex);
 		i = mio->tagQ->size();
-		//printf("iii:%d\n",i);
-		//sleep(0.1);
 		bdbm_mutex_unlock(&mio->tagQMutex);
 	} while ( i != mio->nr_tags-1 );
 
-//	int i, j=0;
-//	bdbm_dm_inf_t* dm = mio->bdi.ptr_dm_inf;
-//	for (i = 0; i < mio->nr_tags; ) {
-//		if (!bdbm_sema_try_lock (mio->rr[i].done)){
-////			if ( ++j == 500000 ) {
-////				bdbm_msg ("timeout at tag:%d, reissue command", mio->rr[i].tag);
-////				dm->make_req (&mio->bdi, mio->rr + i);
-////				j=0;
-////			}
-//			continue;
-//		}
-//		edbm_sema_unlock (mio->rr[i].done);
-//		i++;
-//	}
 }
 
 int memio_read (memio_t* mio, uint32_t lba, uint64_t len, uint8_t* data, int async, void *req, int dmaTag)
-//int memio_read (memio_t* mio, uint64_t lba, uint64_t len, uint8_t* data, int async, int dmaTag, void (*end_req)(void) )
 {
-//	if ( len > 8192*128 ) 
-//		bdbm_msg ("memio_read: %zd, %zd", lba, len);
 	return __memio_do_io (mio, 0, lba, len, data, async, req, dmaTag);
-	//return __memio_do_io (mio, 0, lba, len, data, async, dmaTag, end_req);
 }
 
 int memio_comp_read (memio_t* mio, uint32_t lba, uint64_t len, uint8_t* data, int async, void *req, int dmaTag)
-//int memio_read (memio_t* mio, uint64_t lba, uint64_t len, uint8_t* data, int async, int dmaTag, void (*end_req)(void) )
 {
-//	if ( len > 8192*128 ) 
-//		bdbm_msg ("memio_read: %zd, %zd", lba, len);
+
 	return __memio_do_io (mio, 2, lba, len, data, async, req, dmaTag);
-	//return __memio_do_io (mio, 0, lba, len, data, async, dmaTag, end_req);
 }
 
 int memio_write (memio_t* mio, uint32_t lba, uint64_t len, uint8_t* data, int async, void *req, int dmaTag)
-//int memio_write (memio_t* mio, uint64_t lba, uint64_t len, uint8_t* data, int async, int dmaTag, void (*end_req)(void) )
 {
-	//bdbm_msg ("memio_write: %zd, %zd", lba, len);
 	return __memio_do_io (mio, 1, lba, len, data, async, req, dmaTag);
-	//return __memio_do_io (mio, 1, lba, len, data, async, dmaTag, end_req);
 }
 
 int memio_comp_write (memio_t* mio, uint32_t lba, uint64_t len, uint8_t* data, int async, void *req, int dmaTag)
-//int memio_write (memio_t* mio, uint64_t lba, uint64_t len, uint8_t* data, int async, int dmaTag, void (*end_req)(void) )
 {
-	//bdbm_msg ("memio_write: %zd, %zd", lba, len);
 	return __memio_do_io (mio, 3, lba, len, data, async, req, dmaTag);
-	//return __memio_do_io (mio, 1, lba, len, data, async, dmaTag, end_req);
 }
 
 int memio_trim (memio_t* mio, uint32_t lba, uint64_t len, void *(*end_req)(uint64_t,uint8_t))
@@ -592,22 +453,6 @@ int memio_alloc_dma (int type, char** buf) {
 }
 
 void memio_free_dma (int type, int dmaTag) {
-	//3unsigned int*_buf = (unsigned int*)buf;
-	/*
-	int tag;
-	switch (type) {
-	case 1:
-	case 4:
-		tag = ((_buf - srcBuffer) * sizeof(unsigned int)) / 8192
-		break;
-	case 2:
-	case 5:
-		tag = ((_buf - dstBuffer) * sizeof(unsigned int)) / 8192
-		break;
-	case 3:
-		break;
-	}
-	*/
 	free_dmaQ_tag(type,dmaTag);
 	return ;
 }

@@ -316,11 +316,7 @@ void* lsm_end_req(algo_req* const req){
 			break;
 		case GCDR:
 #ifdef NOCPY
-			/*
-			   if(params->lsm_type==GCHR)
-			   nocpy_copy_to((char*)target,params->ppa);
-			 */
-			//nothing to doa
+
 #ifdef KVSSD
 			target=(PTR)params->target;
 			memcpy(target,params->value->value,PAGESIZE);
@@ -719,7 +715,7 @@ retry:
 	for(int i=level; i<LEVELN; i++){
 		int *temp_data=(int*)req->params;
 		if(i<LEVELCACHING){
-			temp_data[2]=i;
+			temp_data[2]=-1;
 			pthread_mutex_lock(&LSM.level_lock[i]);
 			keyset *find=LSM.lop->cache_find(LSM.disk[i],req->key);
 			pthread_mutex_unlock(&LSM.level_lock[i]);
@@ -746,7 +742,6 @@ retry:
 
 		for(int j=run; entries[j]!=NULL; j++){
 			entry=entries[j];
-			//read mapinfo
 			temp_data[0]=i;
 			temp_data[1]=j;
 
@@ -758,8 +753,6 @@ retry:
 				res=__lsm_get_sub(req,NULL,entry->cache_data->sets,NULL);
 #endif
 				if(res){
-					//	static int cnt=0;
-					//	printf("cache_hit:%d\n",cnt++);
 					bench_cache_hit(mark);
 					cache_update(LSM.lsm_cache,entry);
 					free(entries);
@@ -800,10 +793,6 @@ retry:
 			}
 
 			req->ppa=params->ppa;
-#ifdef NOCPY
-			//the data get from nocpy_sets when the req retry this function		
-#endif
-			printf("header read !\n");
 			LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 			__header_read_cnt++;
 

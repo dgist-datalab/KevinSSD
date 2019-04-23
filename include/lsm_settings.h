@@ -34,11 +34,11 @@ typedef struct OOBT{
 
 #define KEYLEN(a) (a.len+sizeof(ppa_t))
 
-#define LEVELCACHING 2
-#define CACHINGSIZE 1.0f
+#define LEVELCACHING 1
+#define CACHINGSIZE 0.04f
 //#define LEVELEMUL 
 //#define MERGECOMPACTION 4
-//#define READCACHE
+#define READCACHE
 #define NOCPY
 #define RANGEGETNUM 2
 //#define USINGSLAB
@@ -63,7 +63,7 @@ typedef struct OOBT{
 #define EPC 100000 //size factor have to be multiple of SIZEFACTOR
 
 /*block,header,data area variable*/
-#define HEADERSEG 2
+#define HEADERSEG 8
 #define DATASEG (_NOS-(HEADERSEG+1)-1)
 
 #define MAXITER 16

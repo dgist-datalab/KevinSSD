@@ -383,19 +383,13 @@ void *compaction_main(void *input){
 		int start_level=0,des_level;
 		req=(compR*)_req;
 		leveling_node lnode;
+
+		bench_custom_start(write_opt_time,9);
 		if(req->fromL==-1){
 			while(!gc_check(DATA,false)){
 			}
 			lnode.mem=LSM.temptable;
 			compaction_data_write(&lnode);
-			/*	pthread_mutex_lock(&LSM.templock);
-
-			run_t *entry=compaction_data_write(LSM.temptable);
-			pthread_mutex_unlock(&LSM.templock);
-			pthread_mutex_lock(&LSM.entrylock);
-			LSM.tempent=entry;
-			pthread_mutex_unlock(&LSM.entrylock);*/
-
 			compaction_selector(NULL,LSM.disk[0],&lnode,&LSM.level_lock[0]);
 		}
 #if LEVELN!=1
@@ -429,6 +423,7 @@ void *compaction_main(void *input){
 		lsm_io_sched_flush();	
 		bench_custom_A(write_opt_time,1);
 		q_dequeue(_this->q);
+		bench_custom_A(write_opt_time,9);
 	}
 	
 	return NULL;
@@ -573,6 +568,7 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 #ifdef LEVELCACHING
 	int before,now;
 	if(to->idx<LEVELCACHING){
+		bench_custom_start(write_opt_time,7);
 		before=LSM.lop->cache_get_size(to);
 		if(from==NULL){
 			LSM.lop->cache_move(to,target);
@@ -594,6 +590,7 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 		if(from){
 			LSM.lop->move_heap(target,from);	
 		}
+		bench_custom_A(write_opt_time,7);
 		goto chg_level;
 	}
 #endif
@@ -806,6 +803,7 @@ uint32_t compaction_bg_htable_write(htable *input, KEYT lpa, char *nocpy_data){
 #else
 	uint32_t ppa=getPPA(HEADER,0,true);//set ppa;
 #endif
+
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 	areq->parents=NULL;

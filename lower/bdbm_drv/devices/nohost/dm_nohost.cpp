@@ -203,15 +203,6 @@ class FlashIndication: public FlashIndicationWrapper {
 			fprintf(stderr, "LOG: DEBUG DUMP: gearSend = %d, gearRec = %d, aurSend = %d, aurRec = %d, readSend=%d, writeSend=%d\n", debug0, debug1, debug2, debug3, debug4, debug5);
 		}
 
-//		virtual void uploadDone () {
-//			bdbm_msg ("[dm_nohost_probe] Map Upload(Host->FPGA) done!\n");
-//			bdbm_sema_unlock (&ftl_table_lock);
-//		}
-//
-//		virtual void downloadDone () {
-//			bdbm_msg ("[dm_nohost_close] Map Download(FPGA->Host) done!\n");
-//			bdbm_sema_unlock (&ftl_table_lock);
-//		}
 };
 
 int __readFTLfromFile (const char* path, void* ptr) {
@@ -525,10 +516,6 @@ uint32_t dm_nohost_make_req (
 		case REQTYPE_WRITE:
 		case REQTYPE_RMW_WRITE:
 		case REQTYPE_GC_WRITE:
-			// koo
-			//pthread_mutex_lock(&endR);
-			//printf ("LOG: device->writePage, tag=%d lpa=%d\n", r->tag, r->logaddr.lpa[0]); fflush(stdout);
-			//device->writePage (r->tag, r->logaddr.lpa[0], r->dmaTag * FPAGE_SIZE);
 			bus  = r->logaddr.lpa[0] & 0x7;
 			chip = (r->logaddr.lpa[0] >> 3) & 0x7;
 			page = (r->logaddr.lpa[0] >> 6) & 0xFF;

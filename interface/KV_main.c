@@ -141,7 +141,7 @@ int main(){
 
 	pthread_t t_id;
 	pthread_create(&t_id,NULL,ack_to_client,NULL);
-	inf_init(1);
+	inf_init(1,0);
 
 	printf("server ip:%s port:%d\n",IP,PORT);
 	printf("server waiting.....\n");
