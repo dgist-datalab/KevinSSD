@@ -111,7 +111,7 @@ static inline char KEYTEST(KEYT a, KEYT b){
 #define PTR char*
 #define ASYNC 1
 #define QSIZE (1024)
-#define QDEPTH (128)
+#define QDEPTH (1)
 #define THREADSIZE (1)
 
 #define THPOOL
@@ -119,9 +119,9 @@ static inline char KEYTEST(KEYT a, KEYT b){
 
 #define TCP 1
 //#define IP "10.42.0.2"
-//#define IP "127.0.0.1"
+#define IP "127.0.0.1"
 //#define IP "10.42.0.1"
-#define IP "192.168.0.7"
+//#define IP "192.168.0.7"
 #define PORT 7777
 #define NETWORKSET
 #define DATATRANS

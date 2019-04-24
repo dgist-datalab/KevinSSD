@@ -382,7 +382,7 @@ void inf_init(int apps_flag, int total_num){
 	if(apps_flag){
 		bench_init();
 		bench_add(NOR,0,-1,total_num);
-		sync_apps=true;
+		//sync_apps=true;
 	}
 
 	mp.li->create(mp.li);

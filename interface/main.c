@@ -34,7 +34,7 @@ int main(int argc,char* argv[]){
 		TARGETRATIO=0.5;
 	}
 
-	inf_init(0);
+	inf_init(0,0);
 	bench_init();
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);

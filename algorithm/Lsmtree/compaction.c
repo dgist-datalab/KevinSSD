@@ -416,11 +416,11 @@ void *compaction_main(void *input){
 
 		free(req);
 		bench_custom_start(write_opt_time,1);
+		lsm_io_sched_flush();	
 #ifdef WRITEWAIT
 		LSM.li->lower_flying_req_wait();
 		pthread_mutex_unlock(&compaction_flush_wait);
 #endif
-		lsm_io_sched_flush();	
 		bench_custom_A(write_opt_time,1);
 		q_dequeue(_this->q);
 		bench_custom_A(write_opt_time,9);

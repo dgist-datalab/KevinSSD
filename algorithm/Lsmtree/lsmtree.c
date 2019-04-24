@@ -345,6 +345,9 @@ void* lsm_end_req(algo_req* const req){
 		case DATAR:
 			req_temp_params=parents->params;
 			if(req_temp_params){
+				if(((int*)req_temp_params)[2]==-1){
+					printf("here!\n");
+				}
 				parents->type_ftl=((int*)req_temp_params)[2]-((int*)req_temp_params)[3];
 			}
 			parents->type_lower=req->type_lower;
@@ -715,7 +718,7 @@ retry:
 	for(int i=level; i<LEVELN; i++){
 		int *temp_data=(int*)req->params;
 		if(i<LEVELCACHING){
-			temp_data[2]=-1;
+			temp_data[2]=LEVELN+1;
 			pthread_mutex_lock(&LSM.level_lock[i]);
 			keyset *find=LSM.lop->cache_find(LSM.disk[i],req->key);
 			pthread_mutex_unlock(&LSM.level_lock[i]);

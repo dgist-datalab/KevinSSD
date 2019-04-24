@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=bdbm_drv
+TARGET_LOWER=linux_aio
 TARGET_ALGO=Lsmtree
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
@@ -22,7 +22,7 @@ COMMONFLAGS=\
 			-DKVSSD\
 			-DSLC\
 			-Wno-unused-but-set-variable\
--O3\
+#-O3\
 #			-DWRITESYNC\
 #			-DCHECKINGTIME\
 
@@ -111,7 +111,7 @@ endif
 LIBS +=\
 		-lpthread\
 		-lm\
-	#	-laio\
+		-laio\
 	#	-ljemalloc\
 
 all: driver

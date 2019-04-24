@@ -303,7 +303,6 @@ void *aio_trim_block(uint32_t PPA, bool async){
 void aio_stop(){}
 
 void aio_flying_req_wait(){
-	while (lower_flying->now != 0) { }
-
+	while (lower_flying->now != 0) {}
 	return ;
 }
