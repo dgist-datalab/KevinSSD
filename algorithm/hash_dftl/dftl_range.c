@@ -8,7 +8,8 @@ volatile int num_range_flying;
 static request *split_range_req(request *const req, KEYT key, value_set *value, int query_num) {
 	request *ret = (request *)malloc(sizeof(request));
 
-	ret->type = FS_RANGEGET_T;
+	//ret->type = FS_RANGEGET_T;
+	ret->type = FS_GET_T;
 	ret->key = key;
 	ret->value = value;
 	ret->ppa = 0;
@@ -106,7 +107,7 @@ uint32_t demand_range_query(request *const req) {
 		}
 	}
 
-	while (1) {
+	/*while (1) {
 		pthread_mutex_lock(&cpl_lock);
 		if (req->num == req->cpl) {
 			pthread_mutex_unlock(&cpl_lock);
@@ -117,13 +118,13 @@ uint32_t demand_range_query(request *const req) {
 		if (!fly_req) continue;
 
 		demand_get(fly_req);
-	}
+	}*/
 
 	free(range_req);
 	free(range_key);
 
 	//printf("end req %.*s \n", req->key.len, req->key.key);
-	req->end_req(req);
+	//req->end_req(req);
 
 	return 0;
 }
@@ -139,20 +140,20 @@ bool range_end_req(request *range_req) {
 
 //	printf("cpl %d key %.*s\n", req->cpl+1, range_req->key.len, range_req->key.key);
 
-	free(range_req);
+	//free(range_req);
 
-	pthread_mutex_lock(&cpl_lock);
+	//pthread_mutex_lock(&cpl_lock);
 	req->cpl++;
-	pthread_mutex_unlock(&cpl_lock);
-
-
-	//if (req->num == ++req->cpl) {
-	//	printf("end start_key:%.*s\n", req->key.len, req->key.key);
-	//	req->end_req(req);
-	//	num_range_flying -= range_req->num;
-	//}
+	if (req->num == req->cpl) {
+		//pthread_mutex_unlock(&cpl_lock);
+		//printf("end start_key:%.*s\n", req->key.len, req->key.key);
+		req->end_req(req);
+	} else {
+		//pthread_mutex_unlock(&cpl_lock);
+	}
 
 	//free(range_req->key.key);
+	free(range_req);
 	return NULL;
 }
 

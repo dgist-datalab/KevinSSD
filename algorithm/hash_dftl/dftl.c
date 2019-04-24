@@ -159,6 +159,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 
 	/* Cache control & Init */
+	//num_max_cache = max_cache_entry * 2;
 	//num_max_cache = max_cache_entry; // Full cache
 	//num_max_cache = max_cache_entry / 4; // 25%
 	//num_max_cache = max_cache_entry / 8; // 12.5%
@@ -259,7 +260,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	q_init(&wait_q, max_write_buf);
 	q_init(&write_q, max_write_buf);
 	q_init(&flying_q, max_write_buf);
-	q_init(&range_q, 1024);
+	//q_init(&range_q, 1024);
 	BM_Queue_Init(&free_b);
 	for(int i = 0; i < num_block - 2; i++){
 		BM_Enqueue(free_b, &bm->barray[i]);
@@ -357,6 +358,14 @@ void demand_destroy(lower_info *li, algorithm *algo){
 		}
 	}
 	printf("cnt avg: %f\n\n", (float)cnt_sum/data_written);
+	float _cdf=0;
+	for (int i = 0; i < 1024; i++) {
+		if (hash_collision_cnt[i]) {
+			_cdf+=(float)hash_collision_cnt[i]/data_written;
+			printf("%d %.4f\n", i, _cdf);
+		}
+	}
+	puts("<hash collision count>\n");
 
 	/* Clear modules */
 	q_free(dftl_q);
@@ -553,9 +562,10 @@ static uint32_t demand_read_flying(request *const req, char req_t) {
 	// Register reserved requests
 	for (int i = 0; i < c_table->num_waiting; i++) {
 		//while (!inf_assign_try(c_table->flying_arr[i])) {}
-		if (c_table->flying_arr[i]->type == FS_RANGEGET_T) {
-			q_enqueue((void *)c_table->flying_arr[i], range_q);
-		} else if (!inf_assign_try(c_table->flying_arr[i])) {
+		//if (c_table->flying_arr[i]->type == FS_RANGEGET_T) {
+			//q_enqueue((void *)c_table->flying_arr[i], range_q);
+		//} else if (!inf_assign_try(c_table->flying_arr[i])) {
+		if (!inf_assign_try(c_table->flying_arr[i])) {
 			puts("not queued 4");
 			q_enqueue((void *)c_table->flying_arr[i], dftl_q);
 		}
@@ -565,9 +575,10 @@ static uint32_t demand_read_flying(request *const req, char req_t) {
 	//fprintf(stderr, "CMT[%d] off by req %x\n", D_IDX, req);
 	num_flying--;
 	for (int i = 0; i < waiting; i++) {
-		if (waiting_arr[i]->type == FS_RANGEGET_T) {
-			q_enqueue((void *)waiting_arr[i], range_q);
-		} else if (!inf_assign_try(waiting_arr[i])) {
+		//if (waiting_arr[i]->type == FS_RANGEGET_T) {
+		//	q_enqueue((void *)waiting_arr[i], range_q);
+		//} else if (!inf_assign_try(waiting_arr[i])) {
+		if (!inf_assign_try(waiting_arr[i])) {
 			puts("not queued 5");
 			q_enqueue((void *)waiting_arr[i], dftl_q);
 		}
@@ -1267,9 +1278,10 @@ void *demand_end_req(algo_req* input){
 						h_params->find = HASH_KEY_NONE;
 					}
 
-					if (res->type == FS_RANGEGET_T) {
-						q_enqueue((void *)res, range_q);
-					} else if (!inf_assign_try(res)) {
+					//if (res->type == FS_RANGEGET_T) {
+					//	q_enqueue((void *)res, range_q);
+					//} else if (!inf_assign_try(res)) {
+					if (!inf_assign_try(res)) {
 						puts("not queued 6");
 					}
 
@@ -1332,11 +1344,11 @@ void *demand_end_req(algo_req* input){
 			read_checker = (read_params *)res->params;
 			read_checker->read = 1;
 
-			if (res->type == FS_RANGEGET_T) {
-				q_enqueue((void *)res, range_q);
-			} else {
+			//if (res->type == FS_RANGEGET_T) {
+			//	q_enqueue((void *)res, range_q);
+			//} else {
 				inf_assign_try(res);
-			}
+			//}
 			inf_free_valueset(temp_v, FS_MALLOC_R);
 			break;
 		case MAPPING_M: // SYNC mapping read
