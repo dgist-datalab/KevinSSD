@@ -35,6 +35,11 @@ typedef struct snode{ //skiplist's node
 	value_set* value;
 	bool isvalid;
 
+#ifdef hash_dftl
+	int32_t hash_key;
+	void *hash_params;
+#endif
+
 	// ++ ctoc
 #ifndef Lsmtree
 	bool bypass;
@@ -58,7 +63,7 @@ typedef struct length_bucket{
 typedef struct skiplist{
 	uint8_t level;
 	uint64_t size;
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD)
 	uint32_t all_length;
 #endif
 	snode *header;

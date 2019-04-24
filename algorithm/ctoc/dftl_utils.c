@@ -156,10 +156,10 @@ value_set* SRAM_load(D_SRAM* d_sram, int32_t ppa, int idx, char t){
     value_set *temp_value_set;
     temp_value_set = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
     if(t == 'T'){
-        __demand.li->pull_data(ppa, PAGESIZE, temp_value_set, 1, assign_pseudo_req(TGC_R, NULL, NULL));
+        __demand.li->read(ppa, PAGESIZE, temp_value_set, 1, assign_pseudo_req(TGC_R, NULL, NULL));
     }
     else{
-        __demand.li->pull_data(ppa, PAGESIZE, temp_value_set, 1, assign_pseudo_req(DGC_R, NULL, NULL));
+        __demand.li->read(ppa, PAGESIZE, temp_value_set, 1, assign_pseudo_req(DGC_R, NULL, NULL));
     }
     d_sram[idx].DATA_RAM = (int32_t *)malloc(PAGESIZE);
     d_sram[idx].OOB_RAM = demand_OOB[ppa];
@@ -175,10 +175,10 @@ void SRAM_unload(D_SRAM* d_sram, int32_t ppa, int idx, char t){
     temp_value_set = inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
 #endif
     if(t == 'T'){
-        __demand.li->push_data(ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(TGC_W, temp_value_set, NULL));
+        __demand.li->write(ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(TGC_W, temp_value_set, NULL));
     }
     else{
-        __demand.li->push_data(ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(DGC_W, temp_value_set, NULL));
+        __demand.li->write(ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(DGC_W, temp_value_set, NULL));
     }
     demand_OOB[ppa] = d_sram[idx].OOB_RAM;
     BM_ValidatePage(bm, ppa);

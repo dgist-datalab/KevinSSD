@@ -3,7 +3,14 @@
 #include "../include/FS.h"
 #include "../bench/bench.h"
 #include "../bench/measurement.h"
+
+#ifdef KVSSD
+#include "../include/data_struct/hash_kv.h"
+#else
 #include "../include/data_struct/hash.h"
+#endif
+
+#include "../include/data_struct/redblack.h"
 #include "../include/utils/cond_lock.h"
 #include "bb_checker.h"
 #include <stdio.h>
@@ -22,7 +29,7 @@ extern struct algorithm __normal;
 extern struct algorithm __badblock;
 extern struct algorithm __demand;
 extern struct algorithm algo_pbase;
-#ifdef Lsmtree
+#if defined(Lsmtree)
 extern struct algorithm algo_lsm;
 #endif
 
@@ -33,6 +40,9 @@ extern struct lower_info aio_info;
 #ifdef network
 extern struct lower_info net_info;
 #endif
+
+extern Redblack rb_tree;
+extern pthread_mutex_t rb_lock;
 
 MeasureTime mt;
 MeasureTime mt4;
@@ -58,13 +68,13 @@ pthread_mutex_t wq_lock;
 static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *value, int len,int mark, bool fromApp);
 
 static request *inf_get_multi_req_instance(const FSTYPE type, KEYT *key, char **value, int *len,int req_num,int mark, bool fromApp);
-#ifndef KVSSD
-static __hash * app_hash;
-#endif
+//#ifndef KVSSD
+__hash * app_hash;
+//#endif
 static bool inf_queue_check(request *req){
-#ifdef KVSSD
-	return false;
-#else
+//#ifdef KVSSD
+//	return false;
+//#else
 	void *_data=__hash_find_data(app_hash,req->key);
 	if(_data){
 		request *d_req=(request*)_data;
@@ -73,23 +83,23 @@ static bool inf_queue_check(request *req){
 	}
 	else
 		return false;
-#endif
+//#endif
 }
 #endif
 static void assign_req(request* req){
 	bool flag=false;
 
-#ifndef KVSSD
+//#ifndef KVSSD
 	int write_hash_res=0;
 	void *m_req=NULL;
-#endif
+//#endif
 	while(!flag){
 		for(int i=0; i<THREADSIZE; i++){
 			processor *t=&mp.processors[i];
 #ifdef interface_pq
 			if(req->type==FS_SET_T){
 				pthread_mutex_lock(&wq_lock);
-#ifndef KVSSD
+//#ifndef KVSSD
 				if(t->req_q->size<QSIZE){
 					if((m_req=__hash_find_data(app_hash,req->key))){
 						request *t_req=(request*)m_req;
@@ -105,12 +115,18 @@ static void assign_req(request* req){
 					}
 					write_hash_res=__hash_insert(app_hash,req->key,req,NULL,(void**)&m_req);
 					req->__hash_node=(void*)__hash_get_node(app_hash,write_hash_res);
+
+#ifdef hash_dftl 
+					pthread_mutex_lock(&rb_lock);
+					rb_insert_str(rb_tree, req->key, NULL);
+					pthread_mutex_unlock(&rb_lock);
+#endif
 				}
 				else{
 					pthread_mutex_unlock(&wq_lock);
 					continue;
 				}
-#endif
+//#endif
 
 #endif
 				if(q_enqueue((void*)req,t->req_q)){
@@ -131,7 +147,7 @@ static void assign_req(request* req){
 				break;
 			}
 			else{
-				if(inf_queue_check(req)){
+				if(req->type==FS_GET_T && inf_queue_check(req)){
 					if(req->isstart==false){
 						req->type_ftl=10;
 					}
@@ -184,9 +200,9 @@ void *p_main(void *__input){
 	sprintf(thread_name,"%s","inf_main_thread");
 	pthread_setname_np(pthread_self(),thread_name);
 
-#ifndef KVSSD
+//#ifndef KVSSD
 	__hash_node *t_h_node;
-#endif
+//#endif
 	//bool write_stop_chg=false;
 	//int control_cnt=0;
 	while(1){
@@ -217,12 +233,12 @@ void *p_main(void *__input){
 			}
 
 			inf_req=(request*)_inf_req;
-#ifndef KVSSD	
+//#ifndef KVSSD	
 			if(inf_req->type==FS_SET_T){
 				t_h_node=(__hash_node*)inf_req->__hash_node;
 				__hash_delete_by_idx(app_hash,t_h_node->t_idx);
 			}
-#endif
+//#endif
 			pthread_mutex_unlock(&wq_lock);
 		}
 #endif
@@ -339,9 +355,9 @@ void inf_init(int apps_flag, int total_num){
 		q_init(&t->req_q,QSIZE);
 		q_init(&t->req_rq,QSIZE);
 		q_init(&t->retry_q,QSIZE);
-#ifndef KVSSD
+//#ifndef KVSSD
 		app_hash=__hash_init(QSIZE);
-#endif
+//#endif
 #else
 		q_init(&t->req_q,QSIZE);
 #endif
@@ -371,7 +387,7 @@ void inf_init(int apps_flag, int total_num){
 	mp.algo=&__normal;
 #elif defined(pftl)
 	mp.algo=&algo_pbase;
-#elif defined(dftl) || defined(ctoc) || defined(dftl_test) || defined(ctoc_batch)
+#elif defined(dftl) || defined(ctoc) || defined(dftl_test) || defined(ctoc_batch) || defined(hash_dftl)
 	mp.algo=&__demand;
 #elif defined(Lsmtree)
 	mp.algo=&algo_lsm;
@@ -409,6 +425,10 @@ static request* inf_get_req_common(request *req, bool fromApp, int mark){
 	req->lower.isused=false;
 	req->mark=mark;
 #endif
+
+#ifdef hash_dftl
+	req->hash_params = NULL;
+#endif
 	return req;
 }
 static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, int len,int mark,bool fromApp){
@@ -419,6 +439,7 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 	req->multi_value=NULL;
 	req->multi_key=NULL;
 	req->num=len;
+	req->cpl=0;
 	
 	req->key.len=key.len;
 	req->key.key=(char*)malloc(key.len);
@@ -428,12 +449,17 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 		case FS_DELETE_T:
 			req->value=NULL;
 			break;
-		case FS_SET_T:	
 
+		case FS_SET_T:
+#ifdef DVALUE
 			req->value=inf_get_valueset(NULL,FS_SET_T,len+key.len+sizeof(key.len));
+
 			memcpy(req->value->value,&key.len,sizeof(key.len));
 			memcpy(&req->value->value[sizeof(key.len)],key.key,key.len);
 			memcpy(&req->value->value[key.len+sizeof(key.len)],_value,len);
+#else
+			req->value=inf_get_valueset(NULL,FS_SET_T,PAGESIZE);
+#endif
 			break;
 		case FS_GET_T:
 			req->value=inf_get_valueset(NULL,FS_GET_T,PAGESIZE);
@@ -451,6 +477,7 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 		default:
 			break;
 	}
+
 	return inf_get_req_common(req,fromApp,mark);
 }
 
@@ -586,7 +613,7 @@ bool inf_end_req( request * const req){
 
 		case FS_GET_T:
 		case FS_NOTFOUND_T:
-			free(req->key.key);
+			//free(req->key.key);
 			if(req->value) inf_free_valueset(req->value,FS_MALLOC_R);
 			break;
 		case FS_SET_T:

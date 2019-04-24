@@ -64,10 +64,10 @@ LIBS +=\
 
 all : server
 
-server: ./interface/network/epoll_main.c libsimulator.a 
+server: ./interface/network/epoll_main.c libdriver.a 
 	$(CC) $(CFLAGS_LOWER) $(CFLAGS)  -o $@ $^  $(ARCH) $(LIBS)
 
-libsimulator.a:$(TARGETOBJ)
+libdriver.a:$(TARGETOBJ)
 	mkdir -p object && mkdir -p data
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
 	#cd ./include/kuk_socket_lib/ && $(MAKE) && mv ./*.o ../../object/ && cd ../../

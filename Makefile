@@ -86,13 +86,14 @@ SRCS +=\
 	./include/utils/dl_sync.c\
 	./include/utils/rwlock.c\
 	./include/utils/cond_lock.c\
-	./include/data_struct/hash.c\
+	./include/data_struct/hash_kv.c\
 	./include/data_struct/list.c\
 	./include/data_struct/redblack.c\
 	./bench/measurement.c\
 	./bench/bench.c\
 	./include/utils/thpool.c\
 	./include/utils/kvssd.c\
+	./include/utils/sha256.c\
 
 TARGETOBJ =\
 			$(patsubst %.c,%.o,$(SRCS))\
@@ -116,11 +117,11 @@ LIBS +=\
 
 all: driver
 
-DEBUG: debug_simulator
+DEBUG: debug_driver
 
-duma_driver: duma_driver
+duma_sim: duma_driver
 
-debug_simulator: ./interface/main.c libsimulator_d.a
+debug_driver: ./interface/main.c libdriver_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
 
 driver: ./interface/main.c libdriver.a
@@ -132,7 +133,7 @@ kv_driver: ./interface/KV_main.c libdriver.a
 range_driver: ./interface/range_test_main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
-duma_driver: ./interface/main.c libsimulator.a
+duma_driver: ./interface/main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ -lduma $(ARCH) $(LIBS)
 
 jni: libdriver.a ./jni/DriverInterface.c
@@ -143,7 +144,7 @@ libdriver.a: $(TARGETOBJ)
 	mkdir -p object && mkdir -p data
 	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) clean && $(MAKE) && cd ../../
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
-#	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
+	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
 #cd ./include/kuk_socket_lib/ && $(MAKE) && mv ./*.o ../../object/ && cd ../../
 	mv ./include/data_struct/*.o ./object/
 	mv ./include/utils/*.o ./object/
@@ -168,10 +169,10 @@ clean :
 	@$(RM) ./data/*
 	@$(RM) ./object/*.o
 	@$(RM) *.a
-	@$(RM) simulator
-	@$(RM) simulator_memory_check
-	@$(RM) debug_simulator
-	@$(RM) duma_simulator
+	@$(RM) driver_memory_check
+	@$(RM) debug_driver
+	@$(RM) duma_driver
+	@$(RM) range_driver
 	@$(RM) *driver
 	@$(RM) libdriver.so
 

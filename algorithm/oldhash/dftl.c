@@ -1,5 +1,8 @@
 #include "dftl.h"
 #include "../../bench/bench.h"
+#include "sha256.h"
+
+#define MAXKEYSIZE 255
 
 /* DFTL methods */
 algorithm __demand = {
@@ -61,6 +64,9 @@ Block *t_reserved; // pointer of reserved block for translation gc
 Block *d_reserved; // pointer of reserved block for data gc
 volatile int32_t trans_gc_poll;
 volatile int32_t data_gc_poll;
+
+KEYT key_max, key_min;
+int max_try;
 
 /* Statistic variables */
 int32_t tgc_count;
@@ -124,7 +130,7 @@ static void print_algo_log() {
 	printf(" |  -Mixed Cache entries:  %d\n", num_max_cache);
 #endif
 	printf(" |  -Cache Percentage:     %0.3f%%\n", (float)real_max_cache/max_cache_entry*100);
-	printf(" | Write buffer size:      %d\n", max_write_buf);
+	printf(" | Write buffer size:      %lu\n", max_write_buf);
 	printf(" |\n");
 	printf(" | ! Assume no Shadow buffer\n");
 	printf(" | ! PPAs are prefetched on write flush stage\n");
@@ -137,7 +143,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     num_page        = _NOP;
     num_block       = _NOS;
     p_p_b           = _PPS;
-    num_tblock      = ((num_block / EPP) + ((num_block % EPP != 0) ? 1 : 0)) * 8;
+    num_tblock      = ((num_block / EPP) + ((num_block % EPP != 0) ? 1 : 0)) * 2;
     num_tpage       = num_tblock * p_p_b;
     num_dblock      = num_block - num_tblock - 2;
     num_dpage       = num_dblock * p_p_b;
@@ -147,9 +153,9 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     /* Cache control & Init */
 	//num_max_cache = max_cache_entry; // max cache
     //num_max_cache = 1; // 1 cache
-	//num_max_cache = max_cache_entry / 4; // 1/4 cache
+	num_max_cache = max_cache_entry / 4; // 1/4 cache
     //num_max_cache = max_cache_entry / 20; // 5%
-    num_max_cache = max_cache_entry / 10; // 10%
+    //num_max_cache = max_cache_entry / 10; // 10%
     //num_max_cache = max_cache_entry / 8; // 12.5%
     //num_max_cache = max_cache_entry / 40; // 2.5%
 	//num_max_cache = max_cache_entry / 50; // 2%
@@ -195,6 +201,15 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
     bm->harray[1] = trans_b;
     bm->qarray[0] = free_b;
 
+
+	key_max.key = (char *)malloc(sizeof(char) * MAXKEYSIZE);
+	key_max.len = MAXKEYSIZE;
+	memset(key_max.key, -1, sizeof(char) * MAXKEYSIZE);
+
+	key_min.key = (char *)malloc(sizeof(char) * MAXKEYSIZE);
+	key_min.len = MAXKEYSIZE;
+	memset(key_min.key, 0, sizeof(char) * MAXKEYSIZE);
+
 #if W_BUFF
     write_buffer = skiplist_init();
 #endif
@@ -234,7 +249,6 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
         ppa_prefetch[i].ppa = dp_alloc();
         ppa_prefetch[i].sn = NULL;
     }
-
     return 0;
 }
 
@@ -320,7 +334,10 @@ void demand_destroy(lower_info *li, algorithm *algo){
 }
 
 static uint32_t demand_cache_update(request *const req, char req_t) {
-    int lpa = req->key;
+	struct hash_params *h_params = (struct hash_params *)req->hash_params;
+	int cnt = h_params->cnt;
+    h_params->hash_key = (h_params->hash + cnt*cnt + cnt) % num_dpage;
+    int lpa = h_params->hash_key;
     C_TABLE *c_table = &CMT[D_IDX];
     int32_t t_ppa = c_table->t_ppa;
 
@@ -378,7 +395,10 @@ static uint32_t demand_cache_update(request *const req, char req_t) {
 }
 
 static uint32_t demand_cache_eviction(request *const req, char req_t) {
-    int lpa = req->key;
+	struct hash_params *h_params = (struct hash_params *)req->hash_params;
+	int cnt = h_params->cnt;
+    h_params->hash_key = (h_params->hash + cnt*cnt + cnt) % num_dpage;
+    int lpa = h_params->hash_key;
     C_TABLE *c_table = &CMT[D_IDX];
     int32_t t_ppa = c_table->t_ppa;
 
@@ -474,7 +494,10 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
 }
 
 static uint32_t demand_write_flying(request *const req, char req_t) {
-    int lpa = req->key;
+	struct hash_params *h_params = (struct hash_params *)req->hash_params;
+	int cnt = h_params->cnt;
+    h_params->hash_key = (h_params->hash + cnt*cnt + cnt) % num_dpage;
+    int lpa = h_params->hash_key;
     C_TABLE *c_table = &CMT[D_IDX];
     int32_t t_ppa    = c_table->t_ppa;
 
@@ -525,7 +548,10 @@ static uint32_t demand_write_flying(request *const req, char req_t) {
 }
 
 static uint32_t demand_read_flying(request *const req, char req_t) {
-    int lpa = req->key;
+	struct hash_params *h_params = (struct hash_params *)req->hash_params;
+	int cnt = h_params->cnt;
+    h_params->hash_key = (h_params->hash + cnt*cnt + cnt) % num_dpage;
+    int lpa = h_params->hash_key;
     C_TABLE *c_table = &CMT[D_IDX];
     int32_t t_ppa = c_table->t_ppa;
     read_params *params = (read_params *)req->params;
@@ -591,20 +617,32 @@ static uint32_t __demand_get(request *const req){
     int32_t t_ppa; // Translation page address
     C_TABLE* c_table; // Cache mapping entry pointer
     D_TABLE *p_table; // pointer of p_table on cme
+
+	struct hash_params *h_params;
+	int cnt;
+	static int ppa_none = 0;
+
 #if W_BUFF
     snode *temp;
 #endif
 
     bench_algo_start(req);
-    lpa = req->key;
-    if(lpa > RANGE + 1){ // range check
+
+	h_params = (struct hash_params *)req->hash_params;
+	cnt = h_params->cnt;
+    h_params->hash_key = (h_params->hash + cnt*cnt + cnt) % num_dpage;
+	lpa = h_params->hash_key;
+
+    /* if(lpa > RANGE + 1){ // range check
         printf("range error %d\n",lpa);
         exit(3);
-    }
+    } */
 
 #if W_BUFF
     /* Check skiplist first */
-    if((temp = skiplist_find(write_buffer, lpa))){
+    if((temp = skiplist_find(write_buffer, req->key))){
+		free(h_params);
+
         buf_hit++;
         memcpy(req->value->value, temp->value->value, PAGESIZE);
         req->type_ftl = 0;
@@ -614,6 +652,12 @@ static uint32_t __demand_get(request *const req){
         return 1;
     }
 #endif
+
+	if (h_params->find == HASH_KEY_NONE) {
+		bench_algo_end(req);
+		return UINT32_MAX;
+	}
+
     /* Assign values from cache table */
     c_table = &CMT[D_IDX];
     p_table = c_table->p_table;
@@ -624,6 +668,7 @@ static uint32_t __demand_get(request *const req){
             ppa = p_table[P_IDX].ppa;
             if (ppa == -1) {
                 bench_algo_end(req);
+				printf("ppa_none1 %d\n", ++ppa_none);
                 return UINT32_MAX;
             }
             cache_hit_on_read++;
@@ -641,7 +686,6 @@ static uint32_t __demand_get(request *const req){
                 return 1;
             }
         }
-
     } else { // Flying request
         if (((read_params *)req->params)->read == 0) { // Case of mapping write finished
             if (demand_write_flying(req, 'R') == 1) {
@@ -682,6 +726,10 @@ static uint32_t __demand_set(request *const req){
     C_TABLE *c_table; // Cache mapping entry pointer
     D_TABLE *p_table; // pointer of p_table on cme
     algo_req *my_req; // pseudo request pointer
+
+	struct hash_params *h_params;
+	int cnt;
+
 #if W_BUFF
     snode *temp;
     sk_iter *iter;
@@ -689,12 +737,13 @@ static uint32_t __demand_set(request *const req){
 	static bool is_flush = false;
 
     bench_algo_start(req);
+	static int __cnt;
+	//printf("__demand %d\n", __cnt++);
 
-    lpa = req->key;
-    if(lpa > RANGE + 1){ // range check
+    /*if(lpa > RANGE + 1){ // range check
         printf("range error %d\n",lpa);
         exit(3);
-    }
+    }*/
 
     /* If the write buffer is already full, flush it */
     if (write_buffer->size == max_write_buf) {
@@ -705,6 +754,9 @@ static uint32_t __demand_set(request *const req){
             /* Actual part of data push */
             /* Push the buffered data to pre-fetched ppa */
             my_req = assign_pseudo_req(DATA_W, temp->value, NULL);
+			if (temp->ppa == 33587) {
+				puts("wb write!");
+			}
             __demand.li->write(temp->ppa, PAGESIZE, temp->value, ASYNC, my_req);
 
             temp->value = NULL; // this memory area will be freed in end_req
@@ -740,7 +792,19 @@ static uint32_t __demand_set(request *const req){
     }
 
     /* Insert data to skiplist (default) */
-    lpa = req->key;
+    if((temp = skiplist_find(write_buffer, req->key))){
+		//memcpy(temp->value->value, req->value->value, PAGESIZE);
+		free(req->hash_params);
+		req->end_req(req);
+		return 1;
+    }
+
+retry:
+	h_params = (struct hash_params *)req->hash_params;
+	cnt = h_params->cnt;
+    h_params->hash_key = (h_params->hash + cnt*cnt + cnt) % num_dpage;
+	lpa = h_params->hash_key;
+
     c_table = &CMT[D_IDX];
     p_table = c_table->p_table;
 
@@ -772,12 +836,51 @@ static uint32_t __demand_set(request *const req){
 
     c_table->write_hit++;
 
-    temp = skiplist_insert(write_buffer, lpa, req->value, true);
+	// If exist in mapping table, check it first
+	p_table = c_table->p_table;
+	if (p_table[P_IDX].ppa != -1 && h_params->find != HASH_KEY_SAME) {
+		ppa = p_table[P_IDX].ppa;
+
+		iter = skiplist_get_iterator(write_buffer);
+		for (int i = 0; i < write_buffer->size; i++) {
+			temp = skiplist_get_next(iter);
+
+			if (temp->ppa == ppa) {
+				if (KEYCMP(req->key, temp->key)) {
+					h_params->find = HASH_KEY_DIFF;
+					h_params->cnt++;
+					max_try = (h_params->cnt > max_try) ? h_params->cnt : max_try;
+					goto retry;
+
+				} else {
+					h_params->find = HASH_KEY_SAME;
+				}
+				break;
+			}
+		}
+		free(iter);
+
+		if (h_params->find != HASH_KEY_SAME) {
+			if (ppa == 33587) puts("read check!");
+			__demand.li->read(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req));
+			bench_algo_end(req);
+			return 1;
+		}
+	}
+
+	//printf("insert key in [cnt : %d]\n", h_params->cnt);
+
+	memcpy(req->value->value, &req->key.len, sizeof(uint8_t));
+	memcpy(req->value->value+1, req->key.key, req->key.len);
+    temp = skiplist_insert(write_buffer, req->key, req->value, true);
+	temp->hash_key = lpa;
 
     // If the value is successfully inserted to write_buffer, then update the mapping table entry
     if (write_buffer->size == ppa_idx+1) {
         ppa = ppa_prefetch[ppa_idx].ppa;
         temp->ppa = ppa;
+
+		if (ppa ==33587) puts("wb insert!");
 
         ppa_prefetch[ppa_idx++].sn = temp;
 
@@ -793,6 +896,7 @@ static uint32_t __demand_set(request *const req){
         demand_OOB[ppa].lpa = lpa;
     }
     req->value = NULL; // moved to 'value' field of snode
+	free(h_params);
     bench_algo_end(req);
     req->end_req(req);
 
@@ -810,6 +914,9 @@ static uint32_t __demand_remove(request *const req) {
     bool d_flag;
     value_set *dummy_vs;
 
+	struct hash_params *h_params;
+	int cnt;
+
     //value_set *temp_value_set;
     algo_req *temp_req;
     demand_params *params;
@@ -817,23 +924,20 @@ static uint32_t __demand_remove(request *const req) {
 
     bench_algo_start(req);
 
+	h_params = (struct hash_params *)req->hash_params;
+	cnt = h_params->cnt;
+	h_params->hash_key = (h_params->hash + cnt*cnt + cnt) % num_dpage;
+	lpa = h_params->hash_key;
+
     // Range check
-    lpa = req->key;
-    if (lpa > RANGE + 1) {
+    /* if (lpa > RANGE + 1) {
         printf("range error %d\n",lpa);
         exit(3);
-    }
+    } */
 
     c_table = &CMT[D_IDX];
     p_table = c_table->p_table;
     t_ppa   = c_table->t_ppa;
-
-#if W_BUFF
-    if (skiplist_delete(write_buffer, lpa) == 0) { // Deleted on skiplist
-        bench_algo_end(req);
-        return 0;
-    }
-#endif
 
     /* Get cache page from cache table */
     if (p_table) { // Cache hit
@@ -883,6 +987,21 @@ static uint32_t __demand_remove(request *const req) {
         num_caching++;
     }
 
+	if (p_table[P_IDX].ppa != -1) {
+		ppa = p_table[P_IDX].ppa;
+    	__demand.li->read(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req));
+		bench_algo_end(req);
+		return 0;
+	}
+
+
+#if W_BUFF
+    if (skiplist_delete(write_buffer, req->key) == 0) { // Deleted on skiplist
+        //bench_algo_end(req);
+        //return 0;
+    }
+#endif
+
     /* Invalidate the page */
     ppa = p_table[P_IDX].ppa;
 
@@ -916,6 +1035,41 @@ static uint32_t __demand_remove(request *const req) {
     return 0;
 }
 
+static uint32_t hashing_key(char* key,uint8_t len) {
+    char* string;
+    Sha256Context ctx;
+    SHA256_HASH hash;
+    int bytes_arr[8];
+    uint32_t hashkey;
+
+    string = key;
+
+    Sha256Initialise(&ctx);
+    Sha256Update(&ctx, (unsigned char*)string, len);
+    Sha256Finalise(&ctx, &hash);
+
+    for(int i=0; i<8; i++) {
+        bytes_arr[i] = ((hash.bytes[i*4] << 24) | (hash.bytes[i*4+1] << 16) | \
+                (hash.bytes[i*4+2] << 8) | (hash.bytes[i*4+3]));
+    }
+
+    hashkey = bytes_arr[0];
+    for(int i=1; i<8; i++) {
+        hashkey ^= bytes_arr[i];
+    }
+
+    return hashkey;
+}
+
+static struct hash_params *make_hash_params(request *const req) {
+	struct hash_params *h_params = (struct hash_params *)malloc(sizeof(struct hash_params));
+	h_params->hash = hashing_key(req->key.key, req->key.len);
+	h_params->cnt = 0;
+	h_params->find = HASH_KEY_INITIAL;
+	h_params->hash_key = 0;
+
+	return h_params;
+}
 
 uint32_t demand_set(request *const req){
     request *temp_req;
@@ -924,6 +1078,10 @@ uint32_t demand_set(request *const req){
         printf("\nWAF: %.2f\n", (float)(data_r+dirty_evict_on_write)/data_r);
         trig_data_r = 0;
     }
+
+	if (!req->hash_params) {
+		req->hash_params = (void *)make_hash_params(req);
+	}
 
     while((temp_req = (request*)q_dequeue(dftl_q))){
         if(__demand_get(temp_req) == UINT32_MAX){
@@ -943,6 +1101,10 @@ uint32_t demand_set(request *const req){
 uint32_t demand_get(request *const req){
     request *temp_req;
 
+	if (!req->hash_params) {
+		req->hash_params = (void *)make_hash_params(req);
+	}
+
     while((temp_req = (request*)q_dequeue(dftl_q))){
         if(__demand_get(temp_req) == UINT32_MAX){
             temp_req->type = FS_NOTFOUND_T;
@@ -958,6 +1120,11 @@ uint32_t demand_get(request *const req){
 
 uint32_t demand_remove(request *const req) {
     request *temp_req;
+
+	if (!req->hash_params) {
+		req->hash_params = (void *)make_hash_params(req);
+	}
+
     while ((temp_req = (request *)q_dequeue(dftl_q))) {
         if (__demand_get(temp_req) == UINT32_MAX) {
             temp_req->type = FS_NOTFOUND_T;
@@ -1120,19 +1287,57 @@ void *demand_end_req(algo_req* input){
     demand_params *params = (demand_params*)input->params;
     value_set *temp_v = params->value;
     request *res = input->parents;
+	struct hash_params *h_params;
+	KEYT check_key;
 
     switch(params->type){
         case DATA_R:
-            data_r++; trig_data_r++;
+			h_params = (struct hash_params *)res->hash_params;
 
-            res->type_lower = input->type_lower;
-            if(res){
-                res->end_req(res);
-            }
+			if (res->type == FS_GET_T) {
+				check_key.len = *((uint8_t *)res->value->value);
+				check_key.key = (char *)malloc(check_key.len);
+				memcpy(check_key.key, res->value->value+1, check_key.len);
+
+				if (KEYCMP(res->key, check_key)) {
+					h_params->find = HASH_KEY_DIFF;
+					h_params->cnt++;
+
+					if (h_params->cnt > max_try) {
+						printf("here?\n");
+						h_params->find = HASH_KEY_NONE;
+					}
+
+					inf_assign_try(res);
+				} else {
+					free(h_params);
+
+					data_r++; trig_data_r++;
+
+					res->type_lower = input->type_lower;
+					if(res){
+						res->end_req(res);
+					}
+				}
+			} else { // Read check for data write/remove
+				check_key.len = *((uint8_t *)res->value->value);
+				check_key.key = (char *)malloc(check_key.len);
+				memcpy(check_key.key, res->value->value+1, check_key.len);
+
+				if (KEYCMP(res->key, check_key)) {
+					h_params->find = HASH_KEY_DIFF;
+					h_params->cnt++;
+					max_try = (h_params->cnt > max_try) ? h_params->cnt : max_try;
+				} else {
+					h_params->find = HASH_KEY_SAME;
+				}
+
+				inf_assign_try(res);
+			}
+			free(check_key.key);
             break;
         case DATA_W:
             data_w++;
-
 #if W_BUFF
             inf_free_valueset(temp_v, FS_MALLOC_W);
 #endif

@@ -72,6 +72,17 @@ static void double_rotate(Redblack, Redblack, Redblack, Redblack);
 #define RED   1
 #define BLACK 0
 
+/*static inline int KEYCMP(KEYT a,KEYT b){
+	if(!a.len && !b.len) return 0;
+	else if(a.len==0) return -1;
+	else if(b.len==0) return 1;
+
+	int r=memcmp(a.key,b.key,a.len>b.len?b.len:a.len);
+	if(r!=0 || a.len==b.len){
+		return r;
+	}
+	return a.len<b.len?-1:1;
+}*/
 
 /*
  * single_rotate
@@ -169,7 +180,7 @@ Redblack rb_create (void)
 	rb->left   =\
 	rb->right  = rb;
 
-	rb->k.key = NULL;
+	rb->key.key= NULL;
 	rb->item  = NULL;
 	setblack(rb);
 
@@ -210,14 +221,15 @@ int rb_find_int(Redblack rb,int key,Redblack *node)
  * reference <node> is NULL, then it will not be set.
  *
  */
-int rb_find_str(Redblack rb,char *key,Redblack *node)
+int rb_find_str(Redblack rb,KEYT key,Redblack *node)
 {
 	Redblack x = root(rb);
 	int c = 1;
 
 	assert(issentinel(rb));
 
-	while (x != rb_nil(rb) && (c = strcmp(key, x->k.key)))
+	//while (x != rb_nil(rb) && (c = strcmp(key, x->k.key)))
+	while (x != rb_nil(rb) && (c = KEYCMP(key, x->key)))
 		x = (c < 0) ? x->left : x->right;
 
 	if (node) *node = x;
@@ -347,7 +359,9 @@ Redblack rb_insert_int(	Redblack rb,int key,void *item)
  * Insert <item> into the red-black tree <rb> using the string <key>.
  *
  */
-Redblack rb_insert_str(Redblack rb,	char *key,void *item)
+
+
+Redblack rb_insert_str(Redblack rb,	KEYT key,void *item)
 {
 	Redblack x = root(rb), y = x, z, r;
 
@@ -355,19 +369,21 @@ Redblack rb_insert_str(Redblack rb,	char *key,void *item)
 
 	while (x != rb) {
 		y = x;
-		x = (strcmp(key, x->k.key) < 0) ? x->left : x->right;
+	//	x = (strcmp(key, x->k.key) < 0) ? x->left : x->right;
+		x = (KEYCMP(key, x->key) < 0) ? x->left : x->right;
 	}
 
 	z = (Redblack) malloc(sizeof(struct redblack));
 	if (!(r = z)) return NULL;
-	z->k.key = key;
+	z->key = key;
 	z->item = item;
 	z->parent = y;
 	z->left  =
 		z->right = rb;
 	setred(z);
 
-	if (y != rb && strcmp(key, y->k.key) < 0) {
+	//if (y != rb && strcmp(key, y->k.key) < 0) {
+	if (y != rb && KEYCMP(key, y->key) < 0) {
 #ifdef RB_LINK
 		z->prev = y->prev;
 		y->prev = z;

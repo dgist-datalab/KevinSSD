@@ -5,11 +5,11 @@
 #include<unistd.h>
 #include<sys/types.h>
 #include"skiplist.h"
-#include"variable.h"
 #include"../../interface/interface.h"
 #include "../../include/utils/kvssd.h"
 #include "../../include/slab.h"
 #ifdef Lsmtree
+#include"variable.h"
 #include "lsmtree.h"
 #include "level.h"
 #include "page.h"
@@ -18,11 +18,11 @@
 extern MeasureTime compaction_timer[3];
 extern OOBT *oob;
 extern lsmtree LSM;
-#ifdef KVSSD
-extern	KEYT key_max, key_min;
-#endif
 
 #endif
+
+extern KEYT key_max, key_min;
+
 #ifdef USINGSLAB
 //extern struct slab_chain snode_slab;
 extern kmem_cache_t snode_slab;
@@ -42,6 +42,7 @@ skiplist *skiplist_init(){
 	point->header->back=point->header;
 
 #if defined(KVSSD) && defined(Lsmtree)
+
 	point->all_length=0;
 	point->header->key=key_max;
 #else
@@ -59,7 +60,7 @@ snode *skiplist_find(skiplist *list, KEYT key){
 	if(list->size==0) return NULL;
 	snode *x=list->header;
 	for(int i=list->level; i>=1; i--){
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD)
 		while(KEYCMP(x->list[i]->key,key)<0)
 #else
 		while(x->list[i]->key<key)
@@ -69,6 +70,7 @@ snode *skiplist_find(skiplist *list, KEYT key){
 
 #if defined(KVSSD) && defined(Lsmtree)
 	if(KEYTEST(x->list[1]->key,key))
+
 #else
 	if(x->list[1]->key==key)
 #endif
@@ -81,7 +83,7 @@ snode *skiplist_find_lowerbound(skiplist *list, KEYT key){
 	if(list->size==0) return NULL;
 	snode *x=list->header;
 	for(int i=list->level; i>=1; i--){
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD)
 		while(KEYCMP(x->list[i]->key,key)<0)
 #else
 		while(x->list[i]->key<key)
@@ -97,7 +99,7 @@ snode *skiplist_range_search(skiplist *list,KEYT key){
 	snode *x=list->header;
 	snode *bf=list->header;
 	for(int i=list->level; i>=1; i--){
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD)
 		while(KEYCMP(x->list[i]->key,key)<=0)
 #else
 		while(x->list[i]->key<=key)
@@ -110,7 +112,7 @@ snode *skiplist_range_search(skiplist *list,KEYT key){
 	
 	bf=x;
 	x=x->list[1];
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD)
 	if(KEYCMP(bf->key,key)<=0 && KEYCMP(key,x->key)<0)
 #else
 	if(bf->key<=key && key< x->key)
@@ -120,7 +122,7 @@ snode *skiplist_range_search(skiplist *list,KEYT key){
 	}
 
 
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD)
 	if(KEYCMP(key,list->header->list[1]->key)<=0)
 #else
 	if(key<=list->header->list[1]->key)
@@ -136,7 +138,7 @@ snode *skiplist_strict_range_search(skiplist *list,KEYT key){
 	snode *x=list->header;
 	snode *bf=list->header;
 	for(int i=list->level; i>=1; i--){
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD) 
 		while(KEYCMP(x->list[i]->key,key)<=0)
 #else
 		while(x->list[i]->key<=key)
@@ -149,7 +151,7 @@ snode *skiplist_strict_range_search(skiplist *list,KEYT key){
 	
 	bf=x;
 	x=x->list[1];
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD) 
 	if(KEYCMP(bf->key,key)<=0 && KEYCMP(key,x->key)<0)
 #else
 	if(bf->key<=key && key< x->key)
@@ -158,7 +160,7 @@ snode *skiplist_strict_range_search(skiplist *list,KEYT key){
 		return bf;
 	}
 
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD) 
 	else if(KEYCMP(bf->key,key_max)==0)
 #else
 	else if(bf->key==UINT_MAX)
@@ -182,7 +184,7 @@ static int getLevel(){
 
 #ifdef Lsmtree
 snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
-#if !(defined(KVSSD) && defined(Lsmtree))
+#if !(defined(KVSSD) )
 	if(key>RANGE){
 		printf("bad page read key:%u\n",key);
 		return NULL;
@@ -192,7 +194,7 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
 	snode *x=list->header;
 
 	for(int i=list->level; i>=1; i--){
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD) 
 		while(KEYCMP(x->list[i]->key,key)<0)
 #else
 		while(x->list[i]->key<key)
@@ -358,7 +360,7 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overla
 	snode *x=list->header;
 	
 	for(int i=list->level; i>=1; i--){
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD) 
 		while(KEYCMP(x->list[i]->key,key)<0)
 #else
 		while(x->list[i]->key<key)
@@ -427,7 +429,7 @@ snode *skiplist_insert_iter(skiplist *list,KEYT key,ppa_t ppa){
 	snode *x=list->header;
 
 	for(int i=list->level; i>=1; i--){
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD) 
 		while(KEYCMP(x->list[i]->key,key)<0)
 #else
 		while(x->list[i]->key<key)
@@ -499,7 +501,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 	snode *x=list->header;
 
 	for(int i=list->level; i>=1; i--){
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD) 
 		while(KEYCMP(x->list[i]->key,key)<0)
 #else
 		while(x->list[i]->key<key)
@@ -687,7 +689,7 @@ int skiplist_delete(skiplist* list, KEYT key){
 	snode *update[MAX_L+1];
 	snode *x=list->header;
 	for(int i=list->level; i>=1; i--){
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD) 
 		while(KEYCMP(x->list[i]->key,key)<0)
 #else
 		while(x->list[i]->key<key)
@@ -697,7 +699,7 @@ int skiplist_delete(skiplist* list, KEYT key){
 	}
 	x=x->list[1];
 
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD) 
 	if(KEYCMP(x->key,key)!=0)
 #else
 	if(x->key!=key)
@@ -744,7 +746,7 @@ void skiplist_dump(skiplist * list){
 	snode *now;
 	while((now=skiplist_get_next(iter))!=NULL){
 		for(uint32_t i=1; i<=now->level; i++){
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD) 
 #else
 			printf("%u ",now->key);
 #endif
@@ -780,7 +782,7 @@ void skiplist_clear(skiplist *list){
 	list->size=0;
 	list->level=0;
 	for(int i=0; i<MAX_L; i++) list->header->list[i]=list->header;
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD) 
 	list->header->key=key_max;
 #else
 	list->header->key=INT_MAX;
@@ -859,7 +861,7 @@ snode *skiplist_pop(skiplist *list){
 		update[i]=list->header;
 	}
 	x=x->list[1];
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD) 
 	if(KEYCMP(x->key,key)==0)
 #else
 	if(x->key==key)

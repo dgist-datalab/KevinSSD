@@ -98,6 +98,7 @@ void kv_main_end_req(uint32_t a, uint32_t b, void *req){
 			//printf("insert_queue\n");
 	//		while(!q_enqueue((void*)net_data,n_q));
 	//		printf("assign seq:%d\n",a);
+			free(net_data);
 			break;
 		case FS_RANGEGET_T:
 		case FS_SET_T:
@@ -109,6 +110,11 @@ void kv_main_end_req(uint32_t a, uint32_t b, void *req){
 MeasureTime write_opt_time[10];
 MeasureTime temp_time;
 int main(int argc, char *argv[]){
+	struct sigaction sa;
+	sa.sa_handler = log_print;
+	sigaction(SIGINT, &sa, NULL);
+	printf("signal add!\n");
+
 	if(argc<2){
 //		printf("insert argumen!\n");
 //		return 1;
@@ -126,7 +132,8 @@ int main(int argc, char *argv[]){
 	bench_custom_init(write_opt_time,10);
 	bench_custom_start(write_opt_time,0);
 	while((fscanf(fp,"%d %d %d %s",&data->type,&data->scanlength,&data->keylen,data->key))!=EOF){
-		if(data->type==1){
+		if(data->type==1 || data->type==2){
+			//printf("%d %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
 		    inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),cnt++,data,kv_main_end_req);	
 		}
 		else{
@@ -142,4 +149,5 @@ int main(int argc, char *argv[]){
 	bench_custom_A(write_opt_time,0);
 	inf_free();
 	bench_custom_print(write_opt_time,10);
+
 }
