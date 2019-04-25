@@ -258,7 +258,7 @@ void bench_print(){
 #ifdef CDF
 		bench_cdf_print(_m->m_num,_m->type,bdata);
 #endif
-		bench_ftl_cdf_print(bdata);
+		bench_type_cdf_print(bdata);
 		
 		printf("--------------------------------------------\n");
 		printf("|            bench type:                   |\n");
@@ -343,55 +343,16 @@ void bench_print(){
 	}
 }
 
-
-
-void bench_algo_start(request *const req){
-	
-	measure_init(&req->algo);
-	if(req->params==NULL){
-	//	measure_init(&req->latency_poll);
-		measure_init(&req->latency_ftl);
-		MS(&req->latency_ftl);
-	}
-	 
-#ifdef BENCH
-	//MS(&req->algo);
-#endif
-	
-}
-void bench_algo_end(request *const req){
-	/*
-#ifdef BENCH
-	MA(&req->algo);
-#endif
-	 */
-}
-void bench_lower_start(request *const req){
-	measure_init(&req->lower);
-#ifdef BENCH
-	MS(&req->lower);
-#endif
-}
-void bench_lower_end(request *const req){
-#ifdef BENCH
-	MA(&req->lower);
-#endif
-}
-
-void bench_update_ftltime(bench_data *_d, request *const req){
-	
+void bench_update_typetime(bench_data *_d, uint8_t a_type,uint8_t l_type, uint64_t time){
 	bench_ftl_time *temp;
-	MC(&req->latency_ftl);
-	temp = &_d->ftl_poll[req->type_ftl][req->type_lower];
-	req->latency_ftl.micro_time += req->latency_ftl.adding.tv_sec*1000000 + req->latency_ftl.adding.tv_usec;
-	temp->total_micro += req->latency_ftl.micro_time;
-	temp->max = temp->max < req->latency_ftl.micro_time ? req->latency_ftl.micro_time : temp->max;
-	temp->min = temp->min > req->latency_ftl.micro_time ? req->latency_ftl.micro_time : temp->min;
+	temp = &_d->ftl_poll[a_type][l_type];
+	temp->total_micro += time;
+	temp->max = temp->max < time ? time : temp->max;
+	temp->min = temp->min > time ? time : temp->min;
 	temp->cnt++;
 }
 
-void bench_ftl_cdf_print(bench_data *_d){
-	//printf("polling\n");
+void bench_type_cdf_print(bench_data *_d){
 	fprintf(stderr,"a_type\tl_type\tmax\tmin\tavg\tcnt\tpercentage\n");
 	for(int i = 0; i < ALGOTYPE; i++){
 		for(int j = 0; j < LOWERTYPE; j++){
@@ -400,16 +361,6 @@ void bench_ftl_cdf_print(bench_data *_d){
 			fprintf(stderr,"%d\t%d\t%lu\t%lu\t%.3f\t%lu\t%.5f%%\n",i,j,_d->ftl_poll[i][j].max,_d->ftl_poll[i][j].min,(float)_d->ftl_poll[i][j].total_micro/_d->ftl_poll[i][j].cnt,_d->ftl_poll[i][j].cnt,(float)_d->ftl_poll[i][j].cnt/_d->read_cnt*100);
 		}
 	}
-	/*
-	printf("subtract polling\n");
-	printf("a_type\tl_type\tmax\tmin\tavg\t\tcnt\n");
-	for(int i = 0; i < ALGOTYPE; i++){
-		for(int j = 0; j < LOWERTYPE; j++){
-			if(!_d->ftl_npoll[i][j].cnt)
-				continue;
-			printf("%d\t%d\t%lu\t%lu\t%f\t%lu\n",i,j,_d->ftl_npoll[i][j].max,_d->ftl_npoll[i][j].min,(float)_d->ftl_npoll[i][j].total_micro/_d->ftl_npoll[i][j].cnt,_d->ftl_npoll[i][j].cnt);
-		}
-	}*/
 }
 
 void __bench_time_maker(MeasureTime mt, bench_data *datas,bool isalgo){
@@ -493,7 +444,7 @@ void bench_reap_data(request *const req,lower_info *li){
 	bench_data *_data=&_master->datas[idx];
 
 	if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){
-		bench_update_ftltime(_data, req);
+		bench_update_typetime(_data, req->type_ftl, req->type_lower,req->latency_checker.micro_time);
 	}
 	
 	if(req->type==FS_NOTFOUND_T){
@@ -541,13 +492,7 @@ void bench_reap_data(request *const req,lower_info *li){
 		measure_init(&_m->benchTime);
 		MS(&_m->benchTime);
 	}
-#ifdef BENCH
-	if(req->algo.isused)
-		__bench_time_maker(req->algo,_data,true);
 
-	if(req->lower.isused)
-		__bench_time_maker(req->lower,_data,false);
-#endif
 	if(req->type==FS_NOTFOUND_T){
 		_m->notfound++;
 	}
@@ -937,38 +882,6 @@ void rand_latency(uint32_t start, uint32_t end,int percentage, monitor *m){
 	}
 }
 #endif
-
-void bench_lower_w_start(lower_info *li){
-#ifdef BENCH
-	pthread_mutex_lock(&li->lower_lock);
-	MS(&li->writeTime);
-	li->write_op++;
-#endif
-}
-void bench_lower_w_end(lower_info *li){
-#ifdef BENCH
-	MA(&li->writeTime);
-	pthread_mutex_unlock(&li->lower_lock);
-#endif
-}
-void bench_lower_r_start(lower_info *li){
-#ifdef BENCH
-	pthread_mutex_lock(&li->lower_lock);
-	MS(&li->readTime);
-	li->read_op++;
-#endif
-}
-void bench_lower_r_end(lower_info *li){
-#ifdef BENCH
-	MA(&li->readTime);
-	pthread_mutex_unlock(&li->lower_lock);
-#endif
-}
-void bench_lower_t(lower_info *li){
-#ifdef BENCH
-	li->trim_op++;
-#endif
-}
 
 void bench_cache_hit(int mark){
 	monitor *_m=&_master->m[mark];

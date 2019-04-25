@@ -381,7 +381,6 @@ void* lsm_end_req(algo_req* const req){
 
 uint32_t lsm_set(request * const req){
 	//MS(&__get_mt);
-	bench_algo_start(req);
 	static bool force = 0 ;
 #ifdef DEBUG
 	printf("lsm_set!\n");
@@ -401,8 +400,6 @@ uint32_t lsm_set(request * const req){
 	
 	req->value=NULL;
 	//req->value will be ignored at free
-	MP(&req->latency_ftl);
-	bench_algo_end(req);
 
 	//MA(&__get_mt);
 	/*
@@ -470,7 +467,6 @@ uint32_t lsm_get(request *const req){
 		//printf("lsmtree size:%d\n",lsm_memory_size()/M);
 		temp=true;
 	}
-	bench_algo_start(req);
 	res_type=__lsm_get(req);
 	if(!debug && LSM.disk[0]->n_num>0){
 		debug=true;
@@ -524,7 +520,6 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 		bench_cache_hit(req->mark);
 		if(target_node->value){
 		//	memcpy(req->value->value,target_node->value->value,PAGESIZE);
-			bench_algo_end(req);
 			if(req->type==FS_MGET_T){
 				//lsm_mget_end_req(lsm_get_empty_algoreq(req));						
 			}
@@ -623,7 +618,6 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 	if(lsm_req==NULL){
 		return 0;
 	}
-	bench_algo_end(req);
 	if(ppa==UINT_MAX){
 		free(lsm_req->params);
 		free(lsm_req);
@@ -800,7 +794,6 @@ retry:
 			__header_read_cnt++;
 
 			free(entries);
-			bench_algo_end(req);
 			return 3; //async
 		}
 
@@ -810,7 +803,6 @@ retry:
 		run=0;
 		free(entries);
 	}
-	bench_algo_end(req);
 	return res;
 }
 

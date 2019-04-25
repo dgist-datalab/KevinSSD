@@ -80,9 +80,6 @@ void *memio_info_push_data(uint32_t ppa, uint32_t size, value_set *value, bool a
 	if(t_type < LREQ_TYPE_NUM){
 		memio_info.req_type_cnt[t_type]++;
 	}
-	//bench_lower_w_start(&memio_info);
-	//req->parents->ppa=bb_checker_fix_ppa(ppa);
-	//bench_lower_w_end(&memio_info);
 	memio_write(mio,bb_checker_fix_ppa(ppa),(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	//memio_write(mio,ppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	//pthread_mutex_lock(&test_lock);
@@ -98,9 +95,6 @@ void *memio_info_pull_data(uint32_t ppa, uint32_t size, value_set *value, bool a
 	if(t_type < LREQ_TYPE_NUM){
 		memio_info.req_type_cnt[t_type]++;
 	}
-	//bench_lower_r_start(&memio_info);
-	//req->parents->ppa=bb_checker_fix_ppa(ppa);
-	//bench_lower_r_end(&memio_info);
 	memio_read(mio,bb_checker_fix_ppa(ppa),(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	//memio_read(mio,ppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	//pthread_mutex_lock(&test_lock);

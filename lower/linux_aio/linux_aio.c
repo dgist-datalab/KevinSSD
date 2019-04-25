@@ -104,7 +104,6 @@ void *poller(void *input) {
 				//	printf("cb->offset:%d cb->nbytes:%d\n",cb->u.c.offset,cb->u.c.nbytes);
 				}
 				//if(req->parents){
-					//bench_lower_end(req->parents);
 				//}
 				req->end_req(req);
 				cl_release(lower_flying);
@@ -223,14 +222,11 @@ void *aio_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,al
 		printf("dmatag -1 error!\n");
 		exit(1);
 	}
-	bench_lower_w_start(&aio_info);
 	uint8_t t_type=test_type(req->type);
 	if(t_type < LREQ_TYPE_NUM){
 		aio_info.req_type_cnt[t_type]++;
 	}
 	
-	if(req->parents)
-		bench_lower_start(req->parents);
 
 	struct iocb *cb=(struct iocb*)malloc(sizeof(struct iocb));
 	cl_grap(lower_flying);
@@ -251,7 +247,6 @@ void *aio_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,al
 	pthread_mutex_unlock(&fd_lock);
 #endif
 
-	bench_lower_w_end(&aio_info);
 	return NULL;
 }
 
@@ -261,14 +256,11 @@ void *aio_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,al
 		printf("dmatag -1 error!\n");
 		exit(1);
 	}
-	bench_lower_r_start(&aio_info);
 	uint8_t t_type=test_type(req->type);
 	if(t_type < LREQ_TYPE_NUM){
 		aio_info.req_type_cnt[t_type]++;
 	}
 	
-	if(req->parents)
-		bench_lower_start(req->parents);
 	struct iocb *cb=(struct iocb*)malloc(sizeof(struct iocb));
 	cl_grap(lower_flying);
 	io_prep_pread(cb,_fd,(void*)value->value,PAGESIZE,offset_hooker((uint64_t)aio_info.SOP*PPA,t_type));
@@ -286,7 +278,6 @@ void *aio_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,al
 	pthread_mutex_unlock(&fd_lock);
 #endif
 
-	bench_lower_r_end(&aio_info);
 	return NULL;
 }
 

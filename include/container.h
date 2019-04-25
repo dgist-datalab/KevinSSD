@@ -66,13 +66,9 @@ struct request {
 	FSTYPE org_type;
 /*e:for application req*/
 
-	MeasureTime algo;
-	MeasureTime lower;
-	MeasureTime latency_ftl;
 	uint8_t type_ftl;
 	uint8_t type_lower;
 	uint8_t before_type_lower;
-	MeasureTime latency_poll;
 	bool isstart;
 	MeasureTime latency_checker;
 

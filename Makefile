@@ -2,7 +2,7 @@ export CC=g++
 
 TARGET_INF=interface
 TARGET_LOWER=linux_aio
-TARGET_ALGO=hash_dftl
+TARGET_ALGO=Lsmtree
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
 PPWD=$(pwd)

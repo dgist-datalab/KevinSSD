@@ -94,15 +94,6 @@ bool bench_is_finish_n(int n);
 bool bench_is_finish();
 
 void bench_cache_hit(int mark);
-void bench_algo_start(request *const);
-void bench_algo_end(request *const);
-void bench_lower_start(request *const);
-void bench_lower_end(request* const);
-void bench_lower_w_start(lower_info *);
-void bench_lower_w_end(lower_info *);
-void bench_lower_r_start(lower_info *);
-void bench_lower_r_end(lower_info *);
-void bench_lower_t(lower_info*);
 void bench_reap_data(request *const,lower_info *);
 void bench_reap_nostart(request *const);
 char *bench_lower_type(int);
@@ -116,7 +107,7 @@ void bench_custom_print(MeasureTime *mt, int idx);
 void bench_cdf_print(uint64_t, uint8_t istype, bench_data*);
 #endif
 void bench_update_ftltime(bench_data *_d, request *const req);
-void bench_ftl_cdf_print(bench_data *_d);
+void bench_type_cdf_print(bench_data *_d);
 void free_bnech_all();
 void free_bench_one(bench_value *);
 #endif

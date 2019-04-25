@@ -273,8 +273,8 @@ bool inf_make_req_fromApp(char _type, KEYT _key,uint32_t offset, uint32_t len,PT
 	cl_grap(flying);
 #ifdef CDF
 	req->isstart=false;
-	measure_init(&req->latency_checker);
-	measure_start(&req->latency_checker);
+	measure_init(&req->latency_checker); //make_fromapps
+	measure_start(&req->latency_checker);//make_fromapps
 #endif
 	assign_req(req);
 	return true;*/
@@ -330,8 +330,6 @@ static request* inf_get_req_common(request *req, bool fromApp, int mark){
 	req->p_req=NULL;
 	req->p_end_req=NULL;
 #ifndef USINGAPP
-	req->algo.isused=false;
-	req->lower.isused=false;
 	req->mark=mark;
 #endif
 
@@ -422,8 +420,8 @@ bool inf_make_req(const FSTYPE type, const KEYT key,char* value){
 	cl_grap(flying);
 #ifdef CDF
 	req->isstart=false;
-	measure_init(&req->latency_checker);
-	measure_start(&req->latency_checker);
+	measure_init(&req->latency_checker); //make_req
+	measure_start(&req->latency_checker); //make_req
 #endif
 	assign_req(req);
 	return true;
@@ -451,8 +449,8 @@ bool inf_make_req_special(const FSTYPE type, const KEYT key, char* value, int le
 	req->seq=seq;
 #ifdef CDF
 	req->isstart=false;
-	measure_init(&req->latency_checker);
-	measure_start(&req->latency_checker);
+	measure_init(&req->latency_checker); //make_req_spe
+	measure_start(&req->latency_checker); //make_req_spe
 #endif
 
 	assign_req(req);
@@ -601,8 +599,8 @@ bool inf_make_multi_req(char type, KEYT key,KEYT *keys,uint32_t iter_id,char **v
 	req->ppa=iter_id;
 	req->added_end_req=added_end;
 	req->isstart=false;
-	measure_init(&req->latency_checker);
-	measure_start(&req->latency_checker);
+	measure_init(&req->latency_checker); //make_multi_req
+	measure_start(&req->latency_checker); //make_multi_req
 	assign_req(req);
 	return true;
 }
@@ -644,8 +642,8 @@ bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value,int le
 	cl_grap(flying);
 #ifdef CDF
 	req->isstart=false;
-	measure_init(&req->latency_checker);
-	measure_start(&req->latency_checker);
+	measure_init(&req->latency_checker);//make_req_apps
+	measure_start(&req->latency_checker);//make_req_apps
 #endif
 	assign_req(req);
 	return true;
@@ -663,8 +661,8 @@ bool inf_make_range_query_apps(char type, char *keys, uint8_t key_len,int seq, i
 //	printf("seq:%d\n",req->seq);
 #ifdef CDF
 	req->isstart=false;
-	measure_init(&req->latency_checker);
-	measure_start(&req->latency_checker);
+	measure_init(&req->latency_checker);//make_range
+	measure_start(&req->latency_checker);//make_range
 #endif
 	assign_req(req);
 	return true;
@@ -690,8 +688,8 @@ bool inf_make_mreq_apps(char type, char **keys, uint8_t *key_len, char **values,
 	req->p_end_req=end_req;
 #ifdef CDF
 	req->isstart=false;
-	measure_init(&req->latency_checker);
-	measure_start(&req->latency_checker);
+	measure_init(&req->latency_checker);//make_mreq
+	measure_start(&req->latency_checker);//make_mreq
 #endif
 	assign_req(req);
 	return true;
@@ -725,8 +723,8 @@ bool inf_iter_req_apps(char type, char *prefix, uint8_t key_len,char **value, in
 	req->p_end_req=end_req;
 #ifdef CDF
 	req->isstart=false;
-	measure_init(&req->latency_checker);
-	measure_start(&req->latency_checker);
+	measure_init(&req->latency_checker); //make_iter
+	measure_start(&req->latency_checker);//make_iter
 #endif
 	assign_req(req);
 	return true;
