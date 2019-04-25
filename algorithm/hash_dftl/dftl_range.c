@@ -66,7 +66,7 @@ uint32_t demand_range_query(request *const req) {
 	}
 
 	for (int i = 0; i < query_len; i++) {
-		void *_data = __hash_find_data(app_hash, rb_node->key);
+		void *_data = qmanager_find_by_algo(rb_node->key);
 		if (_data) {
 			request *d_req = (request *)_data;
 			memcpy(req->multi_value[i]->value, d_req->value->value, PAGESIZE);

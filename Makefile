@@ -2,7 +2,7 @@ export CC=g++
 
 TARGET_INF=interface
 TARGET_LOWER=linux_aio
-TARGET_ALGO=Lsmtree
+TARGET_ALGO=hash_dftl
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
 PPWD=$(pwd)
@@ -22,7 +22,7 @@ COMMONFLAGS=\
 			-DKVSSD\
 			-DSLC\
 			-Wno-unused-but-set-variable\
-#-O3\
+-O3\
 #			-DWRITESYNC\
 #			-DCHECKINGTIME\
 

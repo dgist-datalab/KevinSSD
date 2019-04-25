@@ -41,8 +41,7 @@ skiplist *skiplist_init(){
 	//back;
 	point->header->back=point->header;
 
-#if defined(KVSSD) && defined(Lsmtree)
-
+#if defined(KVSSD)
 	point->all_length=0;
 	point->header->key=key_max;
 #else
@@ -68,9 +67,8 @@ snode *skiplist_find(skiplist *list, KEYT key){
 			x=x->list[i];
 	}
 
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD)
 	if(KEYTEST(x->list[1]->key,key))
-
 #else
 	if(x->list[1]->key==key)
 #endif
@@ -438,9 +436,7 @@ snode *skiplist_insert_iter(skiplist *list,KEYT key,ppa_t ppa){
 		update[i]=x;
 	}
 	x=x->list[1];
-#if defined(KVSSD) && defined(Lsmtree)
-//	if(KEYCMP(key,list->start)<0) list->start=key;
-//	if(KEYCMP(key,list->end)>0) list->end=key;
+#if defined(KVSSD)
 	if(KEYTEST(key,x->key))
 #else
 	if(key<list->start) list->start=key;
@@ -522,7 +518,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 	if(value!=NULL){
 		value->length=(value->length/PIECE)+(value->length%PIECE?1:0);
 	}
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD)
 	if(KEYTEST(key,x->key))
 #else
 	if(key==x->key)

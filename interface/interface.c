@@ -13,169 +13,126 @@
 #include "../include/data_struct/redblack.h"
 #include "../include/utils/cond_lock.h"
 #include "bb_checker.h"
+#include "layer_info.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <string.h>
 
-#define FS_SET_F 4
-#define FS_GET_F 5
-#define FS_DELETE_F 6
-
-extern struct lower_info my_posix;
-
-extern struct algorithm __normal;
-extern struct algorithm __badblock;
-extern struct algorithm __demand;
-extern struct algorithm algo_pbase;
-#if defined(Lsmtree)
-extern struct algorithm algo_lsm;
-#endif
-
-#ifdef bdbm_drv
-extern struct lower_info memio_info;
-#endif
-extern struct lower_info aio_info;
-#ifdef network
-extern struct lower_info net_info;
-#endif
-
 extern Redblack rb_tree;
 extern pthread_mutex_t rb_lock;
 
-MeasureTime mt;
-MeasureTime mt4;
 master_processor mp;
 
 bool sync_apps;
-
-/*hit checker*/
-uint32_t write_q_hit;
-uint32_t read_q_hit;
-uint32_t retry_hit;
-
-//pthread_mutex_t inf_lock;
 void *p_main(void*);
-int req_cnt_test=0;
-int write_stop;
-int traffic_cnt_th,traffic_cnt_rt;
 cl_lock *flying,*inf_cond;
 
 #ifdef interface_pq
-pthread_mutex_t wq_lock;
-
 static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *value, int len,int mark, bool fromApp);
-
 static request *inf_get_multi_req_instance(const FSTYPE type, KEYT *key, char **value, int *len,int req_num,int mark, bool fromApp);
-//#ifndef KVSSD
-__hash * app_hash;
-//#endif
-static bool inf_queue_check(request *req){
-//#ifdef KVSSD
-//	return false;
-//#else
-	void *_data=__hash_find_data(app_hash,req->key);
-	if(_data){
-		request *d_req=(request*)_data;
-		memcpy(req->value->value,d_req->value->value,PAGESIZE);
-		return true;
+
+static bool qmanager_write_checking(processor * t,request *req){
+	bool res=false;
+	static int cnt=0;
+	Redblack finding;
+	pthread_mutex_lock(&t->qm_lock);
+	if(rb_find_str(t->qmanager,req->key,&finding)){
+		res=true;
+		//copy value
 	}
-	else
-		return false;
-//#endif
+	else{
+		rb_insert_str(t->qmanager,req->key,(void*)req);
+	}
+	pthread_mutex_unlock(&t->qm_lock);
+#ifdef hash_dftl
+	if(res) return res;
+	pthread_mutex_lock(&rb_lock);
+	rb_insert_str(rb_tree, req->key, NULL);
+	pthread_mutex_unlock(&rb_lock);
+#endif
+	return res;
+}
+
+static bool qmanager_read_checking(processor *t,request *req){
+	bool res=false;
+	Redblack finding;
+	static int read_q_hit=0;
+	pthread_mutex_lock(&t->qm_lock);
+	if(rb_find_str(t->qmanager,req->key,&finding)){
+		res=true;
+	}
+	pthread_mutex_unlock(&t->qm_lock);
+	return res;
+}
+
+static bool qmanager_delete(processor *t, request *req){
+	bool res=false;
+	Redblack finding;
+	pthread_mutex_lock(&t->qm_lock);
+	if(rb_find_str(t->qmanager,req->key,&finding)){
+		res=true;
+		rb_delete(finding);
+	}
+	else{
+		abort();
+	}
+	pthread_mutex_unlock(&t->qm_lock);
+	return res;
+}
+
+void *qmanager_find_by_algo(KEYT key){
+	Redblack finding;
+	for(int i=0; i<1; i++){
+		processor *t=&mp.processors[i];
+		if(rb_find_str(t->qmanager,key,&finding)){
+			return finding->item;
+		}
+		continue;
+	}
+	return NULL;
 }
 #endif
-static void assign_req(request* req){
+void assign_req(request* req){
 	bool flag=false;
-
-//#ifndef KVSSD
-	int write_hash_res=0;
-	void *m_req=NULL;
-//#endif
 	while(!flag){
-		for(int i=0; i<THREADSIZE; i++){
-			processor *t=&mp.processors[i];
+		processor *t=&mp.processors[0];
 #ifdef interface_pq
-			if(req->type==FS_SET_T){
-				pthread_mutex_lock(&wq_lock);
-//#ifndef KVSSD
-				if(t->req_q->size<QSIZE){
-					if((m_req=__hash_find_data(app_hash,req->key))){
-						request *t_req=(request*)m_req;
-						value_set *t_value=t_req->value;
-						t_req->value=req->value;
-						req->value=t_value;
-
-						t_req->seq=req->seq;
-						req->end_req(req);
-						pthread_mutex_unlock(&wq_lock);
-						write_q_hit++;
-						return;
-					}
-					write_hash_res=__hash_insert(app_hash,req->key,req,NULL,(void**)&m_req);
-					req->__hash_node=(void*)__hash_get_node(app_hash,write_hash_res);
-
-#ifdef hash_dftl 
-					pthread_mutex_lock(&rb_lock);
-					rb_insert_str(rb_tree, req->key, NULL);
-					pthread_mutex_unlock(&rb_lock);
-#endif
-				}
-				else{
-					pthread_mutex_unlock(&wq_lock);
-					continue;
-				}
-//#endif
-
-#endif
-				if(q_enqueue((void*)req,t->req_q)){
-					flag=true;
-#ifdef interface_pq
-					pthread_mutex_unlock(&wq_lock);
-#endif
-				}
-				else{
-					flag=false;
-#ifdef interface_pq
-					pthread_mutex_unlock(&wq_lock);
-#endif
-					continue;
-				}
-
-#ifdef interface_pq
-				break;
-			}
-			else{
-				if(req->type==FS_GET_T && inf_queue_check(req)){
-					if(req->isstart==false){
-						req->type_ftl=10;
-					}
-					read_q_hit++;
+		switch(req->type){
+			case FS_SET_T:
+				if(qmanager_write_checking(t,req)){
 					req->end_req(req);
 					return;
 				}
+				else if(q_enqueue((void*)req,t->req_q)){
+					flag=true;
+				}
+				break;
+			case FS_GET_T:
+				if(qmanager_read_checking(t,req)){
+					if(!req->isstart) req->type_ftl=10;
+					req->end_req(req);
+					return;
+				}
+			default: //for read
 				if(q_enqueue((void*)req,t->req_rq)){
 					flag=true;
-					break;
 				}
-				else{
-					flag=false;
-					continue;
-				}
-			}
-#endif
+				break;
 		}
+#else
+		if(q_enqueue((void*)req,t->req_q)){
+			flag=true; continue;
+		}
+#endif
 	}
 	cl_release(inf_cond);
-	//if(!req->isAsync){
 }
-//extern bool isflushing;
 bool inf_assign_try(request *req){
 	bool flag=false;
-	for(int i=0; i<THREADSIZE; i++){
+	for(int i=0; i<1; i++){
 		processor *t=&mp.processors[i];
-		//if(t->req_rq->size!=0) break;
 		while(q_enqueue((void*)req,t->retry_q)){
 			cl_release(inf_cond);
 			flag=true;
@@ -184,13 +141,33 @@ bool inf_assign_try(request *req){
 	}
 	return flag;
 }
+
 uint64_t inter_cnt;
 bool force_write_start;
+int write_stop;
+static request *get_next_request(processor *pr){
+	void *_inf_req=NULL;
+	if(force_write_start || (write_stop && pr->req_q->size==QDEPTH) || sync_apps)
+		write_stop=false;
+	if((_inf_req=q_dequeue(pr->retry_q))) goto send_req; //check retry
+#ifdef interface_pq
+	else if((_inf_req=q_dequeue(pr->req_rq))) goto send_req; //check read 
+	else if(pr->retry_q->size || write_stop) goto send_req; //check write stop
+#endif
+	else if((_inf_req=q_dequeue(pr->req_q))){
+#ifdef interface_pq
+		qmanager_delete(pr,(request*)_inf_req);
+#endif
+	}
+
+send_req:
+	return (request*)_inf_req;
+}
+
 void *p_main(void *__input){
-	void *_inf_req;
 	request *inf_req;
 	processor *_this=NULL;
-	for(int i=0; i<THREADSIZE; i++){
+	for(int i=0; i<1; i++){
 		if(pthread_self()==mp.processors[i].t_id){
 			_this=&mp.processors[i];
 		}
@@ -199,50 +176,15 @@ void *p_main(void *__input){
 	char thread_name[128]={0};
 	sprintf(thread_name,"%s","inf_main_thread");
 	pthread_setname_np(pthread_self(),thread_name);
-
-//#ifndef KVSSD
-	__hash_node *t_h_node;
-//#endif
-	//bool write_stop_chg=false;
-	//int control_cnt=0;
 	while(1){
 		cl_grap(inf_cond);
-		if(force_write_start ||(write_stop && _this->req_q->size==QDEPTH)){
-			write_stop=false;
-		}else if(sync_apps){
-			write_stop=false;
-		}
-
 		if(mp.stopflag)
 			break;
-		if((_inf_req=q_dequeue(_this->retry_q))){
-
+		if(!(inf_req=get_next_request(_this))){
+			cl_release(inf_cond);
+			continue;
 		}
-#ifdef interface_pq
-		else if(!(_inf_req=q_dequeue(_this->req_rq))){
-			pthread_mutex_lock(&wq_lock);
-			if(_this->retry_q->size || write_stop || !(_inf_req=q_dequeue(_this->req_q))){
-				pthread_mutex_unlock(&wq_lock);
-#endif	
-				cl_release(inf_cond);
-				continue;
-			}
-#ifdef interface_pq
-			else{
-				//req_flag=true;
-			}
 
-			inf_req=(request*)_inf_req;
-//#ifndef KVSSD	
-			if(inf_req->type==FS_SET_T){
-				t_h_node=(__hash_node*)inf_req->__hash_node;
-				__hash_delete_by_idx(app_hash,t_h_node->t_idx);
-			}
-//#endif
-			pthread_mutex_unlock(&wq_lock);
-		}
-#endif
-		inf_req=(request*)_inf_req;
 		inter_cnt++;
 #ifdef CDF
 		inf_req->isstart=true;
@@ -296,9 +238,7 @@ void *p_main(void *__input){
 				inf_req->end_req(inf_req);
 				break;
 		}
-			//inf_req->end_req(inf_req);
 	}
-	printf("bye bye!\n");
 	return NULL;
 }
 
@@ -344,8 +284,8 @@ bool inf_make_req_fromApp(char _type, KEYT _key,uint32_t offset, uint32_t len,PT
 void inf_init(int apps_flag, int total_num){
 	flying=cl_init(QDEPTH,false);
 	inf_cond=cl_init(QDEPTH,true);
-	mp.processors=(processor*)malloc(sizeof(processor)*THREADSIZE);
-	for(int i=0; i<THREADSIZE; i++){
+	mp.processors=(processor*)malloc(sizeof(processor)*1);
+	for(int i=0; i<1; i++){
 		processor *t=&mp.processors[i];
 		pthread_mutex_init(&t->flag,NULL);
 		pthread_mutex_lock(&t->flag);
@@ -355,9 +295,8 @@ void inf_init(int apps_flag, int total_num){
 		q_init(&t->req_q,QSIZE);
 		q_init(&t->req_rq,QSIZE);
 		q_init(&t->retry_q,QSIZE);
-//#ifndef KVSSD
-		app_hash=__hash_init(QSIZE);
-//#endif
+		pthread_mutex_init(&t->qm_lock,NULL);
+		t->qmanager=rb_create();
 #else
 		q_init(&t->req_q,QSIZE);
 #endif
@@ -366,44 +305,14 @@ void inf_init(int apps_flag, int total_num){
 
 
 	pthread_mutex_init(&mp.flag,NULL);
-#ifdef interface_pq
-	pthread_mutex_init(&wq_lock,NULL);
-#endif
-	/*
-	   pthread_mutex_init(&inf_lock,NULL);
-	   pthread_mutex_lock(&inf_lock);*/
-	measure_init(&mt);
-#if defined(posix) || defined(posix_async) || defined(posix_memory)
-	mp.li=&my_posix;
-#elif defined(bdbm_drv)
-	mp.li=&memio_info;
-#elif defined(network)
-	mp.li=&net_info;
-#elif defined(linux_aio)
-	mp.li=&aio_info;
-#endif
-
-#ifdef normal
-	mp.algo=&__normal;
-#elif defined(pftl)
-	mp.algo=&algo_pbase;
-#elif defined(dftl) || defined(ctoc) || defined(dftl_test) || defined(ctoc_batch) || defined(hash_dftl)
-	mp.algo=&__demand;
-#elif defined(Lsmtree)
-	mp.algo=&algo_lsm;
-#elif defined(badblock)
-	mp.algo=&__badblock;
-#endif
-
 	if(apps_flag){
 		bench_init();
 		bench_add(NOR,0,-1,total_num);
-		//sync_apps=true;
 	}
-
+	
+	layer_info_mapping(&mp);
 	mp.li->create(mp.li);
 	mp.algo->create(mp.li,mp.algo);
-
 	bb_checker_start(mp.li);
 }
 
@@ -620,13 +529,11 @@ bool inf_end_req( request * const req){
 			if(req->value) inf_free_valueset(req->value,FS_MALLOC_W);
 			break;
 	}
-	req_cnt_test++;
 
 	if(req->p_req){
 		req->p_end_req(req->seq,req->ppa,req->p_req);
 	}
 	free(req);
-	traffic_cnt_rt++;
 	cl_release(flying);
 	return true;
 }
@@ -639,7 +546,7 @@ void inf_free(){
 	cl_free(flying);
 	printf("result of ms:\n");
 	printf("---\n");
-	for(int i=0; i<THREADSIZE; i++){
+	for(int i=0; i<1; i++){
 		processor *t=&mp.processors[i];
 		//		pthread_mutex_unlock(&inf_lock);
 		while(pthread_tryjoin_np(t->t_id,(void**)&temp)){
@@ -657,8 +564,6 @@ void inf_free(){
 
 	mp.algo->destroy(mp.li,mp.algo);
 	mp.li->destroy(mp.li);
-	printf("all read time:");measure_adding_print(&mt4);
-	printf("write_q_hit:%u\tread_q_hit:%u\tretry_hit:%u\n",write_q_hit,read_q_hit,retry_hit);
 }
 
 void inf_print_debug(){
@@ -737,7 +642,6 @@ bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value,int le
 	req->p_end_req=end_req;
 	
 	cl_grap(flying);
-	traffic_cnt_th++;
 #ifdef CDF
 	req->isstart=false;
 	measure_init(&req->latency_checker);
@@ -757,7 +661,6 @@ bool inf_make_range_query_apps(char type, char *keys, uint8_t key_len,int seq, i
 	
 	cl_grap(flying);
 //	printf("seq:%d\n",req->seq);
-	traffic_cnt_th++;
 #ifdef CDF
 	req->isstart=false;
 	measure_init(&req->latency_checker);

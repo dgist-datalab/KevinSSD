@@ -233,7 +233,7 @@ int rb_find_str(Redblack rb,KEYT key,Redblack *node)
 		x = (c < 0) ? x->left : x->right;
 
 	if (node) *node = x;
-
+	if(!KEYTEST(key,x->key)) c==0;
 	return (x != rb_nil(rb) && c == 0);
 }
 

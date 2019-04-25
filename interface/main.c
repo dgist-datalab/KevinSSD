@@ -61,19 +61,6 @@ int main(int argc,char* argv[]){
 	int cnt=0;
 
 	int locality_check=0,locality_check2=0;
-/*
-	uint32_t _type, _key;
-	while(1){
-		scanf("%d%d",&_type,&_key);
-		if(cnt++%10240==0){
-			printf("%d\n",cnt);
-		}
-		temp.length=PAGESIZE;
-		inf_make_req(_type,_key,&temp,0);
-		if(cnt>37000000)
-			break;
-	}
-*/
 	MeasureTime aaa;
 	measure_init(&aaa);
 	bool tflag=false;
@@ -105,12 +92,6 @@ int main(int argc,char* argv[]){
 #endif
 	}
 
-	if(req_cnt_test==cnt){
-		printf("done!\n");
-	}
-	else{
-		printf("req_cnt_test:cnt -> %d:%d fuck\n",req_cnt_test,cnt);
-	}
 	force_write_start=true;
 	
 	printf("bench finish\n");

@@ -1,0 +1,41 @@
+#ifndef __H_LINFO__
+#define __H_LINFO__
+#include "../include/container.h"
+#include "threading.h"
+//alogrithm layer
+extern struct algorithm __normal;
+extern struct algorithm __badblock;
+extern struct algorithm __demand;
+extern struct algorithm algo_pbase;
+extern struct algorithm algo_lsm;
+
+//device layer
+extern struct lower_info memio_info;
+extern struct lower_info aio_info;
+extern struct lower_info net_info;
+extern struct lower_info my_posix; //posix, posix_memory,posix_async
+
+static void layer_info_mapping(master_processor *mp){
+#if defined(posix) || defined(posix_async) || defined(posix_memory)
+	mp->li=&my_posix;
+#elif defined(bdbm_drv)
+	mp->li=&memio_info;
+#elif defined(network)
+	mp->li=&net_info;
+#elif defined(linux_aio)
+	mp->li=&aio_info;
+#endif
+
+#ifdef normal
+	mp->algo=&__normal;
+#elif defined(pftl)
+	mp->algo=&algo_pbase;
+#elif defined(dftl) || defined(ctoc) || defined(dftl_test) || defined(ctoc_batch) || defined(hash_dftl)
+	mp->algo=&__demand;
+#elif defined(Lsmtree)
+	mp->algo=&algo_lsm;
+#elif defined(badblock)
+	mp->algo=&__badblock;
+#endif
+}
+#endif
