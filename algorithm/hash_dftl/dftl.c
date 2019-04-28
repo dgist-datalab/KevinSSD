@@ -426,13 +426,11 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
 	// Reserve requests that share flying mapping table
 	if (c_table->flying) {
 		c_table->flying_arr[c_table->num_waiting++] = req;
-		bench_algo_end(req);
 		return 1;
 	}
 
 	if (num_flying == max_clean_cache) {
 		waiting_arr[waiting++] = req;
-		bench_algo_end(req);
 		return 1;
 	}
 
@@ -460,7 +458,6 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
 		dummy_vs = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 		temp_req = assign_pseudo_req(MAPPING_R, dummy_vs, req);
 
-		bench_algo_end(req);
 		__demand.li->read(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
 
 		return 1;
@@ -487,7 +484,6 @@ static uint32_t demand_write_flying(request *const req, char req_t) {
 		dummy_vs = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 		temp_req = assign_pseudo_req(MAPPING_R, dummy_vs, req);
 
-		bench_algo_end(req);
 		__demand.li->read(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
 
 		return 1;
@@ -545,7 +541,6 @@ static uint32_t demand_read_flying(request *const req, char req_t) {
 		dummy_vs = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 		temp_req = assign_pseudo_req(MAPPING_R, dummy_vs, req);
 
-		bench_algo_end(req);
 		__demand.li->read(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
 
 		return 1;
@@ -608,7 +603,6 @@ uint32_t __demand_get(request *const req){
 
 	ppa = -1;
 
-	bench_algo_start(req);
 	h_params = (struct hash_params *)req->hash_params;
 	cnt = h_params->cnt;
 	h_params->hash_key = QUADRATIC_PROBING(h_params->hash, cnt) % num_dpage;
@@ -623,7 +617,6 @@ uint32_t __demand_get(request *const req){
 		memcpy(req->value->value, temp->value->value, PAGESIZE);
 		req->type_ftl = 0;
 		req->type_lower = 0;
-		bench_algo_end(req);
 		req->end_req(req);
 		return 1;
 	}
@@ -631,7 +624,6 @@ uint32_t __demand_get(request *const req){
 
 	if (h_params->find == HASH_KEY_NONE) {
 		printf("[ERROR:NOT_FOUND] HASH_KEY_NONE error! %d\n", ++none_err_cnt);
-		bench_algo_end(req);
 		return UINT32_MAX;
 	}
 
@@ -653,7 +645,6 @@ uint32_t __demand_get(request *const req){
 			ppa = p_table[P_IDX];
 			if (ppa == -1) {
 				printf("[ERROR:NOT_FOUND] TABLE_ENTRY_NONE error! %d\n", ++entry_err_cnt);
-				bench_algo_end(req);
 				return UINT32_MAX;
 			}
 			clean_hit_on_read++;
@@ -666,7 +657,6 @@ uint32_t __demand_get(request *const req){
 		} else { // Cache miss
 			if (t_ppa == -1) {
 				printf("[ERROR:NOT_FOUND] TABLE_NONE error! %d\n", ++table_err_cnt);
-				bench_algo_end(req);
 				return UINT32_MAX;
 			}
 
@@ -691,10 +681,8 @@ uint32_t __demand_get(request *const req){
 
 	if (ppa == -1) {
 		printf("[ERROR:NOT_FOUND] TABLE_ENTRY_NONE error2! %d\n", ++entry_err_cnt);
-		bench_algo_end(req);
 		return UINT32_MAX;
 	}
-	bench_algo_end(req);
 
 	// Get data in ppa
 	__demand.li->read(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req));
@@ -724,7 +712,6 @@ uint32_t __demand_set(request *const req){
 	struct hash_params *h_params;
 	int cnt;
 
-	bench_algo_start(req);
 	gc_flag = false;
 	d_flag = false;
 
@@ -953,7 +940,6 @@ data_check:
 
 		if (ppa != -1 && h_params->find != HASH_KEY_SAME) {
 			__demand.li->read(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req));
-			bench_algo_end(req);
 			return 1;
 		}
 	} */
@@ -974,7 +960,6 @@ data_check:
 	req->hash_params = NULL;
 	req->value = NULL; // moved to value field of snode
 
-	bench_algo_end(req);
 	req->end_req(req);
 
 	return 1;
@@ -998,7 +983,6 @@ uint32_t __demand_remove(request *const req) {
 	struct hash_params *h_params;
 	int cnt;
 
-	bench_algo_start(req);
 
 	// Range check
 	h_params = (struct hash_params *)req->hash_params;
@@ -1012,7 +996,6 @@ uint32_t __demand_remove(request *const req) {
 
 #if W_BUFF
 	if (skiplist_delete(write_buffer, req->key) == 0) { // Deleted on skiplist
-		bench_algo_end(req);
 		return 0;
 	}
 #endif
@@ -1038,12 +1021,10 @@ uint32_t __demand_remove(request *const req) {
 
 		// Validity check by t_ppa
 		if (t_ppa == -1) {
-			bench_algo_end(req);
 			return UINT32_MAX;
 		}
 
 		if (mem_arr[D_IDX].mem_p[P_IDX] == -1) { // Tricky way to filter invalid query
-			bench_algo_end(req);
 			return UINT32_MAX;
 		}
 
@@ -1072,7 +1053,6 @@ uint32_t __demand_remove(request *const req) {
 
 	// Validity check by ppa
 	if (ppa == -1) { // case of no data written
-	bench_algo_end(req);
 	return UINT32_MAX;
 	}
 
@@ -1096,7 +1076,6 @@ uint32_t __demand_remove(request *const req) {
 #endif
 	}
 
-	bench_algo_end(req);
 	return 0;
 }
 
@@ -1286,6 +1265,7 @@ void *demand_end_req(algo_req* input){
 					}
 
 				} else {
+					res->type_ftl = h_params->cnt + 1;
 					free(h_params);
 
 					data_r++; trig_data_r++;

@@ -31,8 +31,6 @@ static request *split_range_req(request *const req, KEYT key, value_set *value, 
 	ret->p_req=NULL;
 	ret->p_end_req=NULL;
 #ifndef USINGAPP
-	ret->algo.isused=false;
-	ret->lower.isused=false;
 	ret->mark=req->mark;
 #endif
 

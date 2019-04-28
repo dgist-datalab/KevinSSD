@@ -114,7 +114,7 @@ static inline char KEYTEST(KEYT a, KEYT b){
 #define QDEPTH (128)
 
 #define THPOOL
-#define NUM_THREAD 10
+#define NUM_THREAD 64
 
 #define TCP 1
 //#define IP "10.42.0.2"
