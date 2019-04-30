@@ -360,13 +360,13 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 		case FS_SET_T:
 #ifdef DVALUE
 			req->value=inf_get_valueset(NULL,FS_SET_T,len+key.len+sizeof(key.len));
-
-			memcpy(req->value->value,&key.len,sizeof(key.len));
-			memcpy(&req->value->value[sizeof(key.len)],key.key,key.len);
 			memcpy(&req->value->value[key.len+sizeof(key.len)],_value,len);
 #else
 			req->value=inf_get_valueset(NULL,FS_SET_T,PAGESIZE);
 #endif
+			memcpy(req->value->value,&key.len,sizeof(key.len));
+			memcpy(&req->value->value[sizeof(key.len)],key.key,key.len);
+
 			break;
 		case FS_GET_T:
 			req->value=inf_get_valueset(NULL,FS_GET_T,PAGESIZE);

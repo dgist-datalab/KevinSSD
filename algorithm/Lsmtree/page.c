@@ -812,6 +812,9 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 	for(int i=0; i<size; i++){
 		if(gn[i]==NULL) continue;
 		gc_node *target=gn[i];
+		if(target->ppa==278528){
+			printf("break\n");
+		}
 #ifdef LEVELCACHING
 		if(in->idx<LEVELCACHING){
 			keyset *find=LSM.lop->cache_find(in,target->lpa);
@@ -878,7 +881,9 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			int temp_i=i;
 			for(int k=temp_i; k<size; k++){
 				target=gn[k];
-
+				if(target->ppa==278528){
+					printf("break\n");
+				}
 				if(target==NULL) continue;
 #ifdef NOCPY
 				keyset *finded=LSM.lop->find_keyset((char*)data->nocpy_table,target->lpa);
@@ -1008,7 +1013,9 @@ void gc_data_header_update_add(gc_node **gn,int size, int target_level, char ord
 				level_cnt[picked]++;
 				total_gc[idx++]=min;
 			}
-			
+			for(int k=0; k<idx; k++){
+				printf("%.*s [%d]\n",total_gc[k]->lpa.len,total_gc[k]->lpa.key,total_gc[k]->ppa);
+			}
 			gc_data_header_update(total_gc,total_size,i);
 
 			for(int j=0; j<wrapper->cnt[i];j++){

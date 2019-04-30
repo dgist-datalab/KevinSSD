@@ -135,7 +135,6 @@ bool compaction_init(){
 #ifdef WRITEOPTIMIZE
 	lsm_io_sched_init();
 #endif
-
 	return true;
 }
 
@@ -182,8 +181,6 @@ void compaction_assign(compR* req){
 #endif
 		for(int i=0; i<CTHREAD; i++){
 			compP* proc=&compactor.processors[i];
-			req->seq=seq_num++;
-
 			pthread_mutex_lock(&compaction_req_lock);
 			if(proc->q->size==0){
 				if(q_enqueue((void*)req,proc->q)){
@@ -360,7 +357,10 @@ void *compaction_main(void *input){
 		if(pthread_self()==compactor.processors[i].t_id){
 			_this=&compactor.processors[i];
 		}
-	}
+	}		
+	cpu_set_t cpuset;
+	CPU_ZERO(&cpuset);	
+	CPU_SET(1,&cpuset);
 	while(1){
 #ifdef LEAKCHECK
 		sleep(2);
@@ -368,12 +368,13 @@ void *compaction_main(void *input){
 		pthread_mutex_lock(&compaction_req_lock);
 		if(_this->q->size==0){
 			pthread_cond_wait(&compaction_req_cond,&compaction_req_lock);
+			cpu_set_t cpuset;
+			CPU_ZERO(&cpuset);
+			CPU_SET(1,&cpuset);
 		}
 		_req=q_pick(_this->q);
 		pthread_mutex_unlock(&compaction_req_lock);
-		cpu_set_t cpuset;
-		CPU_ZERO(&cpuset);
-		CPU_SET(1,&cpuset);
+
 		pthread_setaffinity_np(current_thread,sizeof(cpu_set_t),&cpuset);
 
 		if(compactor.stopflag)
@@ -388,7 +389,7 @@ void *compaction_main(void *input){
 		if(req->fromL==-1){
 			while(!gc_check(DATA,false)){
 			}
-			lnode.mem=LSM.temptable;
+			lnode.mem=req->temptable;
 			compaction_data_write(&lnode);
 			compaction_selector(NULL,LSM.disk[0],&lnode,&LSM.level_lock[0]);
 		}
@@ -409,18 +410,16 @@ void *compaction_main(void *input){
 		free(lnode.start.key);
 		free(lnode.end.key);
 
-		pthread_mutex_lock(&LSM.templock);
-		skiplist_free(LSM.temptable);
-		LSM.temptable=NULL;
-		pthread_mutex_unlock(&LSM.templock);
-
-		free(req);
+		skiplist_free(req->temptable);
 		bench_custom_start(write_opt_time,1);
-		lsm_io_sched_flush();	
 #ifdef WRITEWAIT
-		LSM.li->lower_flying_req_wait();
-		pthread_mutex_unlock(&compaction_flush_wait);
+		if(req->last){
+			lsm_io_sched_flush();	
+			LSM.li->lower_flying_req_wait();
+			pthread_mutex_unlock(&compaction_flush_wait);
+		}
 #endif
+		free(req);
 		bench_custom_A(write_opt_time,1);
 		q_dequeue(_this->q);
 		bench_custom_A(write_opt_time,9);
@@ -430,7 +429,26 @@ void *compaction_main(void *input){
 }
 
 void compaction_check(KEYT key, bool force){
+//	if(!(force || unlikely(LSM.memtable->all_length+KEYLEN(key)+sizeof(uint16_t)>PAGESIZE-KEYBITMAP || LSM.memtable->size >= KEYBITMAP/sizeof(uint16_t)))) return
+	if(LSM.memtable->size<LSM.FLUSHNUM) return;
 	compR *req;
+	bool last;
+	do{
+		last=0;
+		skiplist *t=skiplist_cutting_header(LSM.memtable);
+		if(t==LSM.memtable) last=1;
+		req=(compR*)malloc(sizeof(compR));
+		req->fromL=-1;
+		req->last=last;
+		req->temptable=t;
+		compaction_assign(req);
+	}while(!last);
+
+#ifdef WRITEWAIT
+	LSM.memtable=skiplist_init();
+	pthread_mutex_lock(&compaction_flush_wait);
+#endif
+	/*
 #ifdef KVSSD
 	if(force || unlikely(LSM.memtable->all_length+KEYLEN(key)+sizeof(uint16_t)>PAGESIZE-KEYBITMAP || LSM.memtable->size >= KEYBITMAP/sizeof(uint16_t)))
 #else
@@ -439,7 +457,6 @@ void compaction_check(KEYT key, bool force){
 	{
 		req=(compR*)malloc(sizeof(compR));
 		req->fromL=-1;
-		req->toL=0;
 	//	while(LSM.temptable){}
 
 		LSM.temptable=LSM.memtable;
@@ -448,7 +465,7 @@ void compaction_check(KEYT key, bool force){
 #ifdef WRITEWAIT
 		pthread_mutex_lock(&compaction_flush_wait);
 #endif
-	}
+	}*/
 }
 
 void compaction_htable_read(run_t *ent,PTR* value){

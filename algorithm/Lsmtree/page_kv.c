@@ -131,9 +131,9 @@ int gc_header(uint32_t tbn){
 	gc_trim_segment(HEADER,target->ppa);
 	return 0;
 }
-//static int gc_data_kv;
+static int gc_data_kv;
 int gc_data(uint32_t tbn){
-	//printf("gc_data_kv:%d, %u\n",gc_data_kv++,tbn);
+	printf("gc_data_kv:%d, %u\n",gc_data_kv++,tbn);
 	block *target=&bl[tbn];
 	char order;
 	if(tbn%BPS==0)	order=0;

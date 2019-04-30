@@ -452,7 +452,7 @@ void bench_reap_data(request *const req,lower_info *li){
 	}
 #ifdef CDF
 	int slot_num=req->latency_checker.micro_time/TIMESLOT;
-	if(req->type==FS_GET_T){
+	if(req->type==FS_GET_T || req->type==FS_RANGEGET_T){
 		if(slot_num>=1000000/TIMESLOT){
 			_data->read_cdf[1000000/TIMESLOT]++;
 		}
@@ -470,7 +470,7 @@ void bench_reap_data(request *const req,lower_info *li){
 	}
 #endif
 	if(_m->empty){
-		if(req->type==FS_GET_T){
+		if(req->type==FS_GET_T || req->type==FS_RANGEGET_T){
 			_m->read_cnt++;
 			_data->read_cnt++;
 		}
@@ -479,6 +479,7 @@ void bench_reap_data(request *const req,lower_info *li){
 			_data->write_cnt++;
 		}
 		_m->r_num++;
+		_m->m_num++;
 		pthread_mutex_unlock(&bench_lock);
 		return;
 	}

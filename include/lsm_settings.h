@@ -48,7 +48,7 @@ typedef struct OOBT{
 #define KEYSETSIZE 8
 #define KEYSIZE ()
 #define CTHREAD 1
-#define CQSIZE 1
+#define CQSIZE 16
 #define FTHREAD 1
 #define FQSIZE 2
 #define RQSIZE 1024

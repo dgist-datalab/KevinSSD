@@ -15,8 +15,8 @@
 	}while(0)
 */
 #define PROGRESS
-//#define LOWER_FILE_NAME "./data/simulator.data"
-#define LOWER_FILE_NAME "/dev/robusta"
+#define LOWER_FILE_NAME "./data/simulator.data"
+//#define LOWER_FILE_NAME "/dev/robusta"
 #define BENCH_LOG "./result/"
 
 #define K (1024)
@@ -40,7 +40,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 16L
+#define GIGAUNIT 10L
 #define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
@@ -114,7 +114,7 @@ static inline char KEYTEST(KEYT a, KEYT b){
 #define QDEPTH (128)
 
 #define THPOOL
-#define NUM_THREAD 10
+#define NUM_THREAD 16
 
 #define TCP 1
 //#define IP "10.42.0.2"

@@ -63,7 +63,7 @@ typedef struct length_bucket{
 typedef struct skiplist{
 	uint8_t level;
 	uint64_t size;
-#if defined(KVSSD)
+#if defined(KVSSD) && defined(Lsmtree)
 	uint32_t all_length;
 #endif
 	snode *header;
@@ -88,9 +88,9 @@ skiplist *skiplist_merge(skiplist *src,skiplist *des);
 snode *skiplist_insert_wP(skiplist*,KEYT,ppa_t,bool);//with ppa;
 snode *skiplist_insert_existIgnore(skiplist *, KEYT,ppa_t,bool isvalid); //insert skiplist, if key exists, input data be ignored
 value_set **skiplist_make_valueset(skiplist*,struct level *from, KEYT *start, KEYT *end);
-skiplist *skiplist_cut(skiplist*,uint32_t size,KEYT limit, htable *,float fpr);
 snode *skiplist_general_insert(skiplist*,KEYT,void *,void (*overlap)(void*));
 snode *skiplist_pop(skiplist *);
+skiplist *skiplist_cutting_header(skiplist *);
 #endif
 snode *skiplist_at(skiplist *,int idx);
 int skiplist_delete(skiplist*,KEYT); //delete by key, return 0:normal -1:empty -2:no key
@@ -99,7 +99,8 @@ void skiplist_clear(skiplist *list); //clear all snode in skiplist and  reinit s
 void skiplist_container_free(skiplist *list);
 sk_iter* skiplist_get_iterator(skiplist *list); //get read only iterator
 snode *skiplist_get_next(sk_iter* iter); //get next snode by iterator
-skiplist *skiplist_divide(skiplist *in, snode *target);
+skiplist *skiplist_divide(skiplist *in, snode *target);//target is included in result
+
 #ifdef DVALUE
 int bucket_page_cnt(l_bucket *);
 #endif

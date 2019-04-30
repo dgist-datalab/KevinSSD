@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=linux_aio
+TARGET_LOWER=posix
 TARGET_ALGO=Lsmtree
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
@@ -22,7 +22,7 @@ COMMONFLAGS=\
 			-DKVSSD\
 			-DSLC\
 			-Wno-unused-but-set-variable\
--O3\
+#-O3\
 #			-DWRITESYNC\
 #			-DCHECKINGTIME\
 
@@ -127,7 +127,7 @@ debug_driver: ./interface/main.c libdriver_d.a
 driver: ./interface/main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
-kv_driver: ./interface/KV_main.c libdriver.a
+kv_driver: ./interface/Ytest_main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 range_driver: ./interface/range_test_main.c libdriver.a

@@ -120,7 +120,7 @@ int main(int argc, char *argv[]){
 //		return 1;
 	}
 	inf_init(1,1000000);
-	FILE *fp = fopen("ycsb_load_1M", "r");
+	FILE *fp = fopen("ycsb_load_gc", "r");
 	netdata *data;
 	char temp[8192]={0,};
 	char data_temp[6];

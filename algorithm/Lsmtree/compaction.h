@@ -14,8 +14,8 @@ struct skiplist;
 struct htable;
 struct compaction_req{
 	int fromL;
-	int toL;
-	int seq;
+	skiplist *temptable;
+	bool last;
 };
 
 typedef struct leveling_node{

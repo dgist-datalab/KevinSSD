@@ -406,7 +406,9 @@ uint32_t lsm_set(request * const req){
 	if(LSM.memtable->size==LSM.KEYNUM)
 		return 1;
 	else*/
-	if(unlikely(LSM.memtable->all_length+(KEYLEN(req->key)+sizeof(uint16_t))>PAGESIZE-KEYBITMAP)){
+
+//	if(unlikely(LSM.memtable->all_length+(KEYLEN(req->key)+sizeof(uint16_t))>PAGESIZE-KEYBITMAP)){
+	if(LSM.memtable->size==LSM.FLUSHNUM){
 		force=1;
 		req->end_req(req); //end write
 		return 1;

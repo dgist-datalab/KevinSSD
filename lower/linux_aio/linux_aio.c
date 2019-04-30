@@ -186,7 +186,7 @@ void *aio_refresh(lower_info *li){
 }
 void *aio_destroy(lower_info *li){
 	for(int i=0; i<LREQ_TYPE_NUM;i++){
-		printf("%s %lu\n",bench_lower_type(i),li->req_type_cnt[i]);
+		fprintf(stderr,"%s %lu\n",bench_lower_type(i),li->req_type_cnt[i]);
 	}
 	close(_fd);
 

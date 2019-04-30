@@ -89,9 +89,7 @@ void *posix_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 		printf("dmatag -1 error!\n");
 		abort();
 	}
-	//bench_lower_w_start(&my_posix);
-	if(req->parents)
-		bench_lower_start(req->parents);
+
 	pthread_mutex_lock(&fd_lock);
 
 	//if(((lsm_params*)req->params)->lsm_type!=5){
@@ -103,9 +101,6 @@ void *posix_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 	}
 //	}
 	pthread_mutex_unlock(&fd_lock);
-	if(req->parents)
-		bench_lower_end(req->parents);
-	//bench_lower_w_end(&my_posix);
 	req->end_req(req);
 /*
 	if(async){
@@ -130,9 +125,6 @@ void *posix_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 		printf("dmatag -1 error!\n");
 		abort();
 	}
-	bench_lower_r_start(&my_posix);
-	if(req->parents)
-		bench_lower_start(req->parents);
 
 	pthread_mutex_lock(&fd_lock);
 	//if(((lsm_params*)req->params)->lsm_type!=4){
@@ -147,9 +139,6 @@ void *posix_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 	}
 	pthread_mutex_unlock(&fd_lock);
 
-	if(req->parents)
-		bench_lower_end(req->parents);
-	bench_lower_r_end(&my_posix);
 	req->end_req(req);
 	/*
 	if(async){
@@ -162,7 +151,6 @@ void *posix_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 }
 
 void *posix_trim_block(uint32_t PPA, bool async){
-	bench_lower_t(&my_posix);
 	char *temp=(char *)malloc(my_posix.SOB);
 	memset(temp,0,my_posix.SOB);
 	pthread_mutex_lock(&fd_lock);

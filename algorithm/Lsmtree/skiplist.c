@@ -419,8 +419,29 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overla
 		list->size++;
 	}
 	return x;
-
 }
+
+skiplist *skiplist_cutting_header(skiplist *in){
+	static uint32_t num_limit=KEYBITMAP/sizeof(uint16_t);
+	static uint32_t size_limit=PAGESIZE-KEYBITMAP;
+	if(in->all_length<size_limit || in->size <num_limit) return in;
+
+	uint32_t length=0;
+	uint32_t idx=0;
+	snode *temp;
+	for_each_sk(temp,in){
+		length+=KEYLEN(temp->key);
+		idx++;
+		if(length>=size_limit || idx>=num_limit ) break;
+	}
+	skiplist *res=skiplist_divide(in,temp);
+	res->size=idx;
+	res->all_length=length;
+	in->size-=idx;
+	in->all_length-=length;
+	return res;
+}
+
 #endif
 snode *skiplist_insert_iter(skiplist *list,KEYT key,ppa_t ppa){
 	snode *update[MAX_L+1];
@@ -908,11 +929,6 @@ void skiplist_print(skiplist *skip){
 
 skiplist *skiplist_divide(skiplist *in, snode *target){
 	skiplist *res=skiplist_init();
-
-	
-	//static int sd_cnt=0;
-//	printf("sd_cnt %d\n",sd_cnt++);
-	
 	if(target==in->header){
 		skiplist swap;
 		memcpy(&swap,in,sizeof(skiplist));
@@ -977,3 +993,4 @@ uint32_t skiplist_memory_size(skiplist *skip){
 	}
 	return res;
 }
+
