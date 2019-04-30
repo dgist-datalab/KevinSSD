@@ -58,6 +58,7 @@ int gc_header(uint32_t tbn){
 	for(uint32_t i=0; i<algo_lsm.li->PPB; i++){
 		if(tables[i]==NULL) continue;
 		uint32_t t_ppa=start+i;
+
 		uint32_t n_ppa;
 #ifdef NOCPY
 		KEYT *lpa=LSM.lop->get_lpa_from_data((char*)tables[i]->nocpy_table,true);
@@ -69,9 +70,6 @@ int gc_header(uint32_t tbn){
 		bool checkdone=false;
 		bool shouldwrite=false;
 		/*find target_level from level*/
-		if(KEYCONSTCOMP(*lpa,"user1002699360563762793")==0){
-			printf("break!\n");
-		}
 		for(int j=0; j<LEVELN; j++){
 			entries=LSM.lop->find_run(LSM.disk[j],*lpa);
 			if(entries==NULL) continue;
@@ -133,7 +131,6 @@ int gc_header(uint32_t tbn){
 }
 static int gc_data_kv;
 int gc_data(uint32_t tbn){
-	printf("gc_data_kv:%d, %u\n",gc_data_kv++,tbn);
 	block *target=&bl[tbn];
 	char order;
 	if(tbn%BPS==0)	order=0;
@@ -246,7 +243,6 @@ int gc_data(uint32_t tbn){
 			}
 		}
 		uint64_t t_ppa=start*NPCINPAGE+j;//for DVALUE
-
 		KEYT *lpa=LSM.lop->get_lpa_from_data(&((char*)tables[i]->sets)[PIECE*(t_ppa%NPCINPAGE)],false);
 #else
 		uint32_t t_ppa=PBITGET(start+i);//for normal

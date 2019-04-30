@@ -580,9 +580,6 @@ run_t *array_p_merger_cutter(skiplist *skip,run_t **src, run_t **org){
 		body=issrc?data_from_run(src[0]):data_from_run(org[0]);
 		bitmap=(uint16_t*)body;
 		for_each_header_start(idx,key,ppa_ptr,bitmap,body)
-			if(*ppa_ptr==278528){
-				printf("[278528] %.*s ->  src\n",key.len,key.key);
-			}
 			skiplist_insert_existIgnore(skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
 		for_each_header_end
 		return NULL;
@@ -591,9 +588,6 @@ run_t *array_p_merger_cutter(skiplist *skip,run_t **src, run_t **org){
 		body=data_from_run(org[0]);
 		bitmap=(uint16_t*)body;
 		for_each_header_start(idx,key,ppa_ptr,bitmap,body)
-			if(*ppa_ptr==278528){
-				printf("[278528] %.*s org\n",key.len,key.key);
-			}
 			skiplist_insert_wP(skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
 		for_each_header_end	
 	}	

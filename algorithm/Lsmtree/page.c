@@ -310,7 +310,7 @@ void gc_data_write(uint64_t ppa,htable_t *value,bool isdata){
 
 	params->lsm_type=isdata?GCDW:GCHW;
 #ifdef NOCPY
-	params->value=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
+	params->value=inf_get_valueset((PTR)(value)->sets,FS_MALLOC_W,PAGESIZE);
 	if(!isdata){
 		nocpy_copy_from_change((char*)value->nocpy_table,ppa);
 	}
@@ -553,20 +553,13 @@ bool gc_check(uint8_t type, bool force){
 		
 		if(once){
 			once=false;
-	//		static int header_cnt=0;
 			switch(type){
 				case HEADER:
-					printf("header gc:%d\n",header_gc_cnt++);
+					//printf("header gc:%d\n",header_gc_cnt++);
 					target_p=&header_m;
 					break;
 				case DATA:
-					//LSM.lop->all_print();
-					printf("data gc:%d %d\n",data_gc_cnt,false);
-
-					//compaction_force_levels(1);
-
-					//gc_compaction_checking();
-					//compaction_force();
+					//printf("data gc:%d %d\n",data_gc_cnt,false);
 					target_p=&data_m;
 					data_gc_cnt++; 
 					break;
@@ -768,9 +761,6 @@ void invalidate_DPPA(ppa_t input){
 	bn=page/algo_lsm.li->PPB;
 	idx=input%(algo_lsm.li->PPB*(PAGESIZE/PIECE));
 
-	if(input==13172621){
-		printf("invalidating 13172621!!\n");
-	}
 	bl[bn].bitset[idx/8]|=(1<<(idx%8));
 	bl[bn].invalid_n++;
 	/*
@@ -807,14 +797,10 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 	level *in=LSM.disk[target_level];
 	htable_t **datas=(htable_t**)malloc(sizeof(htable_t*)*in->m_num);
 	run_t **entries;
-	printf("gc\n");
 	//bool debug=false;
 	for(int i=0; i<size; i++){
 		if(gn[i]==NULL) continue;
 		gc_node *target=gn[i];
-		if(target->ppa==278528){
-			printf("break\n");
-		}
 #ifdef LEVELCACHING
 		if(in->idx<LEVELCACHING){
 			keyset *find=LSM.lop->cache_find(in,target->lpa);
@@ -881,9 +867,6 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			int temp_i=i;
 			for(int k=temp_i; k<size; k++){
 				target=gn[k];
-				if(target->ppa==278528){
-					printf("break\n");
-				}
 				if(target==NULL) continue;
 #ifdef NOCPY
 				keyset *finded=LSM.lop->find_keyset((char*)data->nocpy_table,target->lpa);
@@ -1012,9 +995,6 @@ void gc_data_header_update_add(gc_node **gn,int size, int target_level, char ord
 				}
 				level_cnt[picked]++;
 				total_gc[idx++]=min;
-			}
-			for(int k=0; k<idx; k++){
-				printf("%.*s [%d]\n",total_gc[k]->lpa.len,total_gc[k]->lpa.key,total_gc[k]->ppa);
 			}
 			gc_data_header_update(total_gc,total_size,i);
 

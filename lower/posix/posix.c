@@ -75,12 +75,16 @@ void *posix_destroy(lower_info *li){
 	return NULL;
 }
 
+uint32_t latest_write_ppa;
 void *posix_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	/*
 	if(PPA>6500)
 		printf("PPA : %u\n", PPA);
 	*/
 	uint8_t t_type=test_type(req->type);
+	if(t_type==DATAW){
+		latest_write_ppa=PPA;
+	}
 	if(t_type < LREQ_TYPE_NUM){
 		my_posix.req_type_cnt[t_type]++;
 	}

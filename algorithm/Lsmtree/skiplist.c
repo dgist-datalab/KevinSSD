@@ -660,7 +660,6 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 			res[res_idx]->ppa=LSM.lop->moveTo_fr_page(from);//real physical index
 			/*checking new ppa in skiplist_valuset*/
 #ifdef DVALUE
-			//oob[res[res_idx]->ppa/(PAGESIZE/PIECE)]=PBITSET(target->key,true);//OOB setting
 			PBITSET(res[res_idx]->ppa,PAGESIZE/PIECE-j);
 #else
 			oob[res[res_idx]->ppa]=PBITSET(target->key,(uint8_t)1);

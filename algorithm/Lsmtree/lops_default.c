@@ -25,16 +25,6 @@ ppa_t def_moveTo_fr_page( level* in){
 		in->now_block->hn_ptr=llog_insert(in->h,(void*)in->now_block);
 	//	printf("header:%p\n",in->h->head);
 #endif
-/*
-#ifdef DVALUE
-		block_meta_init(in->now_block);
-		in->now_block->ppage_array=(uint32_t*)malloc(sizeof(uint32_t)*(_PPB*(PAGESIZE/PIECE)));
-		int _idx=in->now_block->ppa*(PAGESIZE/PIECE);
-		for(int i=0; i<_PPB*(PAGESIZE/PIECE); i++){
-			in->now_block->ppage_array[i]=_idx+i;
-		}
-#endif
- */
 	}
 #ifdef DVALUE
 	else{

@@ -90,9 +90,6 @@ void processing_flush(void *param){
 		if(params->value->dmatag==-1){
 			abort();
 		}
-		if(data_sets[i]->ppa==278528){
-			printf("break!\n");
-		}
 		LSM.li->write(data_sets[i]->ppa,PAGESIZE,params->value,ASYNC,lsm_req);
 	}
 	free(data_sets);
