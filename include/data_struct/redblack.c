@@ -375,7 +375,9 @@ Redblack rb_insert_str(Redblack rb,	KEYT key,void *item)
 
 	z = (Redblack) malloc(sizeof(struct redblack));
 	if (!(r = z)) return NULL;
-	z->key = key;
+	z->key.len = key.len;
+	z->key.key = (char *)malloc(z->key.len);
+	memcpy(z->key.key, key.key, z->key.len);
 	z->item = item;
 	z->parent = y;
 	z->left  =
@@ -627,6 +629,7 @@ void rb_delete(Redblack node)
 	node->prev->next = node->next;
 #endif
 
+	free(node->key.key);
 	free(node);
 
 	if (!balance || issentinel(sib))
