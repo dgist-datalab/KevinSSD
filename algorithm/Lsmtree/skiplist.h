@@ -63,7 +63,7 @@ typedef struct length_bucket{
 typedef struct skiplist{
 	uint8_t level;
 	uint64_t size;
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD)
 	uint32_t all_length;
 #endif
 	snode *header;

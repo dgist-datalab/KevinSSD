@@ -1,14 +1,35 @@
 #include "dftl.h"
-#include "../../include/data_struct/hash_kv.h"
+#include "../../include/utils/cond_lock.h"
 
-extern __hash *app_hash;
+#define RANGE_QUERY_LIMITER
+#define RQL_SPINLOCK 0
 
-volatile int num_range_flying;
 
-static request *split_range_req(request *const req, KEYT key, value_set *value, int query_num) {
+#ifdef RANGE_QUERY_LIMITER
+#if RQL_SPINLOCK
+volatile int rql_cur, rql_max;
+pthread_mutex_t rql_mutex;
+#else
+cl_lock *rql_cond;
+#endif
+#endif
+
+int rq_create() {
+#ifdef RANGE_QUERY_LIMITER
+#if RQL_SPINLOCK
+	rql_cur = 0;
+	rql_max = QSIZE;
+	pthread_mutex_init(&rql_mutex, NULL);
+#else
+	rql_cond = cl_init(QSIZE, false);
+#endif
+#endif
+	return 0;
+}
+
+static request *split_range_req(request *const req, KEYT key, value_set *value) {
 	request *ret = (request *)malloc(sizeof(request));
 
-	//ret->type = FS_RANGEGET_T;
 	ret->type = FS_GET_T;
 	ret->key = key;
 	ret->value = value;
@@ -16,7 +37,7 @@ static request *split_range_req(request *const req, KEYT key, value_set *value, 
 
 	ret->multi_value = NULL;
 	ret->multi_key = NULL;
-	ret->num = query_num;
+	ret->num = 1;
 	ret->cpl = 0;
 
 	ret->end_req=range_end_req;
@@ -34,23 +55,20 @@ static request *split_range_req(request *const req, KEYT key, value_set *value, 
 	ret->mark=req->mark;
 #endif
 
-#ifdef hash_dftl
 	ret->hash_params = NULL;
 	ret->parents = req;
-#endif
 
 	return ret;
 }
 
 uint32_t demand_range_query(request *const req) {
+	int i;
 	KEYT start_key = req->key;
 	int query_len = req->num;
+	int valid_query_len;
+	int nr_issued_query;
 
 	int inf_write_q_hit = 0;
-
-	// Debug
-	static int range_cnt = 0;
-	//printf("range_query %d, len: %d\n", ++range_cnt, req->num);
 
 	request **range_req = (request **)malloc(sizeof(request *) * query_len);
 	KEYT *range_key = (KEYT *)malloc(sizeof(KEYT) * query_len);
@@ -63,8 +81,10 @@ uint32_t demand_range_query(request *const req) {
 		abort();
 	}
 
-	for (int i = 0; i < query_len; i++) {
-		void *_data = qmanager_find_by_algo(rb_node->key);
+	for (i = 0; i < query_len && rb_node != rb_tree; i++, rb_node = rb_next(rb_node)) {
+		KEYT _key = rb_node->key;
+		void *_data = qmanager_find_by_algo(_key);
+
 		if (_data) {
 			request *d_req = (request *)_data;
 			memcpy(req->multi_value[i]->value, d_req->value->value, PAGESIZE);
@@ -75,19 +95,16 @@ uint32_t demand_range_query(request *const req) {
 			inf_write_q_hit++;
 
 		} else {
-			range_key[i] = rb_node->key;
-		}
-
-		rb_node = rb_next(rb_node);
-		if (rb_node == rb_tree) { // Leaf node
-			query_len = i+1;
-			break;
+			range_key[i].len = _key.len;
+			range_key[i].key = (char *)malloc(_key.len);
+			memcpy(range_key[i].key, _key.key, _key.len);
 		}
 	}
 	pthread_mutex_unlock(&rb_lock);
 
-	volatile int query_num = query_len - inf_write_q_hit;
-	req->cpl += req->num - query_num;
+	valid_query_len = i;
+	nr_issued_query = valid_query_len - inf_write_q_hit;
+	req->cpl += query_len - nr_issued_query;
 
 	if (req->cpl == req->num) {
 		free(range_req);
@@ -96,33 +113,25 @@ uint32_t demand_range_query(request *const req) {
 		return 0;
 	}
 
-	for (int i = 0; i < query_len; i++) {
-		//printf("issue range[%d] on key:%.*s\n", i, range_key[i].len, range_key[i].key);
-		if (range_key[i].len != 0) {
-			//printf("issue range[%d] on key:%.*s %d\n", i, range_key[i].len, range_key[i].key, req->cpl);
-			range_req[i] = split_range_req(req, range_key[i], req->multi_value[i], query_num);
+	for (i = 0; i < valid_query_len; i++) {
+		if (range_key[i].len != 0) { // filter hit requests
+#ifdef RANGE_QUERY_LIMITER
+#if RQL_SPINLOCK
+			while (rql_cur == rql_max) {}
+			pthread_mutex_lock(&rql_mutex);
+			rql_cur++;
+			pthread_mutex_unlock(&rql_mutex);
+#else
+			cl_grap(rql_cond);
+#endif
+#endif
+			range_req[i] = split_range_req(req, range_key[i], req->multi_value[i]);
 			demand_get(range_req[i]);
 		}
 	}
 
-	/*while (1) {
-		pthread_mutex_lock(&cpl_lock);
-		if (req->num == req->cpl) {
-			pthread_mutex_unlock(&cpl_lock);
-			break;
-		}
-		pthread_mutex_unlock(&cpl_lock);
-		request *fly_req = (request *)q_dequeue(range_q);
-		if (!fly_req) continue;
-
-		demand_get(fly_req);
-	}*/
-
 	free(range_req);
 	free(range_key);
-
-	//printf("end req %.*s \n", req->key.len, req->key.key);
-	//req->end_req(req);
 
 	return 0;
 }
@@ -133,24 +142,25 @@ bool range_end_req(request *range_req) {
 
 	if (range_req->type == FS_NOTFOUND_T) {
 		printf("[ERROR] Not found on Range Query! %.*s\n", range_req->key.len, range_req->key.key);
-		abort();
+		//abort();
 	}
 
-//	printf("cpl %d key %.*s\n", req->cpl+1, range_req->key.len, range_req->key.key);
-
-	//free(range_req);
-
-	//pthread_mutex_lock(&cpl_lock);
 	req->cpl++;
 	if (req->num == req->cpl) {
-		//pthread_mutex_unlock(&cpl_lock);
-		//printf("end start_key:%.*s\n", req->key.len, req->key.key);
 		req->end_req(req);
-	} else {
-		//pthread_mutex_unlock(&cpl_lock);
 	}
 
-	//free(range_req->key.key);
+#ifdef RANGE_QUERY_LIMITER
+#if RQL_SPINLOCK
+	pthread_mutex_lock(&rql_mutex);
+	rql_cur--;
+	pthread_mutex_unlock(&rql_mutex);
+#else
+	cl_release(rql_cond);
+#endif
+#endif
+
+	free(range_req->key.key);
 	free(range_req);
 	return NULL;
 }

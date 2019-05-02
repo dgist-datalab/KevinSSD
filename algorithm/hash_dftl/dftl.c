@@ -1,8 +1,9 @@
 #include "dftl.h"
 #include "../../bench/bench.h"
-#include "sha256.h"
+#include "../../include/utils/sha256.h"
 
 #define QUADRATIC_PROBING(h,c) ((h)+(c)+(c)*(c))
+#define LINEAR_PROBING(h,c) (h+c)
 
 algorithm __demand = {
 	.create  = demand_create,
@@ -90,7 +91,6 @@ int hash_collision_cnt[1024];
 int cnt_sum;
 int data_written;
 
-
 int32_t data_r;
 int32_t trig_data_r;
 int32_t data_w;
@@ -146,12 +146,13 @@ static void print_algo_log() {
 }
 
 
+extern int rq_create();
 uint32_t demand_create(lower_info *li, algorithm *algo){
 	/* Initialize pre-defined values by using macro */
 	num_page        = _NOP;
 	num_block       = _NOS;
 	p_p_b           = _PPS;
-	num_tblock      = ((num_block / EPP) + ((num_block % EPP != 0) ? 1 : 0)) * 2;
+	num_tblock      = ((num_block / EPP) + ((num_block % EPP != 0) ? 1 : 0)) * 4;
 	num_tpage       = num_tblock * p_p_b;
 	num_dblock      = num_block - num_tblock - 2;
 	num_dpage       = num_dblock * p_p_b;
@@ -244,6 +245,8 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	rb_tree = rb_create();
 	pthread_mutex_init(&rb_lock, NULL);
 	pthread_mutex_init(&cpl_lock, NULL);
+
+	rq_create();
 
 #if W_BUFF
 	write_buffer = skiplist_init();
