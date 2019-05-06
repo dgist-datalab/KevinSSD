@@ -15,8 +15,8 @@
 	}while(0)
 */
 #define PROGRESS
-#define LOWER_FILE_NAME "./data/simulator.data"
-//#define LOWER_FILE_NAME "/dev/robusta"
+//#define LOWER_FILE_NAME "./data/simulator.data"
+#define LOWER_FILE_NAME "/dev/robusta"
 #define BENCH_LOG "./result/"
 
 #define K (1024)
@@ -40,7 +40,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 10L
+#define GIGAUNIT 16L
 #define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
@@ -57,7 +57,7 @@
 #define _NOB (BPS*_NOS)
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
 
-#define RANGE ((GIGAUNIT)*(M/PAGESIZE)*1024L*0.8)
+#define RANGE ((GIGAUNIT)*(M/PAGESIZE)*1024L*0.9)
 //#define RANGE ((GIGAUNIT)*(M/PAGESIZE)*1024L*0.8)
 //#define RANGE (50*(M/PAGESIZE)*1024L*0.8)
 
@@ -111,6 +111,7 @@ static inline char KEYTEST(KEYT a, KEYT b){
 #define PTR char*
 #define ASYNC 1
 #define QSIZE (1024)
+#define LOWQDEPTH (128)
 #define QDEPTH (128)
 
 #define THPOOL

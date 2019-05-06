@@ -5,7 +5,7 @@
 #define C_CACHE 1
 
 // memcpy op gc flag
-#define MEMCPY_ON_GC 0
+#define MEMCPY_ON_GC 1
 
 // flying mapping page request waiting flag
 #define FLYING 0

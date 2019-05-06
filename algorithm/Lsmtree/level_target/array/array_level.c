@@ -568,13 +568,14 @@ void array_header_next_key_pick(level *lev, keyset_iter * k_iter,keyset *res){
 		}
 	}
 }
-extern int now_compaction_idx;
+extern KEYT key_max;
 run_t *array_p_merger_cutter(skiplist *skip,run_t **src, run_t **org){
 	ppa_t *ppa_ptr;
 	KEYT key;
 	uint16_t *bitmap=NULL;
 	char *body;
 	int idx;
+	KEYT org_limit=key_max;
 	if((skip->size==0 && src) || src){
 		bool issrc=src?true:false;
 		body=issrc?data_from_run(src[0]):data_from_run(org[0]);
@@ -588,6 +589,7 @@ run_t *array_p_merger_cutter(skiplist *skip,run_t **src, run_t **org){
 		body=data_from_run(org[0]);
 		bitmap=(uint16_t*)body;
 		for_each_header_start(idx,key,ppa_ptr,bitmap,body)
+			org_limit=key;
 			skiplist_insert_wP(skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
 		for_each_header_end	
 	}	
@@ -625,8 +627,11 @@ run_t *array_p_merger_cutter(skiplist *skip,run_t **src, run_t **org){
 		idx++;
 		cnt++;
 		end=temp->key;
-		if(temp->list[1] && length+KEYLEN(temp->list[1]->key)<PAGESIZE-KEYBITMAP && cnt<max_key_num)
+		if(temp->list[1] && length+KEYLEN(temp->list[1]->key)<PAGESIZE-KEYBITMAP && cnt<max_key_num){
+			if(KEYCMP(temp->list[1]->key,org_limit)>0)
+				break;
 			continue;
+		}
 		else break;
 	}
 	bitmap[0]=idx-1;

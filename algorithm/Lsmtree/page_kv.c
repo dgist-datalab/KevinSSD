@@ -137,9 +137,9 @@ int gc_data(uint32_t tbn){
 	else if(tbn%BPS==BPS-1) order=2;
 	else order=1;
 #ifdef DVALUE
-	if(target->invalid_n==algo_lsm.li->PPB*(PAGESIZE/PIECE)){
+	if(target->invalid_n==algo_lsm.li->PPB*(PAGESIZE/PIECE) || target->erased){
 #else
-	if(target->invalid_n==algo_lsm.li->PPB){
+	if(target->invalid_n==algo_lsm.li->PPB || target->erased){
 #endif
 		gc_data_header_update_add(NULL,0,0,order);
 		gc_trim_segment(DATA,target->ppa);
@@ -184,40 +184,16 @@ int gc_data(uint32_t tbn){
 		i++;
 		continue;
 #endif
-		if(target->bitset[j/8]&(1<<(j%8)))
-		{
-		/*	
-		#ifdef DVALUE
-			invalid_cnt_forpage++;
-			if((j+1)%NPCINPAGE==0 && invalid_cnt_forpage==NPCINPAGE){
-				tables[i]=NULL;
-				i++;
-			}
-			continue;
-		#else*/
+		if(target->bitset[j/8]&(1<<(j%8))){
 			tables[i]=NULL;
 			continue;
-//		#endif
 		}
-		//printf("table %d assignd\n",i);
 		tables[i]=(htable_t*)malloc(sizeof(htable_t));
 		gc_data_read(t_ppa,tables[i],true);
-/*
-#ifdef DVALUE
-		j=(j/NPCINPAGE+1)*NPCINPAGE-1;
-		i++;
-#endif
-*/
 	}
 	
 	gc_general_waiting(); //wait for read req
 
-	/*
-	   data move phase
-		i: index of table
-		j: index of checking bitset  
-	 */
-	//printf("\n");
 #ifdef DVALUE
 	for(uint32_t j=0,i=0; j<(target->ppage_idx+1)*NPCINPAGE; j++)
 #else
@@ -270,14 +246,11 @@ int gc_data(uint32_t tbn){
 			temp_g->nppa=n_ppa;
 			temp_g->ppa=t_ppa;
 			kvssd_cpy_key(&temp_g->lpa,lpa);
-			//printf("gc lpa:%.*s(origin) copied:%.*s\n",lpa->len,lpa->key,temp_g->lpa.len,temp_g->lpa.key);
 			temp_g->level=target_level;
 
 			bucket.bucket[temp_g->plength][bucket.idx[temp_g->plength]++]=(snode*)temp_g;	
 			bucket.contents_num++;
-			//printf("full page table %d used\n",i);
 			free(tables[i]);
-		//free(lpa->key);
 #ifdef DVALUE
 			i++;
 			PBITSET(temp_g->nppa,oob_len);
@@ -290,11 +263,7 @@ int gc_data(uint32_t tbn){
 			temp_g->nppa=-1;
 			temp_g->ppa=t_ppa;
 			kvssd_cpy_key(&temp_g->lpa,lpa);
-			/*
-			if(KEYCONSTCOMP(temp_g->lpa,"1")==0){
-				printf("here!\n");
-			}*/
-			//printf("gc lpa:%.*s(origin) copied:%.*s\n",lpa->len,lpa->key,temp_g->lpa.len,temp_g->lpa.key);
+
 			temp_g->level=target_level;
 
 			bucket.bucket[temp_g->plength][bucket.idx[temp_g->plength]++]=(snode*)temp_g;	
@@ -310,6 +279,15 @@ int gc_data(uint32_t tbn){
 #endif
 		free(lpa);
 	}
+	
+	/*
+	int len_idx=PAGESIZE/PIECE;
+	int temp_len_idx=0;
+	for(int i=0; i<target->ppage_idx; i++){
+		gc_node *tamp_g=bucket.bucket[len_idx][temp_len_idx++];
+		gc_data_write()
+	}*/
+
 	free(tables);
 	if(bucket.contents_num)
 		gc_data_write_using_bucket(&bucket,target_level,order);

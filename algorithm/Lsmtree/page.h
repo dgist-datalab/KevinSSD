@@ -59,6 +59,7 @@ typedef struct{
 typedef struct page_manager{
 	uint32_t block_num;
 	llog *blocks;
+	llog *rblocks;
 	llog_node *n_log;
 	segment *target;//gc_target;
 	segment *reserve; //no reserve block ->null
@@ -93,10 +94,11 @@ void invalidate_DPPA(ppa_t ppa);
 int get_victim_block(pm *);
 int gc_header(uint32_t tbn);
 int gc_data(uint32_t tbn);
-bool gc_check(uint8_t,bool);
+bool gc_check(uint8_t);
 bool gc_segment_force();
 uint32_t gc_victim_segment(uint8_t type,bool);
 void gc_trim_segment(uint8_t, uint32_t pbn);
+void gc_nocpy_delay_erase(uint32_t );
 block *gc_getrblock_fromseg(uint8_t type);
 
 struct block* getRBLOCK(uint8_t type);
@@ -109,4 +111,5 @@ void gc_data_write(uint64_t ppa,struct htable_t *value,bool isdata);
 void gc_data_header_update_add(struct gc_node **gn,int size, int target_level, char order);
 uint32_t PBITGET(uint32_t ppa);
 int gc_data_write_using_bucket(struct length_bucket *b,int target_level,char order);
+bool gc_dynamic_checker(bool last_comp_flag);
 #endif

@@ -202,6 +202,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	pthread_mutex_init(&LSM.memlock,NULL);
 	pthread_mutex_init(&LSM.templock,NULL);
 	pthread_mutex_init(&LSM.valueset_lock,NULL);
+	LSM.last_level_comp_term=LSM.check_cnt=LSM.needed_valid_page=LSM.target_gc_page=0;
 	for(int i=0; i< LEVELN; i++){
 		pthread_mutex_init(&LSM.level_lock[i],NULL);
 	}
@@ -210,6 +211,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 
 
 	LSM.caching_value=NULL;
+	LSM.delayed_trim_ppa=UINT32_MAX;
 	LSM.li=li;
 	algo_lsm.li=li;
 	pm_init();
@@ -379,9 +381,12 @@ void* lsm_end_req(algo_req* const req){
 	return NULL;
 }
 
+uint32_t data_input_write;
 uint32_t lsm_set(request * const req){
 	//MS(&__get_mt);
 	static bool force = 0 ;
+	data_input_write++;
+	LSM.last_level_comp_term++;
 #ifdef DEBUG
 	printf("lsm_set!\n");
 	printf("key : %u\n",req->key);//for debug

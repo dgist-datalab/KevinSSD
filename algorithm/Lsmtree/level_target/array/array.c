@@ -28,6 +28,7 @@ level_ops a_ops={
 	.get_iter=array_get_iter,
 	.get_iter_from_run=array_get_iter_from_run,
 	.iter_nxt=array_iter_nxt,
+	.get_number_runs=array_get_numbers_run,
 	.get_max_table_entry=a_max_table_entry,
 	.get_max_flush_entry=a_max_flush_entry,
 
@@ -35,14 +36,12 @@ level_ops a_ops={
 	.keyset_iter_nxt=array_key_iter_nxt,
 
 	.mem_cvt2table=array_mem_cvt2table,
-#ifdef STREAMCOMP
-	.stream_merger=array_stream_merger,
-	.stream_comp_wait=array_stream_comp_wait,
-#else
+
 	.merger=array_merger,
-#endif
 	.cutter=array_cutter,
 	.partial_merger_cutter=array_p_merger_cutter,
+	.multi_lev_merger=NULL,
+	.multi_lev_cutter=NULL,
 #ifdef BLOOM
 	.making_filter=array_making_filter,
 #endif
@@ -70,7 +69,7 @@ level_ops a_ops={
 	.cache_get_iter=array_cache_get_iter,
 	.cache_iter_nxt=array_cache_iter_nxt,
 	//.cache_find_lowerbound=array_cache_find_lowerbound,
-	.cache_get_size=array_cache_get_sz,
+	//.cache_get_size=array_cache_get_sz,
 #endif
 	
 	.header_get_keyiter=array_header_get_keyiter,
@@ -80,7 +79,9 @@ level_ops a_ops={
 	.get_lpa_from_data=array_get_lpa_from_data,
 #endif
 	.get_level_mem_size=array_get_level_mem_size,
+	.check_order=array_check_order,
 	.print=array_print,
+	.print_level_summary=array_print_level_summary,
 	.all_print=array_all_print,
 	.header_print=array_header_print
 };
@@ -713,4 +714,31 @@ uint32_t array_get_level_mem_size(level *lev){
 	res+=skiplist_memory_size(b->skip);
 	res+=sizeof(level)+sizeof(run_t)*lev->m_num;
 	return res;
+}
+
+void array_print_level_summary(){
+	for(int i=0; i<LEVELN; i++){
+		if(i<LEVELCACHING){
+			printf("[%d] n_num:%d m_num:%d\n",i+1,array_cache_get_sz(LSM.disk[i]),LSM.disk[i]->m_num);
+		}
+		else{
+			printf("[%d] n_num:%d m_num:%d\n",i+1,LSM.disk[i]->n_num,LSM.disk[i]->m_num);
+		}
+	}	
+}
+
+uint32_t array_get_numbers_run(level *lev){
+	return lev->idx<LEVELCACHING?array_cache_get_sz(lev):lev->n_num;
+}
+
+void array_check_order(level *lev){
+	if(lev->idx<LEVELCACHING || lev->n_num==0) return;
+	run_t *bef=array_get_run_idx(lev,0);
+	for(int i=1; i<lev->n_num; i++){
+		run_t *now=array_get_run_idx(lev,i);
+		if(KEYCMP(bef->end,now->key)>=0){
+			abort();
+		}
+		bef=now;
+	}
 }

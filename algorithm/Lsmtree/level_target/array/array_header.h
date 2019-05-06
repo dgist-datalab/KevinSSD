@@ -105,6 +105,8 @@ void array_all_print();
 void array_body_free(run_t* ,int size);
 void array_range_update(level *,run_t *,KEYT lpa);
 void array_header_print(char *data);
+void array_print_level_summary();
+uint32_t array_get_numbers_run(level *);
 #ifdef BLOOM
 BF* array_making_filter(run_t *,float );
 #endif
@@ -140,4 +142,5 @@ run_t *array_p_merger_cutter(skiplist *,run_t **, run_t **);
 
 //run_t *array_lsm_lower_bound_run(lsmtree *lsm, KEYT lpa);
 uint32_t array_get_level_mem_size(level *lev);
+void array_check_order(level *);
 #endif
