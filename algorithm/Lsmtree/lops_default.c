@@ -21,9 +21,7 @@ ppa_t def_moveTo_fr_page( level* in){
 #ifdef LEVELUSINGHEAP
 		in->now_block->hn_ptr=heap_insert(in->h,(void*)in->now_block);
 #else
-
 		in->now_block->hn_ptr=llog_insert(in->h,(void*)in->now_block);
-	//	printf("header:%p\n",in->h->head);
 #endif
 	}
 #ifdef DVALUE
@@ -100,7 +98,7 @@ void def_move_heap( level *des,  level *src){
 bool def_fchk( level *input){
 #ifdef LEVELCACHING
 	if(input->idx<LEVELCACHING){
-		int a=LSM.lop->cache_get_size(input);
+		int a=LSM.lop->get_number_runs(input);
 		int b=input->idx==0?input->m_num-2:
 			input->m_num/(SIZEFACTOR)*(SIZEFACTOR-1);
 		if(a>=b){

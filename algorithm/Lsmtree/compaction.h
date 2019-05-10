@@ -39,14 +39,25 @@ struct compaction_master{
 bool compaction_init();
 void *compaction_main(void *);
 uint32_t level_one_processing(level *, level *, run_t *, pthread_mutex_t *);
-//uint32_t tiering(int f, int t, struct Entry *);
 uint32_t leveling(level *,level*, leveling_node *,pthread_mutex_t *);
 uint32_t partial_leveling(struct level *,struct level *,leveling_node *,struct level *upper);
+
+uint32_t multiple_leveling(int from, int to);
+
 void compaction_check(KEYT key,bool force);
 void compaction_free();
 bool compaction_force();
 bool compaction_force_levels(int nol);
 bool compaction_force_target(int from, int to);
+void compaction_sub_pre();
+void compaction_sub_wait();
+void compaction_sub_post();
+void htable_read_postproc(run_t *r);
+#ifdef WRITEOPTIMIZE
+void compaction_bg_htable_bulkread(run_t **r,fdriver_lock_t **locks);
+
+uint32_t compaction_bg_htable_write(htable *input, KEYT lpa, char *nocpy_data);
+#endif
 
 #ifdef MONKEY
 void compaction_seq_MONKEY(level *,int, level *);

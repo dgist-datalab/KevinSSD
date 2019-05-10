@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#define CASTBL(data) ((block*)(data))
+#define BLDATATBN(data) (((block*)(data))->ppa/_PPB)
 llog* llog_init(){
 	llog *res=(llog*)malloc(sizeof(llog));
 	res->head=NULL;
@@ -32,7 +34,29 @@ llog_node* llog_insert(llog *l,void *data){
 	return new_l;
 }
 
+llog_node* llog_insert_back(llog *l,void *data){
+	llog_node *new_l=(llog_node*)malloc(sizeof(llog_node));
+	new_l->data=data;
+	new_l->prev=NULL;
+	new_l->next=NULL;
+
+
+	if(!l->head && !l->tail){
+		l->head=l->tail=new_l;
+	}
+	else{
+		new_l->prev=l->tail;
+		l->tail->next=new_l;
+		l->tail=new_l;
+	}
+	l->size++;
+	return new_l;
+}
+
 void llog_delete(llog *body, llog_node *target){
+	if(BLDATATBN(target->data)==192){
+	//	printf("break!\n");
+	}
 	llog_node *nxt=target->next;
 	llog_node *prv=target->prev;
 
@@ -116,7 +140,7 @@ llog_node *llog_next(llog_node *in){
 }
 
 void llog_print(llog *b){
-	printf("size: %d\n",b->size);
+	fprintf(stderr,"size: %d\n",b->size);
 	llog_node *head=b->head;
 	int cnt=0;
 	int ecnt=0;
@@ -124,12 +148,12 @@ void llog_print(llog *b){
 		block* target=(block*)head->data;
 		if(target->erased)
 			ecnt++;
-		printf("[%d]ppa:%d(%d) ppage_idx:%d invalid_n:%d level:%d erased:%d\n",target->ppa/_PPB,target->ppa,target->ppa/BPS/_PPB,target->ppage_idx,target->invalid_n,target->level,target->erased?1:0);
+		fprintf(stderr,"[%d]ppa:%d(%d) ppage_idx:%d invalid_n:%d level:%d erased:%d bitset:%p\n",target->ppa/_PPB,target->ppa,target->ppa/BPS/_PPB,target->ppage_idx,target->invalid_n,target->level,target->erased?1:0,target->bitset);
 		head=head->next;
 		cnt++;
 		if(cnt>b->size) break;
 	}
-	printf("cnt:%d ecnt:%d\n",cnt,ecnt);
+	fprintf(stderr,"cnt:%d ecnt:%d\n",cnt,ecnt);
 }
 
 int llog_erase_cnt(llog *b){
@@ -143,6 +167,7 @@ int llog_erase_cnt(llog *b){
 	//		printf("%d\n",target->ppa/256);
 			ecnt++;
 		}
+		else break;
 		head=head->next;
 		cnt++;
 		if(cnt>b->size) break;
@@ -171,4 +196,21 @@ void llog_free(llog *l){
 		temp=prev;
 	}
 	free(l);
+}
+
+void llog_checker(llog *l){
+	llog_node *t;
+	bool before_zero=false, start_flag=false;
+	for_each_log_block(t,l){
+		if(start_flag){
+			if(before_zero && CASTBL(t->data)->erased){
+				llog_print(l);
+				abort();
+			}
+		}else{
+			start_flag=true;
+			if(CASTBL(t->data)->erased) before_zero=false;
+			else before_zero=true;
+		}
+	}
 }

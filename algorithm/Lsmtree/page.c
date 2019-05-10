@@ -165,18 +165,6 @@ void block_free_ppa(uint8_t type, block* b){
 			break;
 	}
 }
-#ifdef DVALUE
-/*
-void block_meta_init(block *b){
-	b->length_data=(uint8_t *)malloc(PAGESIZE);
-	memset(b->length_data,0,PAGESIZE);
-	b->b_log=NULL;
-	//b->b_log=llog_init();
-	//printf("block %d made\n",b->ppa);
-	pthread_mutex_init(&b->lock,NULL);
-}
-*/
-#endif
 
 void gc_change_reserve(pm *target_p, segment *seg,uint8_t type){
 	segment *reserve=target_p->reserve;
@@ -197,8 +185,14 @@ void gc_change_reserve(pm *target_p, segment *seg,uint8_t type){
 			}
 		}
 #endif
-		bl[reserve->ppa/_PPB+i].l_node=llog_insert(target_p->blocks,(void*)&bl[reserve->ppa/_PPB+i]);
-	}	
+		if(type!=DATA)
+			bl[reserve->ppa/_PPB+i].l_node=llog_insert(target_p->blocks,(void*)&bl[reserve->ppa/_PPB+i]);
+		else if(bl[reserve->ppa/_PPB+i].erased){
+			bl[reserve->ppa/_PPB+i].l_node=llog_insert(target_p->blocks,(void*)&bl[reserve->ppa/_PPB+i]);
+		}else{
+			bl[reserve->ppa/_PPB+i].l_node=llog_insert_back(target_p->blocks,(void*)&bl[reserve->ppa/_PPB+i]);
+		}
+	}
 	reserve->segment_idx=0;
 	seg->invalid_n=0;
 	seg->trimed_block=0;
@@ -214,13 +208,15 @@ void gc_change_reserve(pm *target_p, segment *seg,uint8_t type){
 	target_p->reserve=seg;
 	if(type!=DATA){
 		target_p->rblock=NULL;
-	//	printf("target->reserve : %u ~ %u\n",target_p->reserve->ppa,target_p->reserve->ppa+16383);
 		target_p->n_log=target_p->blocks->head;
 	}
-	//llog_print(data_m.blocks);
-	//printf("old reserve:%d new reserve:%d~%d\n",target_p->reserve->ppa,target_p->target->ppa,target_p->target->ppa+_PPS);
 }
 
+void gc_nocpy_delay_erase(uint32_t ppa){
+	if(ppa==UINT32_MAX) return;
+	nocpy_free_block(ppa);
+	LSM.delayed_trim_ppa=UINT32_MAX;
+}
 void gc_trim_segment(uint8_t type, uint32_t pbn){
 	pm *target_p;
 	if(type==DATA){
@@ -240,10 +236,12 @@ void gc_trim_segment(uint8_t type, uint32_t pbn){
 	if(seg->trimed_block==BPS){
 		/*trim segment*/
 		algo_lsm.li->trim_block(seg->ppa,0);
-
 #ifdef NOCPY
 		if(seg->ppa>=0 && seg->ppa<(HEADERSEG+1)*_PPS){
-			nocpy_free_block(seg->ppa);
+			if(!LSM.delayed_header_trim)
+				nocpy_free_block(seg->ppa);
+			else
+				LSM.delayed_trim_ppa=seg->ppa;
 		}
 #endif
 
@@ -335,9 +333,9 @@ void pm_a_init(pm *m,uint32_t size,uint32_t *_idx,bool isdata){
 		size=_NOB-idx-1;
 	}
 	m->blocks=llog_init();
+	m->rblocks=llog_init();
 	m->block_num=size;
 	for(uint32_t i=0; i<size; i++){
-		bl[idx].l_node=llog_insert(m->blocks,(void*)&bl[idx]);
 		bl[idx].erased=true;
 #ifdef DVALUE
 		if(isdata){
@@ -349,6 +347,7 @@ void pm_a_init(pm *m,uint32_t size,uint32_t *_idx,bool isdata){
 #ifdef DVALUE
 		}
 #endif
+		bl[idx].l_node=llog_insert(m->blocks,(void*)&bl[idx]);
 		idx++;
 	}
 	//printf("size: %d mb\n",size*_PPB*8/1024);
@@ -414,6 +413,7 @@ uint32_t getRPPA(uint8_t type,KEYT lpa,bool isfull){
 		pba+=target_p->reserve->segment_idx++;
 		target_p->rblock=&bl[pba];
 		bl[pba].l_node=llog_insert(target_p->blocks,(void*)&bl[pba]);
+		//bl[pba].l_node=llog_insert(target_p->rblocks,(void*)&bl[pba]);
 		bl[pba].erased=false;
 	}
 	block *active_block=target_p->rblock;
@@ -428,236 +428,177 @@ uint32_t getRPPA(uint8_t type,KEYT lpa,bool isfull){
 #endif
 	return res;
 }
-
-//static int gc_check_num;
-uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
-/*
-extern uint32_t m_write_cnt;
-void gc_compaction_checking(){
-	int32_t invalidate_page,write_page;
-//	int32_t t_write_page;
-	uint32_t target_from=LEVELN+1, target_to=LEVELN+1;
-	int32_t max=0;
-	//uint32_t t_type;
-	uint32_t type=0;
-	static int cumulate_expect=0;
-	for(int i=0; i<LEVELN; i++){
-		if(LSM.disk[i]->n_num==0) continue;
-		write_page=invalidate_page=0;
-		float p=1.0f/((LSM.disk[i]->end-LSM.disk[i]->start)/(LSM.disk[i]->n_num*1024));
-		for(int j=i+1; j<LEVELN; j++){
-			if(!LSM.disk[j]->n_num) continue;
-			write_page=(LSM.disk[i]->m_num+LSM.disk[j]->m_num)*2;
-			uint32_t start, end;
-			if(LSM.disk[i]->end<LSM.disk[j]->start || LSM.disk[i]->start>LSM.disk[j]->end){ invalidate_page=0;
-				continue;
-			}
-			else if(LSM.disk[i]->end<LSM.disk[j]->end && LSM.disk[i]->start>LSM.disk[j]->start){
-				type=1;
-				start=LSM.disk[i]->start;
-				end=LSM.disk[i]->end;
-			}
-			else if(LSM.disk[j]->end<LSM.disk[i]->end && LSM.disk[j]->start>LSM.disk[i]->start){	
-				type=2;
-				start=LSM.disk[j]->start;
-				end=LSM.disk[j]->end;
-			}
-			else if(LSM.disk[i]->start<LSM.disk[j]->start){
-				type=3;
-				start=LSM.disk[j]->start;
-				end=LSM.disk[i]->end;
-			}
-			else{
-				type=4;
-				start=LSM.disk[i]->start;
-				end=LSM.disk[j]->end;
-			}
-			invalidate_page=(end-start)*p;
-			if(max<invalidate_page-write_page){
-				max=invalidate_page-write_page;
-				target_from=i;
-				target_to=j;
-				//t_type=type;
-				//t_write_page=write_page;
+extern bool compaction_ggg_cnt;
+bool gc_dynamic_checker(bool last_comp_flag){
+	bool res=false;
+	int test=data_m.max_blkn-data_m.used_blkn;
+	/*
+#ifndef GCOPT
+	if(test < FULLMAPNUM/_PPB)
+#else
+	if(test*_PPB<LSM.needed_valid_page)
+#endif*/
+	if((last_comp_flag && (uint32_t)test*_PPB<LSM.needed_valid_page) || (!last_comp_flag && test<=FULLMAPNUM/_PPB))
+	{
+		if(compaction_ggg_cnt){
+			if(test!=llog_erase_cnt(data_m.blocks)){
+				fprintf(stderr,"ttt blocks\n");
+				llog_print(data_m.blocks);
 			}
 		}
+		res=true;
+	//	LSM.lop->print_level_summary();
+		LSM.target_gc_page=LSM.needed_valid_page;
+		/*
+		if(last_comp_flag){
+			LSM.target_gc_page=LSM.needed_valid_page;
+		}
+		else{
+			if(LSM.needed_valid_page<LSM.last_level_comp_term){
+				LSM.lop->print_level_summary();
+			}
+			LSM.target_gc_page=LSM.needed_valid_page-LSM.last_level_comp_term;
+		}*/
 	}
-	static int r_pay=0,r_back=0,c_max=0;
-	if(target_from!=LEVELN+1 && target_to!=LEVELN+1){
-		uint32_t before=all_invalid_num();
-		int before_meta_write=m_write_cnt;
-
-		compaction_force_target(target_from,target_to);
-		c_max+=max;
-		int after_meta_write=m_write_cnt;
-		uint32_t after=all_invalid_num();
-		static int cnt=0;
-	
-		r_back+=after-before;
-		r_pay+=after_meta_write-before_meta_write;
-		printf("[%d] pay:%d back:%d benefit:%d e_ben:%d\n",cnt++,r_pay,r_back,r_back-r_pay,c_max);
-
-		//if(before>=after){
-		//	printf("wtf!\n");
-		//}
+	return res;
+}
+//static int gc_check_num;
+int number_of_validpage(pm *input){
+	int valid_page=0,total_page=0;
+	llog_node *temp;
+	for_each_log_block(temp,input->blocks){
+		block *bl=(block*)temp->data;
+		valid_page+=_PPB-bl->invalid_n;
+		total_page+=_PPB;
 	}
-}*/
-bool gc_check(uint8_t type, bool force){
+	printf("valid percetage:%.3f\t%d\t%d\n",(float)valid_page/total_page,valid_page,total_page-valid_page);
+	return valid_page;
+}
+uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
+extern uint32_t data_input_write;
+uint32_t before_data_input_write;
+bool gc_check(uint8_t type){
+	pm *target_p=NULL;
+	switch(type){
+		case HEADER:
+			//printf("header gc %d\n",header_gc_cnt);
+			target_p=&header_m;
+			header_gc_cnt++;
+			break;
+		case DATA:
+			//printf("data gc %d\n",data_gc_cnt);
+			target_p=&data_m;
+			data_gc_cnt++; 
+			break;
+		case BLOCK:
+			target_p=&block_m;
+			block_gc_cnt++; break;
+	}
+	uint32_t target_page=0,new_page=0;
+#ifdef GCOPT
+	target_page=LSM.needed_valid_page;
+#endif
 	block **erased_blks=NULL;
 	int e_blk_idx=0;
 	int erased_blkn=0;
-	if(!force){
+	while(1){
 		if(type==DATA){
-			if(data_m.max_blkn-data_m.used_blkn>=FULLMAPNUM/_PPB){
-				return true;
-			}
-			else{
-				//static int c_cnt=0;
-	//			printf("check_cnt:%d\n",c_cnt++);
-				erased_blkn=data_m.max_blkn-data_m.used_blkn;
-				if(erased_blkn!=0){
-			//		printf("here! %d\n",erased_blkn);
-					erased_blks=(block**)malloc(sizeof(block*)*(erased_blkn+1));
-					llog_node *head=data_m.blocks->head;
-					while(head){
-						block *target_blk=(block*)head->data;
-						if(target_blk->erased){
-							erased_blks[e_blk_idx++]=target_blk;
-							target_blk->l_node=NULL;
-							llog_node *d_target=head;
-							head=d_target->next;
-							llog_delete(data_m.blocks,d_target);
-							if(e_blk_idx==erased_blkn) break;
-							continue;
-						}
-						head=head->next;
+			if(erased_blkn!=0){
+				erased_blkn=llog_erase_cnt(data_m.blocks);
+				erased_blks=(block**)malloc(sizeof(block*)*(erased_blkn+1));
+				llog_node *head=data_m.blocks->head;
+				while(head){
+					block *target_blk=(block*)head->data;
+					if(target_blk->erased){
+						erased_blks[e_blk_idx++]=target_blk;
+						target_blk->l_node=NULL;
+						llog_node *d_target=head;
+						head=d_target->next;
+						llog_delete(data_m.blocks,d_target);
+						if(e_blk_idx==erased_blkn) break;
+						continue;
 					}
-					//llog_print(data_m.blocks);
+					head=head->next;
 				}
-				data_m.used_blkn+=erased_blkn;
-				//printf("before free block:%d\n",data_m.max_blkn-data_m.used_blkn);
-				//llog_print(data_m.blocks);
 			}
+	//		data_m.used_blkn+=erased_blkn;
 		}
-	}
-	/*
-	for(int j=0; j<_NOS; j++){
-		printf("[seg%d]:invalid_n - %d\n",j,segs[j].invalid_n);
-	}*/
-	bool once=true;
-	//static int cnt=0;
-	pm *target_p=NULL;
-	//		int t,n;
-	for(int i=0; i<BPS; i++){
-		uint32_t target_block=0;
-		
-		if(once){
-			once=false;
-			switch(type){
-				case HEADER:
-					//printf("header gc:%d\n",header_gc_cnt++);
-					target_p=&header_m;
-					break;
-				case DATA:
-					//printf("data gc:%d %d\n",data_gc_cnt,false);
-					target_p=&data_m;
-					data_gc_cnt++; 
-					break;
-				case BLOCK:
-					target_p=&block_m;
-					block_gc_cnt++; break;
-			}
-			//int s_n=target_block/BPS;
-			//llog_print(data_m.blocks);
-			//printf("[%d]lack of block in data for memtable\n",gc_check_num++);
-			//printf("target seg:%d - reserve seg:%d\n",s_n,target->reserve->ppa/BPS/_PPB);
-			//			t=s_n;
-			//n=target->reserve->ppa/BPS/_PPB;
-			if(type==DATA){
-//				printf("gc_datacnt: %d\n",cnt++);
-				//printf("before gc\n");
-				//segment_print(data_m.target->ppa/_PPB/BPS);
-			}
-			
-		}
-		//printf("%d -",i);
-		//printf("target block %d\n",target_block);
-
-		target_block=gc_victim_segment(type,false);
-		if(target_block==UINT_MAX){
-			while(target_block==UINT_MAX && type==DATA){
-				if(compaction_force()){
-					printf("force_compaction\n");
-					target_block=gc_victim_segment(type,false);
-				}
-				else{
-					if(gc_segment_force()){
-						if(type==DATA){
-							for(int i=0; i<erased_blkn; i++){
-								erased_blks[i]->l_node=llog_insert(data_m.blocks,erased_blks[i]);
+		for(int i=0; i<BPS; i++){
+			uint32_t target_block=0;
+			target_block=gc_victim_segment(type,false);
+			if(target_block==UINT_MAX){
+				while(target_block==UINT_MAX && type==DATA){
+					if(compaction_force()){
+						printf("force_compaction\n");
+						target_block=gc_victim_segment(type,false);
+					}
+					else{
+						if(gc_segment_force()){
+							if(type==DATA){
+								for(int i=0; i<erased_blkn; i++){
+									if(erased_blks[i]->erased)
+										erased_blks[i]->l_node=llog_insert(data_m.blocks,erased_blks[i]);
+									else
+										erased_blks[i]->l_node=llog_insert_back(data_m.blocks,erased_blks[i]);
+								}
+								free(erased_blks);
 							}
-							free(erased_blks);
+							data_m.used_blkn-=erased_blkn;
+							return true;
 						}
-						data_m.used_blkn-=erased_blkn;
-						return true;
+						printf("device full at data\n");
+						abort();
 					}
-					//segment_all_print();
-					printf("device full at data\n");
+				}
+				if(type!=DATA){
+					for(int j=0; j<_NOS; j++){
+						printf("[seg%d]:invalid_n - %d\n",j,segs[j].invalid_n);
+					}
+					if(type==HEADER) printf("haeder\n");
+					else printf("block\n");
 					abort();
 				}
 			}
+			switch(type){
+				case HEADER:
+					gc_header(target_block);
+					break;
+				case DATA:
+					gc_data(target_block);
+					break;
+			}
+			target_p->n_log=target_p->blocks->head;
+		}
 
-			if(type!=DATA){
-				for(int j=0; j<_NOS; j++){
-					printf("[seg%d]:invalid_n - %d\n",j,segs[j].invalid_n);
+		target_p->target=NULL;//when not used block don't exist in target_segment;
+		if(type==DATA){
+			//llog_print(data_m.blocks);
+			int ignored_cnt=0;
+			for(int i=0; i<erased_blkn; i++){
+				if(erased_blks[i]->ppa/_PPS*_PPS==data_m.reserve->ppa){
+					ignored_cnt++;
+					continue;
 				}
-				if(type==HEADER) printf("haeder\n");
-				else printf("block\n");
-				abort();
+				if(erased_blks[i]->erased)
+					erased_blks[i]->l_node=llog_insert(data_m.blocks,erased_blks[i]);
+				else
+					erased_blks[i]->l_node=llog_insert_back(data_m.blocks,erased_blks[i]);
+				llog_checker(data_m.blocks);
+			}
+			free(erased_blks);
+			int erased_cnt=llog_erase_cnt(data_m.blocks);
+			data_m.used_blkn=data_m.max_blkn-erased_cnt;
+			if((uint32_t)erased_cnt*_PPB>target_page){
+				break;
 			}
 		}
-
-		if(bl[target_block].erased){
-			gc_trim_segment(type,target_block*_PPB);
-			continue;
-		}
-		switch(type){
-			case HEADER:
-				gc_header(target_block);
-				break;
-			case DATA:
-				/*add some gc*/
-				gc_data(target_block);
-				break;
-		}
-		target_p->n_log=target_p->blocks->head;
-	}
-	//printf("after gc\n");
-	//segment_print(target_p->target->ppa/_PPB/BPS);
-
-	//printf("[gc_check] max: %u used:%u\n",data_m.max_blkn,data_m.used_blkn);
-	target_p->target=NULL;//when not used block don't exist in target_segment;
-	if(type==DATA){
-		int ignored_cnt=0;
-		for(int i=0; i<erased_blkn; i++){
-			if(erased_blks[i]->ppa/_PPS*_PPS==data_m.reserve->ppa){
-				ignored_cnt++;
-				continue;
-			}
-			erased_blks[i]->l_node=llog_insert(data_m.blocks,erased_blks[i]);
-		}
-		free(erased_blks);
-		data_m.used_blkn-=erased_blkn-ignored_cnt;
+		else break;
 	}
 
-//	llog_print(target_p->blocks);
 	if(type==DATA && data_m.max_blkn-data_m.used_blkn<LSM.KEYNUM/_PPB){
-		//printf("??: data_m.used_blkn:%d\n",data_m.used_blkn);
 		return false;
 	}
 	return true;
-	//if(erased_blkn)
-		//printf("after free block:%d\n",data_m.max_blkn-data_m.used_blkn);
 }
 
 uint32_t getPPA(uint8_t type, KEYT lpa,bool isfull){
@@ -683,17 +624,22 @@ uint32_t getPPA(uint8_t type, KEYT lpa,bool isfull){
 #else
 	if(active_block->ppage_idx==_PPB || (type==DATA && !active_block->erased)){
 #endif
-
 		llog_move_back(target->blocks,target->n_log);
-
 		target->n_log=target->blocks->head;
 		active_block=(block*)target->n_log->data;
 
-		if(active_block->ppage_idx==_PPB ||(type==DATA && !active_block->erased)){//need gc
+		if(active_block->ppage_idx==_PPB){
+			if(type==DATA && !active_block->erased){
+				//need gc
+				LSM.lop->print_level_summary();
+				llog_print(data_m.blocks);
+				abort();
+			}
 			if(type==BLOCK){
 				printf("hello!\n");
+				abort();
 			}
-			gc_check(type,true);
+			gc_check(type);
 			active_block=(block*)target->n_log->data;
 		}
 	}
@@ -715,6 +661,8 @@ uint32_t getPPA(uint8_t type, KEYT lpa,bool isfull){
 		}
 		active_block->erased=false;
 		target->used_blkn++;
+		llog_move_back(data_m.blocks,active_block->l_node);
+		llog_checker(data_m.blocks);
 	}
 	return res;
 }
@@ -725,19 +673,15 @@ void invalidate_PPA(uint32_t _ppa){
 	ppa=_ppa;
 	bn=ppa/algo_lsm.li->PPB;
 	idx=ppa%algo_lsm.li->PPB;
-
+	
+	if(!bl[bn].bitset){
+		llog_print(data_m.blocks);
+	}
 	bl[bn].bitset[idx/8]|=(1<<(idx%8));
 	bl[bn].invalid_n++;
 	
 	segment *segs=WHICHSEG(bl[bn].ppa);
 	segs->invalid_n++;
-	//static int cnt=0;
-/*
-#ifdef NOCPY
-	if(_ppa>=0 && _ppa<(HEADERSEG+1)*_PPS)
-		nocpy_free_page(_ppa);
-#endif
-*/
 	if(bl[bn].invalid_n>algo_lsm.li->PPB){
 		printf("invalidate:??\n");
 		printf("%u\n",algo_lsm.li->PPB);
@@ -763,10 +707,6 @@ void invalidate_DPPA(ppa_t input){
 
 	bl[bn].bitset[idx/8]|=(1<<(idx%8));
 	bl[bn].invalid_n++;
-	/*
-	if(bn==384){
-		printf("invalidate %lu : %lu(page), %lu(page offset)\n",input,input/NPCINPAGE,(input/NPCINPAGE)%256);
-	}*/
 
 	segment *segs=WHICHSEG(bl[bn].ppa);
 	segs->invalid_n++;
@@ -806,9 +746,9 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 			keyset *find=LSM.lop->cache_find(in,target->lpa);
 			if(find==NULL){
 #ifdef KVSSD
-				printf("can't be! %s %d size %d\n",kvssd_tostring(target->lpa),target->ppa,LSM.lop->cache_get_size(in));
+				printf("can't be! %s %d size %d\n",kvssd_tostring(target->lpa),target->ppa,LSM.lop->get_number_runs(in));
 #else
-				printf("can't be! %d %d size:%d\n",target->lpa,target->ppa,LSM.lop->cache_get_size(in));
+				printf("can't be! %d %d size:%d\n",target->lpa,target->ppa,LSM.lop->get_number_runs(in));
 #endif
 				assert(0);
 			}
@@ -948,6 +888,7 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 	}
 	free(datas);
 }
+
 void gc_data_header_update_add(gc_node **gn,int size, int target_level, char order){
 	static gc_node_wrapper *wrapper;
 	static int total_size=0;
@@ -956,7 +897,6 @@ void gc_data_header_update_add(gc_node **gn,int size, int target_level, char ord
 		total_size=0;
 	}
 
-	//printf("target_level:%d\n",target_level);
 	if(gn!=NULL){
 		qsort(gn,size,sizeof(gc_node**),gc_node_compare);//sort
 		wrapper->datas[target_level][wrapper->cnt[target_level]]=gn;
@@ -996,6 +936,7 @@ void gc_data_header_update_add(gc_node **gn,int size, int target_level, char ord
 				level_cnt[picked]++;
 				total_gc[idx++]=min;
 			}
+
 			gc_data_header_update(total_gc,total_size,i);
 
 			for(int j=0; j<wrapper->cnt[i];j++){
@@ -1021,58 +962,6 @@ int gc_data_write_using_bucket(l_bucket *b,int target_level,char order){
 #ifdef DVALUE
 	level *in=LSM.disk[target_level];
 	variable_value2Page(in,b,(value_set***)&gc_container,&gc_idx,true);
-	/*
-	gc_node *target;
-	while(1){
-		htable_t *table_data=(htable_t*)malloc(sizeof(htable_t));
-		PTR page=(PTR)table_data->sets;
-		int ptr=0;
-		int remain=PAGESIZE-sizeof(footer);
-		footer *foot=(footer*)malloc(sizeof(footer));
-		if(LSM.lop->block_fchk(in)){			
-			block *reserve_block=getRBLOCK(DATA);
-			gc_data_now_block_chg(in,reserve_block);
-		}
-		uint32_t target_ppa=LSM.lop->moveTo_fr_page(in);
-		res++;
-		uint8_t used_piece=0;
-		while(remain>0){
-			int target_length=remain/PIECE;
-			while(b->idx[target_length]==0 && target_length!=0) --target_length;
-			if(target_length==0){
-				break;
-			}
-
-			target=(gc_node*)b->bucket[target_length][b->idx[target_length]-1];
-
-			target->nppa=LSM.lop->get_page(in,target->plength);//level==new ppa
-			PBITSET(target->nppa,target_length);
-			foot->map[target->ppa%(PAGESIZE/PIECE)]=target_length;
-			gc_container[gc_idx++]=target;
-			used_piece+=target_length;
-			//end
-			memcpy(&page[ptr],target->value,target_length*PIECE);
-			b->idx[target_length]--;
-
-			ptr+=target_length*PIECE;
-			remain-=target_length*PIECE;
-			free(target->value);
-			target->value=NULL;
-		}
-		memcpy(&page[PAGESIZE-sizeof(foot)],foot,sizeof(footer));
-
-		gc_data_write(target_ppa/(PAGESIZE/PIECE),table_data,true);
-
-		free(table_data);
-		free(foot);
-		bool stop=0;
-		for(int i=0; i<PAGESIZE/PIECE; i++){
-			if(b->idx[i]!=0)
-				break;
-			if(i==PAGESIZE/PIECE-1) stop=true;
-		}
-		if(stop) break;
-	}*/
 #endif
 	gc_data_header_update_add(gc_container,b->contents_num,target_level,order);
 	return res;
@@ -1338,7 +1227,7 @@ int gc_data(uint32_t tbn){
 	//LSM.lop->print(in);
 
 	if(LSM.lop->block_fchk(in)|| (in->now_block && in->now_block->ppa/_PPB/BPS==tbn/BPS)){
-		//in->now_blokc full or in->now_block is same segment for target block
+		//in->now_block full or in->now_block is same segment for target block
 		block *reserve_block=getRBLOCK(DATA);
 		gc_data_now_block_chg(in,reserve_block);
 	}
@@ -1496,7 +1385,6 @@ int gc_data(uint32_t tbn){
 	return 1;
 }
 #endif
-
 bool gc_segment_force(){
 	uint32_t target_pba=gc_victim_segment(1,true);
 	if(target_pba==UINT_MAX) return false;
@@ -1570,7 +1458,9 @@ block* getRBLOCK(uint8_t type){
 
 	block *r=&bl[res->ppa/_PPB+res->segment_idx++];
 	r->erased=false;
-	r->l_node=llog_insert(target->blocks,(void*)r);
+	r->l_node=llog_insert_back(target->blocks,(void*)r);
+	llog_checker(data_m.blocks);
+	//printf("RBLOCK:%d\n",r->ppa);
 
 	if(res->segment_idx==BPS && target->force_flag){
 		res->segment_idx=0;
@@ -1593,88 +1483,3 @@ int gc_block(uint32_t tbn){
 	return 0;
 }
 #endif
-
-/*
-#ifdef DVALUE
-void block_load(block *b){
-	b->b_log=llog_init();
-
-	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
-	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-	lsm_req->parents=NULL;
-	lsm_req->end_req=lsm_end_req;
-	lsm_req->params=(void*)params;
-	lsm_req->type_lower=0;
-	lsm_req->rapid=false;
-	lsm_req->type=BLOCKR;
-
-	pthread_mutex_init(&b->lock,NULL);
-	pthread_mutex_lock(&b->lock);
-
-	params->lsm_type=BLOCKR;
-	params->htable_ptr=(PTR)b;
-	b->length_data=(uint8_t*)malloc(PAGESIZE);
-
-	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
-	b->isflying=true;
-	LSM.li->read(b->ldp,PAGESIZE,params->value,ASYNC,lsm_req);
-}
-
-void block_apply_log(block *b){
-	llog* l=b->b_log;
-	if(l){
-		llog_node *temp=l->tail;
-		llog_node *prev;
-		while(temp){
-			prev=llog_next(temp);
-			KEYT *key=(KEYT*)temp->data;
-			uint32_t idx_in_block=(*key/(PAGESIZE/PIECE))%_PPB;
-			uint32_t idx_in_page=(*key%(PAGESIZE/PIECE));
-			uint8_t plength=b->length_data[idx_in_block*(PAGESIZE/PIECE)+idx_in_page]/2;
-			for(int i=0; i<plength; i++){
-				b->length_data[idx_in_block*(PAGESIZE/PIECE)+idx_in_page+i]|=1; //1 == invalid
-			}
-			free(key);
-			temp=prev;
-			b->invalid_n+=plength;
-			segment *segs=WHICHSEG(b->ppa);
-			segs->invalid_n+=plength;
-		}
-		llog_free(b->b_log);
-#ifdef LEVELUSINGHEAP
-		level *lev=LSM.disk[b->level];
-		heap_update_from(lev->h,b->hn_ptr);
-#endif
-	}
-	b->b_log=NULL;
-}
-
-void block_save(block *b){	
-	if(!b->length_data){
-		printf("no data in save!\n");
-	}
-	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
-	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-	lsm_req->parents=NULL;
-	lsm_req->end_req=lsm_end_req;
-	lsm_req->params=(void*)params;
-	lsm_req->rapid=false;
-	lsm_req->type=BLOCKW;
-
-	block_apply_log(b);
-
-	params->lsm_type=BLOCKW;
-	params->htable_ptr=(PTR)b;
-
-	params->value=inf_get_valueset((PTR)b->length_data,FS_MALLOC_W,PAGESIZE);
-	uint32_t ldp=getPPA(BLOCK,b->ppa,true);
-	
-	LSM.li->write(ldp,PAGESIZE,params->value,ASYNC,lsm_req);
-	b->length_data=NULL;
-	if(b->ldp!=UINT_MAX){
-		invalidate_BPPA(b->ldp);
-	}
-
-	b->ldp=ldp;
-}
-#endif*/

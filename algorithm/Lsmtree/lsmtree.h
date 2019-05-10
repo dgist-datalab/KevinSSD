@@ -77,7 +77,10 @@ typedef struct lsmtree{
 	uint32_t KEYNUM;
 	uint32_t ORGHEADER;
 	uint32_t FLUSHNUM;
-	bool inplace_compaction; 
+	bool inplace_compaction;
+	bool delayed_header_trim;
+	//this is for nocpy, when header_gc triggered in compactioning
+	uint32_t delayed_trim_ppa;//UINT_MAX is nothing to do
 
 	level *disk[LEVELN];
 	level *c_level;
@@ -97,6 +100,10 @@ typedef struct lsmtree{
 
 	struct cache* lsm_cache;
 	lower_info* li;
+	uint32_t last_level_comp_term; //for avg header
+	uint32_t check_cnt;
+	uint32_t needed_valid_page;
+	uint32_t target_gc_page;
 }lsmtree;
 
 uint32_t lsm_create(lower_info *, algorithm *);

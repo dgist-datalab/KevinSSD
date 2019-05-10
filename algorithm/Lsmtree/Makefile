@@ -36,6 +36,7 @@ SRCS +=\
 	   variable.c\
 	   lsmtree_multi.c\
 	   lsmtree_scheduling.c\
+	   multiple_compaction.c\
 #merge_compaction.c\
 	   run_array.c\
 	   lsmtree_mop.c\

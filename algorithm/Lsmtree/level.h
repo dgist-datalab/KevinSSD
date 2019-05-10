@@ -11,6 +11,15 @@
 #include "cache.h"
 #include <pthread.h>
 
+typedef enum{
+	NOTCOMP,
+	COMP,
+	READED,
+	INVBYGC,
+	SEQCOMP,
+	ONELEV
+}run_comp_type;
+
 #define for_each_lev(run,iter,func) \
 	for(run=func(iter);run!=NULL;run=func(iter))
 
@@ -124,6 +133,7 @@ typedef struct level_ops{
 	lev_iter* (*get_iter)( level*,KEYT from, KEYT to); //from<= x <to
 	lev_iter* (*get_iter_from_run)(level *,run_t *sr,run_t * er);
 	run_t* (*iter_nxt)( lev_iter*);
+	uint32_t (*get_number_runs)(level*);
 	uint32_t (*get_max_table_entry)();
 	uint32_t (*get_max_flush_entry)(uint32_t);
 
@@ -131,15 +141,12 @@ typedef struct level_ops{
 	keyset *(*keyset_iter_nxt)(keyset_iter*,keyset *target);
 	/*compaciton operation*/
 	htable* (*mem_cvt2table)(skiplist *,run_t *);
-#ifdef STREAMCOMP
-	void (*stream_merger)(skiplist*,run_t** src, run_t** org,  level *des);
-	void (*stream_comp_wait)();
-#else
+
 	void (*merger)( skiplist*, run_t** src,  run_t** org,  level *des);
-#endif
 	run_t *(*cutter)( skiplist *,  level* des, KEYT* start, KEYT* end);
 	run_t *(*partial_merger_cutter)(skiplist*,run_t **src,run_t **des);
-
+	void (*multi_lev_merger)(skiplist *,run_t *t_run);
+	run_t **(*multi_lev_cutter)(skiplist *,KEYT, bool just_one);
 #ifdef BLOOM
 	BF *(*making_filter)(run_t *,float);
 #endif
@@ -169,7 +176,7 @@ typedef struct level_ops{
 	char *(*cache_next_run_data)(level *, KEYT );
 	lev_iter *(*cache_get_iter)(level *,KEYT from, KEYT to); //from<= x < to
 	run_t *(*cache_iter_nxt)(lev_iter*);
-	int (*cache_get_size)(level *);
+//	int (*cache_get_size)(level *);
 #endif
 	keyset_iter* (*header_get_keyiter)(level *, char *, KEYT *);
 	keyset (*header_next_key)(level *, keyset_iter *);
@@ -180,7 +187,9 @@ typedef struct level_ops{
 	
 	uint32_t (*get_level_mem_size)(level *);
 	/*for debugging*/
+	void (*check_order)(level *);
 	void (*print)( level*);
+	void (*print_level_summary)();
 	void (*all_print)();
 	void (*header_print)(char*);
 }level_ops;
