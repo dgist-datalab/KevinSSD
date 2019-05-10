@@ -20,6 +20,9 @@
 #include "lru_list.h"
 #include "../../include/data_struct/redblack.h"
 
+#define STORE_KEY
+#define USE_FINGERPRINT 1
+
 #define TYPE uint8_t
 #define DATA_R DATAR
 #define DATA_W DATAW
@@ -32,7 +35,17 @@
 #define DGC_R GCDR
 #define DGC_W GCDW
 
-#define EPP (PAGESIZE / 4) //Number of table entries per page
+#ifdef STORE_KEY
+#if USE_FINGERPRINT
+#define ENTRY_SIZE (4+4)
+#else
+#define ENTRY_SIZE (4+256)
+#endif
+#else
+#define ENTRY_SIZE (4)
+#endif
+
+#define EPP (PAGESIZE / ENTRY_SIZE) //Number of table entries per page
 #define D_IDX (lpa / EPP)   // Idx of directory table
 #define P_IDX (lpa % EPP)   // Idx of page table
 
@@ -46,6 +59,9 @@
 
 struct hash_params {
 	uint32_t hash;
+#if defined(STORE_KEY) && USE_FINGERPRINT
+	uint32_t key_fp;
+#endif
 	int cnt;
 	int find;
 
@@ -55,13 +71,20 @@ struct hash_params {
 // Page table data structure
 typedef struct demand_mapping_table{
     int32_t ppa; //Index = lpa
+#ifdef STORE_KEY
+#if USE_FINGERPRINT
+	uint32_t key_fp;
+#else
+	KEYT key;
+#endif
+#endif
 } D_TABLE;
 
 // Cache mapping table data strcuture
 typedef struct cached_table{
     int32_t t_ppa;
     int32_t idx;
-    int32_t *p_table;
+    D_TABLE *p_table;
     //value_set *p_table_vs;
     //NODE *queue_ptr; // for dirty pages (or general use)
 #if C_CACHE
@@ -107,7 +130,7 @@ typedef struct read_params{
 } read_params;
 
 typedef struct mem_table{
-    int32_t *mem_p;
+    D_TABLE *mem_p;
 } mem_table;
 
 /* extern variables */

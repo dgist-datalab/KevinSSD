@@ -5,6 +5,9 @@
 #define QUADRATIC_PROBING(h,c) ((h)+(c)+(c)*(c))
 #define LINEAR_PROBING(h,c) (h+c)
 
+#define PROBING_FUNC(h,c) QUADRATIC_PROBING(h,c)
+//#define PROBING_FUNC(h,c) LINEAR_PROBING(h,c)
+
 algorithm __demand = {
 	.create  = demand_create,
 	.destroy = demand_destroy,
@@ -57,6 +60,7 @@ int32_t num_tblock;
 int32_t num_dpage;
 int32_t num_dblock;
 int32_t max_cache_entry;
+int32_t nr_pages_optimal_caching;
 int32_t num_max_cache;
 int32_t real_max_cache;
 uint32_t max_write_buf;
@@ -137,7 +141,7 @@ static void print_algo_log() {
 #else
 	printf(" |  -Mixed Cache entries:  %d\n", num_max_cache);
 #endif
-	printf(" |  -Cache Percentage:     %0.3f%%\n", (float)real_max_cache/max_cache_entry*100);
+	printf(" |  -Cache Percentage:     %0.3f%%\n", (float)real_max_cache/nr_pages_optimal_caching*100);
 	printf(" | Write buffer size:      %d\n", max_write_buf);
 	printf(" |\n");
 	printf(" | ! Assume no Shadow buffer\n");
@@ -150,23 +154,28 @@ extern int rq_create();
 uint32_t demand_create(lower_info *li, algorithm *algo){
 	/* Initialize pre-defined values by using macro */
 	num_page        = _NOP;
+	max_cache_entry = (num_page / EPP) + ((num_page % EPP != 0) ? 1 : 0);
 	num_block       = _NOS;
 	p_p_b           = _PPS;
-	num_tblock      = ((num_block / EPP) + ((num_block % EPP != 0) ? 1 : 0)) * 4;
+	num_tblock      = (max_cache_entry/p_p_b) + (max_cache_entry%p_p_b?1:0);
+	num_tblock      = (num_tblock < 4) ? 4 : num_tblock;
+	//num_tblock      = ((num_block / EPP) + ((num_block % EPP != 0) ? 1 : 0)) * 4;
 	num_tpage       = num_tblock * p_p_b;
 	num_dblock      = num_block - num_tblock - 2;
 	num_dpage       = num_dblock * p_p_b;
-	max_cache_entry = (num_page / EPP) + ((num_page % EPP != 0) ? 1 : 0);
 
 
 	/* Cache control & Init */
+	nr_pages_optimal_caching = (num_page*4/PAGESIZE);
+	num_max_cache = nr_pages_optimal_caching / 25;
+
 	//num_max_cache = max_cache_entry * 2;
 	//num_max_cache = max_cache_entry; // Full cache
 	//num_max_cache = max_cache_entry / 4; // 25%
 	//num_max_cache = max_cache_entry / 8; // 12.5%
 	//num_max_cache = max_cache_entry / 10; // 10%
 	//num_max_cache = max_cache_entry / 20; // 5%
-	num_max_cache = max_cache_entry / 25; // 4%
+	//num_max_cache = max_cache_entry / 25; // 4%
 	//num_max_cache = 1; // 1 cache
 
 	real_max_cache = num_max_cache;
@@ -174,7 +183,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 #if C_CACHE
 	max_clean_cache = num_max_cache / 2; // 50 : 50
 	num_max_cache -= max_clean_cache;
-	num_max_cache *= EPP / 2;
+	num_max_cache = (num_max_cache * PAGESIZE) / (ENTRY_SIZE+4); // (dirty cache size) / ( key(or fp) + lpa + ppa )
 
 	num_clean = 0;
 #endif
@@ -221,9 +230,18 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 	// Create mem-table for CMTs
 	for (int i = 0; i < max_cache_entry; i++) {
-		mem_arr[i].mem_p = (int32_t *)malloc(PAGESIZE);
+		//mem_arr[i].mem_p = (D_TABLE *)malloc(PAGESIZE);
+		mem_arr[i].mem_p = (D_TABLE *)malloc(ENTRY_SIZE*EPP);
 		for (int j = 0; j < EPP; j++) {
-			mem_arr[i].mem_p[j] = -1;
+			mem_arr[i].mem_p[j].ppa = -1;
+#ifdef STORE_KEY
+#if USE_FINGERPRINT
+			mem_arr[i].mem_p[j].key_fp = 0;
+#else
+			mem_arr[i].mem_p[j].key.len = 0;
+			mem_arr[i].mem_p[j].key.key = (char *)malloc(255);
+#endif
+#endif
 		}
 	}
 
@@ -290,7 +308,7 @@ void demand_destroy(lower_info *li, algorithm *algo){
 	for (int i = 0; i < max_cache_entry; i++) {
 		int hash_entry_cnt = 0;
 		for (int j = 0; j < EPP; j++) {
-			if (mem_arr[i].mem_p[j] != -1) {
+			if (mem_arr[i].mem_p[j].ppa != -1) {
 				hash_entry_cnt++;
 			}
 		}
@@ -365,7 +383,7 @@ void demand_destroy(lower_info *li, algorithm *algo){
 	for (int i = 0; i < 1024; i++) {
 		if (hash_collision_cnt[i]) {
 			_cdf+=(float)hash_collision_cnt[i]/data_written;
-			printf("%d %.4f\n", i, _cdf);
+			printf("%d %.6f\n", i, _cdf);
 		}
 	}
 	puts("<hash collision count>\n");
@@ -377,6 +395,13 @@ void demand_destroy(lower_info *li, algorithm *algo){
 	q_free(flying_q);
 	BM_Free(bm);
 	for (int i = 0; i < max_cache_entry; i++) {
+#ifdef STORE_KEY
+#if !(USE_FINGERPRINT)
+		for (int j = 0; j < EPP; j++) {
+			free(mem_arr[i].mem_p[j].key.key);
+		}
+#endif
+#endif
 		free(mem_arr[i].mem_p);
 		free(CMT[i].flying_arr);
 		free(CMT[i].flying_snodes);
@@ -455,6 +480,7 @@ static uint32_t demand_cache_eviction(request *const req, char req_t) {
 	}
 
 	if (t_ppa != -1) {
+		req->type_ftl += 1;
 		c_table->flying = true;
 		num_flying++;
 
@@ -536,8 +562,12 @@ static uint32_t demand_read_flying(request *const req, char req_t) {
 	value_set *dummy_vs;
 	algo_req *temp_req;
 
+	//req->type_ftl += 1;
+
 	// GC can occur while flying (t_ppa can be changed)
 	if (params->t_ppa != t_ppa) {
+		req->type_ftl += 1;
+
 		params->read  = 0;
 		params->t_ppa = t_ppa;
 
@@ -591,8 +621,8 @@ uint32_t __demand_get(request *const req){
 	int32_t lpa; // Logical data page address
 	int32_t ppa; // Physical data page address
 	int32_t t_ppa; // Translation page address
-	C_TABLE* c_table; // Cache mapping entry pointer
-	int32_t * p_table; // pointer of p_table on cme
+	C_TABLE *c_table; // Cache mapping entry pointer
+	D_TABLE *p_table; // pointer of p_table on cme
 
 	struct hash_params *h_params;
 	int cnt;
@@ -604,12 +634,28 @@ uint32_t __demand_get(request *const req){
 	snode *temp;
 #endif
 
+#ifdef STORE_KEY
+#if USE_FINGERPRINT
+	int32_t key_fp;
+	int32_t check_key_fp;
+#else
+	KEYT check_key = {0,NULL};
+#endif
+#endif
+
+#ifdef STORE_KEY
+read_retry:
+#endif
 	ppa = -1;
 
 	h_params = (struct hash_params *)req->hash_params;
 	cnt = h_params->cnt;
-	h_params->hash_key = QUADRATIC_PROBING(h_params->hash, cnt) % num_dpage;
+	h_params->hash_key = PROBING_FUNC(h_params->hash, cnt) % num_dpage;
 	lpa = h_params->hash_key;
+
+#if defined(STORE_KEY) && USE_FINGERPRINT
+	key_fp = h_params->key_fp;
+#endif
 
 #if W_BUFF
 	/* Check skiplist first */
@@ -625,6 +671,10 @@ uint32_t __demand_get(request *const req){
 	}
 #endif
 
+	if (cnt > max_try) {
+		h_params->find = HASH_KEY_NONE;
+	}
+
 	if (h_params->find == HASH_KEY_NONE) {
 		printf("[ERROR:NOT_FOUND] HASH_KEY_NONE error! %d\n", ++none_err_cnt);
 		return UINT32_MAX;
@@ -639,13 +689,21 @@ uint32_t __demand_get(request *const req){
 		if (c_table->dirty_bitmap[P_IDX] == true) {
 			// !!! This mem-table lookup is unrealistic !!!
 			// TODO: linear search?
-			ppa = mem_arr[D_IDX].mem_p[P_IDX];
+			ppa = mem_arr[D_IDX].mem_p[P_IDX].ppa;
 			dirty_hit_on_read++;
 			cache_hit_on_read++;
 			//req->type_ftl = 1;
 
+#ifdef STORE_KEY
+#if USE_FINGERPRINT
+			check_key_fp = mem_arr[D_IDX].mem_p[P_IDX].key_fp;
+#else
+			check_key = mem_arr[D_IDX].mem_p[P_IDX].key;
+#endif
+#endif
+
 		} else if (p_table) { // Cache hit
-			ppa = p_table[P_IDX];
+			ppa = p_table[P_IDX].ppa;
 			if (ppa == -1) {
 				printf("[ERROR:NOT_FOUND] TABLE_ENTRY_NONE error! %d\n", ++entry_err_cnt);
 				return UINT32_MAX;
@@ -653,6 +711,13 @@ uint32_t __demand_get(request *const req){
 			clean_hit_on_read++;
 			cache_hit_on_read++;
 
+#ifdef STORE_KEY
+#if USE_FINGERPRINT
+			check_key_fp = p_table[P_IDX].key_fp;
+#else
+			check_key = p_table[P_IDX].key;
+#endif
+#endif
 			// Cache update
 			demand_cache_update(req, 'R');
 			//req->type_ftl = 1;
@@ -680,12 +745,35 @@ uint32_t __demand_get(request *const req){
 
 	/* Get actual data from device */
 	p_table = c_table->p_table;
-	if (ppa == -1) ppa = p_table[P_IDX];
+	if (ppa == -1) {
+		ppa = p_table[P_IDX].ppa;
+#ifdef STORE_KEY
+#if USE_FINGERPRINT
+		check_key_fp = p_table[P_IDX].key_fp;
+#else
+		check_key = p_table[P_IDX].key;
+#endif
+#endif
+	}
 
 	if (ppa == -1) {
 		printf("[ERROR:NOT_FOUND] TABLE_ENTRY_NONE error2! %d\n", ++entry_err_cnt);
 		return UINT32_MAX;
 	}
+
+#ifdef STORE_KEY
+#if USE_FINGERPRINT
+	if (check_key_fp != key_fp) {
+		h_params->cnt++;
+		goto read_retry;
+	}
+#else
+	if (KEYCMP(check_key, req->key) != 0) {
+		h_params->cnt++;
+		goto read_retry;
+	}
+#endif
+#endif
 
 	// Get data in ppa
 	__demand.li->read(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req));
@@ -698,7 +786,7 @@ uint32_t __demand_set(request *const req){
 	int32_t ppa; // Physical data page address
 	int32_t t_ppa; // Translation page address
 	C_TABLE *c_table; // Cache mapping entry pointer
-	int32_t *p_table; // pointer of p_table on cme
+	D_TABLE *p_table; // pointer of p_table on cme
 	algo_req *my_req; // pseudo request pointer
 
 	value_set *dummy_vs;
@@ -710,6 +798,15 @@ uint32_t __demand_set(request *const req){
 #if W_BUFF
 	snode *temp;
 	sk_iter *iter;
+#endif
+
+#ifdef STORE_KEY
+#if USE_FINGERPRINT
+	int32_t key_fp;
+	int32_t check_key_fp;
+#else
+	KEYT check_key = {0,NULL};
+#endif
 #endif
 
 	struct hash_params *h_params;
@@ -744,7 +841,7 @@ uint32_t __demand_set(request *const req){
 
 			h_params = (struct hash_params *)temp->hash_params;
 			cnt = h_params->cnt;
-			h_params->hash_key = QUADRATIC_PROBING(h_params->hash, cnt) % num_dpage;
+			h_params->hash_key = PROBING_FUNC(h_params->hash, cnt) % num_dpage;
 			lpa = h_params->hash_key;
 
 			c_table = &CMT[D_IDX];
@@ -752,7 +849,7 @@ uint32_t __demand_set(request *const req){
 			c_table->clean_ptr = lru_push(c_lru, (void *)c_table);
 			num_clean++;
 
-			ppa = c_table->p_table[P_IDX];
+			ppa = c_table->p_table[P_IDX].ppa;
 
 			for (int i = 0; i < c_table->num_snode; i++) {
 				q_enqueue((void *)c_table->flying_snodes[i], wait_q);
@@ -771,9 +868,12 @@ write_deque:
 			if (temp == NULL) temp = (snode *)q_dequeue(write_q);
 			if (temp == NULL) continue;
 
+#ifdef STORE_KEY
+write_retry:
+#endif
 			h_params = (struct hash_params *)temp->hash_params;
 			cnt = h_params->cnt;
-			h_params->hash_key = QUADRATIC_PROBING(h_params->hash, cnt) % num_dpage;
+			h_params->hash_key = PROBING_FUNC(h_params->hash, cnt) % num_dpage;
 			lpa = h_params->hash_key;
 
 			c_table = &CMT[D_IDX];
@@ -783,13 +883,26 @@ write_deque:
 			if (c_table->dirty_bitmap[P_IDX] == true) {
 				dirty_hit_on_write++;
 				cache_hit_on_write++;
-				ppa = mem_arr[D_IDX].mem_p[P_IDX];
+				ppa = mem_arr[D_IDX].mem_p[P_IDX].ppa;
+#ifdef STORE_KEY
+#if USE_FINGERPRINT
+				check_key_fp = mem_arr[D_IDX].mem_p[P_IDX].key_fp;
+#else
+				check_key = mem_arr[D_IDX].mem_p[P_IDX].key;
+#endif
+#endif
 
 			} else if (p_table) {
 				clean_hit_on_write++;
 				cache_hit_on_write++;
-				ppa = p_table[P_IDX];
-
+				ppa = p_table[P_IDX].ppa;
+#ifdef STORE_KEY
+#if USE_FINGERPRINT
+				check_key_fp = p_table[P_IDX].key_fp;
+#else
+				check_key = p_table[P_IDX].key;
+#endif
+#endif
 			} else {
 				if (c_table->wflying) {
 					c_table->flying_snodes[c_table->num_snode++] = temp;
@@ -819,6 +932,24 @@ write_deque:
 
 data_check:
 			if (ppa != -1 && h_params->find != HASH_KEY_SAME) {
+#ifdef STORE_KEY
+#if USE_FINGERPRINT
+				if (check_key_fp != h_params->key_fp) {
+					h_params->cnt++;
+					goto write_retry;
+				}
+				static int write_fp_miss_cnt = 0;
+				printf("write fp miss: %d\n", ++write_fp_miss_cnt);
+#else
+				if (KEYCMP(check_key, temp->key) != 0) {
+					h_params->cnt++;
+					goto write_retry;
+				} else {
+					h_params->find = HASH_KEY_SAME;
+					goto data_write;
+				}
+#endif
+#endif
 				dummy_vs = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 				temp_req = assign_pseudo_req(DATA_R, dummy_vs, NULL);
 				((demand_params *)temp_req->params)->sn = temp;
@@ -826,6 +957,9 @@ data_check:
 				continue;
 			}
 
+#if defined(STORE_KEY) && !USE_FINGERPRINT
+data_write:
+#endif
 			if (!c_table->dirty_bitmap[P_IDX]) {
 				if (num_caching == num_max_cache) {
 					// Batch-update
@@ -838,11 +972,19 @@ data_check:
 			}
 
 			// TODO: this would be done at eviction phase
-			if (mem_arr[D_IDX].mem_p[P_IDX] != -1) {
-				BM_InvalidatePage(bm, mem_arr[D_IDX].mem_p[P_IDX]);
+			if (mem_arr[D_IDX].mem_p[P_IDX].ppa != -1) {
+				BM_InvalidatePage(bm, mem_arr[D_IDX].mem_p[P_IDX].ppa);
 			}
 
-			mem_arr[D_IDX].mem_p[P_IDX] = temp->ppa;
+			mem_arr[D_IDX].mem_p[P_IDX].ppa = temp->ppa;
+#ifdef STORE_KEY
+#if USE_FINGERPRINT
+			mem_arr[D_IDX].mem_p[P_IDX].key_fp = h_params->key_fp;
+#else
+			mem_arr[D_IDX].mem_p[P_IDX].key.len = temp->key.len;
+			memcpy(mem_arr[D_IDX].mem_p[P_IDX].key.key, temp->key.key, temp->key.len);
+#endif
+#endif
 			BM_ValidatePage(bm, temp->ppa);
 			demand_OOB[temp->ppa].lpa = lpa;
 
@@ -854,8 +996,14 @@ data_check:
 
 			updated++;
 
-			if (cnt < 1024) {
-				hash_collision_cnt[cnt]++;
+			if (h_params->cnt > max_try) {
+				max_try = h_params->cnt;
+			}
+
+			if (h_params->cnt < 1024) {
+				hash_collision_cnt[h_params->cnt]++;
+			} else {
+				printf("[WHAT THE FUCK?] hash_collision_cnt over 1024\n");
 			}
 
 			free(temp->hash_params);
@@ -877,88 +1025,12 @@ data_check:
 	}
 	//--write_buffer
 
-
-/*
-	h_params = (struct hash_params *)req->hash_params;
-	cnt = h_params->cnt;
-	h_params->hash_key = QUADRATIC_PROBING(h_params->hash, cnt) % num_dpage;
-	lpa = h_params->hash_key;
-
-	c_table = &CMT[D_IDX];
-	p_table = c_table->p_table;
-
-	ppa = -1;
-
-	if (req->params == NULL) {
-		if (c_table->dirty_bitmap[P_IDX] == true) {
-			dirty_hit_on_read++;
-			cache_hit_on_read++;
-			ppa = mem_arr[D_IDX].mem_p[P_IDX];
-
-		} else if (p_table) {
-			clean_hit_on_read++;
-			cache_hit_on_read++;
-			demand_cache_update(req, 'R');
-
-		} else {
-			if (demand_cache_eviction(req, 'R')) {
-				return 1;
-			}
-		}
-	} else {
-		// Case of mapping read finished
-		if (demand_read_flying(req, 'R')) {
-			return 1;
-		}
-	}
-	free(req->params);
-	req->params = NULL;
-
-	c_table->write_hit++;
-
-	// If exist in mapping table, check it first
-	p_table = c_table->p_table;
-	if (ppa == -1) ppa = (p_table) ? p_table[P_IDX] : -1;
-	if (h_params->find != HASH_KEY_SAME) {
-		iter = skiplist_get_iterator(write_buffer);
-		for (size_t i = 0; i < write_buffer->size; i++) {
-			temp = skiplist_get_next(iter);
-
-			if (temp->hash_key == lpa) {
-				if (KEYCMP(req->key, temp->key)) {
-					h_params->find = HASH_KEY_DIFF;
-					h_params->cnt++;
-					max_try = (h_params->cnt > max_try) ? h_params->cnt : max_try;
-					//goto retry;
-					inf_assign_try(req);
-					return 1;
-
-				} else {
-					h_params->find = HASH_KEY_SAME;
-				}
-				break;
-			}
-		}
-		free(iter);
-
-		if (ppa != -1 && h_params->find != HASH_KEY_SAME) {
-			__demand.li->read(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req));
-			return 1;
-		}
-	} */
-
 	/* Insert data to skiplist (default) */
 	memcpy(req->value->value, &req->key.len, sizeof(uint8_t));
 	memcpy(req->value->value+1, req->key.key, req->key.len);
 
 	temp = skiplist_insert(write_buffer, req->key, req->value, true);
 	temp->hash_params = req->hash_params;
-
-	//rb_insert_str(rb_tree, req->key, NULL);
-
-//	if (cnt < 1024) {
-//		hash_collision_cnt[cnt]++;
-//	}
 
 	req->hash_params = NULL;
 	req->value = NULL; // moved to value field of snode
@@ -973,8 +1045,7 @@ uint32_t __demand_remove(request *const req) {
 	//int32_t ppa;
 	int32_t t_ppa;
 	C_TABLE *c_table;
-	//value_set *p_table_vs;
-	int32_t *p_table;
+	D_TABLE *p_table;
 	bool gc_flag;
 	bool d_flag;
 	//value_set *dummy_vs;
@@ -990,7 +1061,7 @@ uint32_t __demand_remove(request *const req) {
 	// Range check
 	h_params = (struct hash_params *)req->hash_params;
 	cnt = h_params->cnt;
-	h_params->hash_key = QUADRATIC_PROBING(h_params->hash, cnt) % num_dpage;
+	h_params->hash_key = PROBING_FUNC(h_params->hash, cnt) % num_dpage;
 	lpa = h_params->hash_key;
 
 	c_table = &CMT[D_IDX];
@@ -1027,7 +1098,7 @@ uint32_t __demand_remove(request *const req) {
 			return UINT32_MAX;
 		}
 
-		if (mem_arr[D_IDX].mem_p[P_IDX] == -1) { // Tricky way to filter invalid query
+		if (mem_arr[D_IDX].mem_p[P_IDX].ppa == -1) { // Tricky way to filter invalid query
 			return UINT32_MAX;
 		}
 
@@ -1039,11 +1110,11 @@ uint32_t __demand_remove(request *const req) {
 			++num_caching;
 		}
 
-		if (mem_arr[D_IDX].mem_p[P_IDX] != -1) {
-			BM_InvalidatePage(bm, mem_arr[D_IDX].mem_p[P_IDX]);
+		if (mem_arr[D_IDX].mem_p[P_IDX].ppa != -1) {
+			BM_InvalidatePage(bm, mem_arr[D_IDX].mem_p[P_IDX].ppa);
 		}
 
-		mem_arr[D_IDX].mem_p[P_IDX] = -1;
+		mem_arr[D_IDX].mem_p[P_IDX].ppa = -1;
 		c_table->dirty_bitmap[P_IDX] = true;
 
 		//BM_ValidatePage(bm, temp->ppa);
@@ -1108,9 +1179,38 @@ static uint32_t hashing_key(char* key,uint8_t len) {
 	return hashkey;
 }
 
+static uint32_t hashing_key_fp(char* key,uint8_t len) {
+	char* string;
+	Sha256Context ctx;
+	SHA256_HASH hash;
+	int bytes_arr[8];
+	uint32_t hashkey;
+
+	string = key;
+
+	Sha256Initialise(&ctx);
+	Sha256Update(&ctx, (unsigned char*)string, len);
+	Sha256Finalise(&ctx, &hash);
+
+	for(int i=0; i<8; i++) {
+		bytes_arr[i] = ((hash.bytes[i*4]) | (hash.bytes[i*4+1] << 8) | \
+				(hash.bytes[i*4+2] << 16) | (hash.bytes[i*4+3] << 24));
+	}
+
+	hashkey = bytes_arr[0];
+	for(int i=1; i<8; i++) {
+		hashkey ^= bytes_arr[i];
+	}
+
+	return hashkey;
+}
+
 static struct hash_params *make_hash_params(request *const req) {
 	struct hash_params *h_params = (struct hash_params *)malloc(sizeof(struct hash_params));
 	h_params->hash = hashing_key(req->key.key, req->key.len);
+#if defined(STORE_KEY) && USE_FINGERPRINT
+	h_params->key_fp = hashing_key_fp(req->key.key, req->key.len);
+#endif
 	h_params->cnt = 0;
 	h_params->find = HASH_KEY_INITIAL;
 	h_params->hash_key = 0;
@@ -1252,13 +1352,18 @@ void *demand_end_req(algo_req* input){
 				check_key.key = (char *)malloc(check_key.len);
 				memcpy(check_key.key, res->value->value+1, check_key.len);
 
+				res->type_ftl += 1;
+
 				if (KEYCMP(res->key, check_key)) {
 					h_params->find = HASH_KEY_DIFF;
 					h_params->cnt++;
 
-					if (h_params->cnt > max_try) {
+					static int read_fp_miss_cnt = 0;
+					printf("read fp miss: %d\n", ++read_fp_miss_cnt);
+
+					/* if (h_params->cnt > max_try) {
 						h_params->find = HASH_KEY_NONE;
-					}
+					} */
 
 					//if (res->type == FS_RANGEGET_T) {
 					//	q_enqueue((void *)res, range_q);
@@ -1267,8 +1372,7 @@ void *demand_end_req(algo_req* input){
 						puts("not queued 6");
 					}
 
-				} else {
-					res->type_ftl = h_params->cnt + 1;
+				} else { // HASH_KEY_SAME
 					free(h_params);
 
 					data_r++; trig_data_r++;
@@ -1288,7 +1392,7 @@ void *demand_end_req(algo_req* input){
 				if (KEYCMP(temp->key, check_key)) {
 					h_params->find = HASH_KEY_DIFF;
 					h_params->cnt++;
-					max_try = (h_params->cnt > max_try) ? h_params->cnt : max_try;
+					//max_try = (h_params->cnt > max_try) ? h_params->cnt : max_try;
 				} else {
 					h_params->find = HASH_KEY_SAME;
 				}
