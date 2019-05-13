@@ -45,6 +45,8 @@ typedef struct snode{ //skiplist's node
 	bool bypass;
 	bool write_flying;
 	int32_t t_ppa;
+#else
+	bool iscaching_entry;
 #endif
 	// -- ctoc
 	struct snode **list;

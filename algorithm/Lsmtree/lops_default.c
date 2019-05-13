@@ -115,9 +115,7 @@ bool def_fchk( level *input){
 	return false;
 #endif
 	if(input->istier){
-		/*
-		if(input->r_n_idx==input->r_m_num)
-			return true;*/
+
 	}
 	else{
 		if(input->n_num>=(input->m_num/(SIZEFACTOR)*(SIZEFACTOR-1)))

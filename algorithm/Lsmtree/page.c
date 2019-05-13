@@ -428,7 +428,6 @@ uint32_t getRPPA(uint8_t type,KEYT lpa,bool isfull){
 #endif
 	return res;
 }
-extern bool compaction_ggg_cnt;
 bool gc_dynamic_checker(bool last_comp_flag){
 	bool res=false;
 	int test=data_m.max_blkn-data_m.used_blkn;
@@ -438,27 +437,12 @@ bool gc_dynamic_checker(bool last_comp_flag){
 #else
 	if(test*_PPB<LSM.needed_valid_page)
 #endif*/
-	if((last_comp_flag && (uint32_t)test*_PPB<LSM.needed_valid_page) || (!last_comp_flag && test<=FULLMAPNUM/_PPB))
+	if((LSM.gc_started && last_comp_flag && (uint32_t)test*_PPB<LSM.needed_valid_page) || (!last_comp_flag && test<=FULLMAPNUM/_PPB))
 	{
-		if(compaction_ggg_cnt){
-			if(test!=llog_erase_cnt(data_m.blocks)){
-				fprintf(stderr,"ttt blocks\n");
-				llog_print(data_m.blocks);
-			}
-		}
+		LSM.gc_started=true;
 		res=true;
-	//	LSM.lop->print_level_summary();
 		LSM.target_gc_page=LSM.needed_valid_page;
-		/*
-		if(last_comp_flag){
-			LSM.target_gc_page=LSM.needed_valid_page;
-		}
-		else{
-			if(LSM.needed_valid_page<LSM.last_level_comp_term){
-				LSM.lop->print_level_summary();
-			}
-			LSM.target_gc_page=LSM.needed_valid_page-LSM.last_level_comp_term;
-		}*/
+
 	}
 	return res;
 }
@@ -474,25 +458,25 @@ int number_of_validpage(pm *input){
 	printf("valid percetage:%.3f\t%d\t%d\n",(float)valid_page/total_page,valid_page,total_page-valid_page);
 	return valid_page;
 }
-uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
 extern uint32_t data_input_write;
+uint32_t howmany_add;
 uint32_t before_data_input_write;
 bool gc_check(uint8_t type){
 	pm *target_p=NULL;
 	switch(type){
 		case HEADER:
+			LSM.header_gc_cnt++;
 			//printf("header gc %d\n",header_gc_cnt);
 			target_p=&header_m;
-			header_gc_cnt++;
 			break;
 		case DATA:
+			LSM.data_gc_cnt++;
 			//printf("data gc %d\n",data_gc_cnt);
 			target_p=&data_m;
-			data_gc_cnt++; 
 			break;
 		case BLOCK:
 			target_p=&block_m;
-			block_gc_cnt++; break;
+			break;
 	}
 	uint32_t target_page=0,new_page=0;
 #ifdef GCOPT
@@ -668,6 +652,7 @@ uint32_t getPPA(uint8_t type, KEYT lpa,bool isfull){
 }
 
 char test__[256];
+bool target_ppa_invalidate;
 void invalidate_PPA(uint32_t _ppa){
 	uint32_t ppa,bn,idx;
 	ppa=_ppa;
@@ -676,6 +661,7 @@ void invalidate_PPA(uint32_t _ppa){
 	
 	if(!bl[bn].bitset){
 		llog_print(data_m.blocks);
+		printf("error : %u\n",_ppa);
 	}
 	bl[bn].bitset[idx/8]|=(1<<(idx%8));
 	bl[bn].invalid_n++;
@@ -890,20 +876,31 @@ void gc_data_header_update(gc_node **gn, int size,int target_level){
 }
 
 void gc_data_header_update_add(gc_node **gn,int size, int target_level, char order){
-	static gc_node_wrapper *wrapper;
+	static gc_node_wrapper *wrapper=NULL;
 	static int total_size=0;
+	static int ccnt=0;
+	ccnt++;
+	
 	if(order==0){
 		wrapper=(gc_node_wrapper*)calloc(sizeof(gc_node_wrapper),1);
 		total_size=0;
 	}
-
 	if(gn!=NULL){
 		qsort(gn,size,sizeof(gc_node**),gc_node_compare);//sort
+		if(wrapper->cnt[target_level]>BPS){
+			abort();
+		}
 		wrapper->datas[target_level][wrapper->cnt[target_level]]=gn;
 		wrapper->size[target_level][wrapper->cnt[target_level]++]=size;
 		total_size+=size;
 	}
-	
+	for(int i=0; i<LEVELN; i++){
+		for(int j=0; j<wrapper->cnt[i]; j++){
+			if(wrapper->datas[i][j]==NULL){
+				abort();
+			}
+		}
+	}
 	if(order==2){
 		for(int i=0; i<LEVELN; i++){
 			if(wrapper->cnt[i]==0) continue;
@@ -946,6 +943,7 @@ void gc_data_header_update_add(gc_node **gn,int size, int target_level, char ord
 			free(level_cnt);
 		}
 		free(wrapper);
+		wrapper=NULL;
 	}
 }
 

@@ -35,8 +35,8 @@
 #define REALSIZE (512L*G)
 #define PAGESIZE (8*K)
 #define _PPB (256)
-#define _PPS (1<<14)
-#define BPS ((_PPS)/_PPB)
+#define BPS (64)
+#define _PPS (_PPB*BPS)
 
 #elif defined(SLC)
 
@@ -46,8 +46,8 @@
 #define DEVSIZE (64L * G)
 #define PAGESIZE (8*K)
 #define _PPB (256)
-#define _PPS (1<<14)
 #define BPS (64)
+#define _PPS (_PPB*BPS)
 
 #endif
 
@@ -57,9 +57,9 @@
 #define _NOB (BPS*_NOS)
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
 
-#define RANGE ((GIGAUNIT)*(M/PAGESIZE)*1024L*0.9)
-//#define RANGE ((GIGAUNIT)*(M/PAGESIZE)*1024L*0.8)
-//#define RANGE (50*(M/PAGESIZE)*1024L*0.8)
+#define TOTALKEYNUM ((GIGAUNIT)*(G/PAGESIZE))
+#define RANGE ((GIGAUNIT)*(M/PAGESIZE)*1024L*0.5)
+#define REQNUM ((GIGAUNIT)*(M/PAGESIZE)*1024L)
 
 #define SIMULATION 0
 
@@ -112,7 +112,7 @@ static inline char KEYTEST(KEYT a, KEYT b){
 #define ASYNC 1
 #define QSIZE (1024)
 #define LOWQDEPTH (128)
-#define QDEPTH (128)
+#define QDEPTH (1)
 
 #define THPOOL
 #define NUM_THREAD 16

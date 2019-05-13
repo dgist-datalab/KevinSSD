@@ -52,7 +52,9 @@ bool compaction_force_target(int from, int to);
 void compaction_sub_pre();
 void compaction_sub_wait();
 void compaction_sub_post();
+void compaction_heap_setting(level *a, level* b);
 void htable_read_postproc(run_t *r);
+void compaction_selector(level *a, level *b,leveling_node *lnode, pthread_mutex_t* lock);
 #ifdef WRITEOPTIMIZE
 void compaction_bg_htable_bulkread(run_t **r,fdriver_lock_t **locks);
 
@@ -64,4 +66,6 @@ void compaction_seq_MONKEY(level *,int, level *);
 #endif
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des);
 
+bool htable_read_preproc(run_t *r);
+void htable_read_postproc(run_t *r);
 #endif

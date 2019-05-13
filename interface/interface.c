@@ -351,7 +351,6 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 	req->key.len=key.len;
 	req->key.key=(char*)malloc(key.len);
 	memcpy(req->key.key,key.key,key.len);
-
 	switch(type){
 		case FS_DELETE_T:
 			req->value=NULL;
@@ -369,6 +368,7 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 
 			break;
 		case FS_GET_T:
+
 			req->value=inf_get_valueset(NULL,FS_GET_T,PAGESIZE);
 			break;
 		case FS_RANGEGET_T:
@@ -520,7 +520,7 @@ bool inf_end_req( request * const req){
 
 		case FS_GET_T:
 		case FS_NOTFOUND_T:
-			//free(req->key.key);
+			free(req->key.key);
 			if(req->value) inf_free_valueset(req->value,FS_MALLOC_R);
 			break;
 		case FS_SET_T:

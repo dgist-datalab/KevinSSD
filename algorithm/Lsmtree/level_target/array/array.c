@@ -1,4 +1,4 @@
-#include "array_header.h"
+#include "array.h"
 #include "../../level.h"
 #include "../../bloomfilter.h"
 #include "../../lsmtree.h"
@@ -40,8 +40,8 @@ level_ops a_ops={
 	.merger=array_merger,
 	.cutter=array_cutter,
 	.partial_merger_cutter=array_p_merger_cutter,
-	.multi_lev_merger=NULL,
-	.multi_lev_cutter=NULL,
+	.normal_merger=array_normal_merger,
+//	.normal_cutter=array_multi_cutter,
 #ifdef BLOOM
 	.making_filter=array_making_filter,
 #endif
@@ -66,6 +66,7 @@ level_ops a_ops={
 	.cache_find=array_cache_find,
 	.cache_find_run_data=array_cache_find_run_data,
 	.cache_next_run_data=array_cache_next_run_data,
+	.cache_get_body=array_cache_get_body,
 	.cache_get_iter=array_cache_get_iter,
 	.cache_iter_nxt=array_cache_iter_nxt,
 	//.cache_find_lowerbound=array_cache_find_lowerbound,
@@ -105,7 +106,6 @@ level* array_init(int size, int idx, float fpr, bool istier){
 	if(idx<LEVELCACHING){
 		b->skip=skiplist_init();
 	}
-
 
 	res->idx=idx;
 	res->fpr=fpr;
@@ -156,7 +156,9 @@ void array_free(level* lev){
 	//cache_print(LSM.lsm_cache);
 #endif
 	//printf("skip->free\n");
-	skiplist_free(b->skip);
+	if(lev->idx<LEVELCACHING){
+		skiplist_free(b->skip);
+	}
 	free(b);
 	free(lev);
 }
@@ -719,7 +721,7 @@ uint32_t array_get_level_mem_size(level *lev){
 void array_print_level_summary(){
 	for(int i=0; i<LEVELN; i++){
 		if(i<LEVELCACHING){
-			printf("[%d] n_num:%d m_num:%d\n",i+1,array_cache_get_sz(LSM.disk[i]),LSM.disk[i]->m_num);
+			printf("[%d:lev caching] n_num:%d m_num:%d\n",i+1,array_cache_get_sz(LSM.disk[i]),LSM.disk[i]->m_num);
 		}
 		else{
 			printf("[%d] n_num:%d m_num:%d\n",i+1,LSM.disk[i]->n_num,LSM.disk[i]->m_num);

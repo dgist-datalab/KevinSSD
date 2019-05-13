@@ -39,8 +39,11 @@ int main(int argc,char* argv[]){
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
 
+	printf("TOTALKEYNUM: %d\n",TOTALKEYNUM);
 //	bench_add(SEQSET,0,RANGE,RANGE/2);
-	bench_add(RANDSET,0,RANGE,RANGE*2);
+	bench_add(RANDSET,0,RANGE,REQNUM*2);
+	bench_add(RANDRW,0,RANGE,REQNUM*2);
+	
 //	bench_add(RANDGET,0,RANGE,RANGE);
 //	bench_add(RANDSET,0,RANGE,RANGE);
 //	bench_add(SEQGET,0,RANGE,RANGE);

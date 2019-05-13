@@ -241,6 +241,9 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
 		x->key=key;
 		x->ppa=ppa;
 		x->isvalid=deletef;
+#ifdef Lsmtree
+		x->iscaching_entry=false;
+#endif
 		x->value=NULL;
 		for(int i=1; i<=level; i++){
 			x->list[i]=update[i]->list[i];
@@ -258,14 +261,6 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
 }
 
 snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool deletef){
-/*	if(KEYCONSTCOMP(key,"100834")==0){
-		static int cnt_k=0;
-		if(cnt_k==18 || cnt_k==19){
-			printf("break\n");
-		}
-		printf("[%d]here! in skip_insert_exit\n",cnt_k++);
-	}*/
-
 #ifndef KVSSD
 	if(key>RANGE){
 		printf("bad page read\n");
@@ -274,7 +269,6 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 #endif
 	snode *update[MAX_L+1];
 	snode *x=list->header;
-	//fprintf(stderr,"%d %.*s\n",key.len, key.len,key.key);
 	for(int i=list->level; i>=1; i--){
 #ifdef KVSSD
 		while(KEYCMP(x->list[i]->key,key)<0)
@@ -289,8 +283,6 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 
 	x=x->list[1];
 #ifdef KVSSD
-//	if(KEYCMP(key,list->start)<0) list->start=key;
-//	if(KEYCMP(key,list->end)>0) list->end=key;
 	if(KEYTEST(key,x->key))
 #else
 	if(key<list->start) list->start=key;
@@ -334,6 +326,9 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 		list->all_length+=KEYLEN(key);
 #endif
 
+#ifdef Lsmtree
+		x->iscaching_entry=false;
+#endif
 		x->key=key;
 		x->ppa=ppa;
 		x->isvalid=deletef;
@@ -350,7 +345,7 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 		x->level=level;
 		list->size++;
 	}
-	return NULL;
+	return x;
 }
 
 snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overlap)(void*)){
@@ -497,6 +492,8 @@ snode *skiplist_insert_iter(skiplist *list,KEYT key,ppa_t ppa){
 		x->t_ppa = -1;
 		x->bypass = false;
 		x->write_flying = false;
+#else
+		x->iscaching_entry=false;
 #endif
 		// -- ctoc
 		for(int i=1; i<=level; i++){
@@ -595,8 +592,10 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		x->t_ppa = -1;
 		x->bypass = false;
 		x->write_flying = false;
-#endif
+#else
 		// -- ctoc
+		x->iscaching_entry=false;
+#endif
 
 		for(int i=1; i<=level; i++){
 			x->list[i]=update[i]->list[i];
@@ -781,11 +780,6 @@ void skiplist_clear(skiplist *list){
 		}
 		free(now->key.key);
 		free(now->list);
-		/*
-		if(now->req){
-			free(now->req->params);
-			free(now->req);
-		}*/
 #ifdef USINGSLAB
 	//	slab_free(&snode_slab,now);
 		kmem_cache_free(snode_slab,now);
@@ -847,6 +841,11 @@ void skiplist_container_free(skiplist *list){
 	snode *next=now->list[1];
 	while(now!=list->header){
 		free(now->list);
+#ifdef Lsmtree
+		if(now->iscaching_entry)
+			free(now->key.key);
+#endif
+
 #ifdef USINGSLAB
 		kmem_cache_free(snode_slab,now);
 #else

@@ -94,15 +94,13 @@ uint32_t __lsm_get(request *const);
 static int32_t get_sizefactor(uint64_t as){
 	uint32_t _f=LEVELN;
 	int32_t res;
-	uint64_t all_memory=(as/1024);
+	uint64_t all_memory=(TOTALSIZE/1024);
 	caching_size=CACHINGSIZE*(all_memory/(8*K));
 
 #if (LEVELCACHING==1 && LEVELN==2 && !defined(READCACHE))
 	res=caching_size;
-	//res=_f?ceil(pow(10,((log10(as/PAGESIZE/LSM.FLUSHNUM-caching_size)))/(_f-1))):as/PAGESIZE/LSM.FLUSHNUM;
 #else
-	//double temp_res=pow(10,log10(as/PAGESIZE/LSM.FLUSHNUM)/(_f));
-	res=_f?ceil(pow(10,log10(as/PAGESIZE/LSM.FLUSHNUM)/(_f))):as/PAGESIZE/LSM.FLUSHNUM;
+	res=_f?ceil(pow(10,log10(as/LSM.FLUSHNUM)/(_f))):as/LSM.FLUSHNUM;
 #endif
 	return res;
 }
@@ -134,10 +132,12 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 
 	lsm_bind_ops(&LSM);
 	LSM.memtable=skiplist_init();
-	SIZEFACTOR=get_sizefactor(TOTALSIZE);
+	//SIZEFACTOR=get_sizefactor(TOTALSIZE);
+	SIZEFACTOR=get_sizefactor(RANGE);
 	unsigned long long sol;
 #ifdef MONKEY
-	int32_t SIZEFACTOR2=ceil(pow(10,log10(TOTALSIZE/PAGESIZE/LSM.KEYNUM/LEVELN)/(LEVELN-1)));
+	//int32_t SIZEFACTOR2=ceil(pow(10,log10(TOTALSIZE/PAGESIZE/LSM.KEYNUM/LEVELN)/(LEVELN-1)));
+	int32_t SIZEFACTOR2=ceil(pow(10,log10(RANGE/LSM.KEYNUM/LEVELN)/(LEVELN-1)));
 	float ffpr=RAF*(1-SIZEFACTOR2)/(1-pow(SIZEFACTOR2,LEVELN-1));
 #endif
 	float target_fpr=0;
@@ -159,13 +159,13 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 #endif
 		LSM.disk[i]->fpr=target_fpr;
 #endif
-		printf("| [%d] fpr:%lf bytes per entry:%lu noe:%d\n",i+1,target_fpr,bf_bits(LSM.KEYNUM,target_fpr), LSM.disk[i]->m_num);
+		printf("| [%d] fpr:%lf bytes per entry:%lu noe:%d\n",i+1,target_fpr,bf_bits(KEYBITMAP/sizeof(uint16_t),target_fpr), LSM.disk[i]->m_num);
 		sizeofall+=LSM.disk[i]->m_num;
 		if(i<LEVELCACHING){
 			lev_caching_entry+=LSM.disk[i]->m_num;
 		}
 
-		bloomfilter_memory+=bf_bits(LSM.KEYNUM,target_fpr)*sol;
+		bloomfilter_memory+=bf_bits(KEYBITMAP/sizeof(uint16_t),target_fpr)*sol;
 		sol*=SIZEFACTOR;
 		LSM.level_addr[i]=(PTR)LSM.disk[i];
 	}   
@@ -212,6 +212,10 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 
 	LSM.caching_value=NULL;
 	LSM.delayed_trim_ppa=UINT32_MAX;
+	LSM.gc_started=false;
+	LSM.data_gc_cnt=LSM.header_gc_cnt=LSM.compaction_cnt=0;
+	LSM.zero_compaction_cnt=0;
+
 	LSM.li=li;
 	algo_lsm.li=li;
 	pm_init();
@@ -239,9 +243,10 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 		skiplist_free(LSM.temptable);
 
 	cache_free(LSM.lsm_cache);
-	printf("data gc: %d\n",data_gc_cnt);
-	printf("header gc: %d\n",header_gc_cnt);
-	printf("block gc: %d\n",block_gc_cnt);
+	fprintf(stderr,"data gc: %d\n",LSM.data_gc_cnt);
+	fprintf(stderr,"header gc: %d\n",LSM.header_gc_cnt);
+	fprintf(stderr,"compactino_cnt:%d\n",LSM.compaction_cnt);
+	fprintf(stderr,"zero compactino_cnt:%d\n",LSM.zero_compaction_cnt);
 
 	measure_adding_print(&__get_mt);
 #ifdef NOCPY
@@ -393,16 +398,14 @@ uint32_t lsm_set(request * const req){
 #endif
 	//printf("set:%*.s\n",KEYFORMAT(req->key));
 //	printf("set:%s\n",req->key.key);
-	compaction_check(req->key,force);	
-	MS(&__get_mt2);
+	compaction_check(req->key,force);
+	snode *new_temp;
 	if(req->type==FS_DELETE_T){
-		skiplist_insert(LSM.memtable,req->key,req->value,false);
+		new_temp=skiplist_insert(LSM.memtable,req->key,req->value,false);
 	}
 	else{
-		skiplist_insert(LSM.memtable,req->key,req->value,true);
+		new_temp=skiplist_insert(LSM.memtable,req->key,req->value,true);
 	}
-	MA(&__get_mt2);
-	
 	req->value=NULL;
 	//req->value will be ignored at free
 
@@ -486,11 +489,11 @@ uint32_t lsm_get(request *const req){
 		printf("not found seq: %d, key:%u\n",nor++,req->key);
 #endif
 	
-		//LSM.lop->all_print();
+		LSM.lop->all_print();
 		req->type=req->type==FS_GET_T?FS_NOTFOUND_T:req->type;
 		req->end_req(req);
 	//sleep(1);
-	//abort();
+		abort();
 	}
 	return res_type;
 }
@@ -771,14 +774,15 @@ retry:
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 
 			//after caching
-			round++;
-			temp_data[2]=round;
+
 
 #ifdef BLOOM
 			if(!bf_check(entry->filter,req->key)){
 				continue;
 			}
 #endif
+			round++;
+			temp_data[2]=round;
 
 			algo_req *lsm_req=lsm_get_req_factory(req,HEADERR);
 			lsm_params* params=(lsm_params*)lsm_req->params;

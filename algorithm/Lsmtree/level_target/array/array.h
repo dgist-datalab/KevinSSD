@@ -108,7 +108,7 @@ void array_header_print(char *data);
 void array_print_level_summary();
 uint32_t array_get_numbers_run(level *);
 #ifdef BLOOM
-BF* array_making_filter(run_t *,float );
+BF* array_making_filter(run_t *,int,float );
 #endif
 
 #ifdef LEVELCACHING
@@ -122,6 +122,7 @@ keyset *array_cache_find(level *, KEYT lpa);
 char *array_cache_find_run_data(level *,KEYT lpa);
 char *array_cache_next_run_data(level *,KEYT);
 lev_iter *array_cache_get_iter(level *,KEYT from, KEYT to);
+skiplist* array_cache_get_body(level *);
 run_t *array_cache_iter_nxt(lev_iter *);
 //char *array_cache_find_lowerbound(level *, KEYT lpa, KEYT *start,bool);
 int array_cache_get_sz(level*);
@@ -138,7 +139,9 @@ int array_bound_search(run_t *body,uint32_t max_t, KEYT lpa,bool islower);
 
 keyset_iter *array_key_iter_init(char *key_data,int from);
 keyset *array_key_iter_nxt(keyset_iter *,keyset *);
-run_t *array_p_merger_cutter(skiplist *,run_t **, run_t **);
+run_t *array_p_merger_cutter(skiplist *,run_t **, run_t **,float);
+void array_normal_merger(skiplist *,run_t *r,bool);
+//void array_multi_cutter(skiplist *,KEYT, bool just_one);
 
 //run_t *array_lsm_lower_bound_run(lsmtree *lsm, KEYT lpa);
 uint32_t array_get_level_mem_size(level *lev);

@@ -13,8 +13,8 @@
 
 
 #if LEVELN!=1
-//#define BLOOM
-//#define MONKEY
+#define BLOOM
+#define MONKEY
 #endif
 
 
@@ -56,6 +56,7 @@ typedef struct OOBT{
 #define MAXKEYSIZE 255
 #define WRITEOPTIMIZE
 #define GCOPT
+#define MULTIOPT
 //#define STREAMCOMP
 //#define NOGC
 //#define COSTBENEFIT
@@ -64,7 +65,7 @@ typedef struct OOBT{
 #define EPC 100000 //size factor have to be multiple of SIZEFACTOR
 
 /*block,header,data area variable*/
-#define HEADERSEG 2
+#define HEADERSEG (128/BPS)
 #define DATASEG (_NOS-(HEADERSEG+1)-1)
 
 #define MAXITER 16

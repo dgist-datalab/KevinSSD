@@ -115,7 +115,6 @@ int gc_header(uint32_t tbn){
 		if(!shouldwrite) continue;
 		/*write data*/
 		n_ppa=getRPPA(HEADER,*lpa,true);
-		printf("should setting oob!!\n");
 		target_entry->pbn=n_ppa;
 		nocpy_force_freepage(t_ppa);
 		gc_data_write(n_ppa,tables[i],false);
@@ -130,8 +129,10 @@ int gc_header(uint32_t tbn){
 	return 0;
 }
 static int gc_data_kv;
+extern bool target_ppa_invalidate;
 int gc_data(uint32_t tbn){
 	block *target=&bl[tbn];
+	//printf("gc_data_kv:[%d]\n",tbn);
 	char order;
 	if(tbn%BPS==0)	order=0;
 	else if(tbn%BPS==BPS-1) order=2;
@@ -139,7 +140,7 @@ int gc_data(uint32_t tbn){
 #ifdef DVALUE
 	if(target->invalid_n==algo_lsm.li->PPB*(PAGESIZE/PIECE) || target->erased){
 #else
-	if(target->invalid_n==algo_lsm.li->PPB || target->erased){
+	if(target->invalid_n==algo_lsm.li->PPB || target->invalid_n==target->ppage_idx||target->erased){
 #endif
 		gc_data_header_update_add(NULL,0,0,order);
 		gc_trim_segment(DATA,target->ppa);
@@ -291,6 +292,10 @@ int gc_data(uint32_t tbn){
 	free(tables);
 	if(bucket.contents_num)
 		gc_data_write_using_bucket(&bucket,target_level,order);
+	else{
+		printf("ppage_idx:%d invalid_n:%d tbn:%d\n",target->ppage_idx,target->invalid_n,tbn);
+		abort();
+	}
 	gc_trim_segment(DATA,target->ppa);
 	return 1;
 }

@@ -169,7 +169,7 @@ void bf_set(BF *input, KEYT key){
 
 	for(uint32_t i=0; i<input->k; i++){
 #if defined(KVSSD) && defined(Lsmtree)
-		MurmurHash3_x86_32(&key,sizeof(key),i,&h);
+		MurmurHash3_x86_32(key.key,key.len,i,&h);
 #else
 		h=hashfunction((key<<19) | (i<<7));
 #endif
@@ -189,7 +189,7 @@ bool bf_check(BF* input, KEYT key){
 
 	for(uint32_t i=0; i<input->k; i++){
 #if defined(KVSSD) && defined(Lsmtree)
-		MurmurHash3_x86_32(&key,sizeof(key),i,&h);
+		MurmurHash3_x86_32(key.key,key.len,i,&h);
 #else
 		h=hashfunction((key<<19) | (i<<7));
 #endif

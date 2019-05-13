@@ -1,6 +1,6 @@
 SRCS +=\
-	   array_level.c\
 	   array.c\
+	   array_level.c\
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\

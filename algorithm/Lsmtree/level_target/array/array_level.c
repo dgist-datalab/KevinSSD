@@ -1,11 +1,11 @@
-#include "array_header.h"
+#include "array.h"
 #include "../../level.h"
 #include "../../bloomfilter.h"
 #include "../../lsmtree.h"
 #include "../../../../interface/interface.h"
 #include "../../../../include/utils/kvssd.h"
 #include "../../../../include/settings.h"
-#include "array_header.h"
+#include "array.h"
 extern lsmtree LSM;
 static inline char *data_from_run(run_t *a){
 #ifdef NOCPY
@@ -222,8 +222,16 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 	return res_r;
 }
 
-BF* array_making_filter(run_t *data, float fpr){
-	printf("[%s]not implemented\n",__FUNCTION__);
+BF* array_making_filter(run_t *data,int num, float fpr){
+	BF *filter=bf_init(KEYBITMAP/sizeof(uint16_t),fpr);
+	char *body=data_from_run(data);
+	int idx;
+	uint16_t *bitmap=(uint16_t*)body;
+	KEYT key;
+	ppa_t *ppa_ptr;
+	for_each_header_start(idx,key,ppa_ptr,bitmap,body)
+		bf_set(filter,key);
+	for_each_header_end
 	return NULL;
 }
 
@@ -233,6 +241,7 @@ void array_cache_insert(level *lev,skiplist* mem){
 	
 	uint32_t idx=1;
 	snode *temp;
+	snode *new_node;
 	for_each_sk(temp,mem){
 		if(idx==1){
 			array_range_update(lev,NULL,temp->key);
@@ -240,30 +249,13 @@ void array_cache_insert(level *lev,skiplist* mem){
 		else if(idx==mem->size){
 			array_range_update(lev,NULL,temp->key);
 		}
-		skiplist_insert_existIgnore(skip,temp->key,temp->ppa,temp->ppa==UINT32_MAX?false:true);
-		temp->key.key=NULL;
+		new_node=skiplist_insert_existIgnore(skip,temp->key,temp->ppa,temp->ppa==UINT32_MAX?false:true);
+		if(new_node->key.key==temp->key.key){
+			temp->key.key=NULL; //mem will be freed
+		}
+		new_node->iscaching_entry=true;
 		idx++;
 	}
-
-	/*
-	uint32_t idx;
-	ppa_t *ppa_ptr;
-	uint16_t *bitmap;
-	char *body;
-	KEYT key;
-	KEYT start,end;
-
-	body=(char*)r->cpt_data->sets;
-	bitmap=(uint16_t*)body;
-	for_each_header_start(idx,key,ppa_ptr,bitmap,body)
-		if(idx==1) start=key;
-	skiplist_insert_existIgnore(skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
-	end=key;
-	for_each_header_end
-
-	array_range_update(lev,NULL,start);
-	array_range_update(lev,NULL,end);
-	*/
 }
 
 void array_cache_merge(level *src, level *des){
@@ -274,9 +266,14 @@ void array_cache_merge(level *src, level *des){
 
 	KEYT start=s->skip->header->list[1]->key,end;
 //	int cnt_s=1;
+	snode *new_snode;
 	for_each_sk(temp,s->skip){
 		end=temp->key;
-		skiplist_insert_existIgnore(d->skip,temp->key,temp->ppa,temp->ppa==UINT32_MAX?false:true);
+		new_snode=skiplist_insert_existIgnore(d->skip,temp->key,temp->ppa,temp->ppa==UINT32_MAX?false:true);
+		if(new_snode->key.key!=temp->key.key){
+			free(temp->key.key);
+		}
+		new_snode->iscaching_entry=true;
 	}
 	array_range_update(des,NULL,start);
 	array_range_update(des,NULL,end);
@@ -312,7 +309,8 @@ void array_cache_move(level *src, level *des){
 	//array_cache_merge(src,des);
 	array_body *s=(array_body*)src->level_data;
 	array_body *d=(array_body*)des->level_data;
-
+	
+	skiplist_free(d->skip);
 	d->skip=s->skip;
 	s->skip=NULL;
 	
@@ -418,6 +416,10 @@ run_t *array_next_run(level *lev,KEYT key){
 		return &arrs[target_idx+1];
 	}
 	return NULL;
+}
+skiplist* array_cache_get_body(level *lev){
+	array_body *b=(array_body*)lev->level_data;
+	return b->skip;
 }
 
 lev_iter *array_cache_get_iter(level *lev,KEYT from, KEYT to){
@@ -569,7 +571,7 @@ void array_header_next_key_pick(level *lev, keyset_iter * k_iter,keyset *res){
 	}
 }
 extern KEYT key_max;
-run_t *array_p_merger_cutter(skiplist *skip,run_t **src, run_t **org){
+run_t *array_p_merger_cutter(skiplist *skip,run_t **src, run_t **org, float fpr){
 	ppa_t *ppa_ptr;
 	KEYT key;
 	uint16_t *bitmap=NULL;
@@ -603,7 +605,7 @@ run_t *array_p_merger_cutter(skiplist *skip,run_t **src, run_t **org){
 #endif
 
 #ifdef BLOOM
-	BF* filter=bf_init(KEYBITMAP/sizeof(uint16_t),d->fpr);
+	BF* filter=bf_init(KEYBITMAP/sizeof(uint16_t),fpr);
 #endif
 	snode *temp;
 	char *ptr=(char*)res->sets;
@@ -647,3 +649,21 @@ run_t *array_p_merger_cutter(skiplist *skip,run_t **src, run_t **org){
 	skiplist_container_free(temp_skip);
 	return res_r;
 }
+
+void array_normal_merger(skiplist *skip,run_t *r,bool iswP){
+	ppa_t *ppa_ptr;
+	KEYT key;
+	char* body;
+	int idx;
+	body=data_from_run(r);
+	uint16_t *bitmap=(uint16_t*)body;
+	for_each_header_start(idx,key,ppa_ptr,bitmap,body)
+		if(iswP){
+			skiplist_insert_wP(skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
+		}
+		else
+			skiplist_insert_existIgnore(skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
+	for_each_header_end
+
+}
+

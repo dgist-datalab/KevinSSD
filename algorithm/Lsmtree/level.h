@@ -144,11 +144,11 @@ typedef struct level_ops{
 
 	void (*merger)( skiplist*, run_t** src,  run_t** org,  level *des);
 	run_t *(*cutter)( skiplist *,  level* des, KEYT* start, KEYT* end);
-	run_t *(*partial_merger_cutter)(skiplist*,run_t **src,run_t **des);
-	void (*multi_lev_merger)(skiplist *,run_t *t_run);
-	run_t **(*multi_lev_cutter)(skiplist *,KEYT, bool just_one);
+	run_t *(*partial_merger_cutter)(skiplist*,run_t **src,run_t **des, float fpr);
+	void (*normal_merger)(skiplist *,run_t *t_run, bool);
+//	run_t **(*normal_cutter)(skiplist *,KEYT, bool just_one);
 #ifdef BLOOM
-	BF *(*making_filter)(run_t *,float);
+	BF *(*making_filter)(run_t *, int num, float);
 #endif
 
 	/*run operation*/
@@ -174,6 +174,7 @@ typedef struct level_ops{
 	keyset *(*cache_find)(level *,KEYT);
 	char *(*cache_find_run_data)(level *,KEYT);
 	char *(*cache_next_run_data)(level *, KEYT );
+	skiplist *(*cache_get_body)(level*);
 	lev_iter *(*cache_get_iter)(level *,KEYT from, KEYT to); //from<= x < to
 	run_t *(*cache_iter_nxt)(lev_iter*);
 //	int (*cache_get_size)(level *);
