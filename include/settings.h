@@ -112,7 +112,7 @@ static inline char KEYTEST(KEYT a, KEYT b){
 #define ASYNC 1
 #define QSIZE (1024)
 #define LOWQDEPTH (128)
-#define QDEPTH (1)
+#define QDEPTH (128)
 
 #define THPOOL
 #define NUM_THREAD 16

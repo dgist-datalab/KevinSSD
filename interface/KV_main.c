@@ -68,6 +68,7 @@ void write_socket_len(char *buf, int len){
 		wrote+=temp_len;
 	}
 }
+
 void print_byte(char *data, int len){
 	for(int i=0; i<len; i++){
 		printf("%d ",data[i]);

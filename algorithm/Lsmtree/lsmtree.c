@@ -447,11 +447,12 @@ uint32_t lsm_proc_re_q(){
 				tmp_req->type=FS_NOTFOUND_T;
 				tmp_req->end_req(tmp_req);
 				//tmp_req->type=tmp_req->type==FS_GET_T?FS_NOTFOUND_T:tmp_req->type;
+				/*
 #ifdef KVSSD
 				printf("not found seq: %d, key:%.*s\n",nor++,KEYFORMAT(tmp_req->key));
 #else
 				printf("not found seq: %d, key:%u\n",nor++,tmp_req->key);
-#endif
+#endif*/
 			}
 		}
 		else 
@@ -482,18 +483,18 @@ uint32_t lsm_get(request *const req){
 		debug=true;
 	}
 	if(unlikely(res_type==0)){
-		
+		/*
 #ifdef KVSSD
 		printf("not found seq: %d, key:%.*s\n",nor++,KEYFORMAT(req->key));
 #else
 		printf("not found seq: %d, key:%u\n",nor++,req->key);
-#endif
+#endif*/
 	
-		LSM.lop->all_print();
+	//	LSM.lop->all_print();
 		req->type=req->type==FS_GET_T?FS_NOTFOUND_T:req->type;
 		req->end_req(req);
 	//sleep(1);
-		abort();
+	//	abort();
 	}
 	return res_type;
 }
@@ -584,9 +585,10 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 			res=4;
 		}
 		else{
+			/*
 			if(LEVELN-LEVELCACHING==1){
 				printf("can't be %d\n",__LINE__);
-			}
+			}*/
 		}
 
 		if(entry){

@@ -14,7 +14,7 @@ DEBUGFLAGS=\
 #	-fsanitize=address\
 #	-DBUSE_DEBUG
 
-COMMONFLAGS=\
+export COMMONFLAGS=\
 			-Wno-write-strings\
 			-Wno-unused-function\
 			-DLARGEFILE64_SOURCE\
@@ -127,7 +127,7 @@ debug_driver: ./interface/main.c libdriver_d.a
 driver: ./interface/main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
-kv_driver: ./interface/KV_main.c libdriver.a
+kv_driver: ./interface/NET_main.c libdriver.a libfdsock.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 range_driver: ./interface/range_test_main.c libdriver.a
@@ -139,6 +139,8 @@ duma_driver: ./interface/main.c libdriver.a
 jni: libdriver.a ./jni/DriverInterface.c
 	$(CC) -fPIC -o libdriver.so -shared -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux ./object/* $(LIBS)
 	
+libfdsock.a:
+	cd ./include/flash_sock/ && $(MAKE) libfdsock.a && mv ./libfdsock.a ../../ && cd ../../
 
 libdriver.a: $(TARGETOBJ)
 	mkdir -p object && mkdir -p data
