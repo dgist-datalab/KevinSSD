@@ -83,6 +83,9 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 	uint16_t data_start=KEYBITMAP;
 	bitmap[0]=mem->size;
 	for_each_sk(temp,mem){
+
+		//printf("idx:%d data_start:%d key_len:%d\n",idx,data_start,temp->key.len);
+
 		if(idx==1){
 			kvssd_cpy_key(&input->key,&temp->key);
 		}

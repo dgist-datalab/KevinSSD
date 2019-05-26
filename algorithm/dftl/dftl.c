@@ -240,13 +240,13 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 void demand_destroy(lower_info *li, algorithm *algo){
 
-    
+    /*
     puts("");
     for (int i = 0; i < max_cache_entry; i++) {
         if (CMT[i].read_hit || CMT[i].write_hit) {
             printf("CMT[%d]: read(%u) / write(%u)\n", i, CMT[i].read_hit, CMT[i].write_hit);
         }
-    }
+    }*/
 
 
     /* Print information */

@@ -233,7 +233,8 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	//LSM.lop->all_print();
 	lsm_debug_print();
 	compaction_free();
-
+	
+	//cache_print(LSM.lsm_cache);
 	printf("last summary-----\n");
 	for(int i=0; i<LEVELN; i++){
 		LSM.lop->release(LSM.disk[i]);
@@ -473,7 +474,7 @@ uint32_t lsm_get(request *const req){
 	}
 	lsm_proc_re_q();
 	if(!temp){
-		//LSM.lop->all_print();
+	//	LSM.lop->all_print();
 		//printf("nocpy size:%d\n",nocpy_size()/M);
 		//printf("lsmtree size:%d\n",lsm_memory_size()/M);
 		temp=true;
@@ -668,6 +669,7 @@ uint32_t __lsm_get(request *const req){
 	htable mapinfo;
 	run_t** entries;
 	run_t *entry;
+	static int cnt=0;
 //	printf("[%d]%.*s\n",cnt++,KEYFORMAT(req->key));
 	if(req->params==NULL){
 		/*memtable*/

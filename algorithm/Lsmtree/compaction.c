@@ -488,10 +488,16 @@ void compaction_check(KEYT key, bool force){
 	if(LSM.memtable->size<LSM.FLUSHNUM) return;
 	compR *req;
 	bool last;
+	skiplist *t=NULL, *t2=NULL;
 	do{
 		last=0;
-		skiplist *t=skiplist_cutting_header(LSM.memtable);
-		if(t==LSM.memtable) last=1;
+		if(t2!=NULL){
+			t=t2;
+		}else{
+			t=skiplist_cutting_header(LSM.memtable);
+		}
+		t2=skiplist_cutting_header(LSM.memtable);
+		if(t2==LSM.memtable) last=1;
 		req=(compR*)malloc(sizeof(compR));
 		req->fromL=-1;
 		req->last=last;
@@ -500,7 +506,7 @@ void compaction_check(KEYT key, bool force){
 	}while(!last);
 
 #ifdef WRITEWAIT
-	LSM.memtable=skiplist_init();
+	//LSM.memtable=skiplist_init();
 	pthread_mutex_lock(&compaction_flush_wait);
 #endif
 }
@@ -719,7 +725,9 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 chg_level:
 #endif
 	des_ptr=&LSM.disk[target_origin->idx];
-
+	if(from!=NULL && from->idx<LEVELCACHING){
+		cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+LSM.lop->get_number_runs(from));
+	}
 	if(from!=NULL){ 
 		int from_idx=from->idx;
 		pthread_mutex_lock(&LSM.level_lock[from_idx]);

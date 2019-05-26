@@ -419,7 +419,7 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overla
 skiplist *skiplist_cutting_header(skiplist *in){
 	static uint32_t num_limit=KEYBITMAP/sizeof(uint16_t);
 	static uint32_t size_limit=PAGESIZE-KEYBITMAP;
-	if(in->all_length<size_limit || in->size <num_limit) return in;
+	if(in->all_length<size_limit && in->size <num_limit) return in;
 
 	uint32_t length=0;
 	uint32_t idx=0;
@@ -427,7 +427,7 @@ skiplist *skiplist_cutting_header(skiplist *in){
 	for_each_sk(temp,in){
 		length+=KEYLEN(temp->key);
 		idx++;
-		if(length>=size_limit || idx>=num_limit ) break;
+		if(length+KEYLEN(temp->list[1]->key)>=size_limit || idx>=num_limit ) break;
 	}
 	skiplist *res=skiplist_divide(in,temp);
 	res->size=idx;

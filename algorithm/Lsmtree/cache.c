@@ -217,7 +217,7 @@ void cache_print(cache *c){
 			printf("fuck!!!\n");
 		}
 #ifdef KVSSD
-//		printf("[%d]c->endtry->key:%s c->entry->pbn:%u d:%p\n",print_number++,kvssd_tostring(tent->key),tent->pbn,tent->cache_dataa);
+		printf("[%d]c->endtry->key:%s c->entry->pbn:%u d:%p\n",print_number++,kvssd_tostring(tent->key),tent->pbn,tent->cache_nocpy_data_ptr);
 #else
 		printf("[%d]c->entry->key:%d c->entry->pbn:%d d:%p\n",print_number++,tent->key,tent->pbn,tent->cache_data);
 #endif
@@ -226,6 +226,7 @@ void cache_print(cache *c){
 }
 
 bool cache_insertable(cache *c){
+	//printf("m:n %d:%d\n", c->m_size, c->n_size);
 	return c->m_size==0?0:1;
 }
 

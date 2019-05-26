@@ -302,7 +302,7 @@ run_t **array_find_run_num( level* lev,KEYT lpa, uint32_t num){
 	run_t **res=(run_t**)calloc(sizeof(run_t*),num+1);
 	uint32_t idx;
 	for(idx=0; idx<num; idx++){
-		if(target_idx<lev->m_num){
+		if(target_idx<lev->n_num){
 			res[idx]=&arrs[target_idx++];
 		}else{
 			break;
@@ -513,7 +513,7 @@ void array_print(level *lev){
 		if(!b->skip || b->skip->size==0){
 			printf("[caching data] empty\n");	
 		}else{
-//			printf("[caching data] %.*s ~ %.*s size:%lu all_length:%d/%d(max)\n",KEYFORMAT(b->skip->start),KEYFORMAT(b->skip->end),b->skip->size, b->skip->all_length, lev->m_num *(PAGESIZE-KEYBITMAP));
+			printf("[caching data] # of entry:%d -> run:%d\n",b->skip->size,array_get_numbers_run(lev));
 		}
 		return;
 	}

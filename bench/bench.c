@@ -12,7 +12,7 @@ int32_t LOCALITY;
 float TARGETRATIO;
 float OVERLAP;
 bool last_ack;
-
+int seq_padding_opt;
 extern int32_t write_stop;
 
 master *_master;
@@ -569,13 +569,38 @@ int my_itoa(uint32_t key, char **_target){
 	target[cnt]='\0';
 	return cnt;
 }
+
+int my_itoa_padding(uint32_t key, char **_target,int digit){
+	int cnt=1;
+	int standard=10;
+	int t_key=key;
+	while(t_key/10){
+		cnt++;
+		t_key/=10;
+		standard*=10;
+	}
+
+	*_target=(char*)malloc(digit+1);
+	char *target=*_target;
+	t_key=key;
+	for(int i=0; i<digit-cnt-1; i++){
+		target[i]='0';
+	}
+	for(int i=digit-1; i>=digit-cnt-1; i--){
+		target[i]=t_key%10+'0';
+		t_key/=10;
+	}
+	target[digit]='\0';
+	return digit;
+}
 #endif
 void seqget(uint32_t start, uint32_t end,monitor *m){
 	printf("making seq Get bench!\n");
 	for(uint32_t i=0; i<m->m_num; i++){
 #ifdef KVSSD
 		KEYT *t=&m->body[i/m->bech][i%m->bech].key;
-		t->len=my_itoa(start+(i%(end-start)),&t->key);
+		if(seq_padding_opt)t->len=my_itoa_padding(start+(i%(end-start)),&t->key,10);
+		else t->len=my_itoa(start+(i%(end-start)),&t->key);
 #else
 		m->body[i/m->bech][i%m->bech].key=start+(i%(end-start));
 #endif
@@ -591,8 +616,8 @@ void seqset(uint32_t start, uint32_t end,monitor *m){
 	for(uint32_t i=0; i<m->m_num; i++){
 #ifdef KVSSD
 		KEYT *t=&m->body[i/m->bech][i%m->bech].key;
-		t->len=my_itoa(start+(i%(end-start)),&t->key);
-		//printf("%s\n",kvssd_tostring(*t));
+		if(seq_padding_opt)t->len=my_itoa_padding(start+(i%(end-start)),&t->key,10);
+		else t->len=my_itoa(start+(i%(end-start)),&t->key);
 		bitmap_set(start+(i%(end-start)));
 #else
 		m->body[i/m->bech][i%m->bech].key=start+(i%(end-start));
@@ -615,7 +640,8 @@ void seqrw(uint32_t start, uint32_t end, monitor *m){
 	for(i=0; i<m->m_num/2; i++){
 #ifdef KVSSD
 		KEYT *t=&m->body[i/m->bech][i%m->bech].key;
-		t->len=my_itoa(start+(i%(end-start)),&t->key);
+		if(seq_padding_opt)t->len=my_itoa_padding(start+(i%(end-start)),&t->key,10);
+		else t->len=my_itoa(start+(i%(end-start)),&t->key);
 		bitmap_set(start+(i%(end-start)));
 #else
 		m->body[i/m->bech][i%m->bech].key=start+(i%(end-start));
@@ -632,7 +658,8 @@ void seqrw(uint32_t start, uint32_t end, monitor *m){
 
 #ifdef KVSSD
 		t=&m->body[(i+m->m_num/2)/m->bech][(i+m->m_num/2)%m->bech].key;
-		t->len=my_itoa(start+(i%(end-start)),&t->key);
+		if(seq_padding_opt)t->len=my_itoa_padding(start+(i%(end-start)),&t->key,10);
+		else t->len=my_itoa(start+(i%(end-start)),&t->key);
 #else
 		m->body[(i+m->m_num/2)/m->bech][(i+m->m_num/2)%m->bech].key=start+(i%(end-start));
 #endif
@@ -832,7 +859,6 @@ void seq_latency(uint32_t start, uint32_t end,int percentage, monitor *m){
 
 void rand_latency(uint32_t start, uint32_t end,int percentage, monitor *m){
 	printf("making latency bench!\n");
-	//seqset process
 	for(uint32_t i=0; i<0; i++){
 		m->body[i/m->bech][i%m->bech].key=start+rand()%(end-start);
 		bitmap_set(m->body[i/m->bech][i%m->bech].key);

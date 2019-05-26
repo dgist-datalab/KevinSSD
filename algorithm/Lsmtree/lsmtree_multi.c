@@ -128,30 +128,40 @@ uint32_t __lsm_range_get_after_header(request *req){
 	}
 
 	keyset min={0,0}, temp;
+	bool no_memtable=false;
 	for(int j=0;j<req->num; j++){
 		int target;
 		min.ppa=-1;
 
 		for(int i=0; i<LEVELN+1; i++){
-			if(i==0){
+			if(i==0 && !no_memtable){
 				if(mem_node==LSM.memtable->header) continue;
+				if(!mem_node){
+					no_memtable=true;
+					continue;
+				}
 				min.ppa=0;
 				min.lpa=mem_node->key;
 				target=-1;
 			}
 			else{
+				if(i==0) continue;
 				int level=i-1;
 again:
 				if(level_iter[level]==NULL) continue;
 				LSM.lop->header_next_key_pick(LSM.disk[level],level_iter[level],&temp);
 
-				if(temp.ppa==UINT_MAX){
+				if(temp.ppa==UINT_MAX){ //the target header end
 					if(level<LEVELCACHING || level_mapping_cnt[level]>=RANGEGETNUM) continue;
 					if(params->mapping_data[level*RANGEGETNUM + level_mapping_cnt[level]]==NULL) continue;
 					//it is called when the level is not caching
 					if(level_iter[level]->private_data) free(level_iter[level]->private_data);
 					free(level_iter[level]);
 	//				printf("changed iter!\n");
+					if(params->mapping_data[level*RANGEGETNUM+level_mapping_cnt[level]]==0){
+						level_iter[level]=NULL;
+						continue;
+					}
 					level_iter[level]=LSM.lop->header_get_keyiter(LSM.disk[level],params->mapping_data[level*RANGEGETNUM+level_mapping_cnt[level]++],&req->key);
 					goto again;
 				}
@@ -231,7 +241,7 @@ uint32_t __lsm_range_get(request *const req){
 	/*req all headers read*/
 	params=(lsm_range_params*)malloc(sizeof(lsm_range_params));
 	fdriver_lock_init(&params->global_lock,1);
-	params->mapping_data=(char**)malloc(sizeof(char*)*LEVELN*RANGEGETNUM);
+	params->mapping_data=(char**)calloc(sizeof(char*),LEVELN*RANGEGETNUM);
 	memset(params->mapping_data,0,sizeof(char*)*LEVELN*RANGEGETNUM);
 	params->now=0;
 	params->max=(LEVELN-LEVELCACHING)*RANGEGETNUM;

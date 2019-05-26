@@ -158,7 +158,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	num_block       = _NOS;
 	p_p_b           = _PPS;
 	num_tblock      = (max_cache_entry/p_p_b) + (max_cache_entry%p_p_b?1:0);
-	num_tblock      = (num_tblock < 4) ? 4 : num_tblock;
+	num_tblock      = (num_tblock < 2) ? 2 : num_tblock;
 	//num_tblock      = ((num_block / EPP) + ((num_block % EPP != 0) ? 1 : 0)) * 4;
 	num_tpage       = num_tblock * p_p_b;
 	num_dblock      = num_block - num_tblock - 2;
@@ -295,7 +295,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 }
 
 void demand_destroy(lower_info *li, algorithm *algo){
-
+	/*
 	puts("   <flying status>");
 	for (int i = 0; i < max_cache_entry; i++) {
 		if (CMT[i].num_waiting) {
@@ -313,7 +313,7 @@ void demand_destroy(lower_info *li, algorithm *algo){
 			}
 		}
 		printf("CMT[%d] cnt:%d\n",  i, hash_entry_cnt);
-	}
+	}*/
 
 
 	/* Print information */
@@ -676,7 +676,7 @@ read_retry:
 	}
 
 	if (h_params->find == HASH_KEY_NONE) {
-		printf("[ERROR:NOT_FOUND] HASH_KEY_NONE error! %d\n", ++none_err_cnt);
+//		printf("[ERROR:NOT_FOUND] HASH_KEY_NONE error! %d\n", ++none_err_cnt);
 		return UINT32_MAX;
 	}
 
@@ -705,7 +705,7 @@ read_retry:
 		} else if (p_table) { // Cache hit
 			ppa = p_table[P_IDX].ppa;
 			if (ppa == -1) {
-				printf("[ERROR:NOT_FOUND] TABLE_ENTRY_NONE error! %d\n", ++entry_err_cnt);
+	//			printf("[ERROR:NOT_FOUND] TABLE_ENTRY_NONE error! %d\n", ++entry_err_cnt);
 				return UINT32_MAX;
 			}
 			clean_hit_on_read++;
@@ -724,7 +724,7 @@ read_retry:
 
 		} else { // Cache miss
 			if (t_ppa == -1) {
-				printf("[ERROR:NOT_FOUND] TABLE_NONE error! %d\n", ++table_err_cnt);
+	//			printf("[ERROR:NOT_FOUND] TABLE_NONE error! %d\n", ++table_err_cnt);
 				return UINT32_MAX;
 			}
 
@@ -757,7 +757,7 @@ read_retry:
 	}
 
 	if (ppa == -1) {
-		printf("[ERROR:NOT_FOUND] TABLE_ENTRY_NONE error2! %d\n", ++entry_err_cnt);
+	//	printf("[ERROR:NOT_FOUND] TABLE_ENTRY_NONE error2! %d\n", ++entry_err_cnt);
 		return UINT32_MAX;
 	}
 
@@ -850,7 +850,13 @@ uint32_t __demand_set(request *const req){
 			num_clean++;
 
 			ppa = c_table->p_table[P_IDX].ppa;
-
+#ifdef STORE_KEY
+#if USE_FINGERPRINT
+			check_key_fp = mem_arr[D_IDX].mem_p[P_IDX].key_fp;
+#else
+			check_key = mem_arr[D_IDX].mem_p[P_IDX].key;
+#endif
+#endif
 			for (int i = 0; i < c_table->num_snode; i++) {
 				q_enqueue((void *)c_table->flying_snodes[i], wait_q);
 				c_table->flying_snodes[i] = NULL;
@@ -939,7 +945,7 @@ data_check:
 					goto write_retry;
 				}
 				static int write_fp_miss_cnt = 0;
-				printf("write fp miss: %d\n", ++write_fp_miss_cnt);
+				//printf("write fp miss: %d\n", ++write_fp_miss_cnt);
 #else
 				if (KEYCMP(check_key, temp->key) != 0) {
 					h_params->cnt++;
@@ -1359,7 +1365,7 @@ void *demand_end_req(algo_req* input){
 					h_params->cnt++;
 
 					static int read_fp_miss_cnt = 0;
-					printf("read fp miss: %d\n", ++read_fp_miss_cnt);
+					//printf("read fp miss: %d\n", ++read_fp_miss_cnt);
 
 					/* if (h_params->cnt > max_try) {
 						h_params->find = HASH_KEY_NONE;

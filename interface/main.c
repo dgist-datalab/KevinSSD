@@ -17,6 +17,7 @@ extern int LOCALITY;
 extern float TARGETRATIO;
 extern master *_master;
 extern bool force_write_start;
+extern int seq_padding_opt;
 extern lsmtree LSM;
 #ifdef Lsmtree
 int skiplist_hit;
@@ -33,16 +34,20 @@ int main(int argc,char* argv[]){
 		LOCALITY=50;
 		TARGETRATIO=0.5;
 	}
-
+	seq_padding_opt=1;
 	inf_init(0,0);
 	bench_init();
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
 
 	printf("TOTALKEYNUM: %d\n",TOTALKEYNUM);
-//	bench_add(SEQSET,0,RANGE,RANGE/2);
-	bench_add(RANDSET,0,RANGE,REQNUM*2);
-	bench_add(RANDRW,0,RANGE,REQNUM*2);
+	// GC test
+	bench_add(SEQSET,0,RANGE,RANGE);
+	bench_add(RANDSET,0,RANGE,REQNUM*3);
+
+//	bench_add(SEQRW,0,RANGE,REQNUM*2);
+//	bench_add(RANDSET,0,RANGE,REQNUM*2);
+//	bench_add(RANDRW,0,RANGE,REQNUM*2);
 	
 //	bench_add(RANDGET,0,RANGE,RANGE);
 //	bench_add(RANDSET,0,RANGE,RANGE);

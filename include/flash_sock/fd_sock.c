@@ -12,6 +12,7 @@ int protocol_type(char *r){
 			if(r[1]=='E') return REDIS;
 			else return ROCKSDB;
 		case 'O': return OLTP;
+		case 'F': return FILESOCK;
 	}
 }
 
@@ -57,6 +58,7 @@ fd_sock_m *fd_sock_init(char *ip, int port, int type){
 	int option=1;
 	setsockopt( server_socket, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option) );
 
+	res->type=type;
 	int flag;
 	switch(type){
 		case YCSB:
@@ -70,6 +72,9 @@ fd_sock_m *fd_sock_init(char *ip, int port, int type){
 			break;
 		case OLTP:
 			break;
+		case FILESOCK:
+			res->fp=fopen("trace","r");
+			return res;
 	}
 
 	struct sockaddr_in server_addr,client_addr;
@@ -90,7 +95,6 @@ fd_sock_m *fd_sock_init(char *ip, int port, int type){
 	printf("server ip:%s port:%d\n",ip,port);
 	printf("server waiting.....\n");
 	client_addr_size  = sizeof( client_addr);
-	res->type=type;
 	res->server_socket=server_socket;
 
 	if(type!=REDIS){
@@ -146,6 +150,9 @@ int fd_sock_requests(fd_sock_m *f, netdata * nd){
 				break;
 			case OLTP:
 				break;
+			case FILESOCK:
+				res=fd_sock_read_file(f,nd);
+				break;
 		}
 	}while(res==CLOSEDSESSION || res==NEWSESSION || res==RETRYSESSION);
 
@@ -163,6 +170,9 @@ int fd_sock_reply(fd_sock_m *f, netdata * nd){
 		case ROCKSDB:
 			break;
 		case OLTP:
+			break;
+		case FILESOCK:
+			fd_sock_write_file(f,nd);
 			break;
 	}
 	return 1;
@@ -270,7 +280,6 @@ retry:
 		case RANGE_TYPE:	
 			fd_sock_read(f,(char*)&data->scanlength,sizeof(data->scanlength));
 			data->scanlength=htobe32(data->scanlength);
-			data->type=FS_RANGEGET_T;
 			fd_sock_read(f,data->key,data->keylen);
 			break;
 		case READ_TYPE:
@@ -323,4 +332,29 @@ int fd_sock_normal_read(int fd,char *buf, int len){
 		readed+=temp_len;
 	}
 	return len;
+}
+
+int fd_sock_read_file(fd_sock_m* f, netdata *data){
+	static int cnt=0;
+	if(f->fp){
+		cnt++;
+		fscanf(f->fp,"%d%d%d%d%s%d", &data->type,&data->keylen,&data->seq, &data->scanlength, data->key,&data->valuelen);
+		//fscanf(f->fp,"%d", &data->type);
+	}else{
+		printf("what have to do!\n");
+		abort();
+	}
+	if(cnt%10240==0){
+		printf("%d\n",cnt);
+	}
+	return data->type==WRITE_TYPE?1:0;
+}
+
+int fd_sock_write_file(fd_sock_m* f, netdata* nd){
+	return 1;
+}
+
+void fd_print_netdata(FILE *fp, netdata* data){
+	fprintf(fp,"%d %d %d %d %.*s %d\n",data->type,data->keylen,data->seq, data->scanlength, data->keylen,data->key,data->valuelen);
+	fflush(fp);
 }
