@@ -7,6 +7,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 int32_t LOCALITY;
 float TARGETRATIO;
 float OVERLAP;
@@ -175,6 +178,7 @@ bench_value* get_bench(){
         }
 		printf("\rtesting...... [100%%] done!\n");
 		printf("\n");
+        sleep(5);
 		
 		for(int i=0; i<BENCHSETSIZE; i++){
 			free(_m->body[i]);
@@ -525,8 +529,9 @@ void bench_reap_data(request *const req,lower_info *li){
 		MS(&_m->benchTime);
 	}
 #ifdef BENCH
-	if(req->algo.isused)
+	if(req->algo.isused){
 		__bench_time_maker(req->algo,_data,true);
+    }
 
 	if(req->lower.isused)
 		__bench_time_maker(req->lower,_data,false);

@@ -1,6 +1,7 @@
 *.o
 *.a
 *.out
+buse
 driver
 driver_memory_check
 server

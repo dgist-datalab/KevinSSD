@@ -4,8 +4,8 @@
 struct algorithm algo_pbase={
 	.create = pbase_create,
 	.destroy = pbase_destroy,
-	.get = pbase_get,
-	.set = pbase_set,
+	.read = pbase_get,
+	.write = pbase_set,
 	.remove = pbase_remove
 };
 
@@ -28,12 +28,22 @@ int32_t _g_ppb;
 int32_t gc_load;
 int32_t gc_count;
 
+#ifdef BUSE_MEASURE
+MeasureTime algoTime;
+MeasureTime algoendTime;
+#endif
+
 uint32_t pbase_create(lower_info* li, algorithm *algo){
 	/*
 	   initializes table, oob and blockmanager.
 	   alloc globals for macro.
 	   init heap.
 	*/
+#ifdef BUSE_MEASURE
+    measure_init(&algoTime);
+    measure_init(&algoendTime);
+#endif
+    printf("This is PAGE FTL\n");
 	_g_nop = _NOP;
 	_g_nob = _NOS;
 	_g_ppb = _PPS;
@@ -54,7 +64,7 @@ uint32_t pbase_create(lower_info* li, algorithm *algo){
 	}//init table, oob and vbm.
 
 	//BM_Init(&block_array);
-	BM = BM_Init(1, 1);
+	BM = BM_Init(_g_nob, _g_ppb, 1, 1);
 
 	reserved = &BM->barray[0];
 	BM_Queue_Init(&free_b);
@@ -77,6 +87,12 @@ void pbase_destroy(lower_info* li, algorithm *algo){
 	BM_Free(BM);
 	free(page_OOB);
 	free(page_TABLE);
+#ifdef BUSE_MEASURE
+    printf("algoTime : ");
+    measure_adding_print(&algoTime);
+    printf("algoendTime : ");
+    measure_adding_print(&algoendTime);
+#endif
 }
 
 void *pbase_end_req(algo_req* input){
@@ -85,6 +101,10 @@ void *pbase_end_req(algo_req* input){
 	 * frees params and input.
 	 * in some case, frees inf_req.
 	 */
+#ifdef BUSE_MEASURE
+    if(((pbase_params*)input->params)->type==DATA_R)
+        MS(&algoendTime);
+#endif
 	pbase_params *params = (pbase_params*)input->params;
 	value_set *temp_set = params->value;
 	request *res = input->parents;
@@ -92,6 +112,9 @@ void *pbase_end_req(algo_req* input){
 	switch(params->type){
 		case DATA_R:
 			if(res){
+#ifdef BUSE_MEASURE
+                MA(&algoendTime);
+#endif
 				res->end_req(res);
 			}
 			break;
@@ -121,6 +144,9 @@ uint32_t pbase_get(request* const req){
 	int32_t lpa;
 	int32_t ppa;
 
+#ifdef BUSE_MEASURE
+    MS(&algoTime);
+#endif
 	bench_algo_start(req);
 	lpa = req->key;
 	ppa = page_TABLE[lpa].ppa;
@@ -131,7 +157,10 @@ uint32_t pbase_get(request* const req){
 		return 1;
 	}
 	bench_algo_end(req);	
-	algo_pbase.li->pull_data(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req));
+#ifdef BUSE_MEASURE
+    MA(&algoTime);
+#endif
+	algo_pbase.li->read(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req));
 	return 0;
 }
 
@@ -149,7 +178,7 @@ uint32_t pbase_set(request* const req){
 	lpa = req->key;
 	ppa = alloc_page();
 	bench_algo_end(req);
-	algo_pbase.li->push_data(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_W, NULL, req));
+	algo_pbase.li->write(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_W, NULL, req));
 	if(page_TABLE[lpa].ppa != -1){//already mapped case.(update)
 		BM_InvalidatePage(BM,page_TABLE[lpa].ppa);
 	}
@@ -166,8 +195,15 @@ uint32_t pbase_remove(request* const req){
 
 	bench_algo_start(req);
 	lpa = req->key;
+    if(page_TABLE[lpa].ppa == -1){
+        req->end_req(req);
+        return 0;
+    }
+
+    BM_InvalidatePage(BM,page_TABLE[lpa].ppa);
 	page_TABLE[lpa].ppa = -1; //reset to default.
 	page_OOB[lpa].lpa = -1; //reset reverse_table to default.
+    req->end_req(req);
 	bench_algo_end(req);
 	return 0;
 }

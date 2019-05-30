@@ -15,6 +15,12 @@
 #include <errno.h>
 #include <limits.h>
 
+#ifdef BUSE_MEASURE
+MeasureTime lowerTime;
+MeasureTime lowerread;
+MeasureTime lowerwrite;
+#endif
+
 static int _fd;
 pthread_mutex_t fd_lock;
 lower_info my_posix={
@@ -32,6 +38,9 @@ lower_info my_posix={
 };
 
 uint32_t posix_create(lower_info *li){
+#ifdef BUSE_MEASURE
+    measure_init(&lowerTime);
+#endif
 	li->NOB=_NOS;
 	li->NOP=_NOP;
 	li->SOB=BLOCKSIZE * BPS;
@@ -66,6 +75,14 @@ void *posix_destroy(lower_info *li){
 	pthread_mutex_destroy(&my_posix.lower_lock);
 	pthread_mutex_destroy(&fd_lock);
 	close(_fd);
+#ifdef BUSE_MEASURE
+    printf("lowerTime : ");
+    measure_adding_print(&lowerTime);
+    printf("lowerread : ");
+    measure_adding_print(&lowerread);
+    printf("lowerwrite : ");
+    measure_adding_print(&lowerwrite);
+#endif
 	return NULL;
 }
 
@@ -87,9 +104,17 @@ void *posix_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	if(lseek64(_fd,((off64_t)my_posix.SOP)*PPA,SEEK_SET)==-1){
 		printf("lseek error in write\n");
 	}//
+#ifdef BUSE_MEASURE
+    MS(&lowerwrite);
+#endif
 	if(!write(_fd,value->value,size)){
 		printf("write none!\n");
 	}
+    //syncfs(_fd);
+    fsync(_fd);
+#ifdef BUSE_MEASURE
+    MA(&lowerwrite);
+#endif
 //	}
 	pthread_mutex_unlock(&fd_lock);
 	if(req->parents)
@@ -111,6 +136,10 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 	if(PPA>6500)
 		printf("PPA : %u\n", PPA);
 	*/
+    //FIXME: find which code degrade posix read
+#ifdef BUSE_MEASURE
+    MS(&lowerTime);
+#endif
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
 		exit(1);
@@ -125,15 +154,24 @@ void *posix_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo
 		printf("lseek error in read\n");
 	}
 	int res;
+#ifdef BUSE_MEASURE
+    MS(&lowerread);
+#endif
 	if(!(res=read(_fd,value->value,size))){
 		printf("%d:read none!\n",res);
 	}
+#ifdef BUSE_MEASURE
+    MA(&lowerread);
+#endif
 	//}
 	pthread_mutex_unlock(&fd_lock);
 
 	if(req->parents)
 		bench_lower_end(req->parents);
 	bench_lower_r_end(&my_posix);
+#ifdef BUSE_MEASURE
+    MA(&lowerTime);
+#endif
 	req->end_req(req);
 	/*
 	if(async){

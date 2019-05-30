@@ -80,6 +80,8 @@
 #define KEYGEN
 #define SPINSYNC
 #define interface_pq
+//#define BUSE_MEASURE
+//#define BUSE_ASYNC 0
 
 #ifndef __GNUG__
 typedef enum{false,true} bool;

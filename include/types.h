@@ -13,6 +13,8 @@
 #define FS_ITER_NXT_T 10
 #define FS_ITER_RLS_T 11
 #define FS_RANGEGET_T 12
+#define FS_BUSE_R 13
+#define FS_BUSE_W 14
 
 #define LREQ_TYPE_NUM 9
 #define TRIM 0

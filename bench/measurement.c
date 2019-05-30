@@ -53,7 +53,6 @@ void measure_adding(MeasureTime *m){
 	t=m->header;
 	m->header=m->header->next;
 	free(t);
-
 }
 void measure_adding_print(MeasureTime *m){
 	uint64_t res=m->adding.tv_sec*1000000+m->adding.tv_usec;

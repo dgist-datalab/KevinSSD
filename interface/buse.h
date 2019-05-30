@@ -6,6 +6,32 @@ extern "C" {
 #endif
 
 #include <sys/types.h>
+#include "../include/types.h"
+#include "../include/settings.h"
+#include "interface.h"
+
+    struct buse{
+        int sk;
+        u_int32_t len;
+        int i_len;
+        int i_offset;
+        int offset;
+        u_int64_t log_offset;
+        int type;
+        void *chunk;
+        value_set *value;
+        void *reply;
+        char handle[8];
+        bool write_check;
+    };
+
+    struct buse_request {
+        int type;
+        u_int32_t len;
+        void *buf;
+        u_int64_t offset;
+        char handle[8];
+    };
 
 	struct buse_operations {
 		int (*read)(int sk,void *buf, u_int32_t len, u_int64_t offset, void *userdata);
