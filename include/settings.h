@@ -25,9 +25,9 @@
 #define T (1024L*G)
 #define P (1024L*T)
 
-#define PIECE 64
+#define PIECE 512
 #define NPCINPAGE (PAGESIZE/PIECE)
-#define MINVALUE 64
+#define MINVALUE 512
 
 #ifdef MLC
 
@@ -40,7 +40,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 16L
+#define GIGAUNIT 4L
 #define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)

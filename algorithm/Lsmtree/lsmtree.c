@@ -24,6 +24,7 @@
 		free(a);\
 	}while(0)
 */
+int debug_cnt;
 #ifdef KVSSD
 KEYT key_max, key_min;
 #endif
@@ -201,7 +202,11 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	fprintf(stderr,"LEVELN:%d (LEVELCACHING(%d), MEMORY:%f\n",LEVELN,LEVELCACHING,CACHINGSIZE);
 	pthread_mutex_init(&LSM.memlock,NULL);
 	pthread_mutex_init(&LSM.templock,NULL);
-	pthread_mutex_init(&LSM.valueset_lock,NULL);
+#ifdef DVALUE
+	pthread_mutex_init(&LSM.data_lock,NULL);
+	LSM.data_ppa=-1;
+#endif
+	
 	LSM.last_level_comp_term=LSM.check_cnt=LSM.needed_valid_page=LSM.target_gc_page=0;
 	for(int i=0; i< LEVELN; i++){
 		pthread_mutex_init(&LSM.level_lock[i],NULL);
@@ -260,6 +265,33 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	//printf("avg kn run:%u\n",all_kn_run/run_num);
 	
 }
+
+#ifdef DVALUE
+int lsm_data_cache_insert(ppa_t ppa,value_set *data){
+	value_set* temp;
+	bool should_free=true;
+	if(LSM.data_ppa==UINT_MAX) should_free=false;
+	temp=LSM.data_value;
+	pthread_mutex_lock(&LSM.data_lock);
+	LSM.data_ppa=ppa;
+	LSM.data_value=data;
+	pthread_mutex_unlock(&LSM.data_lock);
+	if(should_free){
+		inf_free_valueset(temp,FS_MALLOC_R);
+	}
+	return 1;
+}
+
+int lsm_data_cache_check(request *req, ppa_t ppa){
+	pthread_mutex_lock(&LSM.data_lock);
+	if(LSM.data_ppa!=UINT_MAX && NOEXTENDPPA(ppa)==NOEXTENDPPA(LSM.data_ppa)){
+		pthread_mutex_unlock(&LSM.data_lock);
+		return 1;
+	}
+	pthread_mutex_unlock(&LSM.data_lock);
+	return 0;
+}
+#endif
 
 extern pthread_mutex_t compaction_wait,gc_wait;
 extern int epc_check,gc_read_wait;
@@ -351,6 +383,10 @@ void* lsm_end_req(algo_req* const req){
 			inf_free_valueset(params->value,FS_MALLOC_W);
 			break;
 		case DATAR:
+#ifdef DVALUE
+			lsm_data_cache_insert(parents->value->ppa,parents->value);
+			parents->value=NULL;
+#endif
 			req_temp_params=parents->params;
 			if(req_temp_params){
 				if(((int*)req_temp_params)[2]==-1){
@@ -445,6 +481,7 @@ uint32_t lsm_proc_re_q(){
 					break;
 			}
 			if(res_type==0){
+				free(tmp_req->params);
 				tmp_req->type=FS_NOTFOUND_T;
 				tmp_req->end_req(tmp_req);
 				//tmp_req->type=tmp_req->type==FS_GET_T?FS_NOTFOUND_T:tmp_req->type;
@@ -484,6 +521,7 @@ uint32_t lsm_get(request *const req){
 		debug=true;
 	}
 	if(unlikely(res_type==0)){
+		free(req->params);
 		/*
 #ifdef KVSSD
 		printf("not found seq: %d, key:%.*s\n",nor++,KEYFORMAT(req->key));
@@ -605,7 +643,13 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 					new_lsm_req=lsm_get_req_factory(temp_req,DATAR);
 					temp_req->value->ppa=new_target_set->ppa;
 #ifdef DVALUE
-					LSM.li->read(temp_req->value->ppa/NPCINPAGE,PAGESIZE,temp_req->value,ASYNC,new_lsm_req);
+					if(lsm_data_cache_check(temp_req,temp_req->value->ppa)){
+						printf("d:%d",debug_cnt++);
+						temp_req->end_req(temp_req);
+					}
+					else{
+						LSM.li->read(temp_req->value->ppa/NPCINPAGE,PAGESIZE,temp_req->value,ASYNC,new_lsm_req);
+					}
 #else
 					LSM.li->read(temp_req->value->ppa,PAGESIZE,temp_req->value,ASYNC,new_lsm_req);
 #endif
@@ -640,9 +684,14 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 
 	if(likely(lsm_req)){
 #ifdef DVALUE
+		if(lsm_data_cache_check(req,ppa)){
+			printf("d:%d",debug_cnt++);
+			req->end_req(req);
+			return res;
+		}
+		req->value->ppa=ppa;
 		LSM.li->read(ppa/(NPCINPAGE),PAGESIZE,req->value,ASYNC,lsm_req);
 #else
-		//printf("get ppa:%u\n",ppa);
 		LSM.li->read(ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 #endif
 	}
@@ -669,7 +718,7 @@ uint32_t __lsm_get(request *const req){
 	htable mapinfo;
 	run_t** entries;
 	run_t *entry;
-	static int cnt=0;
+	//static int cnt=0;
 //	printf("[%d]%.*s\n",cnt++,KEYFORMAT(req->key));
 	if(req->params==NULL){
 		/*memtable*/
@@ -715,7 +764,6 @@ uint32_t __lsm_get(request *const req){
 		_entry[run]->isflying=0;
 		free(_entry);
 		if(res)return res;
-
 
 #ifndef FLASHCHCK
 		run+=1;
@@ -788,21 +836,21 @@ retry:
 			round++;
 			temp_data[2]=round;
 
-			algo_req *lsm_req=lsm_get_req_factory(req,HEADERR);
-			lsm_params* params=(lsm_params*)lsm_req->params;
-			params->ppa=entry->pbn;
-
 			if(entry->isflying==1){
 				entry->waitreq[entry->wait_idx++]=req;
 				return 3;
 			}
-			else{
-				entry->isflying=1;
-				memset(entry->waitreq,0,sizeof(entry->waitreq));
-				entry->wait_idx=0;
-				entry->req=(void*)req;
-				params->entry_ptr=(void*)entry;
-			}
+
+			algo_req *lsm_req=lsm_get_req_factory(req,HEADERR);
+			lsm_params* params=(lsm_params*)lsm_req->params;
+			params->ppa=entry->pbn;
+
+			entry->isflying=1;
+			memset(entry->waitreq,0,sizeof(entry->waitreq));
+			entry->wait_idx=0;
+			entry->req=(void*)req;
+			params->entry_ptr=(void*)entry;
+			
 
 			req->ppa=params->ppa;
 			LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);

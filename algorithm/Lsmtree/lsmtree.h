@@ -35,7 +35,6 @@
 #define NOTFOUND 5
 
 
-
 //lower type, algo type
 typedef struct level level;
 typedef struct run run_t;
@@ -91,7 +90,6 @@ typedef struct lsmtree{
 	pthread_mutex_t memlock;
 	pthread_mutex_t templock;
 
-	pthread_mutex_t valueset_lock;
 	pthread_mutex_t level_lock[LEVELN];
 	PTR caching_value;
 
@@ -105,6 +103,13 @@ typedef struct lsmtree{
 	uint32_t check_cnt;
 	uint32_t needed_valid_page;
 	uint32_t target_gc_page;
+
+#ifdef DVALUE
+	/*data caching*/
+	pthread_mutex_t data_lock;
+	ppa_t data_ppa;
+	value_set* data_value;
+#endif
 
 	/*bench info!*/
 	uint32_t data_gc_cnt;

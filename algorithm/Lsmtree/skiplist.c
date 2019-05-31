@@ -642,6 +642,21 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 		flag=1;
 	}
 	int res_idx=0;
+	for(int i=0; i<b.idx[PAGESIZE/PIECE]; i++){//full page
+			target=b.bucket[PAGESIZE/PIECE][i];
+			res[res_idx]=target->value;
+			res[res_idx]->ppa=LSM.lop->moveTo_fr_page(from);//real physical index
+#ifdef DVALUE
+			PBITSET(res[res_idx]->ppa,PAGESIZE/PIECE);
+#else
+			oob[res[res_idx]->ppa]=PBITSET(target->key,(uint8_t)1);
+#endif
+			target->ppa=LSM.lop->get_page(from,(PAGESIZE/PIECE));
+			target->value=NULL;
+			res_idx++;
+		}
+	b.idx[PAGESIZE/PIECE]=0;
+	/*
 #ifdef DVALUE
 	for(int j=0; j<2; j++)
 #else
@@ -657,19 +672,18 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 			res[res_idx]=target->value;
 #endif
 			res[res_idx]->ppa=LSM.lop->moveTo_fr_page(from);//real physical index
-			/*checking new ppa in skiplist_valuset*/
 #ifdef DVALUE
 			PBITSET(res[res_idx]->ppa,PAGESIZE/PIECE-j);
 #else
 			oob[res[res_idx]->ppa]=PBITSET(target->key,(uint8_t)1);
 #endif
-			//127 chunk & 128 chunk is same
-			target->ppa=LSM.lop->get_page(from,(PAGESIZE/PIECE));//64byte chunk index
+			target->ppa=LSM.lop->get_page(from,(PAGESIZE/PIECE));
 			target->value=NULL;
 			res_idx++;
 		}
 		b.idx[PAGESIZE/PIECE-j]=0;
 	}
+	*/
 	if(from->idx!=0){
 		printf("%d----------end fuck!\n",flag);
 	}
@@ -685,6 +699,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 #ifdef DVALUE
 	variable_value2Page(from,&b,&res,&res_idx,false);
 #endif
+
 	res[res_idx]=NULL;
 	return res;
 }
@@ -775,7 +790,11 @@ void skiplist_clear(skiplist *list){
 	snode *now=list->header->list[1];
 	snode *next=now->list[1];
 	while(now!=list->header){
+
 		if(now->value){
+			if(now->value->length>=15*PIECE){
+				printf("break!\n");
+			}
 			inf_free_valueset(now->value,FS_MALLOC_W);//not only length<PAGESIZE also length==PAGESIZE, just free req from inf
 		}
 		free(now->key.key);

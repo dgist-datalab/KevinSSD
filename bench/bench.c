@@ -624,7 +624,7 @@ void seqset(uint32_t start, uint32_t end,monitor *m){
 		bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #endif
 #ifdef DVALUE
-		m->body[i/m->bech][i%m->bech].length=(rand()%NPCINPAGE)*PIECE;
+		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
 #else
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
@@ -649,7 +649,7 @@ void seqrw(uint32_t start, uint32_t end, monitor *m){
 #endif
 		m->body[i/m->bech][i%m->bech].type=FS_SET_T;
 #ifdef DVALUE
-		m->body[i/m->bech][i%m->bech].length=(rand()%NPCINPAGE)*PIECE;
+		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
 #else	
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
@@ -709,7 +709,7 @@ void randset(uint32_t start, uint32_t end, monitor *m){
 #endif
 
 #ifdef DVALUE
-		m->body[i/m->bech][i%m->bech].length=(rand()%16+1)*64;
+		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
 #else	
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
@@ -743,7 +743,7 @@ void randrw(uint32_t start, uint32_t end, monitor *m){
 
 		m->body[i/m->bech][i%m->bech].type=FS_SET_T;
 #ifdef DVALUE
-		m->body[i/m->bech][i%m->bech].length=(rand()%NPCINPAGE)*PIECE;
+		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
 #else	
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
@@ -792,7 +792,7 @@ void mixed(uint32_t start, uint32_t end,int percentage, monitor *m){
 			bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #endif
 #ifdef DVALUE
-			m->body[i/m->bech][i%m->bech].length=(rand()%NPCINPAGE)*PIECE;
+			m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
 #else
 			m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
@@ -815,7 +815,7 @@ void seq_latency(uint32_t start, uint32_t end,int percentage, monitor *m){
 		m->body[i/m->bech][i%m->bech].key=start+(i%(end-start));
 		bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #ifdef DVALUE
-		m->body[i/m->bech][i%m->bech].length=(rand()%NPCINPAGE)*PIECE;
+		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
 #else
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
@@ -834,7 +834,7 @@ void seq_latency(uint32_t start, uint32_t end,int percentage, monitor *m){
 			m->body[i/m->bech][i%m->bech].type=FS_SET_T;
 			bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #ifdef DVALUE
-			m->body[i/m->bech][i%m->bech].length=(rand()%NPCINPAGE)*PAGE;
+			m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PAGE;
 #else
 			m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
@@ -863,7 +863,7 @@ void rand_latency(uint32_t start, uint32_t end,int percentage, monitor *m){
 		m->body[i/m->bech][i%m->bech].key=start+rand()%(end-start);
 		bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #ifdef DVALUE
-		m->body[i/m->bech][i%m->bech].length=(rand()%NPCINPAGE)*PIECE;
+		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
 #else
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
@@ -882,7 +882,7 @@ void rand_latency(uint32_t start, uint32_t end,int percentage, monitor *m){
 			m->body[i/m->bech][i%m->bech].type=FS_SET_T;
 			bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #ifdef DVALUE
-			m->body[i/m->bech][i%m->bech].length=(rand()%NPCINPAGE)*PIECE;
+			m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
 #else
 			m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif

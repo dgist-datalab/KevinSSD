@@ -19,6 +19,7 @@ extern master *_master;
 extern bool force_write_start;
 extern int seq_padding_opt;
 extern lsmtree LSM;
+extern int v_cnt[NPCINPAGE+1];
 #ifdef Lsmtree
 int skiplist_hit;
 #endif
@@ -34,7 +35,7 @@ int main(int argc,char* argv[]){
 		LOCALITY=50;
 		TARGETRATIO=0.5;
 	}
-	seq_padding_opt=1;
+	seq_padding_opt=0;
 	inf_init(0,0);
 	bench_init();
 	char t_value[PAGESIZE];
@@ -42,8 +43,9 @@ int main(int argc,char* argv[]){
 
 	printf("TOTALKEYNUM: %d\n",TOTALKEYNUM);
 	// GC test
-	bench_add(SEQSET,0,RANGE,RANGE);
-	bench_add(RANDSET,0,RANGE,REQNUM*3);
+//	bench_add(RANDGET,0,RANGE,RANGE);
+//	bench_add(RANDSET,0,RANGE,RANGE);
+	bench_add(RANDRW,0,RANGE,REQNUM*2);
 
 //	bench_add(SEQRW,0,RANGE,REQNUM*2);
 //	bench_add(RANDSET,0,RANGE,REQNUM*2);
@@ -80,7 +82,6 @@ int main(int argc,char* argv[]){
 		if(value->type==FS_SET_T){
 			memcpy(&temp.value[0],&value->key,sizeof(value->key));
 		}
-
 		inf_make_req(value->type,value->key,temp.value ,value->length-value->key.len-sizeof(value->key.len),value->mark);
 		free(value->key.key);
 		if(!tflag &&value->type==FS_GET_T){
@@ -113,9 +114,14 @@ int main(int argc,char* argv[]){
 	printf("bench free\n");
 	//LSM.lop->all_print();
 	inf_free();
+	bench_custom_print(write_opt_time,10);
 #ifdef Lsmtree
 	printf("skiplist hit:%d\n",skiplist_hit);
 #endif
 	printf("locality check:%f\n",(float)locality_check/(locality_check+locality_check2));
+
+	for(int i=0; i<=NPCINPAGE; i++){
+		printf("%d - %d\n",i,v_cnt[i]);
+	}
 	return 0;
 }

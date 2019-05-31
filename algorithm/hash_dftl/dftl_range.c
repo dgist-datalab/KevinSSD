@@ -141,7 +141,7 @@ bool range_end_req(request *range_req) {
 	request *req = range_req->parents;
 
 	if (range_req->type == FS_NOTFOUND_T) {
-		//printf("[ERROR] Not found on Range Query! %.*s\n", range_req->key.len, range_req->key.key);
+		printf("[ERROR] Not found on Range Query! %.*s\n", range_req->key.len, range_req->key.key);
 		//abort();
 	}
 

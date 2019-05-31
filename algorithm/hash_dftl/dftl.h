@@ -20,8 +20,16 @@
 #include "lru_list.h"
 #include "../../include/data_struct/redblack.h"
 
+// Storing the key(or fingerprint(hash) of the key) in the mapping entry
 #define STORE_KEY
 #define USE_FINGERPRINT 1
+
+// Support variable-sized value. Grain entries of the mapping table as GRAINED_UNIT
+//#define VARIABLE_VALUE
+#define GRAINED_UNIT ( 512 )
+#define VAR_VALUE_MIN ( GRAINED_UNIT )
+#define VAR_VALUE_MAX ( PAGESIZE )
+#define GRAINS_PER_PAGE ( PAGESIZE / GRAINED_UNIT )
 
 #define TYPE uint8_t
 #define DATA_R DATAR
@@ -77,6 +85,10 @@ typedef struct demand_mapping_table{
 #else
 	KEYT key;
 #endif
+#endif
+
+#ifdef VARIABLE_VALUE
+	// Offset ?
 #endif
 } D_TABLE;
 
@@ -161,6 +173,9 @@ extern pthread_mutex_t cpl_lock;
 extern queue *range_q;
 
 extern int32_t num_page;
+#ifdef VARIABLE_VALUE
+extern int32_t num_grain;
+#endif
 extern int32_t num_block;
 extern int32_t p_p_b;
 extern int32_t num_tpage;

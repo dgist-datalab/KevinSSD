@@ -11,7 +11,7 @@ DEBUGFLAGS=\
 			-rdynamic\
 			-Wno-pointer-arith\
 			-g\
-#	-fsanitize=address\
+	-fsanitize=address\
 #	-DBUSE_DEBUG
 
 export COMMONFLAGS=\
@@ -22,9 +22,9 @@ export COMMONFLAGS=\
 			-DKVSSD\
 			-DSLC\
 			-Wno-unused-but-set-variable\
--O3\
+			-DCHECKINGTIME\
+#-O3\
 #			-DWRITESYNC\
-#			-DCHECKINGTIME\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 
@@ -32,7 +32,7 @@ export CFLAGS_ALGO=\
 			 -fPIC\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
-#			 -DDVALUE\
+		 -DDVALUE\
 
 export CFLAGS_LOWER=\
 		     -fPIC\

@@ -357,6 +357,7 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 			break;
 
 		case FS_SET_T:
+			
 #ifdef DVALUE
 			req->value=inf_get_valueset(NULL,FS_SET_T,len+key.len+sizeof(key.len));
 			memcpy(&req->value->value[key.len+sizeof(key.len)],_value,len);
@@ -368,7 +369,6 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 
 			break;
 		case FS_GET_T:
-
 			req->value=inf_get_valueset(NULL,FS_GET_T,PAGESIZE);
 			break;
 		case FS_RANGEGET_T:
@@ -471,17 +471,13 @@ bool inf_end_req( request * const req){
 		assign_req(req);
 		return 1;
 	}
-#ifdef SNU_TEST
-#else
+
 	if(req->isstart){
 		bench_reap_data(req,mp.li);
 	}else{
 		bench_reap_nostart(req);
 	}
-#endif
-#ifdef DEBUG
-	printf("inf_end_req!\n");
-#endif
+
 	void *(*special)(void*);
 	special=req->special_func;
 	void **params;
@@ -731,6 +727,7 @@ bool inf_iter_req_apps(char type, char *prefix, uint8_t key_len,char **value, in
 }
 #endif
 
+int v_cnt[NPCINPAGE+1];
 value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
 	value_set *res=(value_set*)malloc(sizeof(value_set));
 	//check dma alloc type
@@ -738,6 +735,9 @@ value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
 		res->dmatag=F_malloc((void**)&(res->value),PAGESIZE,type);
 	else{
 		length=(length/PIECE+(length%PIECE?1:0))*PIECE;
+		if(length/PIECE >=16) 
+			abort();
+		v_cnt[length/PIECE]++;
 		res->dmatag=-1;
 		res->value=(PTR)malloc(length);
 	}

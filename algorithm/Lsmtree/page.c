@@ -478,7 +478,7 @@ bool gc_check(uint8_t type){
 			target_p=&block_m;
 			break;
 	}
-	uint32_t target_page=0,new_page=0;
+	uint32_t target_page=0;
 #ifdef GCOPT
 	target_page=LSM.needed_valid_page;
 #endif

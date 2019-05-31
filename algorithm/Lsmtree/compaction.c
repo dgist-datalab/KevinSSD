@@ -170,7 +170,7 @@ void compaction_wait_done(){
 }
 
 void compaction_assign(compR* req){
-	static int seq_num=0;
+	//static int seq_num=0;
 	bool flag=false;
 	while(1){
 #ifdef LEAKCHECK
@@ -213,7 +213,10 @@ bool isflushing;
 void compaction_data_write(leveling_node* lnode){
 	isflushing=true;
 	//run_t *res=LSM.lop->make_run(key_max,key_min,-1);
+	
+	bench_custom_start(write_opt_time,1);
 	value_set **data_sets=skiplist_make_valueset(lnode->mem,LSM.disk[0],&lnode->start,&lnode->end);
+	bench_custom_A(write_opt_time,1);
 
 #ifdef WRITEOPTIMIZE
 	lsm_io_sched_push(SCHED_FLUSH,(void*)data_sets);//make flush background job
@@ -448,7 +451,6 @@ void *compaction_main(void *input){
 		req=(compR*)_req;
 		leveling_node lnode;
 
-		bench_custom_start(write_opt_time,9);
 		if(req->fromL==-1){
 			LSM.zero_compaction_cnt++;
 			lnode.mem=req->temptable;
@@ -466,7 +468,6 @@ void *compaction_main(void *input){
 			gc_check(DATA);
 		}
 		skiplist_free(req->temptable);
-		bench_custom_start(write_opt_time,1);
 #ifdef WRITEWAIT
 		if(req->last){
 			lsm_io_sched_flush();	
@@ -475,9 +476,7 @@ void *compaction_main(void *input){
 		}
 #endif
 		free(req);
-		bench_custom_A(write_opt_time,1);
 		q_dequeue(_this->q);
-		bench_custom_A(write_opt_time,9);
 	}
 	
 	return NULL;
@@ -537,7 +536,6 @@ void compaction_htable_read(run_t *ent,PTR* value){
 
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
 	compaction_sub_wait();
-	bench_custom_start(write_opt_time,5);
 #ifdef STREAMCOMP
 	LSM.lop->stream_comp_wait();
 #else
@@ -557,7 +555,6 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 		target->cpt_data=NULL;
 		free(target);
 	}
-	bench_custom_A(write_opt_time,5);
 }
 
 void compaction_lev_seq_processing(level *src, level *des, int headerSize){
@@ -615,7 +612,6 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 #ifdef LEVELCACHING
 	int before,now;
 	if(to->idx<LEVELCACHING){
-		bench_custom_start(write_opt_time,7);
 		before=LSM.lop->get_number_runs(to);
 		if(from==NULL){
 			LSM.lop->cache_move(to,target);
@@ -637,7 +633,6 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 		if(from){
 			LSM.lop->move_heap(target,from);	
 		}
-		bench_custom_A(write_opt_time,7);
 		goto chg_level;
 	}
 #endif
@@ -926,9 +921,7 @@ uint32_t memtable_partial_leveling(leveling_node *lnode, level *t, level *origin
 
 		//sort
 		container[0]=now;
-		bench_custom_start(write_opt_time,5);
 		result=LSM.lop->partial_merger_cutter(mem,NULL,container,t->fpr);
-		bench_custom_A(write_opt_time,5);
 
 		//write operation
 		result->pbn=compaction_bg_htable_write(result->cpt_data,result->key,(char*)result->cpt_data->sets);
@@ -938,9 +931,7 @@ uint32_t memtable_partial_leveling(leveling_node *lnode, level *t, level *origin
 	}
 	
 	while(1){
-		bench_custom_start(write_opt_time,5);
 		result=LSM.lop->partial_merger_cutter(mem,NULL,NULL,t->fpr);
-		bench_custom_A(write_opt_time,5);
 		if(result==NULL) break;
 		result->pbn=compaction_bg_htable_write(result->cpt_data,result->key,(char*)result->cpt_data->sets);
 		LSM.lop->insert(t,result);
@@ -1051,27 +1042,19 @@ uint32_t partial_leveling(level *t, level *origin, leveling_node* lnode, level *
 		if(up_run_num && org_run_num){
 			if(i%2){
 				org_run_num--;
-				bench_custom_start(write_opt_time,5);
 				result=LSM.lop->partial_merger_cutter(mem,NULL,container,t->fpr);
-				bench_custom_A(write_opt_time,5);
 			}else{
 				up_run_num--;
-				bench_custom_start(write_opt_time,5);
 				LSM.lop->partial_merger_cutter(mem,container,NULL,t->fpr);	
-				bench_custom_A(write_opt_time,5);
 				continue;
 			}
 		}else{
 			if(org_run_num){
 				org_run_num--;
-				bench_custom_start(write_opt_time,5);
 				result=LSM.lop->partial_merger_cutter(mem,NULL,container,t->fpr);
-				bench_custom_A(write_opt_time,5);
 			}else{
 				up_run_num--;
-				bench_custom_start(write_opt_time,5);
 				LSM.lop->partial_merger_cutter(mem,container,NULL,t->fpr);	
-				bench_custom_A(write_opt_time,5);
 				continue;
 			}
 		}
@@ -1084,9 +1067,7 @@ uint32_t partial_leveling(level *t, level *origin, leveling_node* lnode, level *
 	}
 
 	while(1){
-		bench_custom_start(write_opt_time,5);
 		result=LSM.lop->partial_merger_cutter(mem,NULL,NULL,t->fpr);
-		bench_custom_A(write_opt_time,5);
 
 		if(result==NULL) break;
 		result->pbn=compaction_bg_htable_write(result->cpt_data,result->key,(char*)result->cpt_data->sets);

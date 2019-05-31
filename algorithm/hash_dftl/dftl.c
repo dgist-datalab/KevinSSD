@@ -53,6 +53,9 @@ volatile int32_t trans_gc_poll;
 volatile int32_t data_gc_poll;
 
 int32_t num_page;
+#ifdef VARIABLE_VALUE
+int32_t num_grain;
+#endif
 int32_t num_block;
 int32_t p_p_b;
 int32_t num_tpage;
@@ -132,7 +135,10 @@ static void print_algo_log() {
 	printf(" |  -Data Blocks:          %d (+1 reserved)\n", num_dblock);
 	printf(" | Total Pages:            %d\n", num_page);
 	printf(" |  -Translation Pages:    %d\n", num_tpage);
-	printf(" |  -Data Pages            %d\n", num_dpage);
+	printf(" |  -Data Pages:           %d\n", num_dpage);
+#ifdef VARIABLE_VALUE
+	printf(" |    -Data Grains:        %d\n", num_dpage * GRAINS_PER_PAGE);
+#endif
 	printf(" |  -Page per Block:       %d\n", p_p_b);
 	printf(" | Total cache pages:      %d\n", max_cache_entry);
 #if C_CACHE
@@ -154,7 +160,13 @@ extern int rq_create();
 uint32_t demand_create(lower_info *li, algorithm *algo){
 	/* Initialize pre-defined values by using macro */
 	num_page        = _NOP;
+#ifdef VARIABLE_VALUE
+	printf("[VARIABLE_VALUE] Using grained mapping table (GRAINED_UNIT:%dB)\n", (int)GRAINED_UNIT);
+	num_grain       = num_page * GRAINS_PER_PAGE;
+	max_cache_entry = (num_grain / EPP) + ((num_grain % EPP != 0) ? 1: 0);
+#else
 	max_cache_entry = (num_page / EPP) + ((num_page % EPP != 0) ? 1 : 0);
+#endif
 	num_block       = _NOS;
 	p_p_b           = _PPS;
 	num_tblock      = (max_cache_entry/p_p_b) + (max_cache_entry%p_p_b?1:0);
@@ -163,6 +175,9 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	num_tpage       = num_tblock * p_p_b;
 	num_dblock      = num_block - num_tblock - 2;
 	num_dpage       = num_dblock * p_p_b;
+#ifdef VARIABLE_VALUE
+	num_dgrain      = num_dpage * GRAINS_PER_PAGE;
+#endif
 
 
 	/* Cache control & Init */
@@ -295,7 +310,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 }
 
 void demand_destroy(lower_info *li, algorithm *algo){
-	/*
+
 	puts("   <flying status>");
 	for (int i = 0; i < max_cache_entry; i++) {
 		if (CMT[i].num_waiting) {
@@ -313,7 +328,7 @@ void demand_destroy(lower_info *li, algorithm *algo){
 			}
 		}
 		printf("CMT[%d] cnt:%d\n",  i, hash_entry_cnt);
-	}*/
+	}
 
 
 	/* Print information */
@@ -676,7 +691,7 @@ read_retry:
 	}
 
 	if (h_params->find == HASH_KEY_NONE) {
-//		printf("[ERROR:NOT_FOUND] HASH_KEY_NONE error! %d\n", ++none_err_cnt);
+		printf("[ERROR:NOT_FOUND] HASH_KEY_NONE error! %d\n", ++none_err_cnt);
 		return UINT32_MAX;
 	}
 
@@ -705,7 +720,7 @@ read_retry:
 		} else if (p_table) { // Cache hit
 			ppa = p_table[P_IDX].ppa;
 			if (ppa == -1) {
-	//			printf("[ERROR:NOT_FOUND] TABLE_ENTRY_NONE error! %d\n", ++entry_err_cnt);
+				printf("[ERROR:NOT_FOUND] TABLE_ENTRY_NONE error! %d\n", ++entry_err_cnt);
 				return UINT32_MAX;
 			}
 			clean_hit_on_read++;
@@ -724,7 +739,7 @@ read_retry:
 
 		} else { // Cache miss
 			if (t_ppa == -1) {
-	//			printf("[ERROR:NOT_FOUND] TABLE_NONE error! %d\n", ++table_err_cnt);
+				printf("[ERROR:NOT_FOUND] TABLE_NONE error! %d\n", ++table_err_cnt);
 				return UINT32_MAX;
 			}
 
@@ -757,7 +772,7 @@ read_retry:
 	}
 
 	if (ppa == -1) {
-	//	printf("[ERROR:NOT_FOUND] TABLE_ENTRY_NONE error2! %d\n", ++entry_err_cnt);
+		printf("[ERROR:NOT_FOUND] TABLE_ENTRY_NONE error2! %d\n", ++entry_err_cnt);
 		return UINT32_MAX;
 	}
 
@@ -944,8 +959,8 @@ data_check:
 					h_params->cnt++;
 					goto write_retry;
 				}
-				static int write_fp_miss_cnt = 0;
-				//printf("write fp miss: %d\n", ++write_fp_miss_cnt);
+				//static int write_fp_miss_cnt = 0;
+				//printf("write fp miss: %d read amplified!!\n", ++write_fp_miss_cnt);
 #else
 				if (KEYCMP(check_key, temp->key) != 0) {
 					h_params->cnt++;
@@ -1365,7 +1380,7 @@ void *demand_end_req(algo_req* input){
 					h_params->cnt++;
 
 					static int read_fp_miss_cnt = 0;
-					//printf("read fp miss: %d\n", ++read_fp_miss_cnt);
+					printf("read fp miss: %d\n", ++read_fp_miss_cnt);
 
 					/* if (h_params->cnt > max_try) {
 						h_params->find = HASH_KEY_NONE;

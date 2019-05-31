@@ -25,7 +25,7 @@
 typedef struct OOBT{
 	uint8_t length[128];
 }OOBT;
-#define ppa_t uint64_t
+#define ppa_t uint32_t
 #else
 #define OOBT uint32_t
 #define ppa_t uint32_t
@@ -43,7 +43,7 @@ typedef struct OOBT{
 #define RANGEGETNUM 2
 //#define USINGSLAB
 
-
+#define NOEXTENDPPA(ppa) (ppa/NPCINPAGE)
 /*lsmtree flash thread*/
 #define KEYSETSIZE 8
 #define KEYSIZE ()
