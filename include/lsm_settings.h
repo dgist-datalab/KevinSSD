@@ -9,7 +9,7 @@
 #endif
 
 #define RAF 0.01
-#define LEVELN 3
+#define LEVELN 2
 
 
 #if LEVELN!=1
@@ -20,16 +20,12 @@
 
 //#define LEVELUSINGHEAP
 //#define TIERING
-
-#if defined(KVSSD) && defined(DVALUE)
-typedef struct OOBT{
-	uint8_t length[128];
-}OOBT;
-#define ppa_t uint32_t
+#ifdef DVALUE
+#define OOBT __uint128_t
 #else
 #define OOBT uint32_t
-#define ppa_t uint32_t
 #endif
+#define ppa_t uint32_t
 
 
 #define KEYLEN(a) (a.len+sizeof(ppa_t))

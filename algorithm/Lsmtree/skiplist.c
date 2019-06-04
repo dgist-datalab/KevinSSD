@@ -647,7 +647,8 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 			res[res_idx]=target->value;
 			res[res_idx]->ppa=LSM.lop->moveTo_fr_page(from);//real physical index
 #ifdef DVALUE
-			PBITSET(res[res_idx]->ppa,PAGESIZE/PIECE);
+//			PBITSET(res[res_idx]->ppa,PAGESIZE/PIECE);
+			oob[res[res_idx]->ppa]=NPCINPAGE;
 #else
 			oob[res[res_idx]->ppa]=PBITSET(target->key,(uint8_t)1);
 #endif

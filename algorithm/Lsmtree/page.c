@@ -41,15 +41,16 @@ uint8_t BLOCKTYPE(uint32_t ppa){
 		return DATA;
 }
 #ifdef DVALUE
+/*
 void PBITSET(ppa_t input, uint8_t len){
 	uint64_t ppa=input/NPCINPAGE;
 	uint64_t off=input%NPCINPAGE;
 	oob[ppa].length[off]=len*2+1;
-	/*
+	*
 	 if full page is set as 1 : 128*2+1
 	 in 64bytest page is set as 3 : 1*2+1
-	 */
-}
+	 *
+}*/
 #else
 OOBT PBITSET(KEYT input,uint8_t isFull){
 #ifdef KVSSD
@@ -155,10 +156,12 @@ void block_free_ppa(uint8_t type, block* b){
 			}
 			b->level=0;
 			b->hn_ptr=NULL;
+			b->idx_of_ppa=0;
 			//printf("block free : %d\n",b->ppa);
 		default:
 			free(b->bitset);
 			b->invalid_n=0;
+			b->valid_n=0;
 			b->bitset=NULL;
 			b->ppage_idx=0;
 			b->erased=true;
@@ -347,6 +350,7 @@ void pm_a_init(pm *m,uint32_t size,uint32_t *_idx,bool isdata){
 #ifdef DVALUE
 		}
 #endif
+		bl[idx].invalid_n=bl[idx].valid_n=0;
 		bl[idx].l_node=llog_insert(m->blocks,(void*)&bl[idx]);
 		idx++;
 	}
@@ -633,8 +637,7 @@ uint32_t getPPA(uint8_t type, KEYT lpa,bool isfull){
 #ifndef DVALUE
 		oob[res]=PBITSET(lpa,true);
 #else
-		PBITSET(res,PAGESIZE/PIECE);
-	//	printf("should setting oob!! in getPPA\n");
+		oob[res]=PAGESIZE/PIECE;//PBITSET(res,PAGESIZE/PIECE);
 #endif
 		active_block->erased=false;
 	}
@@ -686,13 +689,9 @@ void invalidate_PPA(uint32_t _ppa){
 }
 #ifdef DVALUE
 void invalidate_DPPA(ppa_t input){
-	uint32_t bn,idx,page;
-	page=input/NPCINPAGE;
-	bn=page/algo_lsm.li->PPB;
-	idx=input%(algo_lsm.li->PPB*(PAGESIZE/PIECE));
-
-	bl[bn].bitset[idx/8]|=(1<<(idx%8));
-	bl[bn].invalid_n++;
+	uint32_t page=input/NPCINPAGE;
+	uint32_t bn=page/algo_lsm.li->PPB;
+	bitmap_unpopulate(input);
 
 	segment *segs=WHICHSEG(bl[bn].ppa);
 	segs->invalid_n++;
@@ -701,6 +700,36 @@ void invalidate_DPPA(ppa_t input){
 		printf("invalidate:??\n");
 		abort();
 	}
+}
+
+void bitmap_unpopulate(ppa_t input){
+	uint32_t bn,idx,page;
+	page=input/NPCINPAGE;
+	bn=page/algo_lsm.li->PPB;
+	idx=input%(algo_lsm.li->PPB*(NPCINPAGE));
+
+	if(!(bl[bn].bitset[idx/8]&(1<<(idx%8)))){
+		abort();
+	}
+	else{
+		bl[bn].bitset[idx/8]&=~(1<<(idx%8));
+		bl[bn].invalid_n++;
+	}
+}
+
+void bitmap_populate(ppa_t input){
+	uint32_t bn,idx,page;
+	page=input/NPCINPAGE;
+	bn=page/algo_lsm.li->PPB;
+	idx=input%(algo_lsm.li->PPB*(NPCINPAGE));
+
+	if((bl[bn].bitset[idx/8]&(1<<(idx%8)))){
+		abort();
+	}
+	else{
+		bl[bn].bitset[idx/8]|=(1<<(idx%8));
+	}
+	bl[bn].valid_n++;
 }
 #endif
 int gc_node_compare(const void *a, const void *b){
@@ -1316,7 +1345,8 @@ int gc_data(uint32_t tbn){
 
 			if(data!=&dummy_table){
 #ifdef DVALUE
-				oob[n_ppa/(PAGESIZE/PIECE)]=PBITSET(d_lpa,true);
+				//oob[n_ppa/(PAGESIZE/PIECE)]=PBITSET(d_lpa,true);
+
 				gc_data_write(n_ppa/(PAGESIZE/PIECE),data);
 #else
 				oob[n_ppa]=PBITSET(d_lpa,true);

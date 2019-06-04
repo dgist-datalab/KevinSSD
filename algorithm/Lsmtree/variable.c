@@ -28,6 +28,7 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 	while(src->idx[max_piece]==0) --max_piece;
 
 //	bool debuging=false;
+	int cnt=0;
 	while(1){
 		PTR page=NULL;
 		int ptr=0;
@@ -61,23 +62,24 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 				gc_node *target=(gc_node*)src->bucket[target_length][src->idx[target_length]-1];
 				target->nppa=LSM.lop->get_page(in,target->plength);
 #ifdef DVALUE
-				PBITSET(target->nppa,target_length);
+				foot->map[target->nppa%NPCINPAGE]=target_length;
+				bitmap_populate(target->nppa);
+				//PBITSET(target->nppa,target_length);
 #else
 				oob[target->nppa]=PBITSET(target->lpa,0);
 #endif
 				gc_container[v_idx++]=target;
 				memcpy(&page[ptr],target->value,target_length*PIECE);
-				foot->map[target->nppa%NPCINPAGE]=target_length;
 			}else{
 				snode *target=src->bucket[target_length][src->idx[target_length]-1];
 				target->ppa=LSM.lop->get_page(in,target->value->length);
 #ifdef DVALUE
-				PBITSET(target->ppa,target_length);
+				foot->map[target->ppa%NPCINPAGE]=target_length;
+				bitmap_populate(target->ppa);	
 #else
 				oob[target->ppa]=PBITSET(target->key,0);
 #endif
 				memcpy(&page[ptr],target->value->value,target_length*PIECE);
-				foot->map[target->ppa%NPCINPAGE]=target_length;
 			}
 			used_piece+=target_length;
 			src->idx[target_length]--;
@@ -85,8 +87,6 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 			ptr+=target_length*PIECE;
 			remain-=target_length*PIECE;
 		}
-
-//		memcpy(&page[PAGESIZE-sizeof(footer)],foot,sizeof(footer));
 
 		if(isgc){
 			gc_data_write(target_ppa,table_data,true);

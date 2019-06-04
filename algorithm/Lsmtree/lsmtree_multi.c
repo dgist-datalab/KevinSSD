@@ -100,7 +100,6 @@ void *lsm_range_end_req(algo_req *const req){
 		}
 		free(range_params->mapping_data);
 		free(range_params);
-	//	printf("cnt3: %d\n",cnt3++);
 		original_req->end_req(original_req);
 	}
 	free(req);
@@ -201,6 +200,7 @@ again:
 		free(params->mapping_data);
 		free(params);
 		req->end_req(req);
+		static int cnt=0;
 		goto finish;
 	}
 
@@ -208,7 +208,11 @@ again:
 		if(target_keys[i].ppa==UINT_MAX){continue;}
 		throw_req++;
 		ar_req=lsm_range_get_req_factory(req,params,DATAR);	
+#ifdef DVALUE
+		LSM.li->read(target_keys[i].ppa/NPCINPAGE,PAGESIZE,req->multi_value[i],ASYNC,ar_req);
+#else
 		LSM.li->read(target_keys[i].ppa,PAGESIZE,req->multi_value[i],ASYNC,ar_req);
+#endif
 	}
 finish:
 	for(i=0; i<LEVELN; i++){
@@ -270,6 +274,9 @@ uint32_t __lsm_range_get(request *const req){
 				memcpy(params->mapping_data[i*RANGEGETNUM+j],rs[j]->cache_data->sets,PAGESIZE);
 #endif
 				params->max--;
+				if(rs[j+1]==NULL && j+1 <RANGEGETNUM){
+					params->max-=(RANGEGETNUM-(j+1));
+				}
 				continue;
 			}
 			if(rs[j+1]==NULL && j+1 <RANGEGETNUM){
@@ -287,6 +294,11 @@ uint32_t __lsm_range_get(request *const req){
 	if(params->max==params->now){//all target header in level caching or caching
 		__lsm_range_get(req);
 	}else{
+		if(use_valueset_cnt==0){
+			LSM.lop->all_print();
+			printf("key:%.*s\n",req->key.len,req->key.key);
+			printf("%d %d(m,n)\n",params->max, params->now);
+		}
 		for(int i=0;i<use_valueset_cnt;i++){
 			ar_req=lsm_range_get_req_factory(req,params,HEADERR);
 			LSM.li->read(read_header[i],PAGESIZE,req->multi_value[i],ASYNC,ar_req);

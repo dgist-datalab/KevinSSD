@@ -34,6 +34,7 @@ typedef struct block{
 	bool erased;
 	llog_node *l_node;//pm where the block assigned
 	uint32_t ppa;//block start number
+	uint32_t valid_n;
 	uint32_t invalid_n;
 	uint32_t idx_of_ppa;
 #ifdef LEVELUSINGHEAP
@@ -90,6 +91,8 @@ OOBT PBITSET(KEYT,uint8_t);
 void gc_data_now_block_chg(struct level *in, block *);
 #ifdef DVALUE
 void invalidate_DPPA(ppa_t ppa);
+void bitmap_unpopulate(ppa_t ppa);
+void bitmap_populate(ppa_t ppa);
 #endif
 int get_victim_block(pm *);
 int gc_header(uint32_t tbn);

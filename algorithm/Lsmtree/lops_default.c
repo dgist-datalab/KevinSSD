@@ -26,7 +26,6 @@ ppa_t def_moveTo_fr_page( level* in){
 	}
 #ifdef DVALUE
 	else{
-
 		if(in->now_block->idx_of_ppa){
 			in->now_block->idx_of_ppa=0;
 			in->now_block->ppage_idx++;
@@ -58,7 +57,6 @@ ppa_t def_get_page( level* in, uint8_t plength){
 
 bool def_blk_fchk( level *in){
 	bool res=false;
-	
 #ifdef DVALUE
 	if(!in->now_block || in->now_block->ppage_idx>=_PPB-1){
 #else

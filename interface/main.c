@@ -44,8 +44,8 @@ int main(int argc,char* argv[]){
 	printf("TOTALKEYNUM: %d\n",TOTALKEYNUM);
 	// GC test
 //	bench_add(RANDGET,0,RANGE,RANGE);
-//	bench_add(RANDSET,0,RANGE,REQNUM*2);
-	bench_add(RANDRW,0,RANGE,REQNUM*4);
+	bench_add(RANDSET,0,RANGE,REQNUM*2);
+	bench_add(RANDRW,0,RANGE,REQNUM*2);
 
 //	bench_add(SEQRW,0,RANGE,REQNUM*2);
 //	bench_add(RANDSET,0,RANGE,REQNUM*2);
