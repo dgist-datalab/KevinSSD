@@ -283,8 +283,13 @@ retry:
 			fd_sock_read(f,data->key,data->keylen);
 			break;
 		case READ_TYPE:
+			fd_sock_read(f,data->key,data->keylen);
+			break;
 		case WRITE_TYPE:
 			fd_sock_read(f,data->key,data->keylen);
+			fd_sock_read(f,(char*)&data->valuelen,sizeof(data->valuelen));
+			data->valuelen=htobe32(data->valuelen);
+	//		printf("value_len:%d\n",data->valuelen);
 			break;
 	}
 	return data->type==WRITE_TYPE?1:0;

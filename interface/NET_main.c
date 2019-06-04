@@ -92,9 +92,11 @@ int main(int argc, char *argv[]){
 	//	fd_print_netdata(fp,data);
 		switch(data->type){
 			case WRITE_TYPE:
+				inf_make_req_apps(data->type,data->key,data->keylen,temp,data->valuelen,data->seq,data->type==2?data:NULL,kv_main_end_req);
+				break;
 			case READ_TYPE:
 				//printf("%d %.*s\n",cnt++,data->keylen,data->key);
-				inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),data->seq,data->type==2?data:NULL,kv_main_end_req);
+				inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE,data->seq,data->type==2?data:NULL,kv_main_end_req);
 				break;
 			case RANGE_TYPE:
 				data->type=FS_RANGEGET_T;

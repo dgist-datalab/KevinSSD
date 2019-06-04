@@ -138,7 +138,7 @@ int gc_data(uint32_t tbn){
 	else if(tbn%BPS==BPS-1) order=2;
 	else order=1;
 #ifdef DVALUE
-	if(target->invalid_n==algo_lsm.li->PPB*(PAGESIZE/PIECE) || target->erased){
+	if(target->invalid_n==target->valid_n || target->erased){
 #else
 	if(target->invalid_n==algo_lsm.li->PPB || target->invalid_n==target->ppage_idx||target->erased){
 #endif
@@ -176,52 +176,63 @@ int gc_data(uint32_t tbn){
 	for(uint32_t j=0,i=0; j<target->ppage_idx; i++,j++)
 #endif
 	{
-		uint32_t t_ppa=start+i;
 #ifdef DVALUE
-		//we can't know the invalid chunk before it read
-		tables[i]=(htable_t*)malloc(sizeof(htable_t));
-		gc_data_read(t_ppa,tables[i],true);
-		j=(j/NPCINPAGE+1)*NPCINPAGE-1;
-		i++;
-		continue;
-#endif
+		if(!(target->bitset[j/8]&(1<<(j%8)))){
+			continue;
+		}
+		else{
+			uint32_t this_page=j/NPCINPAGE;
+			i=this_page;
+			tables[i]=(htable_t*)malloc(sizeof(htable_t));
+			gc_data_read(start+this_page,tables[i],true);
+			j=(this_page+1)*NPCINPAGE-1;
+		}
+#else
+		uint32_t t_ppa=start+i;
 		if(target->bitset[j/8]&(1<<(j%8))){
 			tables[i]=NULL;
 			continue;
 		}
 		tables[i]=(htable_t*)malloc(sizeof(htable_t));
 		gc_data_read(t_ppa,tables[i],true);
+#endif
 	}
 	
 	gc_general_waiting(); //wait for read req
 
 #ifdef DVALUE
+	uint32_t before_page=UINT_MAX;
 	for(uint32_t j=0,i=0; j<(target->ppage_idx+1)*NPCINPAGE; j++)
 #else
 	for(uint32_t j=0,i=0; j<target->ppage_idx; j++,i++)
 #endif
 	{
-		if(!tables[i])
-		{
-		#ifdef DAVLUE
-			j=(j/NPCINPAGE+1)*NPCINPAGE-1;
-		#endif
-			continue;
-		}
+
 #ifdef DVALUE
-		if(target->bitset[j/8]&(1<<(j%8))) continue; //for invalid
+		if(!(target->bitset[j/8]&(1<<(j%8)))) continue; //for invalid
+		
 		uint8_t chunk_idx=j%NPCINPAGE;
-		footer *foot=GETFOOTER(((char*)tables[i]->sets));
-		if(foot->map[chunk_idx]==0){
-			if(chunk_idx==NPCINPAGE-1){
-				//printf("table %d used\n",i);
-				free(tables[i]);
-				i++;
+		uint64_t t_ppa=start*NPCINPAGE+j;//for DVALUE
+
+		footer *foot=(footer*)&oob[NOEXTENDPPA(t_ppa)];
+		i=(j/NPCINPAGE);
+		if(before_page==UINT_MAX)before_page=i;
+		else{
+			if(before_page!=i){
+				free(tables[before_page]);
+				tables[before_page]=NULL;
+				before_page=i;
 			}
 		}
-		uint64_t t_ppa=start*NPCINPAGE+j;//for DVALUE
 		KEYT *lpa=LSM.lop->get_lpa_from_data(&((char*)tables[i]->sets)[PIECE*(t_ppa%NPCINPAGE)],false);
+		if(!lpa->len){
+			printf("t_ppa:%d %d\n",t_ppa,(t_ppa%NPCINPAGE)*PIECE);	
+			abort();
+		}
 #else
+		if(!tables[i]){
+			continue;
+		}
 		uint32_t t_ppa=PBITGET(start+i);//for normal
 		KEYT* lpa=LSM.lop->get_lpa_from_data((char*)tables[i]->sets,false);
 #endif
@@ -232,9 +243,9 @@ int gc_data(uint32_t tbn){
 		}
 	
 #ifdef DVALUE
-		uint8_t oob_len=oob[t_ppa/NPCINPAGE].length[t_ppa%NPCINPAGE];
-		oob_len=oob_len-1 ? oob_len/2:128;
-		if(t_ppa%NPCINPAGE==0 && (oob_len==NPCINPAGE || oob_len==NPCINPAGE-1))//full check & full-1 chunck check
+		//uint8_t oob_len=oob[t_ppa/NPCINPAGE].length[t_ppa%NPCINPAGE];
+		uint8_t oob_len=foot->map[t_ppa%NPCINPAGE];
+		if(t_ppa%NPCINPAGE==0 && oob_len==NPCINPAGE)//full check & full-1 chunck check
 		{
 #endif	
 			LSM.lop->moveTo_fr_page(in);
@@ -252,9 +263,11 @@ int gc_data(uint32_t tbn){
 			bucket.bucket[temp_g->plength][bucket.idx[temp_g->plength]++]=(snode*)temp_g;	
 			bucket.contents_num++;
 			free(tables[i]);
+			tables[i]=NULL;
 #ifdef DVALUE
 			i++;
-			PBITSET(temp_g->nppa,oob_len);
+			//PBITSET(temp_g->nppa,oob_len);
+			foot->map[0]=oob_len;
 		}else{
 			gc_node *temp_g=(gc_node*)malloc(sizeof(gc_node));
 			temp_g->plength=foot->map[chunk_idx];
@@ -271,16 +284,14 @@ int gc_data(uint32_t tbn){
 			bucket.contents_num++;
 
 		}
-		if(chunk_idx==NPCINPAGE-1){
-			//printf("table %d used\n",i);
-			free(tables[i]);
-			i++;
-		}
 		j+=foot->map[chunk_idx]-1;
 #endif
 		free(lpa);
 	}
 	
+#ifdef DVALUE
+	free(tables[before_page]);
+#endif
 	/*
 	int len_idx=PAGESIZE/PIECE;
 	int temp_len_idx=0;

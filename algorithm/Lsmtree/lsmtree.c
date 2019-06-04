@@ -24,7 +24,6 @@
 		free(a);\
 	}while(0)
 */
-int debug_cnt;
 #ifdef KVSSD
 KEYT key_max, key_min;
 #endif
@@ -644,7 +643,6 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 					temp_req->value->ppa=new_target_set->ppa;
 #ifdef DVALUE
 					if(lsm_data_cache_check(temp_req,temp_req->value->ppa)){
-						printf("d:%d",debug_cnt++);
 						temp_req->end_req(temp_req);
 					}
 					else{
@@ -685,7 +683,6 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 	if(likely(lsm_req)){
 #ifdef DVALUE
 		if(lsm_data_cache_check(req,ppa)){
-			printf("d:%d",debug_cnt++);
 			req->end_req(req);
 			return res;
 		}

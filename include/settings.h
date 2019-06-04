@@ -40,7 +40,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 4L
+#define GIGAUNIT 16L
 #define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
@@ -58,7 +58,7 @@
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
 
 #define TOTALKEYNUM ((GIGAUNIT)*(G/PAGESIZE))
-#define RANGE ((GIGAUNIT)*(M/PAGESIZE)*1024L*0.8)
+#define RANGE ((GIGAUNIT)*(M/PAGESIZE)*1024L*0.9)
 #define REQNUM ((GIGAUNIT)*(M/PAGESIZE)*1024L)
 
 #define SIMULATION 0

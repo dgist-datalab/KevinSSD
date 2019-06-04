@@ -22,11 +22,11 @@
 #ifdef Lsmtree
 struct level;
 typedef struct htable htable;
-#define GETFOOTER(a) (footer*)&((a)[PAGESIZE-sizeof(footer)])
 
 typedef struct footer{
 	uint8_t map[PAGESIZE/PIECE];
 }footer;
+ 
 #endif
 typedef struct snode{ //skiplist's node
 	ppa_t ppa;
