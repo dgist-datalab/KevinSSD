@@ -69,9 +69,14 @@ void merge_w_origin(D_TABLE *src, D_TABLE *dst){ // merge trans table.
     }
 }
 
-int lpa_compare(const void *a, const void *b){
+/* int lpa_compare(const void *a, const void *b){
+#ifdef DVALUE
+    uint32_t num1 = (int32_t)((struct gc_bucket_node)a)->lpa;
+    uint32_t num2 = (int32_t)((struct gc_bucket_node)b)->lpa;
+#else
     uint32_t num1 = (uint32_t)(((D_SRAM*)a)->OOB_RAM.lpa);
     uint32_t num2 = (uint32_t)(((D_SRAM*)b)->OOB_RAM.lpa);
+#endif
     if(num1 < num2){
         return -1;
     }
@@ -81,7 +86,7 @@ int lpa_compare(const void *a, const void *b){
     else{
         return 1;
     }
-}
+}*/
 
 int32_t tp_alloc(char req_t, bool *flag){
     static int32_t ppa = -1; // static for ppa
@@ -127,6 +132,8 @@ int32_t tp_alloc(char req_t, bool *flag){
 
 int32_t dp_alloc(){ // Data page allocation
     static int32_t ppa = -1; // static for ppa
+	static int u_cnt = 0;
+	u_cnt++;
     Block *block;
     if(ppa != -1 && ppa % p_p_b == 0){
         ppa = -1; // initialize that this need new block
@@ -137,6 +144,8 @@ int32_t dp_alloc(){ // Data page allocation
             return ppa++;
         }
         block = BM_Dequeue(free_b); // dequeue block from free block queue
+		static int d_cnt =0;
+		printf("dpage dequeued %d %d\n", ++d_cnt, u_cnt);
         if(block){
             block->hn_ptr = BM_Heap_Insert(data_b, block);
             block->type = 2; // 2 is data block
@@ -158,7 +167,9 @@ value_set* SRAM_load(D_SRAM* d_sram, int32_t ppa, int idx, char t){
     else{
         __demand.li->read(ppa, PAGESIZE, temp_value_set, 1, assign_pseudo_req(DGC_R, NULL, NULL));
     }
+#ifndef DVALUE
     d_sram[idx].DATA_RAM = (int32_t *)malloc(PAGESIZE);
+#endif
     d_sram[idx].OOB_RAM = demand_OOB[ppa];
     d_sram[idx].origin_ppa = ppa;
     return temp_value_set;
@@ -178,7 +189,11 @@ void SRAM_unload(D_SRAM* d_sram, int32_t ppa, int idx, char t){
         __demand.li->write(ppa, PAGESIZE, temp_value_set, ASYNC, assign_pseudo_req(DGC_W, temp_value_set, NULL));
     }
     demand_OOB[ppa] = d_sram[idx].OOB_RAM;
+#ifdef DVALUE
+    BM_ValidatePage(bm, ppa * GRAIN_PER_PAGE);
+#else
     BM_ValidatePage(bm, ppa);
+#endif
     free(d_sram[idx].DATA_RAM);
 }
 

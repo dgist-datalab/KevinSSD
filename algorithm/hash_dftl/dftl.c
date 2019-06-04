@@ -53,7 +53,7 @@ volatile int32_t trans_gc_poll;
 volatile int32_t data_gc_poll;
 
 int32_t num_page;
-#ifdef VARIABLE_VALUE
+#ifdef DVALUE
 int32_t num_grain;
 #endif
 int32_t num_block;
@@ -61,6 +61,9 @@ int32_t p_p_b;
 int32_t num_tpage;
 int32_t num_tblock;
 int32_t num_dpage;
+#ifdef DVALUE
+int32_t num_dgrain;
+#endif
 int32_t num_dblock;
 int32_t max_cache_entry;
 int32_t nr_pages_optimal_caching;
@@ -136,8 +139,8 @@ static void print_algo_log() {
 	printf(" | Total Pages:            %d\n", num_page);
 	printf(" |  -Translation Pages:    %d\n", num_tpage);
 	printf(" |  -Data Pages:           %d\n", num_dpage);
-#ifdef VARIABLE_VALUE
-	printf(" |    -Data Grains:        %d\n", num_dpage * GRAINS_PER_PAGE);
+#ifdef DVALUE
+	printf(" |    -Data Grains:        %d\n", num_dpage * GRAIN_PER_PAGE);
 #endif
 	printf(" |  -Page per Block:       %d\n", p_p_b);
 	printf(" | Total cache pages:      %d\n", max_cache_entry);
@@ -160,9 +163,9 @@ extern int rq_create();
 uint32_t demand_create(lower_info *li, algorithm *algo){
 	/* Initialize pre-defined values by using macro */
 	num_page        = _NOP;
-#ifdef VARIABLE_VALUE
-	printf("[VARIABLE_VALUE] Using grained mapping table (GRAINED_UNIT:%dB)\n", (int)GRAINED_UNIT);
-	num_grain       = num_page * GRAINS_PER_PAGE;
+#ifdef DVALUE
+	printf("[DVALUE] Using grained mapping table (GRAINED_UNIT:%dB)\n", (int)GRAINED_UNIT);
+	num_grain       = num_page * GRAIN_PER_PAGE;
 	max_cache_entry = (num_grain / EPP) + ((num_grain % EPP != 0) ? 1: 0);
 #else
 	max_cache_entry = (num_page / EPP) + ((num_page % EPP != 0) ? 1 : 0);
@@ -175,8 +178,8 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 	num_tpage       = num_tblock * p_p_b;
 	num_dblock      = num_block - num_tblock - 2;
 	num_dpage       = num_dblock * p_p_b;
-#ifdef VARIABLE_VALUE
-	num_dgrain      = num_dpage * GRAINS_PER_PAGE;
+#ifdef DVALUE
+	num_dgrain      = num_dpage * GRAIN_PER_PAGE;
 #endif
 
 
@@ -262,7 +265,11 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 
 	/* Module Init */
+#ifdef DVALUE
+	bm = BM_Init(num_block, p_p_b * GRAIN_PER_PAGE, 2, 1);
+#else
 	bm = BM_Init(num_block, p_p_b, 2, 1);
+#endif
 	t_reserved = &bm->barray[num_block - 2];
 	d_reserved = &bm->barray[num_block - 1];
 
@@ -310,7 +317,7 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 }
 
 void demand_destroy(lower_info *li, algorithm *algo){
-
+	/*
 	puts("   <flying status>");
 	for (int i = 0; i < max_cache_entry; i++) {
 		if (CMT[i].num_waiting) {
@@ -328,7 +335,7 @@ void demand_destroy(lower_info *li, algorithm *algo){
 			}
 		}
 		printf("CMT[%d] cnt:%d\n",  i, hash_entry_cnt);
-	}
+	}*/
 
 
 	/* Print information */
@@ -638,6 +645,7 @@ uint32_t __demand_get(request *const req){
 	int32_t t_ppa; // Translation page address
 	C_TABLE *c_table; // Cache mapping entry pointer
 	D_TABLE *p_table; // pointer of p_table on cme
+	algo_req *a_req;
 
 	struct hash_params *h_params;
 	int cnt;
@@ -678,7 +686,11 @@ read_retry:
 		free(h_params);
 
 		buf_hit++;
+#ifdef DVALUE
+		memcpy(req->value->value, temp->value->value, temp->value->length * GRAINED_UNIT);
+#else
 		memcpy(req->value->value, temp->value->value, PAGESIZE);
+#endif
 		req->type_ftl = 0;
 		req->type_lower = 0;
 		req->end_req(req);
@@ -691,7 +703,7 @@ read_retry:
 	}
 
 	if (h_params->find == HASH_KEY_NONE) {
-		printf("[ERROR:NOT_FOUND] HASH_KEY_NONE error! %d\n", ++none_err_cnt);
+//		printf("[ERROR:NOT_FOUND] HASH_KEY_NONE error! %d\n", ++none_err_cnt);
 		return UINT32_MAX;
 	}
 
@@ -720,7 +732,7 @@ read_retry:
 		} else if (p_table) { // Cache hit
 			ppa = p_table[P_IDX].ppa;
 			if (ppa == -1) {
-				printf("[ERROR:NOT_FOUND] TABLE_ENTRY_NONE error! %d\n", ++entry_err_cnt);
+	//			printf("[ERROR:NOT_FOUND] TABLE_ENTRY_NONE error! %d\n", ++entry_err_cnt);
 				return UINT32_MAX;
 			}
 			clean_hit_on_read++;
@@ -739,7 +751,7 @@ read_retry:
 
 		} else { // Cache miss
 			if (t_ppa == -1) {
-				printf("[ERROR:NOT_FOUND] TABLE_NONE error! %d\n", ++table_err_cnt);
+	//			printf("[ERROR:NOT_FOUND] TABLE_NONE error! %d\n", ++table_err_cnt);
 				return UINT32_MAX;
 			}
 
@@ -772,7 +784,7 @@ read_retry:
 	}
 
 	if (ppa == -1) {
-		printf("[ERROR:NOT_FOUND] TABLE_ENTRY_NONE error2! %d\n", ++entry_err_cnt);
+	//	printf("[ERROR:NOT_FOUND] TABLE_ENTRY_NONE error2! %d\n", ++entry_err_cnt);
 		return UINT32_MAX;
 	}
 
@@ -791,7 +803,13 @@ read_retry:
 #endif
 
 	// Get data in ppa
+#ifdef DVALUE
+	a_req = assign_pseudo_req(DATA_R, NULL, req);
+	((demand_params *)a_req->params)->offset = ppa % GRAIN_PER_PAGE;
+	__demand.li->read(ppa/GRAIN_PER_PAGE, PAGESIZE, req->value, ASYNC, a_req);
+#else
 	__demand.li->read(ppa, PAGESIZE, req->value, ASYNC, assign_pseudo_req(DATA_R, NULL, req));
+#endif
 
 	return 1;
 }
@@ -824,6 +842,10 @@ uint32_t __demand_set(request *const req){
 #endif
 #endif
 
+#ifdef DVALUE
+	l_bucket *wb_bucket;
+#endif
+
 	struct hash_params *h_params;
 	int cnt;
 
@@ -832,6 +854,69 @@ uint32_t __demand_set(request *const req){
 
 	//++write_buffer
 	if (write_buffer->size == max_write_buf) {
+#ifdef DVALUE
+		wb_bucket = (l_bucket *)malloc(sizeof(l_bucket));
+		for (int i = 0; i <= GRAIN_PER_PAGE; i++) {
+			wb_bucket->idx[i] = 0;
+		}
+		iter = skiplist_get_iterator(write_buffer);
+		for (size_t i = 0; i < max_write_buf; i++) {
+			temp = skiplist_get_next(iter);
+			int val_len = temp->value->length;
+			//int buc_idx = val_len / GRAINED_UNIT;
+
+			wb_bucket->bucket[val_len][wb_bucket->idx[val_len]] = temp;
+			wb_bucket->idx[val_len]++;
+		}
+
+		int ordering_done = 0;
+		/*for (int i = 0; i < wb_bucket->idx[GRAIN_PER_PAGE]; i++) {
+			temp = wb_bucket->bucket[GRAIN_PER_PAGE][i];
+			ppa = dp_alloc();
+
+			my_req = assign_pseudo_req(DATA_W, temp->value, NULL);
+			__demand.li->write(ppa, PAGESIZE, temp->value, ASYNC, my_req);
+
+			temp->ppa = ppa * GRAIN_PER_PAGE;
+			temp->value = NULL; // this memory area will be freed in end_req
+
+			q_enqueue((void *)temp, write_q);
+
+			ordering_done++;
+		}*/
+		while (ordering_done < max_write_buf) {
+			value_set *new_vs = inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
+			PTR page = new_vs->value;
+			int remain = PAGESIZE;
+			ppa = dp_alloc();
+			int offset = 0;
+
+			while (remain > 0) {
+				int target_length = remain / GRAINED_UNIT;
+				while(wb_bucket->idx[target_length]==0 && target_length!=0) --target_length;
+				if (target_length==0) {
+					break;
+				}
+
+				temp = wb_bucket->bucket[target_length][wb_bucket->idx[target_length]-1];
+				wb_bucket->idx[target_length]--;
+				temp->ppa = ppa * GRAIN_PER_PAGE + offset;
+
+				memcpy(&page[offset*GRAINED_UNIT], temp->value->value, temp->value->length * GRAINED_UNIT);
+
+				offset += target_length;
+				remain -= target_length * GRAINED_UNIT;
+
+				q_enqueue((void *)temp, write_q);
+
+				ordering_done++;
+			}
+
+			my_req = assign_pseudo_req(DATA_W, new_vs, NULL);
+			__demand.li->write(ppa, PAGESIZE, new_vs, ASYNC, my_req);
+			//BM_ValidatePage(bm,ppa);
+		}
+#else
 		/* Push all the data to lower */
 		iter = skiplist_get_iterator(write_buffer);
 		for (size_t i = 0; i < max_write_buf; i++) {
@@ -848,6 +933,7 @@ uint32_t __demand_set(request *const req){
 
 			q_enqueue((void *)temp, write_q);
 		}
+#endif
 
 		/* Update mapping information */
 		while (updated != max_write_buf) {
@@ -912,7 +998,6 @@ write_retry:
 				check_key = mem_arr[D_IDX].mem_p[P_IDX].key;
 #endif
 #endif
-
 			} else if (p_table) {
 				clean_hit_on_write++;
 				cache_hit_on_write++;
@@ -959,8 +1044,8 @@ data_check:
 					h_params->cnt++;
 					goto write_retry;
 				}
-				//static int write_fp_miss_cnt = 0;
-				//printf("write fp miss: %d read amplified!!\n", ++write_fp_miss_cnt);
+				static int write_fp_miss_cnt = 0;
+				//printf("write fp miss: %d\n", ++write_fp_miss_cnt);
 #else
 				if (KEYCMP(check_key, temp->key) != 0) {
 					h_params->cnt++;
@@ -973,8 +1058,13 @@ data_check:
 #endif
 				dummy_vs = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 				temp_req = assign_pseudo_req(DATA_R, dummy_vs, NULL);
+				((demand_params *)temp_req->params)->offset = ppa % GRAIN_PER_PAGE;
 				((demand_params *)temp_req->params)->sn = temp;
+#ifdef DVALUE
+				__demand.li->read(ppa / GRAIN_PER_PAGE, PAGESIZE, dummy_vs, ASYNC, temp_req);
+#else
 				__demand.li->read(ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
+#endif
 				continue;
 			}
 
@@ -1006,8 +1096,13 @@ data_write:
 			memcpy(mem_arr[D_IDX].mem_p[P_IDX].key.key, temp->key.key, temp->key.len);
 #endif
 #endif
+
 			BM_ValidatePage(bm, temp->ppa);
+#ifdef DVALUE
+			demand_OOB[temp->ppa/GRAIN_PER_PAGE].lpa[temp->ppa % GRAIN_PER_PAGE] = lpa;
+#else
 			demand_OOB[temp->ppa].lpa = lpa;
+#endif
 
 			c_table->state = DIRTY;
 
@@ -1031,6 +1126,7 @@ data_write:
 		}
 
 		// Clear the skiplist
+		free(wb_bucket);
 		free(iter);
 		skiplist_free(write_buffer);
 		write_buffer = skiplist_init();
@@ -1331,7 +1427,16 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
 		}
 
 		if (cache_ptr->t_ppa != -1) {
+#ifdef DVALUE
+			BM_InvalidatePage(bm, cache_ptr->t_ppa * GRAIN_PER_PAGE);
+#else
 			BM_InvalidatePage(bm, cache_ptr->t_ppa);
+#endif
+			static int invalid_cnt = 0;
+			invalid_cnt++;
+			if (invalid_cnt % 1024 == 0) {
+				//printf("t_ppa %d, invalid cnt %d\n", cache_ptr->t_ppa,invalid_cnt);
+			}
 		}
 
 		// Mapping write
@@ -1341,8 +1446,14 @@ uint32_t demand_eviction(request *const req, char req_t, bool *flag, bool *dflag
 
 		__demand.li->write(t_ppa, PAGESIZE, dummy_vs, ASYNC, temp_req);
 
+#ifdef DVALUE
+		demand_OOB[t_ppa].lpa[0] = cache_ptr->idx;
+		BM_ValidatePage(bm, t_ppa * GRAIN_PER_PAGE);
+		//printf("%d validated\n", t_ppa);
+#else
 		demand_OOB[t_ppa].lpa = cache_ptr->idx;
 		BM_ValidatePage(bm, t_ppa);
+#endif
 
 		cache_ptr->t_ppa = t_ppa;
 		cache_ptr->state = CLEAN;
@@ -1364,14 +1475,29 @@ void *demand_end_req(algo_req* input){
 	struct hash_params *h_params;
 	KEYT check_key;
 
+#ifdef DVALUE
+	int offset;
+#endif
+
 	switch(params->type){
 		case DATA_R:
 			//if (res->type == FS_GET_T) {
 			if (res) {
 				h_params = (struct hash_params *)res->hash_params;
+#ifdef DVALUE
+				/*foot = (footer *)calloc(sizeof(footer), 1);
+				memcpy(foot, &res->value->value[PAGESIZE-sizeof(footer)], sizeof(footer)); */
+
+				offset = params->offset;
+
+				check_key.len = *(uint8_t *)(res->value->value+(offset*GRAINED_UNIT));
+				check_key.key = (char *)malloc(check_key.len);
+				memcpy(check_key.key, res->value->value+(offset*GRAINED_UNIT)+1, check_key.len);
+#else
 				check_key.len = *((uint8_t *)res->value->value);
 				check_key.key = (char *)malloc(check_key.len);
 				memcpy(check_key.key, res->value->value+1, check_key.len);
+#endif
 
 				res->type_ftl += 1;
 
@@ -1380,7 +1506,7 @@ void *demand_end_req(algo_req* input){
 					h_params->cnt++;
 
 					static int read_fp_miss_cnt = 0;
-					printf("read fp miss: %d\n", ++read_fp_miss_cnt);
+					//printf("read fp miss: %d\n", ++read_fp_miss_cnt);
 
 					/* if (h_params->cnt > max_try) {
 						h_params->find = HASH_KEY_NONE;
@@ -1406,9 +1532,17 @@ void *demand_end_req(algo_req* input){
 			} else { // Read check for data write
 				temp = params->sn;
 				h_params = (struct hash_params *)temp->hash_params;
+#ifdef DVALUE
+				offset = params->offset;
+
+				check_key.len = *(uint8_t *)(temp_v->value+(offset*GRAINED_UNIT));
+				check_key.key = (char *)malloc(check_key.len);
+				memcpy(check_key.key, temp_v->value+(offset*GRAINED_UNIT)+1, check_key.len);
+#else
 				check_key.len = *((uint8_t *)temp_v->value);
 				check_key.key = (char *)malloc(check_key.len);
 				memcpy(check_key.key, temp_v->value+1, check_key.len);
+#endif
 	
 				if (KEYCMP(temp->key, check_key)) {
 					h_params->find = HASH_KEY_DIFF;

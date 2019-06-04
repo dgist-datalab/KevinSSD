@@ -40,7 +40,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 4L
+#define GIGAUNIT 16L
 #define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
@@ -112,7 +112,7 @@ static inline char KEYTEST(KEYT a, KEYT b){
 #define ASYNC 1
 #define QSIZE (1024)
 #define LOWQDEPTH (128)
-#define QDEPTH (128)
+#define QDEPTH (8)
 
 #define THPOOL
 #define NUM_THREAD 16

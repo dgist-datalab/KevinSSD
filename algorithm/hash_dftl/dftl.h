@@ -25,11 +25,10 @@
 #define USE_FINGERPRINT 1
 
 // Support variable-sized value. Grain entries of the mapping table as GRAINED_UNIT
-//#define VARIABLE_VALUE
-#define GRAINED_UNIT ( 512 )
-#define VAR_VALUE_MIN ( GRAINED_UNIT )
+#define GRAINED_UNIT ( PIECE )
+#define VAR_VALUE_MIN ( MINVALUE )
 #define VAR_VALUE_MAX ( PAGESIZE )
-#define GRAINS_PER_PAGE ( PAGESIZE / GRAINED_UNIT )
+#define GRAIN_PER_PAGE ( PAGESIZE / GRAINED_UNIT )
 
 #define TYPE uint8_t
 #define DATA_R DATAR
@@ -86,10 +85,6 @@ typedef struct demand_mapping_table{
 	KEYT key;
 #endif
 #endif
-
-#ifdef VARIABLE_VALUE
-	// Offset ?
-#endif
 } D_TABLE;
 
 // Cache mapping table data strcuture
@@ -119,7 +114,11 @@ typedef struct cached_table{
 
 // OOB data structure
 typedef struct demand_OOB{
-    int32_t lpa;
+#ifdef DVALUE
+	int32_t lpa[GRAIN_PER_PAGE];
+#else
+	int32_t lpa;
+#endif
 } D_OOB;
 
 // SRAM data structure (used to hold pages temporarily when GC)
@@ -134,6 +133,9 @@ typedef struct demand_params{
     dl_sync dftl_mutex;
     TYPE type;
 	snode *sn;
+#ifdef DVALUE
+	int offset;
+#endif
 } demand_params;
 
 typedef struct read_params{
@@ -216,7 +218,7 @@ algo_req* assign_pseudo_req(TYPE type, value_set *temp_v, request *req);
 D_TABLE* mem_deq(b_queue *q);
 void mem_enq(b_queue *q, D_TABLE *input);
 void merge_w_origin(D_TABLE *src, D_TABLE *dst);
-int lpa_compare(const void *a, const void *b);
+//int lpa_compare(const void *a, const void *b);
 int32_t tp_alloc(char, bool*);
 int32_t dp_alloc();
 value_set* SRAM_load(D_SRAM* d_sram, int32_t ppa, int idx, char t);

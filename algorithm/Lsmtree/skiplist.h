@@ -53,14 +53,14 @@ typedef struct snode{ //skiplist's node
 	struct snode *back;
 }snode;
 
-#ifdef Lsmtree
+//#ifdef Lsmtree
 typedef struct length_bucket{
 	snode *bucket[PAGESIZE/PIECE+1][2048];
 	uint16_t idx[PAGESIZE/PIECE+1];
 	value_set** contents;
 	int contents_num;
 }l_bucket;
-#endif
+//#endif
 
 typedef struct skiplist{
 	uint8_t level;
