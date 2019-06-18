@@ -524,15 +524,6 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		update[i]=x;
 	}
 	x=x->list[1];
-/*
-#if defined(KVSSD) && defined(Lsmtree)
-	if(KEYCMP(key,list->start)<0) list->start=key;
-	if(KEYCMP(key,list->end)>0) list->end=key;
-#else
-	if(key<list->start) list->start=key;
-	if(key>list->end) list->end=key;
-#endif
-*/
 	if(value!=NULL){
 		value->length=(value->length/PIECE)+(value->length%PIECE?1:0);
 	}
@@ -653,38 +644,13 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 			oob[res[res_idx]->ppa]=PBITSET(target->key,(uint8_t)1);
 #endif
 			target->ppa=LSM.lop->get_page(from,(PAGESIZE/PIECE));
+#ifdef DVALUE
+			bitmap_populate(target->ppa);
+#endif
 			target->value=NULL;
 			res_idx++;
 		}
 	b.idx[PAGESIZE/PIECE]=0;
-	/*
-#ifdef DVALUE
-	for(int j=0; j<2; j++)
-#else
-	for(int j=0; j<1; j++)
-#endif
-	{
-		for(int i=0; i<b.idx[PAGESIZE/PIECE-j]; i++){//full page
-			target=b.bucket[PAGESIZE/PIECE-j][i];
-#ifdef DVALUE
-			res[res_idx]=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
-			memcpy(res[res_idx]->value,target->value->value,NPCINPAGE-j);
-#else
-			res[res_idx]=target->value;
-#endif
-			res[res_idx]->ppa=LSM.lop->moveTo_fr_page(from);//real physical index
-#ifdef DVALUE
-			PBITSET(res[res_idx]->ppa,PAGESIZE/PIECE-j);
-#else
-			oob[res[res_idx]->ppa]=PBITSET(target->key,(uint8_t)1);
-#endif
-			target->ppa=LSM.lop->get_page(from,(PAGESIZE/PIECE));
-			target->value=NULL;
-			res_idx++;
-		}
-		b.idx[PAGESIZE/PIECE-j]=0;
-	}
-	*/
 	if(from->idx!=0){
 		printf("%d----------end fuck!\n",flag);
 	}
@@ -700,7 +666,6 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 #ifdef DVALUE
 	variable_value2Page(from,&b,&res,&res_idx,false);
 #endif
-
 	res[res_idx]=NULL;
 	return res;
 }
@@ -793,9 +758,6 @@ void skiplist_clear(skiplist *list){
 	while(now!=list->header){
 
 		if(now->value){
-			if(now->value->length>=15*PIECE){
-				printf("break!\n");
-			}
 			inf_free_valueset(now->value,FS_MALLOC_W);//not only length<PAGESIZE also length==PAGESIZE, just free req from inf
 		}
 		free(now->key.key);
@@ -861,6 +823,10 @@ void skiplist_container_free(skiplist *list){
 	snode *next=now->list[1];
 	while(now!=list->header){
 		free(now->list);
+		if(now->value){
+			inf_free_valueset(now->value,FS_MALLOC_W);//not only length<PAGESIZE also length==PAGESIZE, just free req from inf
+			free(now->key.key);
+		}
 #ifdef Lsmtree
 		if(now->iscaching_entry)
 			free(now->key.key);

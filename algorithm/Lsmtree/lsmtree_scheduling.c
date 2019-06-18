@@ -53,8 +53,10 @@ void lsm_io_sched_push(uint8_t type, void *req){
 	s_req->type=type;
 	s_req->param=req;
 
+	pthread_mutex_lock(&scheduler.sched_lock);
 	while(!q_enqueue((void*)s_req,scheduler.q));
 	pthread_cond_signal(&scheduler.sched_cond);
+	pthread_mutex_unlock(&scheduler.sched_lock);
 }
 
 void lsm_io_sched_flush(){

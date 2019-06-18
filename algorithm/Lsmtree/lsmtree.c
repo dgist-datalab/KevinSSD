@@ -83,11 +83,7 @@ extern level_ops a_ops;
 void lsm_bind_ops(lsmtree *l){
 	l->lop=&a_ops;
 	l->ORGHEADER=l->KEYNUM=l->lop->get_max_table_entry();
-#if (LEVELN!=1)
 	l->FLUSHNUM=l->lop->get_max_flush_entry(FULLMAPNUM);
-#else
-	l->FLUSHNUM=FULLMAPNUM;
-#endif
 	l->inplace_compaction=false;
 }
 uint32_t __lsm_get(request *const);

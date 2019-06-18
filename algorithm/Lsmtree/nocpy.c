@@ -1,7 +1,11 @@
 #include "nocpy.h"
 #include "../../include/lsm_settings.h"
+#include "../../interface/queue.h"
 extern lsmtree LSM;
 keyset **page;
+
+queue *delayed_trim_queue;
+
 void nocpy_init(){
 	page=(keyset**)malloc(sizeof(keyset*)*((HEADERSEG+1)*_PPS));
 	for(int i=0; i<(HEADERSEG+1)*_PPS; i++){
@@ -9,22 +13,16 @@ void nocpy_init(){
 		page[i]=NULL;
 	}
 	printf("------------# of copy%d\n",(HEADERSEG+1)*_PPS);
+	q_init(&delayed_trim_queue,(HEADERSEG+1)*_PPS+1);
 }
 
 void nocpy_free_page(uint32_t ppa){
 	free(page[ppa]);
-	static int cnt=0;
-	if(ppa==16384){
-		cnt++;
-		if(cnt==2){
-		//	printf("break point\n");
-		}
-	//	printf("16384 delete from page\n");
-	}
 	page[ppa]=NULL;
 }
 
 void nocpy_free_block(uint32_t ppa){
+	printf("trim:%d\n",ppa);
 	for(uint32_t i=ppa; i<ppa+_PPS; i++){
 		if(!page[i]) continue;
 		free(page[i]);
@@ -58,32 +56,7 @@ void nocpy_copy_from_change(char *des, uint32_t ppa){
 		abort();
 	}
 #endif
-
-	if(ppa==16384){
-		static int cnt=0;
-		cnt++;
-		if(cnt==4){
-	//		printf("break point\n");	
-		}
-	//	printf("16384 inserted %u change\n", ((keyset*)des)->lpa);
-	}
 	page[ppa]=(keyset*)des;
-}
-void nocpy_copy_from(char *src, uint32_t ppa){
-	if(page[ppa]==NULL){
-#if (LEVELN!=1) && !defined(KVSSD)
-		if(((keyset*)src)->lpa>1024 || ((keyset*)src)->lpa<=0){
-			abort();
-		}
-#endif
-		if(ppa==16384){
-	//		printf("16384 inserted %u from\n", ((keyset*)src)->lpa);
-		}
-		page[ppa]=(keyset*)malloc(PAGESIZE);
-		memcpy(page[ppa],src,PAGESIZE);
-	}else{
-		abort();
-	}
 }
 
 char *nocpy_pick(uint32_t ppa){
@@ -102,4 +75,21 @@ uint32_t nocpy_size(){
 		if(page[i]) res+=PAGESIZE;
 	}
 	return res;
+}
+
+void nocpy_trim_delay_enq(uint32_t ppa){
+	for(int i=ppa; i<ppa+_PPS; i++){
+		if(!q_enqueue((void*)page[i],delayed_trim_queue)){
+			printf("error in nocpy_enqueue!\n");
+			abort();
+		}
+		page[i]=NULL;
+	}
+}
+
+void nocpy_trim_delay_flush(){
+	void *req;
+	for_each_reqqueue(delayed_trim_queue,req){
+		free(req);
+	}
 }

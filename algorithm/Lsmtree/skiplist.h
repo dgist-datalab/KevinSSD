@@ -19,6 +19,8 @@
 			node!=skip->header;\
 			node=node->list[1])
 
+#define SKIPISHEADER(a,b) (a)->header==b?1:0
+
 #ifdef Lsmtree
 struct level;
 typedef struct htable htable;

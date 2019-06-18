@@ -50,18 +50,12 @@ pthread_cond_t compaction_req_cond;
 volatile int compaction_req_cnt;
 bool compaction_idle;
 volatile int compactino_target_cnt;
-#if (LEVELN==1)
-void onelevel_processing(run_t *);
-#endif
+
 void compaction_sub_pre(){
 	pthread_mutex_lock(&compaction_wait);
 }
 
 void compaction_selector(level *a, level *b,leveling_node *lnode, pthread_mutex_t* lock){
-#if LEVELN==1
-	level_one_processing(a,b,r,lock);
-	return;
-#endif
 	if(b->istier){
 		//tiering(a,b,r,lock);
 	}
@@ -467,6 +461,7 @@ void *compaction_main(void *input){
 		if(is_gc_needed){
 			gc_check(DATA);
 		}
+
 		skiplist_free(req->temptable);
 #ifdef WRITEWAIT
 		if(req->last){
@@ -600,7 +595,7 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 	level *target_origin=to;
 	level *target;
 
-	if(to->idx==LEVELN-1 && (from->n_num+LSM.lop->get_number_runs(from)+to->n_num) > to->m_num){
+	if(to->idx==LEVELN-1 && (from?(from->n_num+LSM.lop->get_number_runs(from)):0+to->n_num) >= to->m_num){
 		target=LSM.lop->init(target_origin->m_num*2, target_origin->idx,target_origin->fpr,false);
 	}else{
 		target=LSM.lop->init(target_origin->m_num, target_origin->idx,target_origin->fpr,false);
@@ -672,6 +667,9 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 		else{
 #ifdef COMPACTIONLOG
 			static int cnt_2=0;
+			if(cnt_2==2986){
+				printf("break!\n");
+			}
 			sprintf(log,"rand - (-1) to %d (%dth)",to->idx,cnt_2++);
 			DEBUG_LOG(log);
 #endif	
@@ -1285,164 +1283,6 @@ skip:
 	}
 	compaction_sub_post();
 	if(!lnode) skiplist_free(skip);
-	return 1;
-}
-#endif
-
-#if (LEVELN==1)
-#define MAPNUM(a) (a/FULLMAPNUM)
-#define MAPOFFSET(a) (a%FULLMAPNUM)
-void level_one_header_update(run_t *pre_run){
-	uint32_t old_header_pbn=pre_run->pbn;
-	if(!pre_run->c_entry && pre_run->cpt_data && cache_insertable(LSM.lsm_cache)){
-
-		char *cache_temp;
-		if(pre_run->cpt_data->nocpy_table){
-			cache_temp=(char*)pre_run->cpt_data->nocpy_table;
-		}else{
-			cache_temp=(char*)pre_run->cpt_data->sets;
-		}
-
-#ifdef NOCPY
-		pre_run->cache_data=htable_dummy_assign();
-		pre_run->cache_data->nocpy_table=cache_temp;
-#else
-		pre_run->cache_data=htable_copy(pre_run->cpt_data);
-#endif
-		pre_run->c_entry=cache_insert(LSM.lsm_cache,pre_run,0);
-	}
-	compaction_postprocessing(pre_run);
-	if(old_header_pbn!=UINT_MAX && pre_run->iscompactioning!=INVBYGC)
-		invalidate_PPA(old_header_pbn);
-	if(pre_run->iscompactioning==ONELEV){
-		free(pre_run->cpt_data->sets);
-		pre_run->cpt_data->sets=NULL;
-	}
-	pre_run->iscompactioning=NOTCOMP;
-	htable_free(pre_run->cpt_data);
-	pre_run->cpt_data=NULL;
-
-}
-
-uint32_t level_one_processing(level *from, level *to, run_t *entry, pthread_mutex_t *lock){
-	skiplist *body;
-	level *new_level=LSM.lop->init(to->m_num,to->idx,to->fpr,false);
-	LSM.c_level=new_level;
-	body=leveling_preprocessing(from,to);
-
-	snode *node;
-	run_t *table;
-	uint32_t pre_map_num=UINT_MAX;
-	//printf("compaction_called\n");
-	compaction_sub_pre();
-	for_each_sk(node,body){ //read data
-		uint32_t mapnum=MAPNUM(node->key);
-		if(pre_map_num==mapnum) continue;
-		table=&to->mappings[mapnum];
-		if(table->pbn==UINT_MAX) {
-			table->cpt_data=htable_assign(NULL,false);
-			table->cpt_data->sets=(keyset*)malloc(PAGESIZE);
-			memset(table->cpt_data->sets,-1,PAGESIZE);
-			table->iscompactioning=ONELEV;//new runt
-			pre_map_num=mapnum;
-			continue;
-		}
-		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-		if(table->c_entry){
-			memcpy_cnt++;
-#ifdef NOCPY
-			table->cpt_data=htable_dummy_assign();
-			table->cpt_data->nocpy_table=table->cache_data->nocpy_table;
-#else
-			table->cpt_data=htable_copy(table->cache_data);
-#endif
-			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-			table->cpt_data->done=true;
-		}
-		else{
-			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-			table->cpt_data=htable_assign(NULL,false);
-			compaction_htable_read(table,(PTR*)&table->cpt_data);	
-		}
-
-		if(!table->iscompactioning){
-			table->iscompactioning=COMP;
-		}
-		epc_check++;
-		pre_map_num=mapnum;
-	}
-	compaction_sub_wait(); //read req done
-	
-	pre_map_num=UINT_MAX;
-	uint32_t old_header_pbn;
-	run_t * pre_run=NULL;
-
-	for_each_sk(node,body){
-		uint32_t mapnum=MAPNUM(node->key);
-		uint32_t offset=MAPOFFSET(node->key);
-		table=&to->mappings[mapnum];
-
-		keyset *map;
-#ifdef NOCPY
-		if(table->iscompactioning==ONELEV){
-			map=(keyset*)table->cpt_data->sets;
-		}else{
-			map=(keyset*)table->cpt_data->nocpy_table;
-		}
-#else
-		map=table->cpt_data->sets;
-#endif
-
-		if(map[offset].ppa!=UINT_MAX){
-			invalidate_PPA(map[offset].ppa);
-		}
-		map[offset].lpa=node->key;
-		map[offset].ppa=node->ppa;
-
-		LSM.lop->range_update(new_level,NULL,node->key);
-
-		if(pre_map_num!=UINT_MAX &&pre_map_num!=mapnum){
-			level_one_header_update(pre_run);
-		}
-		pre_run=table;
-		pre_map_num=mapnum;
-	}
-	
-	level_one_header_update(pre_run);
-
-	pthread_mutex_lock(&LSM.entrylock);
-	LSM.tempent=NULL;
-	LSM.lop->release_run(entry);
-	pthread_mutex_unlock(&LSM.entrylock);
-
-	compaction_sub_post();
-
-	run_t *fr,*tr;
-	for(int i=0; i<to->n_num; i++){
-		tr=&new_level->mappings[i];
-		fr=&to->mappings[i];
-	
-		tr->key=fr->key;
-		tr->end=fr->end;
-		tr->pbn=fr->pbn;
-
-		tr->c_entry=NULL;
-		tr->cache_data=NULL;
-
-		tr->isflying=0;
-		tr->req=NULL;
-		tr->cpt_data=NULL;
-		tr->iscompactioning=NOTCOMP;
-	}
-	compaction_heap_setting(new_level,to);
-
-	level **des_ptr=&LSM.disk[to->idx];
-	pthread_mutex_lock(lock);
-	new_level->iscompactioning=to->iscompactioning;
-	(*des_ptr)=new_level;
-	LSM.lop->release(to);
-	pthread_mutex_unlock(lock);
-
 	return 1;
 }
 #endif

@@ -185,7 +185,8 @@ uint32_t demand_create(lower_info *li, algorithm *algo){
 
 	/* Cache control & Init */
 	nr_pages_optimal_caching = (num_page*4/PAGESIZE);
-	num_max_cache = nr_pages_optimal_caching / 25;
+//	num_max_cache = nr_pages_optimal_caching / 25;
+	num_max_cache = nr_pages_optimal_caching / 5;
 
 	//num_max_cache = max_cache_entry * 2;
 	//num_max_cache = max_cache_entry; // Full cache

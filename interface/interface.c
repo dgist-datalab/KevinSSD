@@ -357,7 +357,6 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 			break;
 
 		case FS_SET_T:
-			
 #ifdef DVALUE
 			req->value=inf_get_valueset(NULL,FS_SET_T,len+key.len+sizeof(key.len));
 			memcpy(&req->value->value[key.len+sizeof(key.len)],_value,len);
@@ -731,12 +730,15 @@ int v_cnt[NPCINPAGE+1];
 value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
 	value_set *res=(value_set*)malloc(sizeof(value_set));
 	//check dma alloc type
+#ifdef DVALUE
+	length=(length/PIECE+(length%PIECE?1:0))*PIECE;
+#endif
 	if(length==PAGESIZE)
 		res->dmatag=F_malloc((void**)&(res->value),PAGESIZE,type);
+	else if(length>PAGESIZE){
+		abort();
+	}
 	else{
-		length=(length/PIECE+(length%PIECE?1:0))*PIECE;
-		if(length/PIECE >=16) 
-			abort();
 		v_cnt[length/PIECE]++;
 		res->dmatag=-1;
 		res->value=(PTR)malloc(length);

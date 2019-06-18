@@ -298,7 +298,6 @@ void *posix_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 }
 
 void *posix_trim_block(uint32_t PPA, bool async){
-	bench_lower_t(&my_posix);
 	char *temp=(char *)malloc(my_posix.SOB);
 	memset(temp,0,my_posix.SOB);
 	pthread_mutex_lock(&fd_lock);

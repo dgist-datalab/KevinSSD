@@ -123,16 +123,6 @@ level* array_init(int size, int idx, float fpr, bool istier){
 	res->now_block=NULL;
 	res->h=llog_init();
 
-#if (LEVELN==1)
-	res->mappings=(run_t*)malloc(sizeof(run_t)*size);
-	memset(res->mappings,0,sizeof(run_t)*size);
-	for(int i=0; i<size;i++){
-		res->mappings[i].key=FULLMAPNUM*i;
-		res->mappings[i].end=FULLMAPNUM*(i+1)-1;
-		res->mappings[i].pbn=UINT_MAX;
-	}
-	res->n_num=size;
-#endif
 	return res;
 }
 
@@ -148,13 +138,6 @@ void array_free(level* lev){
 #endif
 	}
 
-#if LEVELN==1
-	for(int i=0; i<lev->n_num; i++){
-		array_free_run(&lev->mappings[i]);
-	}
-	free(lev->mappings);
-	//cache_print(LSM.lsm_cache);
-#endif
 	//printf("skip->free\n");
 	if(lev->idx<LEVELCACHING){
 		skiplist_free(b->skip);
@@ -401,10 +384,6 @@ void array_free_run(run_t *e){
 	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 	free(e->key.key);
 	free(e->end.key);
-
-#if LEVELN!=1
-//	free(e);
-#endif
 }
 run_t * array_run_cpy( run_t *input){
 	run_t *res=(run_t*)malloc(sizeof(run_t));

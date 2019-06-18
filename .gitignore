@@ -22,3 +22,4 @@ range_driver
 *driver
 *.swp
 ycsb*
+cscope*

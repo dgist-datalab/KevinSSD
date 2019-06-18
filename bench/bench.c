@@ -207,7 +207,7 @@ bench_value* get_bench(){
 		float head=_m->n_num;
 		printf("\r testing.....[%f%%]",head/body*100);
 	}
-	else if(_m->n_num%(PRINTPER*(_m->m_num/10000))==0){
+	else if(_m->n_num%(_m->m_num<10000?_m->m_num:PRINTPER*(_m->m_num/10000))==0){
 #ifdef PROGRESS
 		printf("\r testing...... [%.2lf%%]",(double)(_m->n_num)/(_m->m_num/100));
 		fflush(stdout);
@@ -709,7 +709,9 @@ void randset(uint32_t start, uint32_t end, monitor *m){
 #endif
 
 #ifdef DVALUE
-		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
+//	m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
+//		m->body[i/m->bech][i%m->bech].length=0;
+		m->body[i/m->bech][i%m->bech].length=PAGESIZE-PIECE;
 #else	
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
@@ -743,7 +745,9 @@ void randrw(uint32_t start, uint32_t end, monitor *m){
 
 		m->body[i/m->bech][i%m->bech].type=FS_SET_T;
 #ifdef DVALUE
-		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
+//		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
+//		m->body[i/m->bech][i%m->bech].length=0;
+		m->body[i/m->bech][i%m->bech].length=PAGESIZE-PIECE;
 #else	
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif

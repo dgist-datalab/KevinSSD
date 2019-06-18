@@ -145,7 +145,7 @@ int32_t dp_alloc(){ // Data page allocation
         }
         block = BM_Dequeue(free_b); // dequeue block from free block queue
 		static int d_cnt =0;
-		printf("dpage dequeued %d %d\n", ++d_cnt, u_cnt);
+		//printf("dpage dequeued %d %d\n", ++d_cnt, u_cnt);
         if(block){
             block->hn_ptr = BM_Heap_Insert(data_b, block);
             block->type = 2; // 2 is data block

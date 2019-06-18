@@ -98,9 +98,6 @@ typedef struct level{
 	struct level_ops *op;
 	struct block* now_block;
 	void* level_data;
-#if (LEVELN==1)
-	run_t *mappings;
-#endif
 }level;
 
 typedef struct lev_iter{

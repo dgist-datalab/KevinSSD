@@ -6,8 +6,8 @@
 #include <stdio.h>
 
 #define PRINTPER 1
-#define ALGOTYPE 10
-#define LOWERTYPE 10
+#define ALGOTYPE 300
+#define LOWERTYPE 300
 #define BENCHNUM 16
 
 #ifdef CDF

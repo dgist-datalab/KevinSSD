@@ -40,18 +40,6 @@ uint8_t BLOCKTYPE(uint32_t ppa){
 	else 
 		return DATA;
 }
-#ifdef DVALUE
-/*
-void PBITSET(ppa_t input, uint8_t len){
-	uint64_t ppa=input/NPCINPAGE;
-	uint64_t off=input%NPCINPAGE;
-	oob[ppa].length[off]=len*2+1;
-	*
-	 if full page is set as 1 : 128*2+1
-	 in 64bytest page is set as 3 : 1*2+1
-	 *
-}*/
-#else
 OOBT PBITSET(KEYT input,uint8_t isFull){
 #ifdef KVSSD
 	return 0;
@@ -66,7 +54,6 @@ OOBT PBITSET(KEYT input,uint8_t isFull){
 	return value;
 #endif
 }
-#endif
 
 #ifdef KVSSD
 KEYT* KEYGET(char *data){
@@ -217,7 +204,9 @@ void gc_change_reserve(pm *target_p, segment *seg,uint8_t type){
 
 void gc_nocpy_delay_erase(uint32_t ppa){
 	if(ppa==UINT32_MAX) return;
-	nocpy_free_block(ppa);
+	//nocpy_free_block(ppa);
+	nocpy_trim_delay_flush();
+
 	LSM.delayed_trim_ppa=UINT32_MAX;
 }
 void gc_trim_segment(uint8_t type, uint32_t pbn){
@@ -243,8 +232,11 @@ void gc_trim_segment(uint8_t type, uint32_t pbn){
 		if(seg->ppa>=0 && seg->ppa<(HEADERSEG+1)*_PPS){
 			if(!LSM.delayed_header_trim)
 				nocpy_free_block(seg->ppa);
-			else
+			else{
+				//printf("delay trim:%d\n",seg->ppa);
 				LSM.delayed_trim_ppa=seg->ppa;
+				nocpy_trim_delay_enq(seg->ppa);
+			}
 		}
 #endif
 
@@ -277,7 +269,6 @@ void block_init(){
 	printf("last ppa:%ld\n",_NOP);
 	printf("# of block: %ld\n",_NOB);
 }
-
 
 void gc_data_read(uint64_t ppa,htable_t *value,bool isdata){
 	gc_read_wait++;
@@ -329,7 +320,6 @@ void gc_data_write(uint64_t ppa,htable_t *value,bool isdata){
 }
 
 void pm_a_init(pm *m,uint32_t size,uint32_t *_idx,bool isdata){
-	printf("different bitset needed in data and header segments\n");
 	uint32_t idx=*_idx;
 	if(idx+size+1 > _NOB){
 		printf("_NOB:%ld!!!!!!!\n",_NOB);
@@ -386,9 +376,8 @@ void pm_init(){
 	//printf("DATASEG: %ld, HEADERSEG: %ld, BLOCKSEG: %ld, BPS:%ld\n",DATASEG,HEADERSEG,BLOCKSEG,BPS);
 	printf("headre block size : %lld(%d)\n",(long long int)HEADERSEG*BPS,HEADERSEG);
 	printf("data block size : %lld(%ld)\n",(long long int)(_NOS-HEADERSEG)*BPS,(_NOS-HEADERSEG));
-//	printf("block per segment: %d\n",BPS);
+	printf("block per segment: %d\n",BPS);
 	printf("# of seg: %ld\n",_NOS);
-
 	printf("from : %d ",start);
 	pm_a_init(&header_m,HEADERSEG*BPS,&start,false);
 	printf("to : %d (header # of seg:%d)\n",start,HEADERSEG);
@@ -470,12 +459,12 @@ bool gc_check(uint8_t type){
 	switch(type){
 		case HEADER:
 			LSM.header_gc_cnt++;
-			//printf("header gc %d\n",header_gc_cnt);
+			printf("header gc %d\n",LSM.header_gc_cnt);
 			target_p=&header_m;
 			break;
 		case DATA:
 			LSM.data_gc_cnt++;
-			//printf("data gc %d\n",data_gc_cnt);
+			printf("data gc %d\n",LSM.data_gc_cnt);
 			target_p=&data_m;
 			break;
 		case BLOCK:
@@ -709,6 +698,7 @@ void bitmap_unpopulate(ppa_t input){
 	idx=input%(algo_lsm.li->PPB*(NPCINPAGE));
 
 	if(!(bl[bn].bitset[idx/8]&(1<<(idx%8)))){
+		printf("invalid:%u\n",input);
 		abort();
 	}
 	else{
@@ -722,7 +712,7 @@ void bitmap_populate(ppa_t input){
 	page=input/NPCINPAGE;
 	bn=page/algo_lsm.li->PPB;
 	idx=input%(algo_lsm.li->PPB*(NPCINPAGE));
-
+	
 	if((bl[bn].bitset[idx/8]&(1<<(idx%8)))){
 		abort();
 	}

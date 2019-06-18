@@ -89,6 +89,7 @@ int main(int argc, char *argv[]){
 	while(1){
 		data=(netdata*)malloc(sizeof(netdata));
 		early_reply=fd_sock_requests(net,data);
+
 	//	fd_print_netdata(fp,data);
 		switch(data->type){
 			case WRITE_TYPE:
