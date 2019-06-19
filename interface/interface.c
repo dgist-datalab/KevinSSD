@@ -311,6 +311,8 @@ void inf_init(int apps_flag, int total_num){
 	}
 	
 	layer_info_mapping(&mp);
+
+
 	mp.li->create(mp.li);
 	mp.algo->create(mp.li,mp.algo);
 	bb_checker_start(mp.li);

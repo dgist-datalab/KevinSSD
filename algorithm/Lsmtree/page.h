@@ -2,7 +2,6 @@
 #define __PAGE_H__
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
-#include "heap.h"
 #include "log_list.h"
 #include "level.h"
 #include <pthread.h>
@@ -37,11 +36,7 @@ typedef struct block{
 	uint32_t valid_n;
 	uint32_t invalid_n;
 	uint32_t idx_of_ppa;
-#ifdef LEVELUSINGHEAP
-	h_node *hn_ptr;
-#else
 	llog_node *hn_ptr;
-#endif
 	uint8_t *bitset;//page validate bit
 	uint32_t ppage_idx;
 	uint8_t level;

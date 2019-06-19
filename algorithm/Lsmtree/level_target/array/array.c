@@ -131,11 +131,7 @@ void array_free(level* lev){
 	array_body_free(b->arrs,lev->n_num);
 
 	if(lev->h){
-#ifdef LEVELUSINGHEAP
-		heap_free(lev->h);
-#else
 		llog_free(lev->h);
-#endif
 	}
 
 	//printf("skip->free\n");

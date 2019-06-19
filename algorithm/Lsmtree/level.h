@@ -85,11 +85,7 @@ typedef struct run{
 }run_t;
 
 typedef struct level{
-#ifdef LEVELUSINGHEAP
-	heap *h;
-#else
 	llog *h;
-#endif
 	int idx,m_num,n_num;
 	KEYT start,end;
 	float fpr;

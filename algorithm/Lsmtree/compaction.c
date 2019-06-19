@@ -91,11 +91,7 @@ void htable_checker(htable *table){
 }
 
 void compaction_heap_setting(level *a, level* b){
-#ifdef LEVELUSINGHEAP
-	heap_free(a->h);
-#else
 	llog_free(a->h);
-#endif
 	a->h=b->h;
 	a->now_block=b->now_block;
 	b->h=NULL;

@@ -89,11 +89,13 @@ SRCS +=\
 	./include/data_struct/hash_kv.c\
 	./include/data_struct/list.c\
 	./include/data_struct/redblack.c\
+	./include/data_struct/heap.c\
 	./bench/measurement.c\
 	./bench/bench.c\
 	./include/utils/thpool.c\
 	./include/utils/kvssd.c\
 	./include/utils/sha256.c\
+	./blockmanager/base_block_manager.c\
 
 TARGETOBJ =\
 			$(patsubst %.c,%.o,$(SRCS))\

@@ -1,0 +1,179 @@
+#include "base_block_manager.h"
+#include <stdlib.h>
+#include <stdio.h>
+
+struct blockmanager base_bm={
+	.create=base_create,
+	.destroy=base_destroy,
+	.get_block=base_get_block,
+	.get_segment=base_get_segment,
+	.is_gc_needed=base_is_gc_needed, 
+	.get_gc_target=base_get_gc_target,
+	.trim_segment=base_trim_segment,
+	.populate_bit=base_populate_bit,
+	.unpopulate_bit=base_unpopulate_bit,
+	.is_valid_page=base_is_valid_page,
+	.is_invalid_page=base_is_invalid_page,
+	.set_oob=base_set_oob,
+	.get_oob=base_get_oob,
+	.release_segment=base_release_segment
+};
+
+void base_mh_swap_hptr(void *a, void *b){
+	__block *aa=(__block*)a;
+	__block *bb=(__block*)b;
+
+	void *temp=aa->hptr;
+	aa->hptr=bb->hptr;
+	bb->hptr=temp;
+}
+
+void base_mh_assign_hptr(void *a, void *hn){
+	__block *aa=(__block*)a;
+	aa->hptr=hn;
+}
+
+uint32_t base_create (struct blockmanager* bm){
+	bbm_pri *p=(bbm_pri*)malloc(sizeof(bbm_pri));
+	p->base_oob=(uint64_t*)calloc(sizeof(uint64_t),_NOP);
+
+	p->base_block=(__block*)calloc(sizeof(__block),_NOB);
+	for(int i=0;i<_NOB; i++){
+		__block *b=&p->base_block[i];
+		b->ppa=i*_PPB;
+		b->max=_PPB;
+		b->bitset=(uint8_t*)malloc(_PPB/8);
+		/*
+		invalid_number,hptr,private_data,now be zero or NULL by calloc
+		 */
+	}
+
+	p->base_channel=(channel*)malloc(sizeof(channel)*BPS);
+	for(int i=0; i<BPS; i++){ //assign block to channel
+		channel *c=&p->base_channel[i];
+		q_init(&c->free_block,_NOB/BPS);
+		mh_init(&c->max_heap,_NOB/BPS,base_mh_swap_hptr,base_mh_assign_hptr);
+		for(int j=0; j<_NOB/BPS; j++){
+			__block *n=&p->base_block[j*BPS+i%BPS];
+			q_enqueue((void*)n,c->free_block);
+			mh_insert(c->max_heap,(void*)n,n->invalid_number);
+		}
+	}
+	bm->private_data=(void*)p;
+	return 1;
+}
+
+uint32_t base_destroy (struct blockmanager* bm){
+	bbm_pri *p=(bbm_pri*)bm->private_data;
+	free(p->base_oob);
+	free(p->base_block);
+
+	for(int i=0; i<BPS; i++){
+		channel *c=&p->base_channel[i];
+		q_free(c->free_block);
+		mh_free(c->max_heap);
+	}
+	free(p->base_channel);
+	free(p);
+	return 1;
+}
+
+__block* base_get_block (struct blockmanager* bm, __segment* s){
+	if(s->now+1>s->max) abort();
+	return s->blocks[s->now++];
+}
+
+__segment* base_get_segment (struct blockmanager* bm){
+	__segment* res=(__segment*)malloc(sizeof(__segment));
+	bbm_pri *p=(bbm_pri*)bm->private_data;
+	for(int i=0; i<BPS; i++){
+		__block *b=(__block*)q_dequeue(p->base_channel[i].free_block);
+		if(!b) abort();
+		res->blocks[i]=b;
+	}
+	res->now=res->max=0;
+	return res;
+}
+
+bool base_is_gc_needed (struct blockmanager* bm){
+	bbm_pri *p=(bbm_pri*)bm->private_data;
+	if(p->base_channel[0].free_block->size==0) return true;
+	return false;
+}
+
+__gsegment* base_get_gc_target (struct blockmanager* bm){
+	bbm_pri *p=(bbm_pri*)bm->private_data;
+	__gsegment* res=(__gsegment*)malloc(sizeof(__gsegment));
+	for(int i=0; i<BPS; i++){
+		__block *b=(__block*)mh_get_max(p->base_channel[i].max_heap);
+		if(!b) abort();
+		res->blocks[i]=b;
+	}
+	res->now=res->max=0;
+	return res;
+}
+
+void base_trim_segment (struct blockmanager* bm, __gsegment* gs, struct lower_info* li){
+	bbm_pri *p=(bbm_pri*)bm->private_data;
+	for(int i=0; i<BPS; i++){
+		__block *b=gs->blocks[i];
+		li->trim_block(b->ppa,ASYNC);
+		b->invalid_number=0;
+		b->now=0;
+		memset(b->bitset,0,_PPB/8);
+
+		channel* c=&p->base_channel[i];
+		mh_insert(c->max_heap,(void*)b,b->invalid_number);
+		q_enqueue((void*)b,c->free_block);
+	}
+}
+
+void base_populate_bit (struct blockmanager* bm, uint32_t ppa){
+	bbm_pri *p=(bbm_pri*)bm->private_data;
+	uint32_t bn=ppa/_PPB;
+	uint32_t pn=ppa%_PPB;
+	uint32_t bt=pn/8;
+	uint32_t of=pn%8;
+
+	p->base_block[bn].bitset[bt]|=(1<<of);
+}
+
+void base_unpopulate_bit (struct blockmanager* bm, uint32_t ppa){
+	bbm_pri *p=(bbm_pri*)bm->private_data;
+	uint32_t bn=ppa/_PPB;
+	uint32_t pn=ppa%_PPB;
+	uint32_t bt=pn/8;
+	uint32_t of=pn%8;
+	__block *b=&p->base_block[bn];
+	b->bitset[bt]&=~(1<<of);
+
+	mh_update(p->base_channel[bn%BPS].max_heap,++b->invalid_number,b->hptr);
+}
+
+bool base_is_valid_page (struct blockmanager* bm, uint32_t ppa){
+	bbm_pri *p=(bbm_pri*)bm->private_data;
+	uint32_t bn=ppa/_PPB;
+	uint32_t pn=ppa%_PPB;
+	uint32_t bt=pn/8;
+	uint32_t of=pn%8;
+
+	return p->base_block[bn].bitset[bt]&(1<<of);
+}
+
+bool base_is_invalid_page (struct blockmanager* bm, uint32_t ppa){
+	return !base_is_valid_page(bm,ppa);
+}
+
+void base_set_oob(struct blockmanager* bm, uint64_t data, uint32_t ppa){
+	bbm_pri *p=(bbm_pri*)bm->private_data;
+	p->base_oob[ppa]=data;
+}
+
+uint64_t base_get_oob(struct blockmanager*bm,  uint32_t ppa){
+	bbm_pri *p=(bbm_pri*)bm->private_data;
+	return p->base_oob[ppa];
+}
+
+void base_release_segment(struct blockmanager* bm, __segment *s){
+	free(s);
+}

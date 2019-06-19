@@ -18,11 +18,7 @@ ppa_t def_moveTo_fr_page( level* in){
 #endif
 		in->now_block=&bl[blockn/_PPB];
 		in->now_block->level=in->idx;
-#ifdef LEVELUSINGHEAP
-		in->now_block->hn_ptr=heap_insert(in->h,(void*)in->now_block);
-#else
 		in->now_block->hn_ptr=llog_insert(in->h,(void*)in->now_block);
-#endif
 	}
 #ifdef DVALUE
 	else{
@@ -69,17 +65,6 @@ bool def_blk_fchk( level *in){
 
 void def_move_heap( level *des,  level *src){
 //	char segnum[_NOS]={0,};
-#ifdef LEVELUSINGHEAP
-	heap *des_h=des->h;
-	heap *h=src->h;
-	void *data;
-	while((data=heap_get_max(h))!=NULL){
-		block *bl=(block*)data;
-		bl->level=des->idx;
-		bl->hn_ptr=heap_insert(des_h,data);
-		segnum[bl->ppa/_PPS]=1;
-	}
-#else
 	llog *des_h=des->h;
 	llog *h=src->h;
 	llog_node *ptr=h->head;
@@ -90,7 +75,6 @@ void def_move_heap( level *des,  level *src){
 		bl->hn_ptr=llog_insert(des_h,data);
 		ptr=ptr->next;
 	}
-#endif
 }
 
 bool def_fchk( level *input){

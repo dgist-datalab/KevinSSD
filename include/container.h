@@ -148,4 +148,58 @@ struct algorithm{
 	lower_info* li;
 	void *algo_body;
 };
+
+typedef struct masterblock{
+	uint32_t ppa;
+	uint16_t now;
+	uint16_t max;
+	uint8_t* bitset;
+	uint16_t invalid_number;
+	void *hptr;
+	void *private_data;
+}__block;
+
+typedef struct mastersegment{
+	__block* blocks[BPS];
+	uint16_t now;
+	uint16_t max;
+	void *private_data;
+}__segment;
+
+typedef struct ghostsegment{ //for gc
+	__block* blocks[BPS];
+	uint16_t now;
+	uint16_t max;
+}__gsegment;
+
+/*TODO:
+	1. construct heap!
+	2. make oob 128byte
+  */
+struct blockmanager{
+	uint32_t (*create) (struct blockmanager*);
+	uint32_t (*destroy) (struct blockmanager*);
+	__block* (*get_block) (struct blockmanager*,__segment*);
+	__segment* (*get_segment) (struct blockmanager*);
+	bool (*is_gc_needed) (struct blockmanager*);
+	__gsegment* (*get_gc_target) (struct blockmanager*);
+	void (*trim_segment) (struct blockmanager*, __gsegment*, struct lower_info*);
+	void (*populate_bit) (struct blockmanager*, uint32_t ppa);
+	void (*unpopulate_bit) (struct blockmanager*, uint32_t ppa);
+	bool (*is_valid_page) (struct blockmanager*, uint32_t ppa);
+	bool (*is_invalid_page) (struct blockmanager*, uint32_t ppa);
+	void (*set_oob)(struct blockmanager*, uint64_t data, uint32_t ppa);
+	uint64_t (*get_oob)(struct blockmanager*, uint32_t ppa);
+	void (*release_segment)(struct blockmanager*, __segment*);
+	void *private_data;
+};
+
+
+#define for_each_block(segs,block,idx)\
+	for(idx=0,block=segs->blocks[idx];idx!=BPS; idx++)
+
+#define for_each_page(blocks,page,idx)\
+	for(idx=0,page=blocks->ppa; idx!=PPB; page+=(++idx))
+
+
 #endif

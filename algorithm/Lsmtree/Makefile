@@ -27,7 +27,6 @@ SRCS +=\
 	   lsmtree.c\
 	   compaction.c\
 	   page.c\
-	   heap.c\
 	   log_list.c\
 	   nocpy.c\
 	   lops_default.c\

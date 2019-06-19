@@ -135,11 +135,7 @@ void block_free_ppa(uint8_t type, block* b){
 	switch(type){
 		case DATA:
 			if(b->hn_ptr){ //erased_block doesn't have hn_ptr
-#ifdef LEVELUSINGHEAP
-				heap_delete_from(LSM.disk[b->level]->h,b->hn_ptr);
-#else
 				llog_delete(LSM.disk[b->level]->h,b->hn_ptr);
-#endif
 			}
 			b->level=0;
 			b->hn_ptr=NULL;
@@ -988,11 +984,7 @@ void gc_data_now_block_chg(level *in, block *reserve_block){
 	in->now_block=reserve_block;
 	in->now_block->ppage_idx=0;
 	
-#ifdef LEVELUSINGHEAP
-	reserve_block->hn_ptr=heap_insert(in->h,reserve_block);
-#else
 	reserve_block->hn_ptr=llog_insert(in->h,reserve_block);
-#endif
 	reserve_block->level=in->idx;
 }
 
@@ -1484,7 +1476,7 @@ block* getRBLOCK(uint8_t type){
 		res->segment_idx=0;
 		target->rused_blkn-=BPS;
 		target->reserve=target->temp;
-		target->temp=NULL;
+		target->temp=NULL;		
 	}
 #ifdef DVALUE
 	if(type==DATA){
