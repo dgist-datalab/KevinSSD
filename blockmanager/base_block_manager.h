@@ -2,13 +2,15 @@
 #include "../interface/queue.h"
 #include "../include/data_struct/heap.h"
 
+
+
 typedef struct channel{
 	queue *free_block;
 	mh *max_heap;
 }channel;
 
 typedef struct base_bm_private{
-	uint64_t *base_oob;
+	__OOB *base_oob;
 	__block *base_block;
 	channel *base_channel;
 }bbm_pri;
@@ -24,6 +26,7 @@ void base_populate_bit (struct blockmanager*, uint32_t ppa);
 void base_unpopulate_bit (struct blockmanager*, uint32_t ppa);
 bool base_is_valid_page (struct blockmanager*, uint32_t ppa);
 bool base_is_invalid_page (struct blockmanager*, uint32_t ppa);
-void base_set_oob(struct blockmanager*, uint64_t data, uint32_t ppa);
-uint64_t base_get_oob(struct blockmanager*, uint32_t ppa);
+void base_set_oob(struct blockmanager*, char *data, int len, uint32_t ppa);
+char* base_get_oob(struct blockmanager*, uint32_t ppa);
 void base_release_segment(struct blockmanager*, __segment *);
+int base_get_page_num(struct blockmanager* ,__segment *);

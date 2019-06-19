@@ -151,6 +151,7 @@ libdriver.a: $(TARGETOBJ)
 	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
 #cd ./include/kuk_socket_lib/ && $(MAKE) && mv ./*.o ../../object/ && cd ../../
 	mv ./include/data_struct/*.o ./object/
+	mv ./blockmanager/*.o ./object/
 	mv ./include/utils/*.o ./object/
 	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
 	$(AR) r $(@) ./object/*

@@ -1,4 +1,4 @@
-#include "../settings.h"
+#include "../../settings.h"
 #define MHPARENTPTR(mh,idx) &((mh->body)[idx/2])
 #define MHL_CHIPTR(mh,idx) &((mh->body)[idx*2])
 #define MHR_CHIPTR(mh,idx) &((mh->body)[idx*2+1])

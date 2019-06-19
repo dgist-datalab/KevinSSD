@@ -149,6 +149,10 @@ struct algorithm{
 	void *algo_body;
 };
 
+typedef struct __OOBT{
+	char d[64];
+}__OOB;
+
 typedef struct masterblock{
 	uint32_t ppa;
 	uint16_t now;
@@ -172,15 +176,13 @@ typedef struct ghostsegment{ //for gc
 	uint16_t max;
 }__gsegment;
 
-/*TODO:
-	1. construct heap!
-	2. make oob 128byte
-  */
+
 struct blockmanager{
 	uint32_t (*create) (struct blockmanager*);
 	uint32_t (*destroy) (struct blockmanager*);
 	__block* (*get_block) (struct blockmanager*,__segment*);
 	__segment* (*get_segment) (struct blockmanager*);
+	int (*get_page_num)(struct blockmanager*, __segment*);
 	bool (*is_gc_needed) (struct blockmanager*);
 	__gsegment* (*get_gc_target) (struct blockmanager*);
 	void (*trim_segment) (struct blockmanager*, __gsegment*, struct lower_info*);
@@ -188,9 +190,10 @@ struct blockmanager{
 	void (*unpopulate_bit) (struct blockmanager*, uint32_t ppa);
 	bool (*is_valid_page) (struct blockmanager*, uint32_t ppa);
 	bool (*is_invalid_page) (struct blockmanager*, uint32_t ppa);
-	void (*set_oob)(struct blockmanager*, uint64_t data, uint32_t ppa);
-	uint64_t (*get_oob)(struct blockmanager*, uint32_t ppa);
+	void (*set_oob)(struct blockmanager*, char* data, int len, uint32_t ppa);
+	char *(*get_oob)(struct blockmanager*, uint32_t ppa);
 	void (*release_segment)(struct blockmanager*, __segment*);
+
 	void *private_data;
 };
 
