@@ -1,5 +1,6 @@
 #include "nocpy.h"
 #include "../../include/lsm_settings.h"
+#include "../../include/settings.h"
 #include "../../interface/queue.h"
 extern lsmtree LSM;
 keyset **page;
@@ -7,13 +8,13 @@ keyset **page;
 queue *delayed_trim_queue;
 
 void nocpy_init(){
-	page=(keyset**)malloc(sizeof(keyset*)*((HEADERSEG+1)*_PPS));
-	for(int i=0; i<(HEADERSEG+1)*_PPS; i++){
+	page=(keyset**)malloc(sizeof(keyset*)*((MAPPART_SEGS)*_PPS));
+	for(int i=0; i<(MAPPART_SEGS)*_PPS; i++){
 		//page[i]=(keyset*)malloc(PAGESIZE);
 		page[i]=NULL;
 	}
-	printf("------------# of copy%d\n",(HEADERSEG+1)*_PPS);
-	q_init(&delayed_trim_queue,(HEADERSEG+1)*_PPS+1);
+	printf("------------# of copy%d\n",(MAPPART_SEGS)*_PPS);
+	q_init(&delayed_trim_queue,(MAPPART_SEGS)*_PPS+1);
 }
 
 void nocpy_free_page(uint32_t ppa){
@@ -37,7 +38,7 @@ void nocpy_copy_to(char *des, uint32_t ppa){
 
 
 void nocpy_free(){
-	for(int i=0; i<(HEADERSEG+1)*_PPS; i++){
+	for(int i=0; i<(MAPPART_SEGS)*_PPS; i++){
 //		fprintf(stderr,"%d %p\n",i,page[i]);
 		free(page[i]);
 	}
@@ -71,14 +72,14 @@ void nocpy_force_freepage(uint32_t ppa){
 
 uint32_t nocpy_size(){
 	uint32_t res=0;
-	for(int i=0; i<(HEADERSEG+1)*_PPS; i++){
+	for(int i=0; i<(MAPPART_SEGS)*_PPS; i++){
 		if(page[i]) res+=PAGESIZE;
 	}
 	return res;
 }
 
 void nocpy_trim_delay_enq(uint32_t ppa){
-	for(int i=ppa; i<ppa+_PPS; i++){
+	for(uint32_t i=ppa; i<ppa+_PPB; i++){
 		if(!q_enqueue((void*)page[i],delayed_trim_queue)){
 			printf("error in nocpy_enqueue!\n");
 			abort();

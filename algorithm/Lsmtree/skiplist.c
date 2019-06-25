@@ -16,7 +16,6 @@
 
 
 extern MeasureTime compaction_timer[3];
-extern OOBT *oob;
 extern lsmtree LSM;
 
 #endif
@@ -212,11 +211,7 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
 #endif
 	{
 		//ignore new one;
-#ifndef DVALUE
-		invalidate_PPA(ppa);
-#else
-		invalidate_DPPA(ppa);
-#endif
+		invalidate_PPA(ppa,DATA);
 		return x;
 	}
 	else{
@@ -291,15 +286,11 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 #endif
 	{
 		//delete exists ppa; input ppa
-#ifndef DVALUE
-		invalidate_PPA(x->ppa);
-#else
+		invalidate_PPA(DATA,x->ppa);
 		/*
 		if(x->ppa/NPCINPAGE/256==384){
 			printf("%.*s\n",KEYFORMAT(x->key));
 		}*/
-		invalidate_DPPA(x->ppa);
-#endif
 	//	printf("free key:%.*s %p\n",key.len, key.key,key.key);
 	//	free(key.key);
 		x->ppa=ppa;
@@ -636,17 +627,12 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 	for(int i=0; i<b.idx[PAGESIZE/PIECE]; i++){//full page
 			target=b.bucket[PAGESIZE/PIECE][i];
 			res[res_idx]=target->value;
-			res[res_idx]->ppa=LSM.lop->moveTo_fr_page(from);//real physical index
-#ifdef DVALUE
-//			PBITSET(res[res_idx]->ppa,PAGESIZE/PIECE);
-			oob[res[res_idx]->ppa]=NPCINPAGE;
-#else
-			oob[res[res_idx]->ppa]=PBITSET(target->key,(uint8_t)1);
-#endif
-			target->ppa=LSM.lop->get_page(from,(PAGESIZE/PIECE));
-#ifdef DVALUE
-			bitmap_populate(target->ppa);
-#endif
+			res[res_idx]->ppa=LSM.lop->moveTo_fr_page(false);//real physical index
+			uint8_t tempdata=NPCINPAGE;
+			pm_set_oob(res[res_idx]->ppa,(char*)&tempdata,sizeof(NPCINPAGE),DATA);
+
+			target->ppa=LSM.lop->get_page((PAGESIZE/PIECE));
+			validate_PPA(DATA,target->ppa);
 			target->value=NULL;
 			res_idx++;
 		}

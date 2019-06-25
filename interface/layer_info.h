@@ -15,6 +15,10 @@ extern struct lower_info aio_info;
 extern struct lower_info net_info;
 extern struct lower_info my_posix; //posix, posix_memory,posix_async
 
+//block manager
+extern struct blockmanager base_bm;
+extern struct blockmanager pt_bm;
+
 static void layer_info_mapping(master_processor *mp){
 #if defined(posix) || defined(posix_async) || defined(posix_memory)
 	mp->li=&my_posix;
@@ -36,6 +40,13 @@ static void layer_info_mapping(master_processor *mp){
 	mp->algo=&algo_lsm;
 #elif defined(badblock)
 	mp->algo=&__badblock;
+#endif
+	
+
+#ifdef partition
+	mp->bm=&pt_bm;
+#else
+	mp->bm=&base_bm;
 #endif
 }
 #endif

@@ -1,3 +1,5 @@
+#ifndef __HEAP_HEADER
+#define __HEAP_HEADER
 #include "../settings.h"
 #define MHPARENTPTR(mh,idx) &((mh->body)[idx/2])
 #define MHL_CHIPTR(mh,idx) &((mh->body)[idx*2])
@@ -24,4 +26,4 @@ void mh_insert_append(mh *, void *data);
 void mh_construct(mh *);
 void* mh_get_max(mh*);
 void mh_update(mh*,int number, void *hptr);
-
+#endif

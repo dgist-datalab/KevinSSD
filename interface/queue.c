@@ -122,7 +122,7 @@ int q_dequeue_int(queue* q){
 	pthread_mutex_lock(&q->q_lock);
 	if(!q->head || q->size==0){
 		pthread_mutex_unlock(&q->q_lock);
-		return NULL;
+		return 0;
 	}
 	node *target_node;
 	target_node=q->head;

@@ -2,13 +2,12 @@
 #define __PAGE_H__
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
-#include "log_list.h"
 #include "level.h"
+#include "skiplist.h"
 #include <pthread.h>
 
 #define HEADER 0
 #define DATA 1
-#define BLOCK 2
 
 struct level; 
 struct htable_t;
@@ -28,86 +27,61 @@ typedef struct gc_node_wrapper{
 	int cnt[LEVELN];
 }gc_node_wrapper;
 
-typedef struct block{
+/*
+	NOTE:
+		the gc logic only occure when LSM has just the last level.
+		SO, the block doesn't need to have a special ptr which is notice of belonging to level.
+ */
+typedef struct lsm_block{
 	/*genearal part*/
 	bool erased;
-	llog_node *l_node;//pm where the block assigned
-	uint32_t ppa;//block start number
-	uint32_t valid_n;
-	uint32_t invalid_n;
-	uint32_t idx_of_ppa;
-	llog_node *hn_ptr;
-	uint8_t *bitset;//page validate bit
-	uint32_t ppage_idx;
-	uint8_t level;
-}block;
-
-typedef struct{
-	uint32_t invalid_n;
-	uint32_t trimed_block;
-	uint32_t segment_idx; //next reserved block
-#ifdef COSTBENEFIT
-	uint32_t cost;
+	bool isdata_block;
+#ifdef DVALUE
+	uint8_t *bitset;
 #endif
 	uint32_t ppa;
-}segment;
+	uint32_t idx_of_ppa;
+	uint32_t ppage_idx;
+	uint8_t level;
+}lsm_block;
 
 typedef struct page_manager{
-	uint32_t block_num;
-	llog *blocks;
-	llog *rblocks;
-	llog_node *n_log;
-	segment *target;//gc_target;
-	segment *reserve; //no reserve block ->null
-	segment *temp;
-	bool force_flag;
-	block *rblock;
-	uint32_t used_blkn;
-	uint32_t rused_blkn;
-	uint32_t max_blkn;
-	uint32_t segnum;
-	pthread_mutex_t manager_lock;
+	__gsegment *target;//gc_target;
+	__segment *reserve; //no reserve block ->null
+	__segment *active;
 }pm;
 
 
-void block_init();
-
 void pm_init();
+lsm_block* lb_init(uint8_t type, uint32_t ppa);
+void lb_free(lsm_block *b);
 
 uint32_t getPPA(uint8_t type, KEYT, bool);//in DVALUE return block id;
+uint32_t getRPPA(uint8_t type,KEYT, bool);
 
-void invalidate_PPA(uint32_t ppa);
-void block_print();
+lsm_block* getBlock(uint8_t type);
+lsm_block* getRBlock(uint8_t type);
+
+void invalidate_PPA(uint8_t type,uint32_t ppa);
+void validate_PPA(uint8_t type,uint32_t ppa);
+void pm_set_oob(uint32_t ppa, char *data, int len, int type);
+void *pm_get_oob(uint32_t ppa, int type);
 #ifdef DVALUE
-void PBITSET(ppa_t input,uint8_t);
-#else
-OOBT PBITSET(KEYT,uint8_t);
+void validate_piece(lsm_block *b, uint32_t ppa);
+void invalidate_piece(lsm_block *b, uint32_t ppa);
+bool is_invalid_piece(lsm_block *, uint32_t ppa);
 #endif
-void gc_data_now_block_chg(struct level *in, block *);
-#ifdef DVALUE
-void invalidate_DPPA(ppa_t ppa);
-void bitmap_unpopulate(ppa_t ppa);
-void bitmap_populate(ppa_t ppa);
-#endif
-int get_victim_block(pm *);
-int gc_header(uint32_t tbn);
-int gc_data(uint32_t tbn);
-bool gc_check(uint8_t);
-bool gc_segment_force();
-uint32_t gc_victim_segment(uint8_t type,bool);
-void gc_trim_segment(uint8_t, uint32_t pbn);
-void gc_nocpy_delay_erase(uint32_t );
-block *gc_getrblock_fromseg(uint8_t type);
-
-struct block* getRBLOCK(uint8_t type);
-uint32_t getRPPA(uint8_t type,KEYT lpa,bool);
-
+bool gc_dynamic_checker(bool last_comp_flag);
+void gc_check(uint8_t type);
 void gc_general_wait_init();
 void gc_general_waiting();
 void gc_data_read(uint64_t ppa,struct htable_t *value,bool isdata);
 void gc_data_write(uint64_t ppa,struct htable_t *value,bool isdata);
-void gc_data_header_update_add(struct gc_node **gn,int size, int target_level, char order);
-uint32_t PBITGET(uint32_t ppa);
+
+int gc_header();
+int gc_data();
+void gc_nocpy_delay_erase(uint32_t );
+void gc_data_header_update_add(struct length_bucket *b);
+void gc_data_header_update(struct gc_node **, int size);
 int gc_data_write_using_bucket(struct length_bucket *b,int target_level,char order);
-bool gc_dynamic_checker(bool last_comp_flag);
 #endif

@@ -23,6 +23,7 @@ struct master_processor{
 	pthread_mutex_t flag;
 	lower_info *li;
 	algorithm *algo;
+	blockmanager *bm;
 	bool stopflag;
 };
 #endif

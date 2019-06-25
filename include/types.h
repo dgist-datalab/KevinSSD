@@ -45,4 +45,8 @@ typedef enum{
 	RANDRW,MIXED,SEQLATENCY,RANDLATENCY,
 	NOR
 }bench_type;
+
+typedef enum{
+	MASTER_SEGMENT,MASTER_BLOCK,MASTER_PAGE
+}layout_type;
 #endif

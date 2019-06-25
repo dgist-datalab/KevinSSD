@@ -52,7 +52,6 @@ bool compaction_force_target(int from, int to);
 void compaction_sub_pre();
 void compaction_sub_wait();
 void compaction_sub_post();
-void compaction_heap_setting(level *a, level* b);
 void htable_read_postproc(run_t *r);
 void compaction_selector(level *a, level *b,leveling_node *lnode, pthread_mutex_t* lock);
 #ifdef WRITEOPTIMIZE

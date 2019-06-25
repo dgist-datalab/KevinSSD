@@ -401,7 +401,7 @@ void array_header_print(char *data){
 	printf("header_num:%d : %p\n",bitmap[0],data);
 	for_each_header_start(idx,key,ppa,bitmap,body)
 #ifdef DVALUE
-		fprintf(stderr,"[%d:%d] key(%p):%.*s(%d) ,%lu\n",idx,bitmap[idx],&data[bitmap[idx]],key.len,key.key,key.len,*ppa);
+		fprintf(stderr,"[%d:%d] key(%p):%.*s(%d) ,%u\n",idx,bitmap[idx],&data[bitmap[idx]],key.len,key.key,key.len,*ppa);
 #else
 		fprintf(stderr,"[%d:%d] key(%p):%.*s(%d) ,%u\n",idx,bitmap[idx],&data[bitmap[idx]],key.len,key.key,key.len,*ppa);
 #endif

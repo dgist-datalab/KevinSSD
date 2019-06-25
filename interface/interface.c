@@ -35,7 +35,6 @@ static request *inf_get_multi_req_instance(const FSTYPE type, KEYT *key, char **
 
 static bool qmanager_write_checking(processor * t,request *req){
 	bool res=false;
-	static int cnt=0;
 	Redblack finding;
 	pthread_mutex_lock(&t->qm_lock);
 	if(rb_find_str(t->qmanager,req->key,&finding)){
@@ -58,7 +57,6 @@ static bool qmanager_write_checking(processor * t,request *req){
 static bool qmanager_read_checking(processor *t,request *req){
 	bool res=false;
 	Redblack finding;
-	static int read_q_hit=0;
 	pthread_mutex_lock(&t->qm_lock);
 	if(rb_find_str(t->qmanager,req->key,&finding)){
 		res=true;
@@ -312,9 +310,17 @@ void inf_init(int apps_flag, int total_num){
 	
 	layer_info_mapping(&mp);
 
-
+#ifdef partition
+	int temp[PARTNUM];
+	temp[0]=MAPPART_SEGS;
+	temp[1]=DATAPART_SEGS;
+	mp.bm->pt_create(mp.bm,PARTNUM,temp);
+#else
+	mp.bm->create(mp.bm);
+#endif
 	mp.li->create(mp.li);
-	mp.algo->create(mp.li,mp.algo);
+	mp.algo->create(mp.li,mp.bm,mp.algo);
+
 	bb_checker_start(mp.li);
 }
 

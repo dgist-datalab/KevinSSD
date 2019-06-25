@@ -6,8 +6,10 @@ struct blockmanager base_bm={
 	.create=base_create,
 	.destroy=base_destroy,
 	.get_block=base_get_block,
+	.pick_block=base_pick_block,
 	.get_segment=base_get_segment,
 	.get_page_num=base_get_page_num,
+	.check_full=base_check_full,
 	.is_gc_needed=base_is_gc_needed, 
 	.get_gc_target=base_get_gc_target,
 	.trim_segment=base_trim_segment,
@@ -17,7 +19,13 @@ struct blockmanager base_bm={
 	.is_invalid_page=base_is_invalid_page,
 	.set_oob=base_set_oob,
 	.get_oob=base_get_oob,
-	.release_segment=base_release_segment
+	.release_segment=base_release_segment,
+
+	.pt_create=NULL,
+	.pt_destroy=NULL,
+	.pt_get_segment=NULL,
+	.pt_get_gc_target=NULL,
+	.pt_trim_segment=NULL
 };
 
 void base_mh_swap_hptr(void *a, void *b){
@@ -61,7 +69,7 @@ uint32_t base_create (struct blockmanager* bm){
 		for(int j=0; j<_NOB/BPS; j++){
 			__block *n=&p->base_block[j*BPS+i%BPS];
 			q_enqueue((void*)n,c->free_block);
-			mh_insert(c->max_heap,(void*)n,n->invalid_number);
+			mh_insert_append(c->max_heap,(void*)n);
 		}
 	}
 	bm->private_data=(void*)p;
@@ -129,7 +137,7 @@ void base_trim_segment (struct blockmanager* bm, __gsegment* gs, struct lower_in
 		memset(b->bitset,0,_PPB/8);
 
 		channel* c=&p->base_channel[i];
-		mh_insert(c->max_heap,(void*)b,b->invalid_number);
+		mh_insert_append(c->max_heap,(void*)b);
 		q_enqueue((void*)b,c->free_block);
 	}
 }
@@ -183,7 +191,6 @@ void base_release_segment(struct blockmanager* bm, __segment *s){
 	free(s);
 }
 
-
 int base_get_page_num(struct blockmanager* bm,__segment *s){
 	if(s->now==s->max) return -1;
 	__block *b=s->blocks[s->now];
@@ -193,4 +200,32 @@ int base_get_page_num(struct blockmanager* bm,__segment *s){
 	if(b->now==b->max)
 		s->now++;
 	return res;
+}
+
+
+bool base_check_full(struct blockmanager *bm,__segment *active, uint8_t type){
+	bool res=false;
+	__block *b=active->blocks[active->now];
+	switch(type){
+		case MASTER_SEGMENT:
+			break;
+		case MASTER_BLOCK:
+			if(active->now >= active->max){
+				res=true;
+			}
+			break;
+		case MASTER_PAGE:
+			if(active->now >= active->max){
+				if(b->now >= b->max){
+					res=true;
+				}
+			}
+			break;
+	}
+	return res;
+}
+
+__block *base_pick_block(struct blockmanager *bm, uint32_t page_num){
+	bbm_pri *p=(bbm_pri*)bm->private_data;
+	return &p->base_block[page_num/_PPB];
 }

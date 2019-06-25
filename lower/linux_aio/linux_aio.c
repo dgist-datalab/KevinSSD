@@ -95,7 +95,7 @@ void *poller(void *input) {
 				r=&done_array[i];
 				req=(algo_req*)r->data;
 				cb=r->obj;
-				if(r->res==-22){
+				if(r->res==(uint32_t)-22){
 					printf("error! %s %lu %llu\n",strerror(-r->res),r->res2,cb->u.c.offset);
 				}else if(r->res!=PAGESIZE){
 					printf("data size error %d!\n",errno);

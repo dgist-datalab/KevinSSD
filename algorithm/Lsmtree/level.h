@@ -7,7 +7,6 @@
 #include "page.h"
 #include "lsmtree.h"
 #include "bloomfilter.h"
-#include "log_list.h"
 #include "cache.h"
 #include <pthread.h>
 
@@ -85,8 +84,8 @@ typedef struct run{
 }run_t;
 
 typedef struct level{
-	llog *h;
-	int idx,m_num,n_num;
+	//llog *h;
+	int32_t idx,m_num,n_num;
 	KEYT start,end;
 	float fpr;
 	bool iscompactioning;
@@ -153,9 +152,10 @@ typedef struct level_ops{
 	run_t* (*run_cpy)( run_t *);
 
 	/*mapping operation*/
-	ppa_t (*moveTo_fr_page)( level*);
-	ppa_t (*get_page)( level*, uint8_t plength);
-	bool (*block_fchk)( level*);
+	ppa_t (*moveTo_fr_page)(bool isgc);
+	ppa_t (*get_page)(uint8_t plength);
+	bool (*block_fchk)();
+
 	void (*range_update)(level *,run_t*,KEYT);
 #ifdef LEVELCACHING
 	/*level caching*/
@@ -188,9 +188,10 @@ typedef struct level_ops{
 	void (*header_print)(char*);
 }level_ops;
 
-ppa_t def_moveTo_fr_page( level*);
-ppa_t def_get_page( level*, uint8_t plegnth);
-bool def_blk_fchk( level *);
+ppa_t def_moveTo_fr_page(bool isgc);
+ppa_t def_get_page(uint8_t plegnth);
+bool def_blk_fchk();
+
 void def_move_heap( level *des,  level *src);
 run_t *def_make_run(KEYT start, KEYT ent, uint32_t pbn);
 bool def_fchk( level *);

@@ -90,13 +90,6 @@ void htable_checker(htable *table){
 	}
 }
 
-void compaction_heap_setting(level *a, level* b){
-	llog_free(a->h);
-	a->h=b->h;
-	a->now_block=b->now_block;
-	b->h=NULL;
-}
-
 bool compaction_init(){
 	compactor.processors=(compP*)malloc(sizeof(compP)*CTHREAD);
 	memset(compactor.processors,0,sizeof(compP)*CTHREAD);
@@ -224,7 +217,7 @@ void compaction_data_write(leveling_node* lnode){
 		if(params->value->dmatag==-1){
 			abort();
 		}
-		LSM.li->write(data_sets[i]->ppa,PAGESIZE,params->value,ASYNC,lsm_req);
+		LSM.li->write(CONVPPA(data_sets[i]->ppa),PAGESIZE,params->value,ASYNC,lsm_req);
 	}
 	free(data_sets);
 #endif
@@ -454,9 +447,6 @@ void *compaction_main(void *input){
 #endif
 		free(lnode.start.key);
 		free(lnode.end.key);
-		if(is_gc_needed){
-			gc_check(DATA);
-		}
 
 		skiplist_free(req->temptable);
 #ifdef WRITEWAIT
@@ -591,7 +581,7 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 	level *target_origin=to;
 	level *target;
 
-	if(to->idx==LEVELN-1 && (from?(from->n_num+LSM.lop->get_number_runs(from)):0+to->n_num) >= to->m_num){
+	if(to->idx==LEVELN-1 && (int)(from? (from->n_num+LSM.lop->get_number_runs(from)):0+to->n_num) >= to->m_num){
 		target=LSM.lop->init(target_origin->m_num*2, target_origin->idx,target_origin->fpr,false);
 	}else{
 		target=LSM.lop->init(target_origin->m_num, target_origin->idx,target_origin->fpr,false);
@@ -620,7 +610,6 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 		DEBUG_LOG(log);
 #endif
 		cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size-(now-before));
-		compaction_heap_setting(target,target_origin);
 		if(from){
 			LSM.lop->move_heap(target,from);	
 		}
@@ -629,7 +618,6 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 #endif
 	if(from==NULL){
 		if(!LSM.lop->chk_overlap(target_origin,lnode->start,lnode->end)){
-			compaction_heap_setting(target,target_origin);
 #ifdef COMPACTIONLOG
 			static int cnt_1=0;
 			sprintf(log,"seq - (-1) to %d (%dth)",to->idx,cnt_1++);
@@ -670,12 +658,10 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 			DEBUG_LOG(log);
 #endif	
 			partial_leveling(target,target_origin,lnode,NULL);
-			compaction_heap_setting(target,target_origin);
 		}
 	}else{
 		src=from;
 		if(!LSM.lop->chk_overlap(target_origin,src->start,src->end)){//if seq
-			compaction_heap_setting(target,target_origin);
 #ifdef COMPACTIONLOG
 			static int cnt_3=0;
 			sprintf(log,"seq - %d to %d info:%d,%d max %d,%d (%dth)",from->idx,to->idx,src->n_num,target_origin->n_num,src->m_num,target_origin->m_num,cnt_3++);
@@ -704,7 +690,6 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 			DEBUG_LOG(log);
 #endif
 			partial_leveling(target,target_origin,NULL,src);
-			compaction_heap_setting(target,target_origin);
 
 		}
 		LSM.lop->move_heap(target,src);
@@ -807,7 +792,7 @@ bool htable_read_preproc(run_t *r){
 void htable_read_postproc(run_t *r){
 	if(r->iscompactioning!=INVBYGC && r->iscompactioning!=SEQCOMP){
 		if(r->pbn!=UINT32_MAX)
-			invalidate_PPA(r->pbn);
+			invalidate_PPA(HEADER,r->pbn);
 		else{
 			//the run belong to levelcaching lev
 		}
@@ -865,7 +850,6 @@ uint32_t compaction_bg_htable_write(htable *input, KEYT lpa, char *nocpy_data){
 	params->ppa=ppa;
 	
 	lsm_io_sched_push(SCHED_HWRITE,(void*)areq);
-	//LSM.li->write(ppa,PAGESIZE,params->value,ASYNC,areq);
 	return ppa;
 }
 

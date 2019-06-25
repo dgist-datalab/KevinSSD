@@ -27,7 +27,6 @@ SRCS +=\
 	   lsmtree.c\
 	   compaction.c\
 	   page.c\
-	   log_list.c\
 	   nocpy.c\
 	   lops_default.c\
 	   cache.c\
@@ -40,6 +39,7 @@ SRCS +=\
 	   run_array.c\
 	   lsmtree_mop.c\
 	   lsmtree_iter.c\
+	   log_list.c\
 
 
 OBJS :=\

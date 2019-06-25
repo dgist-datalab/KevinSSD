@@ -121,7 +121,7 @@ level* array_init(int size, int idx, float fpr, bool istier){
 #endif
 	res->level_data=(void*)b;
 	res->now_block=NULL;
-	res->h=llog_init();
+	//res->h=llog_init();
 
 	return res;
 }
@@ -129,11 +129,11 @@ level* array_init(int size, int idx, float fpr, bool istier){
 void array_free(level* lev){
 	array_body *b=(array_body*)lev->level_data;
 	array_body_free(b->arrs,lev->n_num);
-
+/*
 	if(lev->h){
 		llog_free(lev->h);
 	}
-
+*/
 	//printf("skip->free\n");
 	if(lev->idx<LEVELCACHING){
 		skiplist_free(b->skip);
@@ -488,7 +488,7 @@ void array_print(level *lev){
 		if(!b->skip || b->skip->size==0){
 			printf("[caching data] empty\n");	
 		}else{
-			printf("[caching data] # of entry:%d -> run:%d\n",b->skip->size,array_get_numbers_run(lev));
+			printf("[caching data] # of entry:%lu -> run:%d\n",b->skip->size,array_get_numbers_run(lev));
 		}
 		return;
 	}

@@ -11,8 +11,8 @@ uint32_t multiple_leveling(int from, int to){
 		return 1;
 	}
 	LSM.delayed_header_trim=true;
-	int lev_number=to-from;
-	int ln_p_from=lev_number+from;
+	//int lev_number=to-from;
+	//int ln_p_from=lev_number+from;
 	int origin_from=from;
 	KEYT start=key_max,end=key_min;
 	level *target_lev;
@@ -169,7 +169,6 @@ uint32_t multiple_leveling(int from, int to){
 		skiplist_free(body);
 	}
 
-	compaction_heap_setting(target_lev,t_org);//move heap
 	//change level
 	for(int i=origin_from; i<to; i++){
 		level **src_ptr;

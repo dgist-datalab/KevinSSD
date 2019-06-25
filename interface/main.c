@@ -41,10 +41,10 @@ int main(int argc,char* argv[]){
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
 
-	printf("TOTALKEYNUM: %d\n",TOTALKEYNUM);
+	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
 	// GC test
-//	bench_add(RANDGET,0,RANGE,RANGE);
-	bench_add(RANDSET,0,RANGE,REQNUM*2);
+	bench_add(RANDRW,0,RANGE,REQNUM*2);
+//	bench_add(RANDSET,0,RANGE,REQNUM*2);
 //	bench_add(RANDRW,0,RANGE,MAXKEYNUMBER/5*4);
 //	bench_add(RANDSET,0,RANGE,4096);
 
@@ -69,7 +69,6 @@ int main(int argc,char* argv[]){
 	//temp.value=NULL;
 	temp.dmatag=-1;
 	temp.length=0;
-	int cnt=0;
 
 	int locality_check=0,locality_check2=0;
 	MeasureTime aaa;

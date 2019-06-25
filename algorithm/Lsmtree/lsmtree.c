@@ -54,7 +54,7 @@ struct algorithm algo_lsm={
 	.multi_get=NULL,
 	.range_query=lsm_range_get,
 };
-extern OOBT *oob;
+
 lsmtree LSM;
 int save_fd;
 int32_t SIZEFACTOR;
@@ -100,12 +100,15 @@ static int32_t get_sizefactor(uint64_t as){
 #endif
 	return res;
 }
-uint32_t lsm_create(lower_info *li, algorithm *lsm){
+uint32_t lsm_create(lower_info *li,blockmanager *bm, algorithm *lsm){
+	int res=0;
+	LSM.bm=bm;
 #if(SIMULATION)
 	//return __lsm_create_simulation(li,lsm);
 #else
-	return __lsm_create_normal(li,lsm);
+	__lsm_create_normal(li,lsm);
 #endif
+	return res;
 }
 
 uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
@@ -193,7 +196,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	printf("| start cache :%luMB(%lu page)%.2f(%%)\n",(cached_entry+lev_caching_entry)*PAGESIZE/M,cached_entry+lev_caching_entry,(float)cached_entry/(TOTALSIZE/PAGESIZE/K)*100);
 #endif
 	printf("| -------- algorithm_log END\n\n");
-	fprintf(stderr,"TOTALSIZE(GB) :%lu HEADERSEG:%d DATASEG:%d\n",TOTALSIZE/G,HEADERSEG,DATASEG);
+	fprintf(stderr,"TOTALSIZE(GB) :%lu HEADERSEG:%d DATASEG:%ld\n",TOTALSIZE/G,MAPPART_SEGS,DATAPART_SEGS);
 	fprintf(stderr,"LEVELN:%d (LEVELCACHING(%d), MEMORY:%f\n",LEVELN,LEVELCACHING,CACHINGSIZE);
 	pthread_mutex_init(&LSM.memlock,NULL);
 	pthread_mutex_init(&LSM.templock,NULL);

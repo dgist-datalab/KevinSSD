@@ -35,7 +35,7 @@
 #define REALSIZE (512L*G)
 #define PAGESIZE (8*K)
 #define _PPB (256)
-#define BPS (1)
+#define BPS (64)
 #define _PPS (_PPB*BPS)
 
 #elif defined(SLC)
@@ -60,6 +60,13 @@
 #define TOTALKEYNUM ((GIGAUNIT)*(G/PAGESIZE))
 #define RANGE ((GIGAUNIT)*(M/PAGESIZE)*1024L*0.5)
 #define REQNUM ((GIGAUNIT)*(M/PAGESIZE)*1024L)
+
+#define PARTNUM 2
+#define MAPPART_SEGS 2
+#define DATAPART_SEGS (_NOS-MAPPART_SEGS)
+enum{
+	DATA_S,MAP_S
+};
 
 #ifdef DVALUE
 	#define MAXKEYNUMBER (TOTALSIZE/PIECE)

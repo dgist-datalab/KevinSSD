@@ -12,6 +12,7 @@ typedef struct lower_info lower_info;
 typedef struct algorithm algorithm;
 typedef struct algo_req algo_req;
 typedef struct request request;
+typedef struct blockmanager blockmanager;
 
 typedef struct upper_request{
 	const FSTYPE type;
@@ -131,7 +132,7 @@ struct lower_info {
 
 struct algorithm{
 	/*interface*/
-	uint32_t (*create) (lower_info*,struct algorithm *);
+	uint32_t (*create) (lower_info*, blockmanager *bm, struct algorithm *);
 	void (*destroy) (lower_info*, struct algorithm *);
 	uint32_t (*read)(request *const);
 	uint32_t (*write)(request *const);
@@ -146,6 +147,7 @@ struct algorithm{
 	uint32_t (*multi_get)(request *const,int num);
 	uint32_t (*range_query)(request *const);
 	lower_info* li;
+	struct blockmanager *bm;
 	void *algo_body;
 };
 
@@ -176,13 +178,14 @@ typedef struct ghostsegment{ //for gc
 	uint16_t max;
 }__gsegment;
 
-
 struct blockmanager{
 	uint32_t (*create) (struct blockmanager*);
 	uint32_t (*destroy) (struct blockmanager*);
 	__block* (*get_block) (struct blockmanager*,__segment*);
+	__block *(*pick_block)(struct blockmanager*, uint32_t page_num);
 	__segment* (*get_segment) (struct blockmanager*);
 	int (*get_page_num)(struct blockmanager*, __segment*);
+	bool (*check_full)(struct blockmanager*, __segment*, uint8_t type);
 	bool (*is_gc_needed) (struct blockmanager*);
 	__gsegment* (*get_gc_target) (struct blockmanager*);
 	void (*trim_segment) (struct blockmanager*, __gsegment*, struct lower_info*);
@@ -194,6 +197,13 @@ struct blockmanager{
 	char *(*get_oob)(struct blockmanager*, uint32_t ppa);
 	void (*release_segment)(struct blockmanager*, __segment*);
 
+	uint32_t (*pt_create) (struct blockmanager*, int part_num, int *each_part_seg_num);
+	uint32_t (*pt_destroy) (struct blockmanager*);
+	__segment* (*pt_get_segment) (struct blockmanager*, int pt_num);
+	__gsegment* (*pt_get_gc_target) (struct blockmanager*, int pt_num);
+	void (*pt_trim_segment)(struct blockmanager*, int pt_num, __gsegment *, lower_info*);
+	int (*pt_remain_page)(struct blockmanager*, __segment *active,int pt_num);
+	bool (*pt_isgc_needed)(struct blockmanager*, int pt_num);
 	void *private_data;
 };
 
@@ -204,5 +214,8 @@ struct blockmanager{
 #define for_each_page(blocks,page,idx)\
 	for(idx=0,page=blocks->ppa; idx!=PPB; page+=(++idx))
 
+#define for_each_page_in_seg(segs,block,page,bidx, pidx)\
+	for(bidx=0, block=segs->blocks[bidx];bidx!=BPS; bidx++)\
+		for(pidx=0, page=block->ppa; pidx<=block->now; page+=(++pidx))
 
 #endif

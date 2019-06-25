@@ -3,6 +3,7 @@ export CC=g++
 TARGET_INF=interface
 TARGET_LOWER=linux_aio
 TARGET_ALGO=Lsmtree
+TARGET_BM=partition
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
 PPWD=$(pwd)
@@ -21,6 +22,7 @@ export COMMONFLAGS=\
 			-D_GNU_SOURCE\
 			-DKVSSD\
 			-DSLC\
+			-D$(TARGET_BM)\
 			-Wno-unused-but-set-variable\
 			-DCHECKINGTIME\
 #			-O3\
@@ -146,10 +148,9 @@ libfdsock.a:
 
 libdriver.a: $(TARGETOBJ)
 	mkdir -p object && mkdir -p data
+	cd ./blockmanager/$(TARGET_BM) && $(MAKE) && cd ../../
 	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) clean && $(MAKE) && cd ../../
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
-	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
-#cd ./include/kuk_socket_lib/ && $(MAKE) && mv ./*.o ../../object/ && cd ../../
 	mv ./include/data_struct/*.o ./object/
 	mv ./blockmanager/*.o ./object/
 	mv ./include/utils/*.o ./object/

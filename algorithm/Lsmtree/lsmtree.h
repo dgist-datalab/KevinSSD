@@ -7,6 +7,7 @@
 #include "bloomfilter.h"
 #include "cache.h"
 #include "level.h"
+#include "page.h"
 #include "../../include/settings.h"
 #include "../../include/utils/rwlock.h"
 #include "../../interface/queue.h"
@@ -17,6 +18,13 @@
 #include "../../include/types.h"
 #include "../../include/sem_lock.h"
 #include "../../interface/interface.h"
+
+#ifdef DVALUE
+	#define CONVPPA(_ppa) _ppa/NPCINPAGE
+#else
+	#define CONVPPA(_ppa) _ppa
+#endif
+
 
 #define HEADERR MAPPINGR
 #define HEADERW MAPPINGW
@@ -39,6 +47,7 @@
 typedef struct level level;
 typedef struct run run_t;
 typedef struct level_ops level_ops;
+typedef struct htable htable;
 
 typedef struct lsm_params{
 	//dl_sync lock;
@@ -99,6 +108,7 @@ typedef struct lsmtree{
 
 	struct cache* lsm_cache;
 	lower_info* li;
+	blockmanager *bm;
 	uint32_t last_level_comp_term; //for avg header
 	uint32_t check_cnt;
 	uint32_t needed_valid_page;
@@ -116,9 +126,11 @@ typedef struct lsmtree{
 	uint32_t header_gc_cnt;
 	uint32_t compaction_cnt;
 	uint32_t zero_compaction_cnt;
+
+	struct lsm_block *active_block;
 }lsmtree;
 
-uint32_t lsm_create(lower_info *, algorithm *);
+uint32_t lsm_create(lower_info *, blockmanager *, algorithm *);
 uint32_t __lsm_create_normal(lower_info *, algorithm *);
 //uint32_t __lsm_create_simulation(lower_info *, algorithm*);
 void lsm_destroy(lower_info*, algorithm*);

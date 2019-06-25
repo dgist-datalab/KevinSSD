@@ -200,7 +200,6 @@ again:
 		free(params->mapping_data);
 		free(params);
 		req->end_req(req);
-		static int cnt=0;
 		goto finish;
 	}
 

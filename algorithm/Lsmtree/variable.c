@@ -5,21 +5,18 @@
 #include <stdlib.h>
 #include <stdio.h>
 extern lsmtree LSM;
-extern OOBT *oob;
 void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset, int* target_valueset_from, bool isgc){
 	int v_idx;
-
 	/*for normal data*/
 	value_set **v_des=NULL;
 
 	/*for gc*/
-	gc_node **gc_container;
 	htable_t *table_data;
 	uint32_t target_ppa;
 
 	v_idx=*target_valueset_from;
 	if(isgc){/*v_idx for gc_container*/
-		gc_container=*((gc_node***)target_valueset);
+	//	gc_container=*((gc_node***)target_valueset);
 	}
 	else{/*v_idx for value_set*/
 		v_des=*target_valueset;
@@ -29,7 +26,6 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 	while(src->idx[max_piece]==0) --max_piece;
 
 //	bool debuging=false;
-	int cnt=0;
 	while(1){
 		PTR page=NULL;
 		int ptr=0;
@@ -38,19 +34,15 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 		if(isgc){
 			table_data=(htable_t*)malloc(sizeof(htable_t));
 			page=(PTR)table_data->sets;
-			if(LSM.lop->block_fchk(in)){
-				block *reserve_block=getRBLOCK(DATA);
-				gc_data_now_block_chg(in,reserve_block);
-			}
-			target_ppa=LSM.lop->moveTo_fr_page(in);
+			target_ppa=LSM.lop->moveTo_fr_page(true);
 		}else{
 			v_des[v_idx]=inf_get_valueset(page,FS_MALLOC_W,PAGESIZE);
-			v_des[v_idx]->ppa=LSM.lop->moveTo_fr_page(in);
+			v_des[v_idx]->ppa=LSM.lop->moveTo_fr_page(false);
 			page=v_des[v_idx]->value;
 			target_ppa=v_des[v_idx]->ppa;
 		}
 
-		footer *foot=(footer*)&oob[target_ppa];
+		footer *foot=(footer*)pm_get_oob(target_ppa,DATA);
 		//footer *foot=(footer*)calloc(sizeof(footer),1);
 		uint8_t used_piece=0;
 		while(remain>0){
@@ -61,25 +53,15 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 			}
 			if(isgc){
 				gc_node *target=(gc_node*)src->bucket[target_length][src->idx[target_length]-1];
-				target->nppa=LSM.lop->get_page(in,target->plength);
-#ifdef DVALUE
+				target->nppa=LSM.lop->get_page(target->plength);
 				foot->map[target->nppa%NPCINPAGE]=target_length;
-				bitmap_populate(target->nppa);
-				//PBITSET(target->nppa,target_length);
-#else
-				oob[target->nppa]=PBITSET(target->lpa,0);
-#endif
-				gc_container[v_idx++]=target;
+				validate_PPA(target->nppa,DATA);
+
 				memcpy(&page[ptr],target->value,target_length*PIECE);
 			}else{
 				snode *target=src->bucket[target_length][src->idx[target_length]-1];
-				target->ppa=LSM.lop->get_page(in,target->value->length);
-#ifdef DVALUE
-				foot->map[target->ppa%NPCINPAGE]=target_length;
-				bitmap_populate(target->ppa);	
-#else
-				oob[target->ppa]=PBITSET(target->key,0);
-#endif
+				target->ppa=LSM.lop->get_page(target->value->length);
+				validate_PPA(target->ppa,DATA);
 				memcpy(&page[ptr],target->value->value,target_length*PIECE);
 			}
 			used_piece+=target_length;

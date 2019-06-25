@@ -9,54 +9,59 @@ extern lsmtree LSM;
 #ifdef KVSSD
 extern KEYT key_min,key_max;
 #endif
-ppa_t def_moveTo_fr_page( level* in){
-	if(def_blk_fchk(in)){
-#ifdef KVSSD
-		uint32_t blockn=getPPA(DATA,key_max,true);
-#else
-		uint32_t blockn=getPPA(DATA,UINT_MAX,true);//get data block
-#endif
+
+ppa_t def_moveTo_fr_page(bool isgc){
+	if(def_blk_fchk()){
+		if(isgc){
+			LSM.active_block=getRBlock(DATA);
+		}
+		else{
+			LSM.active_block=getBlock(DATA);
+		}
+		/*
 		in->now_block=&bl[blockn/_PPB];
 		in->now_block->level=in->idx;
-		in->now_block->hn_ptr=llog_insert(in->h,(void*)in->now_block);
+		in->now_block->hn_ptr=llog_insert(in->h,(void*)in->now_block);*/
 	}
 #ifdef DVALUE
 	else{
-		if(in->now_block->idx_of_ppa){
-			in->now_block->idx_of_ppa=0;
-			in->now_block->ppage_idx++;
+		if(LSM.active_block->idx_of_ppa){
+			LSM.active_block->idx_of_ppa=0;
+			LSM.active_block->ppage_idx++;
 		}
 	}
+	return (LSM.active_block->ppa+LSM.active_block->ppage_idx)*NPCINPAGE;
 #endif
-	return in->now_block->ppa+in->now_block->ppage_idx;
+	return (LSM.active_block->ppa+LSM.active_block->ppage_idx);
 }
 
-ppa_t def_get_page( level* in, uint8_t plength){
+ppa_t def_get_page(uint8_t plength){
 	ppa_t res=0;
-	if(in->now_block->ppage_idx>255){
+	if(LSM.active_block->ppage_idx>255){
 		abort();
 	}
 #ifdef DVALUE
-	res=in->now_block->ppa+in->now_block->ppage_idx;
+	res=LSM.active_block->ppa+LSM.active_block->ppage_idx;
 	res*=NPCINPAGE;
-	res+=in->now_block->idx_of_ppa;
-	in->now_block->idx_of_ppa+=plength;
+	res+=LSM.active_block->idx_of_ppa;
+	LSM.active_block->idx_of_ppa+=plength;
 #else
-	res=in->now_block->ppa+in->now_block->ppage_idx++;
+	res=LSM.active_block->ppa+LSM.active_block->ppage_idx++;
 #endif
-	if(!in->now_block->bitset){
+	/*
+	if(!LSM.active_block->bitset){
 		printf("fuck!\n");
 		abort();
-	}
+	}*/
 	return res;
 }
 
-bool def_blk_fchk( level *in){
+bool def_blk_fchk(){
 	bool res=false;
 #ifdef DVALUE
-	if(!in->now_block || in->now_block->ppage_idx>=_PPB-1){
+	if(!LSM.active_block || LSM.active_block->ppage_idx>=_PPB-1){
 #else
-	if(!in->now_block || in->now_block->ppage_idx==_PPB){
+	if(!LSM.active_block || LSM.active_block->ppage_idx==_PPB){
 #endif
 		res=true;
 	}
@@ -64,7 +69,9 @@ bool def_blk_fchk( level *in){
 }
 
 void def_move_heap( level *des,  level *src){
+	return;
 //	char segnum[_NOS]={0,};
+	/*
 	llog *des_h=des->h;
 	llog *h=src->h;
 	llog_node *ptr=h->head;
@@ -74,7 +81,7 @@ void def_move_heap( level *des,  level *src){
 		bl->level=des->idx;
 		bl->hn_ptr=llog_insert(des_h,data);
 		ptr=ptr->next;
-	}
+	}*/
 }
 
 bool def_fchk( level *input){
