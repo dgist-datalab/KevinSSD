@@ -227,7 +227,9 @@ void *aio_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,al
 		aio_info.req_type_cnt[t_type]++;
 	}
 	
-
+	if(size !=PAGESIZE){
+		abort();
+	}
 	struct iocb *cb=(struct iocb*)malloc(sizeof(struct iocb));
 	cl_grap(lower_flying);
 
@@ -256,6 +258,7 @@ void *aio_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,al
 		printf("dmatag -1 error!\n");
 		exit(1);
 	}
+
 	uint8_t t_type=test_type(req->type);
 	if(t_type < LREQ_TYPE_NUM){
 		aio_info.req_type_cnt[t_type]++;
@@ -286,7 +289,7 @@ void *aio_trim_block(uint32_t PPA, bool async){
 	uint64_t range[2];
 	//range[0]=PPA*aio_info.SOP;
 	range[0]=offset_hooker((uint64_t)PPA*aio_info.SOP,TRIM);
-	range[1]=16384*aio_info.SOP;
+	range[1]=_PPB*aio_info.SOP;
 	ioctl(_fd,BLKDISCARD,&range);
 	return NULL;
 }
