@@ -709,8 +709,8 @@ void randset(uint32_t start, uint32_t end, monitor *m){
 #endif
 
 #ifdef DVALUE
-//	m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
-//		m->body[i/m->bech][i%m->bech].length=0;
+//		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
+//	m->body[i/m->bech][i%m->bech].length=0;
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE-PIECE;
 #else	
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
@@ -745,9 +745,10 @@ void randrw(uint32_t start, uint32_t end, monitor *m){
 
 		m->body[i/m->bech][i%m->bech].type=FS_SET_T;
 #ifdef DVALUE
-//		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
+//		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE/3-1)+NPCINPAGE/3)*PIECE;
+		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
 //		m->body[i/m->bech][i%m->bech].length=0;
-		m->body[i/m->bech][i%m->bech].length=PAGESIZE-PIECE;
+//		m->body[i/m->bech][i%m->bech].length=PAGESIZE-PIECE;
 #else	
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif

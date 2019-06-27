@@ -30,7 +30,8 @@ ppa_t def_moveTo_fr_page(bool isgc){
 			LSM.active_block->ppage_idx++;
 		}
 	}
-	return (LSM.active_block->ppa+LSM.active_block->ppage_idx)*NPCINPAGE;
+	ppa_t res=(LSM.active_block->ppa+LSM.active_block->ppage_idx)*NPCINPAGE;
+	return res;
 #endif
 	return (LSM.active_block->ppa+LSM.active_block->ppage_idx);
 }

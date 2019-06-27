@@ -62,6 +62,7 @@ uint32_t getRPPA(uint8_t type,KEYT, bool);
 lsm_block* getBlock(uint8_t type);
 lsm_block* getRBlock(uint8_t type);
 
+void change_reserve_to_active(uint8_t type);
 void invalidate_PPA(uint8_t type,uint32_t ppa);
 void validate_PPA(uint8_t type,uint32_t ppa);
 void pm_set_oob(uint32_t ppa, char *data, int len, int type);

@@ -211,7 +211,7 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
 #endif
 	{
 		//ignore new one;
-		invalidate_PPA(ppa,DATA);
+		invalidate_PPA(DATA,ppa);
 		return x;
 	}
 	else{
@@ -628,11 +628,12 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 			target=b.bucket[PAGESIZE/PIECE][i];
 			res[res_idx]=target->value;
 			res[res_idx]->ppa=LSM.lop->moveTo_fr_page(false);//real physical index
-			uint8_t tempdata=NPCINPAGE;
-			pm_set_oob(res[res_idx]->ppa,(char*)&tempdata,sizeof(NPCINPAGE),DATA);
-
 			target->ppa=LSM.lop->get_page((PAGESIZE/PIECE));
+			
+			footer *foot=(footer*)pm_get_oob(target->ppa,DATA);
+			foot->map[0]=NPCINPAGE;
 			validate_PPA(DATA,target->ppa);
+
 			target->value=NULL;
 			res_idx++;
 		}

@@ -231,6 +231,8 @@ uint32_t compaction_htable_write(htable *input, KEYT lpa, char *nocpy_data){
 #else
 	uint32_t ppa=getPPA(HEADER,0,true);//set ppa;
 #endif
+	validate_PPA(HEADER,ppa);
+
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 	areq->parents=NULL;
@@ -651,9 +653,6 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 		else{
 #ifdef COMPACTIONLOG
 			static int cnt_2=0;
-			if(cnt_2==2986){
-				printf("break!\n");
-			}
 			sprintf(log,"rand - (-1) to %d (%dth)",to->idx,cnt_2++);
 			DEBUG_LOG(log);
 #endif	
@@ -825,6 +824,7 @@ uint32_t compaction_bg_htable_write(htable *input, KEYT lpa, char *nocpy_data){
 #else
 	uint32_t ppa=getPPA(HEADER,0,true);//set ppa;
 #endif
+	validate_PPA(HEADER,ppa);
 
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));

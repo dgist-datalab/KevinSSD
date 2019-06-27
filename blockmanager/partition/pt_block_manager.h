@@ -16,9 +16,11 @@ typedef struct part_info{
 
 uint32_t pbm_create(blockmanager *bm, int pnum, int *epn);
 uint32_t pbm_destroy(blockmanager *bm);
-__segment* pbm_pt_get_segment(blockmanager *bm, int pnum);
+__segment* pbm_pt_get_segment(blockmanager *bm, int pnum, bool isreserve);
+__segment* pbm_change_pt_reserve(blockmanager *bm, int pt_num, __segment* reserve);
 __gsegment* pbm_pt_get_gc_target(blockmanager* bm, int pnum);
 int pbm_pt_remain_page(blockmanager* bm, __segment *active, int pt_num);
 
 void pbm_pt_trim_segment(blockmanager* bm, int pt_num, __gsegment *target, lower_info *li);
+bool pbm_pt_isgc_needed(struct blockmanager* bm, int pt_num);
 #endif

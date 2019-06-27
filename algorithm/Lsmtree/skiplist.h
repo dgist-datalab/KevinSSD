@@ -6,6 +6,8 @@
 #include "../../include/lsm_settings.h"
 #ifdef Lsmtree
 #include "lsmtree.h"
+#include "page.h"
+typedef struct gc_node gc_node;
 #endif
 #define MAX_L 30 //max level number
 #define PROB 4 //the probaility of level increasing : 1/PROB => 1/4
@@ -57,7 +59,8 @@ typedef struct snode{ //skiplist's node
 
 //#ifdef Lsmtree
 typedef struct length_bucket{
-	snode *bucket[PAGESIZE/PIECE+1][BPS+1];
+	snode *bucket[PAGESIZE/PIECE+1][2048];
+	gc_node **gc_bucket[NPCINPAGE+1];
 	uint16_t idx[PAGESIZE/PIECE+1];
 	value_set** contents;
 	int contents_num;

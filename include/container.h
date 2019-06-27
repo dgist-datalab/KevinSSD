@@ -183,39 +183,44 @@ struct blockmanager{
 	uint32_t (*destroy) (struct blockmanager*);
 	__block* (*get_block) (struct blockmanager*,__segment*);
 	__block *(*pick_block)(struct blockmanager*, uint32_t page_num);
-	__segment* (*get_segment) (struct blockmanager*);
+	__segment* (*get_segment) (struct blockmanager*, bool isreserve);
 	int (*get_page_num)(struct blockmanager*, __segment*);
 	bool (*check_full)(struct blockmanager*, __segment*, uint8_t type);
 	bool (*is_gc_needed) (struct blockmanager*);
 	__gsegment* (*get_gc_target) (struct blockmanager*);
 	void (*trim_segment) (struct blockmanager*, __gsegment*, struct lower_info*);
-	void (*populate_bit) (struct blockmanager*, uint32_t ppa);
-	void (*unpopulate_bit) (struct blockmanager*, uint32_t ppa);
+	int (*populate_bit) (struct blockmanager*, uint32_t ppa);
+	int (*unpopulate_bit) (struct blockmanager*, uint32_t ppa);
 	bool (*is_valid_page) (struct blockmanager*, uint32_t ppa);
 	bool (*is_invalid_page) (struct blockmanager*, uint32_t ppa);
 	void (*set_oob)(struct blockmanager*, char* data, int len, uint32_t ppa);
 	char *(*get_oob)(struct blockmanager*, uint32_t ppa);
 	void (*release_segment)(struct blockmanager*, __segment*);
+	__segment* (*change_reserve)(struct blockmanager *, __segment *reserve);
 
 	uint32_t (*pt_create) (struct blockmanager*, int part_num, int *each_part_seg_num);
 	uint32_t (*pt_destroy) (struct blockmanager*);
-	__segment* (*pt_get_segment) (struct blockmanager*, int pt_num);
+	__segment* (*pt_get_segment) (struct blockmanager*, int pt_num, bool isreserve);
 	__gsegment* (*pt_get_gc_target) (struct blockmanager*, int pt_num);
 	void (*pt_trim_segment)(struct blockmanager*, int pt_num, __gsegment *, lower_info*);
 	int (*pt_remain_page)(struct blockmanager*, __segment *active,int pt_num);
 	bool (*pt_isgc_needed)(struct blockmanager*, int pt_num);
+	__segment* (*change_pt_reserve)(struct blockmanager *,int pt_num, __segment *reserve);
 	void *private_data;
 };
 
 
 #define for_each_block(segs,block,idx)\
-	for(idx=0,block=segs->blocks[idx];idx!=BPS; idx++)
+	for(idx=0,block=segs->blocks[idx];idx<BPS; block=++idx>BPS?segs->blocks[idx-1]:segs->blocks[idx])
 
 #define for_each_page(blocks,page,idx)\
-	for(idx=0,page=blocks->ppa; idx!=PPB; page+=(++idx))
+	for(idx=0,page=blocks->ppa; idx!=PPB; page++,idx++)
 
 #define for_each_page_in_seg(segs,block,page,bidx, pidx)\
-	for(bidx=0, block=segs->blocks[bidx];bidx!=BPS; bidx++)\
-		for(pidx=0, page=block->ppa; pidx<=block->now; page+=(++pidx))
+	for(bidx=0,page=0,block=segs->blocks[bidx];bidx<BPS;block=++bidx>BPS?segs->blocks[bidx-1]:segs->blocks[bidx])\
+		for(pidx=0, page=block->ppa; pidx<block->now; page++, pidx++)
 
+#define for_each_page_in_segA(segs,block,page,bidx, pidx)\
+	for(bidx=0,page=0,block=segs->blocks[bidx];bidx<BPS;block=++bidx>BPS?segs->blocks[bidx-1]:segs->blocks[bidx])\
+		for(pidx=0, page=block->ppa; pidx<block->max; page++, pidx++)
 #endif

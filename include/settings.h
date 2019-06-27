@@ -40,7 +40,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 4L
+#define GIGAUNIT 8L
 #define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
@@ -62,10 +62,10 @@
 #define REQNUM ((GIGAUNIT)*(M/PAGESIZE)*1024L)
 
 #define PARTNUM 2
-#define MAPPART_SEGS 2
+#define MAPPART_SEGS 4
 #define DATAPART_SEGS (_NOS-MAPPART_SEGS)
 enum{
-	DATA_S,MAP_S
+	MAP_S,DATA_S
 };
 
 #ifdef DVALUE
@@ -126,7 +126,7 @@ static inline char KEYTEST(KEYT a, KEYT b){
 #define QDEPTH (128)
 
 #define THPOOL
-#define NUM_THREAD 16
+#define NUM_THREAD 4
 
 #define TCP 1
 //#define IP "10.42.0.2"

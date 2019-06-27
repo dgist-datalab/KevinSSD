@@ -136,7 +136,6 @@ void mh_insert_append(mh *h, void *data){
 	h->assign_hptr(data,(void*)n);
 }
 
-
 void mh_construct(mh *h){
 	int all_size=h->size;
 	int depth=1;

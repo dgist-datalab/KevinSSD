@@ -127,6 +127,7 @@ typedef struct lsmtree{
 	uint32_t compaction_cnt;
 	uint32_t zero_compaction_cnt;
 
+	__block* t_block;
 	struct lsm_block *active_block;
 }lsmtree;
 

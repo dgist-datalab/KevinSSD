@@ -21,13 +21,16 @@ struct blockmanager pt_bm={
 	.set_oob=base_set_oob,
 	.get_oob=base_get_oob,
 	.release_segment=base_release_segment,
+	.change_reserve=base_change_reserve,
 
 	.pt_create=pbm_create,
 	.pt_destroy=pbm_destroy,
 	.pt_get_segment=pbm_pt_get_segment,
 	.pt_get_gc_target=pbm_pt_get_gc_target,
 	.pt_trim_segment=pbm_pt_trim_segment,
-	.pt_remain_page=pbm_pt_remain_page
+	.pt_remain_page=pbm_pt_remain_page,
+	.pt_isgc_needed=pbm_pt_isgc_needed,
+	.change_pt_reserve=pbm_change_pt_reserve,
 };
 
 void pt_mh_swap_hptr(void *a, void *b){
@@ -59,7 +62,7 @@ uint32_t pbm_create(blockmanager *bm, int pnum, int *epn){
 		__block *b=&p->base_block[i];
 		b->ppa=i*_PPB;
 		b->max=_PPB;
-		b->bitset=(uint8_t*)malloc(_PPB/8);
+		b->bitset=(uint8_t*)calloc(_PPB/8,1);
 		/*
 		invalid_number,hptr,private_data,now be zero or NULL by calloc
 		 */
@@ -86,7 +89,6 @@ uint32_t pbm_create(blockmanager *bm, int pnum, int *epn){
 			for(int k=start; k<end;k++){
 				__block *n=&p->base_block[k*BPS+j%BPS];
 				q_enqueue((void*)n,c->free_block);
-				mh_insert_append(c->max_heap,(void*)n);
 			}
 		}
 		start=end;
@@ -118,7 +120,7 @@ uint32_t pbm_destroy(blockmanager *bm){
 	return 1;
 }
 
-__segment* pbm_pt_get_segment(blockmanager *bm, int pnum){
+__segment* pbm_pt_get_segment(blockmanager *bm, int pnum, bool isreserve){
 	__segment *res=(__segment*)malloc(sizeof(__segment));
 	bbm_pri *p=(bbm_pri*)bm->private_data;
 	p_info *pinfo=(p_info*) p->private_data;
@@ -126,13 +128,29 @@ __segment* pbm_pt_get_segment(blockmanager *bm, int pnum){
 	for(int i=0; i<BPS; i++){
 		__block *b=(__block*)q_dequeue(pinfo->p_channel[pnum][i].free_block);
 		if(!b) abort();
+
+		if(!isreserve)
+			mh_insert_append(pinfo->p_channel[pnum][i].max_heap,(void*)b);	
 		res->blocks[i]=b;
 	}
-	res->now=res->max=0;
+	res->now=0;
+	res->max=BPS;
 
 	if(pinfo->now_assign[pnum]++>pinfo->max_assign[pnum]){
 		printf("over assgin\n");
 		abort();
+	}
+	return res;
+}
+
+__segment* pbm_change_pt_reserve(blockmanager *bm, int pt_num, __segment* reserve){
+	__segment *res=pbm_pt_get_segment(bm,pt_num,true);
+	bbm_pri *p=(bbm_pri*)bm->private_data;
+	p_info *pinfo=(p_info*) p->private_data;
+	__block *tblock;
+	int bidx;
+	for_each_block(reserve,tblock,bidx){
+		mh_insert_append(pinfo->p_channel[pt_num][bidx].max_heap,(void*)tblock);
 	}
 	return res;
 }
@@ -148,7 +166,8 @@ __gsegment* pbm_pt_get_gc_target(blockmanager* bm, int pnum){
 		if(!b) abort();
 		res->blocks[i]=b;
 	}
-	res->now=res->max=0;
+	res->now=0;
+	res->max=BPS;
 	return res;
 }
 
@@ -164,7 +183,7 @@ void pbm_pt_trim_segment(blockmanager* bm, int pnum, __gsegment *target, lower_i
 		memset(b->bitset,0,_PPB/8);
 
 		channel *c=&pinfo->p_channel[pnum][i];
-		mh_insert_append(c->max_heap,(void*)b);
+	//	mh_insert_append(c->max_heap,(void*)b);
 		q_enqueue((void*)b,c->free_block);
 	}
 
@@ -182,9 +201,18 @@ int pbm_pt_remain_page(blockmanager* bm, __segment *active, int pt_num){
 
 	channel *c=&pinfo->p_channel[pt_num][0];	
 	res+=c->free_block->size * _PPS;
-
-	__block *t=active->blocks[active->now];
-	res+=(active->max-active->now) * _PPB;
-	res+=t->max-t->now;
+	
+	if(active->now <active->max){
+		__block *t=active->blocks[active->now];
+		res+=(active->max-active->now) * _PPB;
+		res+=t->max-t->now;
+	}
 	return res;
+}
+
+bool pbm_pt_isgc_needed(struct blockmanager* bm, int pt_num){
+	bbm_pri *p=(bbm_pri*)bm->private_data;
+	p_info *pinfo=(p_info*) p->private_data;
+
+	return pinfo->p_channel[pt_num][0].free_block->size==0;
 }

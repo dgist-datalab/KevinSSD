@@ -47,6 +47,7 @@ void nocpy_free(){
 
 void nocpy_copy_from_change(char *des, uint32_t ppa){
 	if(page[ppa]){
+		printf("existence error %d\n",ppa);
 		abort();
 		free(page[ppa]);
 		page[ppa]=NULL;
@@ -79,18 +80,21 @@ uint32_t nocpy_size(){
 }
 
 void nocpy_trim_delay_enq(uint32_t ppa){
+	static int cnt=1;
 	for(uint32_t i=ppa; i<ppa+_PPB; i++){
 		if(!q_enqueue((void*)page[i],delayed_trim_queue)){
 			printf("error in nocpy_enqueue!\n");
 			abort();
-		}
+		}	
 		page[i]=NULL;
 	}
 }
 
 void nocpy_trim_delay_flush(){
-	void *req;
-	for_each_reqqueue(delayed_trim_queue,req){
+	int target_size=delayed_trim_queue->size;
+	for(int i=0; i<target_size; i++){
+		void *req=q_dequeue(delayed_trim_queue);
+		if(req==NULL) continue;
 		free(req);
 	}
 }

@@ -25,11 +25,11 @@ void gc_general_waiting(){
 
 void pm_init(){
 	blockmanager *bm=LSM.bm;
-	d_m.reserve=bm->pt_get_segment(bm,DATA_S);
+	d_m.reserve=bm->pt_get_segment(bm,DATA_S,true);
 	d_m.target=NULL;
 	d_m.active=NULL;
 
-	map_m.reserve=bm->pt_get_segment(bm,MAP_S);
+	map_m.reserve=bm->pt_get_segment(bm,MAP_S,true);
 	map_m.target=NULL;
 	map_m.active=NULL;
 }
@@ -62,21 +62,27 @@ uint32_t getPPA(uint8_t type, KEYT lpa, bool b){
 	pm *t;
 	blockmanager *bm=LSM.bm;
 	uint32_t res=-1;
+retry:
 	if(type==DATA){
 		t=&d_m;
 		if(!t->active || bm->check_full(bm,t->active,MASTER_PAGE)){
 			if(bm->pt_isgc_needed(bm,DATA_S)){
 				gc_data();
+				goto retry;
 			}
-			t->active=bm->pt_get_segment(bm,DATA_S);
+			bm->release_segment(bm,t->active);
+			t->active=bm->pt_get_segment(bm,DATA_S,false);
 		}
 	}else if(type==HEADER){
 		t=&map_m;
 		if(!t->active || bm->check_full(bm,t->active,MASTER_PAGE)){
 			if(bm->pt_isgc_needed(bm,MAP_S)){
+				bm->check_full(bm,t->active,MASTER_PAGE);
 				gc_header();
+				goto retry;
 			}
-			t->active=bm->pt_get_segment(bm,DATA_S);
+			bm->release_segment(bm,t->active);
+			t->active=bm->pt_get_segment(bm,MAP_S,false);
 		}
 	}
 	else{
@@ -84,6 +90,8 @@ uint32_t getPPA(uint8_t type, KEYT lpa, bool b){
 		abort();
 	}
 	res=bm->get_page_num(bm,t->active);
+
+//	printf("%d\n",res);
 	return res;
 }
 
@@ -107,21 +115,26 @@ uint32_t getRPPA(uint8_t type,KEYT lpa, bool b){
 lsm_block* getBlock(uint8_t type){
 	pm *t;
 	blockmanager *bm=LSM.bm;
+retry:
 	if(type==DATA){
 		t=&d_m;
 		if(!t->active || bm->check_full(bm,t->active,MASTER_BLOCK)){
 			if(bm->pt_isgc_needed(bm,DATA_S)){
 				gc_data();
+				goto retry;
 			}
-			t->active=bm->pt_get_segment(bm,DATA_S);
+			bm->release_segment(bm,t->active);
+			t->active=bm->pt_get_segment(bm,DATA_S,false);
 		}
 	}else if(type==HEADER){
 		t=&map_m;
 		if(!t->active || bm->check_full(bm,t->active,MASTER_BLOCK)){
 			if(bm->pt_isgc_needed(bm,MAP_S)){
 				gc_header();
+				goto retry;
 			}
-			t->active=bm->pt_get_segment(bm,DATA_S);
+			bm->release_segment(bm,t->active);
+			t->active=bm->pt_get_segment(bm,DATA_S,false);
 		}
 	}
 	else{
@@ -183,7 +196,11 @@ void invalidate_PPA(uint8_t type,uint32_t ppa){
 			printf("error in validate_ppa\n");
 			abort();
 	}
-	LSM.bm->unpopulate_bit(LSM.bm,t_p);
+	int res=LSM.bm->unpopulate_bit(LSM.bm,t_p);
+
+	if(!res && type==HEADER){
+		abort();
+	}
 }
 
 void validate_PPA(uint8_t type, uint32_t ppa){
@@ -201,7 +218,10 @@ void validate_PPA(uint8_t type, uint32_t ppa){
 			printf("error in validate_ppa\n");
 			abort();
 	}
-	LSM.bm->populate_bit(LSM.bm,t_p);
+	int res=LSM.bm->populate_bit(LSM.bm,t_p);
+	if(!res && type==HEADER){
+		abort();
+	}
 }
 
 void gc_data_write(uint64_t ppa,htable_t *value,bool isdata){
@@ -223,7 +243,7 @@ void gc_data_write(uint64_t ppa,htable_t *value,bool isdata){
 	areq->params=(void*)params;
 	areq->type=params->lsm_type;
 	areq->rapid=false;
-	algo_lsm.li->write(CONVPPA(ppa),PAGESIZE,params->value,ASYNC,areq);
+	algo_lsm.li->write(isdata?CONVPPA(ppa):ppa,PAGESIZE,params->value,ASYNC,areq);
 	return;
 }
 
@@ -249,7 +269,7 @@ void gc_data_read(uint64_t ppa,htable_t *value,bool isdata){
 		value->nocpy_table=nocpy_pick(ppa);
 	}
 #endif
-	algo_lsm.li->read(ppa,PAGESIZE,params->value,ASYNC,areq);
+	algo_lsm.li->read(isdata?CONVPPA(ppa):ppa,PAGESIZE,params->value,ASYNC,areq);
 	return;
 }
 
@@ -264,6 +284,7 @@ bool gc_dynamic_checker(bool last_comp_flag){
 	}
 	return res;
 }
+
 void pm_set_oob(uint32_t _ppa, char *data, int len, int type){
 	int ppa;
 	if(type==DATA){
@@ -295,18 +316,38 @@ void *pm_get_oob(uint32_t _ppa, int type){
 }
 
 void gc_nocpy_delay_erase(uint32_t ppa){
-	if(ppa==UINT32_MAX) return;
+	//if(ppa==UINT32_MAX) return;
 	//nocpy_free_block(ppa);
 	nocpy_trim_delay_flush();
-
 	LSM.delayed_trim_ppa=UINT32_MAX;
 }
+
+void change_reserve_to_active(uint8_t type){
+	pm *t;
+	blockmanager *bm=LSM.bm;
+	int pt_num=0;
+	switch(type){
+		case DATA:
+			t=&d_m;
+			pt_num=DATA_S;
+			break;
+		case HEADER:
+			t=&map_m;
+			pt_num=MAP_S;
+			break;
+	}
+	bm->release_segment(bm,t->active);
+	t->active=t->reserve;
+	t->reserve=bm->change_pt_reserve(bm,pt_num,t->reserve);
+}	
 #ifdef DVALUE
 void validate_piece(lsm_block *b, uint32_t ppa){
 	uint32_t check_idx=ppa%(_PPB*NPCINPAGE);
 	uint32_t bit_idx=check_idx/8;
 	uint32_t bit_off=check_idx%8;
 
+	if(b->bitset[bit_idx]&(1<<bit_off))
+		abort();
 	b->bitset[bit_idx]|=(1<<bit_off);
 }
 
@@ -315,6 +356,8 @@ void invalidate_piece(lsm_block *b, uint32_t ppa){
 	uint32_t bit_idx=check_idx/8;
 	uint32_t bit_off=check_idx%8;
 
+	if(!(b->bitset[bit_idx]&(1<<bit_off)))
+		abort();
 	b->bitset[bit_idx]&=~(1<<bit_off);
 }
 

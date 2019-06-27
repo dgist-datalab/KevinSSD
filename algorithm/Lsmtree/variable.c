@@ -22,11 +22,11 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 		v_des=*target_valueset;
 	}
 
-	uint8_t max_piece=PAGESIZE/PIECE;
-	while(src->idx[max_piece]==0) --max_piece;
+	uint8_t max_piece=PAGESIZE/PIECE-1; //the max_piece is wrote before enter this section
+	while(src->idx[max_piece]==0 && max_piece>0) --max_piece;
 
 //	bool debuging=false;
-	while(1){
+	while(max_piece){
 		PTR page=NULL;
 		int ptr=0;
 		int remain=PAGESIZE;
@@ -52,16 +52,17 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 				break;
 			}
 			if(isgc){
-				gc_node *target=(gc_node*)src->bucket[target_length][src->idx[target_length]-1];
+				gc_node *target=src->gc_bucket[target_length][src->idx[target_length]-1];
 				target->nppa=LSM.lop->get_page(target->plength);
 				foot->map[target->nppa%NPCINPAGE]=target_length;
-				validate_PPA(target->nppa,DATA);
+				validate_PPA(DATA,target->nppa);
 
 				memcpy(&page[ptr],target->value,target_length*PIECE);
 			}else{
 				snode *target=src->bucket[target_length][src->idx[target_length]-1];
 				target->ppa=LSM.lop->get_page(target->value->length);
-				validate_PPA(target->ppa,DATA);
+				foot->map[target->ppa%NPCINPAGE]=target->value->length;
+				validate_PPA(DATA,target->ppa);
 				memcpy(&page[ptr],target->value->value,target_length*PIECE);
 			}
 			used_piece+=target_length;

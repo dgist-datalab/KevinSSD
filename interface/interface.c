@@ -312,8 +312,8 @@ void inf_init(int apps_flag, int total_num){
 
 #ifdef partition
 	int temp[PARTNUM];
-	temp[0]=MAPPART_SEGS;
-	temp[1]=DATAPART_SEGS;
+	temp[MAP_S]=MAPPART_SEGS;
+	temp[DATA_S]=DATAPART_SEGS;
 	mp.bm->pt_create(mp.bm,PARTNUM,temp);
 #else
 	mp.bm->create(mp.bm);
