@@ -161,8 +161,29 @@ gc_node *gc_data_write_new_page(uint32_t t_ppa, char *data, htable_t *table, uin
 	res->ppa=t_ppa;
 	return res;
 }
+int __gc_data();
 int gc_data(){
-	printf("gc_data\n");
+#ifdef GCOPT
+	LSM.lop->print_level_summary();
+	printf("gc_data start:%d, needed_valid_page:%d\n",LSM.bm->pt_remain_page(LSM.bm,d_m.active,MAP_S), LSM.needed_valid_page);
+	int tcnt=0;
+	while(LSM.needed_valid_page > LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S)){
+#endif
+		__gc_data();
+#ifdef GCOPT
+		tcnt++;
+	}
+	if(LSM.bm->check_full(LSM.bm,d_m.active,MASTER_BLOCK))
+		change_reserve_to_active(DATA);
+	printf("%d gc_data done:%d\n",tcnt,LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S));
+#endif
+	return 1;
+}
+int __gc_data(){
+#ifdef LEVELN!=1
+	compaction_force();
+#endif
+
 	l_bucket *bucket=(l_bucket*)calloc(sizeof(l_bucket),1);
 	gc_general_wait_init();
 
@@ -185,9 +206,6 @@ int gc_data(){
 				continue;
 			}
 			else{
-				if(npc==989049){
-					printf("break!\n");
-				}
 				page_read=true;
 				tables[i]=(htable_t*)malloc(sizeof(htable_t));
 				gc_data_read(npc,tables[i],true);
@@ -218,9 +236,7 @@ int gc_data(){
 			if(is_invalid_piece((lsm_block*)tblock->private_data,t_ppa)){
 				continue;
 			}
-			if(t_ppa==989049){
-				printf("break!\n");
-			}
+
 			used_page=true;
 			lpa=LSM.lop->get_lpa_from_data(&((char*)tables[i]->sets)[PIECE*j],false);
 			oob_len=foot->map[j];
@@ -266,7 +282,9 @@ next_page:
 		tblock->private_data=NULL;
 	}
 	bm->pt_trim_segment(bm,DATA_S,tseg,LSM.li);
+#ifndef GCOPT
 	change_reserve_to_active(DATA);
+#endif
 
 	for(int i=0; i<NPCINPAGE+1; i++){
 		free(bucket->gc_bucket[i]);

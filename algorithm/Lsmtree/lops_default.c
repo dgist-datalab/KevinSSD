@@ -6,6 +6,7 @@
 extern block bl[_NOB];
 extern int32_t SIZEFACTOR;
 extern lsmtree LSM;
+extern pm d_m;
 #ifdef KVSSD
 extern KEYT key_min,key_max;
 #endif
@@ -13,7 +14,15 @@ extern KEYT key_min,key_max;
 ppa_t def_moveTo_fr_page(bool isgc){
 	if(def_blk_fchk()){
 		if(isgc){
-			LSM.active_block=getRBlock(DATA);
+			if(LSM.bm->check_full(LSM.bm,d_m.active,MASTER_BLOCK)){	
+				if(LSM.bm->check_full(LSM.bm,d_m.reserve,MASTER_BLOCK)){	
+					change_new_reserve(DATA);
+				}
+				LSM.active_block=getRBlock(DATA);
+			}
+			else{
+				LSM.active_block=getBlock(DATA);
+			}
 		}
 		else{
 			LSM.active_block=getBlock(DATA);

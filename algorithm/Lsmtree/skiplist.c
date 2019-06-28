@@ -618,11 +618,6 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 		b.bucket[target->value->length][b.idx[target->value->length]++]=target;
 		total_size+=target->value->length;
 	}
-	bool flag=0;
-	if(from->idx!=0){
-		printf("start fuck!\n");
-		flag=1;
-	}
 	int res_idx=0;
 	for(int i=0; i<b.idx[PAGESIZE/PIECE]; i++){//full page
 			target=b.bucket[PAGESIZE/PIECE][i];
@@ -638,9 +633,6 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 			res_idx++;
 		}
 	b.idx[PAGESIZE/PIECE]=0;
-	if(from->idx!=0){
-		printf("%d----------end fuck!\n",flag);
-	}
 	
 	for(int i=1; i<PAGESIZE/PIECE+1; i++){
 		if(b.idx[i]!=0)

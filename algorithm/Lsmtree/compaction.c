@@ -37,6 +37,7 @@ volatile int memcpy_cnt;
 
 extern lsmtree LSM;
 extern block bl[_NOB];
+extern pm d_m;
 extern volatile int comp_target_get_cnt;
 extern MeasureTime write_opt_time[10];
 volatile int epc_check=0;
@@ -340,12 +341,9 @@ void compaction_cascading(bool *_is_gc_needed){
 		int target_des=des_level+1;
 	#ifdef GCOPT
 		if(!is_gc_needed && target_des==LEVELN-1){
-			if(start_level!=des_level){
+		//	if(start_level!=des_level){
 				is_gc_needed=gc_dynamic_checker(true);
-				LSM.needed_valid_page=(LSM.needed_valid_page*LSM.check_cnt+LSM.last_level_comp_term)/(LSM.check_cnt+1);
-				LSM.check_cnt++;
-				LSM.last_level_comp_term=0;
-			}
+		//	}
 		}
 	#endif
 		if(is_gc_needed) target_des=LEVELN-1; 
@@ -377,9 +375,6 @@ void compaction_cascading(bool *_is_gc_needed){
 	#ifdef GCOPT
 				if(!is_gc_needed){
 					is_gc_needed=gc_dynamic_checker(true);
-					LSM.needed_valid_page=(LSM.needed_valid_page*LSM.check_cnt+LSM.last_level_comp_term)/(LSM.check_cnt+1);
-					LSM.check_cnt++;
-					LSM.last_level_comp_term=0;
 				}
 	#endif
 			}
@@ -443,9 +438,13 @@ void *compaction_main(void *input){
 			compaction_selector(NULL,LSM.disk[0],&lnode,&LSM.level_lock[0]);
 		}
 		bool is_gc_needed=false;
-		is_gc_needed=gc_dynamic_checker(false);
 #if LEVELN!=1
 		compaction_cascading(&is_gc_needed);
+#endif
+#ifdef GCOPT
+		if(is_gc_needed){
+			gc_data();
+		}
 #endif
 		free(lnode.start.key);
 		free(lnode.end.key);

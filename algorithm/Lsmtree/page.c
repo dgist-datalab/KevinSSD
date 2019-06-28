@@ -90,7 +90,6 @@ retry:
 		abort();
 	}
 	res=bm->get_page_num(bm,t->active);
-
 //	printf("%d\n",res);
 	return res;
 }
@@ -120,6 +119,7 @@ retry:
 		t=&d_m;
 		if(!t->active || bm->check_full(bm,t->active,MASTER_BLOCK)){
 			if(bm->pt_isgc_needed(bm,DATA_S)){
+				bm->check_full(bm,t->active,MASTER_BLOCK);
 				gc_data();
 				goto retry;
 			}
@@ -154,7 +154,6 @@ retry:
 	}
 	return lb;
 }
-
 lsm_block* getRBlock(uint8_t type){
 	pm *t;
 	blockmanager *bm=LSM.bm;
@@ -276,12 +275,20 @@ void gc_data_read(uint64_t ppa,htable_t *value,bool isdata){
 bool gc_dynamic_checker(bool last_comp_flag){
 	bool res=false;
 	int test=LSM.bm->pt_remain_page(LSM.bm,	d_m.active, DATA_S);
-	if((LSM.gc_started && last_comp_flag && (uint32_t)test*_PPB<LSM.needed_valid_page) || (!last_comp_flag && test<=FULLMAPNUM/_PPB))
+	if((last_comp_flag && (uint32_t)test<LSM.needed_valid_page))
 	{
 		LSM.gc_started=true;
 		res=true;
 		LSM.target_gc_page=LSM.needed_valid_page;
 	}
+
+	int calc=LSM.needed_valid_page*LSM.check_cnt;
+	calc+=LSM.last_level_comp_term;
+	calc/=(LSM.check_cnt+1);
+	LSM.needed_valid_page=calc;
+	LSM.check_cnt++;
+	printf("%d %d(integ, now) - %d\n",LSM.needed_valid_page,LSM.last_level_comp_term, test);
+	LSM.last_level_comp_term=0;
 	return res;
 }
 
@@ -321,9 +328,27 @@ void gc_nocpy_delay_erase(uint32_t ppa){
 	nocpy_trim_delay_flush();
 	LSM.delayed_trim_ppa=UINT32_MAX;
 }
+void change_new_reserve(uint8_t type){
+	pm *t=NULL;
+	blockmanager *bm=LSM.bm;
+	int pt_num=0;
+	switch(type){
+		case DATA:
+			t=&d_m;
+			pt_num=DATA_S;
+			break;
+		case HEADER:
+			t=&map_m;
+			pt_num=MAP_S;
+			break;
+	}
+	__segment *old=t->reserve;
+	t->reserve=bm->change_pt_reserve(bm,pt_num,t->reserve);
+	bm->release_segment(bm,old);
+}
 
 void change_reserve_to_active(uint8_t type){
-	pm *t;
+	pm *t=NULL;
 	blockmanager *bm=LSM.bm;
 	int pt_num=0;
 	switch(type){
