@@ -1,4 +1,5 @@
 #include "base_block_manager.h"
+#include "bb_checker.h"
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -21,6 +22,9 @@ struct blockmanager base_bm={
 	.get_oob=base_get_oob,
 	.release_segment=base_release_segment,
 	.change_reserve=base_change_reserve,
+
+	.map_ppa=base_map_ppa,
+	.map_pt_ppa=NULL,
 
 	.pt_create=NULL,
 	.pt_destroy=NULL,
@@ -47,7 +51,10 @@ int base_get_cnt(void *a){
 	__block *aa=(__block*)a;
 	return aa->invalid_number;
 }
-uint32_t base_create (struct blockmanager* bm){
+uint32_t base_create (struct blockmanager* bm, lower_info *li){
+	bm->li=li;
+	bb_checker_start(bm->li);
+	/*check if the block is badblock*/
 	bbm_pri *p=(bbm_pri*)malloc(sizeof(bbm_pri));
 	p->base_oob=(__OOBT*)calloc(sizeof(__OOBT),_NOP);
 
@@ -73,6 +80,7 @@ uint32_t base_create (struct blockmanager* bm){
 			//mh_insert_append(c->max_heap,(void*)n);
 		}
 	}
+
 	bm->private_data=(void*)p;
 	return 1;
 }
@@ -255,4 +263,6 @@ __block *base_pick_block(struct blockmanager *bm, uint32_t page_num){
 	return &p->base_block[page_num/_PPB];
 }
 
-
+uint32_t base_map_ppa(struct blockmanager *, uint32_t lpa){
+	return lpa;
+}

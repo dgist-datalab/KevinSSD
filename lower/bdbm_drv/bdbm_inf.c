@@ -4,7 +4,6 @@
 #include "../../include/container.h"
 #include "frontend/libmemio/libmemio.h"
 #include "bdbm_inf.h"
-#include "../../interface/bb_checker.h"
 #include <unistd.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -27,7 +26,7 @@ lower_info memio_info={
 	.lower_show_info=memio_show_info_
 };
 
-uint32_t memio_info_create(lower_info *li){
+uint32_t memio_info_create(lower_info *li, blockmanager *bm){
 	li->NOB=_NOB;
 	li->NOP=_NOP;
 	li->SOB=BLOCKSIZE;
@@ -46,6 +45,7 @@ uint32_t memio_info_create(lower_info *li){
 	memset(li->req_type_cnt,0,sizeof(li->req_type_cnt));
 	mio=memio_open();
 	
+	li->bm=bm;
 	return 1;
 }
 

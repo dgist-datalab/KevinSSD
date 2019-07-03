@@ -5,7 +5,6 @@
 #include "../include/data_struct/heap.h"
 
 
-
 typedef struct channel{
 	queue *free_block;
 	mh *max_heap;
@@ -18,7 +17,7 @@ typedef struct base_bm_private{
 	void *private_data;
 }bbm_pri;
 
-uint32_t base_create (struct blockmanager*);
+uint32_t base_create (struct blockmanager*, lower_info *li);
 uint32_t base_destroy (struct blockmanager*);
 __block* base_get_block (struct blockmanager*, __segment *);
 __block *base_pick_block(struct blockmanager *, uint32_t page_num);
@@ -36,4 +35,6 @@ char* base_get_oob(struct blockmanager*, uint32_t ppa);
 void base_release_segment(struct blockmanager*, __segment *);
 __segment* base_change_reserve(struct blockmanager* ,__segment *reserve);
 int base_get_page_num(struct blockmanager* ,__segment *);
+
+uint32_t base_map_ppa(struct blockmanager* , uint32_t lpa);
 #endif

@@ -92,7 +92,7 @@ struct algo_req{
 };
 
 struct lower_info {
-	uint32_t (*create)(struct lower_info*);
+	uint32_t (*create)(struct lower_info*, blockmanager *bm);
 	void* (*destroy)(struct lower_info*);
 	void* (*write)(uint32_t ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
 	void* (*read)(uint32_t ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
@@ -104,6 +104,7 @@ struct lower_info {
 	void (*lower_free) (int type, int dmaTag);
 	void (*lower_flying_req_wait) ();
 	void (*lower_show_info)();
+	struct blockmanager *bm;
 
 	lower_status (*statusOfblock)(BLOCKT);
 	pthread_mutex_t lower_lock;
@@ -166,9 +167,11 @@ typedef struct masterblock{
 }__block;
 
 typedef struct mastersegment{
+	uint32_t seg_idx;
 	__block* blocks[BPS];
 	uint16_t now;
 	uint16_t max;
+	uint8_t invalid_blocks;
 	void *private_data;
 }__segment;
 
@@ -179,7 +182,7 @@ typedef struct ghostsegment{ //for gc
 }__gsegment;
 
 struct blockmanager{
-	uint32_t (*create) (struct blockmanager*);
+	uint32_t (*create) (struct blockmanager*,lower_info *);
 	uint32_t (*destroy) (struct blockmanager*);
 	__block* (*get_block) (struct blockmanager*,__segment*);
 	__block *(*pick_block)(struct blockmanager*, uint32_t page_num);
@@ -198,7 +201,10 @@ struct blockmanager{
 	void (*release_segment)(struct blockmanager*, __segment*);
 	__segment* (*change_reserve)(struct blockmanager *, __segment *reserve);
 
-	uint32_t (*pt_create) (struct blockmanager*, int part_num, int *each_part_seg_num);
+	uint32_t (*map_ppa)(struct blockmanager *bm, uint32_t lpa);
+	uint32_t (*map_pt_ppa)(struct blockmanager *bm, uint32_t lpa, uint8_t pt_num);
+
+	uint32_t (*pt_create) (struct blockmanager*, int part_num, int *each_part_seg_num, lower_info *);
 	uint32_t (*pt_destroy) (struct blockmanager*);
 	__segment* (*pt_get_segment) (struct blockmanager*, int pt_num, bool isreserve);
 	__gsegment* (*pt_get_gc_target) (struct blockmanager*, int pt_num);
@@ -206,6 +212,8 @@ struct blockmanager{
 	int (*pt_remain_page)(struct blockmanager*, __segment *active,int pt_num);
 	bool (*pt_isgc_needed)(struct blockmanager*, int pt_num);
 	__segment* (*change_pt_reserve)(struct blockmanager *,int pt_num, __segment *reserve);
+
+	lower_info *li;
 	void *private_data;
 };
 

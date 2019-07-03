@@ -12,7 +12,6 @@
 
 #include "../include/data_struct/redblack.h"
 #include "../include/utils/cond_lock.h"
-#include "bb_checker.h"
 #include "layer_info.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -320,9 +319,8 @@ void inf_init(int apps_flag, int total_num){
 #endif
 	mp.li->create(mp.li);
 	mp.algo->create(mp.li,mp.bm,mp.algo);
-
-	bb_checker_start(mp.li);
 }
+
 
 static request* inf_get_req_common(request *req, bool fromApp, int mark){
 	static uint32_t seq_num=0;

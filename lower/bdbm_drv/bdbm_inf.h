@@ -2,7 +2,7 @@
 #include "../../bench/bench.h"
 #include "../../bench/measurement.h"
 #include "../../include/container.h"
-uint32_t memio_info_create(lower_info *li);
+uint32_t memio_info_create(lower_info *li,blockmanager *bm);
 void *memio_info_destroy(lower_info *li);
 void *memio_info_push_data(uint32_t ppa, uint32_t size, value_set* value, bool async, algo_req *const req);
 void *memio_info_pull_data(uint32_t ppa, uint32_t size, value_set* value, bool async, algo_req *const req);
