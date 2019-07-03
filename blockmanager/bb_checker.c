@@ -15,6 +15,8 @@ void bb_checker_start(lower_info *li){
 	if(!li->device_badblock_checker){
 		return;
 	}
+
+	checker.assign=0;
 	for(uint64_t i=0; i<_RNOS; i++){
 		checker.ent[i].origin_segnum=i*_PPS;
 		li->device_badblock_checker(i*_PPS,_PPS*PAGESIZE,bb_checker_process);

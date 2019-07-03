@@ -14,7 +14,7 @@ typedef struct part_info{
 	channel **p_channel;
 }p_info;
 
-uint32_t pbm_create(blockmanager *bm, int pnum, int *epn);
+uint32_t pbm_create(blockmanager *bm, int pnum, int *epn, lower_info *li);
 uint32_t pbm_destroy(blockmanager *bm);
 __segment* pbm_pt_get_segment(blockmanager *bm, int pnum, bool isreserve);
 __segment* pbm_change_pt_reserve(blockmanager *bm, int pt_num, __segment* reserve);

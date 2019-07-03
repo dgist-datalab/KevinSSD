@@ -157,11 +157,13 @@ typedef struct __OOBT{
 }__OOB;
 
 typedef struct masterblock{
-	uint32_t ppa;
+	uint32_t punit_num;
+	uint32_t block_num;
 	uint16_t now;
 	uint16_t max;
 	uint8_t* bitset;
-	uint16_t invalid_number;
+	uint16_t invalid_numbera;
+	uint32_t seg_idx;
 	void *hptr;
 	void *private_data;
 }__block;
@@ -200,9 +202,6 @@ struct blockmanager{
 	char *(*get_oob)(struct blockmanager*, uint32_t ppa);
 	void (*release_segment)(struct blockmanager*, __segment*);
 	__segment* (*change_reserve)(struct blockmanager *, __segment *reserve);
-
-	uint32_t (*map_ppa)(struct blockmanager *bm, uint32_t lpa);
-	uint32_t (*map_pt_ppa)(struct blockmanager *bm, uint32_t lpa, uint8_t pt_num);
 
 	uint32_t (*pt_create) (struct blockmanager*, int part_num, int *each_part_seg_num, lower_info *);
 	uint32_t (*pt_destroy) (struct blockmanager*);

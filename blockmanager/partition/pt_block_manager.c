@@ -1,7 +1,9 @@
 #include "pt_block_manager.h"
 #include "../../include/container.h"
+#include "../bb_checker.h"
 #include <stdlib.h>
 #include <stdio.h>
+extern bb_checker checker;
 
 struct blockmanager pt_bm={
 	.create=NULL,
@@ -52,20 +54,26 @@ int pt_get_cnt(void *a){
 	return aa->invalid_number;
 }
 
-uint32_t pbm_create(blockmanager *bm, int pnum, int *epn){
+uint32_t pbm_create(blockmanager *bm, int pnum, int *epn, lower_info *li){
+	bm->li=li;
+	bb_checker_start(bm->li);
+
+
 	bbm_pri *p=(bbm_pri*)malloc(sizeof(bbm_pri));
 	bm->private_data=(void*)p;
 	p->base_oob=(__OOB*)calloc(sizeof(__OOB),_NOP);
+	p->base_block=(__block*)calloc(sizeof(__block),_NOS*PUNIT);
 
-	p->base_block=(__block*)calloc(sizeof(__block),_NOB);
-	for(int i=0;i<_NOB; i++){
-		__block *b=&p->base_block[i];
-		b->ppa=i*_PPB;
-		b->max=_PPB;
-		b->bitset=(uint8_t*)calloc(_PPB/8,1);
-		/*
-		invalid_number,hptr,private_data,now be zero or NULL by calloc
-		 */
+	int block_idx=0;
+	for(int i=0; i<_NOS; i++){
+		int seg_idx=bb_checker_get_segid();
+		for(int j=0; j<PUNIT; j++){
+			__block *b=&p->base_block[block_idx];
+			b->block_num=seg_idx;
+			b->punit_num=j;
+			b->bitset=(uint8_t*)calloc(_PPB/8,1);
+			block_idx++;
+		}
 	}
 
 	p_info* pinfo=(p_info*)malloc(sizeof(p_info));
@@ -82,7 +90,7 @@ uint32_t pbm_create(blockmanager *bm, int pnum, int *epn){
 		pinfo->max_assign[i]=epn[i];
 		pinfo->p_channel[i]=(channel*)malloc(sizeof(channel)*BPS);
 		end=epn[i];
-		for(int j=0; j<BPS; j++){
+		for(int j=0; j<PUNIT; j++){
 			channel *c=&pinfo->p_channel[i][j];
 			q_init(&c->free_block,end-start);
 			mh_init(&c->max_heap,end-start,pt_mh_swap_hptr,pt_mh_assign_hptr,pt_get_cnt);
@@ -93,6 +101,9 @@ uint32_t pbm_create(blockmanager *bm, int pnum, int *epn){
 		}
 		start=end;
 	}
+
+	p->seg_map=rb_create();
+	p->seg_map_idx=0;
 	return 1;
 }
 
@@ -132,9 +143,17 @@ __segment* pbm_pt_get_segment(blockmanager *bm, int pnum, bool isreserve){
 		if(!isreserve)
 			mh_insert_append(pinfo->p_channel[pnum][i].max_heap,(void*)b);	
 		res->blocks[i]=b;
+		if(pnum==DATA_S){
+			b->seg_idx=p->seg_map_idx;
+		}
 	}
 	res->now=0;
 	res->max=BPS;
+	if(pnum==DATA_S){
+		res->invalid_blocks=0;
+		res->seg_idx=p->seg_map_idx++;
+		rb_insert_int(p->seg_map,res->seg_idx,(void *)res);
+	}
 
 	if(pinfo->now_assign[pnum]++>pinfo->max_assign[pnum]){
 		printf("over assgin\n");
@@ -159,22 +178,40 @@ __gsegment* pbm_pt_get_gc_target(blockmanager* bm, int pnum){
 	__gsegment *res=(__gsegment*)malloc(sizeof(__gsegment));
 	bbm_pri *p=(bbm_pri*)bm->private_data;
 	p_info *pinfo=(p_info*) p->private_data;
-
-	for(int i=0; i<BPS; i++){
-		mh_construct(pinfo->p_channel[pnum][i].max_heap);
-		__block *b=(__block*)mh_get_max(pinfo->p_channel[pnum][i].max_heap);
-		if(!b) abort();
-		res->blocks[i]=b;
-	}
 	res->now=0;
 	res->max=BPS;
+	if(pnum==DATA_S){
+		for(int i=0; i<BPS; i++){
+			mh_construct(pinfo->p_channel[pnum][i].max_heap);
+			__block *b=(__block*)mh_get_max(pinfo->p_channel[pnum][i].max_heap);
+			if(!b) abort();
+			res->blocks[i]=b;
+		}
+	}else{
+		int max_invalid=0,now_invalid=0;
+		int target_seg=0;
+		for(int i=0; i<pinfo->max_assign[pnum]; i++){
+			for(int j=0;j<BPS; j++){
+				now_invalid+=p->base_block[i*BPS+j].invalid_number;
+			}
+			if(now_invalid>max_invalid){
+				target_seg=i;
+				max_invalid=now_invalid;
+				now_invalid=0;
+			}
+		}
+
+		for(int i=0; j<BPS; j++){
+			res->blocks[i]=&p->base_block[target_seg*BPS+i];
+		}
+	}
 	return res;
 }
 
 void pbm_pt_trim_segment(blockmanager* bm, int pnum, __gsegment *target, lower_info *li){
 	bbm_pri *p=(bbm_pri*)bm->private_data;
 	p_info *pinfo=(p_info*) p->private_data;
-	
+	Redblack target_seg;
 	for(int i=0; i<BPS; i++){
 		__block *b=target->blocks[i];
 		li->trim_block(b->ppa,ASYNC);
@@ -185,6 +222,14 @@ void pbm_pt_trim_segment(blockmanager* bm, int pnum, __gsegment *target, lower_i
 		channel *c=&pinfo->p_channel[pnum][i];
 	//	mh_insert_append(c->max_heap,(void*)b);
 		q_enqueue((void*)b,c->free_block);
+		if(pnum==DATA_S){
+			rb_find_int(p->seg_map,b->seg_idx,&target_seg);
+			target_seg->invalid_blocks++;
+			if(target_seg->invalid_blocks==BPS){
+				free(target_seg->item);
+				rb_destroy(target_seg);
+			}
+		}
 	}
 
 	pinfo->now_assign[pnum]--;

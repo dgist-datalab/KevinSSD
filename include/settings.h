@@ -48,6 +48,7 @@
 #define _PPB (256)
 #define BPS (64)
 #define _PPS (_PPB*BPS)
+#define PUNIT (64)
 
 #endif
 

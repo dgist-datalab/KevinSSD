@@ -11,6 +11,8 @@ typedef struct badblock_checker_node{
 typedef struct badblock_checker{
 	bb_node ent[_RNOS];
 	uint32_t back_index;
+	uint32_t assign;
+	uint32_t max;
 }bb_checker;
 
 void bb_checker_start(lower_info*);
@@ -19,4 +21,5 @@ void bb_checker_fixing();
 uint32_t bb_checker_fix_ppa(uint32_t ppa);
 uint32_t bb_checker_fixed_segment(uint32_t ppa);
 uint32_t bb_checker_paired_segment(uint32_t ppa);
+uint32_t bb_checker_get_segid();
 #endif
