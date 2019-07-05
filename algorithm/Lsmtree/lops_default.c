@@ -12,6 +12,28 @@ extern KEYT key_min,key_max;
 #endif
 
 ppa_t def_moveTo_fr_page(bool isgc){
+	uint32_t res;
+	if(isgc){
+		if(LSM.bm->check_full(LSM.bm,d_m.active,MASTER_BLOCK)){	
+			if(LSM.bm->check_full(LSM.bm,d_m.reserve,MASTER_BLOCK)){	
+				change_new_reserve(DATA);
+			}
+			LSM.active_block=getRBlock(DATA);
+		}
+		else{
+			LSM.active_block=getBlock(DATA);
+		}
+	}else{
+		LSM.active_block=getBlock(DATA);
+	}
+#ifdef DVALUE
+	res=LSM.active_block->now_ppa*NPCINPAGE;
+	LSM.active_block->idx_of_ppa=0;
+#else
+	res=LSM.active_block->now_ppa;
+#endif
+	return res;
+/*
 	if(def_blk_fchk()){
 		if(isgc){
 			if(LSM.bm->check_full(LSM.bm,d_m.active,MASTER_BLOCK)){	
@@ -27,10 +49,6 @@ ppa_t def_moveTo_fr_page(bool isgc){
 		else{
 			LSM.active_block=getBlock(DATA);
 		}
-		/*
-		in->now_block=&bl[blockn/_PPB];
-		in->now_block->level=in->idx;
-		in->now_block->hn_ptr=llog_insert(in->h,(void*)in->now_block);*/
 	}
 #ifdef DVALUE
 	else{
@@ -43,38 +61,44 @@ ppa_t def_moveTo_fr_page(bool isgc){
 	return res;
 #endif
 	return (LSM.active_block->ppa+LSM.active_block->ppage_idx);
+	*/
 }
 
-ppa_t def_get_page(uint8_t plength){
+ppa_t def_get_page(uint8_t plength, KEYT simul_key){
 	ppa_t res=0;
-	if(LSM.active_block->ppage_idx>255){
+	if(LSM.active_block->idx_of_ppa>=NPCINPAGE){
 		abort();
 	}
 #ifdef DVALUE
-	res=LSM.active_block->ppa+LSM.active_block->ppage_idx;
+	res=LSM.active_block->now_ppa;
 	res*=NPCINPAGE;
 	res+=LSM.active_block->idx_of_ppa;
 	LSM.active_block->idx_of_ppa+=plength;
 #else
-	res=LSM.active_block->ppa+LSM.active_block->ppage_idx++;
+	res=LSM.active_block->now_ppa;
 #endif
 	/*
 	if(!LSM.active_block->bitset){
 		printf("fuck!\n");
 		abort();
 	}*/
+#ifdef EMULATOR
+	lsm_simul_put(res,simul_key);
+#endif
 	return res;
 }
 
 bool def_blk_fchk(){
 	bool res=false;
+	abort();
+	/*
 #ifdef DVALUE
 	if(!LSM.active_block || LSM.active_block->ppage_idx>=_PPB-1){
 #else
 	if(!LSM.active_block || LSM.active_block->ppage_idx==_PPB){
 #endif
 		res=true;
-	}
+	}*/
 	return res;
 }
 

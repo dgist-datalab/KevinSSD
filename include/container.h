@@ -162,7 +162,7 @@ typedef struct masterblock{
 	uint16_t now;
 	uint16_t max;
 	uint8_t* bitset;
-	uint16_t invalid_numbera;
+	uint16_t invalid_number;
 	uint32_t seg_idx;
 	void *hptr;
 	void *private_data;
@@ -190,6 +190,7 @@ struct blockmanager{
 	__block *(*pick_block)(struct blockmanager*, uint32_t page_num);
 	__segment* (*get_segment) (struct blockmanager*, bool isreserve);
 	int (*get_page_num)(struct blockmanager*, __segment*);
+	int (*pick_page_num)(struct blockmanager*, __segment*);
 	bool (*check_full)(struct blockmanager*, __segment*, uint8_t type);
 	bool (*is_gc_needed) (struct blockmanager*);
 	__gsegment* (*get_gc_target) (struct blockmanager*);
@@ -200,7 +201,6 @@ struct blockmanager{
 	bool (*is_invalid_page) (struct blockmanager*, uint32_t ppa);
 	void (*set_oob)(struct blockmanager*, char* data, int len, uint32_t ppa);
 	char *(*get_oob)(struct blockmanager*, uint32_t ppa);
-	void (*release_segment)(struct blockmanager*, __segment*);
 	__segment* (*change_reserve)(struct blockmanager *, __segment *reserve);
 
 	uint32_t (*pt_create) (struct blockmanager*, int part_num, int *each_part_seg_num, lower_info *);
@@ -216,6 +216,7 @@ struct blockmanager{
 	void *private_data;
 };
 
+#define PPAMAKER(bl,idx) ((bl)->punit_num)+(idx<<6)+((bl)->block_num)
 
 #define for_each_block(segs,block,idx)\
 	for(idx=0,block=segs->blocks[idx];idx<BPS; block=++idx>BPS?segs->blocks[idx-1]:segs->blocks[idx])
@@ -223,11 +224,11 @@ struct blockmanager{
 #define for_each_page(blocks,page,idx)\
 	for(idx=0,page=blocks->ppa; idx!=PPB; page++,idx++)
 
-#define for_each_page_in_seg(segs,block,page,bidx, pidx)\
-	for(bidx=0,page=0,block=segs->blocks[bidx];bidx<BPS;block=++bidx>BPS?segs->blocks[bidx-1]:segs->blocks[bidx])\
-		for(pidx=0, page=block->ppa; pidx<block->now; page++, pidx++)
+#define for_each_page_in_seg(segs,block,page,bidx,pidx)\
+	for(pidx=0,bidx=0;pidx<_PPB && segs->blocks[bidx]->now > pidx; pidx++)\
+		for(page=PPAMAKER(segs->blocks[bidx],pidx); bidx<BPS; bidx++)
 
 #define for_each_page_in_segA(segs,block,page,bidx, pidx)\
-	for(bidx=0,page=0,block=segs->blocks[bidx];bidx<BPS;block=++bidx>BPS?segs->blocks[bidx-1]:segs->blocks[bidx])\
-		for(pidx=0, page=block->ppa; pidx<block->max; page++, pidx++)
+	for(pidx=0,bidx=0;pidx<_PPB; pidx++)\
+		for(page=PPAMAKER(segs->blocks[bidx],pidx); bidx<BPS; bidx++)
 #endif

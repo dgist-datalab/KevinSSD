@@ -60,7 +60,9 @@ typedef struct snode{ //skiplist's node
 //#ifdef Lsmtree
 typedef struct length_bucket{
 	snode *bucket[PAGESIZE/PIECE+1][2048];
+#ifdef Lsmtree
 	gc_node **gc_bucket[NPCINPAGE+1];
+#endif
 	uint16_t idx[PAGESIZE/PIECE+1];
 	value_set** contents;
 	int contents_num;

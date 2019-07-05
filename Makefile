@@ -12,7 +12,7 @@ DEBUGFLAGS=\
 			-rdynamic\
 			-Wno-pointer-arith\
 			-g\
-#	-fsanitize=address\
+	-fsanitize=address\
 #	-DBUSE_DEBUG
 
 export COMMONFLAGS=\
@@ -25,7 +25,7 @@ export COMMONFLAGS=\
 			-D$(TARGET_BM)\
 			-Wno-unused-but-set-variable\
 			-DCHECKINGTIME\
-			-O3\
+#			-O3\
 #			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
@@ -80,7 +80,6 @@ CFLAGS +=\
 SRCS +=\
 	./interface/queue.c\
 	./interface/interface.c\
-	./interface/bb_checker.c\
 	./interface/buse.c\
 	./include/FS.c\
 	./include/slab.c\
@@ -98,6 +97,7 @@ SRCS +=\
 	./include/utils/kvssd.c\
 	./include/utils/sha256.c\
 	./blockmanager/base_block_manager.c\
+	./blockmanager/bb_checker.c\
 
 TARGETOBJ =\
 			$(patsubst %.c,%.o,$(SRCS))\
@@ -151,6 +151,7 @@ libdriver.a: $(TARGETOBJ)
 	cd ./blockmanager/$(TARGET_BM) && $(MAKE) && cd ../../
 	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) clean && $(MAKE) && cd ../../
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
+	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
 	mv ./include/data_struct/*.o ./object/
 	mv ./blockmanager/*.o ./object/
 	mv ./include/utils/*.o ./object/

@@ -582,8 +582,9 @@ run_t *array_make_run(KEYT start, KEYT end, uint32_t pbn){
 	return res;
 }
 
-KEYT *array_get_lpa_from_data(char *data,bool isheader){
+KEYT *array_get_lpa_from_data(char *data,ppa_t ppa,bool isheader){
 	KEYT *res=(KEYT*)malloc(sizeof(KEYT));
+	
 	if(isheader){
 		int idx;
 		KEYT key;
@@ -598,8 +599,14 @@ KEYT *array_get_lpa_from_data(char *data,bool isheader){
 		for_each_header_end
 	}
 	else{
+#ifdef EMULATOR
+		KEYT *t=lsm_simul_get(ppa);
+		res->len=t->len;
+		res->key=t->key;
+#else
 		res->len=*(uint8_t*)data;
 		res->key=&data[sizeof(uint8_t)];
+#endif
 	}
 	return res;
 }

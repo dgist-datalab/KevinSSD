@@ -122,7 +122,7 @@ void *poller(void *input) {
 	return NULL;
 }
 
-uint32_t aio_create(lower_info *li){
+uint32_t aio_create(lower_info *li,blockmanager *bm){
 	int ret;
 	sem_init(&sem,0,0);
 	li->NOB=_NOS;
@@ -232,7 +232,8 @@ void *aio_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,al
 	}
 	struct iocb *cb=(struct iocb*)malloc(sizeof(struct iocb));
 	cl_grap(lower_flying);
-
+	
+//	fprintf(stderr,"w %u\n",PPA);
 	//io_prep_pwrite(cb,_fd,(void*)value->value,PAGESIZE,aio_info.SOP*PPA);
 	io_prep_pwrite(cb,_fd,(void*)value->value,PAGESIZE,offset_hooker((uint64_t)aio_info.SOP*PPA,t_type));
 	cb->data=(void*)req;	
@@ -290,6 +291,7 @@ void *aio_trim_block(uint32_t PPA, bool async){
 	//range[0]=PPA*aio_info.SOP;
 	range[0]=offset_hooker((uint64_t)PPA*aio_info.SOP,TRIM);
 	range[1]=_PPB*aio_info.SOP;
+	fprintf(stderr,"T %u\n",PPA);
 	ioctl(_fd,BLKDISCARD,&range);
 	return NULL;
 }

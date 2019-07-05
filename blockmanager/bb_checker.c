@@ -12,13 +12,15 @@ void bb_checker_start(lower_info *li){
 	target_cnt=_RNOS*64;
 	printf("_nos:%ld\n",_NOS);
 	
-	if(!li->device_badblock_checker){
-		return;
-	}
+
 
 	checker.assign=0;
 	for(uint64_t i=0; i<_RNOS; i++){
 		checker.ent[i].origin_segnum=i*_PPS;
+		if(!li->device_badblock_checker){
+			_cnt+=BPS;
+			continue;
+		}
 		li->device_badblock_checker(i*_PPS,_PPS*PAGESIZE,bb_checker_process);
 		//memio_trim(mio,i*(1<<14),(1<<14)*PAGESIZE,bb_checker_process);
 	}
@@ -47,6 +49,16 @@ void *bb_checker_process(uint64_t bad_seg,uint8_t isbad){
 		fflush(stdout);
 	}
 	return NULL;
+}
+
+uint32_t bb_checker_get_segid(){
+	uint32_t res=0;
+	if(checker.ent[checker.assign].flag){
+		res=checker.ent[checker.assign++].fixed_segnum;
+	}else{
+		res=checker.ent[checker.assign++].origin_segnum;
+	}
+	return res;
 }
 
 uint32_t bb_checker_fix_ppa(uint32_t ppa){

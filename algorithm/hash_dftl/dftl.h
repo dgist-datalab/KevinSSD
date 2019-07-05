@@ -198,7 +198,7 @@ extern int32_t tgc_w_dgc_count;
 /* extern variables */
 
 //dftl.c
-uint32_t demand_create(lower_info*, algorithm*);
+uint32_t demand_create(lower_info*,blockmanager *, algorithm*);
 void demand_destroy(lower_info*, algorithm*);
 void *demand_end_req(algo_req*);
 uint32_t demand_set(request *const);

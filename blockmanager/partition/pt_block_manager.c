@@ -12,6 +12,7 @@ struct blockmanager pt_bm={
 	.pick_block=base_pick_block,
 	.get_segment=NULL,
 	.get_page_num=base_get_page_num,
+	.pick_page_num=base_pick_page_num,
 	.check_full=base_check_full,
 	.is_gc_needed=base_is_gc_needed, 
 	.get_gc_target=NULL,
@@ -22,7 +23,6 @@ struct blockmanager pt_bm={
 	.is_invalid_page=base_is_invalid_page,
 	.set_oob=base_set_oob,
 	.get_oob=base_get_oob,
-	.release_segment=base_release_segment,
 	.change_reserve=base_change_reserve,
 
 	.pt_create=pbm_create,
@@ -53,11 +53,53 @@ int pt_get_cnt(void *a){
 	__block *aa=(__block*)a;
 	return aa->invalid_number;
 }
+void pbm_create_print(blockmanager *bm, int pnum){
+	bbm_pri *p=(bbm_pri*)bm->private_data;
+	p_info *pinfo=(p_info*)p->private_data;
+/*
+	for(int i=0; i<pnum; i++){
+		if(i==DATA_S){
+			printf("[DATA SEG INFO]\n");
+		}
+		else{
+			printf("[MAP SEG INFO]\n");	
+		}
+
+		channel *c=&pinfo->p_channel[i][0];
+		queue *t_q=c->free_block;
+		__block *b;
+		for_each_rqueue_type(t_q,b,__block*){
+			printf("%d ",b->block_num);	
+		}
+		printf("\n");
+	}
+*/	
+	__segment *d,*m;
+	d=pbm_pt_get_segment(bm,DATA_S,false);
+	m=pbm_pt_get_segment(bm,MAP_S,false);
+
+	int page;	
+	int idx=0;
+	printf("MAP SEG blocks\n");
+	while((page=base_get_page_num(bm,m))!=-1){
+		if(idx==16383){
+			printf("break!\n");
+		}
+		printf("[%d]:%d\n",idx++,page);
+	}
+
+	printf("DATA SEG blocks\n");
+	idx=0;
+	while((page=base_get_page_num(bm,d))!=-1){
+		printf("[%d]:%d\n",idx++,page);
+	}
+
+	exit(1);
+}
 
 uint32_t pbm_create(blockmanager *bm, int pnum, int *epn, lower_info *li){
 	bm->li=li;
 	bb_checker_start(bm->li);
-
 
 	bbm_pri *p=(bbm_pri*)malloc(sizeof(bbm_pri));
 	bm->private_data=(void*)p;
@@ -78,7 +120,6 @@ uint32_t pbm_create(blockmanager *bm, int pnum, int *epn, lower_info *li){
 
 	p_info* pinfo=(p_info*)malloc(sizeof(p_info));
 	p->private_data=(void*)pinfo;
-
 	pinfo->pnum=pnum;
 	pinfo->now_assign=(int*)malloc(sizeof(int)*pnum);
 	pinfo->max_assign=(int*)malloc(sizeof(int)*pnum);
@@ -104,6 +145,7 @@ uint32_t pbm_create(blockmanager *bm, int pnum, int *epn, lower_info *li){
 
 	p->seg_map=rb_create();
 	p->seg_map_idx=0;
+//	pbm_create_print(bm,pnum);
 	return 1;
 }
 
@@ -201,8 +243,8 @@ __gsegment* pbm_pt_get_gc_target(blockmanager* bm, int pnum){
 			}
 		}
 
-		for(int i=0; j<BPS; j++){
-			res->blocks[i]=&p->base_block[target_seg*BPS+i];
+		for(int j=0; j<BPS; j++){
+			res->blocks[j]=&p->base_block[target_seg*BPS+j];
 		}
 	}
 	return res;
@@ -211,10 +253,12 @@ __gsegment* pbm_pt_get_gc_target(blockmanager* bm, int pnum){
 void pbm_pt_trim_segment(blockmanager* bm, int pnum, __gsegment *target, lower_info *li){
 	bbm_pri *p=(bbm_pri*)bm->private_data;
 	p_info *pinfo=(p_info*) p->private_data;
-	Redblack target_seg;
+	Redblack target_node;
+	__segment *target_seg;
+
 	for(int i=0; i<BPS; i++){
 		__block *b=target->blocks[i];
-		li->trim_block(b->ppa,ASYNC);
+		li->trim_block(GETBLOCKPPA(b),ASYNC);
 		b->invalid_number=0;
 		b->now=0;
 		memset(b->bitset,0,_PPB/8);
@@ -223,11 +267,12 @@ void pbm_pt_trim_segment(blockmanager* bm, int pnum, __gsegment *target, lower_i
 	//	mh_insert_append(c->max_heap,(void*)b);
 		q_enqueue((void*)b,c->free_block);
 		if(pnum==DATA_S){
-			rb_find_int(p->seg_map,b->seg_idx,&target_seg);
+			rb_find_int(p->seg_map,b->seg_idx,&target_node);
+			target_seg=(__segment*)target_node->item;
 			target_seg->invalid_blocks++;
 			if(target_seg->invalid_blocks==BPS){
-				free(target_seg->item);
-				rb_destroy(target_seg);
+				free(target_seg);
+				rb_delete(target_node);
 			}
 		}
 	}

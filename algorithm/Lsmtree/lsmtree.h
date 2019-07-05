@@ -17,6 +17,7 @@
 #include "../../include/utils/dl_sync.h"
 #include "../../include/types.h"
 #include "../../include/sem_lock.h"
+#include "../../include/data_struct/redblack.h"
 #include "../../interface/interface.h"
 
 #ifdef DVALUE
@@ -113,6 +114,9 @@ typedef struct lsmtree{
 	uint32_t check_cnt;
 	uint32_t needed_valid_page;
 	uint32_t target_gc_page;
+#ifdef EMULATOR
+	Redblack rb_ppa_key;
+#endif
 
 #ifdef DVALUE
 	/*data caching*/
@@ -160,6 +164,12 @@ void htable_check(htable *in,KEYT lpa,ppa_t ppa,char *);
 uint32_t lsm_multi_set(request *const, uint32_t num);
 uint32_t lsm_range_get(request *const);
 uint32_t lsm_memory_size();
+#define EMULATOR
+uint32_t lsm_simul_put(ppa_t ppa, KEYT key); //copy the value
+KEYT* lsm_simul_get(ppa_t ppa); //copy the value
+void lsm_simul_del(ppa_t ppa);
+#endif
+
 /*
 void lsm_save(lsmtree *);
 void lsm_trim_set(value_set* ,uint8_t *);

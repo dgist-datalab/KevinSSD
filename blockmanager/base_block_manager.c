@@ -10,6 +10,7 @@ struct blockmanager base_bm={
 	.pick_block=base_pick_block,
 	.get_segment=base_get_segment,
 	.get_page_num=base_get_page_num,
+	.pick_page_num=base_pick_page_num,
 	.check_full=base_check_full,
 	.is_gc_needed=base_is_gc_needed, 
 	.get_gc_target=base_get_gc_target,
@@ -20,11 +21,7 @@ struct blockmanager base_bm={
 	.is_invalid_page=base_is_invalid_page,
 	.set_oob=base_set_oob,
 	.get_oob=base_get_oob,
-	.release_segment=base_release_segment,
 	.change_reserve=base_change_reserve,
-
-	.map_ppa=base_map_ppa,
-	.map_pt_ppa=NULL,
 
 	.pt_create=NULL,
 	.pt_destroy=NULL,
@@ -167,10 +164,11 @@ __gsegment* base_get_gc_target (struct blockmanager* bm){
 
 void base_trim_segment (struct blockmanager* bm, __gsegment* gs, struct lower_info* li){
 	bbm_pri *p=(bbm_pri*)bm->private_data;
-	Redblack target_seg;
+	Redblack target_node;
+	__segment *target_seg;
 	for(int i=0; i<BPS; i++){
 		__block *b=gs->blocks[i];
-		li->trim_block(b->ppa,ASYNC);
+		li->trim_block(GETBLOCKPPA(b),ASYNC);
 		b->invalid_number=0;
 		b->now=0;
 		memset(b->bitset,0,_PPB/8);
@@ -178,11 +176,12 @@ void base_trim_segment (struct blockmanager* bm, __gsegment* gs, struct lower_in
 		channel* c=&p->base_channel[i];
 	//	mh_insert_append(c->max_heap,(void*)b);
 		q_enqueue((void*)b,c->free_block);
-		rb_find_int(p->seg_map,b->seg_idx,&target_seg);
+		rb_find_int(p->seg_map,b->seg_idx,&target_node);
+		target_seg=(__segment*)target_node->item;
 		target_seg->invalid_blocks++;
 		if(target_seg->invalid_blocks==BPS){
-			free(target_seg->item);
-			rb_destroy(target_seg);
+			free(target_seg);
+			rb_delete(target_node);
 		}
 	}
 }
@@ -247,38 +246,57 @@ void base_release_segment(struct blockmanager* bm, __segment *s){
 }
 
 int base_get_page_num(struct blockmanager* bm,__segment *s){
-	if(s->now==s->max) return -1;
+	if(s->now==0){
+		if(s->blocks[BPS-1]->now==_PPB) return -1;
+	}
+
 	int blocknumber=s->now++;
 	if(s->now==BPS) s->now=0;
 	__block *b=s->blocks[blocknumber];
-	uint32_t paget=b->now++;
-	
-	int res=b->block_num<<14;
-	res|=page<<6;
-	res|=b->punit_num;
+	uint32_t page=b->now++;
+	int res=b->block_num;
+	res+=page<<6;
+	res+=b->punit_num;
 
 	if(page>_PPB) abort();
 	return res;
 }
 
+int base_pick_page_num(struct blockmanager* bm,__segment *s){
+	if(s->now==0){
+		if(s->blocks[BPS-1]->now==_PPB) return -1;
+	}
+
+	int blocknumber=s->now;
+	if(s->now==BPS) s->now=0;
+	__block *b=s->blocks[blocknumber];
+	uint32_t page=b->now;
+	int res=b->block_num;
+	res+=page<<6;
+	res+=b->punit_num;
+
+	if(page>_PPB) abort();
+	return res;
+}
 
 bool base_check_full(struct blockmanager *bm,__segment *active, uint8_t type){
 	bool res=false;
-	__block *b=active->blocks[active->now];
+//	__block *b=active->blocks[active->now];
 	switch(type){
 		case MASTER_SEGMENT:
 			break;
+		case MASTER_PAGE:
 		case MASTER_BLOCK:
-			if(avtive->blocks[_BPS]->now==_PPB){
+			if(active->blocks[BPS-1]->now==_PPB){
 				res=true;
 			}
 			break;
-		case MASTER_PAGE:
+			/*
 			if(active->now >= active->max){
 				res=true;
 				abort();
 			}
-			break;
+			break;*/
 	}
 	return res;
 }

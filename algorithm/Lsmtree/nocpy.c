@@ -80,14 +80,14 @@ uint32_t nocpy_size(){
 }
 
 void nocpy_trim_delay_enq(uint32_t ppa){
-	static int cnt=1;
-	for(uint32_t i=ppa; i<ppa+_PPB; i++){
-		if(!q_enqueue((void*)page[i],delayed_trim_queue)){
+	//static int cnt=1;
+	//for(uint32_t i=ppa; i<ppa+_PPB; i++){
+		if(!q_enqueue((void*)page[ppa],delayed_trim_queue)){
 			printf("error in nocpy_enqueue!\n");
 			abort();
 		}	
-		page[i]=NULL;
-	}
+		page[ppa]=NULL;
+	//}
 }
 
 void nocpy_trim_delay_flush(){

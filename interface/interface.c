@@ -313,11 +313,11 @@ void inf_init(int apps_flag, int total_num){
 	int temp[PARTNUM];
 	temp[MAP_S]=MAPPART_SEGS;
 	temp[DATA_S]=DATAPART_SEGS;
-	mp.bm->pt_create(mp.bm,PARTNUM,temp);
+	mp.bm->pt_create(mp.bm,PARTNUM,temp,mp.li);
 #else
 	mp.bm->create(mp.bm);
 #endif
-	mp.li->create(mp.li);
+	mp.li->create(mp.li,mp.bm);
 	mp.algo->create(mp.li,mp.bm,mp.algo);
 }
 

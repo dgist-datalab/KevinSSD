@@ -7,10 +7,15 @@
 			a!=-1;\
 			a=q_dequeue_int(q))
 
-#define for_each_reqqueue(q,a)\
+#define for_each_rqueue(q,a)\
 	for(a=q_dequeue(q);\
 			a!=NULL;\
 			a=q_dequeue(q))
+
+#define for_each_rqueue_type(q,a,type)\
+	for(a=(type)q_dequeue(q);\
+			a!=NULL;\
+			a=(type)q_dequeue(q))
 
 typedef struct node{
 	union{

@@ -132,7 +132,7 @@ keyset_iter* array_header_get_keyiter(level *, char *,KEYT *);
 keyset array_header_next_key(level *, keyset_iter *);
 void array_header_next_key_pick(level *, keyset_iter *, keyset *res);
 
-KEYT *array_get_lpa_from_data(char *data,bool isheader);
+KEYT *array_get_lpa_from_data(char *data,ppa_t simul_ppa,bool isheader);
 int array_binary_search(run_t *body,uint32_t max_t, KEYT lpa);
 //int array_lowerbound_search(run_t *body,uint32_t max_t, KEYT lpa);
 int array_bound_search(run_t *body,uint32_t max_t, KEYT lpa,bool islower);

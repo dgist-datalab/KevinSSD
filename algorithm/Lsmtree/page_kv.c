@@ -58,9 +58,9 @@ int gc_header(){
 			continue;
 		}
 #ifdef NOCPY
-		KEYT *lpa=LSM.lop->get_lpa_from_data((char*)tables[i]->nocpy_table,true);
+		KEYT *lpa=LSM.lop->get_lpa_from_data((char*)tables[i]->nocpy_table,tpage,true);
 #else
-		KEYT *lpa=LSM.lop->get_lpa_from_data((char*)tables[i]->sets,true);
+		KEYT *lpa=LSM.lop->get_lpa_from_data((char*)tables[i]->sets,tpage,true);
 #endif
 		run_t **entries=NULL;
 		run_t *target_entry=NULL;
@@ -128,9 +128,13 @@ int gc_header(){
 	}
 
 	free(tables);
-	for_each_block(tseg,tblock,bidx){
-		nocpy_trim_delay_enq(tblock->ppa);
-		lb_free((lsm_block*)tblock->private_data);
+
+	int idx=0;
+	for_each_page_in_segA(tseg,tblock,tpage,bidx,pidx){
+		nocpy_trim_delay_enq(tpage);
+		if(idx!=0 && idx%63==0){
+			lb_free((lsm_block*)tblock->private_data);
+		}
 	}
 	bm->pt_trim_segment(bm,MAP_S,tseg,LSM.li);
 	change_reserve_to_active(HEADER);
@@ -238,7 +242,10 @@ int __gc_data(){
 			}
 
 			used_page=true;
-			lpa=LSM.lop->get_lpa_from_data(&((char*)tables[i]->sets)[PIECE*j],false);
+			lpa=LSM.lop->get_lpa_from_data(&((char*)tables[i]->sets)[PIECE*j],t_ppa,false);
+	#define EMULATOR
+			lsm_simul_del(t_ppa);
+	#endif
 			oob_len=foot->map[j];
 
 			if(oob_len==NPCINPAGE && oob_len%NPCINPAGE==0){
@@ -261,7 +268,7 @@ int __gc_data(){
 		else continue;
 #else 
 		t_ppa=tpage;
-		lpa=LSM.lop->get_lpa_from_data((char*)tables[i]->sets,false);
+		lpa=LSM.lop->get_lpa_from_data((char*)tables[i]->sets,t_ppa,false);
 		temp_g=gc_data_write_new_page(t_ppa,NULL,tables[i],NPCINPAGE,lpa);
 #endif
 make_bucket:

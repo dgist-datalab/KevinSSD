@@ -6,6 +6,7 @@
 #include "../include/data_struct/redblack.h"
 #define GETBLOCKIDX(value) ((value>>14)*PUNIT+value%PUNIT)
 #define GETPAGEIDX(value) ((value>>6)&0xff)
+#define GETBLOCKPPA(bl) (((bl)->block_num<<14)|((bl)->punit_num))
 
 typedef struct channel{
 	queue *free_block;
@@ -39,6 +40,7 @@ char* base_get_oob(struct blockmanager*, uint32_t ppa);
 void base_release_segment(struct blockmanager*, __segment *);
 __segment* base_change_reserve(struct blockmanager* ,__segment *reserve);
 int base_get_page_num(struct blockmanager* ,__segment *);
+int base_pick_page_num(struct blockmanager* ,__segment *);
 
 uint32_t base_map_ppa(struct blockmanager* , uint32_t lpa);
 #endif

@@ -225,6 +225,10 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 #ifdef NOCPY
 	nocpy_init();
 #endif
+
+#ifdef EMULATOR
+	LSM.rb_ppa_key=rb_create();
+#endif
 	//measure_init(&__get_mt);
 	return 0;
 }

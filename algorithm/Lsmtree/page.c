@@ -34,7 +34,7 @@ void pm_init(){
 	map_m.active=NULL;
 }
 
-lsm_block* lb_init(uint8_t type, uint32_t ppa){
+lsm_block* lb_init(uint8_t type){
 	lsm_block *lb;
 	lb=(lsm_block*)calloc(sizeof(lsm_block),1);
 	lb->erased=true;
@@ -45,7 +45,6 @@ lsm_block* lb_init(uint8_t type, uint32_t ppa){
 		lb->bitset=(uint8_t *)calloc(sizeof(uint8_t),_PPB*NPCINPAGE/8);
 #endif
 	}
-	lb->ppa=ppa;
 	return lb;
 }
 
@@ -62,6 +61,11 @@ uint32_t getPPA(uint8_t type, KEYT lpa, bool b){
 	pm *t;
 	blockmanager *bm=LSM.bm;
 	uint32_t res=-1;
+	static int cnt=0;
+	cnt++;
+	if(cnt==16385){
+		printf("break!\n");
+	}
 retry:
 	if(type==DATA){
 		t=&d_m;
@@ -70,7 +74,6 @@ retry:
 				gc_data();
 				goto retry;
 			}
-			bm->release_segment(bm,t->active);
 			t->active=bm->pt_get_segment(bm,DATA_S,false);
 		}
 	}else if(type==HEADER){
@@ -81,7 +84,6 @@ retry:
 				gc_header();
 				goto retry;
 			}
-			bm->release_segment(bm,t->active);
 			t->active=bm->pt_get_segment(bm,MAP_S,false);
 		}
 	}
@@ -90,6 +92,9 @@ retry:
 		abort();
 	}
 	res=bm->get_page_num(bm,t->active);
+	if(res==-1){
+		printf("cnt:%d\n",cnt);
+	}
 //	printf("%d\n",res);
 	return res;
 }
@@ -114,6 +119,7 @@ uint32_t getRPPA(uint8_t type,KEYT lpa, bool b){
 lsm_block* getBlock(uint8_t type){
 	pm *t;
 	blockmanager *bm=LSM.bm;
+
 retry:
 	if(type==DATA){
 		t=&d_m;
@@ -123,7 +129,6 @@ retry:
 				gc_data();
 				goto retry;
 			}
-			bm->release_segment(bm,t->active);
 			t->active=bm->pt_get_segment(bm,DATA_S,false);
 		}
 	}else if(type==HEADER){
@@ -133,7 +138,6 @@ retry:
 				gc_header();
 				goto retry;
 			}
-			bm->release_segment(bm,t->active);
 			t->active=bm->pt_get_segment(bm,DATA_S,false);
 		}
 	}
@@ -141,17 +145,20 @@ retry:
 		printf("fuck! no type getPPA");
 		abort();
 	}
+	
+	//__block *res=bm->get_block(bm,t->active);
+	ppa_t pick_ppa=bm->get_page_num(bm,t->active);
 
-	__block *res=bm->get_block(bm,t->active);
+	__block *res=bm->pick_block(bm,pick_ppa);
 	lsm_block *lb;
 	if(!res->private_data){
-		lb=lb_init(type,res->ppa);
+		lb=lb_init(type);
 		res->private_data=(void*)lb;
+	}else{
+		lb=(lsm_block*)res->private_data;
 	}
-	else{
-		printf("can't be\n");
-		abort();
-	}
+
+	lb->now_ppa=pick_ppa;
 	return lb;
 }
 lsm_block* getRBlock(uint8_t type){
@@ -167,16 +174,17 @@ lsm_block* getRBlock(uint8_t type){
 		abort();
 	}
 
-	__block *res=bm->get_block(bm,t->reserve);
+	ppa_t pick_ppa=bm->pick_page_num(bm,t->active);
+	__block *res=bm->pick_block(bm,pick_ppa);
 	lsm_block *lb;
 	if(!res->private_data){
-		lb=lb_init(type,res->ppa);
+		lb=lb_init(type);
 		res->private_data=(void*)lb;
 	}
 	else{
-		printf("can't be\n");
-		abort();
+		lb=(lsm_block*)res->private_data;
 	}
+	lb->now_ppa=pick_ppa;
 	return lb;
 }
 
@@ -287,7 +295,7 @@ bool gc_dynamic_checker(bool last_comp_flag){
 	calc/=(LSM.check_cnt+1);
 	LSM.needed_valid_page=calc;
 	LSM.check_cnt++;
-	printf("%d %d(integ, now) - %d\n",LSM.needed_valid_page,LSM.last_level_comp_term, test);
+	//printf("%d %d(integ, now) - %d\n",LSM.needed_valid_page,LSM.last_level_comp_term, test);
 	LSM.last_level_comp_term=0;
 	return res;
 }
@@ -344,7 +352,6 @@ void change_new_reserve(uint8_t type){
 	}
 	__segment *old=t->reserve;
 	t->reserve=bm->change_pt_reserve(bm,pt_num,t->reserve);
-	bm->release_segment(bm,old);
 }
 
 void change_reserve_to_active(uint8_t type){
@@ -361,26 +368,31 @@ void change_reserve_to_active(uint8_t type){
 			pt_num=MAP_S;
 			break;
 	}
-	bm->release_segment(bm,t->active);
 	t->active=t->reserve;
 	t->reserve=bm->change_pt_reserve(bm,pt_num,t->reserve);
 }	
 #ifdef DVALUE
 void validate_piece(lsm_block *b, uint32_t ppa){
-	uint32_t check_idx=ppa%(_PPB*NPCINPAGE);
+	uint32_t pc_idx=ppa%NPCINPAGE;
+	ppa/=NPCINPAGE;
+	uint32_t page=(ppa>>6)&0xff;
+	uint32_t check_idx=page*NPCINPAGE+pc_idx;
 	uint32_t bit_idx=check_idx/8;
 	uint32_t bit_off=check_idx%8;
-
-	if(b->bitset[bit_idx]&(1<<bit_off))
+	if(b->bitset[bit_idx]&(1<<bit_off)){
+		printf("%d\n",ppa);
 		abort();
+	}
 	b->bitset[bit_idx]|=(1<<bit_off);
 }
 
 void invalidate_piece(lsm_block *b, uint32_t ppa){
-	uint32_t check_idx=ppa%(_PPB*NPCINPAGE);
+	uint32_t pc_idx=ppa%NPCINPAGE;
+	ppa/=NPCINPAGE;
+	uint32_t page=(ppa>>6)&0xff;
+	uint32_t check_idx=page*NPCINPAGE+pc_idx;
 	uint32_t bit_idx=check_idx/8;
 	uint32_t bit_off=check_idx%8;
-
 	if(!(b->bitset[bit_idx]&(1<<bit_off)))
 		abort();
 	b->bitset[bit_idx]&=~(1<<bit_off);

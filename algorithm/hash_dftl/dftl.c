@@ -160,7 +160,7 @@ static void print_algo_log() {
 
 
 extern int rq_create();
-uint32_t demand_create(lower_info *li, algorithm *algo){
+uint32_t demand_create(lower_info *li,blockmanager*, algorithm *algo){
 	/* Initialize pre-defined values by using macro */
 	num_page        = _NOP;
 #ifdef DVALUE

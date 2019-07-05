@@ -39,9 +39,8 @@ typedef struct lsm_block{
 #ifdef DVALUE
 	uint8_t *bitset;
 #endif
-	uint32_t ppa;
 	uint32_t idx_of_ppa;
-	uint32_t ppage_idx;
+	uint32_t now_ppa;
 	uint8_t level;
 }lsm_block;
 
