@@ -62,10 +62,6 @@ uint32_t getPPA(uint8_t type, KEYT lpa, bool b){
 	blockmanager *bm=LSM.bm;
 	uint32_t res=-1;
 	static int cnt=0;
-	cnt++;
-	if(cnt==16385){
-		printf("break!\n");
-	}
 retry:
 	if(type==DATA){
 		t=&d_m;
@@ -92,7 +88,7 @@ retry:
 		abort();
 	}
 	res=bm->get_page_num(bm,t->active);
-	if(res==-1){
+	if(res==UINT_MAX){
 		printf("cnt:%d\n",cnt);
 	}
 //	printf("%d\n",res);
@@ -148,7 +144,6 @@ retry:
 	
 	//__block *res=bm->get_block(bm,t->active);
 	ppa_t pick_ppa=bm->get_page_num(bm,t->active);
-
 	__block *res=bm->pick_block(bm,pick_ppa);
 	lsm_block *lb;
 	if(!res->private_data){
@@ -195,6 +190,10 @@ void invalidate_PPA(uint8_t type,uint32_t ppa){
 #ifdef DVALUE
 			t_p=t_p/NPCINPAGE;
 			invalidate_piece((lsm_block*)LSM.bm->pick_block(LSM.bm,t_p)->private_data,ppa);
+#endif
+
+#ifdef EMULATOR
+			lsm_simul_del(ppa);
 #endif
 			break;
 		case HEADER:
@@ -350,7 +349,6 @@ void change_new_reserve(uint8_t type){
 			pt_num=MAP_S;
 			break;
 	}
-	__segment *old=t->reserve;
 	t->reserve=bm->change_pt_reserve(bm,pt_num,t->reserve);
 }
 
@@ -398,11 +396,14 @@ void invalidate_piece(lsm_block *b, uint32_t ppa){
 	b->bitset[bit_idx]&=~(1<<bit_off);
 }
 
-bool is_invalid_piece(lsm_block *lb, uint32_t ppa){
-	uint32_t check_idx=ppa%(_PPB*NPCINPAGE);
+bool is_invalid_piece(lsm_block *b, uint32_t ppa){
+	uint32_t pc_idx=ppa%NPCINPAGE;
+	ppa/=NPCINPAGE;
+	uint32_t page=(ppa>>6)&0xff;
+	uint32_t check_idx=page*NPCINPAGE+pc_idx;
 	uint32_t bit_idx=check_idx/8;
 	uint32_t bit_off=check_idx%8;
 
-	return !(lb->bitset[bit_idx] & (1<<bit_off));
+	return !(b->bitset[bit_idx] & (1<<bit_off));
 }
 #endif

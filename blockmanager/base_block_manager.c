@@ -94,7 +94,7 @@ uint32_t base_destroy (struct blockmanager* bm){
 	free(p->base_oob);
 	free(p->base_block);
 
-	rb_delete(p->seg_map);
+	rb_delete(p->seg_map,true);
 	for(int i=0; i<BPS; i++){
 		channel *c=&p->base_channel[i];
 		q_free(c->free_block);
@@ -126,6 +126,7 @@ __segment* base_get_segment (struct blockmanager* bm, bool isreserve){
 	res->max=BPS;
 	res->invalid_blocks=0;
 	res->seg_idx=p->seg_map_idx++;
+	res->used_page_num=0;
 
 	rb_insert_int(p->seg_map,res->seg_idx,(void*)res);
 	return res;
@@ -181,7 +182,7 @@ void base_trim_segment (struct blockmanager* bm, __gsegment* gs, struct lower_in
 		target_seg->invalid_blocks++;
 		if(target_seg->invalid_blocks==BPS){
 			free(target_seg);
-			rb_delete(target_node);
+			rb_delete(target_node,true);
 		}
 	}
 }
@@ -257,7 +258,8 @@ int base_get_page_num(struct blockmanager* bm,__segment *s){
 	int res=b->block_num;
 	res+=page<<6;
 	res+=b->punit_num;
-
+	
+	s->used_page_num++;
 	if(page>_PPB) abort();
 	return res;
 }

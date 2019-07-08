@@ -197,7 +197,7 @@ Redblack rb_create (void)
  * the reference <node> is NULL, then it will not be set.
  *
  */
-int rb_find_int(Redblack rb,int key,Redblack *node)
+int rb_find_int(Redblack rb,uint32_t key,Redblack *node)
 {
 	Redblack x = root(rb);
 
@@ -270,7 +270,7 @@ int rb_find_fnt(Redblack rb,char *key,	Redblack *node,	int (*func)(char*, char*)
  * Insert <item> into the red-black tree <rb> using the integer <key>.
  *
  */
-Redblack rb_insert_int(	Redblack rb,int key,void *item)
+Redblack rb_insert_int(	Redblack rb,uint32_t key,void *item)
 {
 	Redblack x = root(rb), y = x, z, r;
 
@@ -544,7 +544,7 @@ Redblack rb_insert_fnt(	Redblack rb,char *key,void *item,int (*func)(char *,char
  * Delete <node> from its red-black tree.
  *
  */
-void rb_delete(Redblack node)
+void rb_delete(Redblack node,bool isint)
 {
 	Redblack x, sib;
 	int balance;
@@ -628,9 +628,11 @@ void rb_delete(Redblack node)
 	node->next->prev = node->prev;
 	node->prev->next = node->next;
 #endif
-
-	free(node->key.key);
-	free(node);
+	
+	if(!isint){
+		free(node->key.key);
+		free(node);
+	}
 
 	if (!balance || issentinel(sib))
 		return;
@@ -720,7 +722,7 @@ void rb_delete_item(Redblack node,int key,int item)
 		free(node->k.key);
 	if (item)
 		free(node->item);
-	rb_delete(node);
+	rb_delete(node,true);
 }
 
 
@@ -731,7 +733,7 @@ void rb_delete_item(Redblack node,int key,int item)
  * and/or <items> are true, free them too.
  *
  */
-void rb_clear(Redblack rb,int keys,	int items)
+void rb_clear(Redblack rb,int keys,	int items, bool isint)
 {
 	Redblack node = rb_first(rb), next;
 
@@ -739,12 +741,12 @@ void rb_clear(Redblack rb,int keys,	int items)
 
 	while (node != rb) {
 		next = rb_next(node);
-		if (keys)
+		if (keys && !isint)
 			free(node->k.key);
 		if (items)
 			free(node->item);
 		/*	printf("freeing node 0x%x\n", node); */
-		rb_delete(node);
+		rb_delete(node,isint);
 		node = next;
 	}
 
@@ -762,9 +764,9 @@ void rb_clear(Redblack rb,int keys,	int items)
  * flags <keys> and/or <items> are true, free them too.
  *
  */
-void rb_destroy(Redblack rb,int keys,int items)
+void rb_destroy(Redblack rb,int keys,int items, bool isint)
 {
-	rb_clear(rb, keys, items);
+	rb_clear(rb, keys, items,isint);
 	free(rb);
 }
 

@@ -48,19 +48,6 @@ int main(int argc,char* argv[]){
 	bench_add(RANDRW,0,RANGE,MAXKEYNUMBER/5*2);
 //	bench_add(RANDSET,0,RANGE,4096);
 
-//	bench_add(SEQRW,0,RANGE,REQNUM*2);
-//	bench_add(RANDSET,0,RANGE,REQNUM*2);
-//	bench_add(RANDRW,0,RANGE,REQNUM*2);
-	
-//	bench_add(RANDGET,0,RANGE,RANGE);
-//	bench_add(RANDSET,0,RANGE,RANGE);
-//	bench_add(SEQGET,0,RANGE,RANGE);
-//	bench_add(RANDSET,0,RANGE,RANGE);
-//	bench_add(MIXED,0,RANGE,RANGE/2);
-//	bench_add(SEQLATENCY,0,RANGE,RANGE);
-//	bench_add(RANDSET,0,RANGE,RANGE);
-//	bench_add(RANDLATENCY,0,RANGE,RANGE-RANGE/10);
-
 //	bench_add(NOR,0,-1,-1);
 	bench_value *value;
 

@@ -6,7 +6,7 @@
 #include "../include/data_struct/redblack.h"
 #define GETBLOCKIDX(value) ((value>>14)*PUNIT+value%PUNIT)
 #define GETPAGEIDX(value) ((value>>6)&0xff)
-#define GETBLOCKPPA(bl) (((bl)->block_num<<14)|((bl)->punit_num))
+#define GETBLOCKPPA(bl) (((bl)->block_num)+((bl)->punit_num))
 
 typedef struct channel{
 	queue *free_block;

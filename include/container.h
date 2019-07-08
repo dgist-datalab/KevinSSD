@@ -173,6 +173,7 @@ typedef struct mastersegment{
 	__block* blocks[BPS];
 	uint16_t now;
 	uint16_t max;
+	uint32_t used_page_num;
 	uint8_t invalid_blocks;
 	void *private_data;
 }__segment;
@@ -224,11 +225,12 @@ struct blockmanager{
 #define for_each_page(blocks,page,idx)\
 	for(idx=0,page=blocks->ppa; idx!=PPB; page++,idx++)
 
-#define for_each_page_in_seg(segs,block,page,bidx,pidx)\
-	for(pidx=0,bidx=0;pidx<_PPB && segs->blocks[bidx]->now > pidx; pidx++)\
-		for(page=PPAMAKER(segs->blocks[bidx],pidx); bidx<BPS; bidx++)
+#define for_each_page_in_seg(segs,page,bidx,pidx)\
+	for(pidx=0;pidx<_PPB; pidx++)\
+		for(bidx=0,page=PPAMAKER(segs->blocks[bidx],pidx); bidx<BPS; bidx++,page=PPAMAKER(segs->blocks[(bidx!=BPS?bidx:BPS-1)],pidx))
 
-#define for_each_page_in_segA(segs,block,page,bidx, pidx)\
-	for(pidx=0,bidx=0;pidx<_PPB; pidx++)\
-		for(page=PPAMAKER(segs->blocks[bidx],pidx); bidx<BPS; bidx++)
+
+#define for_each_page_in_seg_blocks(segs,block,page,bidx,pidx)\
+	for(pidx=0;pidx<_PPB; pidx++)\
+		for(bidx=0,block=segs->blocks[bidx],page=PPAMAKER(segs->blocks[bidx],pidx); bidx<BPS; bidx++,page=PPAMAKER(segs->blocks[(bidx!=BPS?bidx:BPS-1)],pidx),block=segs->blocks[(bidx!=BPS?bidx:BPS-1)])
 #endif

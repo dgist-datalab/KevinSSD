@@ -23,7 +23,7 @@ extern pm map_m;
 
 #ifdef KVSSD
 int gc_header(){
-	printf("gc_header\n");
+//	printf("gc_header\n");
 	gc_general_wait_init();
 
 	blockmanager *bm=LSM.bm;
@@ -35,13 +35,12 @@ int gc_header(){
 
 	htable_t **tables=(htable_t**)malloc(sizeof(htable_t*)*_PPS);
 		
-	__block *tblock;
 	uint32_t tpage=0;
 	int bidx=0;
 	int pidx=0;
 	int i=0;
-
-	for_each_page_in_seg(tseg,tblock,tpage,bidx,pidx){
+	
+	for_each_page_in_seg(tseg,tpage,bidx,pidx){
 		if(bm->is_invalid_page(bm, tpage)){
 			continue;
 		}
@@ -53,7 +52,9 @@ int gc_header(){
 	gc_general_waiting();
 
 	i=0;
-	for_each_page_in_seg(tseg,tblock,tpage,bidx,pidx){
+	int idx_cnt=0;
+	for_each_page_in_seg(tseg,tpage,bidx,pidx){
+	//	printf("[%d]tpage:%u\n",idx_cnt++,tpage);
 		if(bm->is_invalid_page(bm, tpage)){
 			continue;
 		}
@@ -102,7 +103,9 @@ int gc_header(){
 
 
 		if(checkdone==false){
-			KEYT temp=*lpa;	
+			KEYT temp=*lpa;
+			//LSM.lop->all_print();
+			//LSM.lop->print(LSM.c_level);
 			printf("[%.*s : %u]error!\n",KEYFORMAT(temp),tpage);
 			abort();
 		}
@@ -129,11 +132,10 @@ int gc_header(){
 
 	free(tables);
 
-	int idx=0;
-	for_each_page_in_segA(tseg,tblock,tpage,bidx,pidx){
+	for_each_page_in_seg(tseg,tpage,bidx,pidx){
 		nocpy_trim_delay_enq(tpage);
-		if(idx!=0 && idx%63==0){
-			lb_free((lsm_block*)tblock->private_data);
+		if(pidx==0){
+			lb_free((lsm_block*)tseg->blocks[bidx]->private_data);
 		}
 	}
 	bm->pt_trim_segment(bm,MAP_S,tseg,LSM.li);
@@ -146,10 +148,11 @@ gc_node *gc_data_write_new_page(uint32_t t_ppa, char *data, htable_t *table, uin
 	gc_node *res=(gc_node *)malloc(sizeof(gc_node));
 	uint32_t n_ppa;
 	res->plength=piece;
+	kvssd_cpy_key(&res->lpa,lpa);
 	if(piece==NPCINPAGE){
 		res->value=NULL;
 		LSM.lop->moveTo_fr_page(true);
-		n_ppa=LSM.lop->get_page(NPCINPAGE);
+		n_ppa=LSM.lop->get_page(NPCINPAGE,res->lpa);
 		footer *foot=(footer*)pm_get_oob(n_ppa,DATA);
 		foot->map[0]=NPCINPAGE;
 		validate_PPA(DATA,n_ppa);
@@ -160,7 +163,6 @@ gc_node *gc_data_write_new_page(uint32_t t_ppa, char *data, htable_t *table, uin
 		res->value=t_value;
 		n_ppa=-1;
 	}
-	kvssd_cpy_key(&res->lpa,lpa);
 	res->nppa=n_ppa;
 	res->ppa=t_ppa;
 	return res;
@@ -168,10 +170,10 @@ gc_node *gc_data_write_new_page(uint32_t t_ppa, char *data, htable_t *table, uin
 int __gc_data();
 int gc_data(){
 #ifdef GCOPT
-	LSM.lop->print_level_summary();
-	printf("gc_data start:%d, needed_valid_page:%d\n",LSM.bm->pt_remain_page(LSM.bm,d_m.active,MAP_S), LSM.needed_valid_page);
+	//LSM.lop->print_level_summary();
+//	printf("gc_data start:%d, needed_valid_page:%d\n",LSM.bm->pt_remain_page(LSM.bm,d_m.active,MAP_S), LSM.needed_valid_page);
 	int tcnt=0;
-	while(LSM.needed_valid_page > LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S)){
+	while(LSM.needed_valid_page > (uint32_t) LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S)){
 #endif
 		__gc_data();
 #ifdef GCOPT
@@ -179,15 +181,15 @@ int gc_data(){
 	}
 	if(LSM.bm->check_full(LSM.bm,d_m.active,MASTER_BLOCK))
 		change_reserve_to_active(DATA);
-	printf("%d gc_data done:%d\n",tcnt,LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S));
+//	printf("%d gc_data done:%d\n",tcnt,LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S));
 #endif
 	return 1;
 }
 int __gc_data(){
-#ifdef LEVELN!=1
+//	printf("gc_data\n");
+#if LEVELN!=1
 	compaction_force();
 #endif
-
 	l_bucket *bucket=(l_bucket*)calloc(sizeof(l_bucket),1);
 	gc_general_wait_init();
 
@@ -195,13 +197,13 @@ int __gc_data(){
 
 	blockmanager *bm=LSM.bm;
 	__gsegment *tseg=bm->pt_get_gc_target(bm,DATA_S);
-	__block *tblock;
+	__block *tblock=NULL;
 	int tpage=0;
 	int bidx=0;
 	int pidx=0;
 	int i=0;
 
-	for_each_page_in_segA(tseg,tblock,tpage,bidx,pidx){
+	for_each_page_in_seg_blocks(tseg,tblock,tpage,bidx,pidx){
 #ifdef DVALUE
 		bool page_read=false;
 		for(int j=0; j<NPCINPAGE; j++){
@@ -227,7 +229,7 @@ int __gc_data(){
 	gc_general_waiting(); //wait for read req
 	
 	i=0;
-	for_each_page_in_segA(tseg,tblock,tpage,bidx,pidx){
+	for_each_page_in_seg_blocks(tseg,tblock,tpage,bidx,pidx){
 		uint32_t t_ppa;
 		KEYT *lpa;
 		uint8_t oob_len;
@@ -243,7 +245,7 @@ int __gc_data(){
 
 			used_page=true;
 			lpa=LSM.lop->get_lpa_from_data(&((char*)tables[i]->sets)[PIECE*j],t_ppa,false);
-	#define EMULATOR
+	#ifdef EMULATOR
 			lsm_simul_del(t_ppa);
 	#endif
 			oob_len=foot->map[j];
@@ -434,4 +436,3 @@ next_node:
 
 }
 #endif
-

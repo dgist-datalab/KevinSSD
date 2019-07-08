@@ -20,7 +20,7 @@
 //#define TIERING
 #define ppa_t uint32_t
 
-#define EMULATOR
+//#define EMULATOR
 #define KEYLEN(a) (a.len+sizeof(ppa_t))
 #define LEVELCACHING 0
 #define CACHINGSIZE 0.2f

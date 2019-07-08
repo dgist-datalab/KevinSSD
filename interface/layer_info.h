@@ -14,6 +14,7 @@ extern struct lower_info memio_info;
 extern struct lower_info aio_info;
 extern struct lower_info net_info;
 extern struct lower_info my_posix; //posix, posix_memory,posix_async
+extern struct lower_info no_info;
 
 //block manager
 extern struct blockmanager base_bm;
@@ -28,6 +29,8 @@ static void layer_info_mapping(master_processor *mp){
 	mp->li=&net_info;
 #elif defined(linux_aio)
 	mp->li=&aio_info;
+#elif defined(no_dev)
+	mp->li=&no_info;
 #endif
 
 #ifdef normal

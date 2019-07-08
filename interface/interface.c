@@ -70,7 +70,7 @@ static bool qmanager_delete(processor *t, request *req){
 	pthread_mutex_lock(&t->qm_lock);
 	if(rb_find_str(t->qmanager,req->key,&finding)){
 		res=true;
-		rb_delete(finding);
+		rb_delete(finding,false);
 	}
 	else{
 		abort();

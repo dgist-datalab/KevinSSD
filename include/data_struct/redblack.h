@@ -71,7 +71,7 @@
 typedef struct redblack {
 	void *item;
 	union {
-		int ikey;
+		uint32_t ikey;
 		char *key;
 	}k;
 	KEYT key;
@@ -91,21 +91,21 @@ void print_stat(void);
 
 Redblack rb_create (void);
 
-int rb_find_int (Redblack rb, int key, Redblack *node);
+int rb_find_int (Redblack rb, uint32_t key, Redblack *node);
 //int rb_find_str (Redblack rb, char *key, Redblack *node);
 int rb_find_str (Redblack rb, KEYT key, Redblack *node);
 int rb_find_fnt (Redblack rb, char *key, Redblack *node, int (*func)(char *,char *));
 
-Redblack rb_insert_int (Redblack rb, int key, void *item);
+Redblack rb_insert_int (Redblack rb, uint32_t key, void *item);
 Redblack rb_insert_str (Redblack rb, KEYT key, void *item);
 //Redblack rb_insert_str (Redblack rb, char* key, void *item);
 Redblack rb_insert_fnt (Redblack rb, char *key, void *item, int (*func)(char *,char*));
 
-void rb_delete      (Redblack node);
-void rb_delete_item (Redblack node, int key, int item);
+void rb_delete      (Redblack node,bool isint);
+void rb_delete_item (Redblack node, uint32_t key, int item);
 
-void rb_clear     (Redblack rb, int keys, int items);
-void rb_destroy   (Redblack rb, int keys, int items);
+void rb_clear     (Redblack rb, uint32_t keys, int items, bool isint);
+void rb_destroy   (Redblack rb, uint32_t keys, int items,bool isint);
 
 int rb_count (Redblack rb);
 int rb_height (Redblack rb);

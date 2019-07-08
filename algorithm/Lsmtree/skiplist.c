@@ -623,7 +623,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 			target=b.bucket[PAGESIZE/PIECE][i];
 			res[res_idx]=target->value;
 			res[res_idx]->ppa=LSM.lop->moveTo_fr_page(false);//real physical index
-			target->ppa=LSM.lop->get_page((PAGESIZE/PIECE));
+			target->ppa=LSM.lop->get_page((PAGESIZE/PIECE),target->key);
 			
 			footer *foot=(footer*)pm_get_oob(target->ppa,DATA);
 			foot->map[0]=NPCINPAGE;

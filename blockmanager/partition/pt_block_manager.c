@@ -82,9 +82,6 @@ void pbm_create_print(blockmanager *bm, int pnum){
 	int idx=0;
 	printf("MAP SEG blocks\n");
 	while((page=base_get_page_num(bm,m))!=-1){
-		if(idx==16383){
-			printf("break!\n");
-		}
 		printf("[%d]:%d\n",idx++,page);
 	}
 
@@ -182,8 +179,9 @@ __segment* pbm_pt_get_segment(blockmanager *bm, int pnum, bool isreserve){
 		__block *b=(__block*)q_dequeue(pinfo->p_channel[pnum][i].free_block);
 		if(!b) abort();
 
-		if(!isreserve)
-			mh_insert_append(pinfo->p_channel[pnum][i].max_heap,(void*)b);	
+		if(!isreserve && pnum==DATA_S){
+			mh_insert_append(pinfo->p_channel[pnum][i].max_heap,(void*)b);
+		}
 		res->blocks[i]=b;
 		if(pnum==DATA_S){
 			b->seg_idx=p->seg_map_idx;
@@ -191,6 +189,7 @@ __segment* pbm_pt_get_segment(blockmanager *bm, int pnum, bool isreserve){
 	}
 	res->now=0;
 	res->max=BPS;
+	res->used_page_num=0;
 	if(pnum==DATA_S){
 		res->invalid_blocks=0;
 		res->seg_idx=p->seg_map_idx++;
@@ -210,8 +209,10 @@ __segment* pbm_change_pt_reserve(blockmanager *bm, int pt_num, __segment* reserv
 	p_info *pinfo=(p_info*) p->private_data;
 	__block *tblock;
 	int bidx;
-	for_each_block(reserve,tblock,bidx){
-		mh_insert_append(pinfo->p_channel[pt_num][bidx].max_heap,(void*)tblock);
+	if(pt_num==DATA_S){
+		for_each_block(reserve,tblock,bidx){
+			mh_insert_append(pinfo->p_channel[pt_num][bidx].max_heap,(void*)tblock);
+		}
 	}
 	return res;
 }
@@ -271,8 +272,9 @@ void pbm_pt_trim_segment(blockmanager* bm, int pnum, __gsegment *target, lower_i
 			target_seg=(__segment*)target_node->item;
 			target_seg->invalid_blocks++;
 			if(target_seg->invalid_blocks==BPS){
+				//printf("delete segment!\n");
 				free(target_seg);
-				rb_delete(target_node);
+				rb_delete(target_node,true);
 			}
 		}
 	}
@@ -291,12 +293,15 @@ int pbm_pt_remain_page(blockmanager* bm, __segment *active, int pt_num){
 
 	channel *c=&pinfo->p_channel[pt_num][0];	
 	res+=c->free_block->size * _PPS;
-	
+
+	/*
 	if(active->now <active->max){
 		__block *t=active->blocks[active->now];
 		res+=(active->max-active->now) * _PPB;
 		res+=t->max-t->now;
-	}
+	}*/
+
+	res+=_PPS-active->used_page_num;
 	return res;
 }
 
