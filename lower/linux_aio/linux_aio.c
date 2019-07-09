@@ -30,6 +30,7 @@ lower_info aio_info={
 	.read=aio_pull_data,
 	.device_badblock_checker=NULL,
 	.trim_block=aio_trim_block,
+	.trim_a_block=aio_trim_a_block,
 	.refresh=aio_refresh,
 	.stop=aio_stop,
 	.lower_alloc=NULL,
@@ -286,6 +287,17 @@ void *aio_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,al
 }
 
 void *aio_trim_block(uint32_t PPA, bool async){
+	aio_info.req_type_cnt[TRIM]++;
+	uint64_t range[2];
+	//range[0]=PPA*aio_info.SOP;
+	range[0]=offset_hooker((uint64_t)PPA*aio_info.SOP,TRIM);
+	range[1]=_PPS*aio_info.SOP;
+	fprintf(stderr,"T %u\n",PPA);
+	ioctl(_fd,BLKDISCARD,&range);
+	return NULL;
+}
+
+void *aio_trim_a_block(uint32_t PPA, bool async){
 	aio_info.req_type_cnt[TRIM]++;
 	uint64_t range[2];
 	//range[0]=PPA*aio_info.SOP;

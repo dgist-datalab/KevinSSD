@@ -4,7 +4,10 @@
 #include "../interface/queue.h"
 #include "../include/data_struct/heap.h"
 #include "../include/data_struct/redblack.h"
-#define GETBLOCKIDX(value) ((value>>14)*PUNIT+value%PUNIT)
+#include "bb_checker.h"
+#include <stdint.h>
+#define GETBLOCKIDX(checker,value) ((GETORGBLOCKID(checker,value)/_PPS*BPS)+value%BPS)
+//#define GETBLOCKIDX(value) ((value>>14)*PUNIT+value%PUNIT)
 #define GETPAGEIDX(value) ((value>>6)&0xff)
 #define GETBLOCKPPA(bl) (((bl)->block_num)+((bl)->punit_num))
 
@@ -14,7 +17,6 @@ typedef struct channel{
 }channel;
 
 typedef struct base_bm_private{
-	__OOB *base_oob;
 	__block *base_block;
 	channel *base_channel;
 	Redblack seg_map;

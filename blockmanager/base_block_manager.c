@@ -1,5 +1,4 @@
 #include "base_block_manager.h"
-#include "bb_checker.h"
 #include <stdlib.h>
 #include <stdio.h>
 extern bb_checker checker;
@@ -55,8 +54,6 @@ uint32_t base_create (struct blockmanager* bm, lower_info *li){
 
 
 	bbm_pri *p=(bbm_pri*)malloc(sizeof(bbm_pri));
-	p->base_oob=(__OOBT*)calloc(sizeof(__OOBT),_NOP);
-
 	p->base_block=(__block*)calloc(sizeof(__block),_NOS*PUNIT);
 
 	int block_idx=0;
@@ -91,7 +88,6 @@ uint32_t base_create (struct blockmanager* bm, lower_info *li){
 
 uint32_t base_destroy (struct blockmanager* bm){
 	bbm_pri *p=(bbm_pri*)bm->private_data;
-	free(p->base_oob);
 	free(p->base_block);
 
 	rb_delete(p->seg_map,true);
@@ -190,7 +186,7 @@ void base_trim_segment (struct blockmanager* bm, __gsegment* gs, struct lower_in
 int base_populate_bit (struct blockmanager* bm, uint32_t ppa){
 	int res=1;
 	bbm_pri *p=(bbm_pri*)bm->private_data;
-	uint32_t bn=GETBLOCKIDX(ppa);
+	uint32_t bn=GETBLOCKIDX(checker,ppa);
 	uint32_t pn=GETPAGEIDX(ppa);
 	uint32_t bt=pn/8;
 	uint32_t of=pn%8;
@@ -205,7 +201,7 @@ int base_populate_bit (struct blockmanager* bm, uint32_t ppa){
 int base_unpopulate_bit (struct blockmanager* bm, uint32_t ppa){
 	int res=1;
 	bbm_pri *p=(bbm_pri*)bm->private_data;
-	uint32_t bn=GETBLOCKIDX(ppa);
+	uint32_t bn=GETBLOCKIDX(checker,ppa);
 	uint32_t pn=GETPAGEIDX(ppa);
 	uint32_t bt=pn/8;
 	uint32_t of=pn%8;
@@ -220,7 +216,7 @@ int base_unpopulate_bit (struct blockmanager* bm, uint32_t ppa){
 
 bool base_is_valid_page (struct blockmanager* bm, uint32_t ppa){
 	bbm_pri *p=(bbm_pri*)bm->private_data;
-	uint32_t bn=GETBLOCKIDX(ppa);
+	uint32_t bn=GETBLOCKIDX(checker,ppa);
 	uint32_t pn=GETPAGEIDX(ppa);
 	uint32_t bt=pn/8;
 	uint32_t of=pn%8;
@@ -234,12 +230,14 @@ bool base_is_invalid_page (struct blockmanager* bm, uint32_t ppa){
 
 void base_set_oob(struct blockmanager* bm, char *data,int len, uint32_t ppa){
 	bbm_pri *p=(bbm_pri*)bm->private_data;
-	memcpy(p->base_oob[ppa].d,data,len);
+	__block *b=&p->base_block[GETBLOCKIDX(checker,ppa)];
+	memcpy(b->oob_list[ppa%_PPB].d,data,len);
 }
 
 char *base_get_oob(struct blockmanager*bm,  uint32_t ppa){
 	bbm_pri *p=(bbm_pri*)bm->private_data;
-	return p->base_oob[ppa].d;
+	__block *b=&p->base_block[GETBLOCKIDX(checker,ppa)];
+	return b->oob_list[ppa%_PPB].d;
 }
 
 void base_release_segment(struct blockmanager* bm, __segment *s){
@@ -305,6 +303,6 @@ bool base_check_full(struct blockmanager *bm,__segment *active, uint8_t type){
 
 __block *base_pick_block(struct blockmanager *bm, uint32_t page_num){
 	bbm_pri *p=(bbm_pri*)bm->private_data;
-	return &p->base_block[GETBLOCKIDX(page_num)];
+	return &p->base_block[GETBLOCKIDX(checker,page_num)];
 }
 

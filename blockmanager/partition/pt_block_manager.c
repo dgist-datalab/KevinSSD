@@ -100,7 +100,6 @@ uint32_t pbm_create(blockmanager *bm, int pnum, int *epn, lower_info *li){
 
 	bbm_pri *p=(bbm_pri*)malloc(sizeof(bbm_pri));
 	bm->private_data=(void*)p;
-	p->base_oob=(__OOB*)calloc(sizeof(__OOB),_NOP);
 	p->base_block=(__block*)calloc(sizeof(__block),_NOS*PUNIT);
 
 	int block_idx=0;
@@ -150,7 +149,6 @@ uint32_t pbm_destroy(blockmanager *bm){
 	bbm_pri *p=(bbm_pri*)bm->private_data;
 	p_info *pinfo=(p_info*)p->private_data;
 
-	free(p->base_oob);
 	free(p->base_block);
 
 	for(int i=0; i<pinfo->pnum; i++){

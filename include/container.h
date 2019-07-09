@@ -167,6 +167,7 @@ typedef struct masterblock{
 	uint32_t seg_idx;
 	void *hptr;
 	void *private_data;
+	__OOB oob_list[_PPB];
 }__block;
 
 typedef struct mastersegment{

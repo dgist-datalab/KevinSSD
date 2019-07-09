@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 bb_checker checker;
 volatile uint64_t target_cnt, _cnt, badblock_cnt;
 uint32_t array[128];
@@ -14,6 +15,7 @@ void bb_checker_start(lower_info *li){
 	checker.assign=0;
 	for(uint64_t i=0; i<_RNOS; i++){
 		checker.ent[i].origin_segnum=i*_PPS;
+		checker.ent[i].given_segnum=UINT_MAX;
 		if(!li->device_badblock_checker){
 			_cnt+=BPS;
 			continue;
@@ -125,10 +127,11 @@ void bb_checker_fixing(){/*
 			}
 			else{
 				while(checker.ent[checker.back_index].flag){checker.back_index--;}
-				checker.ent[i].fixed_segnum=checker.ent[checker.back_index--].origin_segnum;
+				checker.ent[i].fixed_segnum=checker.ent[checker.back_index].origin_segnum;
+				checker.ent[checker.back_index].given_segnum=checker.ent[i].origin_segnum;
 				printf("bad block %d -> %d\n",checker.ent[i].origin_segnum,checker.ent[i].fixed_segnum);
+				checker.back_index--;
 			}
 		}
 	}
 }
-
