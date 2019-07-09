@@ -5,6 +5,8 @@
 #include "level.h"
 #include "skiplist.h"
 
+#define HEADER 0
+#define DATA 1
 
 struct level; 
 struct htable_t;

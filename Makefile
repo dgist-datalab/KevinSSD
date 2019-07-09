@@ -2,8 +2,8 @@ export CC=g++
 
 TARGET_INF=interface
 TARGET_LOWER=no_dev
-TARGET_ALGO=Page_ftl
-TARGET_BM=base
+TARGET_ALGO=Lsmtree
+TARGET_BM=partition
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
 PPWD=$(pwd)
@@ -20,13 +20,13 @@ export COMMONFLAGS=\
 			-Wno-unused-function\
 			-DLARGEFILE64_SOURCE\
 			-D_GNU_SOURCE\
+			-DKVSSD\
 			-DSLC\
 			-D$(TARGET_BM)\
 			-Wno-unused-but-set-variable\
 			-DCHECKINGTIME\
 		-O3\
 #			-DWRITESYNC\
-#			-DKVSSD\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 
@@ -34,7 +34,7 @@ export CFLAGS_ALGO=\
 			 -fPIC\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
-#		 -DDVALUE\
+		 -DDVALUE\
 
 export CFLAGS_LOWER=\
 		     -fPIC\
