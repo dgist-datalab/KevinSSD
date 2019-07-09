@@ -259,7 +259,7 @@ void pbm_pt_trim_segment(blockmanager* bm, int pnum, __gsegment *target, lower_i
 
 	for(int i=0; i<BPS; i++){
 		__block *b=target->blocks[i];
-		li->trim_block(GETBLOCKPPA(b),ASYNC);
+		li->trim_a_block(GETBLOCKPPA(b),ASYNC);
 		b->invalid_number=0;
 		b->now=0;
 		memset(b->bitset,0,_PPB/8);

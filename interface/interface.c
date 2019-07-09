@@ -309,6 +309,7 @@ void inf_init(int apps_flag, int total_num){
 	
 	layer_info_mapping(&mp);
 
+	mp.li->create(mp.li,mp.bm);
 #ifdef partition
 	int temp[PARTNUM];
 	temp[MAP_S]=MAPPART_SEGS;
@@ -317,7 +318,6 @@ void inf_init(int apps_flag, int total_num){
 #else
 	mp.bm->create(mp.bm);
 #endif
-	mp.li->create(mp.li,mp.bm);
 	mp.algo->create(mp.li,mp.bm,mp.algo);
 }
 

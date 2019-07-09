@@ -18,6 +18,7 @@ lower_info memio_info={
 	.read=memio_info_pull_data,
 	.device_badblock_checker=memio_badblock_checker,
 	.trim_block=memio_info_trim_block,
+	.trim_a_block=memio_info_trim_a_block,
 	.refresh=memio_info_refresh,
 	.stop=memio_info_stop,
 	.lower_alloc=memio_alloc_dma,
@@ -80,7 +81,7 @@ void *memio_info_push_data(uint32_t ppa, uint32_t size, value_set *value, bool a
 	if(t_type < LREQ_TYPE_NUM){
 		memio_info.req_type_cnt[t_type]++;
 	}
-	memio_write(mio,bb_checker_fix_ppa(ppa),(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
+	memio_write(mio,ppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	//memio_write(mio,ppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	//pthread_mutex_lock(&test_lock);
 	return NULL;
@@ -95,7 +96,7 @@ void *memio_info_pull_data(uint32_t ppa, uint32_t size, value_set *value, bool a
 	if(t_type < LREQ_TYPE_NUM){
 		memio_info.req_type_cnt[t_type]++;
 	}
-	memio_read(mio,bb_checker_fix_ppa(ppa),(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
+	memio_read(mio,ppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	//memio_read(mio,ppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	//pthread_mutex_lock(&test_lock);
 	return NULL;
@@ -103,8 +104,8 @@ void *memio_info_pull_data(uint32_t ppa, uint32_t size, value_set *value, bool a
 
 void *memio_info_trim_block(uint32_t ppa, bool async){
 	//int value=memio_trim(mio,bb_checker_fix_ppa(ppa),(1<<14)*PAGESIZE,NULL);
-	int value=memio_trim(mio,bb_checker_fixed_segment(ppa),(1<<14)*PAGESIZE,NULL);
-	value=memio_trim(mio,bb_checker_paired_segment(ppa),(1<<14)*PAGESIZE,NULL);
+	int value=memio_trim(mio,ppa,(1<<14)*PAGESIZE,NULL);
+	value=memio_trim(mio,ppa,(1<<14)*PAGESIZE,NULL);
 	
 	memio_info.req_type_cnt[TRIM]++;
 	if(value==0){
@@ -125,11 +126,19 @@ void *memio_badblock_checker(uint32_t ppa,uint32_t size, void*(*process)(uint64_
 	return NULL;
 }
 
+
+void *memio_info_trim_a_block(uint32_t ppa, bool async){
+	memio_trim_a_block(mio,ppa);
+	return NULL;
+}
+
+
 void memio_info_stop(){}
 
 void memio_flying_req_wait(){
 	while(!memio_is_clean(mio));
 }
+
 void memio_show_info_(){
 	memio_show_info();
 }

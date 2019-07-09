@@ -42,7 +42,7 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 			target_ppa=v_des[v_idx]->ppa;
 		}
 
-		footer *foot=(footer*)pm_get_oob(target_ppa,DATA);
+		footer *foot=(footer*)pm_get_oob(CONVPPA(target_ppa),DATA);
 		//footer *foot=(footer*)calloc(sizeof(footer),1);
 		uint8_t used_piece=0;
 		while(remain>0){

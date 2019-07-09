@@ -11,9 +11,6 @@ void bb_checker_start(lower_info *li){
 	memset(&checker,0,sizeof(checker));
 	target_cnt=_RNOS*64;
 	printf("_nos:%ld\n",_NOS);
-	
-
-
 	checker.assign=0;
 	for(uint64_t i=0; i<_RNOS; i++){
 		checker.ent[i].origin_segnum=i*_PPS;

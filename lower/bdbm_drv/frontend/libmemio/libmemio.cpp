@@ -36,8 +36,12 @@ THE SOFTWARE.
 //#include "../../devices/nohost/dm_nohost.h"
 #include "dm_nohost.h"
 
+#include "../../../../include/settings.h"
+#ifndef BPS
+#define BPS 64
+#endif
 #include "../../../../include/container.h"
-#include "../../../../bench/bench.h"
+//#include "../../../../bench/bench.h"
 
 extern unsigned int* dstBuffer;
 extern unsigned int* srcBuffer;
@@ -349,7 +353,6 @@ int memio_trim (memio_t* mio, uint32_t lba, uint64_t len, void *(*end_req)(uint6
 	uint64_t sent = 0;
 	int ret, i;
 	
-//	bdbm_msg ("memio_trim: %llu, %llu", lba, len);
 
 	/* see if LBA alignment is correct */
 	__memio_check_alignment (lba, mio->trim_lbas);
@@ -387,6 +390,35 @@ int memio_trim (memio_t* mio, uint32_t lba, uint64_t len, void *(*end_req)(uint6
 	/* return the length of bytes transferred */
 	return sent;
 }
+
+
+int memio_trim_a_block (memio_t* mio, uint32_t lba)
+{
+	bdbm_llm_req_t* r = NULL;
+	bdbm_dm_inf_t* dm = mio->bdi.ptr_dm_inf;
+	uint64_t cur_lba = lba;
+	uint64_t sent = 0;
+	int ret, i;
+
+	/* fill up logaddr; note that phyaddr is not used here */
+	r = __memio_alloc_llm_req (mio);
+	r->bad_seg_func=NULL;
+
+	bdbm_bug_on (!r);
+
+	/* setup llm_req */
+	r->req_type = REQTYPE_GC_ERASE;
+	r->logaddr.lpa[0] = cur_lba;
+	r->fmain.kp_ptr[0] = NULL;	/* no data; it must be NULL */
+
+	if ((ret = dm->make_req (&mio->bdi, r)) != 0) {
+		bdbm_error ("dm->make_req() failed (ret = %d)", ret);
+		bdbm_bug_on (1);
+	}
+	/* return the length of bytes transferred */
+	return sent;
+}
+
 
 void memio_close (memio_t* mio)
 {

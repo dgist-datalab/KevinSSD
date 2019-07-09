@@ -625,7 +625,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 			res[res_idx]->ppa=LSM.lop->moveTo_fr_page(false);//real physical index
 			target->ppa=LSM.lop->get_page((PAGESIZE/PIECE),target->key);
 			
-			footer *foot=(footer*)pm_get_oob(target->ppa,DATA);
+			footer *foot=(footer*)pm_get_oob(CONVPPA(target->ppa),DATA);
 			foot->map[0]=NPCINPAGE;
 			validate_PPA(DATA,target->ppa);
 

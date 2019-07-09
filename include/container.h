@@ -98,6 +98,7 @@ struct lower_info {
 	void* (*read)(uint32_t ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
 	void* (*device_badblock_checker)(uint32_t ppa,uint32_t size,void *(*process)(uint64_t, uint8_t));
 	void* (*trim_block)(uint32_t ppa,bool async);
+	void* (*trim_a_block)(uint32_t ppa,bool async);
 	void* (*refresh)(struct lower_info*);
 	void (*stop)();
 	int (*lower_alloc) (int type, char** buf);

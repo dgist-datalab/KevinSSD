@@ -153,7 +153,7 @@ gc_node *gc_data_write_new_page(uint32_t t_ppa, char *data, htable_t *table, uin
 		res->value=NULL;
 		LSM.lop->moveTo_fr_page(true);
 		n_ppa=LSM.lop->get_page(NPCINPAGE,res->lpa);
-		footer *foot=(footer*)pm_get_oob(n_ppa,DATA);
+		footer *foot=(footer*)pm_get_oob(CONVPPA(n_ppa),DATA);
 		foot->map[0]=NPCINPAGE;
 		validate_PPA(DATA,n_ppa);
 		gc_data_write(n_ppa,table,true);

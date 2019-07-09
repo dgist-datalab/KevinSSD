@@ -169,7 +169,7 @@ void base_trim_segment (struct blockmanager* bm, __gsegment* gs, struct lower_in
 	__segment *target_seg;
 	for(int i=0; i<BPS; i++){
 		__block *b=gs->blocks[i];
-		li->trim_block(GETBLOCKPPA(b),ASYNC);
+		li->trim_a_block(GETBLOCKPPA(b),ASYNC);
 		b->invalid_number=0;
 		b->now=0;
 		memset(b->bitset,0,_PPB/8);
