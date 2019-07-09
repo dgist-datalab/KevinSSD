@@ -6,7 +6,7 @@
 extern struct algorithm __normal;
 extern struct algorithm __badblock;
 extern struct algorithm __demand;
-extern struct algorithm algo_pbase;
+extern struct algorithm page_ftl;
 extern struct algorithm algo_lsm;
 
 //device layer
@@ -35,8 +35,8 @@ static void layer_info_mapping(master_processor *mp){
 
 #ifdef normal
 	mp->algo=&__normal;
-#elif defined(pftl)
-	mp->algo=&algo_pbase;
+#elif defined(Page_ftl)
+	mp->algo=&page_ftl;
 #elif defined(dftl) || defined(ctoc) || defined(dftl_test) || defined(ctoc_batch) || defined(hash_dftl)
 	mp->algo=&__demand;
 #elif defined(Lsmtree)

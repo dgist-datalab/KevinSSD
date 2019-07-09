@@ -1,10 +1,7 @@
-$(CC) = g++
-
 SRCS +=\
-		BM_Block.c\
-		BM_Heap.c\
-		BM_Queue.c\
-		BM_Interface.c\
+	   page.c\
+	   map.c\
+	   gc.c\
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\
@@ -15,7 +12,7 @@ TARGETOBJ:=\
 LEAK: all
 all: $(TARGETOBJ) 
 
-libbm.a : $(TARGETOBJ)
+libnom.a : $(TARGETOBJ)
 	$(AR) r $(@) $(TARGETOBJ)
 
 .c.o :
@@ -25,5 +22,5 @@ libbm.a : $(TARGETOBJ)
 	$(CC) $(CFLAGS_ALGO) -c $< -o $@
 
 clean : 
-	@$(RM) libbm.a
+	@$(RM) libnom.a
 	@$(RM) *.o

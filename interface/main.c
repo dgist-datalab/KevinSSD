@@ -44,8 +44,8 @@ int main(int argc,char* argv[]){
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
 	// GC test
 //	bench_add(RANDRW,0,RANGE,REQNUM*6);
-//	bench_add(RANDSET,0,RANGE,REQNUM*2);
-	bench_add(RANDRW,0,RANGE,MAXKEYNUMBER/5*2);
+	bench_add(RANDRW,0,RANGE,REQNUM*4);
+//	bench_add(RANDRW,0,RANGE,MAXKEYNUMBER/5*2);
 //	bench_add(RANDSET,0,RANGE,4096);
 
 //	bench_add(NOR,0,-1,-1);
@@ -63,14 +63,13 @@ int main(int argc,char* argv[]){
 	bool tflag=false;
 	while((value=get_bench())){
 		temp.length=value->length;
-#ifdef KVSSD
-		//printf("value:%s\n",kvssd_tostring(value->key));
-#endif
 		if(value->type==FS_SET_T){
 			memcpy(&temp.value[0],&value->key,sizeof(value->key));
 		}
 		inf_make_req(value->type,value->key,temp.value ,value->length,value->mark);
+#ifdef KVSSD
 		free(value->key.key);
+#endif
 		if(!tflag &&value->type==FS_GET_T){
 			tflag=true;
 		}
@@ -106,8 +105,9 @@ int main(int argc,char* argv[]){
 	printf("skiplist hit:%d\n",skiplist_hit);
 #endif
 	printf("locality check:%f\n",(float)locality_check/(locality_check+locality_check2));
+	/*
 	for(int i=0; i<=NPCINPAGE; i++){
 		printf("%d - %d\n",i,v_cnt[i]);
-	}
+	}*/
 	return 0;
 }

@@ -31,17 +31,25 @@ cl_lock *flying,*inf_cond;
 #ifdef interface_pq
 static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *value, int len,int mark, bool fromApp);
 static request *inf_get_multi_req_instance(const FSTYPE type, KEYT *key, char **value, int *len,int req_num,int mark, bool fromApp);
-
 static bool qmanager_write_checking(processor * t,request *req){
 	bool res=false;
 	Redblack finding;
 	pthread_mutex_lock(&t->qm_lock);
-	if(rb_find_str(t->qmanager,req->key,&finding)){
+#ifdef KVSSD
+	if(rb_find_str(t->qmanager,req->key,&finding))
+#else
+	if(rb_find_int(t->qmanager,req->key,&finding))
+#endif
+	{
 		res=true;
 		//copy value
 	}
 	else{
+#ifdef KVSSD
 		rb_insert_str(t->qmanager,req->key,(void*)req);
+#else
+		rb_insert_int(t->qmanager,req->key,(void*)req);
+#endif
 	}
 	pthread_mutex_unlock(&t->qm_lock);
 #ifdef hash_dftl
@@ -57,7 +65,12 @@ static bool qmanager_read_checking(processor *t,request *req){
 	bool res=false;
 	Redblack finding;
 	pthread_mutex_lock(&t->qm_lock);
-	if(rb_find_str(t->qmanager,req->key,&finding)){
+#ifdef KVSSD
+	if(rb_find_str(t->qmanager,req->key,&finding))
+#else
+	if(rb_find_int(t->qmanager,req->key,&finding))
+#endif
+	{
 		res=true;
 	}
 	pthread_mutex_unlock(&t->qm_lock);
@@ -68,7 +81,12 @@ static bool qmanager_delete(processor *t, request *req){
 	bool res=false;
 	Redblack finding;
 	pthread_mutex_lock(&t->qm_lock);
-	if(rb_find_str(t->qmanager,req->key,&finding)){
+#ifdef KVSSD
+	if(rb_find_str(t->qmanager,req->key,&finding))
+#else
+	if(rb_find_int(t->qmanager,req->key,&finding))
+#endif
+	{
 		res=true;
 		rb_delete(finding,false);
 	}
@@ -83,7 +101,12 @@ void *qmanager_find_by_algo(KEYT key){
 	Redblack finding;
 	for(int i=0; i<1; i++){
 		processor *t=&mp.processors[i];
-		if(rb_find_str(t->qmanager,key,&finding)){
+#ifdef KVSSD
+		if(rb_find_str(t->qmanager,key,&finding))
+#else
+		if(rb_find_int(t->qmanager,key,&finding))
+#endif	
+		{
 			return finding->item;
 		}
 		continue;
@@ -203,6 +226,7 @@ void *p_main(void *__input){
 			case FS_RMW_T:
 				mp.algo->read(inf_req);
 				break;
+#ifdef KVSSD
 			case FS_MSET_T:
 				mp.algo->multi_set(inf_req,inf_req->num);
 				break;
@@ -230,6 +254,7 @@ void *p_main(void *__input){
 			case FS_ITER_RLS_T:
 				mp.algo->iter_release(inf_req);
 				break;
+#endif
 			default:
 				printf("wtf??, type %d\n", inf_req->type);
 				inf_req->end_req(inf_req);
@@ -316,7 +341,7 @@ void inf_init(int apps_flag, int total_num){
 	temp[DATA_S]=DATAPART_SEGS;
 	mp.bm->pt_create(mp.bm,PARTNUM,temp,mp.li);
 #else
-	mp.bm->create(mp.bm);
+	mp.bm->create(mp.bm,mp.li);
 #endif
 	mp.algo->create(mp.li,mp.bm,mp.algo);
 }
@@ -344,6 +369,7 @@ static request* inf_get_req_common(request *req, bool fromApp, int mark){
 #endif
 	return req;
 }
+
 static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, int len,int mark,bool fromApp){
 	request *req=(request*)malloc(sizeof(request));
 	req->type=type;
@@ -353,10 +379,13 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 	req->multi_key=NULL;
 	req->num=len;
 	req->cpl=0;
-	
+#ifdef KVSSD
 	req->key.len=key.len;
 	req->key.key=(char*)malloc(key.len);
 	memcpy(req->key.key,key.key,key.len);
+#else
+	req->key=key;
+#endif
 	switch(type){
 		case FS_DELETE_T:
 			req->value=NULL;
@@ -369,9 +398,10 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 #else
 			req->value=inf_get_valueset(NULL,FS_SET_T,PAGESIZE);
 #endif
+#ifdef KVSSD
 			memcpy(req->value->value,&key.len,sizeof(key.len));
 			memcpy(&req->value->value[sizeof(key.len)],key.key,key.len);
-
+#endif
 			break;
 		case FS_GET_T:
 			req->value=inf_get_valueset(NULL,FS_GET_T,PAGESIZE);
@@ -512,7 +542,9 @@ bool inf_end_req( request * const req){
 		case FS_RANGEGET_T:
 		case FS_ITER_NXT_VALUE_T:
 	//		printf("end_req : %d\n",range_getcnt++);
+#ifdef KVSSD
 			free(req->key.key);
+#endif
 			for(i=0; i<req->num; i++){
 				inf_free_valueset(req->multi_value[i],FS_MALLOC_R);
 			}
@@ -521,7 +553,9 @@ bool inf_end_req( request * const req){
 
 		case FS_GET_T:
 		case FS_NOTFOUND_T:
+#ifdef KVSSD
 			free(req->key.key);
+#endif
 			if(req->value) inf_free_valueset(req->value,FS_MALLOC_R);
 			break;
 		case FS_SET_T:

@@ -93,11 +93,9 @@ Redblack rb_create (void);
 
 int rb_find_int (Redblack rb, uint32_t key, Redblack *node);
 //int rb_find_str (Redblack rb, char *key, Redblack *node);
-int rb_find_str (Redblack rb, KEYT key, Redblack *node);
 int rb_find_fnt (Redblack rb, char *key, Redblack *node, int (*func)(char *,char *));
 
 Redblack rb_insert_int (Redblack rb, uint32_t key, void *item);
-Redblack rb_insert_str (Redblack rb, KEYT key, void *item);
 //Redblack rb_insert_str (Redblack rb, char* key, void *item);
 Redblack rb_insert_fnt (Redblack rb, char *key, void *item, int (*func)(char *,char*));
 
@@ -111,6 +109,11 @@ int rb_count (Redblack rb);
 int rb_height (Redblack rb);
 int rb_check(Redblack rb);
 void rb_print_tree (Redblack rb, FILE *);
+#ifdef KVSSD
+int rb_find_str (Redblack rb, KEYT key, Redblack *node);
+Redblack rb_insert_str (Redblack rb, KEYT key, void *item);
+#endif
+
 
 #ifndef RB_LINK
 Redblack rb_first(Redblack);

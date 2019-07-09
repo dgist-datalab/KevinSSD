@@ -4,10 +4,7 @@
 #include "../../include/lsm_settings.h"
 #include "level.h"
 #include "skiplist.h"
-#include <pthread.h>
 
-#define HEADER 0
-#define DATA 1
 
 struct level; 
 struct htable_t;

@@ -28,6 +28,7 @@ lower_info no_info={
 	.read=no_pull_data,
 	.device_badblock_checker=NULL,
 	.trim_block=no_trim_block,
+	.trim_a_block=no_trim_block,
 	.refresh=no_refresh,
 	.stop=no_stop,
 	.lower_alloc=NULL,

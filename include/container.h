@@ -139,6 +139,7 @@ struct algorithm{
 	uint32_t (*read)(request *const);
 	uint32_t (*write)(request *const);
 	uint32_t (*remove)(request *const);
+#ifdef KVSSD
 	uint32_t (*iter_create)(request *const);
 	uint32_t (*iter_next)(request *const);
 	uint32_t (*iter_next_with_value)(request *const);
@@ -148,6 +149,7 @@ struct algorithm{
 	uint32_t (*multi_set)(request *const,int num);
 	uint32_t (*multi_get)(request *const,int num);
 	uint32_t (*range_query)(request *const);
+#endif
 	lower_info* li;
 	struct blockmanager *bm;
 	void *algo_body;

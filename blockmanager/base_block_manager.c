@@ -181,6 +181,7 @@ void base_trim_segment (struct blockmanager* bm, __gsegment* gs, struct lower_in
 			rb_delete(target_node,true);
 		}
 	}
+	free(gs);
 }
 
 int base_populate_bit (struct blockmanager* bm, uint32_t ppa){

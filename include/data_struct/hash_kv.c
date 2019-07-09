@@ -2,7 +2,7 @@
 #include "../utils/sha256.h"
 #include<stdlib.h>
 #include<stdio.h>
-
+#ifdef KVSSD
 static uint32_t function(uint32_t a){
 	a = (a+0x7ed55d16) + (a<<12);
 	a = (a^0xc761c23c) ^ (a>>19);
@@ -149,3 +149,4 @@ void __hash_free(__hash *h){
 	free(h->table);
 	free(h);
 }
+#endif

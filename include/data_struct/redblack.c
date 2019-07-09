@@ -179,9 +179,11 @@ Redblack rb_create (void)
 	rb->parent =\
 	rb->left   =\
 	rb->right  = rb;
-
+#ifdef KVSSD
 	rb->key.key= NULL;
+#endif
 	rb->item  = NULL;
+
 	setblack(rb);
 
 	return rb;
@@ -221,6 +223,7 @@ int rb_find_int(Redblack rb,uint32_t key,Redblack *node)
  * reference <node> is NULL, then it will not be set.
  *
  */
+#ifdef KVSSD
 int rb_find_str(Redblack rb,KEYT key,Redblack *node)
 {
 	Redblack x = root(rb);
@@ -237,7 +240,7 @@ int rb_find_str(Redblack rb,KEYT key,Redblack *node)
 	return (x != rb_nil(rb) && c == 0);
 }
 
-
+#endif
 /*
  * rb_find_fnt
  *
@@ -360,7 +363,7 @@ Redblack rb_insert_int(	Redblack rb,uint32_t key,void *item)
  *
  */
 
-
+#ifdef KVSSD
 Redblack rb_insert_str(Redblack rb,	KEYT key,void *item)
 {
 	Redblack x = root(rb), y = x, z, r;
@@ -446,7 +449,7 @@ Redblack rb_insert_str(Redblack rb,	KEYT key,void *item)
 	}
 	return r;
 }
-
+#endif
 
 /*
  * rb_insert_fnt
@@ -630,7 +633,9 @@ void rb_delete(Redblack node,bool isint)
 #endif
 	
 	if(!isint){
+#ifdef KVSSD
 		free(node->key.key);
+#endif
 		free(node);
 	}
 

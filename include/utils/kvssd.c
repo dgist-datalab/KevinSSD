@@ -2,7 +2,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include "../settings.h"
-
+#ifdef KVSSD
 char* kvssd_tostring(KEYT key){
 	/*
 	char temp1[255]={0,};
@@ -19,3 +19,4 @@ void kvssd_free_key(KEYT *des){
 	free(des->key);
 	free(des);
 }
+#endif
