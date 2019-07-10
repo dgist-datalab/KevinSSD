@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=no_dev
+TARGET_LOWER=bdbm_drv
 TARGET_ALGO=Lsmtree
 TARGET_BM=partition
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
@@ -128,7 +128,7 @@ duma_sim: duma_driver
 debug_driver: ./interface/main.c libdriver_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
 
-driver: ./interface/mainfiles/default_main.c libdriver.a
+driver: ./interface/main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 kv_driver: ./interface/NET_main.c libdriver.a libfdsock.a
