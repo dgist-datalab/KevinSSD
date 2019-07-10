@@ -55,7 +55,6 @@ uint32_t base_create (struct blockmanager* bm, lower_info *li){
 
 	bbm_pri *p=(bbm_pri*)malloc(sizeof(bbm_pri));
 	p->base_block=(__block*)calloc(sizeof(__block),_NOS*PUNIT);
-
 	int block_idx=0;
 	for(int i=0; i<_NOS; i++){
 		int seg_idx=bb_checker_get_segid();
