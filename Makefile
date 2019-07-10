@@ -24,7 +24,7 @@ export COMMONFLAGS=\
 			-D$(TARGET_BM)\
 			-Wno-unused-but-set-variable\
 			-DCHECKINGTIME\
-#		-O3\
+		-O3\
 #			-DWRITESYNC\
 			-DKVSSD\
 

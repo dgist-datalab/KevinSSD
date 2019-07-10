@@ -36,6 +36,7 @@ uint32_t page_read(request *const req){
 	my_req->end_req=page_end_req;
 	my_req->params=(void*)params;
 	my_req->type=DATAR;
+	my_req->type_lower=0;
 	page_ftl.li->read(page_map_pick(req->key),PAGESIZE,req->value,req->isAsync,my_req);
 	return 1;
 }

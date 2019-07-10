@@ -24,7 +24,7 @@ int main(int argc,char* argv[]){
 	bench_init();
 
 	/*adding benchmark type for testing*/
-	bench_add(RANDRW,0,RANGE,REQNUM*4);
+	bench_add(RANDRW,0,RANGE,REQNUM);
 
 	bench_value *value;
 	while((value=get_bench())){
