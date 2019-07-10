@@ -396,7 +396,7 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 			req->value=inf_get_valueset(NULL,FS_SET_T,len+key.len+sizeof(key.len));
 			memcpy(&req->value->value[key.len+sizeof(key.len)],_value,len);
 #else
-			req->value=inf_get_valueset(NULL,FS_SET_T,PAGESIZE);
+			req->value=inf_get_valueset(_value,FS_SET_T,PAGESIZE);
 #endif
 #ifdef KVSSD
 			memcpy(req->value->value,&key.len,sizeof(key.len));

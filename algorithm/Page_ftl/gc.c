@@ -19,7 +19,7 @@ gc_value* send_req(uint32_t ppa, uint8_t type, gc_value *input){
 	my_req->end_req=page_gc_end_req;
 	my_req->type=type;
 	
-	gc_value *res;
+	gc_value *res=NULL;
 	switch(type){
 		case GCDR:
 			res=(gc_value*)malloc(sizeof(gc_value));
