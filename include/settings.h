@@ -15,7 +15,9 @@
 	}while(0)
 */
 #define PROGRESS
-#define LOWER_FILE_NAME "./data/simulator.data"
+//#define LOWER_FILE_NAME "./data/simulator.data"
+#define LOWER_FILE_NAME "/dev/sdb1"
+
 //#define LOWER_FILE_NAME "/dev/robusta"
 #define BENCH_LOG "./result/"
 
