@@ -55,6 +55,7 @@ uint32_t base_create (struct blockmanager* bm, lower_info *li){
 
 	bbm_pri *p=(bbm_pri*)malloc(sizeof(bbm_pri));
 	p->base_block=(__block*)calloc(sizeof(__block),_NOS*PUNIT);
+
 	int block_idx=0;
 	for(int i=0; i<_NOS; i++){
 		int seg_idx=bb_checker_get_segid();
@@ -169,6 +170,8 @@ void base_trim_segment (struct blockmanager* bm, __gsegment* gs, struct lower_in
 		b->now=0;
 		memset(b->bitset,0,_PPB/8);
 
+		memset(b->oob_list,0,sizeof(b->oob_list));
+
 		channel* c=&p->base_channel[i];
 	//	mh_insert_append(c->max_heap,(void*)b);
 		q_enqueue((void*)b,c->free_block);
@@ -236,8 +239,9 @@ void base_set_oob(struct blockmanager* bm, char *data,int len, uint32_t ppa){
 
 char *base_get_oob(struct blockmanager*bm,  uint32_t ppa){
 	bbm_pri *p=(bbm_pri*)bm->private_data;
-	__block *b=&p->base_block[GETBLOCKIDX(checker,ppa)];
-	return b->oob_list[ppa%_PPB].d;
+	uint32_t bidx=GETBLOCKIDX(checker,ppa);
+	__block *b=&p->base_block[bidx];
+	return b->oob_list[GETPAGEIDX(ppa)].d;
 }
 
 void base_release_segment(struct blockmanager* bm, __segment *s){
