@@ -65,7 +65,7 @@ void change_new_reserve(uint8_t type);
 void invalidate_PPA(uint8_t type,uint32_t ppa);
 void validate_PPA(uint8_t type,uint32_t ppa);
 void pm_set_oob(uint32_t ppa, char *data, int len, int type);
-void *pm_get_oob(uint32_t ppa, int type);
+void *pm_get_oob(uint32_t ppa, int type,bool isgc);
 #ifdef DVALUE
 void validate_piece(lsm_block *b, uint32_t ppa);
 void invalidate_piece(lsm_block *b, uint32_t ppa);

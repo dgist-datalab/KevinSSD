@@ -2,8 +2,8 @@ export CC=g++
 
 TARGET_INF=interface
 TARGET_LOWER=linux_aio
-TARGET_ALGO=Page_ftl
-TARGET_BM=base
+TARGET_ALGO=Lsmtree
+TARGET_BM=partition
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
 PPWD=$(pwd)
@@ -21,12 +21,12 @@ export COMMONFLAGS=\
 			-DLARGEFILE64_SOURCE\
 			-D_GNU_SOURCE\
 			-DSLC\
+			-DKVSSD\
 			-D$(TARGET_BM)\
 			-Wno-unused-but-set-variable\
 			-DCHECKINGTIME\
 		-O3\
 #			-DWRITESYNC\
-			-DKVSSD\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 
@@ -34,7 +34,7 @@ export CFLAGS_ALGO=\
 			 -fPIC\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
-#		 -DDVALUE\
+		 -DDVALUE\
 
 export CFLAGS_LOWER=\
 		     -fPIC\
@@ -128,7 +128,7 @@ duma_sim: duma_driver
 debug_driver: ./interface/main.c libdriver_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
 
-driver: ./interface/mainfiles/default_main.c libdriver.a
+driver: ./interface/main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 kv_driver: ./interface/NET_main.c libdriver.a libfdsock.a

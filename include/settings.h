@@ -15,8 +15,8 @@
 	}while(0)
 */
 #define PROGRESS
-//#define LOWER_FILE_NAME "./data/simulator.data"
-#define LOWER_FILE_NAME "/dev/sdb1"
+#define LOWER_FILE_NAME "../iotest/simulator.data"
+//#define LOWER_FILE_NAME "/dev/sdb1"
 
 //#define LOWER_FILE_NAME "/dev/robusta"
 #define BENCH_LOG "./result/"
@@ -42,7 +42,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 32L
+#define GIGAUNIT 8L
 #define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)

@@ -153,7 +153,7 @@ gc_node *gc_data_write_new_page(uint32_t t_ppa, char *data, htable_t *table, uin
 		res->value=NULL;
 		LSM.lop->moveTo_fr_page(true);
 		n_ppa=LSM.lop->get_page(NPCINPAGE,res->lpa);
-		footer *foot=(footer*)pm_get_oob(CONVPPA(n_ppa),DATA);
+		footer *foot=(footer*)pm_get_oob(CONVPPA(n_ppa),DATA,false);
 		foot->map[0]=NPCINPAGE;
 		validate_PPA(DATA,n_ppa);
 		gc_data_write(n_ppa,table,true);
@@ -186,7 +186,7 @@ int gc_data(){
 	return 1;
 }
 int __gc_data(){
-//	printf("gc_data\n");
+	printf("gc_data\n");
 #if LEVELN!=1
 	compaction_force();
 #endif
@@ -229,6 +229,7 @@ int __gc_data(){
 	gc_general_waiting(); //wait for read req
 	
 	i=0;
+	int cnt=0;
 	for_each_page_in_seg_blocks(tseg,tblock,tpage,bidx,pidx){
 		uint32_t t_ppa;
 		KEYT *lpa;
@@ -239,16 +240,21 @@ int __gc_data(){
 		footer *foot=(footer*)bm->get_oob(bm,tpage);
 		for(int j=0;j<NPCINPAGE; j++){
 			t_ppa=tpage*NPCINPAGE+j;
+			
 			if(is_invalid_piece((lsm_block*)tblock->private_data,t_ppa)){
 				continue;
 			}
 
 			used_page=true;
+			oob_len=foot->map[j];
 			lpa=LSM.lop->get_lpa_from_data(&((char*)tables[i]->sets)[PIECE*j],t_ppa,false);
 	#ifdef EMULATOR
 			lsm_simul_del(t_ppa);
 	#endif
-			oob_len=foot->map[j];
+			if(!lpa->len || !oob_len){
+				printf("%u oob_len:%u\n",t_ppa,oob_len);
+				abort();
+			}
 
 			if(oob_len==NPCINPAGE && oob_len%NPCINPAGE==0){
 				temp_g=gc_data_write_new_page(t_ppa,NULL,tables[i],NPCINPAGE,lpa);

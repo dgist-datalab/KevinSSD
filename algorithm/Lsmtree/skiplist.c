@@ -620,18 +620,18 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 	}
 	int res_idx=0;
 	for(int i=0; i<b.idx[PAGESIZE/PIECE]; i++){//full page
-			target=b.bucket[PAGESIZE/PIECE][i];
-			res[res_idx]=target->value;
-			res[res_idx]->ppa=LSM.lop->moveTo_fr_page(false);//real physical index
-			target->ppa=LSM.lop->get_page((PAGESIZE/PIECE),target->key);
-			
-			footer *foot=(footer*)pm_get_oob(CONVPPA(target->ppa),DATA);
-			foot->map[0]=NPCINPAGE;
-			validate_PPA(DATA,target->ppa);
+		target=b.bucket[PAGESIZE/PIECE][i];
+		res[res_idx]=target->value;
+		res[res_idx]->ppa=LSM.lop->moveTo_fr_page(false);//real physical index
+		target->ppa=LSM.lop->get_page((PAGESIZE/PIECE),target->key);
 
-			target->value=NULL;
-			res_idx++;
-		}
+		footer *foot=(footer*)pm_get_oob(CONVPPA(target->ppa),DATA,false);
+		foot->map[0]=NPCINPAGE;
+		validate_PPA(DATA,target->ppa);
+
+		target->value=NULL;
+		res_idx++;
+	}
 	b.idx[PAGESIZE/PIECE]=0;
 	
 	for(int i=1; i<PAGESIZE/PIECE+1; i++){

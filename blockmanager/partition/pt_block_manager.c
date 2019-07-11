@@ -262,6 +262,7 @@ void pbm_pt_trim_segment(blockmanager* bm, int pnum, __gsegment *target, lower_i
 		b->now=0;
 		memset(b->bitset,0,_PPB/8);
 
+		memset(b->oob_list,0,sizeof(b->oob_list));
 		channel *c=&pinfo->p_channel[pnum][i];
 	//	mh_insert_append(c->max_heap,(void*)b);
 		q_enqueue((void*)b,c->free_block);

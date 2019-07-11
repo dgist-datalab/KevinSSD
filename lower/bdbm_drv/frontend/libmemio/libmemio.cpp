@@ -39,6 +39,7 @@ THE SOFTWARE.
 #include "../../../../include/settings.h"
 #ifndef BPS
 #define BPS 64
+#define _PPB 256
 #endif
 #include "../../../../include/container.h"
 //#include "../../../../bench/bench.h"

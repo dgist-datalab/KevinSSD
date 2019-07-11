@@ -314,11 +314,12 @@ void pm_set_oob(uint32_t _ppa, char *data, int len, int type){
 	bm->set_oob(bm,data,len,ppa);
 }
 
-void *pm_get_oob(uint32_t _ppa, int type){
+void *pm_get_oob(uint32_t _ppa, int type, bool isgc){
+	//^ the third param is for debugging 
 	int ppa;
 	if(type==DATA){
 #ifdef DVALUE
-		ppa=_ppa/NPCINPAGE;
+		ppa=_ppa;
 #endif
 	}else if(type==HEADER){
 		ppa=_ppa;
@@ -326,7 +327,15 @@ void *pm_get_oob(uint32_t _ppa, int type){
 	else 
 		abort();
 	blockmanager *bm=LSM.bm;
-	return bm->get_oob(bm,ppa);
+	void *res=bm->get_oob(bm,ppa);
+
+	if(!isgc){
+		if(((footer*)res)->map[0]){
+			printf("ppa:%u %p\n",_ppa,res);
+			abort();
+		}
+	}
+	return res;
 }
 
 void gc_nocpy_delay_erase(uint32_t ppa){
