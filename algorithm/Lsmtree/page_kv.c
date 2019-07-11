@@ -193,7 +193,7 @@ int __gc_data(){
 	l_bucket *bucket=(l_bucket*)calloc(sizeof(l_bucket),1);
 	gc_general_wait_init();
 
-	htable_t **tables=(htable_t**)calloc(sizeof(htable_t*),algo_lsm.li->PPS);
+	htable_t **tables=(htable_t**)calloc(sizeof(htable_t*),_PPS);
 
 	blockmanager *bm=LSM.bm;
 	__gsegment *tseg=bm->pt_get_gc_target(bm,DATA_S);
