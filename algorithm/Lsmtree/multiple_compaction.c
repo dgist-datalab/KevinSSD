@@ -10,6 +10,7 @@ uint32_t multiple_leveling(int from, int to){
 		compaction_selector(LSM.disk[from],LSM.disk[to],NULL,&LSM.level_lock[to]);
 		return 1;
 	}
+	LSM.lop->print_level_summary();
 	LSM.delayed_header_trim=true;
 	//int lev_number=to-from;
 	//int ln_p_from=lev_number+from;
@@ -24,6 +25,7 @@ uint32_t multiple_leveling(int from, int to){
 		target_lev=LSM.lop->init(t_org->m_num, t_org->idx, t_org->fpr,false);
 	}
 
+	LSM.c_level=target_lev;
 	/*find min value and max value*/
 	for(int i=from; i<t_org->idx; i++){
 		if(KEYCMP(start,LSM.disk[i]->start)>0){
@@ -188,5 +190,7 @@ uint32_t multiple_leveling(int from, int to){
 	(*des_ptr)=target_lev;
 	LSM.lop->release(t_org);
 	pthread_mutex_unlock(&LSM.level_lock[to]);
+	
+	LSM.c_level=NULL;
 	return 1;
 }

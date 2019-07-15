@@ -141,8 +141,11 @@ bool def_fchk( level *input){
 
 	}
 	else{
-		if(input->n_num>=(input->m_num/(SIZEFACTOR)*(SIZEFACTOR-1)))
+		if(input->n_num>=((input->m_num/(SIZEFACTOR)*(SIZEFACTOR-1))))
 			return true;
+		else if(input->m_num>=100 && input->n_num>=(((input->m_num/(SIZEFACTOR)*(SIZEFACTOR-1)))*95/100)){
+			return true;
+		}
 	}
 	return false;
 
