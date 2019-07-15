@@ -173,12 +173,14 @@ int gc_data(){
 	//LSM.lop->print_level_summary();
 //	printf("gc_data start:%d, needed_valid_page:%d\n",LSM.bm->pt_remain_page(LSM.bm,d_m.active,MAP_S), LSM.needed_valid_page);
 	int tcnt=0;
-	while(LSM.needed_valid_page > (uint32_t) LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S)){
+	while((LEVELN==1) || LSM.needed_valid_page > (uint32_t) LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S)){
 #endif
 		__gc_data();
 #ifdef GCOPT
 		tcnt++;
+		if(LEVELN==1) break;
 	}
+
 	if(LSM.bm->check_full(LSM.bm,d_m.active,MASTER_BLOCK))
 		change_reserve_to_active(DATA);
 //	printf("%d gc_data done:%d\n",tcnt,LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S));

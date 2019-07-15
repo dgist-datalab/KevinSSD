@@ -9,7 +9,7 @@
 #endif
 
 #define RAF 0.01
-#define LEVELN 2
+#define LEVELN 1
 
 #if LEVELN!=1
 #define BLOOM

@@ -169,7 +169,7 @@ lsm_block* getRBlock(uint8_t type){
 		abort();
 	}
 
-	ppa_t pick_ppa=bm->pick_page_num(bm,t->active);
+	ppa_t pick_ppa=bm->get_page_num(bm,t->reserve);
 	__block *res=bm->pick_block(bm,pick_ppa);
 	lsm_block *lb;
 	if(!res->private_data){
