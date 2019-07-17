@@ -9,7 +9,7 @@
 #endif
 
 #define RAF 0.01
-#define LEVELN 1
+#define LEVELN 2
 
 #if LEVELN!=1
 #define BLOOM
@@ -26,7 +26,7 @@
 //#define LEVELEMUL 
 //#define MERGECOMPACTION 4
 #define READCACHE
-#define NOCPY
+//#define NOCPY
 #define RANGEGETNUM 2
 //#define USINGSLAB
 
@@ -44,7 +44,6 @@
 #define WRITEOPTIMIZE
 #define GCOPT
 #define MULTIOPT
-//#define STREAMCOMP
 
 /*compaction*/
 #define EPC 100000 //size factor have to be multiple of SIZEFACTOR
@@ -52,7 +51,5 @@
 
 #define MAXITER 16
 
-//#define SNU_TEST
 #define SPINLOCK
-//#define MUTEXLOCK
 #endif

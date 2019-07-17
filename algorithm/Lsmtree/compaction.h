@@ -52,12 +52,18 @@ bool compaction_force_target(int from, int to);
 void compaction_sub_pre();
 void compaction_sub_wait();
 void compaction_sub_post();
+void compaction_data_write(leveling_node* lnode);
 void htable_read_postproc(run_t *r);
 void compaction_selector(level *a, level *b,leveling_node *lnode, pthread_mutex_t* lock);
+
+void compaction_htable_write_insert(level *target,run_t *entry,bool isbg);
+
+uint32_t compaction_htable_write(ppa_t ppa,htable *input, KEYT lpa, char *nocpy_data);
+void compaction_htable_read(run_t *ent,PTR* value);
 #ifdef WRITEOPTIMIZE
 void compaction_bg_htable_bulkread(run_t **r,fdriver_lock_t **locks);
 
-uint32_t compaction_bg_htable_write(htable *input, KEYT lpa, char *nocpy_data);
+uint32_t compaction_bg_htable_write(ppa_t ppa,htable *input, KEYT lpa, char *nocpy_data);
 #endif
 
 #ifdef MONKEY

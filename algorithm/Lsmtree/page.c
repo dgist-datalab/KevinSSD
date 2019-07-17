@@ -338,12 +338,14 @@ void *pm_get_oob(uint32_t _ppa, int type, bool isgc){
 	return res;
 }
 
+#ifdef NOCPY
 void gc_nocpy_delay_erase(uint32_t ppa){
 	//if(ppa==UINT32_MAX) return;
 	//nocpy_free_block(ppa);
 	nocpy_trim_delay_flush();
 	LSM.delayed_trim_ppa=UINT32_MAX;
 }
+#endif
 void change_new_reserve(uint8_t type){
 	pm *t=NULL;
 	blockmanager *bm=LSM.bm;

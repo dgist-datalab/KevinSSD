@@ -4,7 +4,7 @@
 #include "../../include/sem_lock.h"
 extern KEYT key_min,key_max;
 extern lsmtree LSM;
-
+#ifdef MULTIOPT
 uint32_t multiple_leveling(int from, int to){
 	if(to-from==1){
 		compaction_selector(LSM.disk[from],LSM.disk[to],NULL,&LSM.level_lock[to]);
@@ -139,9 +139,7 @@ uint32_t multiple_leveling(int from, int to){
 			
 			container[0]=now;
 			result=LSM.lop->partial_merger_cutter(body,NULL,container,target_lev->fpr);
-			result->pbn=compaction_bg_htable_write(result->cpt_data,result->key,(char*)result->cpt_data->sets);
-			LSM.lop->insert(target_lev,result);
-			LSM.lop->release_run(result);
+			compaction_htable_write_insert(target_lev,result,true);
 			htable_read_postproc(now);
 			free(result);
 		}
@@ -153,9 +151,8 @@ uint32_t multiple_leveling(int from, int to){
 		result=LSM.lop->partial_merger_cutter(body,NULL,NULL,target_lev->fpr);
 
 		if(result==NULL) break;
-		result->pbn=compaction_bg_htable_write(result->cpt_data,result->key,(char*)result->cpt_data->sets);
-		LSM.lop->insert(target_lev,result);
-		LSM.lop->release_run(result);
+
+		compaction_htable_write_insert(target_lev,result,true);
 		free(result);
 	}
 	free(bunch_data);
@@ -164,8 +161,10 @@ uint32_t multiple_leveling(int from, int to){
 		free(wait[i]);
 	}
 	free(wait);
+#ifdef NOCPY
 	gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
 	LSM.delayed_header_trim=false;
+#endif
 	
 	if(origin_from>=LEVELCACHING){
 		skiplist_free(body);
@@ -194,3 +193,4 @@ uint32_t multiple_leveling(int from, int to){
 	LSM.c_level=NULL;
 	return 1;
 }
+#endif

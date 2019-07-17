@@ -122,7 +122,9 @@ int gc_header(){
 		uint32_t n_ppa=getRPPA(HEADER,*lpa,true);
 		validate_PPA(HEADER,n_ppa);
 		target_entry->pbn=n_ppa;
+#ifdef NOCPY
 		nocpy_force_freepage(tpage);
+#endif
 		gc_data_write(n_ppa,tables[i],false);
 		free(tables[i]);
 
@@ -133,7 +135,9 @@ int gc_header(){
 	free(tables);
 
 	for_each_page_in_seg(tseg,tpage,bidx,pidx){
+#ifdef NOCPY
 		nocpy_trim_delay_enq(tpage);
+#endif
 		if(pidx==0){
 			lb_free((lsm_block*)tseg->blocks[bidx]->private_data);
 		}
@@ -246,7 +250,9 @@ int __gc_data(){
 			if(is_invalid_piece((lsm_block*)tblock->private_data,t_ppa)){
 				continue;
 			}
-
+			if(t_ppa==1537488){
+				printf("break!\n");
+			}
 			used_page=true;
 			oob_len=foot->map[j];
 			lpa=LSM.lop->get_lpa_from_data(&((char*)tables[i]->sets)[PIECE*j],t_ppa,false);
@@ -387,7 +393,8 @@ void gc_data_header_update(struct gc_node **g, int size){
 			gc_data_read(entries[0]->pbn,map_data,false);
 
 			gc_general_waiting();
-
+		
+			bool test=false;
 			for(int k=i; g[k]==NULL ||KEYCMP(g[k]->lpa,entries[0]->end)<=0; k++){
 				if(k>=size) break;
 				if(!g[k]) continue;
@@ -424,6 +431,9 @@ void gc_data_header_update(struct gc_node **g, int size){
 #ifdef NOCPY
 				map_data->nocpy_table=nocpy_temp_table;
 #endif			
+				if(entries[0]->c_entry){
+					cache_delete(LSM.lsm_cache,entries[0]);
+				}
 				gc_data_write(entries[0]->pbn,map_data,false);
 			}
 			free(map_data);

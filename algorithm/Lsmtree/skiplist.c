@@ -286,13 +286,13 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 #endif
 	{
 		//delete exists ppa; input ppa
+		if(ppa==x->ppa){
+			printf("%.*s ppa:%u",KEYFORMAT(key),ppa);
+			abort();
+		}
+
 		invalidate_PPA(DATA,x->ppa);
-		/*
-		if(x->ppa/NPCINPAGE/256==384){
-			printf("%.*s\n",KEYFORMAT(x->key));
-		}*/
-	//	printf("free key:%.*s %p\n",key.len, key.key,key.key);
-	//	free(key.key);
+	
 		x->ppa=ppa;
 		x->isvalid=deletef;
 		return x;

@@ -84,7 +84,6 @@ void lsm_bind_ops(lsmtree *l){
 	l->lop=&a_ops;
 	l->ORGHEADER=l->KEYNUM=l->lop->get_max_table_entry();
 	l->FLUSHNUM=l->lop->get_max_flush_entry(FULLMAPNUM);
-	l->inplace_compaction=false;
 }
 uint32_t __lsm_get(request *const);
 static int32_t get_sizefactor(uint64_t as){
@@ -353,7 +352,9 @@ void* lsm_end_req(algo_req* const req){
 			break;
 		case BGWRITE:
 		case HEADERW:
-			inf_free_valueset(params->value,FS_MALLOC_W);
+			if(!params->htable_ptr->origin){
+				inf_free_valueset(params->value,FS_MALLOC_W);
+			}
 			htable_free(params->htable_ptr);
 			break;
 		case GCDR:
@@ -365,7 +366,6 @@ void* lsm_end_req(algo_req* const req){
 #endif
 		case GCHR:
 #else
-		case GCDR:
 		case GCHR:
 			target=(PTR)params->target;//gc has malloc in gc function
 			memcpy(target,params->value->value,PAGESIZE);
