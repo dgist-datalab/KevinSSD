@@ -52,7 +52,7 @@ int gc_header(){
 	gc_general_waiting();
 
 	i=0;
-	int idx_cnt=0;
+	//int idx_cnt=0;
 	for_each_page_in_seg(tseg,tpage,bidx,pidx){
 	//	printf("[%d]tpage:%u\n",idx_cnt++,tpage);
 		if(bm->is_invalid_page(bm, tpage)){
@@ -231,7 +231,7 @@ int __gc_data(){
 	gc_general_waiting(); //wait for read req
 	
 	i=0;
-	int cnt=0;
+	//int cnt=0;
 	for_each_page_in_seg_blocks(tseg,tblock,tpage,bidx,pidx){
 		uint32_t t_ppa;
 		KEYT *lpa;

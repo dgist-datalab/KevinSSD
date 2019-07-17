@@ -43,7 +43,7 @@ uint32_t multiple_leveling(int from, int to){
 	free(target_s);
 
 	skiplist *body;
-	if(from<LEVELCACHING){
+	if(from<LEVELCACHING && from>=0){
 		body=LSM.lop->cache_get_body(LSM.disk[from]);
 		from++;
 	}

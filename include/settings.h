@@ -42,7 +42,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 8L
+#define GIGAUNIT 4L
 #define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
@@ -78,6 +78,7 @@ enum{
 #define SIMULATION 0
 
 #define FSTYPE uint8_t
+#define ppa_t uint32_t
 #ifdef KVSSD
 #define KEYFORMAT(input) input.len,input.key
 #include<string.h>

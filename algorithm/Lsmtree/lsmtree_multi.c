@@ -129,7 +129,7 @@ uint32_t __lsm_range_get_after_header(request *req){
 	keyset min={0,0}, temp;
 	bool no_memtable=false;
 	for(int j=0;j<req->num; j++){
-		int target;
+		int target=0;
 		min.ppa=-1;
 
 		for(int i=0; i<LEVELN+1; i++){

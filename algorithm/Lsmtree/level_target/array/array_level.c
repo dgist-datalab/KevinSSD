@@ -83,9 +83,7 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 	uint16_t data_start=KEYBITMAP;
 	bitmap[0]=mem->size;
 	for_each_sk(temp,mem){
-
 		//printf("idx:%d data_start:%d key_len:%d\n",idx,data_start,temp->key.len);
-
 		if(idx==1){
 			kvssd_cpy_key(&input->key,&temp->key);
 		}
@@ -94,6 +92,7 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 		}
 		memcpy(&ptr[data_start],&temp->ppa,sizeof(temp->ppa));
 		memcpy(&ptr[data_start+sizeof(temp->ppa)],temp->key.key,temp->key.len);
+
 		bitmap[idx]=data_start;
 #ifdef BLOOM
 		bf_set(filter,temp->key);
@@ -106,7 +105,6 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 #else
 	not implemented
 #endif
-//	array_header_print((char*)res->sets);
 	return res;
 }
 //static int merger_cnt;
@@ -209,7 +207,7 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 		free(temp->list);
 		free(temp);
 	}
-	while(src_skip->all_length && (length+KEYLEN(src_skip->header->list[1]->key)<PAGESIZE-KEYBITMAP) && (cnt<KEYBITMAP/sizeof(uint16_t)));
+	while(src_skip->all_length && (length+KEYLEN(src_skip->header->list[1]->key)<PAGESIZE-KEYBITMAP) && (cnt<KEYBITMAP/sizeof(uint16_t)-1));
 		//	printf("after\n");
 	bitmap[0]=idx-1;
 	bitmap[idx]=data_start;
@@ -400,8 +398,12 @@ void array_header_print(char *data){
 	bitmap=(uint16_t*)body;
 	printf("header_num:%d : %p\n",bitmap[0],data);
 	for_each_header_start(idx,key,ppa,bitmap,body)
+		/*
+		if(*ppa>2000000){
+			abort();
+		}*/
 #ifdef DVALUE
-		fprintf(stderr,"[%d:%d] key(%p):%.*s(%d) ,%u\n",idx,bitmap[idx],&data[bitmap[idx]],key.len,key.key,key.len,*ppa);
+		fprintf(stderr,"[%d:%d] key(%p):%.*s(%d) ,%lu\n",idx,bitmap[idx],&data[bitmap[idx]],key.len,key.key,key.len,*ppa);
 #else
 		fprintf(stderr,"[%d:%d] key(%p):%.*s(%d) ,%u\n",idx,bitmap[idx],&data[bitmap[idx]],key.len,key.key,key.len,*ppa);
 #endif
@@ -595,8 +597,9 @@ run_t *array_p_merger_cutter(skiplist *skip,run_t **src, run_t **org, float fpr)
 		bitmap=(uint16_t*)body;
 		for_each_header_start(idx,key,ppa_ptr,bitmap,body)
 			org_limit=key;
-			skiplist_insert_wP(skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
+			skiplist_insert_wP(skip,key,*ppa_ptr,*ppa_ptr==-1?false:true);
 		for_each_header_end	
+
 	}	
 
 	if(skip->header->list[1]==skip->header) return NULL;
@@ -615,10 +618,12 @@ run_t *array_p_merger_cutter(skiplist *skip,run_t **src, run_t **org, float fpr)
 	bitmap=(uint16_t*)ptr;
 	idx=1;
 	uint16_t cnt=0;
-	uint32_t max_key_num=KEYBITMAP/sizeof(uint16_t);
-	memset(bitmap,-1,max_key_num);
+	uint32_t max_key_num=KEYBITMAP/sizeof(uint16_t)-2;
+	memset(bitmap,-1,KEYBITMAP);
 	uint16_t data_start=KEYBITMAP;
 	uint32_t length=0;
+
+
 	for_each_sk(temp,skip){
 		memcpy(&ptr[data_start],&temp->ppa,sizeof(temp->ppa));
 		memcpy(&ptr[data_start+sizeof(temp->ppa)],temp->key.key,temp->key.len);
@@ -640,11 +645,15 @@ run_t *array_p_merger_cutter(skiplist *skip,run_t **src, run_t **org, float fpr)
 		else break;
 	}
 	bitmap[0]=idx-1;
+	if(bitmap[idx]!=UINT16_MAX){
+		printf("%d\n",bitmap[idx]);
+		abort();
+	}
 	bitmap[idx]=data_start;
 
 	run_t *res_r=array_make_run(start,end,-1);
 	res_r->cpt_data=res;
-
+	
 #ifdef BLOOM
 	res_r->filter=filter;
 #endif

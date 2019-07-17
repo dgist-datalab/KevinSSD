@@ -54,9 +54,9 @@ int pt_get_cnt(void *a){
 	return aa->invalid_number;
 }
 void pbm_create_print(blockmanager *bm, int pnum){
+/*
 	bbm_pri *p=(bbm_pri*)bm->private_data;
 	p_info *pinfo=(p_info*)p->private_data;
-/*
 	for(int i=0; i<pnum; i++){
 		if(i==DATA_S){
 			printf("[DATA SEG INFO]\n");

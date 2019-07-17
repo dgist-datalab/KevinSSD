@@ -408,7 +408,7 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overla
 }
 
 skiplist *skiplist_cutting_header(skiplist *in){
-	static uint32_t num_limit=KEYBITMAP/sizeof(uint16_t);
+	static uint32_t num_limit=KEYBITMAP/sizeof(uint16_t)-2;
 	static uint32_t size_limit=PAGESIZE-KEYBITMAP;
 	if(in->all_length<size_limit && in->size <num_limit) return in;
 
@@ -504,7 +504,6 @@ snode *skiplist_insert_iter(skiplist *list,KEYT key,ppa_t ppa){
 snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 	snode *update[MAX_L+1];
 	snode *x=list->header;
-
 	for(int i=list->level; i>=1; i--){
 #if defined(KVSSD) 
 		while(KEYCMP(x->list[i]->key,key)<0)
@@ -617,6 +616,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 		if(target->value==0) continue;
 		b.bucket[target->value->length][b.idx[target->value->length]++]=target;
 		total_size+=target->value->length;
+
 	}
 	int res_idx=0;
 	for(int i=0; i<b.idx[PAGESIZE/PIECE]; i++){//full page

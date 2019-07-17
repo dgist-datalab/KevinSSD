@@ -47,7 +47,7 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 		uint8_t used_piece=0;
 		while(remain>0){
 			int target_length=(remain/PIECE>max_piece?max_piece:remain/PIECE);
-			while(src->idx[target_length]==0 && target_length!=0) --target_length;
+			while(target_length!=0 && src->idx[target_length]==0 ) --target_length;
 			if(target_length==0){
 				break;
 			}

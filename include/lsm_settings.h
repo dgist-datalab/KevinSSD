@@ -5,7 +5,7 @@
 /*lsmtree structure*/
 #define FULLMAPNUM  1024
 #ifdef KVSSD
-#define KEYBITMAP 1536
+#define KEYBITMAP 1024
 #endif
 
 #define RAF 0.01
@@ -18,7 +18,6 @@
 
 //#define LEVELUSINGHEAP
 //#define TIERING
-#define ppa_t uint32_t
 
 //#define EMULATOR
 #define KEYLEN(a) (a.len+sizeof(ppa_t))

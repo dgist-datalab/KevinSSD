@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=linux_aio
+TARGET_LOWER=no_dev
 TARGET_ALGO=Lsmtree
 TARGET_BM=partition
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
@@ -17,6 +17,7 @@ DEBUGFLAGS=\
 
 export COMMONFLAGS=\
 			-Wno-write-strings\
+			-Wno-sign-compare\
 			-Wno-unused-function\
 			-DLARGEFILE64_SOURCE\
 			-D_GNU_SOURCE\

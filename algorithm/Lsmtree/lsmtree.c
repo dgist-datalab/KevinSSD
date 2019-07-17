@@ -272,7 +272,7 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 int lsm_data_cache_insert(ppa_t ppa,value_set *data){
 	value_set* temp;
 	bool should_free=true;
-	if(LSM.data_ppa==UINT_MAX) should_free=false;
+	if(LSM.data_ppa==-1) should_free=false;
 	temp=LSM.data_value;
 	pthread_mutex_lock(&LSM.data_lock);
 	LSM.data_ppa=ppa;
@@ -286,7 +286,7 @@ int lsm_data_cache_insert(ppa_t ppa,value_set *data){
 
 int lsm_data_cache_check(request *req, ppa_t ppa){
 	pthread_mutex_lock(&LSM.data_lock);
-	if(LSM.data_ppa!=UINT_MAX && NOEXTENDPPA(ppa)==NOEXTENDPPA(LSM.data_ppa)){
+	if(LSM.data_ppa!=-1 && NOEXTENDPPA(ppa)==NOEXTENDPPA(LSM.data_ppa)){
 		pthread_mutex_unlock(&LSM.data_lock);
 		return 1;
 	}
@@ -593,7 +593,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 		if(target_set){
 			lsm_req=lsm_get_req_factory(req,DATAR);
 			bench_cache_hit(req->mark);	
-			req->value->ppa=target_set->ppa;
+			req->value->ppa=target_set->ppa>>1;
 			ppa=target_set->ppa;
 			res=4;
 		}
@@ -605,7 +605,6 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 			table=(keyset*)nocpy_pick(entry->pbn);
 		}
 #endif
-
 		target_set=LSM.lop->find_keyset((char*)table,req->key);
 		if(likely(target_set)){
 			if(entry && !entry->c_entry && cache_insertable(LSM.lsm_cache)){
@@ -621,7 +620,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 			}
 
 			lsm_req=lsm_get_req_factory(req,DATAR);
-			req->value->ppa=target_set->ppa;
+			req->value->ppa=target_set->ppa>>1;
 			ppa=target_set->ppa;
 			res=4;
 		}
@@ -643,7 +642,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 				temp_params[3]++;
 				if(new_target_set){
 					new_lsm_req=lsm_get_req_factory(temp_req,DATAR);
-					temp_req->value->ppa=new_target_set->ppa;
+					temp_req->value->ppa=new_target_set->ppa>>1;
 #ifdef DVALUE
 					if(lsm_data_cache_check(temp_req,temp_req->value->ppa)){
 						temp_req->end_req(temp_req);
@@ -773,7 +772,7 @@ uint32_t __lsm_get(request *const req){
 retry:
 	for(int i=level; i<LEVELN; i++){
 		int *temp_data=(int*)req->params;
-		if(i<LEVELCACHING){
+		if(i<LEVELCACHING && i>=0){
 			temp_data[2]=LEVELN+1;
 			pthread_mutex_lock(&LSM.level_lock[i]);
 			keyset *find=LSM.lop->cache_find(LSM.disk[i],req->key);
@@ -942,7 +941,7 @@ void htable_print(htable * input,ppa_t ppa){
 #endif
 	}
 	if(check){
-		printf("bad page at %u cnt:%d---------\n",ppa,cnt);
+		printf("bad page at %lu cnt:%d---------\n",ppa,cnt);
 		abort();
 	}
 }
