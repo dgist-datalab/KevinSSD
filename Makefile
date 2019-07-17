@@ -28,6 +28,7 @@ export COMMONFLAGS=\
 			-DCHECKINGTIME\
 		-O3\
 #			-DWRITESYNC\
+			-DKVSSD\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 
@@ -35,7 +36,7 @@ export CFLAGS_ALGO=\
 			 -fPIC\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
-		 -DDVALUE\
+#		 -DDVALUE\
 
 export CFLAGS_LOWER=\
 		     -fPIC\
@@ -129,7 +130,7 @@ duma_sim: duma_driver
 debug_driver: ./interface/main.c libdriver_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
 
-driver: ./interface/main.c libdriver.a
+driver: ./interface/mainfiles/default_main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 kv_driver: ./interface/NET_main.c libdriver.a libfdsock.a

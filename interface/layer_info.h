@@ -46,10 +46,21 @@ static void layer_info_mapping(master_processor *mp){
 #endif
 	
 
-#ifdef partition
+#if defined(partition) && !defined(Page_ftl)
 	mp->bm=&pt_bm;
 #else
 	mp->bm=&base_bm;
 #endif
+
+	mp->li->create(mp->li,mp->bm);
+#if defined(partition) && !defined(Page_ftl)
+	int temp[PARTNUM];
+	temp[MAP_S]=MAPPART_SEGS;
+	temp[DATA_S]=DATAPART_SEGS;
+	mp->bm->pt_create(mp->bm,PARTNUM,temp,mp->li);
+#else
+	mp->bm->create(mp->bm,mp->li);
+#endif
+	mp->algo->create(mp->li,mp->bm,mp->algo);
 }
 #endif
