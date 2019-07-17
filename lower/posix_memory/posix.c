@@ -6,19 +6,6 @@
 #include "../../interface/queue.h"
 #include "../../interface/bb_checker.h"
 #include "../../include/utils/cond_lock.h"
-#ifdef dftl
-#include "../../algorithm/dftl/dftl.h"
-#elif defined(dftl_fm)
-#include "../../algorithm/dftl_fm/dftl.h"
-#elif defined(ctoc)
-#include "../../algorithm/ctoc/dftl.h"
-#elif defined(dftl_test)
-#include "../../algorithm/dftl_test/dftl.h"
-#elif defined(ctoc_batch)
-#include "../../algorithm/ctoc_batch/dftl.h"
-#else
-#include "../../algorithm/Lsmtree/lsmtree.h"
-#endif
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -54,8 +41,10 @@ lower_info my_posix={
 	.device_badblock_checker=NULL,
 #if (ASYNC==1)
 	.trim_block=posix_make_trim,
+	.trim_a_block=posix_trim_a_block,
 #elif (ASYNC==0)
 	.trim_block=posix_trim_block,
+	.trim_a_block=posix_trim_a_block,
 #endif
 	.refresh=posix_refresh,
 	.stop=posix_stop,
@@ -155,7 +144,7 @@ void *posix_make_trim(uint32_t PPA, bool async){
 }
 #endif
 
-uint32_t posix_create(lower_info *li){
+uint32_t posix_create(lower_info *li, blockmanager *b){
 	li->NOB=_NOS;
 	li->NOP=_NOP;
 	li->SOB=BLOCKSIZE*BPS;
@@ -322,4 +311,8 @@ void posix_flying_req_wait(){
 #if (ASYNC==1)
 	while(p_q->size!=0){}
 #endif
+}
+
+void* posix_trim_a_block(uint32_t PPA, bool async){
+	return NULL;
 }
