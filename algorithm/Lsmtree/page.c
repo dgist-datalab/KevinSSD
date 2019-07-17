@@ -331,7 +331,7 @@ void *pm_get_oob(uint32_t _ppa, int type, bool isgc){
 
 	if(!isgc){
 		if(((footer*)res)->map[0]){
-			printf("ppa:%u %p\n",_ppa,res);
+			printf("ppa:%u,%u %p\n",_ppa,ppa,res);
 			abort();
 		}
 	}

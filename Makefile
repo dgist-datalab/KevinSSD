@@ -12,7 +12,7 @@ DEBUGFLAGS=\
 			-rdynamic\
 			-Wno-pointer-arith\
 			-g\
-#	-fsanitize=address\
+	-fsanitize=address\
 #	-DBUSE_DEBUG
 
 export COMMONFLAGS=\
@@ -26,7 +26,7 @@ export COMMONFLAGS=\
 			-D$(TARGET_BM)\
 			-Wno-unused-but-set-variable\
 			-DCHECKINGTIME\
-		-O3\
+#		-O3\
 #			-DWRITESYNC\
 			-DKVSSD\
 
@@ -36,7 +36,7 @@ export CFLAGS_ALGO=\
 			 -fPIC\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
-#		 -DDVALUE\
+		 -DDVALUE\
 
 export CFLAGS_LOWER=\
 		     -fPIC\
@@ -130,7 +130,7 @@ duma_sim: duma_driver
 debug_driver: ./interface/main.c libdriver_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
 
-driver: ./interface/mainfiles/default_main.c libdriver.a
+driver: ./interface/main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 kv_driver: ./interface/NET_main.c libdriver.a libfdsock.a
