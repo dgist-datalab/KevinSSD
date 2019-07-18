@@ -394,7 +394,6 @@ void gc_data_header_update(struct gc_node **g, int size){
 
 			gc_general_waiting();
 		
-			bool test=false;
 			for(int k=i; g[k]==NULL ||KEYCMP(g[k]->lpa,entries[0]->end)<=0; k++){
 				if(k>=size) break;
 				if(!g[k]) continue;

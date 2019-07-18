@@ -47,6 +47,7 @@ volatile int compactino_target_cnt;
 
 void compaction_sub_pre(){
 	pthread_mutex_lock(&compaction_wait);
+	memcpy_cnt=0;
 }
 
 void compaction_selector(level *a, level *b,leveling_node *lnode, pthread_mutex_t* lock){
@@ -587,21 +588,10 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 
 	compaction_sub_pre();
 	for(int j=0; target_s[j]!=NULL; j++){
-		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-		if(target_s[j]->c_entry){
-#ifdef NOCPY
-			target_s[j]->cpt_data->nocpy_table=target_s[j]->cache_nocpy_data_ptr;
-#else
-			target_s[j]->cpt_data=htable_copy(target_s[j]->cach_data);
-#endif
-			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-			memcpy_cnt++;
-		}
-		else{
-			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-			target_s[j]->cpt_data=htable_assign(NULL,false);
+		if(!htable_read_preproc(target_s[j])){
 			compaction_htable_read(target_s[j],(PTR*)&target_s[j]->cpt_data);
 		}
+		target_s[j]->iscompactioning=SEQCOMP;
 		epc_check++;
 	}
 
@@ -609,15 +599,13 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 
 	for(int k=0; target_s[k]; k++){
 		BF *filter=LSM.lop->making_filter(target_s[k],-1,des->fpr);
-		run_t *new_ent=LSM.lop->run_cpy(target_s[k]);
+		BF *temp=target_s[k]->filter;
 
 		/*filter back*/
-		target_s[k]->filter=new_ent->filter;
-
-		new_ent->filter=filter;
-		htable_free(target_s[k]->cpt_data);
-		LSM.lop->insert(des,new_ent);
-		LSM.lop->release_run(new_ent);
+		target_s[k]->filter=filter;
+		htable_read_postproc(target_s[k]);
+		LSM.lop->insert(des,target_s[k]);
+		target_s[k]->filter=temp;
 	}
 	compaction_sub_post();
 	free(target_s);

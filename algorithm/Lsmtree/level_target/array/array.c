@@ -143,8 +143,6 @@ void array_free(level* lev){
 }
 
 void array_run_cpy_to(run_t *input, run_t *res){
-//	res->key=input->key;
-//	res->end=input->end;
 	kvssd_cpy_key(&res->key,&input->key);
 	kvssd_cpy_key(&res->end,&input->end);
 
@@ -210,7 +208,6 @@ void array_insert(level *lev, run_t* r){
 //		target->cache_data->nocpy_table=(char*)cache_temp;
 		target->cache_nocpy_data_ptr=nocpy_pick(r->pbn);
 #else
-		char *cache_temp=(char*)r->cpt_data->sets;
 		target->cache_data=htable_copy(r->cpt_data);
 		r->cpt_data->sets=NULL;
 #endif
@@ -384,8 +381,8 @@ void array_free_run(run_t *e){
 }
 run_t * array_run_cpy( run_t *input){
 	run_t *res=(run_t*)malloc(sizeof(run_t));
-	res->key=input->key;
-	res->end=input->end;
+	kvssd_cpy_key(&res->key,&input->key);
+	kvssd_cpy_key(&res->end,&input->end);
 	res->pbn=input->pbn;
 #ifdef BLOOM
 	res->filter=input->filter;
