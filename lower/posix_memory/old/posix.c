@@ -17,10 +17,10 @@
 #include <limits.h>
 //#include <readline/readline.h>
 //#include <readline/history.h>
-#define LASYNC 0
+
 pthread_mutex_t fd_lock;
 mem_seg *seg_table;
-#if (LASYNC==1)
+#if (ASYNC==1)
 queue *p_q;
 pthread_t t_id;
 bool stopflag;
@@ -31,18 +31,18 @@ cl_lock *lower_flying;
 lower_info my_posix={
 	.create=posix_create,
 	.destroy=posix_destroy,
-#if (LASYNC==1)
+#if (ASYNC==1)
 	.write=posix_make_push,
 	.read=posix_make_pull,
-#elif (LASYNC==0)
+#elif (ASYNC==0)
 	.write=posix_push_data,
 	.read=posix_pull_data,
 #endif
 	.device_badblock_checker=NULL,
-#if (LASYNC==1)
+#if (ASYNC==1)
 	.trim_block=posix_make_trim,
 	.trim_a_block=posix_trim_a_block,
-#elif (LASYNC==0)
+#elif (ASYNC==0)
 	.trim_block=posix_trim_block,
 	.trim_a_block=posix_trim_a_block,
 #endif
@@ -54,7 +54,7 @@ lower_info my_posix={
 };
  uint32_t d_write_cnt, m_write_cnt, gcd_write_cnt, gcm_write_cnt;
 
-#if (LASYNC==1)
+#if (ASYNC==1)
 void *l_main(void *__input){
 	posix_request *inf_req;
 	while(1){
@@ -153,19 +153,20 @@ uint32_t posix_create(lower_info *li, blockmanager *b){
 	li->PPB=_PPB;
 	li->PPS=_PPS;
 	li->TS=TOTALSIZE;
-	lower_flying=cl_init(QDEPTH,true);
+	lower_flying=cl_init(QDEPTH*2,true);
 
-	printf("!!! posix memory LASYNC: %d!!!\n", LASYNC);
+	printf("!!! posix memory ASYNC: %d!!!\n", ASYNC);
 	li->write_op=li->read_op=li->trim_op=0;
-	seg_table = (mem_seg*)malloc(sizeof(mem_seg)*li->NOP);
-	for(uint32_t i = 0; i < li->NOP; i++){
+	seg_table = (mem_seg*)malloc(sizeof(mem_seg)*li->NOB);
+	for(uint32_t i = 0; i < li->NOB; i++){
 		seg_table[i].storage = NULL;
+		seg_table[i].alloc = 0;
 	}
 	pthread_mutex_init(&fd_lock,NULL);
 	pthread_mutex_init(&my_posix.lower_lock,NULL);
 	measure_init(&li->writeTime);
 	measure_init(&li->readTime);
-#if (LASYNC==1)
+#if (ASYNC==1)
 	stopflag = false;
 	q_init(&p_q, 1024);
 	pthread_create(&t_id,NULL,&l_main,NULL);
@@ -184,30 +185,41 @@ void *posix_refresh(lower_info *li){
 }
 
 void *posix_destroy(lower_info *li){
-	for(uint32_t i = 0; i < li->NOP; i++){
-		free(seg_table[i].storage);
+	for(uint32_t i = 0; i < li->NOB; i++){
+		if(seg_table[i].alloc){
+			free(seg_table[i].storage);
+		}
 	}
 	free(seg_table);
 	pthread_mutex_destroy(&my_posix.lower_lock);
 	pthread_mutex_destroy(&fd_lock);
-#if (LASYNC==1)
+#if (ASYNC==1)
 	stopflag = true;
 	q_free(p_q);
 #endif
 
+    printf("TRIM\t%lu\n", li->req_type_cnt[0]);
+    printf("TR\t%lu\n", li->req_type_cnt[1]);
+    printf("TW\t%lu\n", li->req_type_cnt[2]);
+    printf("TGCR\t%lu\n", li->req_type_cnt[3]);
+    printf("TGCW\t%lu\n", li->req_type_cnt[4]);
+    printf("DR\t%lu\n", li->req_type_cnt[5]);
+    printf("DW\t%lu\n", li->req_type_cnt[6]);
+    printf("DGCR\t%lu\n", li->req_type_cnt[7]);
+    printf("DGCW\t%lu\n\n", li->req_type_cnt[8]);
+
+    printf("Total Read Traffic : %lu\n", li->req_type_cnt[1]+li->req_type_cnt[3]+li->req_type_cnt[5]+li->req_type_cnt[7]);
+    printf("Total Write Traffic: %lu\n\n", li->req_type_cnt[2]+li->req_type_cnt[4]+li->req_type_cnt[6]+li->req_type_cnt[8]);
+    printf("Total WAF: %.2f\n\n", (float)(li->req_type_cnt[2]+li->req_type_cnt[4]+li->req_type_cnt[6]+li->req_type_cnt[8]) / li->req_type_cnt[6]);
 	return NULL;
 }
 
 static uint8_t convert_type(uint8_t type) {
-	return (type & (0xff>>1));
+	return (type & (0xff));
 }
 
 void *posix_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	uint8_t test_type;
-	if(PPA>_NOP){
-		printf("address error!\n");
-		abort();
-	}
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
 		abort();
@@ -224,10 +236,14 @@ void *posix_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 		my_posix.req_type_cnt[test_type]++;
 	}
 
-	if(!seg_table[PPA].storage){
-		seg_table[PPA].storage = (PTR)malloc(PAGESIZE);
+	if(req->type<=GCMW){
+		if(!seg_table[PPA/my_posix.PPS].alloc){
+			seg_table[PPA/my_posix.PPS].storage = (PTR)malloc(my_posix.SOB);
+			seg_table[PPA/my_posix.PPS].alloc = 1;
+		}
+		PTR loc = seg_table[PPA/my_posix.PPS].storage;
+		memcpy(&loc[(PPA%my_posix.PPS)*my_posix.SOP],value->value,size);
 	}
-	memcpy(seg_table[PPA].storage,value->value,size);
 
 	pthread_mutex_unlock(&fd_lock);
 	req->end_req(req);
@@ -236,11 +252,6 @@ void *posix_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 
 void *posix_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	uint8_t test_type;
-	if(PPA>_NOP){
-		printf("address error!\n");
-		abort();
-	}
-
 	if(req->type_lower!=1 && req->type_lower!=0){
 		req->type_lower=0;
 	}
@@ -261,11 +272,12 @@ void *posix_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 		my_posix.req_type_cnt[test_type]++;
 	}
 
-	if(!seg_table[PPA].storage){
-		abort();
+
+	if(req->type <=GCMW){
+		PTR loc = seg_table[PPA/my_posix.PPS].storage;
+		memcpy(value->value,&loc[(PPA%my_posix.PPS)*my_posix.SOP],size);
+		req->type_lower=1;
 	}
-	memcpy(value->value,seg_table[PPA].storage,size);
-	req->type_lower=1;
 
 	pthread_mutex_unlock(&fd_lock);
 
@@ -274,7 +286,6 @@ void *posix_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 }
 
 void *posix_trim_block(uint32_t PPA, bool async){
-	abort();
 	char *temp=(char *)malloc(my_posix.SOB);
 	memset(temp,0,my_posix.SOB);
 	pthread_mutex_lock(&fd_lock);
@@ -284,9 +295,10 @@ void *posix_trim_block(uint32_t PPA, bool async){
 	}
 	
 	my_posix.req_type_cnt[TRIM]++;
-	if(seg_table[PPA].storage){
+	if(seg_table[PPA/my_posix.PPS].alloc){
 		free(seg_table[PPA/my_posix.PPS].storage);
 		seg_table[PPA/my_posix.PPS].storage = NULL;
+		seg_table[PPA/my_posix.PPS].alloc = 0;
 	}
 	pthread_mutex_unlock(&fd_lock);
 	free(temp);
@@ -296,24 +308,11 @@ void *posix_trim_block(uint32_t PPA, bool async){
 void posix_stop(){}
 
 void posix_flying_req_wait(){
-#if (LASYNC==1)
+#if (ASYNC==1)
 	while(p_q->size!=0){}
 #endif
 }
 
 void* posix_trim_a_block(uint32_t PPA, bool async){
-	if(PPA>_NOP){
-		printf("address error!\n");
-		abort();
-	}
-	my_posix.req_type_cnt[TRIM]++;
-	for(int i=0; i<_PPB; i++){
-		uint32_t t=PPA+i*PUNIT;
-		if(!seg_table[t].storage){
-			abort();
-		}
-		free(seg_table[t].storage);
-		seg_table[t].storage=NULL;
-	}
 	return NULL;
 }

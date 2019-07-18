@@ -82,6 +82,9 @@ bool cache_delete(cache *c, run_t * ent){
 	}else if(c_ent==c->top){
 		c->top=c_ent->down;
 	}
+#ifndef NOCPY
+	htable_free(ent->cache_data);
+#endif
 	c->n_size--;
 	free(c_ent);
 	ent->c_entry=NULL;
@@ -217,7 +220,11 @@ void cache_print(cache *c){
 			printf("fuck!!!\n");
 		}
 #ifdef KVSSD
+	#ifdef NOCPY
 		printf("[%d]c->endtry->key:%s c->entry->pbn:%lu d:%p\n",print_number++,kvssd_tostring(tent->key),tent->pbn,tent->cache_nocpy_data_ptr);
+	#else
+
+	#endif
 #else
 		printf("[%d]c->entry->key:%d c->entry->pbn:%d d:%p\n",print_number++,tent->key,tent->pbn,tent->cache_data);
 #endif

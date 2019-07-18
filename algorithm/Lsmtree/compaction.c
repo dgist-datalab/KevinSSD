@@ -26,13 +26,6 @@
 #ifdef KVSSD
 extern KEYT key_min, key_max;
 #endif
-/*
-#define free(a) \
-	do{\
-		fprintf(stderr,"%s %d:%p\n",__FILE__,__LINE__,a);\
-		free(a);\
-	}while(0)
-*/
 volatile int memcpy_cnt;
 
 extern lsmtree LSM;
@@ -58,7 +51,6 @@ void compaction_sub_pre(){
 
 void compaction_selector(level *a, level *b,leveling_node *lnode, pthread_mutex_t* lock){
 	if(b->istier){
-		//tiering(a,b,r,lock);
 	}
 	else{
 		leveling(a,b,lnode,lock);
@@ -72,7 +64,6 @@ void compaction_sub_wait(){
 #elif defined (SPINLOCK)
 	while(comp_target_get_cnt+memcpy_cnt!=epc_check){}
 #endif
-	//printf("%u:%u\n",comp_target_get_cnt,epc_check);
 
 	memcpy_cnt=0;
 	comp_target_get_cnt=0;
@@ -127,7 +118,6 @@ void compaction_free(){
 	for(int i=0; i<CTHREAD; i++){
 		compP *t=&compactor.processors[i];
 		pthread_cond_signal(&compaction_req_cond);
-		//pthread_mutex_unlock(&compaction_assign_lock);
 		while(pthread_tryjoin_np(t->t_id,(void**)&temp)){
 			pthread_cond_signal(&compaction_req_cond);
 		}
@@ -192,96 +182,7 @@ void compaction_assign(compR* req){
 	}
 }
 
-extern master_processor mp;
-bool isflushing;
-void compaction_data_write(leveling_node* lnode){
-	isflushing=true;
-	//run_t *res=LSM.lop->make_run(key_max,key_min,-1);
-	
-	bench_custom_start(write_opt_time,1);
-	value_set **data_sets=skiplist_make_valueset(lnode->mem,LSM.disk[0],&lnode->start,&lnode->end);
-	bench_custom_A(write_opt_time,1);
-
-#ifdef WRITEOPTIMIZE
-	lsm_io_sched_push(SCHED_FLUSH,(void*)data_sets);//make flush background job
-#else
-	for(int i=0; data_sets[i]!=NULL; i++){	
-		algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
-		lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-		params->lsm_type=DATAW;
-		params->value=data_sets[i];
-		lsm_req->parents=NULL;
-		lsm_req->params=(void*)params;
-		lsm_req->end_req=lsm_end_req;
-		lsm_req->rapid=true;
-		lsm_req->type=DATAW;
-		if(params->value->dmatag==-1){
-			abort();
-		}
-		LSM.li->write(CONVPPA(data_sets[i]->ppa),PAGESIZE,params->value,ASYNC,lsm_req);
-	}
-	free(data_sets);
-#endif
-	//LSM.lop->mem_cvt2table(mem,res); //res's filter and table will be set
-	isflushing=false;
-}
-
-uint32_t compaction_htable_write(htable *input, KEYT lpa, char *nocpy_data){
-#ifdef KVSSD
-	uint32_t ppa=getPPA(HEADER,key_min,true);
-#else
-	uint32_t ppa=getPPA(HEADER,0,true);//set ppa;
-#endif
-	validate_PPA(HEADER,ppa);
-
-	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
-	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-	areq->parents=NULL;
-	areq->rapid=false;
-	params->lsm_type=HEADERW;
-	if(input->origin){
-		printf("can't be - %s:%d\n",__FILE__,__LINE__);
-		params->value=input->origin;
-	}else{
-		//this logic should process when the memtable's header write
-		params->value=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
-	}
-
-#ifdef NOCPY
-	nocpy_copy_from_change((char*)nocpy_data,ppa);
-	input->sets=NULL;
-#endif
-	params->htable_ptr=input;
-	areq->end_req=lsm_end_req;
-	areq->params=(void*)params;
-	areq->type=HEADERW;
-	params->ppa=ppa;
-	
-	LSM.li->write(ppa,PAGESIZE,params->value,ASYNC,areq);
-	//printf("%u\n",ppa);
-	return ppa;
-}
-
-void dummy_meta_write(uint32_t ppa){
-	value_set *temp=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
-	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
-
-	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-	areq->parents=NULL;
-	areq->rapid=false;
-	params->lsm_type=HEADERW;
-	params->value=temp;
-	params->htable_ptr=NULL;
-	
-	areq->end_req=lsm_end_req;
-	areq->params=(void*)params;
-	areq->type=HEADERW;
-	params->ppa=ppa;
-	LSM.li->write(ppa,PAGESIZE,params->value,ASYNC,areq);
-}
-
 bool compaction_force(){
-
 	for(int i=LEVELN-2; i>=0; i--){
 		if(LSM.disk[i]->n_num){
 			compaction_selector(LSM.disk[i],LSM.disk[LEVELN-1],NULL,&LSM.level_lock[LEVELN-1]);
@@ -335,15 +236,10 @@ void compaction_cascading(bool *_is_gc_needed){
 	}
 	
 	if(is_gc_needed || des_level!=-1){
-	//	static int cnt=0;
-	//	printf("%d called\n",cnt++);
-	//	LSM.lop->print_level_summary();
 		int target_des=des_level+1;
 	#ifdef GCOPT
 		if(!is_gc_needed && target_des==LEVELN-1){
-		//	if(start_level!=des_level){
 				is_gc_needed=gc_dynamic_checker(true);
-		//	}
 		}
 	#endif
 		if(is_gc_needed) target_des=LEVELN-1; 
@@ -465,7 +361,6 @@ void *compaction_main(void *input){
 }
 
 void compaction_check(KEYT key, bool force){
-//	if(!(force || unlikely(LSM.memtable->all_length+KEYLEN(key)+sizeof(uint16_t)>PAGESIZE-KEYBITMAP || LSM.memtable->size >= KEYBITMAP/sizeof(uint16_t)))) return
 	if(LSM.memtable->size<LSM.FLUSHNUM) return;
 	compR *req;
 	bool last;
@@ -492,49 +387,17 @@ void compaction_check(KEYT key, bool force){
 #endif
 }
 
-void compaction_htable_read(run_t *ent,PTR* value){
-	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
-	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 
-	params->lsm_type=HEADERR;
-	//valueset_assign
-	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
-	params->target=value;
-	params->ppa=ent->pbn;
-	areq->parents=NULL;
-	areq->end_req=lsm_end_req;
-	areq->params=(void*)params;
-	areq->type_lower=0;
-	areq->rapid=false;
-	areq->type=HEADERR;
-
-#ifdef NOCPY
-	ent->cpt_data->nocpy_table=nocpy_pick(ent->pbn);
-#endif
-	//printf("R %u\n",ent->pbn);
-	LSM.li->read(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
-	return;
-}
 
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
 	compaction_sub_wait();
-#ifdef STREAMCOMP
-	LSM.lop->stream_comp_wait();
-#else
 	LSM.lop->merger(top,src,org,des);
-#endif
 
 	KEYT key,end;
 	run_t* target=NULL;
 	while((target=LSM.lop->cutter(top,des,&key,&end))){
-		target->pbn=compaction_htable_write(target->cpt_data,target->key,(char*)target->cpt_data->sets);
-		if(!LSM.inplace_compaction){
-			LSM.lop->insert(des,target);
-			LSM.lop->release_run(target);
-		}
-		//printf("free %p\n",target->cpt_data->sets);
-		//htable_free(target->cpt_data);
-		target->cpt_data=NULL;
+		compaction_htable_write_insert(des,target,false);
+
 		free(target);
 	}
 }
@@ -551,9 +414,7 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 			bf_free(datas[i]->filter);
 			datas[i]->filter=LSM.lop->making_filter(datas[i],-1,des->fpr);
 #endif
-			datas[i]->pbn=compaction_htable_write(datas[i]->cpt_data,datas[i]->key,(char*)datas[i]->cpt_data->sets);
-			LSM.lop->insert(des,datas[i]);
-			LSM.lop->release_run(datas[i]);
+			compaction_htable_write_insert(des,datas[i],false);
 			free(datas[i]);
 		}
 		free(datas);
@@ -582,7 +443,9 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 	level *target_origin=to;
 	level *target;
 
-	if(to->idx==LEVELN-1 && (int)(from? (from->n_num+LSM.lop->get_number_runs(from)):0+to->n_num) >= to->m_num){
+	int testing_number=(int)(from?from->n_num+LSM.lop->get_number_runs(from):0);
+	testing_number+=to->n_num;
+	if(to->idx==LEVELN-1 && testing_number >= to->m_num){
 		target=LSM.lop->init(target_origin->m_num*2, target_origin->idx,target_origin->fpr,false);
 	}else{
 		target=LSM.lop->init(target_origin->m_num, target_origin->idx,target_origin->fpr,false);
@@ -637,12 +500,8 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 
 			run_t *entry=LSM.lop->make_run(lnode->start,lnode->end,-1);
 			LSM.lop->mem_cvt2table(lnode->mem,entry);
-			entry->pbn=compaction_htable_write(entry->cpt_data,entry->key,(char*)entry->cpt_data->sets);//write table
-#ifdef NOCPY
-			entry->cpt_data=NULL; //the data will be store at nocpy sets, cpt_data will free at lsm_end_req;
-#endif
-			LSM.lop->insert(target,entry);
-			LSM.lop->release_run(entry);
+
+			compaction_htable_write_insert(target,entry,false);
 			free(entry);
 
 			if(!target_processed){
@@ -652,6 +511,9 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 		else{
 #ifdef COMPACTIONLOG
 			static int cnt_2=0;
+			if(cnt_2==13) {
+				printf("break!\n");
+			}
 			sprintf(log,"rand - (-1) to %d (%dth)",to->idx,cnt_2++);
 			DEBUG_LOG(log);
 #endif	
@@ -772,7 +634,7 @@ bool htable_read_preproc(run_t *r){
 #endif
 
 #ifndef NOCPY
-		r->cpt_data=htable_copy(target_s[j]->cache_data);
+		r->cpt_data=htable_copy(r->cache_data);
 		r->cpt_data->done=true;
 #endif//when the data is cached, the data will be loaded from memory in merger logic
 		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);		
@@ -797,6 +659,9 @@ void htable_read_postproc(run_t *r){
 	}
 	if(r->c_entry){
 		cache_entry_unlock(LSM.lsm_cache,r->c_entry);
+#ifndef NOCPY
+		htable_free(r->cpt_data);
+#endif
 	}else{
 		htable_free(r->cpt_data);
 		r->cpt_data=NULL;
@@ -809,51 +674,6 @@ void htable_read_postproc(run_t *r){
 
 
 #ifdef WRITEOPTIMIZE
-void compaction_bg_htable_bulkread(run_t **r,fdriver_lock_t **locks){
-	void **argv=(void**)malloc(sizeof(void*)*2);
-	argv[0]=(void*)r;
-	argv[1]=(void*)locks;
-	lsm_io_sched_push(SCHED_HREAD,(void*)argv);
-}
-
-
-uint32_t compaction_bg_htable_write(htable *input, KEYT lpa, char *nocpy_data){
-#ifdef KVSSD
-	uint32_t ppa=getPPA(HEADER,key_min,true);
-#else
-	uint32_t ppa=getPPA(HEADER,0,true);//set ppa;
-#endif
-	validate_PPA(HEADER,ppa);
-
-	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
-	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-	areq->parents=NULL;
-	areq->rapid=false;
-	params->lsm_type=HEADERW;
-	if(input->origin){
-		printf("can't be - %s:%d\n",__FILE__,__LINE__);
-		params->value=input->origin;
-	}else{
-		//this logic should process when the memtable's header write
-		params->value=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
-	}
-
-#ifdef NOCPY
-	nocpy_copy_from_change((char*)nocpy_data,ppa);
-	input->sets=NULL;
-#endif
-	params->htable_ptr=input;
-	areq->end_req=lsm_end_req;
-	areq->params=(void*)params;
-	areq->type=HEADERW;
-	params->ppa=ppa;
-	
-	lsm_io_sched_push(SCHED_HWRITE,(void*)areq);
-	return ppa;
-}
-
-
-
 uint32_t memtable_partial_leveling(leveling_node *lnode, level *t, level *origin, run_t *sr, run_t *er){
 	skiplist *mem=lnode->mem;
 	KEYT start=lnode->start;
@@ -901,18 +721,16 @@ uint32_t memtable_partial_leveling(leveling_node *lnode, level *t, level *origin
 		result=LSM.lop->partial_merger_cutter(mem,NULL,container,t->fpr);
 
 		//write operation
-		result->pbn=compaction_bg_htable_write(result->cpt_data,result->key,(char*)result->cpt_data->sets);
-		LSM.lop->insert(t,result);
-		LSM.lop->release_run(result);
+		compaction_htable_write_insert(t,result,true);
 		free(result);
 	}
 	
 	while(1){
 		result=LSM.lop->partial_merger_cutter(mem,NULL,NULL,t->fpr);
 		if(result==NULL) break;
-		result->pbn=compaction_bg_htable_write(result->cpt_data,result->key,(char*)result->cpt_data->sets);
-		LSM.lop->insert(t,result);
-		LSM.lop->release_run(result);
+
+		compaction_htable_write_insert(t,result,true);
+
 		free(result);
 	}
 	//release runs;
@@ -920,7 +738,6 @@ uint32_t memtable_partial_leveling(leveling_node *lnode, level *t, level *origin
 
 	free(bunch_data);
 	free(wait);
-	//LSM.lop->check_order(t);
 	return 1;
 }
 
@@ -944,8 +761,10 @@ uint32_t partial_leveling(level *t, level *origin, leveling_node* lnode, level *
 	run_t* end_r=LSM.lop->get_run_idx(origin,origin->n_num);
 	if(!upper){
 		uint32_t res_r=memtable_partial_leveling(lnode, t,origin,start_r, end_r);
+#ifdef NOCPY
 		gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
 		LSM.delayed_header_trim=false;
+#endif
 		return res_r;
 	}
 
@@ -1037,9 +856,8 @@ uint32_t partial_leveling(level *t, level *origin, leveling_node* lnode, level *
 		}
 
 		//write operation
-		result->pbn=compaction_bg_htable_write(result->cpt_data,result->key,(char*)result->cpt_data->sets);
-		LSM.lop->insert(t,result);
-		LSM.lop->release_run(result);
+
+		compaction_htable_write_insert(t,result,true);
 		free(result);
 	}
 
@@ -1047,9 +865,7 @@ uint32_t partial_leveling(level *t, level *origin, leveling_node* lnode, level *
 		result=LSM.lop->partial_merger_cutter(mem,NULL,NULL,t->fpr);
 
 		if(result==NULL) break;
-		result->pbn=compaction_bg_htable_write(result->cpt_data,result->key,(char*)result->cpt_data->sets);
-		LSM.lop->insert(t,result);
-		LSM.lop->release_run(result);
+		compaction_htable_write_insert(t,result,true);
 		free(result);
 	}
 		
@@ -1063,8 +879,10 @@ uint32_t partial_leveling(level *t, level *origin, leveling_node* lnode, level *
 	free(bunch_data);
 	free(wait);
 
+#ifdef NOCPY
 	gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
 	LSM.delayed_header_trim=false;
+#endif
 	return 1;
 }	
 #else
@@ -1108,29 +926,10 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 			DEBUG_LOG("can't be");
 		}
 		upper_table=0;
-#ifdef STREAMCOMP
-		LSM.lop->stream_merger(skip,NULL,target_s,t);
-#endif
-		for(int j=0; target_s[j]!=NULL; j++){
-			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 
-			if(target_s[j]->c_entry){
-				memcpy_cnt++;
-				cache_entry_lock(LSM.lsm_cache,target_s[j]->c_entry);
-#ifndef NOCPY
-				target_s[j]->cpt_data=htable_copy(target_s[j]->cache_data);
-				target_s[j]->cpt_data->done=true;
-#endif//when the data is cached, the data will be loaded from memory in merger logic
-				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-			}
-			else{
-				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-				target_s[j]->cpt_data=htable_assign(NULL,false);
-				target_s[j]->cpt_data->iscached=0;
+		for(int j=0; target_s[j]!=NULL; j++){
+			if(!htable_read_preproc(target_s[j])){
 				compaction_htable_read(target_s[j],(PTR*)&target_s[j]->cpt_data);
-			}
-			if(!target_s[j]->iscompactioning){
-				target_s[j]->iscompactioning=COMP;
 			}
 			epc_check++;
 		}
@@ -1138,16 +937,7 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 		compaction_subprocessing(skip,NULL,target_s,t);
 
 		for(int j=0; target_s[j]!=NULL; j++){
-			if(target_s[j]->iscompactioning!=INVBYGC){
-				invalidate_PPA(target_s[j]->pbn);//invalidate_PPA
-			}
-			if(target_s[j]->c_entry){
-				cache_entry_unlock(LSM.lsm_cache,target_s[j]->c_entry);
-			}
-			else{	
-				htable_free(target_s[j]->cpt_data);
-				target_s[j]->cpt_data=NULL;
-			}
+			htable_read_postproc(target_s[j]);
 		}
 		free(target_s);
 	}
@@ -1171,32 +961,14 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 			printf("can't be\n");
 			abort();
 		}
-#ifdef STREAMCOMP
-		LSM.lop->stream_merger(NULL,data,target_s,t);
-#endif
 		for(int i=0; target_s[i]!=NULL; i++){
 			run_t *temp=target_s[i];
 			if(temp->iscompactioning==SEQCOMP){
 				continue;
 			}
-			if(!temp->iscompactioning) temp->iscompactioning=COMP;
-			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);		
-			if(temp->c_entry){
-				cache_entry_lock(LSM.lsm_cache,temp->c_entry);
-#ifndef NOCPY
-				temp->cpt_data=htable_copy(temp->cache_data);
-				temp->cpt_data->done=true;
-#endif
-				memcpy_cnt++;
-				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-			}
-			else{
-				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-				temp->cpt_data=htable_assign(NULL,false);
-				temp->cpt_data->iscached=0;
+			if(!htable_read_preproc(temp)){
 				compaction_htable_read(temp,(PTR*)&temp->cpt_data);
 			}
-			//htable_check(temp->cpt_data,8499,81665);
 			epc_check++;
 		}
 #ifdef LEVELCACHING
@@ -1206,22 +978,7 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 #endif
 		for(int i=0; data[i]!=NULL; i++){
 			run_t *temp=data[i];
-			temp->iscompactioning=COMP;
-			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-			
-			if(temp->c_entry){
-				cache_entry_lock(LSM.lsm_cache,temp->c_entry);
-#ifndef NOCPY
-				temp->cpt_data=htable_copy(temp->cache_data);
-				temp->cpt_data->done=true;
-#endif
-				memcpy_cnt++;
-				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-			}
-			else{
-				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-				temp->cpt_data=htable_assign(NULL,false);
-				temp->cpt_data->iscached=0;
+			if(!htable_read_preproc(temp)){
 				compaction_htable_read(temp,(PTR*)&temp->cpt_data);
 			}
 			epc_check++;
@@ -1231,31 +988,12 @@ skip:
 
 		for(int i=0; data[i]!=NULL; i++){
 			run_t *temp=data[i];
-
-			if(temp->iscompactioning!=INVBYGC && temp->pbn!=UINT_MAX)
-				invalidate_PPA(temp->pbn);
-			
-			if(temp->c_entry){
-				cache_entry_unlock(LSM.lsm_cache,temp->c_entry);
-			}else{
-				htable_free(temp->cpt_data);
-				temp->cpt_data=NULL;
-			}
+			htable_read_postproc(temp);
 		}
 
 		for(int i=0; target_s[i]!=NULL; i++){	
 			run_t *temp=target_s[i];
-			if(temp->iscompactioning==SEQCOMP) continue;
-
-			if(temp->iscompactioning!=INVBYGC)
-				invalidate_PPA(temp->pbn);
-
-			if(temp->c_entry){
-				cache_entry_unlock(LSM.lsm_cache,temp->c_entry);
-			}else{
-				htable_free(temp->cpt_data);
-				temp->cpt_data=NULL;
-			}
+			htable_read_postproc(temp);
 		}
 		free(data);
 		free(target_s);

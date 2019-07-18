@@ -329,7 +329,8 @@ uint32_t array_range_find_compaction( level *lev ,KEYT s, KEYT e,  run_t ***rc){
 	int res=0;
 	run_t *ptr;
 	run_t **r=(run_t**)malloc(sizeof(run_t*)*(lev->n_num+1));
-	int target_idx=array_binary_search(arrs,lev->n_num,s);
+	//int target_idx=array_binary_search(arrs,lev->n_num,s);
+	int target_idx=array_bound_search(arrs,lev->n_num,s,true);
 	if(target_idx==-1) target_idx=0;
 	for(int i=target_idx;i<lev->n_num; i++){
 		ptr=(run_t*)&arrs[i];

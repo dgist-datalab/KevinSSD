@@ -107,7 +107,7 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 #endif
 	return res;
 }
-//static int merger_cnt;
+static int merger_cnt;
 void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	array_body *des=(array_body*)d->level_data;
 	if(des->skip){
@@ -116,8 +116,11 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	}else{
 		des->skip=skiplist_init();
 	}
-	
-//	printf("merger start: %d\n",merger_cnt);
+	/*
+	if(merger_cnt==14){
+		printf("break!\n");
+	}
+	printf("merger start: %d\n",merger_cnt++);*/
 	ppa_t *ppa_ptr;
 	KEYT key;
 	uint16_t *bitmap;
@@ -126,7 +129,7 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	for(int i=0; o[i]!=NULL; i++){
 		body=data_from_run(o[i]);
 		bitmap=(uint16_t*)body;
-		//array_header_print(body);
+	//	if(merger_cnt==15) array_header_print(body);
 		for_each_header_start(idx,key,ppa_ptr,bitmap,body)
 			skiplist_insert_existIgnore(des->skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
 		for_each_header_end
@@ -138,11 +141,12 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 			temp_result=skiplist_insert_existIgnore(des->skip,temp->key,temp->ppa,temp->ppa==UINT32_MAX?false:true);
 			/*
 			   this logic is needed because it has it's own memory
-			 */
+			   =>not true :2019-07-16
 			if(temp_result){
 				free(temp->key.key);
 			}
 			temp->key.key=NULL;
+			*/
 		}
 	}
 	else{
@@ -207,7 +211,7 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 		free(temp->list);
 		free(temp);
 	}
-	while(src_skip->all_length && (length+KEYLEN(src_skip->header->list[1]->key)<PAGESIZE-KEYBITMAP) && (cnt<KEYBITMAP/sizeof(uint16_t)-1));
+	while(src_skip->all_length && (length+KEYLEN(src_skip->header->list[1]->key)<PAGESIZE-KEYBITMAP) && (cnt<KEYBITMAP/sizeof(uint16_t)-2));
 		//	printf("after\n");
 	bitmap[0]=idx-1;
 	bitmap[idx]=data_start;
