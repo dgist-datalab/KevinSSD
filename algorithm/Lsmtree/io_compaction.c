@@ -1,6 +1,7 @@
 #include "compaction.h"
 #include "lsmtree_scheduling.h"
 #include "lsmtree.h"
+#include "nocpy.h"
 #ifdef KVSSD
 extern KEYT key_min, key_max;
 #endif
@@ -40,20 +41,26 @@ void compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 	validate_PPA(HEADER,ppa);
 	
 	entry->pbn=ppa;
+#ifdef NOCPY
+
+	nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
+	entry->cpt_data->sets=NULL;
+#endif
+
 	LSM.lop->insert(target,entry);
 	if(isbg){
 #ifdef WRITEOPTIMIZE
-		compaction_bg_htable_write(entry->pbn,entry->cpt_data,entry->key,(char*)entry->cpt_data->sets);
+		compaction_bg_htable_write(entry->pbn,entry->cpt_data,entry->key);
 #else
 		abort();
 #endif
 	}else{
-		compaction_htable_write(entry->pbn,entry->cpt_data,entry->key,(char*)entry->cpt_data->sets);
+		compaction_htable_write(entry->pbn,entry->cpt_data,entry->key);
 	}
 	LSM.lop->release_run(entry);
 }
 
-uint32_t compaction_htable_write(ppa_t ppa,htable *input, KEYT lpa, char *nocpy_data){
+uint32_t compaction_htable_write(ppa_t ppa,htable *input, KEYT lpa){
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 	areq->parents=NULL;
@@ -65,10 +72,6 @@ uint32_t compaction_htable_write(ppa_t ppa,htable *input, KEYT lpa, char *nocpy_
 		params->value=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
 	}
 
-#ifdef NOCPY
-	nocpy_copy_from_change((char*)nocpy_data,ppa);
-	input->sets=NULL;
-#endif
 	params->htable_ptr=input;
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
@@ -112,7 +115,7 @@ void compaction_bg_htable_bulkread(run_t **r,fdriver_lock_t **locks){
 }
 
 
-uint32_t compaction_bg_htable_write(ppa_t ppa,htable *input, KEYT lpa, char *nocpy_data){
+uint32_t compaction_bg_htable_write(ppa_t ppa,htable *input, KEYT lpa){
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 	areq->parents=NULL;
@@ -126,10 +129,6 @@ uint32_t compaction_bg_htable_write(ppa_t ppa,htable *input, KEYT lpa, char *noc
 		params->value=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
 	}
 
-#ifdef NOCPY
-	nocpy_copy_from_change((char*)nocpy_data,ppa);
-	input->sets=NULL;
-#endif
 	params->htable_ptr=input;
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
