@@ -126,8 +126,8 @@ static inline char KEYTEST(KEYT a, KEYT b){
 #define PTR char*
 #define ASYNC 1
 #define QSIZE (1024)
-#define LOWQDEPTH (128)
-#define QDEPTH (128)
+#define LOWQDEPTH (64)
+#define QDEPTH (64)
 
 #define THPOOL
 #define NUM_THREAD 4
