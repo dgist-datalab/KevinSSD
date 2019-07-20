@@ -8,6 +8,7 @@
 #include "../../include/utils/kvssd.h"
 #include "../../interface/interface.h"
 #include "level.h"
+#include "lsmtree_scheduling.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -22,9 +23,11 @@ extern pm d_m;
 extern pm map_m;
 
 #ifdef KVSSD
+uint32_t gc_cnt=0;
 int gc_header(){
-//	printf("gc_header\n");
+	printf("gc_header %u\n",gc_cnt++);
 	gc_general_wait_init();
+	lsm_io_sched_flush();
 
 	blockmanager *bm=LSM.bm;
 	__gsegment *tseg=bm->pt_get_gc_target(bm,MAP_S);
@@ -52,9 +55,8 @@ int gc_header(){
 	gc_general_waiting();
 
 	i=0;
-	//int idx_cnt=0;
+	int idx_cnt=0;
 	for_each_page_in_seg(tseg,tpage,bidx,pidx){
-	//	printf("[%d]tpage:%u\n",idx_cnt++,tpage);
 		if(bm->is_invalid_page(bm, tpage)){
 			continue;
 		}
@@ -134,6 +136,7 @@ int gc_header(){
 
 	free(tables);
 
+	int test_cnt=0;
 	for_each_page_in_seg(tseg,tpage,bidx,pidx){
 #ifdef NOCPY
 		nocpy_trim_delay_enq(tpage);
@@ -192,7 +195,7 @@ int gc_data(){
 	return 1;
 }
 int __gc_data(){
-	printf("gc_data\n");
+	//printf("gc_data\n");
 #if LEVELN!=1
 	compaction_force();
 #endif
@@ -249,9 +252,6 @@ int __gc_data(){
 			
 			if(is_invalid_piece((lsm_block*)tblock->private_data,t_ppa)){
 				continue;
-			}
-			if(t_ppa==1537488){
-				printf("break!\n");
 			}
 			used_page=true;
 			oob_len=foot->map[j];
@@ -356,7 +356,7 @@ void gc_data_header_update(struct gc_node **g, int size){
 	for(int i=0; i<size; i++){
 		if(g[i]==NULL) continue;
 		gc_node *target=g[i];
-		keyset *find;
+		keyset *find,*find2;
 		run_t **entries;
 		bool isdone=false;
 		bool shouldwrite;
@@ -407,6 +407,14 @@ void gc_data_header_update(struct gc_node **g, int size){
 					shouldwrite=true;
 					if(k==i) isdone=true;
 					find->ppa=target->nppa;
+					if(entries[0]->c_entry){
+#ifdef NOCPY
+						find2=LSM.lop->find_keyset((char*)entries[0]->cache_nocpy_data_ptr,target->lpa);
+#else
+						find2=LSM.lop->find_keyset((char*)entries[0]->cache_data->sets,target->lpa);
+#endif
+						find2->ppa=target->nppa;
+					}
 					free(target->lpa.key);
 #ifdef DVALUE
 					free(target->value);
@@ -430,9 +438,6 @@ void gc_data_header_update(struct gc_node **g, int size){
 #ifdef NOCPY
 				map_data->nocpy_table=nocpy_temp_table;
 #endif			
-				if(entries[0]->c_entry){
-					cache_delete(LSM.lsm_cache,entries[0]);
-				}
 				gc_data_write(entries[0]->pbn,map_data,false);
 			}
 			free(map_data);
@@ -443,6 +448,8 @@ next_node:
 		continue;
 	}
 
+//	cache_print(LSM.lsm_cache);
+	//LSM.lop->all_print();
 	for(int i=0; i<size; i++){
 		if(g[i]){
 		//	LSM.lop->all_print();

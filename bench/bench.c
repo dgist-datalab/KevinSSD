@@ -550,6 +550,34 @@ uint32_t keygenerator_type(uint32_t range,int type){
 	return res;
 }
 #ifdef KVSSD
+/*
+int my_itoa(uint32_t key, char **_target){
+	int cnt=1;
+	int standard=10;
+	int t_key=key;
+	while(t_key/10){
+		cnt++;
+		t_key/=10;
+		standard*=10;
+	}
+	int result=rand()%16+1;
+	result*=16;
+	result-=sizeof(ppa_t);
+	*_target=(char*)malloc(result);
+	char *target=*_target;
+	t_key=key;
+	for(int i=cnt-1; i>=0; i--){
+		target[i]=t_key%10+'0';
+		t_key/=10;
+	}
+	for(int i=cnt; i<result; i++){
+		target[i]='0';
+	}
+	//printf("origin:%d\n",key);
+	//printf("%d %s(%d)\n",result,target,strlen(target));
+	return result;
+}*/
+
 int my_itoa(uint32_t key, char **_target){
 	int cnt=1;
 	int standard=10;

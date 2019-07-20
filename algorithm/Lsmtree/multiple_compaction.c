@@ -10,7 +10,7 @@ uint32_t multiple_leveling(int from, int to){
 		compaction_selector(LSM.disk[from],LSM.disk[to],NULL,&LSM.level_lock[to]);
 		return 1;
 	}
-	LSM.lop->print_level_summary();
+	//LSM.lop->print_level_summary();
 	LSM.delayed_header_trim=true;
 	//int lev_number=to-from;
 	//int ln_p_from=lev_number+from;

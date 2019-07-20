@@ -987,6 +987,10 @@ skip:
 		free(target_s);
 	}
 	compaction_sub_post();
+#ifdef NOCPY
+	gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
+	LSM.delayed_header_trim=false;
+#endif
 	if(!lnode) skiplist_free(skip);
 	return 1;
 }

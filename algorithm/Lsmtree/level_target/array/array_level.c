@@ -187,7 +187,7 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 	uint16_t *bitmap=(uint16_t*)ptr;
 	uint32_t idx=1;
 	uint32_t cnt=0;
-	memset(bitmap,-1,KEYBITMAP/sizeof(uint16_t));
+	memset(bitmap,-1,KEYBITMAP);
 	uint16_t data_start=KEYBITMAP;
 	//uint32_t length_before=src_skip->all_length;
 	/*end*/

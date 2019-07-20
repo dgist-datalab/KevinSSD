@@ -9,7 +9,7 @@
 #endif
 
 #define RAF 0.01
-#define LEVELN 2
+#define LEVELN 1
 
 #if LEVELN!=1
 #define BLOOM
@@ -26,7 +26,7 @@
 //#define LEVELEMUL 
 //#define MERGECOMPACTION 4
 #define READCACHE
-//#define NOCPY
+#define NOCPY
 #define RANGEGETNUM 2
 //#define USINGSLAB
 

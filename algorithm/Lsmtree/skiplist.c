@@ -937,6 +937,9 @@ skiplist *skiplist_divide(skiplist *in, snode *target){
 
 	
 	if((origin_level!=in->level && origin_level!=res->level) ||(in->level!=0 && (in->header->list[in->level]==in->header || res->header->list[res->level]==res->header))){
+		printf("origin_level:%d in->level:%d\n",origin_level,in->level);
+		printf("res->header->list[res->level] %p, res->header %p\n",res->header->list[res->level],res->header);
+		printf("in->header->list[in->level] %p, in->header %p\n",in->header->list[in->level],in->header);
 		printf("skiplist_divide error!\n");
 		abort();
 	}

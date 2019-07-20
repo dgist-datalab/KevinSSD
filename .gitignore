@@ -23,3 +23,5 @@ range_driver
 *.swp
 ycsb*
 cscope*
+*.bin
+test.sh

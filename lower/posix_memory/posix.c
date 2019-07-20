@@ -155,7 +155,7 @@ uint32_t posix_create(lower_info *li, blockmanager *b){
 	li->TS=TOTALSIZE;
 	lower_flying=cl_init(QDEPTH,true);
 
-	printf("!!! posix memory LASYNC: %d!!!\n", LASYNC);
+	printf("!!! posix memory LASYNC: %d NOP:%d!!!\n", LASYNC,li->NOP);
 	li->write_op=li->read_op=li->trim_op=0;
 	seg_table = (mem_seg*)malloc(sizeof(mem_seg)*li->NOP);
 	for(uint32_t i = 0; i < li->NOP; i++){
@@ -184,6 +184,9 @@ void *posix_refresh(lower_info *li){
 }
 
 void *posix_destroy(lower_info *li){
+	for(int i=0; i<LREQ_TYPE_NUM;i++){
+		fprintf(stderr,"%s %lu\n",bench_lower_type(i),li->req_type_cnt[i]);
+	}
 	for(uint32_t i = 0; i < li->NOP; i++){
 		free(seg_table[i].storage);
 	}
@@ -262,6 +265,7 @@ void *posix_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 	}
 
 	if(!seg_table[PPA].storage){
+		printf("%u not populated!\n",PPA);
 		abort();
 	}
 	memcpy(value->value,seg_table[PPA].storage,size);
