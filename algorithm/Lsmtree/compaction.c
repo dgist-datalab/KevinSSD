@@ -365,15 +365,19 @@ void compaction_check(KEYT key, bool force){
 	if(LSM.memtable->size<LSM.FLUSHNUM) return;
 	compR *req;
 	bool last;
+	uint32_t avg_cnt;
 	skiplist *t=NULL, *t2=NULL;
 	do{
 		last=0;
 		if(t2!=NULL){
 			t=t2;
 		}else{
-			t=skiplist_cutting_header(LSM.memtable);
+			t=skiplist_cutting_header(LSM.memtable,&avg_cnt);
+			LSM.keynum_in_header=(LSM.keynum_in_header*LSM.keynum_in_header_cnt+avg_cnt)/(LSM.keynum_in_header_cnt+1);
 		}
-		t2=skiplist_cutting_header(LSM.memtable);
+		t2=skiplist_cutting_header(LSM.memtable,&avg_cnt);
+		LSM.keynum_in_header=(LSM.keynum_in_header*LSM.keynum_in_header_cnt+avg_cnt)/(LSM.keynum_in_header_cnt+1);
+
 		if(t2==LSM.memtable) last=1;
 		req=(compR*)malloc(sizeof(compR));
 		req->fromL=-1;
@@ -432,6 +436,8 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 	run_t *r;
 	lev_iter *iter=LSM.lop->get_iter(src,src->start, src->end);
 	for_each_lev(r,iter,LSM.lop->iter_nxt){
+
+		r->iscompactioning=SEQMOV;
 		LSM.lop->insert(des,r);
 	}
 }
@@ -443,14 +449,16 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 #endif
 	level *target_origin=to;
 	level *target;
-
+	target=lsm_level_resizing(to,from);
+	/*
 	int testing_number=(int)(from?from->n_num+LSM.lop->get_number_runs(from):0);
 	testing_number+=to->n_num;
 	if(to->idx==LEVELN-1 && testing_number >= to->m_num){
 		target=LSM.lop->init(target_origin->m_num*2, target_origin->idx,target_origin->fpr,false);
+		LSM.lop->print_level_summary();
 	}else{
 		target=LSM.lop->init(target_origin->m_num, target_origin->idx,target_origin->fpr,false);
-	}
+	}*/
 
 	LSM.c_level=target;
 	level *src=NULL;
@@ -577,7 +585,6 @@ chg_level:
 	pthread_mutex_unlock(lock);
 	LSM.lop->release(to);
 	LSM.c_level=NULL;
-
 	return 1;
 }	
 

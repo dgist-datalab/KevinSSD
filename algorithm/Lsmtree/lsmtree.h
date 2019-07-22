@@ -84,7 +84,6 @@ typedef struct lsm_range_params{
 
 typedef struct lsmtree{
 	uint32_t KEYNUM;
-	uint32_t ORGHEADER;
 	uint32_t FLUSHNUM;
 	bool inplace_compaction;
 	bool delayed_header_trim;
@@ -92,6 +91,11 @@ typedef struct lsmtree{
 	//this is for nocpy, when header_gc triggered in compactioning
 	uint32_t delayed_trim_ppa;//UINT_MAX is nothing to do
 
+	uint32_t keynum_in_header;
+	uint32_t keynum_in_header_cnt;
+	uint32_t size_factor;
+
+	bool size_factor_change[LEVELN];//true: it will be changed size
 	level *disk[LEVELN];
 	level *c_level;
 	level_ops *lop;
@@ -165,6 +169,7 @@ uint32_t lsm_multi_set(request *const, uint32_t num);
 uint32_t lsm_range_get(request *const);
 uint32_t lsm_memory_size();
 uint32_t lsm_simul_put(ppa_t ppa, KEYT key); //copy the value
+level *lsm_level_resizing(level *target, level *src);
 KEYT* lsm_simul_get(ppa_t ppa); //copy the value
 void lsm_simul_del(ppa_t ppa);
 #endif

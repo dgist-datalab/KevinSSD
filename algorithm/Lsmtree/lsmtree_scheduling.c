@@ -21,8 +21,8 @@ void *sched_main(void *param){//sched main
 		req=q_pick(scheduler.q);
 		pthread_mutex_unlock(&scheduler.sched_lock);
 
+		if(req==NULL) continue;
 		sc_node=*((sched_node*)req);
-
 		switch(sc_node.type){
 			case SCHED_FLUSH:
 				processing_flush(sc_node.param);
@@ -54,7 +54,9 @@ void lsm_io_sched_push(uint8_t type, void *req){
 	s_req->param=req;
 
 	pthread_mutex_lock(&scheduler.sched_lock);
-	while(!q_enqueue((void*)s_req,scheduler.q));
+	while(!q_enqueue((void*)s_req,scheduler.q)){
+		pthread_mutex_unlock(&scheduler.sched_lock);
+	}
 	pthread_cond_signal(&scheduler.sched_cond);
 	pthread_mutex_unlock(&scheduler.sched_lock);
 }

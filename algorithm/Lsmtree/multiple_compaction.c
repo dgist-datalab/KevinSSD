@@ -1,6 +1,7 @@
 #include "compaction.h"
 #include "level.h"
 #include "lsmtree_scheduling.h"
+#include "lsmtree.h"
 #include "../../include/sem_lock.h"
 extern KEYT key_min,key_max;
 extern lsmtree LSM;
@@ -18,12 +19,14 @@ uint32_t multiple_leveling(int from, int to){
 	KEYT start=key_max,end=key_min;
 	level *target_lev;
 	level *t_org=LSM.disk[to];
+	target_lev=lsm_level_resizing(t_org,NULL);
+	/*
 	if(t_org->idx==LEVELN-1 && t_org->m_num < t_org->n_num+LSM.disk[to-1]->m_num){
 		target_lev=LSM.lop->init(t_org->m_num*2, t_org->idx, t_org->fpr,false);
 	}
 	else{
 		target_lev=LSM.lop->init(t_org->m_num, t_org->idx, t_org->fpr,false);
-	}
+	}*/
 
 	LSM.c_level=target_lev;
 	/*find min value and max value*/

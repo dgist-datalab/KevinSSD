@@ -99,7 +99,7 @@ snode *skiplist_insert_existIgnore(skiplist *, KEYT,ppa_t,bool isvalid); //inser
 value_set **skiplist_make_valueset(skiplist*,struct level *from, KEYT *start, KEYT *end);
 snode *skiplist_general_insert(skiplist*,KEYT,void *,void (*overlap)(void*));
 snode *skiplist_pop(skiplist *);
-skiplist *skiplist_cutting_header(skiplist *);
+skiplist *skiplist_cutting_header(skiplist *,uint32_t *avg);
 #endif
 snode *skiplist_at(skiplist *,int idx);
 int skiplist_delete(skiplist*,KEYT); //delete by key, return 0:normal -1:empty -2:no key

@@ -16,7 +16,8 @@ typedef enum{
 	READED,
 	INVBYGC,
 	SEQCOMP,
-	ONELEV
+	ONELEV,
+	SEQMOV,
 }run_comp_type;
 
 #define for_each_lev(run,iter,func) \

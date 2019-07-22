@@ -314,7 +314,7 @@ void* posix_trim_a_block(uint32_t PPA, bool async){
 	for(int i=0; i<_PPB; i++){
 		uint32_t t=PPA+i*PUNIT;
 		if(!seg_table[t].storage){
-			abort();
+			//abort();
 		}
 		free(seg_table[t].storage);
 		seg_table[t].storage=NULL;

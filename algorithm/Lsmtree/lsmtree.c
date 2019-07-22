@@ -82,11 +82,13 @@ extern level_ops h_ops;
 extern level_ops a_ops;
 void lsm_bind_ops(lsmtree *l){
 	l->lop=&a_ops;
-	l->ORGHEADER=l->KEYNUM=l->lop->get_max_table_entry();
+	l->KEYNUM=l->lop->get_max_table_entry();
 	l->FLUSHNUM=l->lop->get_max_flush_entry(FULLMAPNUM);
+	l->keynum_in_header=l->FLUSHNUM;
+	l->keynum_in_header_cnt=0;
 }
 uint32_t __lsm_get(request *const);
-static int32_t get_sizefactor(uint64_t as){
+static int32_t get_sizefactor(uint64_t as,uint32_t keynum_in_header){
 	uint32_t _f=LEVELN;
 	int32_t res;
 	uint64_t all_memory=(TOTALSIZE/1024);
@@ -95,7 +97,7 @@ static int32_t get_sizefactor(uint64_t as){
 #if (LEVELCACHING==1 && LEVELN==2 && !defined(READCACHE))
 	res=caching_size;
 #else
-	res=_f?ceil(pow(10,log10(as/LSM.FLUSHNUM)/(_f))):as/LSM.FLUSHNUM;
+	res=_f?ceil(pow(10,log10(as/keynum_in_header)/(_f))):as/keynum_in_header;
 #endif
 	return res;
 }
@@ -131,7 +133,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	lsm_bind_ops(&LSM);
 	LSM.memtable=skiplist_init();
 	//SIZEFACTOR=get_sizefactor(TOTALSIZE);
-	SIZEFACTOR=get_sizefactor(RANGE);
+	SIZEFACTOR=get_sizefactor(RANGE,LSM.FLUSHNUM);
 	unsigned long long sol;
 #ifdef MONKEY
 	//int32_t SIZEFACTOR2=ceil(pow(10,log10(TOTALSIZE/PAGESIZE/LSM.KEYNUM/LEVELN)/(LEVELN-1)));
@@ -205,6 +207,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 #endif
 	
 	LSM.last_level_comp_term=LSM.check_cnt=LSM.needed_valid_page=LSM.target_gc_page=0;
+	memset(LSM.size_factor_change,0,sizeof(LSM.size_factor_change));
 	for(int i=0; i< LEVELN; i++){
 		pthread_mutex_init(&LSM.level_lock[i],NULL);
 	}
@@ -988,4 +991,25 @@ uint32_t lsm_memory_size(){
 		}
 	res+=sizeof(lsmtree);
 	return res;
+}
+
+level *lsm_level_resizing(level *target, level *src){
+	if(target->idx==LEVELN-1){
+		int testing_number=(src?src->n_num+LSM.lop->get_number_runs(src):0);
+		if(target->n_num+testing_number<=target->m_num){
+			uint32_t before=LSM.size_factor;
+			LSM.size_factor=get_sizefactor(RANGE,LSM.keynum_in_header);
+			memset(LSM.size_factor_change,1,sizeof(LSM.size_factor_change));
+			printf("change %d->%d\n",before,LSM.size_factor);
+		}
+	}
+	if(LSM.size_factor_change[target->idx]){
+		LSM.size_factor_change[target->idx]=false;
+		uint32_t cnt=target->idx+1;
+		uint32_t target_cnt=1;
+		while(cnt--)target_cnt*=LSM.size_factor;
+		LSM.lop->print_level_summary();
+		return LSM.lop->init(target_cnt,target->idx,target->fpr,false);
+	}
+	return LSM.lop->init(target->m_num,target->idx,target->fpr,false);
 }
