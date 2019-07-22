@@ -134,6 +134,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	LSM.memtable=skiplist_init();
 	//SIZEFACTOR=get_sizefactor(TOTALSIZE);
 	SIZEFACTOR=get_sizefactor(RANGE,LSM.FLUSHNUM);
+	LSM.size_factor=SIZEFACTOR;
 	unsigned long long sol;
 #ifdef MONKEY
 	//int32_t SIZEFACTOR2=ceil(pow(10,log10(TOTALSIZE/PAGESIZE/LSM.KEYNUM/LEVELN)/(LEVELN-1)));
@@ -996,7 +997,7 @@ uint32_t lsm_memory_size(){
 level *lsm_level_resizing(level *target, level *src){
 	if(target->idx==LEVELN-1){
 		int testing_number=(src?src->n_num+LSM.lop->get_number_runs(src):0);
-		if(target->n_num+testing_number<=target->m_num){
+		if(target->n_num+testing_number>=target->m_num){
 			uint32_t before=LSM.size_factor;
 			LSM.size_factor=get_sizefactor(RANGE,LSM.keynum_in_header);
 			memset(LSM.size_factor_change,1,sizeof(LSM.size_factor_change));
@@ -1008,7 +1009,6 @@ level *lsm_level_resizing(level *target, level *src){
 		uint32_t cnt=target->idx+1;
 		uint32_t target_cnt=1;
 		while(cnt--)target_cnt*=LSM.size_factor;
-		LSM.lop->print_level_summary();
 		return LSM.lop->init(target_cnt,target->idx,target->fpr,false);
 	}
 	return LSM.lop->init(target->m_num,target->idx,target->fpr,false);
