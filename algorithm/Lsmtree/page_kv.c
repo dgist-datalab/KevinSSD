@@ -25,7 +25,8 @@ extern pm map_m;
 #ifdef KVSSD
 uint32_t gc_cnt=0;
 int gc_header(){
-//	printf("gc_header %u\n",gc_cnt++);
+	//printf("gc_header %u\n",gc_cnt++);
+	//printf("gc_header %u",gc_cnt++);
 	gc_general_wait_init();
 	lsm_io_sched_flush();
 
@@ -55,12 +56,12 @@ int gc_header(){
 	gc_general_waiting();
 
 	i=0;
-	int idx_cnt=0;
-	bool flag=false;
 	for_each_page_in_seg(tseg,tpage,bidx,pidx){
+
 		if(bm->is_invalid_page(bm, tpage)){
 			continue;
 		}
+
 #ifdef NOCPY
 		KEYT *lpa=LSM.lop->get_lpa_from_data((char*)tables[i]->nocpy_table,tpage,true);
 #else
@@ -75,7 +76,7 @@ int gc_header(){
 			entries=LSM.lop->find_run(LSM.disk[j],*lpa);
 			if(entries==NULL) continue;
 			for(int k=0; entries[k]!=NULL; k++){
-				if(entries[k]->pbn==tpage){
+				if(entries[k]->pbn==tpage && KEYTEST(entries[k]->key,*lpa)){
 					if(entries[k]->iscompactioning==SEQMOV) break;
 					if(entries[k]->iscompactioning==SEQCOMP) break;
 
@@ -135,15 +136,10 @@ int gc_header(){
 		i++;
 		continue;
 	}
-
+	
+	//printf("- %d\n",invalidate_number);
 	free(tables);
-	if(flag){
-		LSM.lop->print(LSM.disk[0]);
-		LSM.lop->print(LSM.c_level);
-	}
-	int test_cnt=0;
 	for_each_page_in_seg(tseg,tpage,bidx,pidx){
-
 #ifdef NOCPY
 		nocpy_trim_delay_enq(tpage);
 #endif
@@ -153,6 +149,11 @@ int gc_header(){
 	}
 	bm->pt_trim_segment(bm,MAP_S,tseg,LSM.li);
 	change_reserve_to_active(HEADER);
+	/*
+	if(gc_cnt==40){
+		LSM.debug_flag=true;
+		LSM.lop->print(LSM.disk[4]);
+	}*/
 	return 0;
 }
 

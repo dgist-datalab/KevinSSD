@@ -14,7 +14,7 @@ void nocpy_init(){
 		page[i]=NULL;
 	}
 	printf("------------# of copy%d\n",(MAPPART_SEGS)*_PPS);
-	q_init(&delayed_trim_queue,(MAPPART_SEGS)*_PPS+1);
+	q_init(&delayed_trim_queue,((MAPPART_SEGS)*_PPS+1));
 }
 
 void nocpy_free_page(uint32_t ppa){

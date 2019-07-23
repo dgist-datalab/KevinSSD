@@ -550,7 +550,7 @@ uint32_t keygenerator_type(uint32_t range,int type){
 	return res;
 }
 #ifdef KVSSD
-/*
+
 int my_itoa(uint32_t key, char **_target){
 	int cnt=1;
 	int standard=10;
@@ -560,7 +560,7 @@ int my_itoa(uint32_t key, char **_target){
 		t_key/=10;
 		standard*=10;
 	}
-	int result=rand()%16+1;
+	int result=16;
 	result*=16;
 	result-=sizeof(ppa_t);
 	*_target=(char*)malloc(result);
@@ -576,8 +576,8 @@ int my_itoa(uint32_t key, char **_target){
 	//printf("origin:%d\n",key);
 	//printf("%d %s(%d)\n",result,target,strlen(target));
 	return result;
-}*/
-
+}
+/*
 int my_itoa(uint32_t key, char **_target){
 	int cnt=1;
 	int standard=10;
@@ -597,7 +597,7 @@ int my_itoa(uint32_t key, char **_target){
 	target[cnt]='\0';
 	return cnt;
 }
-
+*/
 int my_itoa_padding(uint32_t key, char **_target,int digit){
 	int cnt=1;
 	int standard=10;
@@ -774,8 +774,8 @@ void randrw(uint32_t start, uint32_t end, monitor *m){
 		m->body[i/m->bech][i%m->bech].type=FS_SET_T;
 #ifdef DVALUE
 //		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE/3-1)+NPCINPAGE/3)*PIECE;
-		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
-//		m->body[i/m->bech][i%m->bech].length=0;
+//		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
+		m->body[i/m->bech][i%m->bech].length=0;
 //		m->body[i/m->bech][i%m->bech].length=PAGESIZE-PIECE;
 #else	
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE;

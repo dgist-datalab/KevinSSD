@@ -125,6 +125,7 @@ void processing_header_read(void *param){
 #ifdef NOCPY
 		r[i]->cpt_data->nocpy_table=nocpy_pick(r[i]->pbn);
 #endif
+
 		LSM.li->read(r[i]->pbn,PAGESIZE,params->value,ASYNC,areq);
 	}
 	free(r);

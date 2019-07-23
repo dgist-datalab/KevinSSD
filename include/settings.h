@@ -42,7 +42,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 16L
+#define GIGAUNIT 8L
 #define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
@@ -65,7 +65,7 @@
 #define REQNUM ((GIGAUNIT)*(M/PAGESIZE)*1024L)
 
 #define PARTNUM 2
-#define MAPPART_SEGS 4
+#define MAPPART_SEGS 16
 #define DATAPART_SEGS (_NOS-MAPPART_SEGS)
 enum{
 	MAP_S,DATA_S
@@ -80,7 +80,7 @@ enum{
 #define FSTYPE uint8_t
 #define ppa_t uint32_t
 #ifdef KVSSD
-#define KEYFORMAT(input) input.len,input.key
+#define KEYFORMAT(input) input.len>10?10:input.len,input.key
 #include<string.h>
 typedef struct str_key{
 	uint8_t len;

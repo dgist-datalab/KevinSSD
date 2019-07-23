@@ -132,6 +132,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 
 	lsm_bind_ops(&LSM);
 	LSM.memtable=skiplist_init();
+	LSM.debug_flag=false;
 	//SIZEFACTOR=get_sizefactor(TOTALSIZE);
 	SIZEFACTOR=get_sizefactor(RANGE,LSM.FLUSHNUM);
 	LSM.size_factor=SIZEFACTOR;
@@ -997,12 +998,14 @@ uint32_t lsm_memory_size(){
 level *lsm_level_resizing(level *target, level *src){
 	if(target->idx==LEVELN-1){
 		int testing_number=(src?src->n_num+LSM.lop->get_number_runs(src):0);
-		if(target->n_num+testing_number>=target->m_num){
+		//if(target->n_num+testing_number>=target->m_num){
 			uint32_t before=LSM.size_factor;
 			LSM.size_factor=get_sizefactor(RANGE,LSM.keynum_in_header);
-			memset(LSM.size_factor_change,1,sizeof(LSM.size_factor_change));
-			printf("change %d->%d\n",before,LSM.size_factor);
-		}
+			if(before!=LSM.size_factor){
+				memset(LSM.size_factor_change,1,sizeof(LSM.size_factor_change));
+				printf("change %d->%d\n",before,LSM.size_factor);
+			}
+		//}
 	}
 	if(LSM.size_factor_change[target->idx]){
 		LSM.size_factor_change[target->idx]=false;

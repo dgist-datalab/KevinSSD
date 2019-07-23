@@ -95,6 +95,8 @@ typedef struct lsmtree{
 	uint32_t keynum_in_header_cnt;
 	uint32_t size_factor;
 
+	bool debug_flag;
+
 	bool size_factor_change[LEVELN];//true: it will be changed size
 	level *disk[LEVELN];
 	level *c_level;

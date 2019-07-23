@@ -41,6 +41,7 @@ void compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 	validate_PPA(HEADER,ppa);
 	
 	entry->pbn=ppa;
+
 #ifdef NOCPY
 
 	nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);

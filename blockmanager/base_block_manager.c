@@ -209,11 +209,17 @@ int base_unpopulate_bit (struct blockmanager* bm, uint32_t ppa){
 	uint32_t bt=pn/8;
 	uint32_t of=pn%8;
 	__block *b=&p->base_block[bn];
+
 	if(!(p->base_block[bn].bitset[bt]&(1<<of))){
 		res=0;
 	}
 	b->bitset[bt]&=~(1<<of);
 	b->invalid_number++;
+	if(0<=ppa && ppa< _PPS*MAPPART_SEGS){
+		if(b->invalid_number>_PPB){
+			abort();
+		}
+	}
 	return res;
 }
 

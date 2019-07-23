@@ -20,15 +20,8 @@ uint32_t multiple_leveling(int from, int to){
 	level *target_lev;
 	level *t_org=LSM.disk[to];
 	target_lev=lsm_level_resizing(t_org,NULL);
-	/*
-	if(t_org->idx==LEVELN-1 && t_org->m_num < t_org->n_num+LSM.disk[to-1]->m_num){
-		target_lev=LSM.lop->init(t_org->m_num*2, t_org->idx, t_org->fpr,false);
-	}
-	else{
-		target_lev=LSM.lop->init(t_org->m_num, t_org->idx, t_org->fpr,false);
-	}*/
-
 	LSM.c_level=target_lev;
+
 	/*find min value and max value*/
 	for(int i=from; i<t_org->idx; i++){
 		if(KEYCMP(start,LSM.disk[i]->start)>0){
@@ -106,7 +99,6 @@ uint32_t multiple_leveling(int from, int to){
 	lev_iter *iter=LSM.lop->get_iter_from_run(LSM.disk[to],org_start_r,org_end_r);
 	wait=(fdriver_lock_t**)calloc(sizeof(fdriver_lock_t*),LOWQDEPTH*2+1);//callof for malloc
 	bunch_data=(run_t**)malloc(sizeof(run_t*)*(LOWQDEPTH*2+1));	
-	
 	bool last_flag=false;
 	run_t *result;
 	while(!last_flag){
@@ -192,7 +184,7 @@ uint32_t multiple_leveling(int from, int to){
 	(*des_ptr)=target_lev;
 	LSM.lop->release(t_org);
 	pthread_mutex_unlock(&LSM.level_lock[to]);
-	
+
 	LSM.c_level=NULL;
 	return 1;
 }

@@ -235,11 +235,14 @@ __gsegment* pbm_pt_get_gc_target(blockmanager* bm, int pnum){
 			for(int j=0;j<BPS; j++){
 				now_invalid+=p->base_block[i*BPS+j].invalid_number;
 			}
+			if(now_invalid>_PPS){
+				abort();
+			}
 			if(now_invalid>max_invalid){
 				target_seg=i;
 				max_invalid=now_invalid;
-				now_invalid=0;
 			}
+			now_invalid=0;
 		}
 
 		for(int j=0; j<BPS; j++){
@@ -254,9 +257,10 @@ void pbm_pt_trim_segment(blockmanager* bm, int pnum, __gsegment *target, lower_i
 	p_info *pinfo=(p_info*) p->private_data;
 	Redblack target_node;
 	__segment *target_seg;
-
+	
 	for(int i=0; i<BPS; i++){
 		__block *b=target->blocks[i];
+	
 		li->trim_a_block(GETBLOCKPPA(b),ASYNC);
 		b->invalid_number=0;
 		b->now=0;

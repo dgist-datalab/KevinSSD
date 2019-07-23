@@ -230,6 +230,9 @@ void *posix_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 	if(!seg_table[PPA].storage){
 		seg_table[PPA].storage = (PTR)malloc(PAGESIZE);
 	}
+	else{
+		abort();
+	}
 	memcpy(seg_table[PPA].storage,value->value,size);
 
 	pthread_mutex_unlock(&fd_lock);

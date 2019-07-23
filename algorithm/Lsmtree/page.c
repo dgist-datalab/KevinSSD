@@ -91,6 +91,7 @@ retry:
 	if(res==UINT_MAX){
 		printf("cnt:%d\n",cnt);
 	}
+
 //	printf("%d\n",res);
 	return res;
 }
@@ -203,7 +204,7 @@ void invalidate_PPA(uint8_t type,uint32_t ppa){
 			abort();
 	}
 	int res=LSM.bm->unpopulate_bit(LSM.bm,t_p);
-
+	
 	if(!res && type==HEADER){
 	//	LSM.lop->all_print();
 	//	LSM.lop->print(LSM.c_level);
@@ -226,8 +227,8 @@ void validate_PPA(uint8_t type, uint32_t ppa){
 			printf("error in validate_ppa\n");
 			abort();
 	}
-	static int cnt=0;
 	int res=LSM.bm->populate_bit(LSM.bm,t_p);
+
 	if(!res && type==HEADER){
 		abort();
 	}
