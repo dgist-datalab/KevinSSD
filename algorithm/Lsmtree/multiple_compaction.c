@@ -3,6 +3,7 @@
 #include "lsmtree_scheduling.h"
 #include "lsmtree.h"
 #include "../../include/sem_lock.h"
+#include "../../include/data_struct/list.h"
 extern KEYT key_min,key_max;
 extern lsmtree LSM;
 #ifdef MULTIOPT
@@ -11,6 +12,7 @@ uint32_t multiple_leveling(int from, int to){
 		compaction_selector(LSM.disk[from],LSM.disk[to],NULL,&LSM.level_lock[to]);
 		return 1;
 	}
+	list *temp_list=list_init();
 	//LSM.lop->print_level_summary();
 	LSM.delayed_header_trim=true;
 	//int lev_number=to-from;
@@ -86,7 +88,8 @@ uint32_t multiple_leveling(int from, int to){
 			free(target);
 
 			LSM.lop->normal_merger(body,now,true);//true for wP
-			htable_read_postproc(now);
+			list_insert(temp_list,now);
+			//htable_read_postproc(now);
 		}
 		free(bunch_data);
 		free(wait);
@@ -135,7 +138,8 @@ uint32_t multiple_leveling(int from, int to){
 			container[0]=now;
 			result=LSM.lop->partial_merger_cutter(body,NULL,container,target_lev->fpr);
 			compaction_htable_write_insert(target_lev,result,true);
-			htable_read_postproc(now);
+			list_insert(temp_list,now);
+//			htable_read_postproc(now);
 			free(result);
 		}
 		idx=0; read_idx=0;
@@ -151,6 +155,12 @@ uint32_t multiple_leveling(int from, int to){
 		free(result);
 	}
 	free(bunch_data);
+	
+	li_node *li;
+	for_each_list_node(temp_list,li){
+		htable_read_postproc((run_t*)li->data);
+	}
+	list_free(temp_list);
 
 	for(int i=0;i<LOWQDEPTH*2+1; i++){
 		free(wait[i]);

@@ -508,6 +508,8 @@ uint32_t leveling(level *from, level* to,leveling_node *lnode, pthread_mutex_t *
 			}
 
 			run_t *entry=LSM.lop->make_run(lnode->start,lnode->end,-1);
+			free(entry->key.key);
+			free(entry->end.key);
 			LSM.lop->mem_cvt2table(lnode->mem,entry);
 
 			compaction_htable_write_insert(target,entry,false);
