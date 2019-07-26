@@ -502,6 +502,7 @@ snode *skiplist_insert_iter(skiplist *list,KEYT key,ppa_t ppa){
 	}
 	return x;
 }
+//extern bool testflag;
 snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 	snode *update[MAX_L+1];
 	snode *x=list->header;
@@ -530,10 +531,13 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 	//	algo_req * old_req=x->req;
 	//	lsm_params *old_params=(lsm_params*)old_req->params;
 	//	old_params->lsm_type=OLDDATA;
-		
+		/*
+		static int cnt=0;
+		if(testflag){
+			printf("%d overlap!\n",++cnt);
+		}*/
 		if(x->value)
 			inf_free_valueset(x->value,FS_MALLOC_W);
-		
 #if defined(KVSSD) && defined(Lsmtree)
 		free(key.key);
 #endif
@@ -628,7 +632,6 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 
 		footer *foot=(footer*)pm_get_oob(CONVPPA(target->ppa),DATA,false);
 		foot->map[0]=NPCINPAGE;
-		validate_PPA(DATA,target->ppa);
 
 		target->value=NULL;
 		res_idx++;
@@ -808,8 +811,8 @@ void skiplist_container_free(skiplist *list){
 			free(now->key.key);
 		}
 #ifdef Lsmtree
-		if(now->iscaching_entry)
-			free(now->key.key);
+	//	if(now->iscaching_entry)
+	//		free(now->key.key);
 #endif
 
 #ifdef USINGSLAB

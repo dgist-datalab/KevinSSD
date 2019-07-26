@@ -22,6 +22,7 @@ typedef struct leveling_node{
 	skiplist *mem;
 	KEYT start;
 	KEYT end;
+	run_t *entry;
 }leveling_node;
 
 struct compaction_processor{
@@ -33,14 +34,15 @@ struct compaction_processor{
 
 struct compaction_master{
 	compP *processors;
+	uint32_t (*pt_leveling)(struct level *, struct level *,struct leveling_node *, struct level *upper);
 	bool stopflag;
 };
 
 bool compaction_init();
 void *compaction_main(void *);
 uint32_t level_one_processing(level *, level *, run_t *, pthread_mutex_t *);
+void compaction_lev_seq_processing(level *src, level *des, int headerSize);
 uint32_t leveling(level *,level*, leveling_node *,pthread_mutex_t *);
-uint32_t partial_leveling(struct level *,struct level *,leveling_node *,struct level *upper);
 
 uint32_t multiple_leveling(int from, int to);
 
@@ -60,11 +62,8 @@ void compaction_htable_write_insert(level *target,run_t *entry,bool isbg);
 
 uint32_t compaction_htable_write(ppa_t ppa,htable *input, KEYT lpa);
 void compaction_htable_read(run_t *ent,PTR* value);
-#ifdef WRITEOPTIMIZE
 void compaction_bg_htable_bulkread(run_t **r,fdriver_lock_t **locks);
-
 uint32_t compaction_bg_htable_write(ppa_t ppa,htable *input, KEYT lpa);
-#endif
 
 #ifdef MONKEY
 void compaction_seq_MONKEY(level *,int, level *);
@@ -73,4 +72,11 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 
 bool htable_read_preproc(run_t *r);
 void htable_read_postproc(run_t *r);
+
+
+
+uint32_t pipe_partial_leveling(level *t, level *origin, leveling_node* lnode, level *upper);
+uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, level *upper);
+uint32_t partial_leveling(struct level *,struct level *,leveling_node *,struct level *upper);
+
 #endif

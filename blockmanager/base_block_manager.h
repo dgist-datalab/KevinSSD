@@ -35,6 +35,7 @@ __gsegment* base_get_gc_target (struct blockmanager*);
 void base_trim_segment (struct blockmanager*, __gsegment*, struct lower_info*);
 int base_populate_bit (struct blockmanager*, uint32_t ppa);
 int base_unpopulate_bit (struct blockmanager*, uint32_t ppa);
+int base_erase_bit (struct blockmanager*, uint32_t ppa);
 bool base_is_valid_page (struct blockmanager*, uint32_t ppa);
 bool base_is_invalid_page (struct blockmanager*, uint32_t ppa);
 void base_set_oob(struct blockmanager*, char *data, int len, uint32_t ppa);

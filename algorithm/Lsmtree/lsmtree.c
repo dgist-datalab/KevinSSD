@@ -299,7 +299,7 @@ int lsm_data_cache_check(request *req, ppa_t ppa){
 }
 #endif
 
-extern pthread_mutex_t compaction_wait,gc_wait;
+extern pthread_mutex_t compaction_wait;
 extern int epc_check,gc_read_wait;
 extern int memcpy_cnt;
 volatile int comp_target_get_cnt=0,gc_target_get_cnt;
@@ -377,7 +377,7 @@ void* lsm_end_req(algo_req* const req){
 #endif
 			if(gc_read_wait==gc_target_get_cnt){
 #ifdef MUTEXLOCK
-				pthread_mutex_unlock(&gc_wait);
+				fdlock_unlock(&gc_wait);
 #elif defined(SPINLOCK)
 
 #endif
@@ -822,7 +822,10 @@ retry:
 					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 					return res;
 				}else if(LEVELN-LEVELCACHING==1){
-					printf("can't be:%d\n",__LINE__);
+					printf("can't be:%s-%d\n",__FILE__,__LINE__);
+					LSM.lop->all_print();
+					printf("target key:%.*s\n",KEYFORMAT(req->key));
+					abort();
 				}
 				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 				continue;
@@ -997,15 +1000,12 @@ uint32_t lsm_memory_size(){
 
 level *lsm_level_resizing(level *target, level *src){
 	if(target->idx==LEVELN-1){
-		int testing_number=(src?src->n_num+LSM.lop->get_number_runs(src):0);
-		//if(target->n_num+testing_number>=target->m_num){
-			uint32_t before=LSM.size_factor;
-			LSM.size_factor=get_sizefactor(RANGE,LSM.keynum_in_header);
-			if(before!=LSM.size_factor){
-				memset(LSM.size_factor_change,1,sizeof(LSM.size_factor_change));
-				printf("change %d->%d\n",before,LSM.size_factor);
-			}
-		//}
+		uint32_t before=LSM.size_factor;
+		LSM.size_factor=get_sizefactor(RANGE,LSM.keynum_in_header);
+		if(before!=LSM.size_factor){
+			memset(LSM.size_factor_change,1,sizeof(LSM.size_factor_change));
+			printf("change %d->%d\n",before,LSM.size_factor);
+		}
 	}
 	if(LSM.size_factor_change[target->idx]){
 		LSM.size_factor_change[target->idx]=false;

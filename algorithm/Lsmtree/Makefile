@@ -25,7 +25,10 @@ SRCS +=\
 	   skiplist.c\
 	   bloomfilter.c\
 	   lsmtree.c\
-	   io_compaction.c\
+	   compaction_io_module.c\
+	   compaction_assistant.c\
+	   hw_compaction.c\
+	   pipe_compaction.c\
 	   compaction.c\
 	   page.c\
 	   nocpy.c\

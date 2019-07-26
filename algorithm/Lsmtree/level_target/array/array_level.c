@@ -107,7 +107,7 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 #endif
 	return res;
 }
-static int merger_cnt;
+//static int merger_cnt;
 void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	array_body *des=(array_body*)d->level_data;
 	if(des->skip){
@@ -211,7 +211,7 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 		free(temp->list);
 		free(temp);
 	}
-	while(src_skip->all_length && (length+KEYLEN(src_skip->header->list[1]->key)<PAGESIZE-KEYBITMAP) && (cnt<KEYBITMAP/sizeof(uint16_t)-2));
+	while(src_skip->all_length && (length+KEYLEN(src_skip->header->list[1]->key)<=PAGESIZE-KEYBITMAP) && (cnt<KEYBITMAP/sizeof(uint16_t)-2));
 		//	printf("after\n");
 	bitmap[0]=idx-1;
 	bitmap[idx]=data_start;
@@ -276,6 +276,12 @@ void array_cache_merge(level *src, level *des){
 		end=temp->key;
 		new_snode=skiplist_insert_existIgnore(d->skip,temp->key,temp->ppa,temp->ppa==UINT32_MAX?false:true);
 		if(new_snode->key.key!=temp->key.key){
+			if(temp->key.key==start.key){
+				start=new_snode->key;
+			}
+			if(temp->key.key==end.key){
+				end=new_snode->key;
+			}
 			free(temp->key.key);
 		}
 		new_snode->iscaching_entry=true;
@@ -349,7 +355,7 @@ static char *make_rundata_from_snode(snode *temp){
 		idx++;
 		temp=temp->list[1];
 	}
-	while(temp && length+KEYLEN(temp->key)<PAGESIZE-KEYBITMAP);
+	while(temp && length+KEYLEN(temp->key)<=PAGESIZE-KEYBITMAP);
 	bitmap[0]=idx-1;
 	bitmap[idx]=data_start;
 	return res;
@@ -388,7 +394,9 @@ int array_cache_get_sz(level* lev){
 	array_body *b=(array_body*)lev->level_data;
 	if(!b->skip) return 0;
 	int t=(PAGESIZE-KEYBITMAP);
-	return (b->skip->all_length/t)+(b->skip->all_length%t?1:0);
+	int nbl=(b->skip->all_length/t)+(b->skip->all_length%t?1:0);
+	int nbs=(b->skip->size)/(KEYBITMAP/sizeof(uint16_t))+(b->skip->size%(KEYBITMAP/sizeof(uint16_t))?1:0);
+	return nbs<nbl?nbl:nbs;
 }
 
 void array_header_print(char *data){
@@ -471,6 +479,7 @@ run_t *array_cache_iter_nxt(lev_iter *it){
 	uint32_t length=0;
 	snode *temp=iter->temp;
 	start=temp->key;
+	uint16_t cnt=0;
 	do{
 		memcpy(&ptr[data_start],&temp->ppa,sizeof(temp->ppa));
 		memcpy(&ptr[data_start+sizeof(temp->ppa)],temp->key.key,temp->key.len);
@@ -481,11 +490,12 @@ run_t *array_cache_iter_nxt(lev_iter *it){
 		idx++;
 		end=temp->key;
 		temp=temp->list[1];
+		cnt++;
 	}
-	while(temp && length+KEYLEN(temp->key)<PAGESIZE-KEYBITMAP && temp!=iter->last);
+	while(temp!=iter->last && (length+KEYLEN(temp->key)<=PAGESIZE-KEYBITMAP) && (cnt<KEYBITMAP/sizeof(uint16_t)-2));
 	bitmap[0]=idx-1;
 	bitmap[idx]=data_start;
-
+	
 	if(temp==iter->last){
 		iter->isfinish=true;
 	}
@@ -641,7 +651,7 @@ run_t *array_p_merger_cutter(skiplist *skip,run_t **src, run_t **org, float fpr)
 		idx++;
 		cnt++;
 		end=temp->key;
-		if(temp->list[1] && length+KEYLEN(temp->list[1]->key)<PAGESIZE-KEYBITMAP && cnt<max_key_num){
+		if(temp->list[1] && length+KEYLEN(temp->list[1]->key)<=PAGESIZE-KEYBITMAP && cnt<max_key_num){
 			if(KEYCMP(temp->list[1]->key,org_limit)>0)
 				break;
 			continue;

@@ -16,6 +16,7 @@ struct blockmanager base_bm={
 	.trim_segment=base_trim_segment,
 	.populate_bit=base_populate_bit,
 	.unpopulate_bit=base_unpopulate_bit,
+	.erase_bit=base_erase_bit,
 	.is_valid_page=base_is_valid_page,
 	.is_invalid_page=base_is_invalid_page,
 	.set_oob=base_set_oob,
@@ -215,6 +216,27 @@ int base_unpopulate_bit (struct blockmanager* bm, uint32_t ppa){
 	}
 	b->bitset[bt]&=~(1<<of);
 	b->invalid_number++;
+	if(0<=ppa && ppa< _PPS*MAPPART_SEGS){
+		if(b->invalid_number>_PPB){
+			abort();
+		}
+	}
+	return res;
+}
+
+int base_erase_bit (struct blockmanager* bm, uint32_t ppa){
+	int res=1;
+	bbm_pri *p=(bbm_pri*)bm->private_data;
+	uint32_t bn=GETBLOCKIDX(checker,ppa);
+	uint32_t pn=GETPAGEIDX(ppa);
+	uint32_t bt=pn/8;
+	uint32_t of=pn%8;
+	__block *b=&p->base_block[bn];
+
+	if(!(p->base_block[bn].bitset[bt]&(1<<of))){
+		res=0;
+	}
+	b->bitset[bt]&=~(1<<of);
 	if(0<=ppa && ppa< _PPS*MAPPART_SEGS){
 		if(b->invalid_number>_PPB){
 			abort();

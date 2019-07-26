@@ -10,7 +10,7 @@ extern lsmtree LSM;
 void compaction_data_write(leveling_node* lnode){	
 	value_set **data_sets=skiplist_make_valueset(lnode->mem,LSM.disk[0],&lnode->start,&lnode->end);
 
-#ifdef WRITEOPTIMIZE
+#ifdef PIPECOMP
 	lsm_io_sched_push(SCHED_FLUSH,(void*)data_sets);//make flush background job
 #else
 	for(int i=0; data_sets[i]!=NULL; i++){	
@@ -38,19 +38,18 @@ void compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 #else
 	uint32_t ppa=getPPA(HEADER,0,true);//set ppa;
 #endif
-	validate_PPA(HEADER,ppa);
 	
 	entry->pbn=ppa;
 
-#ifdef NOCPY
 
+#ifdef NOCPY
 	nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
 	entry->cpt_data->sets=NULL;
 #endif
 
 	LSM.lop->insert(target,entry);
 	if(isbg){
-#ifdef WRITEOPTIMIZE
+#ifdef PIPECOMP
 		compaction_bg_htable_write(entry->pbn,entry->cpt_data,entry->key);
 #else
 		abort();
@@ -72,6 +71,7 @@ uint32_t compaction_htable_write(ppa_t ppa,htable *input, KEYT lpa){
 	}else{
 		params->value=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
 	}
+
 
 	params->htable_ptr=input;
 	areq->end_req=lsm_end_req;
@@ -107,7 +107,7 @@ void compaction_htable_read(run_t *ent,PTR* value){
 	LSM.li->read(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
 	return;
 }
-#ifdef WRITEOPTIMIZE
+#ifdef PIPECOMP
 void compaction_bg_htable_bulkread(run_t **r,fdriver_lock_t **locks){
 	void **argv=(void**)malloc(sizeof(void*)*2);
 	argv[0]=(void*)r;

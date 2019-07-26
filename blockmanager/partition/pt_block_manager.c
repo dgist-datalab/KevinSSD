@@ -19,6 +19,7 @@ struct blockmanager pt_bm={
 	.trim_segment=NULL,
 	.populate_bit=base_populate_bit,
 	.unpopulate_bit=base_unpopulate_bit,
+	.erase_bit=base_erase_bit,
 	.is_valid_page=base_is_valid_page,
 	.is_invalid_page=base_is_invalid_page,
 	.set_oob=base_set_oob,

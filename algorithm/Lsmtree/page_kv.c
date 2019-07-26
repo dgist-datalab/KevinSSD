@@ -18,7 +18,6 @@ extern algorithm algo_lsm;
 extern lsmtree LSM;
 extern volatile int gc_target_get_cnt;
 extern volatile int gc_read_wait;
-extern pthread_mutex_t gc_wait;
 extern pm d_m;
 extern pm map_m;
 
@@ -125,7 +124,6 @@ int gc_header(){
 			continue;
 		}
 		uint32_t n_ppa=getRPPA(HEADER,*lpa,true);
-		validate_PPA(HEADER,n_ppa);
 		target_entry->pbn=n_ppa;
 #ifdef NOCPY
 		nocpy_force_freepage(tpage);
@@ -169,7 +167,6 @@ gc_node *gc_data_write_new_page(uint32_t t_ppa, char *data, htable_t *table, uin
 		n_ppa=LSM.lop->get_page(NPCINPAGE,res->lpa);
 		footer *foot=(footer*)pm_get_oob(CONVPPA(n_ppa),DATA,false);
 		foot->map[0]=NPCINPAGE;
-		validate_PPA(DATA,n_ppa);
 		gc_data_write(n_ppa,table,true);
 	}else{
 		PTR t_value=(PTR)malloc(PIECE*piece);
@@ -202,7 +199,7 @@ int gc_data(){
 	return 1;
 }
 int __gc_data(){
-	//printf("gc_data\n");
+//	printf("gc_data\n");
 #if LEVELN!=1
 	compaction_force();
 #endif
@@ -358,7 +355,9 @@ void gc_data_header_update_add(l_bucket *b){
 }
 
 void gc_data_header_update(struct gc_node **g, int size){
-	gc_general_wait_init();
+	if(size){
+		gc_general_wait_init();
+	}
 	htable_t *map_data;
 	for(int i=0; i<size; i++){
 		if(g[i]==NULL) continue;
@@ -441,7 +440,6 @@ void gc_data_header_update(struct gc_node **g, int size){
 #endif
 				invalidate_PPA(HEADER,temp_header);
 				entries[0]->pbn=getPPA(HEADER,entries[0]->key,true);
-				validate_PPA(HEADER,entries[0]->pbn);
 #ifdef NOCPY
 				map_data->nocpy_table=nocpy_temp_table;
 #endif			

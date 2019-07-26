@@ -55,14 +55,12 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 				gc_node *target=src->gc_bucket[target_length][src->idx[target_length]-1];
 				target->nppa=LSM.lop->get_page(target->plength,target->lpa);
 				foot->map[target->nppa%NPCINPAGE]=target_length;
-				validate_PPA(DATA,target->nppa);
 
 				memcpy(&page[ptr],target->value,target_length*PIECE);
 			}else{
 				snode *target=src->bucket[target_length][src->idx[target_length]-1];
 				target->ppa=LSM.lop->get_page(target->value->length,target->key);
 				foot->map[target->ppa%NPCINPAGE]=target->value->length;
-				validate_PPA(DATA,target->ppa);
 				memcpy(&page[ptr],target->value->value,target_length*PIECE);
 			}
 			used_piece+=target_length;

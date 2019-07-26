@@ -1,5 +1,6 @@
 #include "page.h"
 #include "nocpy.h"
+#include "../../include/sem_lock.h"
 extern lsmtree LSM;
 extern algorithm algo_lsm;
 pm d_m;
@@ -7,18 +8,19 @@ pm map_m;
 extern volatile int gc_target_get_cnt;
 //block* getRBLOCK(uint8_t type);
 volatile int gc_read_wait;
-pthread_mutex_t gc_wait;
-void gc_general_wait_init(){	
-	pthread_mutex_lock(&gc_wait);
+fdriver_lock_t gc_wait;
+void gc_general_wait_init(){
+	fdriver_lock(&gc_wait);
 }
 void gc_general_waiting(){
 #ifdef MUTEXLOCK
-		if(gc_read_wait!=0)
-			pthread_mutex_lock(&gc_wait);
+		if(gc_read_wait!=0){
+			fdriver_lock(&gc_wait);
+		}
 #elif defined(SPINLOCK)
 		while(gc_target_get_cnt!=gc_read_wait){}
 #endif
-		pthread_mutex_unlock(&gc_wait);
+		fdriver_unlock(&gc_wait);
 		gc_read_wait=0;
 		gc_target_get_cnt=0;
 }
@@ -32,6 +34,8 @@ void pm_init(){
 	map_m.reserve=bm->pt_get_segment(bm,MAP_S,true);
 	map_m.target=NULL;
 	map_m.active=NULL;
+
+	fdriver_mutex_init(&gc_wait);
 }
 
 lsm_block* lb_init(uint8_t type){
@@ -93,6 +97,7 @@ retry:
 	}
 
 //	printf("%d\n",res);
+	validate_PPA(type,res);
 	return res;
 }
 
@@ -110,6 +115,7 @@ uint32_t getRPPA(uint8_t type,KEYT lpa, bool b){
 		abort();
 	}
 	res=bm->get_page_num(bm,t->reserve);
+	validate_PPA(type,res);
 	return res;
 }
 
@@ -186,11 +192,13 @@ lsm_block* getRBlock(uint8_t type){
 
 void invalidate_PPA(uint8_t type,uint32_t ppa){
 	uint32_t t_p=ppa;
+	void *t;
 	switch(type){
 		case DATA:
 #ifdef DVALUE
 			t_p=t_p/NPCINPAGE;
-			invalidate_piece((lsm_block*)LSM.bm->pick_block(LSM.bm,t_p)->private_data,ppa);
+			t=LSM.bm->pick_block(LSM.bm,t_p)->private_data;
+			invalidate_piece((lsm_block*)t,ppa);
 #endif
 
 #ifdef EMULATOR
@@ -229,6 +237,28 @@ void validate_PPA(uint8_t type, uint32_t ppa){
 	}
 	int res=LSM.bm->populate_bit(LSM.bm,t_p);
 
+	if(!res && type==HEADER){
+		abort();
+	}
+}
+
+void erase_PPA(uint8_t type,uint32_t ppa){
+	uint32_t t_p=ppa;
+	switch(type){
+		case DATA:
+#ifdef DVALUE
+			t_p=t_p/NPCINPAGE;
+			validate_piece((lsm_block*)LSM.bm->pick_block(LSM.bm,t_p)->private_data,ppa);
+#endif
+			break;
+		case HEADER:
+				break;
+		default:
+			printf("error in validate_ppa\n");
+			abort();
+	}
+
+	int res=LSM.bm->erase_bit(LSM.bm,t_p);
 	if(!res && type==HEADER){
 		abort();
 	}
@@ -423,4 +453,5 @@ bool is_invalid_piece(lsm_block *b, uint32_t ppa){
 
 	return !(b->bitset[bit_idx] & (1<<bit_off));
 }
+
 #endif

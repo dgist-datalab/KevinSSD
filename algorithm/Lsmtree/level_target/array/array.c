@@ -69,8 +69,6 @@ level_ops a_ops={
 	.cache_get_body=array_cache_get_body,
 	.cache_get_iter=array_cache_get_iter,
 	.cache_iter_nxt=array_cache_iter_nxt,
-	//.cache_find_lowerbound=array_cache_find_lowerbound,
-	//.cache_get_size=array_cache_get_sz,
 #endif
 	
 	.header_get_keyiter=array_header_get_keyiter,
@@ -701,10 +699,10 @@ uint32_t array_get_level_mem_size(level *lev){
 void array_print_level_summary(){
 	for(int i=0; i<LEVELN; i++){
 		if(i<LEVELCACHING){
-			printf("[%d:lev caching] n_num:%d m_num:%d\n",i+1,array_cache_get_sz(LSM.disk[i]),LSM.disk[i]->m_num);
+			printf("[%d:lev caching] n_num:%d m_num:%d %.*s ~ %.*s\n",i+1,array_cache_get_sz(LSM.disk[i]),LSM.disk[i]->m_num,KEYFORMAT(LSM.disk[i]->start),KEYFORMAT(LSM.disk[i]->end));
 		}
 		else{
-			printf("[%d] n_num:%d m_num:%d\n",i+1,LSM.disk[i]->n_num,LSM.disk[i]->m_num);
+			printf("[%d] n_num:%d m_num:%d %.*s ~ %.*s\n",i+1,LSM.disk[i]->n_num,LSM.disk[i]->m_num,KEYFORMAT(LSM.disk[i]->start),KEYFORMAT(LSM.disk[i]->end));
 		}
 	}	
 }
