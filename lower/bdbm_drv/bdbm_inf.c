@@ -24,7 +24,10 @@ lower_info memio_info={
 	.lower_alloc=memio_alloc_dma,
 	.lower_free=memio_free_dma,
 	.lower_flying_req_wait=memio_flying_req_wait,
-	.lower_show_info=memio_show_info_
+	.lower_show_info=memio_show_info_,
+	.hw_do_merge=memio_do_merge,
+	.hw_get_kt=memio_get_kt,
+	.hw_get_inv=memio_get_inv
 };
 
 uint32_t memio_info_create(lower_info *li, blockmanager *bm){
@@ -141,4 +144,14 @@ void memio_flying_req_wait(){
 
 void memio_show_info_(){
 	memio_show_info();
+}
+
+uint32_t memio_do_merge(uint32_t lp_num, ppa_t *lp_array, uint32_t hp_num,ppa_t *hp_array,ppa_t *tp_array, uint32_t* ktable_num, uint32_t *invliadate_num){
+
+}
+char *memio_get_kt(){
+
+}
+char *memio_get_inv(){
+
 }

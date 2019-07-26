@@ -105,6 +105,9 @@ struct lower_info {
 	void (*lower_free) (int type, int dmaTag);
 	void (*lower_flying_req_wait) ();
 	void (*lower_show_info)();
+	uint32_t (*hw_do_merge)(uint32_t lp_num, ppa_t *lp_array, uint32_t hp_num,ppa_t *hp_array,ppa_t *tp_array, uint32_t* ktable_num, uint32_t *invliadate_num);
+	char *(*hw_get_kt)();
+	char *(*hw_get_inv)();
 	struct blockmanager *bm;
 
 	lower_status (*statusOfblock)(BLOCKT);
@@ -202,6 +205,7 @@ struct blockmanager{
 	void (*trim_segment) (struct blockmanager*, __gsegment*, struct lower_info*);
 	int (*populate_bit) (struct blockmanager*, uint32_t ppa);
 	int (*unpopulate_bit) (struct blockmanager*, uint32_t ppa);
+	int (*erase_bit)(struct blockmanager*, uint32_t ppa);
 	bool (*is_valid_page) (struct blockmanager*, uint32_t ppa);
 	bool (*is_invalid_page) (struct blockmanager*, uint32_t ppa);
 	void (*set_oob)(struct blockmanager*, char* data, int len, uint32_t ppa);
