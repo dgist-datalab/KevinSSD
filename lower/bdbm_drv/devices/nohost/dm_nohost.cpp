@@ -148,6 +148,7 @@ bdbm_dm_inf_t _bdbm_dm_inf = {
 typedef struct {
 	bdbm_spinlock_t lock;
 	bdbm_llm_req_t** llm_reqs;
+	bdbm_llm_req_t* merge_req;
 } dm_nohost_private_t;
 
 dm_nohost_private_t* _priv = NULL;
@@ -370,7 +371,7 @@ uint32_t dm_nohost_probe (
 	bdbm_sema_init (&ftl_table_lock);
 	bdbm_sema_lock (&ftl_table_lock); // initially lock=0 to be used for waiting
 
-	nr_punit = 128;
+	nr_punit = 64;
 	if ((p->llm_reqs = (bdbm_llm_req_t**)bdbm_zmalloc (
 					sizeof (bdbm_llm_req_t*) * nr_punit)) == NULL) {
 		bdbm_warning ("bdbm_zmalloc failed");
@@ -645,7 +646,7 @@ void dm_nohost_end_req (
 
 //koo
 void init_dmaQ (std::queue<int> *q) {
-	for (int i = METANUM; i <DMASIZE; i++) {
+	for (int i = METANUM; i <DMASIZE-1; i++) {
 		//for (int i = 0; i < DMASIZE; i++) {
 		q->push(i);
 	}
