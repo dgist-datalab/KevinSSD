@@ -9,7 +9,7 @@
 #endif
 
 #define RAF 0.01
-#define LEVELN 5
+#define LEVELN 2
 
 #if LEVELN!=1
 #define BLOOM
@@ -41,9 +41,12 @@
 #define RQSIZE 1024
 #define WRITEWAIT
 #define MAXKEYSIZE 255
-#define WRITEOPTIMIZE
-#define GCOPT
-#define MULTIOPT
+
+//optimization
+//#define PIPECOMP
+//#define HWCOMP
+//#define GCOPT
+//#define MULTIOPT
 
 /*compaction*/
 #define EPC 100000 //size factor have to be multiple of SIZEFACTOR
