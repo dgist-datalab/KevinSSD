@@ -20,7 +20,7 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	lp_num=LSM.lop->get_number_runs(origin);
 	hp_num=upper?LSM.lop->get_number_runs(upper):1;
 
-	if(upper && upper->idx<LEVELCACHING){
+	if(upper && upper->idx<LSM.LEVELCACHING){
 		run_t **datas;
 		int cache_added_size=LSM.lop->get_number_runs(upper);
 		cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);

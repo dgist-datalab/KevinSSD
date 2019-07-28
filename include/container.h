@@ -137,6 +137,7 @@ struct lower_info {
 
 struct algorithm{
 	/*interface*/
+	uint32_t (*argument_set) (int argc, char**argv);
 	uint32_t (*create) (lower_info*, blockmanager *bm, struct algorithm *);
 	void (*destroy) (lower_info*, struct algorithm *);
 	uint32_t (*read)(request *const);

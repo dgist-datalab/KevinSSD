@@ -111,7 +111,6 @@ uint32_t array_get_numbers_run(level *);
 BF* array_making_filter(run_t *,int,float );
 #endif
 
-#ifdef LEVELCACHING
 void array_cache_insert(level *,skiplist*);
 void array_cache_merge(level *, level *);
 void array_cache_free(level *);
@@ -126,7 +125,6 @@ skiplist* array_cache_get_body(level *);
 run_t *array_cache_iter_nxt(lev_iter *);
 //char *array_cache_find_lowerbound(level *, KEYT lpa, KEYT *start,bool);
 int array_cache_get_sz(level*);
-#endif
 
 keyset_iter* array_header_get_keyiter(level *, char *,KEYT *);
 keyset array_header_next_key(level *, keyset_iter *);

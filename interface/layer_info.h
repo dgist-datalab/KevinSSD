@@ -20,7 +20,7 @@ extern struct lower_info no_info;
 extern struct blockmanager base_bm;
 extern struct blockmanager pt_bm;
 
-static void layer_info_mapping(master_processor *mp){
+static void layer_info_mapping(master_processor *mp,int argc, char **argv){
 #if defined(posix) || defined(posix_async) || defined(posix_memory)
 	mp->li=&my_posix;
 #elif defined(bdbm_drv)
@@ -61,6 +61,9 @@ static void layer_info_mapping(master_processor *mp){
 #else
 	mp->bm->create(mp->bm,mp->li);
 #endif
+	if(mp->algo->argument_set){
+		mp->algo->argument_set(argc,argv);
+	}
 	mp->algo->create(mp->li,mp->bm,mp->algo);
 }
 #endif

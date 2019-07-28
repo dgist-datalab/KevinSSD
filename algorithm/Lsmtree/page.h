@@ -19,12 +19,15 @@ typedef struct gc_node{
 	uint8_t plength;
 	uint8_t level;
 }gc_node;
-
+/*
 typedef struct gc_node_wrapper{
 	gc_node** datas[LEVELN][BPS+1];
 	int size[LEVELN][BPS+1];
 	int cnt[LEVELN];
-}gc_node_wrapper;
+	gc_node*** datas[BPS+1];
+	int *size[BPS+1];
+	int *cnt;
+}gc_node_wrapper;*/
 
 /*
 	NOTE:

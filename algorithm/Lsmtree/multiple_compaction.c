@@ -6,7 +6,6 @@
 #include "../../include/data_struct/list.h"
 extern KEYT key_min,key_max;
 extern lsmtree LSM;
-#ifdef MULTIOPT
 uint32_t multiple_leveling(int from, int to){
 	if(to-from==1){
 		compaction_selector(LSM.disk[from],LSM.disk[to],NULL,&LSM.level_lock[to]);
@@ -41,7 +40,7 @@ uint32_t multiple_leveling(int from, int to){
 	free(target_s);
 
 	skiplist *body;
-	if(from<LEVELCACHING && from>=0){
+	if(from<LSM.LEVELCACHING && from>=0){
 		body=LSM.lop->cache_get_body(LSM.disk[from]);
 		from++;
 	}
@@ -171,7 +170,7 @@ uint32_t multiple_leveling(int from, int to){
 	LSM.delayed_header_trim=false;
 #endif
 	
-	if(origin_from>=LEVELCACHING){
+	if(origin_from>=LSM.LEVELCACHING){
 		skiplist_free(body);
 	}
 
@@ -198,4 +197,3 @@ uint32_t multiple_leveling(int from, int to){
 	LSM.c_level=NULL;
 	return 1;
 }
-#endif

@@ -62,9 +62,7 @@ void lsm_io_sched_push(uint8_t type, void *req){
 }
 
 void lsm_io_sched_flush(){
-#ifdef PIPECOMP
-	while(scheduler.q->size);
-#endif
+	while(LSM.comp_opt==PIPE && scheduler.q->size);
 }
 
 void lsm_io_sched_finish(){

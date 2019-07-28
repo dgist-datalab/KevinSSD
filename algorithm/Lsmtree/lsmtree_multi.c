@@ -92,7 +92,7 @@ void *lsm_range_end_req(algo_req *const req){
 		retry++;
 	}
 	else if(data_flag){
-		int realloc_cnt=(LEVELN-LEVELCACHING) *2;
+		int realloc_cnt=(LSM.LEVELN-LSM.LEVELCACHING) *2;
 		if(original_req->num < realloc_cnt){
 			for(int i=original_req->num; i<realloc_cnt; i++){
 				inf_free_valueset(original_req->multi_value[i],FS_MALLOC_R);
@@ -110,19 +110,19 @@ int cnt2=0;
 int cnt=0;
 uint32_t __lsm_range_get_after_header(request *req){
 	lsm_range_params *params=(lsm_range_params*)req->params;
-	keyset_iter* level_iter[LEVELN]; //memtable
+	keyset_iter* level_iter[LSM.LEVELN]; //memtable
 	keyset *target_keys=(keyset*)malloc(sizeof(keyset)*req->num);
-	int level_mapping_cnt[LEVELN];
+	int level_mapping_cnt[LSM.LEVELN];
 //	printf("cnt2:%d\n",cnt2++);
 	//memtable;
 	//HEADER
 	snode *mem_node=skiplist_find_lowerbound(LSM.memtable,req->key);
-	for(int i=0; i<LEVELN; i++){
-		if(i>=LEVELCACHING && params->mapping_data[i*RANGEGETNUM]==NULL){
+	for(int i=0; i<LSM.LEVELN; i++){
+		if(i>=LSM.LEVELCACHING && params->mapping_data[i*RANGEGETNUM]==NULL){
 			level_iter[i]=NULL;
 			continue;
 		}
-		level_iter[i]=LSM.lop->header_get_keyiter(LSM.disk[i],i<LEVELCACHING?NULL:params->mapping_data[i*RANGEGETNUM],&req->key);
+		level_iter[i]=LSM.lop->header_get_keyiter(LSM.disk[i],i<LSM.LEVELCACHING?NULL:params->mapping_data[i*RANGEGETNUM],&req->key);
 		level_mapping_cnt[i]=1;
 	}
 
@@ -132,7 +132,7 @@ uint32_t __lsm_range_get_after_header(request *req){
 		int target=0;
 		min.ppa=-1;
 
-		for(int i=0; i<LEVELN+1; i++){
+		for(int i=0; i<LSM.LEVELN+1; i++){
 			if(i==0 && !no_memtable){
 				if(mem_node==LSM.memtable->header) continue;
 				if(!mem_node){
@@ -151,7 +151,7 @@ again:
 				LSM.lop->header_next_key_pick(LSM.disk[level],level_iter[level],&temp);
 
 				if(temp.ppa==UINT_MAX){ //the target header end
-					if(level<LEVELCACHING || level_mapping_cnt[level]>=RANGEGETNUM) continue;
+					if(level<LSM.LEVELCACHING || level_mapping_cnt[level]>=RANGEGETNUM) continue;
 					if(params->mapping_data[level*RANGEGETNUM + level_mapping_cnt[level]]==NULL) continue;
 					//it is called when the level is not caching
 					if(level_iter[level]->private_data) free(level_iter[level]->private_data);
@@ -214,7 +214,7 @@ again:
 #endif
 	}
 finish:
-	for(i=0; i<LEVELN; i++){
+	for(i=0; i<LSM.LEVELN; i++){
 		if(level_iter[i]!=NULL){
 			if(level_iter[i]->private_data) free(level_iter[i]->private_data);
 			free(level_iter[i]);
@@ -233,28 +233,28 @@ uint32_t __lsm_range_get(request *const req){
 		return __lsm_range_get_after_header(req);		
 	}
 	//printf("cnt:%d\n",cnt++);
-	int realloc_cnt=(LEVELN-LEVELCACHING) *2;
+	int realloc_cnt=(LSM.LEVELN-LSM.LEVELCACHING) *2;
 	if(req->num < realloc_cnt){
 		req->multi_value=(value_set**)realloc(req->multi_value,realloc_cnt*sizeof(value_set));
 		for(int i=req->num; i<realloc_cnt; i++){
 			req->multi_value[i]=inf_get_valueset(NULL,FS_GET_T,PAGESIZE);
 		}
 	}
-	uint32_t read_header[LEVELN*RANGEGETNUM]={0,};
+	uint32_t read_header[LSM.LEVELN*RANGEGETNUM]={0,};
 	/*req all headers read*/
 	params=(lsm_range_params*)malloc(sizeof(lsm_range_params));
 	fdriver_lock_init(&params->global_lock,1);
-	params->mapping_data=(char**)calloc(sizeof(char*),LEVELN*RANGEGETNUM);
-	memset(params->mapping_data,0,sizeof(char*)*LEVELN*RANGEGETNUM);
+	params->mapping_data=(char**)calloc(sizeof(char*),LSM.LEVELN*RANGEGETNUM);
+	memset(params->mapping_data,0,sizeof(char*)*LSM.LEVELN*RANGEGETNUM);
 	params->now=0;
-	params->max=(LEVELN-LEVELCACHING)*RANGEGETNUM;
+	params->max=(LSM.LEVELN-LSM.LEVELCACHING)*RANGEGETNUM;
 
 	req->params=params; // req also has same params;
 	/*Mapping read section*/
 	run_t **rs;
 	algo_req *ar_req;
 	int use_valueset_cnt=0;
-	for(int i=LEVELCACHING; i<LEVELN; i++){
+	for(int i=LSM.LEVELCACHING; i<LSM.LEVELN; i++){
 		pthread_mutex_lock(&LSM.level_lock[i]);
 		rs=LSM.lop->find_run_num(LSM.disk[i],req->key,RANGEGETNUM);
 		pthread_mutex_unlock(&LSM.level_lock[i]);

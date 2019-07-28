@@ -141,7 +141,7 @@ uint32_t pipe_partial_leveling(level *t, level *origin, leveling_node* lnode, le
 
 		bunch_data[idx]=now;
 		wait[idx]=(fdriver_lock_t*)malloc(sizeof(fdriver_lock_t));
-		if((read_up_level && upper->idx<LEVELCACHING) || htable_read_preproc(now)){
+		if((read_up_level && upper->idx<LSM.LEVELCACHING) || htable_read_preproc(now)){
 			fdriver_lock_init(wait[idx++],1);
 		}
 		else{

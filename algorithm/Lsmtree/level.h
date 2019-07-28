@@ -158,7 +158,6 @@ typedef struct level_ops{
 	bool (*block_fchk)();
 
 	void (*range_update)(level *,run_t*,KEYT);
-#ifdef LEVELCACHING
 	/*level caching*/
 	void (*cache_insert)(level *,skiplist *);
 	void (*cache_merge)(level *from, level *to);
@@ -172,7 +171,6 @@ typedef struct level_ops{
 	lev_iter *(*cache_get_iter)(level *,KEYT from, KEYT to); //from<= x < to
 	run_t *(*cache_iter_nxt)(lev_iter*);
 //	int (*cache_get_size)(level *);
-#endif
 	keyset_iter* (*header_get_keyiter)(level *, char *, KEYT *);
 	keyset (*header_next_key)(level *, keyset_iter *);
 	void (*header_next_key_pick)(level *, keyset_iter *, keyset *);

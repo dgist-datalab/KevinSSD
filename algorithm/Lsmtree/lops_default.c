@@ -120,8 +120,7 @@ void def_move_heap( level *des,  level *src){
 }
 
 bool def_fchk( level *input){
-#ifdef LEVELCACHING
-	if(input->idx<LEVELCACHING){
+	if(input->idx<LSM.LEVELCACHING){
 		int a=LSM.lop->get_number_runs(input);
 		int b=input->idx==0?input->m_num-2:
 			input->m_num/(SIZEFACTOR)*(SIZEFACTOR-1);
@@ -130,14 +129,7 @@ bool def_fchk( level *input){
 		}
 		return false;
 	}
-#endif
 
-#ifdef LEVELEMUL
-	if(input->level_cache->size/KEYNUM >=(uint32_t)(input->m_num/(SIZEFACTOR)*(SIZEFACTOR-1))){
-		return true;
-	}
-	return false;
-#endif
 	if(input->istier){
 
 	}

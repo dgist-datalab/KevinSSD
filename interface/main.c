@@ -36,7 +36,7 @@ int main(int argc,char* argv[]){
 		TARGETRATIO=0.5;
 	}
 	seq_padding_opt=0;
-	inf_init(0,0);
+	inf_init(0,0,argc,argv);
 	bench_init();
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
@@ -45,7 +45,7 @@ int main(int argc,char* argv[]){
 	// GC test
 //	bench_add(RANDRW,0,RANGE,REQNUM*6);
 //	bench_add(RANDRW,0,RANGE,REQNUM);
-	bench_add(RANDRW,0,RANGE,MAXKEYNUMBER/2);
+	bench_add(RANDRW,0,RANGE,MAXKEYNUMBER/5*2);
 //	bench_add(RANDSET,0,RANGE,4096);
 
 //	bench_add(NOR,0,-1,-1);

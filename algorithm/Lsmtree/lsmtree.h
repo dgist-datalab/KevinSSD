@@ -82,9 +82,20 @@ typedef struct lsm_range_params{
 	lsm_sub_req *children;
 }lsm_range_params;
 
+enum comp_opt_type{
+	NON,PIPE,HW
+};
+
 typedef struct lsmtree{
 	uint32_t KEYNUM;
 	uint32_t FLUSHNUM;
+	uint32_t LEVELN;
+	uint32_t LEVELCACHING;
+	
+	bool gc_opt;
+	bool multi_level_comp;
+	uint8_t comp_opt;
+
 	bool inplace_compaction;
 	bool delayed_header_trim;
 	bool gc_started;
@@ -97,16 +108,15 @@ typedef struct lsmtree{
 
 	bool debug_flag;
 
-	bool size_factor_change[LEVELN];//true: it will be changed size
-	level *disk[LEVELN];
+	bool* size_factor_change;//true: it will be changed size
+	level **disk;
 	level *c_level;
 	level_ops *lop;
 
-	PTR level_addr[LEVELN];
 	pthread_mutex_t memlock;
 	pthread_mutex_t templock;
 
-	pthread_mutex_t level_lock[LEVELN];
+	pthread_mutex_t *level_lock;
 	PTR caching_value;
 
 	struct skiplist *memtable;
@@ -141,6 +151,7 @@ typedef struct lsmtree{
 	struct lsm_block *active_block;
 }lsmtree;
 
+uint32_t lsm_argument_set(int argc, char **argv);
 uint32_t lsm_create(lower_info *, blockmanager *, algorithm *);
 uint32_t __lsm_create_normal(lower_info *, algorithm *);
 //uint32_t __lsm_create_simulation(lower_info *, algorithm*);

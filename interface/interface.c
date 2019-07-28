@@ -303,7 +303,7 @@ bool inf_make_req_fromApp(char _type, KEYT _key,uint32_t offset, uint32_t len,PT
 	return true;
 }
 
-void inf_init(int apps_flag, int total_num){
+void inf_init(int apps_flag, int total_num,int argc, char **argv){
 	flying=cl_init(QDEPTH,false);
 	inf_cond=cl_init(QDEPTH,true);
 	mp.processors=(processor*)malloc(sizeof(processor)*1);
@@ -332,7 +332,7 @@ void inf_init(int apps_flag, int total_num){
 		bench_add(NOR,0,-1,total_num);
 	}
 	
-	layer_info_mapping(&mp);
+	layer_info_mapping(&mp, argc, argv);
 /*
 	mp.li->create(mp.li,mp.bm);
 #ifdef partition

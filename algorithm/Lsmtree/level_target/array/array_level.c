@@ -517,7 +517,7 @@ keyset_iter* array_header_get_keyiter(level *lev, char *data,KEYT *key){
 	header_iter *p_data=(header_iter*)malloc(sizeof(header_iter));
 	res->private_data=(void*)p_data;
 
-	if(lev->idx<LEVELCACHING){
+	if(lev->idx<LSM.LEVELCACHING){
 		array_body *b=(array_body*)lev->level_data;
 		skiplist *skip=b->skip;
 		p_data->cache_data=skiplist_find_lowerbound(skip,*key);
@@ -536,7 +536,7 @@ keyset array_header_next_key(level *lev, keyset_iter *k_iter){
 	keyset res;
 	res.ppa=-1;
 
-	if(lev->idx<LEVELCACHING){
+	if(lev->idx<LSM.LEVELCACHING){
 		array_body *b=(array_body*)lev->level_data;
 		skiplist *skip=b->skip;
 		if(p_data->cache_data!=skip->header){
@@ -564,7 +564,7 @@ keyset array_header_next_key(level *lev, keyset_iter *k_iter){
 
 void array_header_next_key_pick(level *lev, keyset_iter * k_iter,keyset *res){
 	header_iter *p_data=(header_iter*)k_iter->private_data;
-	if(lev->idx<LEVELCACHING){
+	if(lev->idx<LSM.LEVELCACHING){
 		array_body *b=(array_body*)lev->level_data;
 		skiplist *skip=b->skip;
 		if(p_data->cache_data && p_data->cache_data!=skip->header){

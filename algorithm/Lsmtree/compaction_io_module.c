@@ -9,10 +9,11 @@ extern lsmtree LSM;
 
 void compaction_data_write(leveling_node* lnode){	
 	value_set **data_sets=skiplist_make_valueset(lnode->mem,LSM.disk[0],&lnode->start,&lnode->end);
-
-#ifdef PIPECOMP
-	lsm_io_sched_push(SCHED_FLUSH,(void*)data_sets);//make flush background job
-#else
+	
+	if(LSM.comp_opt==PIPE){
+		lsm_io_sched_push(SCHED_FLUSH,(void*)data_sets);//make flush background job
+		return;
+	}
 	for(int i=0; data_sets[i]!=NULL; i++){	
 		algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 		lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
@@ -29,7 +30,6 @@ void compaction_data_write(leveling_node* lnode){
 		LSM.li->write(CONVPPA(data_sets[i]->ppa),PAGESIZE,params->value,ASYNC,lsm_req);
 	}
 	free(data_sets);
-#endif
 }
 
 void compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
@@ -49,11 +49,10 @@ void compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 
 	LSM.lop->insert(target,entry);
 	if(isbg){
-#ifdef PIPECOMP
-		compaction_bg_htable_write(entry->pbn,entry->cpt_data,entry->key);
-#else
-		abort();
-#endif
+		if(LSM.comp_opt==PIPE)
+			compaction_bg_htable_write(entry->pbn,entry->cpt_data,entry->key);
+		else
+			abort();
 	}else{
 		compaction_htable_write(entry->pbn,entry->cpt_data,entry->key);
 	}
@@ -107,7 +106,6 @@ void compaction_htable_read(run_t *ent,PTR* value){
 	LSM.li->read(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
 	return;
 }
-#ifdef PIPECOMP
 void compaction_bg_htable_bulkread(run_t **r,fdriver_lock_t **locks){
 	void **argv=(void**)malloc(sizeof(void*)*2);
 	argv[0]=(void*)r;
@@ -139,4 +137,3 @@ uint32_t compaction_bg_htable_write(ppa_t ppa,htable *input, KEYT lpa){
 	lsm_io_sched_push(SCHED_HWRITE,(void*)areq);
 	return ppa;
 }
-#endif

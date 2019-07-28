@@ -71,7 +71,7 @@ int gc_header(){
 		bool checkdone=false;
 		bool shouldwrite=false;
 		
-		for(int j=0; j<LEVELN; j++){
+		for(int j=0; j<LSM.LEVELN; j++){
 			entries=LSM.lop->find_run(LSM.disk[j],*lpa);
 			if(entries==NULL) continue;
 			for(int k=0; entries[k]!=NULL; k++){
@@ -180,29 +180,30 @@ gc_node *gc_data_write_new_page(uint32_t t_ppa, char *data, htable_t *table, uin
 }
 int __gc_data();
 int gc_data(){
-#ifdef GCOPT
-	//LSM.lop->print_level_summary();
-//	printf("gc_data start:%d, needed_valid_page:%d\n",LSM.bm->pt_remain_page(LSM.bm,d_m.active,MAP_S), LSM.needed_valid_page);
-	int tcnt=0;
-	while((LEVELN==1) || LSM.needed_valid_page > (uint32_t) LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S)){
-#endif
-		__gc_data();
-#ifdef GCOPT
-		tcnt++;
-		if(LEVELN==1) break;
-	}
+	if(LSM.gc_opt){
+		//LSM.lop->print_level_summary();
+		//	printf("gc_data start:%d, needed_valid_page:%d\n",LSM.bm->pt_remain_page(LSM.bm,d_m.active,MAP_S), LSM.needed_valid_page);
+		int tcnt=0;
+		while((LSM.LEVELN==1) || LSM.needed_valid_page > (uint32_t) LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S)){
+			__gc_data();
+			tcnt++;
+			if(LSM.LEVELN==1) break;
+		}
 
-	if(LSM.bm->check_full(LSM.bm,d_m.active,MASTER_BLOCK))
-		change_reserve_to_active(DATA);
-//	printf("%d gc_data done:%d\n",tcnt,LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S));
-#endif
+		if(LSM.bm->check_full(LSM.bm,d_m.active,MASTER_BLOCK))
+			change_reserve_to_active(DATA);
+		//	printf("%d gc_data done:%d\n",tcnt,LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S));
+	}
+	else{
+		__gc_data();
+	}
 	return 1;
 }
 int __gc_data(){
 //	printf("gc_data\n");
-#if LEVELN!=1
-	compaction_force();
-#endif
+	if(LSM.LEVELN!=1){
+		compaction_force();
+	}
 	l_bucket *bucket=(l_bucket*)calloc(sizeof(l_bucket),1);
 	gc_general_wait_init();
 
@@ -309,9 +310,8 @@ next_page:
 		tblock->private_data=NULL;
 	}
 	bm->pt_trim_segment(bm,DATA_S,tseg,LSM.li);
-#ifndef GCOPT
-	change_reserve_to_active(DATA);
-#endif
+	if(LSM.gc_opt)
+		change_reserve_to_active(DATA);
 
 	for(int i=0; i<NPCINPAGE+1; i++){
 		free(bucket->gc_bucket[i]);
@@ -372,7 +372,7 @@ void gc_data_header_update(struct gc_node **g, int size){
 		char *nocpy_temp_table;
 #endif
 
-		for(int j=0; j<LEVELCACHING; j++){
+		for(int j=0; j<LSM.LEVELCACHING; j++){
 			find=LSM.lop->cache_find(LSM.disk[j],target->lpa);
 			if(find==NULL || find->ppa!=target->ppa) continue;
 			find->ppa=target->nppa;
@@ -383,11 +383,11 @@ void gc_data_header_update(struct gc_node **g, int size){
 			goto next_node;
 		}
 
-		for(int j=LEVELCACHING; j<LEVELN; j++){
+		for(int j=LSM.LEVELCACHING; j<LSM.LEVELN; j++){
 			shouldwrite=false;
 			entries=LSM.lop->find_run(LSM.disk[j],target->lpa);
 			if(entries==NULL){
-				if(j==LEVELN-1){
+				if(j==LSM.LEVELN-1){
 	//				LSM.lop->all_print();
 					printf("lpa:%.*s-ppa:%d\n",target->lpa.len, target->lpa.key,target->ppa);
 					abort();

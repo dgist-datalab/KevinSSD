@@ -94,18 +94,24 @@ bool compaction_init(){
 	pthread_mutex_init(&compaction_wait,NULL);
 	pthread_mutex_init(&compaction_flush_wait,NULL);
 	pthread_mutex_lock(&compaction_flush_wait);
+	switch(LSM.comp_opt){
+		case NON:
+			compactor.pt_leveling=partial_leveling;
+			break;
+		case PIPE:
+			compactor.pt_leveling=pipe_partial_leveling;
+			break;
+		case HW:
+			compactor.pt_leveling=hw_partial_leveling;
+			break;
+		default:
+			printf("invalid option type");
+			abort();
+			break;
+	}
 
-#ifdef PIPECOMP
-	compactor.pt_leveling=pipe_partial_leveling;
-#elif defined(HWCOMP)
-	compactor.pt_leveling=hw_partial_leveling;
-#else
-	compactor.pt_leveling=partial_leveling;
-#endif
-
-#ifdef PIPECOMP
-	lsm_io_sched_init();
-#endif
+	if(LSM.comp_opt==PIPE)
+		lsm_io_sched_init();
 	return true;
 }
 
@@ -181,9 +187,9 @@ void compaction_assign(compR* req){
 }
 
 bool compaction_force(){
-	for(int i=LEVELN-2; i>=0; i--){
+	for(int i=LSM.LEVELN-2; i>=0; i--){
 		if(LSM.disk[i]->n_num){
-			compaction_selector(LSM.disk[i],LSM.disk[LEVELN-1],NULL,&LSM.level_lock[LEVELN-1]);
+			compaction_selector(LSM.disk[i],LSM.disk[LSM.LEVELN-1],NULL,&LSM.level_lock[LSM.LEVELN-1]);
 			return true;
 		}
 	}
@@ -200,7 +206,7 @@ bool compaction_force_target(int from, int to){
 bool compaction_force_levels(int nol){
 	for(int i=0; i<nol; i++){
 		int max=0,target=0;
-		for(int j=0; j<LEVELN-1; j++){
+		for(int j=0; j<LSM.LEVELN-1; j++){
 			int noe=LSM.lop->get_number_runs(LSM.disk[j]);
 			if(max<noe){
 				max=noe;
@@ -208,7 +214,7 @@ bool compaction_force_levels(int nol){
 			}
 		}
 		if(max!=0){
-			compaction_selector(LSM.disk[target],LSM.disk[LEVELN-1],NULL,&LSM.level_lock[LEVELN-1]);
+			compaction_selector(LSM.disk[target],LSM.disk[LSM.LEVELN-1],NULL,&LSM.level_lock[LSM.LEVELN-1]);
 		}else{
 			return false;
 		}
@@ -220,67 +226,64 @@ extern pm data_m;
 void compaction_cascading(bool *_is_gc_needed){
 	int start_level=0,des_level=-1;
 	bool is_gc_needed=*_is_gc_needed;
-#ifdef MULTIOPT
-	for(int i=0; i<LEVELN; i++){
-		if(LSM.lop->full_check(LSM.disk[i])){
-			des_level=i;
-			if(des_level==LEVELN-1){
-				LSM.disk[des_level]->m_num*=2;
-				des_level--;
-				break;
-			}
-		}
-		else break;
-	}
-	
-	if(is_gc_needed || des_level!=-1){
-		int target_des=des_level+1;
-	#ifdef GCOPT
-		if(!is_gc_needed && target_des==LEVELN-1){
-				is_gc_needed=gc_dynamic_checker(true);
-		}
-	#endif
-		if(is_gc_needed) target_des=LEVELN-1; 
-		/*do level caching*/
-
-		int i=0;
-		for(i=start_level; i<target_des; i++){
-			if(i+1<LEVELCACHING){
-				LSM.compaction_cnt++;
-				compaction_selector(LSM.disk[i],LSM.disk[i+1],NULL,&LSM.level_lock[i+1]);
-			}
-			else
-				break;
-
-			if(i+1==target_des) return; //done
-		}
-		start_level=i;
-
-		LSM.compaction_cnt++;
-		multiple_leveling(start_level,target_des);
-	}
-#else
-	while(1){
-		if(is_gc_needed || unlikely(LSM.lop->full_check(LSM.disk[start_level]))){
-			LSM.compaction_cnt++;
-			des_level=(start_level==LEVELN?start_level:start_level+1);
-			if(des_level==LEVELN) break;
-			if(start_level==LEVELN-2){
-	#ifdef GCOPT
-				if(!is_gc_needed){
-					is_gc_needed=gc_dynamic_checker(true);
+	if(LSM.multi_level_comp){
+		for(int i=0; i<LSM.LEVELN; i++){
+			if(LSM.lop->full_check(LSM.disk[i])){
+				des_level=i;
+				if(des_level==LSM.LEVELN-1){
+					LSM.disk[des_level]->m_num*=2;
+					des_level--;
+					break;
 				}
-	#endif
 			}
-			compaction_selector(LSM.disk[start_level],LSM.disk[des_level],NULL,&LSM.level_lock[des_level]);
-			LSM.disk[start_level]->iscompactioning=false;
-			start_level++;
+			else break;
 		}
-		else{
-			break;
+
+		if(is_gc_needed || des_level!=-1){
+			int target_des=des_level+1;
+			if(LSM.gc_opt && !is_gc_needed && target_des==LSM.LEVELN-1){
+				is_gc_needed=gc_dynamic_checker(true);
+			}
+			if(is_gc_needed) target_des=LSM.LEVELN-1; 
+			/*do level caching*/
+
+			int i=0;
+			for(i=start_level; i<target_des; i++){
+				if(i+1<LSM.LEVELCACHING){
+					LSM.compaction_cnt++;
+					compaction_selector(LSM.disk[i],LSM.disk[i+1],NULL,&LSM.level_lock[i+1]);
+				}
+				else
+					break;
+
+				if(i+1==target_des) return; //done
+			}
+			start_level=i;
+
+			LSM.compaction_cnt++;
+			multiple_leveling(start_level,target_des);
 		}
 	}
-#endif
+	else{
+		while(1){
+			if(is_gc_needed || unlikely(LSM.lop->full_check(LSM.disk[start_level]))){
+				LSM.compaction_cnt++;
+				des_level=(start_level==LSM.LEVELN?start_level:start_level+1);
+				if(des_level==LSM.LEVELN) break;
+				if(start_level==LSM.LEVELN-2){
+					if(LSM.gc_opt && !is_gc_needed){
+						is_gc_needed=gc_dynamic_checker(true);
+					}
+				}
+				compaction_selector(LSM.disk[start_level],LSM.disk[des_level],NULL,&LSM.level_lock[des_level]);
+				LSM.disk[start_level]->iscompactioning=false;
+				start_level++;
+			}
+			else{
+				break;
+			}
+		}
+	}
 	*_is_gc_needed=is_gc_needed;
 }
 
@@ -332,14 +335,13 @@ void *compaction_main(void *input){
 			compaction_selector(NULL,LSM.disk[0],&lnode,&LSM.level_lock[0]);
 		}
 		bool is_gc_needed=false;
-#if LEVELN!=1
-		compaction_cascading(&is_gc_needed);
-#endif
-#ifdef GCOPT
-		if(is_gc_needed){
+
+		if(LSM.LEVELN!=1){
+			compaction_cascading(&is_gc_needed);
+		}
+		if(LSM.gc_opt && is_gc_needed){
 			gc_data();
 		}
-#endif
 		free(lnode.start.key);
 		free(lnode.end.key);
 
@@ -405,8 +407,7 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 }
 
 void compaction_lev_seq_processing(level *src, level *des, int headerSize){
-#ifdef LEVELCACHING
-	if(src->idx<LEVELCACHING){
+	if(src->idx<LSM.LEVELCACHING){
 		run_t **datas;
 		int cache_added_size=LSM.lop->get_number_runs(src);
 		LSM.lop->cache_comp_formatting(src,&datas);
@@ -422,7 +423,6 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 		free(datas);
 		return;
 	}
-#endif
 
 #ifdef MONKEY
 	if(src->m_num!=des->m_num){
@@ -474,9 +474,7 @@ bool htable_read_preproc(run_t *r){
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(r->c_entry){
 		cache_entry_lock(LSM.lsm_cache,r->c_entry);
-#ifndef PIPECOMP
-		memcpy_cnt++;
-#endif
+		if(LSM.comp_opt!=PIPE){memcpy_cnt++;}
 
 #ifndef NOCPY
 		r->cpt_data=htable_copy(r->cache_data);
