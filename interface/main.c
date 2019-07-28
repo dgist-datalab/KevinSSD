@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <limits.h>
+#include <getopt.h>
 #include "../include/lsm_settings.h"
 #include "../include/FS.h"
 #include "../include/settings.h"
@@ -15,6 +16,7 @@ extern int req_cnt_test;
 extern uint64_t dm_intr_cnt;
 extern int LOCALITY;
 extern float TARGETRATIO;
+extern int KEYLENGTH;
 extern master *_master;
 extern bool force_write_start;
 extern int seq_padding_opt;
@@ -24,24 +26,71 @@ extern int v_cnt[NPCINPAGE+1];
 int skiplist_hit;
 #endif
 MeasureTime write_opt_time[10];
+
+
 int main(int argc,char* argv[]){
-	if(argc==3){
-		LOCALITY=atoi(argv[1]);
-		TARGETRATIO=atof(argv[2]);
+	struct option options[]={
+		{"locality",1,0,0},
+		{"key-length",1,0,0},
+		{0,0,0,0}
+	};
+	
+	char* temp_argv[10]={0,};
+	int temp_cnt=0;
+	for(int i=0; i<argc; i++){
+		if(strncmp(argv[i],"--locality",strlen("--locality"))==0) continue;
+		if(strncmp(argv[i],"--key-length",strlen("--key-length"))==0) continue;
+		temp_argv[temp_cnt++]=argv[i];
 	}
-	else{
-		printf("If you want locality test Usage : [%s (LOCALITY(%%)) (RATIO)]\n",argv[0]);
-		printf("defalut locality=50%% RATIO=0.5\n");
-		LOCALITY=50;
-		TARGETRATIO=0.5;
+	int index;
+	int opt;
+	bool locality_setting=false;
+	bool key_length=false;
+	opterr=0;
+
+	while((opt=getopt_long(argc,argv,"",options,&index))!=-1){
+		switch(opt){
+			case 0:
+				switch(index){
+					case 0:
+						if(optarg!=NULL){
+							LOCALITY=atoi(optarg);
+							TARGETRATIO=(float)(100-LOCALITY)/100;
+							locality_setting=true;
+					}
+						break;
+					case 1:
+						if(optarg!=NULL){
+							key_length=true;
+							KEYLENGTH=atoi(optarg);
+							if(KEYLENGTH>=16 || KEYLENGTH<1){
+								KEYLENGTH=-1;
+							}
+						}
+						break;
+				}
+				break;
+			default:
+				break;
+
+		}
 	}
+	if(!locality_setting){
+		LOCALITY=50; TARGETRATIO=0.5;
+	}
+	if(!key_length){
+		KEYLENGTH=-1;
+	}
+	optind=0;
+
 	seq_padding_opt=0;
-	inf_init(0,0,argc,argv);
+	inf_init(0,0,temp_cnt,temp_argv);
 	bench_init();
 	char t_value[PAGESIZE];
 	memset(t_value,'x',PAGESIZE);
 
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
+	printf("KEYLENGTH:%d\n",KEYLENGTH);
 	// GC test
 //	bench_add(RANDRW,0,RANGE,REQNUM*6);
 //	bench_add(RANDRW,0,RANGE,REQNUM);

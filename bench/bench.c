@@ -11,6 +11,7 @@
 int32_t LOCALITY;
 float TARGETRATIO;
 float OVERLAP;
+int KEYLENGTH;
 bool last_ack;
 int seq_padding_opt;
 extern int32_t write_stop;
@@ -560,7 +561,7 @@ int my_itoa(uint32_t key, char **_target){
 		t_key/=10;
 		standard*=10;
 	}
-	int result=16;
+	int result=KEYLENGTH==-1?rand()%16+1:KEYLENGTH;
 	result*=16;
 	result-=sizeof(ppa_t);
 	*_target=(char*)malloc(result);
@@ -596,8 +597,8 @@ int my_itoa(uint32_t key, char **_target){
 	}
 	target[cnt]='\0';
 	return cnt;
-}
-*/
+}*/
+
 int my_itoa_padding(uint32_t key, char **_target,int digit){
 	int cnt=1;
 	int standard=10;
@@ -774,8 +775,8 @@ void randrw(uint32_t start, uint32_t end, monitor *m){
 		m->body[i/m->bech][i%m->bech].type=FS_SET_T;
 #ifdef DVALUE
 //		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE/3-1)+NPCINPAGE/3)*PIECE;
-//		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
-		m->body[i/m->bech][i%m->bech].length=0;
+		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
+//		m->body[i/m->bech][i%m->bech].length=0;
 //		m->body[i/m->bech][i%m->bech].length=PAGESIZE-PIECE;
 #else	
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE;

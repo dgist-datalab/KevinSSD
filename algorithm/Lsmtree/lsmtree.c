@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <limits.h>
+#include <getopt.h>
 #include "../../include/lsm_settings.h"
 #include "../../include/slab.h"
 #include "../../interface/interface.h"
@@ -1030,10 +1031,12 @@ uint32_t lsm_argument_set(int argc, char **argv){
 				LSM.LEVELCACHING=atoi(argv[optind]);
 				break;
 			case 'g':
+				printf("[*]GC optimization\n");
 				gc_opt_flag=true;
 				LSM.gc_opt=true;
 				break;
 			case 'm':
+				printf("[*]MULTIPLE compaction\n");
 				multi_level_comp=true;
 				LSM.multi_level_comp=true;
 				break;
@@ -1050,16 +1053,16 @@ uint32_t lsm_argument_set(int argc, char **argv){
 	if(!gc_opt_flag) LSM.gc_opt=false;
 	switch(comp_type){
 		case NON:
-			printf("non compaction opt\n");
+			printf("[*]non compaction opt\n");
 			break;
 		case PIPE:
-			printf("[pipe] compaction opt\n");
+			printf("[*][pipe] compaction opt\n");
 			break;
 		case HW:
-			printf("[hw] compaction opt\n");
+			printf("[*][hw] compaction opt\n");
 			break;
 		default:
-			printf("invalid option type");
+			printf("[*]invalid option type");
 			abort();
 			break;
 	}

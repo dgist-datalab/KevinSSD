@@ -181,8 +181,6 @@ gc_node *gc_data_write_new_page(uint32_t t_ppa, char *data, htable_t *table, uin
 int __gc_data();
 int gc_data(){
 	if(LSM.gc_opt){
-		//LSM.lop->print_level_summary();
-		//	printf("gc_data start:%d, needed_valid_page:%d\n",LSM.bm->pt_remain_page(LSM.bm,d_m.active,MAP_S), LSM.needed_valid_page);
 		int tcnt=0;
 		while((LSM.LEVELN==1) || LSM.needed_valid_page > (uint32_t) LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S)){
 			__gc_data();
@@ -192,7 +190,6 @@ int gc_data(){
 
 		if(LSM.bm->check_full(LSM.bm,d_m.active,MASTER_BLOCK))
 			change_reserve_to_active(DATA);
-		//	printf("%d gc_data done:%d\n",tcnt,LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S));
 	}
 	else{
 		__gc_data();
@@ -310,7 +307,7 @@ next_page:
 		tblock->private_data=NULL;
 	}
 	bm->pt_trim_segment(bm,DATA_S,tseg,LSM.li);
-	if(LSM.gc_opt)
+	if(!LSM.gc_opt)
 		change_reserve_to_active(DATA);
 
 	for(int i=0; i<NPCINPAGE+1; i++){
