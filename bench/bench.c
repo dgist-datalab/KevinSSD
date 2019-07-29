@@ -12,6 +12,7 @@ int32_t LOCALITY;
 float TARGETRATIO;
 float OVERLAP;
 int KEYLENGTH;
+int VALUESIZE;
 bool last_ack;
 int seq_padding_opt;
 extern int32_t write_stop;
@@ -775,7 +776,12 @@ void randrw(uint32_t start, uint32_t end, monitor *m){
 		m->body[i/m->bech][i%m->bech].type=FS_SET_T;
 #ifdef DVALUE
 //		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE/3-1)+NPCINPAGE/3)*PIECE;
-		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
+		m->body[i/m->bech][i%m->bech].length=(VALUESIZE==-1?(rand()%(NPCINPAGE)-1)+1:VALUESIZE);
+		m->body[i/m->bech][i%m->bech].length*=PIECE;
+		if(m->body[i/m->bech][i%m->bech].length>PAGESIZE){
+			abort();
+		}
+
 //		m->body[i/m->bech][i%m->bech].length=0;
 //		m->body[i/m->bech][i%m->bech].length=PAGESIZE-PIECE;
 #else	

@@ -17,6 +17,7 @@ extern uint64_t dm_intr_cnt;
 extern int LOCALITY;
 extern float TARGETRATIO;
 extern int KEYLENGTH;
+extern int VALUESIZE;
 extern master *_master;
 extern bool force_write_start;
 extern int seq_padding_opt;
@@ -32,6 +33,7 @@ int main(int argc,char* argv[]){
 	struct option options[]={
 		{"locality",1,0,0},
 		{"key-length",1,0,0},
+		{"value-size",1,0,0},
 		{0,0,0,0}
 	};
 	
@@ -40,12 +42,14 @@ int main(int argc,char* argv[]){
 	for(int i=0; i<argc; i++){
 		if(strncmp(argv[i],"--locality",strlen("--locality"))==0) continue;
 		if(strncmp(argv[i],"--key-length",strlen("--key-length"))==0) continue;
+		if(strncmp(argv[i],"--value-size",strlen("--value-size"))==0) continue;
 		temp_argv[temp_cnt++]=argv[i];
 	}
 	int index;
 	int opt;
 	bool locality_setting=false;
 	bool key_length=false;
+	bool value_size=false;
 	opterr=0;
 
 	while((opt=getopt_long(argc,argv,"",options,&index))!=-1){
@@ -68,6 +72,15 @@ int main(int argc,char* argv[]){
 							}
 						}
 						break;
+					case 2:
+						if(optarg!=NULL){
+							value_size=true;
+							VALUESIZE=atoi(optarg);
+							if(VALUESIZE>=16 || VALUESIZE<1){
+								VALUESIZE=-1;
+							}
+						}
+						break;
 				}
 				break;
 			default:
@@ -81,6 +94,11 @@ int main(int argc,char* argv[]){
 	if(!key_length){
 		KEYLENGTH=-1;
 	}
+	if(!value_size){
+		VALUESIZE=-1;
+	}
+	printf("key_length: %d - -1==rand\n",KEYLENGTH==-1?KEYLENGTH:KEYLENGTH*16);
+	printf("value_size: %d - -1==rand\n",VALUESIZE==-1?VALUESIZE:VALUESIZE*512);
 	optind=0;
 
 	seq_padding_opt=0;
@@ -90,7 +108,6 @@ int main(int argc,char* argv[]){
 	memset(t_value,'x',PAGESIZE);
 
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
-	printf("KEYLENGTH:%d\n",KEYLENGTH);
 	// GC test
 //	bench_add(RANDRW,0,RANGE,REQNUM*6);
 //	bench_add(RANDRW,0,RANGE,REQNUM);
