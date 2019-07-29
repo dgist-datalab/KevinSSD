@@ -212,7 +212,6 @@ void invalidate_PPA(uint8_t type,uint32_t ppa){
 			abort();
 	}
 	int res=LSM.bm->unpopulate_bit(LSM.bm,t_p);
-	
 	if(!res && type==HEADER){
 	//	LSM.lop->all_print();
 	//	LSM.lop->print(LSM.c_level);

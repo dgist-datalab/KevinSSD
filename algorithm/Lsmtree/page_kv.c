@@ -24,7 +24,7 @@ extern pm map_m;
 #ifdef KVSSD
 uint32_t gc_cnt=0;
 int gc_header(){
-	//printf("gc_header %u\n",gc_cnt++);
+//	printf("gc_header %u\n",gc_cnt++);
 	//printf("gc_header %u",gc_cnt++);
 	gc_general_wait_init();
 	lsm_io_sched_flush();
@@ -108,8 +108,10 @@ int gc_header(){
 
 		if(checkdone==false){
 			KEYT temp=*lpa;
-			//LSM.lop->all_print();
-			//LSM.lop->print(LSM.c_level);
+			LSM.lop->all_print();
+			if(LSM.c_level){
+				LSM.lop->print(LSM.c_level);
+			}
 			printf("[%.*s : %u]error!\n",KEYFORMAT(temp),tpage);
 			abort();
 		}
