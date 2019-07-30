@@ -221,7 +221,10 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	LSM.gc_started=false;
 	LSM.data_gc_cnt=LSM.header_gc_cnt=LSM.compaction_cnt=0;
 	LSM.zero_compaction_cnt=0;
-
+	
+	LSM.avg_of_length=0;
+	LSM.length_cnt=0;
+	LSM.added_header=0;
 	LSM.li=li;
 	algo_lsm.li=li;
 	pm_init();
@@ -432,16 +435,8 @@ void* lsm_end_req(algo_req* const req){
 
 uint32_t data_input_write;
 uint32_t lsm_set(request * const req){
-	//MS(&__get_mt);
 	static bool force = 0 ;
 	data_input_write++;
-	LSM.last_level_comp_term++;
-#ifdef DEBUG
-	printf("lsm_set!\n");
-	printf("key : %u\n",req->key);//for debug
-#endif
-	//printf("set:%*.s\n",KEYFORMAT(req->key));
-//	printf("set:%s\n",req->key.key);
 	compaction_check(req->key,force);
 	snode *new_temp;
 	if(req->type==FS_DELETE_T){
@@ -450,16 +445,11 @@ uint32_t lsm_set(request * const req){
 	else{
 		new_temp=skiplist_insert(LSM.memtable,req->key,req->value,true);
 	}
+
+	LSM.avg_of_length=(LSM.avg_of_length*LSM.length_cnt+req->value->length)/(++LSM.length_cnt);
+
 	req->value=NULL;
-	//req->value will be ignored at free
-
-	//MA(&__get_mt);
-	/*
-	if(LSM.memtable->size==LSM.KEYNUM)
-		return 1;
-	else*/
-
-//	if(unlikely(LSM.memtable->all_length+(KEYLEN(req->key)+sizeof(uint16_t))>PAGESIZE-KEYBITMAP)){
+	
 	if(LSM.memtable->size==LSM.FLUSHNUM){
 		force=1;
 		req->end_req(req); //end write
@@ -1001,14 +991,20 @@ level *lsm_level_resizing(level *target, level *src){
 			printf("change %d->%d\n",before,LSM.size_factor);
 		}
 	}
+	
+	uint32_t target_cnt=target->m_num;
 	if(LSM.size_factor_change[target->idx]){
 		LSM.size_factor_change[target->idx]=false;
 		uint32_t cnt=target->idx+1;
-		uint32_t target_cnt=1;
+		target_cnt=1;
 		while(cnt--)target_cnt*=LSM.size_factor;
-		return LSM.lop->init(target_cnt,target->idx,target->fpr,false);
 	}
-	return LSM.lop->init(target->m_num,target->idx,target->fpr,false);
+	if(LSM.added_header && target->idx==LSM.LEVELN-2){
+		target_cnt+=LSM.added_header;
+		LSM.added_header=0;
+		//LSM.lop->print_level_summary();
+	}
+	return LSM.lop->init(target_cnt,target->idx,target->fpr,false);
 }
 
 uint32_t lsm_argument_set(int argc, char **argv){

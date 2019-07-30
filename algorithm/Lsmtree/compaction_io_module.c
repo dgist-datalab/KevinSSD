@@ -9,12 +9,12 @@ extern lsmtree LSM;
 
 void compaction_data_write(leveling_node* lnode){	
 	value_set **data_sets=skiplist_make_valueset(lnode->mem,LSM.disk[0],&lnode->start,&lnode->end);
-	
 	if(LSM.comp_opt==PIPE){
 		lsm_io_sched_push(SCHED_FLUSH,(void*)data_sets);//make flush background job
 		return;
 	}
-	for(int i=0; data_sets[i]!=NULL; i++){	
+	for(int i=0; data_sets[i]!=NULL; i++){
+		LSM.last_level_comp_term++;
 		algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 		lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 		params->lsm_type=DATAW;

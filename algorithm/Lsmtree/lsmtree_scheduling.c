@@ -74,6 +74,7 @@ void lsm_io_sched_finish(){
 void processing_flush(void *param){
 	value_set **data_sets=(value_set**)param;
 	for(int i=0; data_sets[i]!=NULL; i++){
+		LSM.last_level_comp_term++;
 		algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 		lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 		params->lsm_type=DATAW;

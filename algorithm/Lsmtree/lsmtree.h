@@ -105,10 +105,14 @@ typedef struct lsmtree{
 	uint32_t keynum_in_header;
 	uint32_t keynum_in_header_cnt;
 	uint32_t size_factor;
+	bool* size_factor_change;//true: it will be changed size
+
+	double avg_of_length;
+	uint32_t length_cnt;
+	uint32_t added_header;
 
 	bool debug_flag;
 
-	bool* size_factor_change;//true: it will be changed size
 	level **disk;
 	level *c_level;
 	level_ops *lop;
@@ -126,6 +130,7 @@ typedef struct lsmtree{
 	struct cache* lsm_cache;
 	lower_info* li;
 	blockmanager *bm;
+
 	uint32_t last_level_comp_term; //for avg header
 	uint32_t check_cnt;
 	uint32_t needed_valid_page;

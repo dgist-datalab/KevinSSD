@@ -184,12 +184,18 @@ int __gc_data();
 int gc_data(){
 	if(LSM.gc_opt){
 		int tcnt=0;
+	//	LSM.lop->print_level_summary();
 		while((LSM.LEVELN==1) || LSM.needed_valid_page > (uint32_t) LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S)){
 			__gc_data();
-			tcnt++;
+			
 			if(LSM.LEVELN==1) break;
 		}
-
+		uint32_t remain_page=LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S)-LSM.needed_valid_page;
+		uint32_t cvt_header=(remain_page*NPCINPAGE)/(LSM.keynum_in_header*LSM.avg_of_length);
+		printf("remain page:%d, needed:%d\n",remain_page,LSM.needed_valid_page);
+		printf(" convert to header:%d\n",cvt_header);
+	//	LSM.added_header=cvt_header;
+			
 		if(LSM.bm->check_full(LSM.bm,d_m.active,MASTER_BLOCK))
 			change_reserve_to_active(DATA);
 	}

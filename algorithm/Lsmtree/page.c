@@ -129,6 +129,10 @@ retry:
 		if(!t->active || bm->check_full(bm,t->active,MASTER_BLOCK)){
 			if(bm->pt_isgc_needed(bm,DATA_S)){
 				bm->check_full(bm,t->active,MASTER_BLOCK);
+				if(LSM.gc_opt){
+					LSM.lop->print_level_summary();
+					abort();
+				}
 				gc_data();
 				goto retry;
 			}
@@ -322,10 +326,11 @@ bool gc_dynamic_checker(bool last_comp_flag){
 		LSM.target_gc_page=LSM.needed_valid_page;
 	}
 
+	/*
 	int calc=LSM.needed_valid_page*LSM.check_cnt;
 	calc+=LSM.last_level_comp_term;
-	calc/=(LSM.check_cnt+1);
-	LSM.needed_valid_page=calc;
+	calc/=(LSM.check_cnt+1);*/
+	LSM.needed_valid_page=LSM.last_level_comp_term;
 	LSM.check_cnt++;
 	//printf("%d %d(integ, now) - %d\n",LSM.needed_valid_page,LSM.last_level_comp_term, test);
 	LSM.last_level_comp_term=0;
