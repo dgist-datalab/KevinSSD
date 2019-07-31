@@ -201,6 +201,7 @@ void invalidate_PPA(uint8_t type,uint32_t ppa){
 		case DATA:
 #ifdef DVALUE
 			t_p=t_p/NPCINPAGE;
+			if(ppa==UINT_MAX) return;
 			t=LSM.bm->pick_block(LSM.bm,t_p)->private_data;
 			invalidate_piece((lsm_block*)t,ppa);
 #endif
@@ -290,7 +291,7 @@ void gc_data_write(uint64_t ppa,htable_t *value,bool isdata){
 	return;
 }
 
-void gc_data_read(uint64_t ppa,htable_t *value,bool isdata){
+void gc_data_read(uint64_t ppa,htable_t *value,bool isdata, gc_node *t){
 	gc_read_wait++;
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
@@ -299,10 +300,17 @@ void gc_data_read(uint64_t ppa,htable_t *value,bool isdata){
 	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
 	params->target=(PTR*)value->sets;
 	params->ppa=ppa;
+	
 	value->origin=params->value;
 
 	areq->parents=NULL;
-	areq->end_req=lsm_end_req;
+	if(t){
+		params->entry_ptr=(void*)t;
+		areq->end_req=gc_data_end_req;
+	}
+	else{
+		areq->end_req=lsm_end_req;
+	}
 	areq->params=(void*)params;
 	areq->type_lower=0;
 	areq->rapid=false;
@@ -427,7 +435,7 @@ void validate_piece(lsm_block *b, uint32_t ppa){
 	uint32_t bit_idx=check_idx/8;
 	uint32_t bit_off=check_idx%8;
 	if(b->bitset[bit_idx]&(1<<bit_off)){
-		printf("%d\n",ppa);
+		printf("ppa:%d\n",ppa);
 		abort();
 	}
 	b->bitset[bit_idx]|=(1<<bit_off);

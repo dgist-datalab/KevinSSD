@@ -400,8 +400,8 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 	KEYT key,end;
 	run_t* target=NULL;
 	while((target=LSM.lop->cutter(top,des,&key,&end))){
+	
 		compaction_htable_write_insert(des,target,false);
-
 		free(target);
 	}
 }

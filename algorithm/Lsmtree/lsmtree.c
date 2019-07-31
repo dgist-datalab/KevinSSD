@@ -207,7 +207,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	
 	LSM.last_level_comp_term=LSM.check_cnt=LSM.needed_valid_page=LSM.target_gc_page=0;
 	LSM.size_factor_change=(bool*)malloc(sizeof(bool)*LSM.LEVELN);
-	memset(LSM.size_factor_change,0,sizeof(LSM.size_factor_change));
+	memset(LSM.size_factor_change,0,sizeof(bool)*LSM.LEVELN);
 	LSM.level_lock=(pthread_mutex_t*)malloc(sizeof(pthread_mutex_t)*LSM.LEVELN);
 	for(int i=0; i< LSM.LEVELN; i++){
 		pthread_mutex_init(&LSM.level_lock[i],NULL);
@@ -439,6 +439,10 @@ uint32_t lsm_set(request * const req){
 	data_input_write++;
 	compaction_check(req->key,force);
 	snode *new_temp;
+	/*
+	if(KEYCONSTCOMP(req->key,"315171000000")==0){
+		printf("3151710000 to mem\n");
+	}*/
 	if(req->type==FS_DELETE_T){
 		new_temp=skiplist_insert(LSM.memtable,req->key,req->value,false);
 	}
@@ -625,7 +629,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 			keyset *new_target_set;
 			algo_req *new_lsm_req;
 			for(int i=0; i<entry->wait_idx; i++){
-				temp_req=entry->waitreq[i];
+				temp_req=(request*)entry->waitreq[i];
 				new_target_set=LSM.lop->find_keyset((char*)table,temp_req->key);
 				int *temp_params=(int*)temp_req->params;
 				temp_params[3]++;
@@ -697,6 +701,43 @@ void dummy_htable_read(uint32_t pbn,request *req){
 	LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 #endif
 }
+
+uint8_t lsm_find_run(KEYT key, run_t ** entry, keyset **found, int *level,int *run){
+	for(int i=level?*level:0; i<LSM.LEVELCACHING; i++){
+		pthread_mutex_lock(&LSM.level_lock[i]);
+		keyset *find=LSM.lop->cache_find(LSM.disk[i],key);
+		pthread_mutex_unlock(&LSM.level_lock[i]);
+		if(find){
+			*found=find;
+			if(level)*level=i;
+			return CACHING;
+		}
+	}
+
+	run_t **entries=NULL;
+	for(int i=level?*level:LSM.LEVELCACHING; i<LSM.LEVELN; i++){
+		pthread_mutex_lock(&LSM.level_lock[i]);
+		entries=LSM.lop->find_run(LSM.disk[i],key);
+		pthread_mutex_unlock(&LSM.level_lock[i]);
+		if(!entries){
+			continue;
+		}
+		for(int j=run?*run:0; entries[j]!=NULL; j++){
+			run_t *t_entry=entries[j];
+			if(bf_check(t_entry->filter,key)){
+				free(entries);
+				if(level) *level=i;
+				if(run) *run=j;
+				*entry=t_entry;
+				return FOUND;
+			}
+		}
+		if(run) *run=0;
+		free(entries);
+		continue;
+	}
+	return NOTFOUND;
+}
 uint32_t __lsm_get(request *const req){
 	int level;
 	int run;
@@ -704,8 +745,12 @@ uint32_t __lsm_get(request *const req){
 	int res;
 	int mark=req->mark;
 	htable mapinfo;
-	run_t** entries;
 	run_t *entry;
+	keyset *found=NULL;
+	algo_req *lsm_req=NULL;
+	lsm_params *params;
+	uint8_t result=0;
+	int *temp_data;
 	//static int cnt=0;
 //	printf("[%d]%.*s\n",cnt++,KEYFORMAT(req->key));
 	if(req->params==NULL){
@@ -719,20 +764,20 @@ uint32_t __lsm_get(request *const req){
 
 		if(unlikely(res)) return res;
 
-		int *_temp_data=(int *)malloc(sizeof(int)*4);
-		req->params=(void*)_temp_data;
-		_temp_data[0]=run=0;
-		_temp_data[1]=round=0;
-		_temp_data[2]=level=0;
-		_temp_data[3]=0; //bypass
+		temp_data=(int *)malloc(sizeof(int)*4);
+		req->params=(void*)temp_data;
+		temp_data[0]=level=0;
+		temp_data[1]=run=0;
+		temp_data[2]=round=0;
+		temp_data[3]=0; //bypass
 	}
 	else{
 		run_t **_entry;
-		int *temp_req=(int*)req->params;
-		level=temp_req[0];
-		run=temp_req[1];
-		round=temp_req[2];
-		if(temp_req[3]){
+		temp_data=(int*)req->params;
+		level=temp_data[0];
+		run=temp_data[1];
+		round=temp_data[2];
+		if(temp_data[3]){
 			run++;
 			goto retry;
 		}
@@ -758,40 +803,30 @@ uint32_t __lsm_get(request *const req){
 #endif
 	}
 
+	/*
+	_temp_data[0]=level=0;
+	_temp_data[1]=run=0;
+	_temp_data[2]=round=0;*/
+
+
 retry:
-	for(int i=level; i<LSM.LEVELN; i++){
-		int *temp_data=(int*)req->params;
-		if(i<LSM.LEVELCACHING && i>=0){
-			temp_data[2]=LSM.LEVELN+1;
-			pthread_mutex_lock(&LSM.level_lock[i]);
-			keyset *find=LSM.lop->cache_find(LSM.disk[i],req->key);
-			pthread_mutex_unlock(&LSM.level_lock[i]);
-			if(find){
-				algo_req *lsm_req=lsm_get_req_factory(req,DATAR);
-				req->value->ppa=find->ppa;
-#ifdef DVALUE
-				LSM.li->read(find->ppa/(PAGESIZE/PIECE),PAGESIZE,req->value,ASYNC,lsm_req);
-#else
-				LSM.li->read(find->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
-#endif
-				res=1;
+	result=lsm_find_run(req->key,&entry,&found,&level,&run);
+	switch(result){
+		case CACHING:
+			if(found){
+				lsm_req=lsm_get_req_factory(req,DATAR);
+				req->value->ppa=found->ppa;
+				LSM.li->read(CONVPPA(found->ppa),PAGESIZE,req->value,ASYNC,lsm_req);
 			}
-			if(res){ return res;}
-			else continue;
-		}
-		pthread_mutex_lock(&LSM.level_lock[i]);
-		entries=LSM.lop->find_run(LSM.disk[i],req->key);
-		pthread_mutex_unlock(&LSM.level_lock[i]);
-
-		if(!entries){
-			continue;
-		}
-
-		for(int j=run; entries[j]!=NULL; j++){
-			entry=entries[j];
-			temp_data[0]=i;
-			temp_data[1]=j;
-
+			else{
+				level++;
+				goto retry;
+			}
+			res=CACHING;
+			break;
+		case FOUND:
+			temp_data[0]=level;
+			temp_data[1]=run;
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(entry->c_entry){
 #ifdef NOCPY
@@ -801,61 +836,36 @@ retry:
 #endif
 				if(res){
 					bench_cache_hit(mark);
-					cache_update(LSM.lsm_cache,entry);
-					free(entries);
+					cache_update(LSM.lsm_cache,entry);	
 					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+					res=FOUND;
 					return res;
-				}else if(LSM.LEVELN-LSM.LEVELCACHING==1){
-					printf("can't be:%s-%d\n",__FILE__,__LINE__);
-					LSM.lop->all_print();
-					printf("target key:%.*s\n",KEYFORMAT(req->key));
-					abort();
 				}
-				pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-				continue;
 			}
+
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-
-			//after caching
-
-
-#ifdef BLOOM
-			if(!bf_check(entry->filter,req->key)){
-				continue;
-			}
-#endif
-			round++;
-			temp_data[2]=round;
-
+			temp_data[2]=++round;
 			if(entry->isflying==1){
-				entry->waitreq[entry->wait_idx++]=req;
-				return 3;
+				entry->waitreq[entry->wait_idx++]=(void*)req;
+				res=FOUND;
+			}else{
+				lsm_req=lsm_get_req_factory(req,HEADERR);
+				params=(lsm_params*)lsm_req->params;
+				params->ppa=entry->pbn;
+
+				entry->isflying=1;
+				memset(entry->waitreq,0,sizeof(entry->waitreq));
+				entry->wait_idx=0;
+				params->entry_ptr=(void*)entry;
+				req->ppa=params->ppa;
+				LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+				__header_read_cnt++;
+				res=FLYING;
 			}
-
-			algo_req *lsm_req=lsm_get_req_factory(req,HEADERR);
-			lsm_params* params=(lsm_params*)lsm_req->params;
-			params->ppa=entry->pbn;
-
-			entry->isflying=1;
-			memset(entry->waitreq,0,sizeof(entry->waitreq));
-			entry->wait_idx=0;
-			entry->req=(void*)req;
-			params->entry_ptr=(void*)entry;
-			
-
-			req->ppa=params->ppa;
-			LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
-			__header_read_cnt++;
-
-			free(entries);
-			return 3; //async
-		}
-
-		if(temp_data[3]){//bypass
-			temp_data[3]=0;
-		}
-		run=0;
-		free(entries);
+			break;
+		case NOTFOUND:
+			res=NOTFOUND;
+			break;
 	}
 	return res;
 }
@@ -987,7 +997,7 @@ level *lsm_level_resizing(level *target, level *src){
 		uint32_t before=LSM.size_factor;
 		LSM.size_factor=get_sizefactor(RANGE,LSM.keynum_in_header);
 		if(before!=LSM.size_factor){
-			memset(LSM.size_factor_change,1,sizeof(LSM.size_factor_change));
+			memset(LSM.size_factor_change,1,sizeof(bool)*LSM.LEVELN);
 			printf("change %d->%d\n",before,LSM.size_factor);
 		}
 	}

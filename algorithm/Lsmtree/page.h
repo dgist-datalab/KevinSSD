@@ -11,13 +11,25 @@
 struct level; 
 struct htable_t;
 struct length_bucket;
+enum GCNODE{NOTISSUE,RETRY,ISSUE,READDONE,SAMERUN,DONE};
+typedef struct gc_node_params{
+	int level;
+	int run;
+	struct keyset *found;
+	struct keyset *found2;
+	struct htable_t *data;
+	struct run *ent;
+	int data_status;
+}gc_params;
 typedef struct gc_node{
 	uint32_t ppa;
 	uint32_t nppa;
 	KEYT lpa;
 	PTR value;
+	bool invalidate;
+	uint8_t status;
 	uint8_t plength;
-	uint8_t level;
+	void *params;
 }gc_node;
 /*
 typedef struct gc_node_wrapper{
@@ -70,6 +82,8 @@ void erase_PPA(uint8_t type,uint32_t ppa);
 void validate_PPA(uint8_t type,uint32_t ppa);
 void pm_set_oob(uint32_t ppa, char *data, int len, int type);
 void *pm_get_oob(uint32_t ppa, int type,bool isgc);
+
+void* gc_data_end_req(struct algo_req*const);
 #ifdef DVALUE
 void validate_piece(lsm_block *b, uint32_t ppa);
 void invalidate_piece(lsm_block *b, uint32_t ppa);
@@ -79,7 +93,7 @@ bool gc_dynamic_checker(bool last_comp_flag);
 void gc_check(uint8_t type);
 void gc_general_wait_init();
 void gc_general_waiting();
-void gc_data_read(uint64_t ppa,struct htable_t *value,bool isdata);
+void gc_data_read(uint64_t ppa,struct htable_t *value,bool isdata, gc_node *);
 void gc_data_write(uint64_t ppa,struct htable_t *value,bool isdata);
 
 int gc_header();
@@ -88,6 +102,6 @@ int gc_data();
 void gc_nocpy_delay_erase(uint32_t );
 #endif
 void gc_data_header_update_add(struct length_bucket *b);
-void gc_data_header_update(struct gc_node **, int size);
+void gc_data_header_update(struct gc_node **, int size,struct length_bucket *b);
 int gc_data_write_using_bucket(struct length_bucket *b,int target_level,char order);
 #endif

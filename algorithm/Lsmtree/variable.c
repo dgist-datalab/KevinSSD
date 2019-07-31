@@ -53,7 +53,12 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 			}
 			if(isgc){
 				gc_node *target=src->gc_bucket[target_length][src->idx[target_length]-1];
+				if(!target->plength){
+					src->idx[target_length]--;
+					continue;
+				}
 				target->nppa=LSM.lop->get_page(target->plength,target->lpa);
+//				printf("%d new_page %d\n",target->ppa,target->nppa);
 				foot->map[target->nppa%NPCINPAGE]=target_length;
 
 				memcpy(&page[ptr],target->value,target_length*PIECE);

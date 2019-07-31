@@ -92,31 +92,11 @@ ppa_t def_get_page(uint8_t plength, KEYT simul_key){
 bool def_blk_fchk(){
 	bool res=false;
 	abort();
-	/*
-#ifdef DVALUE
-	if(!LSM.active_block || LSM.active_block->ppage_idx>=_PPB-1){
-#else
-	if(!LSM.active_block || LSM.active_block->ppage_idx==_PPB){
-#endif
-		res=true;
-	}*/
 	return res;
 }
 
 void def_move_heap( level *des,  level *src){
 	return;
-//	char segnum[_NOS]={0,};
-	/*
-	llog *des_h=des->h;
-	llog *h=src->h;
-	llog_node *ptr=h->head;
-	void *data;
-	while(ptr && (data=ptr->data)){
-		block *bl=(block*)data;
-		bl->level=des->idx;
-		bl->hn_ptr=llog_insert(des_h,data);
-		ptr=ptr->next;
-	}*/
 }
 
 bool def_fchk( level *input){

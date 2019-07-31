@@ -92,6 +92,7 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 	//	LSM.lop->all_print();
 		return tres;
 	}
+	//printf("leveling start[%d->%d]\n",from?from->idx:0,to->idx);
 	level *target_origin=to;
 	level *target=lsm_level_resizing(to,from);
 	LSM.c_level=target;
@@ -121,6 +122,7 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 last:
 	if(entry) free(entry);
 	uint32_t res=level_change(from,to,target,lock);
+	//printf("ending\n");
 	LSM.c_level=NULL;
 	//LSM.lop->all_print();
 	return res;

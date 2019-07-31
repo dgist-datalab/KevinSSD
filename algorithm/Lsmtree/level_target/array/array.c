@@ -78,6 +78,7 @@ level_ops a_ops={
 	.get_level_mem_size=array_get_level_mem_size,
 	.check_order=array_check_order,
 	.print=array_print,
+	.print_run=array_print_run,
 	.print_level_summary=array_print_level_summary,
 	.all_print=array_all_print,
 	.header_print=array_header_print
@@ -139,6 +140,7 @@ void array_free(level* lev){
 }
 
 void array_run_cpy_to(run_t *input, run_t *res){
+	memset(res,0,sizeof(run_t));
 	kvssd_cpy_key(&res->key,&input->key);
 	kvssd_cpy_key(&res->end,&input->end);
 
@@ -169,12 +171,14 @@ void array_run_cpy_to(run_t *input, run_t *res){
 #endif
 	}
 	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+	/*
 	res->isflying=0;
+	res->run_data=NULL;
 	res->req=NULL;
 
 	res->cpt_data=NULL;
 	res->iscompactioning=false;
-	res->wait_idx=0;
+	res->wait_idx=0;*/
 }
 
 void array_body_free(run_t *runs, int size){
@@ -376,7 +380,7 @@ void array_free_run(run_t *e){
 	free(e->end.key);
 }
 run_t * array_run_cpy( run_t *input){
-	run_t *res=(run_t*)malloc(sizeof(run_t));
+	run_t *res=(run_t*)calloc(sizeof(run_t),1);
 	kvssd_cpy_key(&res->key,&input->key);
 	kvssd_cpy_key(&res->end,&input->end);
 	res->pbn=input->pbn;
@@ -406,12 +410,13 @@ run_t * array_run_cpy( run_t *input){
 #endif
 	}
 	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-	res->isflying=0;
+	/*res->isflying=0;
+	res->run_data=NULL;
 	res->req=NULL;
 
 	res->cpt_data=NULL;
 	res->iscompactioning=false;
-	res->wait_idx=0;
+	res->wait_idx=0;*/
 	return res;
 }
 
@@ -719,4 +724,8 @@ void array_check_order(level *lev){
 		}
 		bef=now;
 	}
+}
+
+void array_print_run(run_t * r){
+	printf("%.*s ~ %.*s : %d\n",KEYFORMAT(r->key),KEYFORMAT(r->end),r->pbn);
 }

@@ -144,4 +144,6 @@ void array_normal_merger(skiplist *,run_t *r,bool);
 //run_t *array_lsm_lower_bound_run(lsmtree *lsm, KEYT lpa);
 uint32_t array_get_level_mem_size(level *lev);
 void array_check_order(level *);
+
+void array_print_run(run_t * r);
 #endif

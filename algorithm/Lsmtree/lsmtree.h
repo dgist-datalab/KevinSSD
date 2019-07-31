@@ -37,18 +37,15 @@
 #define BGREAD 15
 #define BGWRITE 16
 
-#define DONE 1
-#define FLYING 2
-#define ARRIVE 3
-#define NOTCHECK 4
-#define NOTFOUND 5
-
-
 //lower type, algo type
 typedef struct level level;
 typedef struct run run_t;
 typedef struct level_ops level_ops;
 typedef struct htable htable;
+
+enum READTYPE{
+	NOTFOUND,FOUND,CACHING,FLYING
+};
 
 typedef struct lsm_params{
 	//dl_sync lock;
@@ -126,6 +123,7 @@ typedef struct lsmtree{
 	struct skiplist *memtable;
 	struct skiplist *temptable;
 	struct queue *re_q;
+	struct queue *gc_q;
 
 	struct cache* lsm_cache;
 	lower_info* li;
@@ -168,6 +166,7 @@ uint32_t lsm_proc_re_q();
 uint32_t lsm_remove(request *const);
 
 uint32_t __lsm_get(request *const);
+uint8_t lsm_find_run(KEYT key, run_t **,struct keyset **, int *level, int *run);
 uint32_t __lsm_range_get(request *const);
 
 void* lsm_end_req(struct algo_req*const);

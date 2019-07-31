@@ -126,18 +126,26 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	uint16_t *bitmap;
 	char *body;
 	int idx;
+	int ppa_cnt=0;
+	snode *t_node;
 	for(int i=0; o[i]!=NULL; i++){
 		body=data_from_run(o[i]);
 		bitmap=(uint16_t*)body;
 	//	if(merger_cnt==15) array_header_print(body);
 		for_each_header_start(idx,key,ppa_ptr,bitmap,body)
-			skiplist_insert_existIgnore(des->skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
+			t_node=skiplist_insert_existIgnore(des->skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
+			if(t_node->ppa!=*ppa_ptr){
+				abort();
+			}
 		for_each_header_end
 	}
 
 	if(mem){
 		snode *temp, *temp_result;
 		for_each_sk(temp,mem){
+			if(temp->ppa==1308512){
+	//			printf("%d inserted! %d %d\n",temp->ppa,ppa_cnt++,__LINE__);
+			}
 			temp_result=skiplist_insert_existIgnore(des->skip,temp->key,temp->ppa,temp->ppa==UINT32_MAX?false:true);
 			/*
 			   this logic is needed because it has it's own memory
@@ -147,6 +155,7 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 			}
 			temp->key.key=NULL;
 			*/
+	
 		}
 	}
 	else{
@@ -157,6 +166,9 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 
 			bitmap=(uint16_t*)body;
 			for_each_header_start(idx,key,ppa_ptr,bitmap,body)
+				if(*ppa_ptr==1308512){
+		//			printf("%d inserted! %d %d\n",1308512,ppa_cnt++,__LINE__);
+				}
 				skiplist_insert_existIgnore(des->skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
 			for_each_header_end
 		}
@@ -193,12 +205,13 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 	/*end*/
 	uint32_t length=0;
 	snode *temp;
+
+	int ppa_cnt=0;
 	do{	
 		temp=skiplist_pop(src_skip);
 		memcpy(&ptr[data_start],&temp->ppa,sizeof(temp->ppa));
 		memcpy(&ptr[data_start+sizeof(temp->ppa)],temp->key.key,temp->key.len);
 		bitmap[idx]=data_start;
-		//fprintf(stderr,"[%d:%d] - %.*s\n",idx,data_start,KEYFORMAT(temp->key));
 #ifdef BLOOM
 		bf_set(filter,temp->key);
 #endif

@@ -46,7 +46,6 @@ void compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 	nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
 	entry->cpt_data->sets=NULL;
 #endif
-
 	LSM.lop->insert(target,entry);
 	if(isbg){
 		if(LSM.comp_opt==PIPE)

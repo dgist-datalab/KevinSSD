@@ -23,7 +23,6 @@ typedef enum{
 #define for_each_lev(run,iter,func) \
 	for(run=func(iter);run!=NULL;run=func(iter))
 
-
 typedef struct skiplist skiplist;
 
 typedef struct keyset{
@@ -76,7 +75,7 @@ typedef struct run{
 	htable *cache_data;
 #endif
 	void *req;
-	struct request* waitreq[QDEPTH];
+	void* waitreq[QDEPTH];
 	int wait_idx;
 
 	htable *cpt_data;
@@ -182,6 +181,7 @@ typedef struct level_ops{
 	/*for debugging*/
 	void (*check_order)(level *);
 	void (*print)( level*);
+	void (*print_run)(run_t *);
 	void (*print_level_summary)();
 	void (*all_print)();
 	void (*header_print)(char*);
