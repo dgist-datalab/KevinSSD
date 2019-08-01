@@ -12,8 +12,8 @@
 //#define LEVELN 2
 
 #if LEVELN!=1
-//#define BLOOM
-//#define MONKEY
+#define BLOOM
+#define MONKEY
 #endif
 
 
@@ -36,12 +36,6 @@
 #define RQSIZE 1024
 #define WRITEWAIT
 #define MAXKEYSIZE 255
-
-//optimization
-//#define PIPECOMP
-//#define HWCOMP
-//#define GCOPT
-//#define MULTIOPT
 
 /*compaction*/
 #define MAXITER 16
