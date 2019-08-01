@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=posix_memory
+TARGET_LOWER=linux_aio
 TARGET_ALGO=Lsmtree
 TARGET_BM=partition
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
@@ -26,9 +26,8 @@ export COMMONFLAGS=\
 			-D$(TARGET_BM)\
 			-Wno-unused-but-set-variable\
 			-DCHECKINGTIME\
-#		-O3\
+		-O3\
 #			-DWRITESYNC\
-			-DKVSSD\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 
@@ -185,5 +184,6 @@ clean :
 	@$(RM) duma_driver
 	@$(RM) range_driver
 	@$(RM) *driver
+	@$(RM) bd_testcase
 	@$(RM) libdriver.so
 
