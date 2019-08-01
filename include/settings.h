@@ -20,6 +20,7 @@
 
 //#define LOWER_FILE_NAME "/dev/robusta"
 #define BENCH_LOG "./result/"
+#define CACHING_RATIO 0.25
 
 #define K (1024)
 #define M (1024*K)
@@ -42,7 +43,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 4L
+#define GIGAUNIT 8L
 #define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)

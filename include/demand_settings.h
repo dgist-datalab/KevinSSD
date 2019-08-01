@@ -19,7 +19,6 @@
 
 #endif
 
-#define CACHING_RATIO 0.25
 
 // TODO: PART_CACHE
 //#define PART_CACHE

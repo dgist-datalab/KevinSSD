@@ -13,14 +13,14 @@
 
 #if LEVELN!=1
 #define BLOOM
-#define MONKEY
+//#define MONKEY
 #endif
 
 
 //#define EMULATOR
 #define KEYLEN(a) (a.len+sizeof(ppa_t))
 //#define LEVELCACHING 0
-#define CACHINGSIZE 0.2f
+#define CACHINGSIZE CACHING_RATIO
 #define READCACHE
 #define NOCPY
 #define RANGEGETNUM 2
