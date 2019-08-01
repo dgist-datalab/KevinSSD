@@ -262,7 +262,7 @@ bool base_is_invalid_page (struct blockmanager* bm, uint32_t ppa){
 void base_set_oob(struct blockmanager* bm, char *data,int len, uint32_t ppa){
 	bbm_pri *p=(bbm_pri*)bm->private_data;
 	__block *b=&p->base_block[GETBLOCKIDX(checker,ppa)];
-	memcpy(b->oob_list[ppa%_PPB].d,data,len);
+	memcpy(b->oob_list[GETPAGEIDX(ppa)].d,data,len);
 }
 
 char *base_get_oob(struct blockmanager*bm,  uint32_t ppa){

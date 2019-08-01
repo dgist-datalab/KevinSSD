@@ -965,8 +965,10 @@ char *bench_lower_type(int a){
 		case 4:return "GCMW";
 		case 5:return "DATAR";
 		case 6:return "DATAW";
-		case 7:return"GCDR";
+		case 7:return "GCDR";
 		case 8:return "GCDW";
+		case 9:return "GCMR_DGC";
+		case 10:return "GCMW_DGC";
 	}
 	return NULL;
 }

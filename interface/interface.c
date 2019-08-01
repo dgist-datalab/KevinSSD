@@ -364,9 +364,9 @@ static request* inf_get_req_common(request *req, bool fromApp, int mark){
 	req->mark=mark;
 #endif
 
-#ifdef hash_dftl
 	req->hash_params = NULL;
-#endif
+	req->parents = NULL;
+
 	return req;
 }
 

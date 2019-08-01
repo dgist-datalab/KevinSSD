@@ -1,8 +1,8 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=posix_memory
-TARGET_ALGO=Lsmtree
+TARGET_LOWER=linux_aio
+TARGET_ALGO=demand
 TARGET_BM=partition
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
@@ -93,6 +93,7 @@ SRCS +=\
 	./include/data_struct/list.c\
 	./include/data_struct/redblack.c\
 	./include/data_struct/heap.c\
+	./include/data_struct/lru_list.c\
 	./bench/measurement.c\
 	./bench/bench.c\
 	./include/utils/thpool.c\

@@ -4,6 +4,9 @@
 #include "../../include/container.h"
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
+#ifdef demand
+#include "../../include/demand_settings.h"
+#endif
 #ifdef Lsmtree
 #include "lsmtree.h"
 #include "page.h"
@@ -39,20 +42,15 @@ typedef struct snode{ //skiplist's node
 	value_set* value;
 	bool isvalid;
 
-#ifdef hash_dftl
-	int32_t hash_key;
+#ifdef HASH_KVSSD
+	uint32_t lpa;
 	void *hash_params;
+	void *params;
 #endif
 
-	// ++ ctoc
-#ifndef Lsmtree
-	bool bypass;
-	bool write_flying;
-	int32_t t_ppa;
-#else
+#ifdef Lsmtree
 	bool iscaching_entry;
 #endif
-	// -- ctoc
 	struct snode **list;
 	struct snode *back;
 }snode;
