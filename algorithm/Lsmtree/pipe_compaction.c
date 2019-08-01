@@ -101,6 +101,7 @@ uint32_t pipe_partial_leveling(level *t, level *origin, leveling_node* lnode, le
 		return res_r;
 	}
 	
+	compaction_sub_pre();
 	bool fix=false;
 	int idx=0,which_level,read_idx=0;
 	run_t *container[2]={0,};
@@ -215,5 +216,7 @@ uint32_t pipe_partial_leveling(level *t, level *origin, leveling_node* lnode, le
 	gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
 	LSM.delayed_header_trim=false;
 #endif
+
+	compaction_sub_post();
 	return 1;
 }	

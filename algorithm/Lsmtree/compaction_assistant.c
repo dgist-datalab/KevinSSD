@@ -474,7 +474,7 @@ bool htable_read_preproc(run_t *r){
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(r->c_entry){
 		cache_entry_lock(LSM.lsm_cache,r->c_entry);
-		if(LSM.comp_opt!=PIPE){memcpy_cnt++;}
+		memcpy_cnt++;
 
 #ifndef NOCPY
 		r->cpt_data=htable_copy(r->cache_data);

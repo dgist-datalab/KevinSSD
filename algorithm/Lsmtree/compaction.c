@@ -139,7 +139,7 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 		start=lnode->start;
 		end=lnode->end;
 #else
-		start=0;
+		start=key_min;
 #endif
 	}
 	else{
