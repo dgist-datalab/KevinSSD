@@ -379,7 +379,7 @@ void* gc_data_end_req(struct algo_req*const req){
 	return NULL;
 }
 
-uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params){
+uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size){
 	uint8_t result=0;
 	run_t *now=NULL;
 	keyset *found=NULL;
@@ -401,10 +401,10 @@ retry:
 		case FOUND:
 			if(now->isflying==1){
 				g->status=SAMERUN;
-				if(now->wait_idx>QDEPTH){
+				if(now->gc_wait_idx>req_size){
 					printf("over_qdepth!\n");
 				}
-				now->waitreq[now->wait_idx++]=(void*)g;
+				now->gc_waitreq[now->gc_wait_idx++]=(void*)g;
 				params->data=NULL;
 			}
 			else{
@@ -413,8 +413,8 @@ retry:
 					temp_gc_h *gch=(temp_gc_h*)malloc(sizeof(temp_gc_h));
 					params->data=(htable_t*)malloc(sizeof(htable_t));
 					now->isflying=1;
-					memset(now->waitreq,0,sizeof(now->waitreq));
-					now->wait_idx=0;
+					now->gc_waitreq=(void**)calloc(sizeof(void*),req_size);
+					now->gc_wait_idx=0;
 					gch->d=now;
 					gch->data=(char*)params->data;
 					list_insert(gc_hlist,(void*)gch);
@@ -424,8 +424,8 @@ retry:
 					params->data=NULL;
 					g->status=READDONE;
 					now->isflying=1;
-					memset(now->waitreq,0,sizeof(now->waitreq));
-					now->wait_idx=0;
+					memset(now->gc_waitreq,0,sizeof(void*)*req_size);
+					now->gc_wait_idx=0;
 				}
 			}
 			break;
@@ -438,14 +438,14 @@ retry:
 	return FOUND;
 }
 
-uint32_t gc_data_each_header_check(struct gc_node *g){
+uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 	gc_params *_p=(gc_params*)g->params;
 	int done_cnt=0;
 	keyset *find;
 	run_t *ent=_p->ent;
 	htable_t *data=_p->data?_p->data:(htable_t *)ent->run_data;
 	if(!data){
-		printf("run_data:%p\n",ent->req);
+		printf("run_data:%p\n",ent->from_req);
 	}
 	ent->run_data=(void*)data;
 	if(!data){
@@ -467,8 +467,8 @@ uint32_t gc_data_each_header_check(struct gc_node *g){
 	bool set_flag=false;
 	uint8_t status=0;
 	bool original_target_processed=false;
-	for(int i=-1; i<ent->wait_idx; i++){
-		gc_node *target=i==-1?g:(gc_node*)ent->waitreq[i];
+	for(int i=-1; i<ent->gc_wait_idx; i++){
+		gc_node *target=i==-1?g:(gc_node*)ent->gc_waitreq[i];
 		gc_params *p=(gc_params*)target->params;
 		/*
 		if(test){
@@ -516,7 +516,7 @@ uint32_t gc_data_each_header_check(struct gc_node *g){
 	}
 	
 	if(!original_target_processed){
-		gc_data_issue_header(g,_p);
+		gc_data_issue_header(g,_p,size);
 	}
 	ent->isflying=0;
 	return done_cnt;
@@ -547,11 +547,11 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 					memset(params,0,sizeof(gc_params));
 					target->params=(void*)params;
 				case RETRY: 
-					result=gc_data_issue_header(target,(gc_params*)target->params);
+					result=gc_data_issue_header(target,(gc_params*)target->params,size);
 					if(result==CACHING) done_cnt++;
 					break;
 				case READDONE:
-					done_cnt+=gc_data_each_header_check(target);
+					done_cnt+=gc_data_each_header_check(target,size);
 					break;
 			}
 			if(done_cnt>size){
@@ -626,6 +626,7 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 		temp_gc_h *gch=(temp_gc_h*)ln->data;
 		free(gch->data);
 		gch->d->run_data=NULL;
+		free(gch->d->gc_waitreq);
 		free(gch);
 	}
 	list_free(gc_hlist);

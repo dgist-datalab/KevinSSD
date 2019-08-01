@@ -724,13 +724,14 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, keyset **found, int *level,int *r
 		}
 		for(int j=run?*run:0; entries[j]!=NULL; j++){
 			run_t *t_entry=entries[j];
-			if(bf_check(t_entry->filter,key)){
-				free(entries);
-				if(level) *level=i;
-				if(run) *run=j;
-				*entry=t_entry;
-				return FOUND;
-			}
+#ifdef BLOOM
+			if(!bf_check(t_entry->filter,key)) continue;
+#endif
+			free(entries);
+			if(level) *level=i;
+			if(run) *run=j;
+			*entry=t_entry;
+			return FOUND;
 		}
 		if(run) *run=0;
 		free(entries);
@@ -751,8 +752,10 @@ uint32_t __lsm_get(request *const req){
 	lsm_params *params;
 	uint8_t result=0;
 	int *temp_data;
-	//static int cnt=0;
-//	printf("[%d]%.*s\n",cnt++,KEYFORMAT(req->key));
+	/*
+	static int cnt=0;
+	printf("[%d]%.*s\n",cnt++,KEYFORMAT(req->key));
+*/
 	if(req->params==NULL){
 		/*memtable*/
 		res=__lsm_get_sub(req,NULL,NULL,LSM.memtable);
@@ -793,7 +796,7 @@ uint32_t __lsm_get(request *const req){
 		res=__lsm_get_sub(req,_entry[run],mapinfo.sets,NULL);
 		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 
-		_entry[run]->req=NULL;
+		_entry[run]->from_req=NULL;
 		_entry[run]->isflying=0;
 		free(_entry);
 		if(res)return res;
@@ -811,6 +814,7 @@ uint32_t __lsm_get(request *const req){
 
 retry:
 	result=lsm_find_run(req->key,&entry,&found,&level,&run);
+	if(temp_data[3]) temp_data[3]=0;
 	switch(result){
 		case CACHING:
 			if(found){
@@ -857,6 +861,7 @@ retry:
 				memset(entry->waitreq,0,sizeof(entry->waitreq));
 				entry->wait_idx=0;
 				params->entry_ptr=(void*)entry;
+				entry->from_req=(void*)req;
 				req->ppa=params->ppa;
 				LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 				__header_read_cnt++;

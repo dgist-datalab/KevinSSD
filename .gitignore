@@ -26,3 +26,4 @@ cscope*
 *.bin
 test.sh
 bd_testcase
+testing/

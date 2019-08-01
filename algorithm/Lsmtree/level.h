@@ -74,9 +74,12 @@ typedef struct run{
 #else
 	htable *cache_data;
 #endif
-	void *req;
+
+	void *from_req;
 	void* waitreq[QDEPTH];
+	void **gc_waitreq;
 	int wait_idx;
+	int gc_wait_idx;
 
 	htable *cpt_data;
 	void *run_data;
