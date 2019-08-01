@@ -73,10 +73,11 @@ struct request {
 	bool isstart;
 	MeasureTime latency_checker;
 
-#ifdef hash_dftl
+	/* HASH_KVSSD */
 	void *hash_params;
 	struct request *parents;
-#endif
+
+
 };
 
 struct algo_req{

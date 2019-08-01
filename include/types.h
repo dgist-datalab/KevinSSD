@@ -18,7 +18,7 @@
 #define FS_ITER_RLS_T 15
 #define FS_RANGEGET_T 16
 
-#define LREQ_TYPE_NUM 9
+#define LREQ_TYPE_NUM 11
 #define TRIM 0
 #define MAPPINGR 1
 #define MAPPINGW 2
@@ -28,6 +28,8 @@
 #define DATAW 6
 #define GCDR 7
 #define GCDW 8
+#define GCMR_DGC 9
+#define GCMW_DGC 10
 
 #define FS_MALLOC_W 1
 #define FS_MALLOC_R 2

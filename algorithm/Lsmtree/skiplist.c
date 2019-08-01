@@ -479,15 +479,15 @@ snode *skiplist_insert_iter(skiplist *list,KEYT key,ppa_t ppa){
 		x->ppa=ppa;
 		x->value=NULL;
 		list->all_length+=key.len;
-		// ++ ctoc
-#ifndef Lsmtree
-		x->t_ppa = -1;
-		x->bypass = false;
-		x->write_flying = false;
-#else
+#ifdef Lsmtree
 		x->iscaching_entry=false;
 #endif
-		// -- ctoc
+
+#ifdef demand
+		x->lpa = UINT32_MAX;
+		x->hash_params = NULL;
+		x->params = NULL;
+#endif
 		for(int i=1; i<=level; i++){
 			x->list[i]=update[i]->list[i];
 			update[i]->list[i]=x;
@@ -538,7 +538,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		}*/
 		if(x->value)
 			inf_free_valueset(x->value,FS_MALLOC_W);
-#if defined(KVSSD) && defined(Lsmtree)
+#if defined(KVSSD)
 		free(key.key);
 #endif
 	//	old_req->end_req(old_req);
@@ -573,14 +573,14 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		list->all_length+=KEYLEN(key);
 #endif
 
-		// ++ ctoc
-#ifndef Lsmtree
-		x->t_ppa = -1;
-		x->bypass = false;
-		x->write_flying = false;
-#else
-		// -- ctoc
+#ifdef Lsmtree
 		x->iscaching_entry=false;
+#endif
+
+#ifdef demand
+		x->lpa = UINT32_MAX;
+		x->hash_params = NULL;
+		x->params = NULL;
 #endif
 
 		for(int i=1; i<=level; i++){

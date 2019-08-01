@@ -92,6 +92,7 @@ SRCS +=\
 	./include/data_struct/list.c\
 	./include/data_struct/redblack.c\
 	./include/data_struct/heap.c\
+	./include/data_struct/lru_list.c\
 	./bench/measurement.c\
 	./bench/bench.c\
 	./include/utils/thpool.c\

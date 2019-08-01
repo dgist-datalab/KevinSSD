@@ -39,6 +39,8 @@ static void layer_info_mapping(master_processor *mp,int argc, char **argv){
 	mp->algo=&page_ftl;
 #elif defined(dftl) || defined(ctoc) || defined(dftl_test) || defined(ctoc_batch) || defined(hash_dftl)
 	mp->algo=&__demand;
+#elif defined(demand)
+	mp->algo=&__demand;
 #elif defined(Lsmtree)
 	mp->algo=&algo_lsm;
 #elif defined(badblock)
