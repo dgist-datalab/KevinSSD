@@ -102,6 +102,7 @@ void bench_custom_init(MeasureTime *mt, int idx);
 void bench_custom_start(MeasureTime *mt,int idx);
 void bench_custom_A(MeasureTime *mt,int idx);
 void bench_custom_print(MeasureTime *mt, int idx);
+int bench_set_params(int argc, char **argv,char **targv);
 
 #ifdef CDF
 void bench_cdf_print(uint64_t, uint8_t istype, bench_data*);

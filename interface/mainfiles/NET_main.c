@@ -10,13 +10,14 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <errno.h>
+#include <getopt.h>
 
-#include "../include/settings.h"
-#include "../bench/bench.h"
-#include "../include/flash_sock/fd_sock.h"
-#include "../include/flash_sock/buffer_manager.h"
-#include "interface.h"
-#include "queue.h"
+#include "../../include/settings.h"
+#include "../../bench/bench.h"
+#include "../../include/flash_sock/fd_sock.h"
+#include "../../include/flash_sock/buffer_manager.h"
+#include "../interface.h"
+#include "../queue.h"
 fd_sock_manager *net;
 queue *n_q;
 int protocol_type(char *);
@@ -56,11 +57,45 @@ void kv_main_end_req(uint32_t a, uint32_t b, void *req){
 			break;
 	}
 }
-int main(int argc, char *argv[]){
-	if(argc!=2){
-		printf("please input the protocol type {YCSB,REDIS,ROCKSDB,OLTP}\n");
-		exit(1);
+
+int kv_set_type(int argc, char *argv[], char **targv, char *type){
+	struct option options[]={
+		{"type",1,0,0},
+		{0,0,0,0}
+	};
+	int temp_cnt=0;
+	for(int i=0; i<argc; i++){
+		if(strncmp(argv[i],"--type",strlen("--type"))==0) continue;
+		targv[temp_cnt++]=argv[i];
 	}
+
+	int opt;
+	bool type_setting=false;
+	int index;
+	opterr=0;
+	while((opt=getopt_long(argc,argv,"",options,&index))!=-1){
+		switch(opt){
+			case 0:
+				if(optarg!=NULL){
+					strcpy(type,optarg);
+					type_setting=true;
+				}
+				break;
+		}
+	}
+
+	if(!type_setting){
+		strcpy(type,"YCSB");
+	}
+	printf("kv type :%s\n",type);
+	optind=0;
+	return temp_cnt;
+}
+
+int main(int argc, char *argv[]){
+	char type_parser[10];
+	char *temp_argv[10];
+	int temp_cnt=kv_set_type(argc,argv,temp_argv,type_parser);
 	struct sigaction sa;
 	sa.sa_handler = log_print;
 	sigaction(SIGINT, &sa, NULL);
@@ -75,8 +110,8 @@ int main(int argc, char *argv[]){
 
 	q_init(&n_q,128);
 	
-	inf_init(1,0);
-	net=fd_sock_init(IP,PORT,protocol_type(argv[1]));
+	inf_init(1,0,temp_cnt,temp_argv);
+	net=fd_sock_init(IP,PORT,protocol_type(type_parser));
 
 	pthread_t t_id;
 	pthread_create(&t_id,NULL,ack_to_client,NULL);
@@ -94,6 +129,7 @@ int main(int argc, char *argv[]){
 		switch(data->type){
 			case WRITE_TYPE:
 				inf_make_req_apps(data->type,data->key,data->keylen,temp,data->valuelen,data->seq,data->type==2?data:NULL,kv_main_end_req);
+	//			printf("%d %.*s\n",cnt++,data->keylen,data->key);
 				break;
 			case READ_TYPE:
 				//printf("%d %.*s\n",cnt++,data->keylen,data->key);

@@ -136,3 +136,42 @@ uint32_t compaction_bg_htable_write(ppa_t ppa,htable *input, KEYT lpa){
 	lsm_io_sched_push(SCHED_HWRITE,(void*)areq);
 	return ppa;
 }
+
+extern uint32_t hw_comp_read_cnt;
+void *hw_end_req(struct algo_req *const req){
+	lsm_params *params=(lsm_params*)req->params;
+	switch(req->type){
+		case HEADERR:
+			hw_comp_read_cnt++;
+			break;
+		case HEADERW:
+			break;
+	}
+	free(params);
+	free(req);
+	return NULL;
+}
+
+uint32_t compaction_htable_hw_read(run_t *ent){
+	ent->cpt_data=htable_assign(NULL,true);
+	ent->cpt_data->iscached=0;
+	if(!ent->iscompactioning) ent->iscompactioning=COMP;
+
+	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
+	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
+
+	params->lsm_type=HEADERR;
+	//valueset_assign
+	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
+	params->ppa=ent->pbn;
+	areq->parents=NULL;
+	areq->end_req=hw_end_req;
+	areq->params=(void*)params;
+	areq->type_lower=0;
+	areq->rapid=false;
+	areq->type=HEADERR;
+
+	LSM.li->read(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
+
+	return ent->cpt_data->origin->dmatag;
+}

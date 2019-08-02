@@ -8,6 +8,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <getopt.h>
 int32_t LOCALITY;
 float TARGETRATIO;
 float OVERLAP;
@@ -1000,4 +1001,79 @@ void bench_custom_print(MeasureTime *mt,int idx){
 		measure_adding_print(&mt[i]);
 	}
 #endif
+}
+
+int bench_set_params(int argc, char **argv, char **temp_argv){
+	struct option options[]={
+		{"locality",1,0,0},
+		{"key-length",1,0,0},
+		{"value-size",1,0,0},
+		{0,0,0,0}
+	};
+	
+	int temp_cnt=0;
+	for(int i=0; i<argc; i++){
+		if(strncmp(argv[i],"--locality",strlen("--locality"))==0) continue;
+		if(strncmp(argv[i],"--key-length",strlen("--key-length"))==0) continue;
+		if(strncmp(argv[i],"--value-size",strlen("--value-size"))==0) continue;
+		temp_argv[temp_cnt++]=argv[i];
+	}
+	int index;
+	int opt;
+	bool locality_setting=false;
+	bool key_length=false;
+	bool value_size=false;
+	opterr=0;
+
+	while((opt=getopt_long(argc,argv,"",options,&index))!=-1){
+		switch(opt){
+			case 0:
+				switch(index){
+					case 0:
+						if(optarg!=NULL){
+							LOCALITY=atoi(optarg);
+							TARGETRATIO=(float)(100-LOCALITY)/100;
+							locality_setting=true;
+					}
+						break;
+					case 1:
+						if(optarg!=NULL){
+							key_length=true;
+							KEYLENGTH=atoi(optarg);
+							if(KEYLENGTH>=16 || KEYLENGTH<1){
+								KEYLENGTH=-1;
+							}
+						}
+						break;
+					case 2:
+						if(optarg!=NULL){
+							value_size=true;
+							VALUESIZE=atoi(optarg);
+							if(VALUESIZE>=16 || VALUESIZE<1){
+								VALUESIZE=-1;
+							}
+						}
+						break;
+				}
+				break;
+			default:
+				break;
+
+		}
+	}
+	if(!locality_setting){
+		LOCALITY=50; TARGETRATIO=0.5;
+	}
+	if(!key_length){
+		KEYLENGTH=-1;
+	}
+	if(!value_size){
+		VALUESIZE=-1;
+	}
+	printf("key_length: %d - -1==rand\n",KEYLENGTH==-1?KEYLENGTH:KEYLENGTH*16);
+	printf("value_size: %d - -1==rand\n",VALUESIZE==-1?VALUESIZE:VALUESIZE*512);
+
+	optind=0;
+	seq_padding_opt=0;
+	return temp_cnt;
 }

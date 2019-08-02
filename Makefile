@@ -26,7 +26,7 @@ export COMMONFLAGS=\
 			-D$(TARGET_BM)\
 			-Wno-unused-but-set-variable\
 			-DCHECKINGTIME\
-		-O3\
+#		-O3\
 #			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
@@ -136,7 +136,7 @@ driver: ./interface/main.c libdriver.a
 bd_testcase: ./interface/mainfiles/testcase.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
-kv_driver: ./interface/NET_main.c libdriver.a libfdsock.a
+kv_driver: ./interface/mainfiles/NET_main.c libdriver.a libfdsock.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 range_driver: ./interface/range_test_main.c libdriver.a
