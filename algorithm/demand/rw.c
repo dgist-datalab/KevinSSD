@@ -10,6 +10,7 @@
 #define LINEAR_PROBING(h,c) (h+c)
 
 #define PROBING_FUNC(h,c) QUADRATIC_PROBING(h,c)
+//#define PROBING_FUNC(h,c) LINEAR_PROBING(h,c)
 
 extern algorithm __demand;
 
@@ -66,7 +67,11 @@ static lpa_t _get_lpa(request *const req, snode *wb_entry) {
 	if (req) {
 #ifdef HASH_KVSSD
 		struct hash_params *h_params = (struct hash_params *)req->hash_params;
+#ifdef DVALUE
+		h_params->lpa = PROBING_FUNC(h_params->hash, h_params->cnt) % env.nr_dgrains;
+#else
 		h_params->lpa = PROBING_FUNC(h_params->hash, h_params->cnt) % env.nr_dpages;
+#endif
 		return h_params->lpa;
 #else
 		return req->key;
@@ -74,7 +79,11 @@ static lpa_t _get_lpa(request *const req, snode *wb_entry) {
 	} else if (wb_entry) {
 #ifdef HASH_KVSSD
 		struct hash_params *h_params = (struct hash_params *)wb_entry->hash_params;
+#ifdef DVALUE
+		h_params->lpa = PROBING_FUNC(h_params->hash, h_params->cnt) % env.nr_dgrains;
+#else
 		h_params->lpa = PROBING_FUNC(h_params->hash, h_params->cnt) % env.nr_dpages;
+#endif
 		return h_params->lpa;
 #else
 		return wb_entry->key;
@@ -471,6 +480,7 @@ wb_retry:
 			updated++;
 
 			if (h_params->cnt < MAX_HASH_COLLISION) stat.w_hash_collision_cnt[h_params->cnt]++;
+			//else abort();
 			member.max_try = (h_params->cnt > member.max_try) ? h_params->cnt : member.max_try;
 
 #ifdef DVALUE
@@ -511,6 +521,7 @@ wb_retry:
 			updated++;
 
 			if (h_params->cnt < MAX_HASH_COLLISION) stat.w_hash_collision_cnt[h_params->cnt]++;
+			//else abort();
 			member.max_try = (h_params->cnt > member.max_try) ? h_params->cnt : member.max_try;
 
 #ifdef DVALUE
