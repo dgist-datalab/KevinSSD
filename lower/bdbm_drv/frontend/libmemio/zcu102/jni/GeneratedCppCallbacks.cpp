@@ -155,6 +155,18 @@ int FlashRequestsetDmaWriteRef_cb (  struct PortalInternal *p, const uint32_t sg
     (static_cast<FlashRequestWrapper *>(p->parent))->setDmaWriteRef ( sgId);
     return 0;
 };
+int FlashRequeststartCompaction_cb (  struct PortalInternal *p, const uint32_t cntHigh, const uint32_t cntLow ) {
+    (static_cast<FlashRequestWrapper *>(p->parent))->startCompaction ( cntHigh, cntLow);
+    return 0;
+};
+int FlashRequestsetDmaKtPpaRef_cb (  struct PortalInternal *p, const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes ) {
+    (static_cast<FlashRequestWrapper *>(p->parent))->setDmaKtPpaRef ( sgIdHigh, sgIdLow, sgIdRes);
+    return 0;
+};
+int FlashRequestsetDmaKtOutputRef_cb (  struct PortalInternal *p, const uint32_t sgIdKtBuf, const uint32_t sgIdInvalPPA ) {
+    (static_cast<FlashRequestWrapper *>(p->parent))->setDmaKtOutputRef ( sgIdKtBuf, sgIdInvalPPA);
+    return 0;
+};
 int FlashRequeststart_cb (  struct PortalInternal *p, const uint32_t dummy ) {
     (static_cast<FlashRequestWrapper *>(p->parent))->start ( dummy);
     return 0;
@@ -174,6 +186,9 @@ FlashRequestCb FlashRequest_cbTable = {
     FlashRequesteraseBlock_cb,
     FlashRequestsetDmaReadRef_cb,
     FlashRequestsetDmaWriteRef_cb,
+    FlashRequeststartCompaction_cb,
+    FlashRequestsetDmaKtPpaRef_cb,
+    FlashRequestsetDmaKtOutputRef_cb,
     FlashRequeststart_cb,
     FlashRequestdebugDumpReq_cb,
     FlashRequestsetDebugVals_cb,
@@ -183,6 +198,14 @@ FlashRequestCb FlashRequest_cbTable = {
 #include "FlashIndication.h"
 int FlashIndicationdisconnect_cb (struct PortalInternal *p) {
     (static_cast<FlashIndicationWrapper *>(p->parent))->disconnect();
+    return 0;
+};
+int FlashIndicationmergeDone_cb (  struct PortalInternal *p, const uint32_t numGenKt, const uint32_t numInvalAddr, const uint64_t counter ) {
+    (static_cast<FlashIndicationWrapper *>(p->parent))->mergeDone ( numGenKt, numInvalAddr, counter);
+    return 0;
+};
+int FlashIndicationmergeFlushDone_cb (  struct PortalInternal *p, const uint32_t num ) {
+    (static_cast<FlashIndicationWrapper *>(p->parent))->mergeFlushDone ( num);
     return 0;
 };
 int FlashIndicationreadDone_cb (  struct PortalInternal *p, const uint32_t tag ) {
@@ -203,6 +226,8 @@ int FlashIndicationdebugDumpResp_cb (  struct PortalInternal *p, const uint32_t 
 };
 FlashIndicationCb FlashIndication_cbTable = {
     FlashIndicationdisconnect_cb,
+    FlashIndicationmergeDone_cb,
+    FlashIndicationmergeFlushDone_cb,
     FlashIndicationreadDone_cb,
     FlashIndicationwriteDone_cb,
     FlashIndicationeraseDone_cb,

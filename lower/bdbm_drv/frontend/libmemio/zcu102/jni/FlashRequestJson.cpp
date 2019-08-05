@@ -70,6 +70,43 @@ int FlashRequestJson_setDmaWriteRef ( struct PortalInternal *p, const uint32_t s
     return 0;
 };
 
+int FlashRequestJson_startCompaction ( struct PortalInternal *p, const uint32_t cntHigh, const uint32_t cntLow )
+{
+    Json::Value request;
+    request.append(Json::Value("startCompaction"));
+    request.append((Json::UInt64)cntHigh);
+    request.append((Json::UInt64)cntLow);
+
+    std::string requestjson = Json::FastWriter().write(request);;
+    connectalJsonSend(p, requestjson.c_str(), (int)CHAN_NUM_FlashRequest_startCompaction);
+    return 0;
+};
+
+int FlashRequestJson_setDmaKtPpaRef ( struct PortalInternal *p, const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes )
+{
+    Json::Value request;
+    request.append(Json::Value("setDmaKtPpaRef"));
+    request.append((Json::UInt64)sgIdHigh);
+    request.append((Json::UInt64)sgIdLow);
+    request.append((Json::UInt64)sgIdRes);
+
+    std::string requestjson = Json::FastWriter().write(request);;
+    connectalJsonSend(p, requestjson.c_str(), (int)CHAN_NUM_FlashRequest_setDmaKtPpaRef);
+    return 0;
+};
+
+int FlashRequestJson_setDmaKtOutputRef ( struct PortalInternal *p, const uint32_t sgIdKtBuf, const uint32_t sgIdInvalPPA )
+{
+    Json::Value request;
+    request.append(Json::Value("setDmaKtOutputRef"));
+    request.append((Json::UInt64)sgIdKtBuf);
+    request.append((Json::UInt64)sgIdInvalPPA);
+
+    std::string requestjson = Json::FastWriter().write(request);;
+    connectalJsonSend(p, requestjson.c_str(), (int)CHAN_NUM_FlashRequest_setDmaKtOutputRef);
+    return 0;
+};
+
 int FlashRequestJson_start ( struct PortalInternal *p, const uint32_t dummy )
 {
     Json::Value request;
@@ -111,6 +148,9 @@ FlashRequestCb FlashRequestJsonProxyReq = {
     FlashRequestJson_eraseBlock,
     FlashRequestJson_setDmaReadRef,
     FlashRequestJson_setDmaWriteRef,
+    FlashRequestJson_startCompaction,
+    FlashRequestJson_setDmaKtPpaRef,
+    FlashRequestJson_setDmaKtOutputRef,
     FlashRequestJson_start,
     FlashRequestJson_debugDumpReq,
     FlashRequestJson_setDebugVals,
@@ -118,7 +158,7 @@ FlashRequestCb FlashRequestJsonProxyReq = {
 FlashRequestCb *pFlashRequestJsonProxyReq = &FlashRequestJsonProxyReq;
 const char * FlashRequestJson_methodSignatures()
 {
-    return "{\"setDebugVals\": [\"long\", \"long\"], \"writePage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"], \"eraseBlock\": [\"long\", \"long\", \"long\", \"long\"], \"debugDumpReq\": [\"long\"], \"setDmaWriteRef\": [\"long\"], \"start\": [\"long\"], \"setDmaReadRef\": [\"long\"], \"readPage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"]}";
+    return "{\"setDebugVals\": [\"long\", \"long\"], \"writePage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"], \"eraseBlock\": [\"long\", \"long\", \"long\", \"long\"], \"debugDumpReq\": [\"long\"], \"setDmaWriteRef\": [\"long\"], \"setDmaKtOutputRef\": [\"long\", \"long\"], \"setDmaKtPpaRef\": [\"long\", \"long\", \"long\"], \"startCompaction\": [\"long\", \"long\"], \"setDmaReadRef\": [\"long\"], \"start\": [\"long\"], \"readPage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"]}";
 }
 
 int FlashRequestJson_handleMessage(struct PortalInternal *p, unsigned int channel, int messageFd)
@@ -149,6 +189,18 @@ int FlashRequestJson_handleMessage(struct PortalInternal *p, unsigned int channe
     case CHAN_NUM_FlashRequest_setDmaWriteRef: {
         
         ((FlashRequestCb *)p->cb)->setDmaWriteRef(p, tempdata.setDmaWriteRef.sgId);
+      } break;
+    case CHAN_NUM_FlashRequest_startCompaction: {
+        
+        ((FlashRequestCb *)p->cb)->startCompaction(p, tempdata.startCompaction.cntHigh, tempdata.startCompaction.cntLow);
+      } break;
+    case CHAN_NUM_FlashRequest_setDmaKtPpaRef: {
+        
+        ((FlashRequestCb *)p->cb)->setDmaKtPpaRef(p, tempdata.setDmaKtPpaRef.sgIdHigh, tempdata.setDmaKtPpaRef.sgIdLow, tempdata.setDmaKtPpaRef.sgIdRes);
+      } break;
+    case CHAN_NUM_FlashRequest_setDmaKtOutputRef: {
+        
+        ((FlashRequestCb *)p->cb)->setDmaKtOutputRef(p, tempdata.setDmaKtOutputRef.sgIdKtBuf, tempdata.setDmaKtOutputRef.sgIdInvalPPA);
       } break;
     case CHAN_NUM_FlashRequest_start: {
         

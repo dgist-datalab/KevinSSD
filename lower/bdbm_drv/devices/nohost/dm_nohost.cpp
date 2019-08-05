@@ -33,6 +33,8 @@
 #error Invalid Platform (KERNEL_MODE or USER_MODE)
 #endif
 
+#include <semaphore.h>
+
 #include "debug.h"
 #include "dm_nohost.h"
 #include "dev_params.h"
@@ -62,6 +64,8 @@ pthread_mutex_t bus_lock=PTHREAD_MUTEX_INITIALIZER;
 
 extern pthread_mutex_t endR;
 struct timespec reqtime;
+
+#define PPA_LIST_SIZE (10*1024)
 
 #define FPAGE_SIZE (8192)
 #define FPAGE_SIZE_VALID (8192)
@@ -104,9 +108,20 @@ int srcAlloc;
 
 unsigned int ref_dstAlloc;
 unsigned int ref_srcAlloc;
+unsigned int ref_highPpaList;
+unsigned int ref_lowPpaList;
+unsigned int ref_resPpaList;
+unsigned int ref_mergedKtBuf;
+unsigned int ref_invalPpaList;
 
 unsigned int* dstBuffer;
 unsigned int* srcBuffer;
+unsigned int* lowPpaList_Buffer;
+unsigned int* highPpaList_Buffer;
+unsigned int* resPpaList_Buffer;
+unsigned int* invPpaList_Buffer;
+unsigned int* mergeKt_Buffer;
+
 
 unsigned int* readBuffers[NUM_TAGS];
 unsigned int* writeBuffers[NUM_TAGS];
@@ -155,10 +170,30 @@ dm_nohost_private_t* _priv = NULL;
 
 /* global data structure */
 extern bdbm_drv_info_t* _bdi_dm;
+typedef struct merge_argues{
+	sem_t merge_lock;
+	unsigned int kt_num;
+	unsigned int inv_num;
+}merge_argues;
+
+static merge_argues merge_req;
 
 class FlashIndication: public FlashIndicationWrapper {
 	public:
 		FlashIndication (unsigned int id) : FlashIndicationWrapper (id) { }
+
+		virtual void mergeDone(unsigned int numMergedKt, uint32_t numInvalAddr, uint64_t counter) {
+			printf("ack done!\n");
+			merge_req.kt_num=numMergedKt;
+			merge_req.inv_num=numInvaladdr;
+			sem_post(&merge_req.lock);
+			sem_destroy(&merge_req.lock);
+		}
+
+		virtual void mergeFlushDone(unsigned int num) {
+			printf("flush done!\n");
+			// num does not mean anything
+		}
 
 		virtual void readDone (unsigned int tag){ //, unsigned int status) {
 			int status = 0;
@@ -250,6 +285,8 @@ int __writeFTLtoFile (const char* path, void* ptr) {
 
 FlashIndication *indication;
 DmaBuffer *srcDmaBuffer, *dstDmaBuffer, *blkmapDmaBuffer;
+DmaBuffer *highPpaList, *lowPpaList, *resPpaList; // PPA Lists
+DmaBuffer *mergedKtBuf, *invalPpaList;
 
 uint32_t __dm_nohost_init_device (
 		bdbm_drv_info_t* bdi, 
@@ -267,39 +304,73 @@ uint32_t __dm_nohost_init_device (
 	fprintf(stderr, "USE_ACP = TRUE\n");
 	srcDmaBuffer = new DmaBuffer(srcAlloc_sz);
 	dstDmaBuffer = new DmaBuffer(dstAlloc_sz);
+
+	highPpaList = new DmaBuffer(4*PPA_LIST_SIZE);
+	lowPpaList = new DmaBuffer(4*PPA_LIST_SIZE);
+	resPpaList = new DmaBuffer(4*PPA_LIST_SIZE*2);
+
+	mergedKtBuf = new DmaBuffer(8192*2*PPA_LIST_SIZE);
+	invalPpaList = new DmaBuffer(4*PPA_LIST_SIZE*500);
 #else
 	fprintf(stderr, "USE_ACP = FALSE\n");
 	srcDmaBuffer = new DmaBuffer(srcAlloc_sz, false);
 	dstDmaBuffer = new DmaBuffer(dstAlloc_sz, false);
+
+	highPpaList = new DmaBuffer(4*PPA_LIST_SIZE, false);
+	lowPpaList = new DmaBuffer(4*PPA_LIST_SIZE, false);
+	resPpaList = new DmaBuffer(4*PPA_LIST_SIZE*2, false);
+
+	mergedKtBuf = new DmaBuffer(8192*2*PPA_LIST_SIZE, false);
+	invalPpaList = new DmaBuffer(4*PPA_LIST_SIZE*500, false);
 #endif
 	srcBuffer = (unsigned int*)srcDmaBuffer->buffer();
 	dstBuffer = (unsigned int*)dstDmaBuffer->buffer();
 
+	highPpaList_buffer=(unsigned int*)lowPpaList->buffer();
+	lowPpaList_buffer=(unsigned int*)lowPpaList->buffer();
+	lowPpaList_buffer=(unsigned int*)lowPpaList->buffer();
+	lowPpaList_buffer=(unsigned int*)lowPpaList->buffer();
+	lowPpaList_buffer=(unsigned int*)lowPpaList->buffer();
+
 	fprintf(stderr, "USE_ACP = FALSE\n");
 
 	// Memory for FTL
-#if defined(USE_ACP)
-	blkmapDmaBuffer = new DmaBuffer(blkmapAlloc_sz * 2);
-#else
-	blkmapDmaBuffer = new DmaBuffer(blkmapAlloc_sz * 2, false);
-#endif
-	ftlPtr = blkmapDmaBuffer->buffer();
-	blkmap = (uint16_t(*)[NUM_LOGBLKS]) (ftlPtr);  // blkmap[Seg#][LogBlk#]
-	blkmgr = (uint16_t(*)[NUM_CHIPS][NUM_BLOCKS])  (ftlPtr+blkmapAlloc_sz); // blkmgr[Bus][Chip][Block]
+//#if defined(USE_ACP)
+//	blkmapDmaBuffer = new DmaBuffer(blkmapAlloc_sz * 2);
+//#else
+//	blkmapDmaBuffer = new DmaBuffer(blkmapAlloc_sz * 2, false);
+//#endif
+//	ftlPtr = blkmapDmaBuffer->buffer();
+//	blkmap = (uint16_t(*)[NUM_LOGBLKS]) (ftlPtr);  // blkmap[Seg#][LogBlk#]
+//	blkmgr = (uint16_t(*)[NUM_CHIPS][NUM_BLOCKS])  (ftlPtr+blkmapAlloc_sz); // blkmgr[Bus][Chip][Block]
 
 	fprintf(stderr, "Main::allocating memory finished!\n");
 
 	dstDmaBuffer->cacheInvalidate(0, 1);
 	srcDmaBuffer->cacheInvalidate(0, 1);
-	blkmapDmaBuffer->cacheInvalidate(0, 1);
+//	blkmapDmaBuffer->cacheInvalidate(0, 1);
+
+	highPpaList->cacheInvalidate(0, 1);
+	lowPpaList->cacheInvalidate(0, 1);
+	resPpaList->cacheInvalidate(0, 1);
+	mergedKtBuf->cacheInvalidate(0, 1);
+	invalPpaList->cacheInvalidate(0, 1);
 
 	ref_dstAlloc = dstDmaBuffer->reference();
 	ref_srcAlloc = srcDmaBuffer->reference();
-	ref_blkmapAlloc = blkmapDmaBuffer->reference();
+
+	ref_highPpaList = highPpaList->reference();
+	ref_lowPpaList = lowPpaList->reference();
+	ref_resPpaList = resPpaList->reference();
+
+	ref_mergedKtBuf = mergedKtBuf->reference();
+	ref_invalPpaList = invalPpaList->reference();
 
 	device->setDmaWriteRef(ref_dstAlloc);
 	device->setDmaReadRef(ref_srcAlloc);
-//	device->setDmaMapRef(ref_blkmapAlloc);
+
+	device->setDmaKtPpaRef(ref_highPpaList, ref_lowPpaList, ref_resPpaList);
+	device->setDmaKtOutputRef(ref_mergedKtBuf, ref_invalPpaList);
 
 	for (int t = 0; t < NUM_TAGS; t++) {
 		readTagTable[t].busy = false;
@@ -724,4 +795,33 @@ void free_dmaQ_tag (int type, int dmaTag) {
 	   }
 	 */
 	return;
+}
+
+int dm_do_merge(unsigned int ht_num, unsigned int lt_num, unsigned int *kt_num, unsigned int *inv_num){
+	sem_init(&merge_req.lock,0);
+	device->startCompaction(ht_num,lt_num);
+	sem_wait(&merge_req.lock);
+	*kt_num=merge_req.kt_num;
+	*inv_num=merge_req.inv_num;
+	return 1;
+}
+
+unsigned int *get_low_ppali(){
+	return lowPpaList_Buffer;
+}
+
+unsigned int *get_high_ppali(){
+	return highPpaList_Buffer;
+}
+
+unsigned int *get_res_ppali(){
+	return resPpaList_Buffer;
+}
+
+unsigned int *get_inv_ppali(){
+	return invPpaList_Buffer;
+}
+
+unsigned int *get_merged_kt(){
+	return mergeKt_Buffer;
 }

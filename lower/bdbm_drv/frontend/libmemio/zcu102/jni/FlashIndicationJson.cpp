@@ -2,6 +2,30 @@
 #ifdef PORTAL_JSON
 #include "jsoncpp/json/json.h"
 
+int FlashIndicationJson_mergeDone ( struct PortalInternal *p, const uint32_t numGenKt, const uint32_t numInvalAddr, const uint64_t counter )
+{
+    Json::Value request;
+    request.append(Json::Value("mergeDone"));
+    request.append((Json::UInt64)numGenKt);
+    request.append((Json::UInt64)numInvalAddr);
+    request.append((Json::UInt64)counter);
+
+    std::string requestjson = Json::FastWriter().write(request);;
+    connectalJsonSend(p, requestjson.c_str(), (int)CHAN_NUM_FlashIndication_mergeDone);
+    return 0;
+};
+
+int FlashIndicationJson_mergeFlushDone ( struct PortalInternal *p, const uint32_t num )
+{
+    Json::Value request;
+    request.append(Json::Value("mergeFlushDone"));
+    request.append((Json::UInt64)num);
+
+    std::string requestjson = Json::FastWriter().write(request);;
+    connectalJsonSend(p, requestjson.c_str(), (int)CHAN_NUM_FlashIndication_mergeFlushDone);
+    return 0;
+};
+
 int FlashIndicationJson_readDone ( struct PortalInternal *p, const uint32_t tag )
 {
     Json::Value request;
@@ -54,6 +78,8 @@ int FlashIndicationJson_debugDumpResp ( struct PortalInternal *p, const uint32_t
 
 FlashIndicationCb FlashIndicationJsonProxyReq = {
     portal_disconnect,
+    FlashIndicationJson_mergeDone,
+    FlashIndicationJson_mergeFlushDone,
     FlashIndicationJson_readDone,
     FlashIndicationJson_writeDone,
     FlashIndicationJson_eraseDone,
@@ -62,7 +88,7 @@ FlashIndicationCb FlashIndicationJsonProxyReq = {
 FlashIndicationCb *pFlashIndicationJsonProxyReq = &FlashIndicationJsonProxyReq;
 const char * FlashIndicationJson_methodSignatures()
 {
-    return "{\"writeDone\": [\"long\"], \"debugDumpResp\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"], \"readDone\": [\"long\"], \"eraseDone\": [\"long\", \"long\"]}";
+    return "{\"mergeFlushDone\": [\"long\"], \"readDone\": [\"long\"], \"eraseDone\": [\"long\", \"long\"], \"debugDumpResp\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"], \"writeDone\": [\"long\"], \"mergeDone\": [\"long\", \"long\", \"long\"]}";
 }
 
 int FlashIndicationJson_handleMessage(struct PortalInternal *p, unsigned int channel, int messageFd)
@@ -74,6 +100,14 @@ int FlashIndicationJson_handleMessage(struct PortalInternal *p, unsigned int cha
     memset(&tempdata, 0, sizeof(tempdata));
     Json::Value msg = Json::Value(connectalJsonReceive(p));
     switch (channel) {
+    case CHAN_NUM_FlashIndication_mergeDone: {
+        
+        ((FlashIndicationCb *)p->cb)->mergeDone(p, tempdata.mergeDone.numGenKt, tempdata.mergeDone.numInvalAddr, tempdata.mergeDone.counter);
+      } break;
+    case CHAN_NUM_FlashIndication_mergeFlushDone: {
+        
+        ((FlashIndicationCb *)p->cb)->mergeFlushDone(p, tempdata.mergeFlushDone.num);
+      } break;
     case CHAN_NUM_FlashIndication_readDone: {
         
         ((FlashIndicationCb *)p->cb)->readDone(p, tempdata.readDone.tag);

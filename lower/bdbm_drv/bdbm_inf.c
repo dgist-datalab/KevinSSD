@@ -146,12 +146,24 @@ void memio_show_info_(){
 	memio_show_info();
 }
 
+
 uint32_t memio_do_merge(uint32_t lp_num, ppa_t *lp_array, uint32_t hp_num,ppa_t *hp_array,ppa_t *tp_array, uint32_t* ktable_num, uint32_t *invliadate_num){
+	ppa_t * dma_hli=(ppa_t*)get_high_ppali();
+	ppa_t * dma_lli=(ppa_t*)get_low_ppali();
+	ppa_t * dma_rli=(ppa_t*)get_res_ppali();
 
+	memcpy(dma_hli,hp_array,sizeof(ppa_t)*hp_num);
+	memcpy(dma_lli,lp_array,sizeof(ppa_t)*lp_num);
+	memcpy(dma_rli,tp_array,sizeof(ppa_t)*(hp_num+lp_num));
+	memio_do_merge(hp_num,lp_num,(unsigned int*)ktable_num,(unsigned int*)invalidate_num);
+
+	//end
+	return 1;
 }
-char *memio_get_kt(){
 
+char *memio_get_kt(){
+	return (char*)get_merged_kt();
 }
 char *memio_get_inv(){
-
+	return (char*)get_inv_ppali();
 }

@@ -17,6 +17,9 @@ public:
     int eraseBlock ( const uint32_t bus, const uint32_t chip, const uint32_t block, const uint32_t tag ) { return cb->eraseBlock (&pint, bus, chip, block, tag); };
     int setDmaReadRef ( const uint32_t sgId ) { return cb->setDmaReadRef (&pint, sgId); };
     int setDmaWriteRef ( const uint32_t sgId ) { return cb->setDmaWriteRef (&pint, sgId); };
+    int startCompaction ( const uint32_t cntHigh, const uint32_t cntLow ) { return cb->startCompaction (&pint, cntHigh, cntLow); };
+    int setDmaKtPpaRef ( const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes ) { return cb->setDmaKtPpaRef (&pint, sgIdHigh, sgIdLow, sgIdRes); };
+    int setDmaKtOutputRef ( const uint32_t sgIdKtBuf, const uint32_t sgIdInvalPPA ) { return cb->setDmaKtOutputRef (&pint, sgIdKtBuf, sgIdInvalPPA); };
     int start ( const uint32_t dummy ) { return cb->start (&pint, dummy); };
     int debugDumpReq ( const uint32_t dummy ) { return cb->debugDumpReq (&pint, dummy); };
     int setDebugVals ( const uint32_t flag, const uint32_t debugDelay ) { return cb->setDebugVals (&pint, flag, debugDelay); };
@@ -45,6 +48,9 @@ public:
     virtual void eraseBlock ( const uint32_t bus, const uint32_t chip, const uint32_t block, const uint32_t tag ) = 0;
     virtual void setDmaReadRef ( const uint32_t sgId ) = 0;
     virtual void setDmaWriteRef ( const uint32_t sgId ) = 0;
+    virtual void startCompaction ( const uint32_t cntHigh, const uint32_t cntLow ) = 0;
+    virtual void setDmaKtPpaRef ( const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes ) = 0;
+    virtual void setDmaKtOutputRef ( const uint32_t sgIdKtBuf, const uint32_t sgIdInvalPPA ) = 0;
     virtual void start ( const uint32_t dummy ) = 0;
     virtual void debugDumpReq ( const uint32_t dummy ) = 0;
     virtual void setDebugVals ( const uint32_t flag, const uint32_t debugDelay ) = 0;

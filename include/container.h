@@ -81,7 +81,7 @@ struct request {
 };
 
 struct algo_req{
-	uint64_t ppa;
+	uint32_t ppa;
 	request * parents;
 	MeasureTime latency_lower;
 	uint8_t type;

@@ -1,5 +1,28 @@
 #include "GeneratedTypes.h"
 
+int FlashIndication_mergeDone ( struct PortalInternal *p, const uint32_t numGenKt, const uint32_t numInvalAddr, const uint64_t counter )
+{
+    volatile unsigned int* temp_working_addr_start = p->transport->mapchannelReq(p, CHAN_NUM_FlashIndication_mergeDone, 5);
+    volatile unsigned int* temp_working_addr = temp_working_addr_start;
+    if (p->transport->busywait(p, CHAN_NUM_FlashIndication_mergeDone, "FlashIndication_mergeDone")) return 1;
+    p->transport->write(p, &temp_working_addr, numGenKt);
+    p->transport->write(p, &temp_working_addr, numInvalAddr);
+    p->transport->write(p, &temp_working_addr, (counter>>32));
+    p->transport->write(p, &temp_working_addr, counter);
+    p->transport->send(p, temp_working_addr_start, (CHAN_NUM_FlashIndication_mergeDone << 16) | 5, -1);
+    return 0;
+};
+
+int FlashIndication_mergeFlushDone ( struct PortalInternal *p, const uint32_t num )
+{
+    volatile unsigned int* temp_working_addr_start = p->transport->mapchannelReq(p, CHAN_NUM_FlashIndication_mergeFlushDone, 2);
+    volatile unsigned int* temp_working_addr = temp_working_addr_start;
+    if (p->transport->busywait(p, CHAN_NUM_FlashIndication_mergeFlushDone, "FlashIndication_mergeFlushDone")) return 1;
+    p->transport->write(p, &temp_working_addr, num);
+    p->transport->send(p, temp_working_addr_start, (CHAN_NUM_FlashIndication_mergeFlushDone << 16) | 2, -1);
+    return 0;
+};
+
 int FlashIndication_readDone ( struct PortalInternal *p, const uint32_t tag )
 {
     volatile unsigned int* temp_working_addr_start = p->transport->mapchannelReq(p, CHAN_NUM_FlashIndication_readDone, 2);
@@ -48,6 +71,8 @@ int FlashIndication_debugDumpResp ( struct PortalInternal *p, const uint32_t deb
 
 FlashIndicationCb FlashIndicationProxyReq = {
     portal_disconnect,
+    FlashIndication_mergeDone,
+    FlashIndication_mergeFlushDone,
     FlashIndication_readDone,
     FlashIndication_writeDone,
     FlashIndication_eraseDone,
@@ -55,10 +80,10 @@ FlashIndicationCb FlashIndicationProxyReq = {
 };
 FlashIndicationCb *pFlashIndicationProxyReq = &FlashIndicationProxyReq;
 
-const uint32_t FlashIndication_reqinfo = 0x4001c;
+const uint32_t FlashIndication_reqinfo = 0x6001c;
 const char * FlashIndication_methodSignatures()
 {
-    return "{\"writeDone\": [\"long\"], \"debugDumpResp\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"], \"readDone\": [\"long\"], \"eraseDone\": [\"long\", \"long\"]}";
+    return "{\"mergeFlushDone\": [\"long\"], \"readDone\": [\"long\"], \"eraseDone\": [\"long\", \"long\"], \"debugDumpResp\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"], \"writeDone\": [\"long\"], \"mergeDone\": [\"long\", \"long\", \"long\"]}";
 }
 
 int FlashIndication_handleMessage(struct PortalInternal *p, unsigned int channel, int messageFd)
@@ -70,6 +95,26 @@ int FlashIndication_handleMessage(struct PortalInternal *p, unsigned int channel
     memset(&tempdata, 0, sizeof(tempdata));
     volatile unsigned int* temp_working_addr = p->transport->mapchannelInd(p, channel);
     switch (channel) {
+    case CHAN_NUM_FlashIndication_mergeDone: {
+        
+        p->transport->recv(p, temp_working_addr, 4, &tmpfd);
+        tmp = p->transport->read(p, &temp_working_addr);
+        tempdata.mergeDone.numGenKt = (uint32_t)(((tmp)&0xfffffffful));
+        tmp = p->transport->read(p, &temp_working_addr);
+        tempdata.mergeDone.numInvalAddr = (uint32_t)(((tmp)&0xfffffffful));
+        tmp = p->transport->read(p, &temp_working_addr);
+        tempdata.mergeDone.counter = (uint64_t)(((uint64_t)(((tmp)&0xfffffffful))<<32));
+        tmp = p->transport->read(p, &temp_working_addr);
+        tempdata.mergeDone.counter |= (uint64_t)(((tmp)&0xfffffffful));
+        ((FlashIndicationCb *)p->cb)->mergeDone(p, tempdata.mergeDone.numGenKt, tempdata.mergeDone.numInvalAddr, tempdata.mergeDone.counter);
+      } break;
+    case CHAN_NUM_FlashIndication_mergeFlushDone: {
+        
+        p->transport->recv(p, temp_working_addr, 1, &tmpfd);
+        tmp = p->transport->read(p, &temp_working_addr);
+        tempdata.mergeFlushDone.num = (uint32_t)(((tmp)&0xfffffffful));
+        ((FlashIndicationCb *)p->cb)->mergeFlushDone(p, tempdata.mergeFlushDone.num);
+      } break;
     case CHAN_NUM_FlashIndication_readDone: {
         
         p->transport->recv(p, temp_working_addr, 1, &tmpfd);

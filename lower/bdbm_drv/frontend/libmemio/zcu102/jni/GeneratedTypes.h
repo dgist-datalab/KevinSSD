@@ -214,10 +214,13 @@ int FlashRequest_writePage ( struct PortalInternal *p, const uint32_t bus, const
 int FlashRequest_eraseBlock ( struct PortalInternal *p, const uint32_t bus, const uint32_t chip, const uint32_t block, const uint32_t tag );
 int FlashRequest_setDmaReadRef ( struct PortalInternal *p, const uint32_t sgId );
 int FlashRequest_setDmaWriteRef ( struct PortalInternal *p, const uint32_t sgId );
+int FlashRequest_startCompaction ( struct PortalInternal *p, const uint32_t cntHigh, const uint32_t cntLow );
+int FlashRequest_setDmaKtPpaRef ( struct PortalInternal *p, const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes );
+int FlashRequest_setDmaKtOutputRef ( struct PortalInternal *p, const uint32_t sgIdKtBuf, const uint32_t sgIdInvalPPA );
 int FlashRequest_start ( struct PortalInternal *p, const uint32_t dummy );
 int FlashRequest_debugDumpReq ( struct PortalInternal *p, const uint32_t dummy );
 int FlashRequest_setDebugVals ( struct PortalInternal *p, const uint32_t flag, const uint32_t debugDelay );
-enum { CHAN_NUM_FlashRequest_readPage,CHAN_NUM_FlashRequest_writePage,CHAN_NUM_FlashRequest_eraseBlock,CHAN_NUM_FlashRequest_setDmaReadRef,CHAN_NUM_FlashRequest_setDmaWriteRef,CHAN_NUM_FlashRequest_start,CHAN_NUM_FlashRequest_debugDumpReq,CHAN_NUM_FlashRequest_setDebugVals};
+enum { CHAN_NUM_FlashRequest_readPage,CHAN_NUM_FlashRequest_writePage,CHAN_NUM_FlashRequest_eraseBlock,CHAN_NUM_FlashRequest_setDmaReadRef,CHAN_NUM_FlashRequest_setDmaWriteRef,CHAN_NUM_FlashRequest_startCompaction,CHAN_NUM_FlashRequest_setDmaKtPpaRef,CHAN_NUM_FlashRequest_setDmaKtOutputRef,CHAN_NUM_FlashRequest_start,CHAN_NUM_FlashRequest_debugDumpReq,CHAN_NUM_FlashRequest_setDebugVals};
 extern const uint32_t FlashRequest_reqinfo;
 
 typedef struct {
@@ -249,6 +252,19 @@ typedef struct {
     uint32_t sgId;
 } FlashRequest_setDmaWriteRefData;
 typedef struct {
+    uint32_t cntHigh;
+    uint32_t cntLow;
+} FlashRequest_startCompactionData;
+typedef struct {
+    uint32_t sgIdHigh;
+    uint32_t sgIdLow;
+    uint32_t sgIdRes;
+} FlashRequest_setDmaKtPpaRefData;
+typedef struct {
+    uint32_t sgIdKtBuf;
+    uint32_t sgIdInvalPPA;
+} FlashRequest_setDmaKtOutputRefData;
+typedef struct {
     uint32_t dummy;
 } FlashRequest_startData;
 typedef struct {
@@ -264,6 +280,9 @@ typedef union {
     FlashRequest_eraseBlockData eraseBlock;
     FlashRequest_setDmaReadRefData setDmaReadRef;
     FlashRequest_setDmaWriteRefData setDmaWriteRef;
+    FlashRequest_startCompactionData startCompaction;
+    FlashRequest_setDmaKtPpaRefData setDmaKtPpaRef;
+    FlashRequest_setDmaKtOutputRefData setDmaKtOutputRef;
     FlashRequest_startData start;
     FlashRequest_debugDumpReqData debugDumpReq;
     FlashRequest_setDebugValsData setDebugVals;
@@ -276,6 +295,9 @@ typedef struct {
     int (*eraseBlock) (  struct PortalInternal *p, const uint32_t bus, const uint32_t chip, const uint32_t block, const uint32_t tag );
     int (*setDmaReadRef) (  struct PortalInternal *p, const uint32_t sgId );
     int (*setDmaWriteRef) (  struct PortalInternal *p, const uint32_t sgId );
+    int (*startCompaction) (  struct PortalInternal *p, const uint32_t cntHigh, const uint32_t cntLow );
+    int (*setDmaKtPpaRef) (  struct PortalInternal *p, const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes );
+    int (*setDmaKtOutputRef) (  struct PortalInternal *p, const uint32_t sgIdKtBuf, const uint32_t sgIdInvalPPA );
     int (*start) (  struct PortalInternal *p, const uint32_t dummy );
     int (*debugDumpReq) (  struct PortalInternal *p, const uint32_t dummy );
     int (*setDebugVals) (  struct PortalInternal *p, const uint32_t flag, const uint32_t debugDelay );
@@ -287,19 +309,32 @@ int FlashRequestJson_writePage ( struct PortalInternal *p, const uint32_t bus, c
 int FlashRequestJson_eraseBlock ( struct PortalInternal *p, const uint32_t bus, const uint32_t chip, const uint32_t block, const uint32_t tag );
 int FlashRequestJson_setDmaReadRef ( struct PortalInternal *p, const uint32_t sgId );
 int FlashRequestJson_setDmaWriteRef ( struct PortalInternal *p, const uint32_t sgId );
+int FlashRequestJson_startCompaction ( struct PortalInternal *p, const uint32_t cntHigh, const uint32_t cntLow );
+int FlashRequestJson_setDmaKtPpaRef ( struct PortalInternal *p, const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes );
+int FlashRequestJson_setDmaKtOutputRef ( struct PortalInternal *p, const uint32_t sgIdKtBuf, const uint32_t sgIdInvalPPA );
 int FlashRequestJson_start ( struct PortalInternal *p, const uint32_t dummy );
 int FlashRequestJson_debugDumpReq ( struct PortalInternal *p, const uint32_t dummy );
 int FlashRequestJson_setDebugVals ( struct PortalInternal *p, const uint32_t flag, const uint32_t debugDelay );
 int FlashRequestJson_handleMessage(struct PortalInternal *p, unsigned int channel, int messageFd);
 extern FlashRequestCb FlashRequestJsonProxyReq;
 
+int FlashIndication_mergeDone ( struct PortalInternal *p, const uint32_t numGenKt, const uint32_t numInvalAddr, const uint64_t counter );
+int FlashIndication_mergeFlushDone ( struct PortalInternal *p, const uint32_t num );
 int FlashIndication_readDone ( struct PortalInternal *p, const uint32_t tag );
 int FlashIndication_writeDone ( struct PortalInternal *p, const uint32_t tag );
 int FlashIndication_eraseDone ( struct PortalInternal *p, const uint32_t tag, const uint32_t status );
 int FlashIndication_debugDumpResp ( struct PortalInternal *p, const uint32_t debug0, const uint32_t debug1, const uint32_t debug2, const uint32_t debug3, const uint32_t debug4, const uint32_t debug5 );
-enum { CHAN_NUM_FlashIndication_readDone,CHAN_NUM_FlashIndication_writeDone,CHAN_NUM_FlashIndication_eraseDone,CHAN_NUM_FlashIndication_debugDumpResp};
+enum { CHAN_NUM_FlashIndication_mergeDone,CHAN_NUM_FlashIndication_mergeFlushDone,CHAN_NUM_FlashIndication_readDone,CHAN_NUM_FlashIndication_writeDone,CHAN_NUM_FlashIndication_eraseDone,CHAN_NUM_FlashIndication_debugDumpResp};
 extern const uint32_t FlashIndication_reqinfo;
 
+typedef struct {
+    uint32_t numGenKt;
+    uint32_t numInvalAddr;
+    uint64_t counter;
+} FlashIndication_mergeDoneData;
+typedef struct {
+    uint32_t num;
+} FlashIndication_mergeFlushDoneData;
 typedef struct {
     uint32_t tag;
 } FlashIndication_readDoneData;
@@ -319,6 +354,8 @@ typedef struct {
     uint32_t debug5;
 } FlashIndication_debugDumpRespData;
 typedef union {
+    FlashIndication_mergeDoneData mergeDone;
+    FlashIndication_mergeFlushDoneData mergeFlushDone;
     FlashIndication_readDoneData readDone;
     FlashIndication_writeDoneData writeDone;
     FlashIndication_eraseDoneData eraseDone;
@@ -327,6 +364,8 @@ typedef union {
 int FlashIndication_handleMessage(struct PortalInternal *p, unsigned int channel, int messageFd);
 typedef struct {
     PORTAL_DISCONNECT disconnect;
+    int (*mergeDone) (  struct PortalInternal *p, const uint32_t numGenKt, const uint32_t numInvalAddr, const uint64_t counter );
+    int (*mergeFlushDone) (  struct PortalInternal *p, const uint32_t num );
     int (*readDone) (  struct PortalInternal *p, const uint32_t tag );
     int (*writeDone) (  struct PortalInternal *p, const uint32_t tag );
     int (*eraseDone) (  struct PortalInternal *p, const uint32_t tag, const uint32_t status );
@@ -334,6 +373,8 @@ typedef struct {
 } FlashIndicationCb;
 extern FlashIndicationCb FlashIndicationProxyReq;
 
+int FlashIndicationJson_mergeDone ( struct PortalInternal *p, const uint32_t numGenKt, const uint32_t numInvalAddr, const uint64_t counter );
+int FlashIndicationJson_mergeFlushDone ( struct PortalInternal *p, const uint32_t num );
 int FlashIndicationJson_readDone ( struct PortalInternal *p, const uint32_t tag );
 int FlashIndicationJson_writeDone ( struct PortalInternal *p, const uint32_t tag );
 int FlashIndicationJson_eraseDone ( struct PortalInternal *p, const uint32_t tag, const uint32_t status );
