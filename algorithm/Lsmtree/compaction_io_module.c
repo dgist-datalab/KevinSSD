@@ -136,7 +136,7 @@ uint32_t compaction_bg_htable_write(ppa_t ppa,htable *input, KEYT lpa){
 	lsm_io_sched_push(SCHED_HWRITE,(void*)areq);
 	return ppa;
 }
-
+/*
 extern uint32_t hw_comp_read_cnt;
 void *hw_end_req(struct algo_req *const req){
 	lsm_params *params=(lsm_params*)req->params;
@@ -174,4 +174,4 @@ uint32_t compaction_htable_hw_read(run_t *ent){
 	LSM.li->read(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
 
 	return ent->cpt_data->origin->dmatag;
-}
+}*/

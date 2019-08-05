@@ -26,7 +26,6 @@
 #include <linux/module.h>
 
 #elif defined (USER_MODE)
-#include <stdio.h>
 #include <stdint.h>
 
 #else
@@ -183,15 +182,13 @@ class FlashIndication: public FlashIndicationWrapper {
 		FlashIndication (unsigned int id) : FlashIndicationWrapper (id) { }
 
 		virtual void mergeDone(unsigned int numMergedKt, uint32_t numInvalAddr, uint64_t counter) {
-			printf("ack done!\n");
 			merge_req.kt_num=numMergedKt;
-			merge_req.inv_num=numInvaladdr;
-			sem_post(&merge_req.lock);
-			sem_destroy(&merge_req.lock);
+			merge_req.inv_num=numInvalAddr;
+			sem_post(&merge_req.merge_lock);
+			sem_destroy(&merge_req.merge_lock);
 		}
 
 		virtual void mergeFlushDone(unsigned int num) {
-			printf("flush done!\n");
 			// num does not mean anything
 		}
 
@@ -326,11 +323,11 @@ uint32_t __dm_nohost_init_device (
 	srcBuffer = (unsigned int*)srcDmaBuffer->buffer();
 	dstBuffer = (unsigned int*)dstDmaBuffer->buffer();
 
-	highPpaList_buffer=(unsigned int*)lowPpaList->buffer();
-	lowPpaList_buffer=(unsigned int*)lowPpaList->buffer();
-	lowPpaList_buffer=(unsigned int*)lowPpaList->buffer();
-	lowPpaList_buffer=(unsigned int*)lowPpaList->buffer();
-	lowPpaList_buffer=(unsigned int*)lowPpaList->buffer();
+	highPpaList_Buffer=(unsigned int*)highPpaList->buffer();
+	lowPpaList_Buffer=(unsigned int*)lowPpaList->buffer();
+	resPpaList_Buffer=(unsigned int*)resPpaList->buffer();
+	invPpaList_Buffer=(unsigned int*)invalPpaList->buffer();
+	mergeKt_Buffer=(unsigned int*)mergedKtBuf->buffer();
 
 	fprintf(stderr, "USE_ACP = FALSE\n");
 
@@ -798,9 +795,9 @@ void free_dmaQ_tag (int type, int dmaTag) {
 }
 
 int dm_do_merge(unsigned int ht_num, unsigned int lt_num, unsigned int *kt_num, unsigned int *inv_num){
-	sem_init(&merge_req.lock,0);
+	sem_init(&merge_req.merge_lock,0,0);
 	device->startCompaction(ht_num,lt_num);
-	sem_wait(&merge_req.lock);
+	sem_wait(&merge_req.merge_lock);
 	*kt_num=merge_req.kt_num;
 	*inv_num=merge_req.inv_num;
 	return 1;

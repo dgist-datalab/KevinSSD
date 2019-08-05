@@ -1,8 +1,7 @@
 #include "../../include/settings.h"
-#include "../../bench/bench.h"
 #include "../../bench/measurement.h"
-#include "../../include/container.h"
 #include "frontend/libmemio/libmemio.h"
+#include "devices/nohost/dm_nohost.h"
 #include "bdbm_inf.h"
 #include <unistd.h>
 #include <stdlib.h>
@@ -147,7 +146,7 @@ void memio_show_info_(){
 }
 
 
-uint32_t memio_do_merge(uint32_t lp_num, ppa_t *lp_array, uint32_t hp_num,ppa_t *hp_array,ppa_t *tp_array, uint32_t* ktable_num, uint32_t *invliadate_num){
+uint32_t memio_do_merge(uint32_t lp_num, ppa_t *lp_array, uint32_t hp_num,ppa_t *hp_array,ppa_t *tp_array, uint32_t* ktable_num, uint32_t *invalidate_num){
 	ppa_t * dma_hli=(ppa_t*)get_high_ppali();
 	ppa_t * dma_lli=(ppa_t*)get_low_ppali();
 	ppa_t * dma_rli=(ppa_t*)get_res_ppali();

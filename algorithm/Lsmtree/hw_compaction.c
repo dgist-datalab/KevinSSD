@@ -63,6 +63,7 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	KEYT start, end;
 	uint16_t *body;
 	for(int i=0; i<ktable_num; i++){
+		LSM.lop->header_print(&kt[i*PAGESIZE]);
 		char *kt_start=&kt[i*PAGESIZE];
 		body=(uint16_t*)kt_start;
 		start.len=body[2]-body[1];

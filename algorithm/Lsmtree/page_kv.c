@@ -369,7 +369,7 @@ void* gc_data_end_req(struct algo_req*const req){
 	#else
 	char *target;
 	target=(PTR)params->target;
-	memcpy(target,params->params->value->value,PAGESIZE);
+	memcpy(target,params->value->value,PAGESIZE);
 	#endif
 	inf_free_valueset(params->value,FS_MALLOC_R);
 	g_target->status=READDONE;
