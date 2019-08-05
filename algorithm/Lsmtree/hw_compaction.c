@@ -63,15 +63,14 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	KEYT start, end;
 	uint16_t *body;
 	for(int i=0; i<ktable_num; i++){
-		LSM.lop->header_print(&kt[i*PAGESIZE]);
 		char *kt_start=&kt[i*PAGESIZE];
 		body=(uint16_t*)kt_start;
 		start.len=body[2]-body[1];
-		start.key=&kt_start[body[1]];
+		start.key=&kt_start[body[1]+sizeof(ppa_t)];
 
 		uint32_t num=body[0];
 		end.len=body[num+1]-body[num];
-		end.key=&kt_start[num];
+		end.key=&kt_start[body[num]+sizeof(ppa_t)];
 
 		entry=LSM.lop->make_run(start,end,tp_array[i]);
 		LSM.lop->insert(t,entry);

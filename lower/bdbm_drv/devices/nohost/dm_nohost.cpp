@@ -184,12 +184,13 @@ class FlashIndication: public FlashIndicationWrapper {
 		virtual void mergeDone(unsigned int numMergedKt, uint32_t numInvalAddr, uint64_t counter) {
 			merge_req.kt_num=numMergedKt;
 			merge_req.inv_num=numInvalAddr;
-			sem_post(&merge_req.merge_lock);
-			sem_destroy(&merge_req.merge_lock);
+
 		}
 
 		virtual void mergeFlushDone(unsigned int num) {
 			// num does not mean anything
+			sem_post(&merge_req.merge_lock);
+			sem_destroy(&merge_req.merge_lock);
 		}
 
 		virtual void readDone (unsigned int tag){ //, unsigned int status) {
