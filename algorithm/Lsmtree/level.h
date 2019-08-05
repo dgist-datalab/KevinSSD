@@ -182,6 +182,7 @@ typedef struct level_ops{
 	
 	uint32_t (*get_level_mem_size)(level *);
 	/*for debugging*/
+	void (*checking_each_key)(char *data,void*(*test)(KEYT a));
 	void (*check_order)(level *);
 	void (*print)( level*);
 	void (*print_run)(run_t *);

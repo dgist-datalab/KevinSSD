@@ -76,6 +76,7 @@ level_ops a_ops={
 	.get_lpa_from_data=array_get_lpa_from_data,
 #endif
 	.get_level_mem_size=array_get_level_mem_size,
+	.checking_each_key=array_checking_each_key,
 	.check_order=array_check_order,
 	.print=array_print,
 	.print_run=array_print_run,

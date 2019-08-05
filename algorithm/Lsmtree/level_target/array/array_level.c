@@ -706,3 +706,14 @@ void array_normal_merger(skiplist *skip,run_t *r,bool iswP){
 
 }
 
+
+void array_checking_each_key(char *data,void*(*test)(KEYT a)){
+	ppa_t *ppa_ptr;
+	KEYT key;
+	int idx;
+	uint16_t *bitmap=(uint16_t *)data;
+	for_each_header_start(idx,key,ppa_ptr,bitmap,data)
+		test(key);
+	for_each_header_end
+}
+
