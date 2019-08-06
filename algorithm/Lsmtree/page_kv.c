@@ -102,11 +102,13 @@ int gc_header(){
 
 		if(!checkdone && LSM.c_level){
 			entries=LSM.lop->find_run(LSM.c_level,*lpa);
-			for(int k=0; entries[k]!=NULL; k++){
-				if(entries[k]->pbn==tpage){
-					checkdone=true;
-					shouldwrite=true;
-					target_entry=entries[k];
+			if(entries){
+				for(int k=0; entries[k]!=NULL; k++){
+					if(entries[k]->pbn==tpage){
+						checkdone=true;
+						shouldwrite=true;
+						target_entry=entries[k];
+					}
 				}
 			}
 			free(entries);
@@ -204,7 +206,7 @@ int gc_data(){
 }
 int __gc_data(){
 	static int gc_d_cnt=0;
-	//printf("%d gc_data!\n",gc_d_cnt++);
+	printf("%d gc_data!\n",gc_d_cnt++);
 	/*
 	if(gc_d_cnt==27){
 		LSM.debug_flag=true;
@@ -383,6 +385,7 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 	uint8_t result=0;
 	run_t *now=NULL;
 	keyset *found=NULL;
+	static int cnt=0;
 retry:
 	result=lsm_find_run(g->lpa,&now,&found,&params->level,&params->run);
 	switch(result){
@@ -431,6 +434,7 @@ retry:
 			break;
 		case NOTFOUND:
 			printf("lpa: %.*s ppa:%u\n",KEYFORMAT(g->lpa),g->ppa);
+			LSM.lop->all_print();
 			abort();
 			break;
 	}
@@ -489,7 +493,7 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 #ifdef NOCPY
 				p->found2=LSM.lop->find_keyset((char*)ent->cache_nocpy_data_ptr,target->lpa);
 #else
-				p->found2=LSM.lop->find_keyset((char*)ent->cache_data,target->lpa);
+				p->found2=LSM.lop->find_keyset((char*)ent->cache_data->sets,target->lpa);
 #endif
 			}
 			else

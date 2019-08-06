@@ -9,6 +9,7 @@
 
 extern MeasureTime mt;
 struct algorithm page_ftl={
+	.argument_set=NULL,
 	.create=page_create,
 	.destroy=page_destroy,
 	.read=page_read,
@@ -49,7 +50,7 @@ uint32_t page_write(request *const req){
 	my_req->type=DATAW;
 	my_req->params=(void*)params;
 
-	memcpy(req->value->value,req->key,sizeof(req->key));
+	memcpy(req->value->value,&req->key,sizeof(req->key));
 	page_ftl.li->write(page_map_assign(req->key),PAGESIZE,req->value,req->isAsync,my_req);
 	return 0;
 }

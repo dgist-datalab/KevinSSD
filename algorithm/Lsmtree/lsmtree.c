@@ -243,7 +243,6 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 extern uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
 extern uint32_t all_kn_run,run_num;
 void lsm_destroy(lower_info *li, algorithm *lsm){
-	//LSM.lop->all_print();
 	lsm_debug_print();
 	compaction_free();
 	free(LSM.size_factor_change);
@@ -486,12 +485,13 @@ uint32_t lsm_proc_re_q(){
 				tmp_req->type=FS_NOTFOUND_T;
 				tmp_req->end_req(tmp_req);
 				//tmp_req->type=tmp_req->type==FS_GET_T?FS_NOTFOUND_T:tmp_req->type;
-				/*
+				if(nor==0){	
 #ifdef KVSSD
 				printf("not found seq: %d, key:%.*s\n",nor++,KEYFORMAT(tmp_req->key));
 #else
 				printf("not found seq: %d, key:%u\n",nor++,tmp_req->key);
-#endif*/
+#endif
+				}
 			}
 		}
 		else 
@@ -512,7 +512,6 @@ uint32_t lsm_get(request *const req){
 	}
 	lsm_proc_re_q();
 	if(!temp){
-	//	LSM.lop->all_print();
 		//printf("nocpy size:%d\n",nocpy_size()/M);
 		//printf("lsmtree size:%d\n",lsm_memory_size()/M);
 		temp=true;
@@ -523,12 +522,13 @@ uint32_t lsm_get(request *const req){
 	}
 	if(unlikely(res_type==0)){
 		free(req->params);
-		/*
+		if(nor==0){
 #ifdef KVSSD
 		printf("not found seq: %d, key:%.*s\n",nor++,KEYFORMAT(req->key));
 #else
 		printf("not found seq: %d, key:%u\n",nor++,req->key);
-#endif*/
+#endif
+		}
 	
 	//	LSM.lop->all_print();
 		req->type=req->type==FS_GET_T?FS_NOTFOUND_T:req->type;

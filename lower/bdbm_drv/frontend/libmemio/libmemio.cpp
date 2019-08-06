@@ -62,7 +62,7 @@ bdbm_llm_inf_t _bdbm_llm_inf = {
 	.end_req = __dm_intr_handler, 
 };
 
-static bdbm_llm_req_t* __memio_alloc_llm_req (memio_t* mio);
+static bdbm_llm_req_t* __memio_alloc_llm_req (memio_t* mio,bool);
 static void __memio_free_llm_req (memio_t* mio, bdbm_llm_req_t* r);
 
 int req_cnt=0;
@@ -192,7 +192,7 @@ fail:
 	return NULL;
 }
 
-static bdbm_llm_req_t* __memio_alloc_llm_req (memio_t* mio)
+static bdbm_llm_req_t* __memio_alloc_llm_req (memio_t* mio, bool read)
 {
 	int i = 0;
 	bdbm_llm_req_t* r = NULL;
@@ -250,7 +250,7 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 	/* fill up logaddr; note that phyaddr is not used here */
 	while (cur_lba < lba + (len/mio->io_size)) {
 		/* get an empty llm_req */
-		r = __memio_alloc_llm_req (mio);
+		r = __memio_alloc_llm_req (mio,dir==0);
 
 		bdbm_bug_on (!r);
 		r->path_type=0;
@@ -364,7 +364,7 @@ int memio_trim (memio_t* mio, uint32_t lba, uint64_t len, void *(*end_req)(uint6
 		//bdbm_msg ("segment #: %d", cur_lba / mio->trim_lbas);
 		for (i = 0; i < mio->nr_punits; i++) {
 			/* get an empty llm_req */
-			r = __memio_alloc_llm_req (mio);
+			r = __memio_alloc_llm_req (mio,false);
 			r->bad_seg_func=end_req;
 
 			bdbm_bug_on (!r);
@@ -402,7 +402,7 @@ int memio_trim_a_block (memio_t* mio, uint32_t lba)
 	int ret, i;
 
 	/* fill up logaddr; note that phyaddr is not used here */
-	r = __memio_alloc_llm_req (mio);
+	r = __memio_alloc_llm_req (mio,false);
 	r->bad_seg_func=NULL;
 
 	bdbm_bug_on (!r);

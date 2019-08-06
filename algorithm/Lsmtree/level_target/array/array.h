@@ -140,7 +140,7 @@ keyset *array_key_iter_nxt(keyset_iter *,keyset *);
 run_t *array_p_merger_cutter(skiplist *,run_t **, run_t **,float);
 void array_normal_merger(skiplist *,run_t *r,bool);
 //void array_multi_cutter(skiplist *,KEYT, bool just_one);
-void array_checking_each_key(char *data,void*(*test)(KEYT a));
+void array_checking_each_key(char *data,void*(*test)(KEYT a,ppa_t ppa));
 //run_t *array_lsm_lower_bound_run(lsmtree *lsm, KEYT lpa);
 uint32_t array_get_level_mem_size(level *lev);
 void array_check_order(level *);

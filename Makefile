@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=linux_aio
+TARGET_LOWER=bdbm_drv
 TARGET_ALGO=Lsmtree
 TARGET_BM=partition
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
@@ -22,10 +22,10 @@ export COMMONFLAGS=\
 			-DLARGEFILE64_SOURCE\
 			-D_GNU_SOURCE\
 			-DSLC\
-			-DKVSSD\
 			-D$(TARGET_BM)\
 			-Wno-unused-but-set-variable\
 			-DCHECKINGTIME\
+			-DKVSSD\
 #		-O3\
 #			-DWRITESYNC\
 

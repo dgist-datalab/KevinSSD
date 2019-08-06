@@ -12,7 +12,7 @@
 //#define LEVELN 2
 
 #if LEVELN!=1
-#define BLOOM
+//#define BLOOM
 //#define MONKEY
 #endif
 
@@ -22,7 +22,7 @@
 //#define LEVELCACHING 0
 #define CACHINGSIZE CACHING_RATIO
 #define READCACHE
-#define NOCPY
+//#define NOCPY
 #define RANGEGETNUM 2
 //#define USINGSLAB
 

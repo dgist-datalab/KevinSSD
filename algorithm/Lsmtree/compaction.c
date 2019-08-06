@@ -86,6 +86,12 @@ bool level_sequencial(level *from, level *to,level *des, run_t *entry,leveling_n
 	return true;
 }
 
+static void *testing(KEYT test, ppa_t ppa){
+	if(ppa > 9000000){
+		printf("break!\n");
+	}
+	return NULL;
+}
 uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *lock){
 	if(to->idx<LSM.LEVELCACHING){
 		uint32_t tres=level_caching(from, to, l_node?l_node->mem:NULL,lock);
@@ -124,6 +130,7 @@ last:
 	uint32_t res=level_change(from,to,target,lock);
 	//printf("ending\n");
 	LSM.c_level=NULL;
+	//LSM.lop->print_level_summary();
 	//LSM.lop->all_print();
 	return res;
 }

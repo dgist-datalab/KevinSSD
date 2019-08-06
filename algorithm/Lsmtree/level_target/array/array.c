@@ -496,7 +496,7 @@ void array_print(level *lev){
 	for(int i=0; i<lev->n_num;i++){
 		run_t *rtemp=&arrs[i];
 #ifdef KVSSD
-		printf("[%d]%.*s~%.*s(%lu)-ptr:%p cached:%s wait:%d iscomp:%d\n",i,KEYFORMAT(rtemp->key),KEYFORMAT(rtemp->end),rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx,rtemp->iscompactioning);
+		printf("[%d]%.*s~%.*s(%u)-ptr:%p cached:%s wait:%d iscomp:%d\n",i,KEYFORMAT(rtemp->key),KEYFORMAT(rtemp->end),rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx,rtemp->iscompactioning);
 #else
 		printf("[%d]%d~%d(%d)-ptr:%p cached:%s wait:%d\n",i,rtemp->key,rtemp->end,rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx);,
 #endif
@@ -706,6 +706,9 @@ void array_print_level_summary(){
 			printf("[%d:lev caching] n_num:%d m_num:%d %.*s ~ %.*s\n",i+1,array_cache_get_sz(LSM.disk[i]),LSM.disk[i]->m_num,KEYFORMAT(LSM.disk[i]->start),KEYFORMAT(LSM.disk[i]->end));
 		}
 		else{
+			if(LSM.disk[i]->n_num==0){
+				printf("[%d] n_num:%d m_num:%d\n",i+1,LSM.disk[i]->n_num,LSM.disk[i]->m_num);
+			}
 			printf("[%d] n_num:%d m_num:%d %.*s ~ %.*s\n",i+1,LSM.disk[i]->n_num,LSM.disk[i]->m_num,KEYFORMAT(LSM.disk[i]->start),KEYFORMAT(LSM.disk[i]->end));
 		}
 	}	

@@ -126,7 +126,6 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	uint16_t *bitmap;
 	char *body;
 	int idx;
-	int ppa_cnt=0;
 	snode *t_node;
 	for(int i=0; o[i]!=NULL; i++){
 		body=data_from_run(o[i]);
@@ -206,7 +205,6 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 	uint32_t length=0;
 	snode *temp;
 
-	int ppa_cnt=0;
 	do{	
 		temp=skiplist_pop(src_skip);
 		memcpy(&ptr[data_start],&temp->ppa,sizeof(temp->ppa));
@@ -428,7 +426,7 @@ void array_header_print(char *data){
 			abort();
 		}*/
 #ifdef DVALUE
-		fprintf(stderr,"[%d:%d] key(%p):%.*s(%d) ,%lu\n",idx,bitmap[idx],&data[bitmap[idx]],key.len,key.key,key.len,*ppa);
+		fprintf(stderr,"[%d:%d] key(%p):%.*s(%d) ,%u\n",idx,bitmap[idx],&data[bitmap[idx]],key.len,key.key,key.len,*ppa);
 #else
 		fprintf(stderr,"[%d:%d] key(%p):%.*s(%d) ,%u\n",idx,bitmap[idx],&data[bitmap[idx]],key.len,key.key,key.len,*ppa);
 #endif
@@ -707,13 +705,13 @@ void array_normal_merger(skiplist *skip,run_t *r,bool iswP){
 }
 
 
-void array_checking_each_key(char *data,void*(*test)(KEYT a)){
+void array_checking_each_key(char *data,void*(*test)(KEYT a, ppa_t pa)){
 	ppa_t *ppa_ptr;
 	KEYT key;
 	int idx;
 	uint16_t *bitmap=(uint16_t *)data;
 	for_each_header_start(idx,key,ppa_ptr,bitmap,data)
-		test(key);
+		test(key,*ppa_ptr);
 	for_each_header_end
 }
 

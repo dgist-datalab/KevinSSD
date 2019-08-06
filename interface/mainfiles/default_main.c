@@ -18,13 +18,13 @@ int main(int argc,char* argv[]){
 	   if not, set the parameter as true.
 	   the second parameter is not used in anycase.
 	 */
-	inf_init(0,0);
+	inf_init(0,0,0,NULL);
 	
 	/*initialize the cutom bench mark*/
 	bench_init();
 
 	/*adding benchmark type for testing*/
-	bench_add(RANDRW,0,RANGE,REQNUM);
+	bench_add(RANDRW,0,RANGE,REQNUM*2);
 
 	bench_value *value;
 	while((value=get_bench())){
