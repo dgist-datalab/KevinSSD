@@ -4,6 +4,7 @@
 
 #include "demand.h"
 #include "page.h"
+#include "utility.h"
 #include "../../interface/interface.h"
 
 extern algorithm __demand;
@@ -27,18 +28,6 @@ int page_create(blockmanager *bm) {
 
 	return 0;
 }
-
-#ifdef HASH_KVSSD
-static void copy_key_from_value_to_value(value_set *dst, value_set *src) {
-	uint8_t len = *(uint8_t *)src->value;
-	memcpy(dst->value, src->value, sizeof(uint8_t));
-	memcpy(dst->value+1, src->value+1, len);
-}
-#endif
-
-uint32_t *get_lpa_list_from_oob(blockmanager *bm, uint32_t ppa) { return (uint32_t *)bm->get_oob(bm, ppa); }
-
-extern struct algo_req *make_algo_req_default(uint8_t type, value_set *value);
 
 static int _do_bulk_read_valid_pages(blockmanager *bm, struct gc_table_struct **bulk_table, __gsegment *target_seg, bool is_data) {
 	__block *target_blk = NULL;
@@ -74,7 +63,7 @@ static int _do_bulk_write_valid_pages(blockmanager *bm, struct gc_table_struct *
 		ppa_t new_ppa = bm->get_page_num(bm, (is_data) ? d_reserve : t_reserve);
 		value_set *new_vs = inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
 #ifdef HASH_KVSSD
-		if (is_data) copy_key_from_value_to_value(new_vs, bulk_table[i]->origin);
+		if (is_data) copy_value_onlykey(new_vs, bulk_table[i]->origin);
 #endif
 		__demand.li->write(new_ppa, PAGESIZE, new_vs, ASYNC, make_algo_req_default((is_data) ? GCDW : GCMW, new_vs));
 

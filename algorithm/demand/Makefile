@@ -9,6 +9,7 @@ SRCS +=\
 		range.c\
 		dvalue.c\
 		dvalue_gc.c\
+		utility.c\
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\

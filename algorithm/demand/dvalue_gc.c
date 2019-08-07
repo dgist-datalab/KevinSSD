@@ -6,6 +6,7 @@
 
 #include "demand.h"
 #include "page.h"
+#include "utility.h"
 #include "../../interface/interface.h"
 
 extern algorithm __demand;
@@ -18,14 +19,14 @@ extern __segment *d_active;
 extern __segment *d_reserve;
 
 struct gc_bucket_node {
-    PTR ptr;
-    int32_t lpa;
-    int32_t ppa;
+	PTR ptr;
+	int32_t lpa;
+	int32_t ppa;
 };
 
 struct gc_bucket {
-    struct gc_bucket_node bucket[PAGESIZE/GRAINED_UNIT+1][_PPS*GRAIN_PER_PAGE];
-    uint16_t idx[PAGESIZE/GRAINED_UNIT+1];
+	struct gc_bucket_node bucket[PAGESIZE/GRAINED_UNIT+1][_PPS*GRAIN_PER_PAGE];
+	uint16_t idx[PAGESIZE/GRAINED_UNIT+1];
 };
 
 extern struct algo_req *make_algo_req_default(uint8_t, value_set *);
@@ -46,7 +47,7 @@ _do_bulk_read_pages_containing_valid_grain
 
 			bulk_table[i] = (struct gc_table_struct *)malloc(sizeof(struct gc_table_struct));
 			bulk_table[i]->origin   = origin;
-			bulk_table[i]->lpa_list = (lpa_t *)bm->get_oob(bm, ppa);
+			//bulk_table[i]->lpa_list = (lpa_t *)bm->get_oob(bm, ppa);
 			bulk_table[i]->ppa      = ppa;
 
 			i++;
@@ -75,14 +76,16 @@ _do_bulk_write_valid_grains
 			pga_t pga = bulk_table[i]->ppa * GRAIN_PER_PAGE + j;
 			if (is_valid_grain(pga)) {
 				int len = 1;
-				lpa_t *lpa_list = bulk_table[i]->lpa_list;
+				//lpa_t *lpa_list = bulk_table[i]->lpa_list;
+				lpa_t *lpa_list = get_oob(bm, pga/GRAIN_PER_PAGE);
 
-				while (j+len < GRAIN_PER_PAGE && lpa_list[j+len] == UINT32_MAX) { len++; }
+				//while (j+len < GRAIN_PER_PAGE && lpa_list[j+len] == UINT32_MAX) { len++; }
+				while (j+len < GRAIN_PER_PAGE && lpa_list[j+len] == 0) { len++; }
 
 				struct gc_bucket_node *gcb_node = &gc_bucket->bucket[len][gc_bucket->idx[len]];
 				gcb_node->ptr = bulk_table[i]->origin->value + j*GRAINED_UNIT;
 				gcb_node->lpa = lpa_list[j];
-				if (unlikely(lpa_list[j] == UINT32_MAX)) abort();
+				if (unlikely(lpa_list[j] == 0)) abort();
 
 				gc_bucket->idx[len]++;
 
@@ -91,6 +94,7 @@ _do_bulk_write_valid_grains
 				invalidate_grain(bm, pga);
 			}
 		}
+		if (unlikely(contains_valid_grain(bm, bulk_table[i]->ppa))) abort();
 	}
 
 	int ordering_done = 0, copied_pages = 0;
@@ -101,8 +105,8 @@ _do_bulk_write_valid_grains
 		ppa_t ppa = bm->get_page_num(bm, d_reserve);
 		int offset = 0;
 
-		lpa_t *lpa_list = (lpa_t *)calloc(GRAIN_PER_PAGE, sizeof(lpa_t));
-		for (int i = 0; i < GRAIN_PER_PAGE; i++) lpa_list[i] = UINT32_MAX;
+		//lpa_t *lpa_list = (lpa_t *)calloc(GRAIN_PER_PAGE, sizeof(lpa_t));
+		//for (int i = 0; i < GRAIN_PER_PAGE; i++) lpa_list[i] = UINT32_MAX;
 
 		while (remain > 0) {
 			int target_length = remain / GRAINED_UNIT;
@@ -112,21 +116,24 @@ _do_bulk_write_valid_grains
 			struct gc_bucket_node *gcb_node = &gc_bucket->bucket[target_length][gc_bucket->idx[target_length]-1];
 			gc_bucket->idx[target_length]--;
 
-            gcb_node->ppa = ppa * GRAIN_PER_PAGE + offset;
-            memcpy(&page[offset*GRAINED_UNIT], gcb_node->ptr, target_length*GRAINED_UNIT);
+			gcb_node->ppa = ppa * GRAIN_PER_PAGE + offset;
+			memcpy(&page[offset*GRAINED_UNIT], gcb_node->ptr, target_length*GRAINED_UNIT);
 
-			lpa_list[offset] = gcb_node->lpa;
+			//lpa_list[offset] = gcb_node->lpa;
+			set_oob(bm, gcb_node->lpa, ppa, offset);
 
-            offset += target_length;
-            remain -= target_length * GRAINED_UNIT;
+			offset += target_length;
+			remain -= target_length * GRAINED_UNIT;
 
-            ordering_done++;
-            validate_grain(bm, gcb_node->ppa);
+			ordering_done++;
+			validate_grain(bm, gcb_node->ppa);
+
+			//if (remain > 0) abort();
 		}
 		__demand.li->write(ppa, PAGESIZE, _value_dgcw, ASYNC, make_algo_req_default(GCDW, _value_dgcw));
-		bm->populate_bit(bm, ppa);
-		bm->set_oob(bm, (char *)lpa_list, 64, ppa);
-		free(lpa_list);
+		//bm->populate_bit(bm, ppa);
+		//bm->set_oob(bm, (char *)lpa_list, 64, ppa);
+		//free(lpa_list);
 
 		copied_pages++;
 	}
@@ -157,10 +164,11 @@ static int _do_bulk_mapping_update(blockmanager *bm, int nr_valid_grains) {
 
 			if (bm->is_valid_page(bm, cmt->t_ppa)) {
 				bm->unpopulate_bit(bm, cmt->t_ppa);
+				cmt->t_ppa = UINT32_MAX;
 			}
 			nr_update_tpages++;
 
-			while (i+1 < nr_valid_grains && IDX(gcb_node_arr[i]->lpa) == cmt->idx) {
+			while (i+1 < nr_valid_grains && IDX(gcb_node_arr[i+1]->lpa) == cmt->idx) {
 				i++;
 			}
 		}
@@ -175,9 +183,14 @@ static int _do_bulk_mapping_update(blockmanager *bm, int nr_valid_grains) {
 		struct cmt_struct *cmt = member.cmt[IDX(gcb_node_arr[i]->lpa)];
 		struct pt_struct *pt = member.mem_table[cmt->idx];
 
-		pt[OFFSET(gcb_node_arr[i]->lpa)].ppa = gcb_node_arr[i]->ppa;
-		while (i+1 < nr_valid_grains && IDX(gcb_node_arr[i]->lpa) == cmt->idx) {
+/*		while (i < nr_valid_grains && IDX(gcb_node_arr[i]->lpa) == cmt->idx) {
 			pt[OFFSET(gcb_node_arr[i]->lpa)].ppa = gcb_node_arr[i]->ppa;
+			i++;
+		} */
+
+		pt[OFFSET(gcb_node_arr[i]->lpa)].ppa = gcb_node_arr[i]->ppa;
+		while (i+1 < nr_valid_grains && IDX(gcb_node_arr[i+1]->lpa) == cmt->idx) {
+			pt[OFFSET(gcb_node_arr[i+1]->lpa)].ppa = gcb_node_arr[i+1]->ppa;
 			i++;
 		}
 
@@ -186,7 +199,8 @@ static int _do_bulk_mapping_update(blockmanager *bm, int nr_valid_grains) {
 		__demand.li->write(cmt->t_ppa, PAGESIZE, _value_mw, ASYNC, make_algo_req_default(GCMW_DGC, _value_mw));
 
 		bm->populate_bit(bm, cmt->t_ppa);
-		bm->set_oob(bm, (char *)&cmt->idx, sizeof(cmt->idx), cmt->t_ppa);
+		//bm->set_oob(bm, (char *)&cmt->idx, sizeof(cmt->idx), cmt->t_ppa);
+		set_oob(bm, cmt->idx, cmt->t_ppa, 0);
 
 		cmt->state = CLEAN;
 	}

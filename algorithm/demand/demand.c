@@ -115,6 +115,8 @@ static void demand_env_init(struct demand_env *const _env) {
 	_env->nr_valid_tpages *= GRAIN_PER_PAGE;
 #endif
 
+	_env->nr_total_entries = _env->nr_valid_tpages * EPP;
+
 	print_demand_env(_env);
 }
 

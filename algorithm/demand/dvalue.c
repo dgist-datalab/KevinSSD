@@ -19,6 +19,8 @@ int grain_create() {
 	grain_bitmap = (bool *)calloc(env.nr_grains, sizeof(bool));
 	if (!grain_bitmap) return 1;
 
+	memset(grain_bitmap, 0, env.nr_grains * sizeof(bool));
+
 	return 0;
 }
 
@@ -27,14 +29,20 @@ int is_valid_grain(pga_t pga) {
 }
 
 int contains_valid_grain(blockmanager *bm, ppa_t ppa) {
-	//if (bm->is_valid_page(bm, ppa)) return 1;
-
 	pga_t pga = ppa * GRAIN_PER_PAGE;
 	for (int i = 0; i < GRAIN_PER_PAGE; i++) {
 		if (is_valid_grain(pga+i)) return 1;
 	}
-	if (bm->is_valid_page(bm, ppa)) abort();
+
+	if (unlikely(bm->is_valid_page(bm, ppa))) abort();
+
 	return 0;
+}
+
+int clear_grain_bitmap(ppa_t ppa) {
+	pga_t pga = ppa * GRAIN_PER_PAGE;
+
+	memset(&grain_bitmap[pga], 0, _PPS*GRAIN_PER_PAGE*sizeof(bool));
 }
 
 int validate_grain(blockmanager *bm, pga_t pga) {

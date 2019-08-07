@@ -128,6 +128,8 @@ struct demand_env {
 	int nr_grains;
 	int nr_dgrains;
 #endif
+
+	int nr_total_entries;
 };
 
 struct demand_member {
