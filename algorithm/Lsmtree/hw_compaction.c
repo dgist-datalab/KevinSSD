@@ -1,9 +1,12 @@
 #include "compaction.h"
 #include "level.h"
+#include "../../bench/bench.h"
 extern lsmtree LSM;
 #ifdef KVSSD
 extern KEYT key_min, key_max;
 #endif
+
+extern MeasureTime write_opt_time[10];
 void make_pbn_array(ppa_t *ar, level *t){
 	lev_iter *iter=LSM.lop->get_iter(t,t->start,t->end);
 	run_t *now;
@@ -53,12 +56,14 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 		tp_array[i]=getPPA(HEADER,key_max,false);
 	}
 	uint32_t ktable_num=0, invalidate_num=0;
-
-	LSM.li->hw_do_merge(lp_num,lp_array,hp_num,hp_array,tp_array,&ktable_num,&invalidate_num);
 	
+	bench_custom_start(write_opt_time,2);
+	LSM.li->hw_do_merge(lp_num,lp_array,hp_num,hp_array,tp_array,&ktable_num,&invalidate_num);
+	bench_custom_A(write_opt_time,2);
+
+
 	char *kt=LSM.li->hw_get_kt();
 	char *inv=LSM.li->hw_get_inv();
-
 	run_t *entry;
 	KEYT start, end;
 	uint16_t *body;
@@ -86,7 +91,9 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	for(int i=ktable_num; i<tp_num; i++){
 		erase_PPA(HEADER,tp_array[i]);
 	}
-
+	
+	LSM.li->req_type_cnt[MAPPINGR]+=hp_num+lp_num;
+	LSM.li->req_type_cnt[MAPPINGW]+=ktable_num;
 	free(lp_array);
 	free(hp_array);
 	free(tp_array);

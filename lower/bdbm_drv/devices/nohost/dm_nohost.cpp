@@ -184,13 +184,13 @@ class FlashIndication: public FlashIndicationWrapper {
 		virtual void mergeDone(unsigned int numMergedKt, uint32_t numInvalAddr, uint64_t counter) {
 			merge_req.kt_num=numMergedKt;
 			merge_req.inv_num=numInvalAddr;
-
+			sem_post(&merge_req.merge_lock);
+			sem_destroy(&merge_req.merge_lock);
 		}
 
 		virtual void mergeFlushDone(unsigned int num) {
 			// num does not mean anything
-			sem_post(&merge_req.merge_lock);
-			sem_destroy(&merge_req.merge_lock);
+
 		}
 
 		virtual void readDone (unsigned int tag){ //, unsigned int status) {
@@ -415,7 +415,6 @@ uint32_t dm_nohost_probe (
 		bdbm_device_params_t* params)
 {
 	dm_nohost_private_t* p = NULL;
-	uint32_t nr_punit;
 
 	bdbm_msg ("[dm_nohost_probe] PROBE STARTED");
 
@@ -440,9 +439,8 @@ uint32_t dm_nohost_probe (
 	bdbm_sema_init (&ftl_table_lock);
 	bdbm_sema_lock (&ftl_table_lock); // initially lock=0 to be used for waiting
 
-	nr_punit = 64;
 	if ((p->llm_reqs = (bdbm_llm_req_t**)bdbm_zmalloc (
-					sizeof (bdbm_llm_req_t*) * nr_punit)) == NULL) {
+					sizeof (bdbm_llm_req_t*) * get_dev_tags())) == NULL) {
 		bdbm_warning ("bdbm_zmalloc failed");
 		goto fail;
 	}
@@ -822,4 +820,7 @@ unsigned int *get_inv_ppali(){
 
 unsigned int *get_merged_kt(){
 	return mergeKt_Buffer;
+}
+uint32_t get_dev_tags(){
+	return 128;
 }

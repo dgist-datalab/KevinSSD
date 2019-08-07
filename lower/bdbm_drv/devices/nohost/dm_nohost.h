@@ -43,6 +43,8 @@ uint32_t dm_nohost_load (bdbm_drv_info_t* bdi, const char* fn);
 uint32_t dm_nohost_store (bdbm_drv_info_t* bdi, const char* fn);
 
 int dm_do_merge(unsigned int ht_num, unsigned int lt_num, unsigned int *kt_num, unsigned int *inv_num);
+
+uint32_t get_dev_tags();
 unsigned int *get_low_ppali();
 unsigned int *get_high_ppali();
 unsigned int *get_res_ppali();

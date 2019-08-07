@@ -18,6 +18,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+extern MeasureTime write_opt_time[10];
 /*
 #define free(a) \
 	do{\
@@ -434,14 +435,13 @@ void* lsm_end_req(algo_req* const req){
 
 uint32_t data_input_write;
 uint32_t lsm_set(request * const req){
+
+	bench_custom_start(write_opt_time,3);
 	static bool force = 0 ;
 	data_input_write++;
 	compaction_check(req->key,force);
 	snode *new_temp;
-	/*
-	if(KEYCONSTCOMP(req->key,"315171000000")==0){
-		printf("3151710000 to mem\n");
-	}*/
+
 	if(req->type==FS_DELETE_T){
 		new_temp=skiplist_insert(LSM.memtable,req->key,req->value,false);
 	}
@@ -452,7 +452,7 @@ uint32_t lsm_set(request * const req){
 	LSM.avg_of_length=(LSM.avg_of_length*LSM.length_cnt+req->value->length)/(++LSM.length_cnt);
 
 	req->value=NULL;
-	
+	bench_custom_A(write_opt_time,3);
 	if(LSM.memtable->size==LSM.FLUSHNUM){
 		force=1;
 		req->end_req(req); //end write

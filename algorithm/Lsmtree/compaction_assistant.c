@@ -312,9 +312,9 @@ void *compaction_main(void *input){
 		pthread_mutex_lock(&compaction_req_lock);
 		if(_this->q->size==0){
 			pthread_cond_wait(&compaction_req_cond,&compaction_req_lock);
-			cpu_set_t cpuset;
-			CPU_ZERO(&cpuset);
-			CPU_SET(1,&cpuset);
+		//	cpu_set_t cpuset;
+		//	CPU_ZERO(&cpuset);
+		//	CPU_SET(1,&cpuset);
 		}
 		_req=q_pick(_this->q);
 		pthread_mutex_unlock(&compaction_req_lock);
@@ -328,6 +328,7 @@ void *compaction_main(void *input){
 		req=(compR*)_req;
 		leveling_node lnode;
 
+		bench_custom_start(write_opt_time,5);
 		if(req->fromL==-1){
 			LSM.zero_compaction_cnt++;
 			lnode.mem=req->temptable;
@@ -344,7 +345,7 @@ void *compaction_main(void *input){
 		}
 		free(lnode.start.key);
 		free(lnode.end.key);
-
+		
 		skiplist_free(req->temptable);
 #ifdef WRITEWAIT
 		if(req->last){
@@ -355,6 +356,7 @@ void *compaction_main(void *input){
 #endif
 		free(req);
 		q_dequeue(_this->q);
+		bench_custom_A(write_opt_time,5);
 	}
 	
 	return NULL;

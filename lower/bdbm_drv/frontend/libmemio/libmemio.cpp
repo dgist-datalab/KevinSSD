@@ -154,7 +154,7 @@ memio_t* memio_open ()
 		goto fail;
 	}
 	mio->nr_punits = 64; /* # of blocks that comprise one segment */
-	mio->nr_tags = 64; /* # of request outstanding to HW possible */
+	mio->nr_tags = get_dev_tags(); /* # of request outstanding to HW possible */
 	//mio->nr_tags = 512 * 1024 / 8; /* # of request outstanding to HW possible */
 	mio->io_size = 8192;
 	mio->trim_lbas = (1 << 14);

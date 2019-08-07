@@ -8,6 +8,7 @@
 #include"../../interface/interface.h"
 #include "../../include/utils/kvssd.h"
 #include "../../include/slab.h"
+#include "../../bench/bench.h"
 #ifdef Lsmtree
 #include"variable.h"
 #include "lsmtree.h"
@@ -15,7 +16,7 @@
 #include "page.h"
 
 
-extern MeasureTime compaction_timer[3];
+extern MeasureTime write_opt_time[10];
 extern lsmtree LSM;
 
 #endif
