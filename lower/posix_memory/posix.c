@@ -357,17 +357,7 @@ uint32_t posix_hw_do_merge(uint32_t lp_num, ppa_t *lp_array, uint32_t hp_num,ppa
 	int result_cnt=0;
 	int invalid_cnt=0;
 	char *res_data;
-/*
-	print_array(lp_array,lp_num);
-	print_array(hp_array,hp_num);
-	print_array(tp_array,hp_num+lp_num);*/
-	//int round=0;
-//	printf("merge_start \n");
 	while(!(lp_key.len==UINT8_MAX && hp_key.len==UINT8_MAX)){
-	/*	printf("round:%d\n",round++);
-		if(round==935){
-			printf("break!\n");
-		}*/
 		if(lp_key.len==UINT8_MAX){
 			insert_key=hp_key;
 			rppa=hppa;
