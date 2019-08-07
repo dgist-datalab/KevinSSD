@@ -13,7 +13,7 @@ extern algorithm __demand;
 
 extern struct demand_env env;
 extern struct demand_member member;
-extern struct demand_stat stat;
+extern struct demand_stat d_stat;
 
 extern __segment *d_active;
 extern __segment *d_reserve;
@@ -208,7 +208,7 @@ static int _do_bulk_mapping_update(blockmanager *bm, int nr_valid_grains) {
 }
 
 int dpage_gc_dvalue(blockmanager *bm) {
-	stat.dgc_cnt++;
+	d_stat.dgc_cnt++;
 
 	struct gc_table_struct **bulk_table = (struct gc_table_struct **)calloc(_PPS, sizeof(gc_table_struct *));
 

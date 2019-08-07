@@ -11,7 +11,7 @@
 
 extern struct demand_env env;
 extern struct demand_member member;
-extern struct demand_stat stat;
+extern struct demand_stat d_stat;
 
 static bool *grain_bitmap; // the grain is valid ? 1 : 0
 

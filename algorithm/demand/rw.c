@@ -11,7 +11,7 @@ extern algorithm __demand;
 
 extern demand_env env;
 extern demand_member member;
-extern demand_stat stat;
+extern demand_stat d_stat;
 
 
 static bool cache_is_all_inflight() { return (member.nr_inflight_tpages == env.max_cached_tpages); }
@@ -19,7 +19,7 @@ static bool cache_is_all_inflight() { return (member.nr_inflight_tpages == env.m
 static uint32_t do_wb_check(skiplist *wb, request *const req) {
 	snode *wb_entry = skiplist_find(wb, req->key);
 	if (WB_HIT(wb_entry)) {
-		stat.wb_hit++;
+		d_stat.wb_hit++;
 #ifdef HASH_KVSSD
 		free(req->hash_params);
 #endif
@@ -181,19 +181,19 @@ read_retry:
 
 	/* 2. check cache */
 	if (cmt->is_flying) {
-		stat.blocked_miss++;
+		d_stat.blocked_miss++;
 		q_enqueue((void *)req, cmt->blocked_q);
 		goto read_ret;
 	}
 
 	if (CACHE_HIT(cmt->pt)) {
-		stat.cache_hit++;
+		d_stat.cache_hit++;
 
 		ppa = cmt->pt[OFFSET(lpa)].ppa;
 		lru_update(member.lru, cmt->lru_ptr);
 
 	} else {
-		stat.cache_miss++;
+		d_stat.cache_miss++;
 		if (cmt->t_ppa == UINT32_MAX) {
 			rc = UINT32_MAX;
 			goto read_ret;
@@ -408,7 +408,7 @@ wb_retry:
 			cmt->state = DIRTY;
 			updated++;
 
-			if (h_params->cnt < MAX_HASH_COLLISION) stat.w_hash_collision_cnt[h_params->cnt]++;
+			if (h_params->cnt < MAX_HASH_COLLISION) d_stat.w_hash_collision_cnt[h_params->cnt]++;
 			//else abort();
 			member.max_try = (h_params->cnt > member.max_try) ? h_params->cnt : member.max_try;
 
@@ -450,7 +450,7 @@ wb_retry:
 			cmt->state = DIRTY;
 			updated++;
 
-			if (h_params->cnt < MAX_HASH_COLLISION) stat.w_hash_collision_cnt[h_params->cnt]++;
+			if (h_params->cnt < MAX_HASH_COLLISION) d_stat.w_hash_collision_cnt[h_params->cnt]++;
 			//else abort();
 			member.max_try = (h_params->cnt > member.max_try) ? h_params->cnt : member.max_try;
 
@@ -600,7 +600,7 @@ void *demand_end_req(algo_req *a_req) {
 
 	switch (a_req->type) {
 	case DATAR:
-		stat.data_r++;
+		d_stat.data_r++;
 #ifdef HASH_KVSSD
 		if (IS_READ(req)) {
 			req->type_ftl++;
@@ -614,7 +614,7 @@ void *demand_end_req(algo_req *a_req) {
 
 			if (KEYCMP(req->key, check_key) == 0) {
 				if (h_params->cnt < MAX_HASH_COLLISION) {
-					stat.r_hash_collision_cnt[h_params->cnt]++;
+					d_stat.r_hash_collision_cnt[h_params->cnt]++;
 				}
 				free(h_params);
 				req->end_req(req);
@@ -648,14 +648,14 @@ void *demand_end_req(algo_req *a_req) {
 #endif
 		break;
 	case DATAW:
-		stat.data_w++;
+		d_stat.data_w++;
 		inf_free_valueset(d_params->value, FS_MALLOC_W);
 #ifndef DVALUE
 		free(wb_entry->hash_params);
 #endif
 		break;
 	case MAPPINGR:
-		stat.trans_r++;
+		d_stat.trans_r++;
 		inf_free_valueset(d_params->value, FS_MALLOC_R);
 		if (IS_READ(req)) {
 			inf_assign_try(req);
@@ -664,7 +664,7 @@ void *demand_end_req(algo_req *a_req) {
 		else if (cmt) q_enqueue((void *)cmt, member.wb_cmt_load_q);
 		break;
 	case MAPPINGW:
-		stat.trans_w++;
+		d_stat.trans_w++;
 		inf_free_valueset(d_params->value, FS_MALLOC_W);
 		if (IS_READ(req)) {
 			inf_assign_try(req);
@@ -672,28 +672,28 @@ void *demand_end_req(algo_req *a_req) {
 		}
 		break;
 	case GCDR:
-		stat.data_r_dgc++;
+		d_stat.data_r_dgc++;
 		member.nr_valid_read_done++;
 		break;
 	case GCDW:
-		stat.data_w_dgc++;
+		d_stat.data_w_dgc++;
 		inf_free_valueset(d_params->value, FS_MALLOC_W);
 		break;
 	case GCMR_DGC:
-		stat.trans_r_dgc++;
+		d_stat.trans_r_dgc++;
 		member.nr_tpages_read_done++;
 		inf_free_valueset(d_params->value, FS_MALLOC_R);
 		break;
 	case GCMW_DGC:
-		stat.trans_w_dgc++;
+		d_stat.trans_w_dgc++;
 		inf_free_valueset(d_params->value, FS_MALLOC_W);
 		break;
 	case GCMR:
-		stat.trans_r_tgc++;
+		d_stat.trans_r_tgc++;
 		member.nr_valid_read_done++;
 		break;
 	case GCMW:
-		stat.trans_w_tgc++;
+		d_stat.trans_w_tgc++;
 		inf_free_valueset(d_params->value, FS_MALLOC_W);
 		break;
 	default:

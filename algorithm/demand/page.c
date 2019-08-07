@@ -11,7 +11,7 @@ extern algorithm __demand;
 
 extern struct demand_env env;
 extern struct demand_member member;
-extern struct demand_stat stat;
+extern struct demand_stat d_stat;
 
 __segment *d_active;
 __segment *t_active;
@@ -142,7 +142,7 @@ static int _do_bulk_mapping_update(blockmanager *bm, struct gc_table_struct **bu
 
 
 int dpage_gc(blockmanager *bm) {
-	stat.dgc_cnt++;
+	d_stat.dgc_cnt++;
 
 	struct gc_table_struct **bulk_table = (struct gc_table_struct **)calloc(_PPS,sizeof(struct gc_table_struct *));
 
@@ -192,7 +192,7 @@ ppa_t get_dpage(blockmanager *bm) {
 }
 
 int tpage_gc(blockmanager *bm) {
-	stat.tgc_cnt++;
+	d_stat.tgc_cnt++;
 
 	struct gc_table_struct **bulk_table = (struct gc_table_struct **)calloc(sizeof(struct gc_table_struct *), _PPS);
 
