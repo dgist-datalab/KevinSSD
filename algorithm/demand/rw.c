@@ -4,100 +4,22 @@
 
 #include "demand.h"
 #include "page.h"
+#include "utility.h"
 #include "../../interface/interface.h"
-
-#define QUADRATIC_PROBING(h,c) ((h)+(c)+(c)*(c))
-#define LINEAR_PROBING(h,c) (h+c)
-
-#define PROBING_FUNC(h,c) QUADRATIC_PROBING(h,c)
-//#define PROBING_FUNC(h,c) LINEAR_PROBING(h,c)
 
 extern algorithm __demand;
 
 extern demand_env env;
 extern demand_member member;
-extern demand_stat stat;
+extern demand_stat d_stat;
 
-void *copy_value(value_set *a, value_set *b, int size) { return memcpy(a->value, b->value, size); }
-#ifdef HASH_KVSSD
-void *copy_key_from_value(KEYT *dst, char *src) {
-	memcpy(&dst->len, src, sizeof(uint8_t));
-	dst->key = (char *)malloc(dst->len);
-	memcpy(dst->key, src+1, dst->len);
-	return (void *)dst;
-}
-#endif
-
-struct algo_req *make_algo_req_default(uint8_t type, value_set *value) {
-	struct algo_req *a_req = (struct algo_req *)malloc(sizeof(struct algo_req));
-	a_req->parents = NULL;
-	a_req->type = type;
-	a_req->type_lower = 0;
-	a_req->rapid = false;
-	a_req->end_req = demand_end_req;
-
-	struct demand_params *d_params = (struct demand_params *)malloc(sizeof(struct demand_params));
-	d_params->value = value;
-	d_params->wb_entry = NULL;
-	d_params->cmt = NULL;
-
-	a_req->params = (void *)d_params;
-
-	return a_req;
-}
-
-struct algo_req *make_algo_req(uint8_t type, value_set *value, request *req, snode *wb_entry, struct cmt_struct *cmt) {
-	struct algo_req *a_req = make_algo_req_default(type, value);
-	a_req->parents = req;
-	a_req->rapid = true;
-
-	struct demand_params *d_params = (struct demand_params *)a_req->params;
-	d_params->wb_entry = wb_entry;
-	d_params->cmt = cmt;
-
-	return a_req;
-}
-
-void free_algo_req(algo_req *a_req) {
-	free(a_req->params);
-	free(a_req);
-}
-
-static lpa_t _get_lpa(request *const req, snode *wb_entry) {
-	if (req) {
-#ifdef HASH_KVSSD
-		struct hash_params *h_params = (struct hash_params *)req->hash_params;
-#ifdef DVALUE
-		h_params->lpa = PROBING_FUNC(h_params->hash, h_params->cnt) % env.nr_dgrains;
-#else
-		h_params->lpa = PROBING_FUNC(h_params->hash, h_params->cnt) % env.nr_dpages;
-#endif
-		return h_params->lpa;
-#else
-		return req->key;
-#endif
-	} else if (wb_entry) {
-#ifdef HASH_KVSSD
-		struct hash_params *h_params = (struct hash_params *)wb_entry->hash_params;
-#ifdef DVALUE
-		h_params->lpa = PROBING_FUNC(h_params->hash, h_params->cnt) % env.nr_dgrains;
-#else
-		h_params->lpa = PROBING_FUNC(h_params->hash, h_params->cnt) % env.nr_dpages;
-#endif
-		return h_params->lpa;
-#else
-		return wb_entry->key;
-#endif
-	}
-	return UINT32_MAX;
-}
 
 static bool cache_is_all_inflight() { return (member.nr_inflight_tpages == env.max_cached_tpages); }
 
 static uint32_t do_wb_check(skiplist *wb, request *const req) {
 	snode *wb_entry = skiplist_find(wb, req->key);
 	if (WB_HIT(wb_entry)) {
-		stat.wb_hit++;
+		d_stat.wb_hit++;
 #ifdef HASH_KVSSD
 		free(req->hash_params);
 #endif
@@ -138,10 +60,11 @@ static uint32_t do_cache_evict(uint32_t lpa, request *const req, snode *wb_entry
 
 		victim->t_ppa = get_tpage(__demand.bm);
 		bm->populate_bit(bm, victim->t_ppa);
-		bm->set_oob(bm, (char *)&victim->idx, sizeof(victim->idx), victim->t_ppa);
+		//bm->set_oob(bm, (char *)&victim->idx, sizeof(victim->idx), victim->t_ppa);
+		set_oob(bm, victim->idx, victim->t_ppa, 0);
 
 		value_set *victim_vs = inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
-		__demand.li->write(victim->t_ppa, PAGESIZE, victim_vs, ASYNC, make_algo_req(MAPPINGW, victim_vs, req, NULL, NULL));
+		__demand.li->write(victim->t_ppa, PAGESIZE, victim_vs, ASYNC, make_algo_req_rw(MAPPINGW, victim_vs, req, NULL));
 
 		rc = 1;
 	}
@@ -173,7 +96,7 @@ static uint32_t do_cache_load(uint32_t lpa, request *const req, snode *wb_entry)
 	}
 
 	value_set *load_vs = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
-	__demand.li->read(cmt->t_ppa, PAGESIZE, load_vs, ASYNC, make_algo_req(MAPPINGR, load_vs, req, NULL, NULL));
+	__demand.li->read(cmt->t_ppa, PAGESIZE, load_vs, ASYNC, make_algo_req_rw(MAPPINGR, load_vs, req, NULL));
 	return 1;
 }
 
@@ -197,7 +120,7 @@ static uint32_t do_cache_register(uint32_t lpa) {
 
 static uint32_t read_actual_dpage(uint32_t ppa, request *const req) {
 	if (ppa != UINT32_MAX) {
-		struct algo_req *a_req = make_algo_req(DATAR, NULL, req, NULL, NULL);
+		struct algo_req *a_req = make_algo_req_rw(DATAR, NULL, req, NULL);
 #ifdef DVALUE
 		((struct demand_params *)a_req->params)->offset = ppa % GRAIN_PER_PAGE;
 		ppa = ppa / GRAIN_PER_PAGE;
@@ -214,14 +137,12 @@ uint32_t __demand_read(request *const req) {
 	ppa_t ppa;
 	struct cmt_struct *cmt;
 
-#ifdef STORE_KEY_FP
 	struct hash_params *h_params = (struct hash_params *)req->hash_params;
-#endif
 
 #ifdef STORE_KEY_FP
 read_retry:
 #endif
-	lpa = _get_lpa(req, NULL);
+	lpa = get_lpa(req->key, req->hash_params);
 	ppa = UINT32_MAX;
 
 	cmt = member.cmt[IDX(lpa)];
@@ -260,19 +181,19 @@ read_retry:
 
 	/* 2. check cache */
 	if (cmt->is_flying) {
-		stat.blocked_miss++;
+		d_stat.blocked_miss++;
 		q_enqueue((void *)req, cmt->blocked_q);
 		goto read_ret;
 	}
 
 	if (CACHE_HIT(cmt->pt)) {
-		stat.cache_hit++;
+		d_stat.cache_hit++;
 
 		ppa = cmt->pt[OFFSET(lpa)].ppa;
 		lru_update(member.lru, cmt->lru_ptr);
 
 	} else {
-		stat.cache_miss++;
+		d_stat.cache_miss++;
 		if (cmt->t_ppa == UINT32_MAX) {
 			rc = UINT32_MAX;
 			goto read_ret;
@@ -311,7 +232,7 @@ static bool wb_is_full(skiplist *wb) { return (wb->size == env.wb_flush_size); }
 
 #ifdef DVALUE
 struct flush_node {
-	lpa_t *lpa_list;
+	//lpa_t *lpa_list;
 	ppa_t ppa;
 	value_set *value;
 };
@@ -339,16 +260,18 @@ static void _do_wb_assign_ppa(skiplist *wb) {
 
 		wb_bucket->bucket[val_len][wb_bucket->idx[val_len]] = wb_entry;
 		wb_bucket->idx[val_len]++;
+
+		//if (unlikely(val_len!=16)) abort();
 	}
 
 	fl.size = 0;
 	fl.list = (struct flush_node *)calloc(env.wb_flush_size, sizeof(struct flush_node));
-	for (int i = 0; i < env.wb_flush_size; i++) {
+/*	for (int i = 0; i < env.wb_flush_size; i++) {
 		fl.list[i].lpa_list = (lpa_t *)malloc(64);
 		for (int j = 0; j < GRAIN_PER_PAGE; j++) {
 			fl.list[i].lpa_list[j] = UINT32_MAX;
 		}
-	}
+	} */
 
 	int ordering_done = 0;
 	while (ordering_done < env.wb_flush_size) {
@@ -359,7 +282,7 @@ static void _do_wb_assign_ppa(skiplist *wb) {
 		int offset = 0;
 
 		fl.list[fl.size].ppa = ppa;
-		fl.list[fl.size++].value = new_vs;
+		fl.list[fl.size].value = new_vs;
 
 		while (remain > 0) {
 			int target_length = remain / GRAINED_UNIT;
@@ -374,17 +297,23 @@ static void _do_wb_assign_ppa(skiplist *wb) {
 
 			memcpy(&page[offset*GRAINED_UNIT], wb_entry->value->value, wb_entry->value->length * GRAINED_UNIT);
 
-			offset += target_length;
-			remain -= target_length * GRAINED_UNIT;
-
-			uint32_t lpa = _get_lpa(NULL, wb_entry);
+			lpa_t lpa = get_lpa(wb_entry->key, wb_entry->hash_params);
 			struct cmt_struct *cmt = member.cmt[IDX(lpa)];
 			q_enqueue((void *)wb_entry, cmt->wait_q);
 
-			((struct hash_params *)wb_entry->hash_params)->fl_idx = fl.size-1;
+			//fl.list[fl.size].lpa_list[offset] = lpa;
+			//set_oob(bm, lpa, ppa, offset);
+			validate_grain(bm, ppa * GRAIN_PER_PAGE + offset);
+
+			((struct hash_params *)wb_entry->hash_params)->fl_idx = fl.size;
+
+			offset += target_length;
+			remain -= target_length * GRAINED_UNIT;
 
 			ordering_done++;
 		}
+
+		fl.size++;
 	}
 	free(wb_bucket);
 #else
@@ -392,7 +321,7 @@ static void _do_wb_assign_ppa(skiplist *wb) {
 		wb_entry = skiplist_get_next(iter);
 		wb_entry->ppa = get_dpage(bm);
 
-		lpa_t lpa = _get_lpa(NULL, wb_entry);
+		lpa_t lpa = get_lpa(wb_entry->key, wb_entry->hash_params);
 		struct cmt_struct *cmt = member.cmt[IDX(lpa)];
 		q_enqueue((void *)wb_entry, cmt->wait_q);
 	}
@@ -421,7 +350,7 @@ wb_retry:
 				continue;
 			}
 			value_set *_value_mr = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
-			__demand.li->read(cmt->t_ppa, PAGESIZE, _value_mr, ASYNC, make_algo_req(MAPPINGR, _value_mr, NULL, NULL, cmt));
+			__demand.li->read(cmt->t_ppa, PAGESIZE, _value_mr, ASYNC, make_algo_req_cmt(MAPPINGR, _value_mr, cmt));
 		}
 	}
 
@@ -433,7 +362,7 @@ wb_retry:
 
 		struct pt_struct *pt = member.mem_table[cmt->idx];
 		while ((wb_entry = (snode *)q_dequeue(cmt->wait_q))) {
-			lpa_t lpa = _get_lpa(NULL, wb_entry);
+			lpa_t lpa = get_lpa(wb_entry->key, wb_entry->hash_params);
 			ppa_t origin = pt[OFFSET(lpa)].ppa;
 #ifdef HASH_KVSSD
 			struct hash_params *h_params = (struct hash_params *)wb_entry->hash_params;
@@ -452,11 +381,11 @@ wb_retry:
 			if (!IS_INITIAL_PPA(origin)) {
 				value_set *_value_dr_check = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 	#ifdef DVALUE
-				algo_req *a_req = make_algo_req(DATAR, _value_dr_check, NULL, wb_entry, NULL);
+				algo_req *a_req = make_algo_req_rw(DATAR, _value_dr_check, NULL, wb_entry);
 				((struct demand_params *)a_req->params)->offset = origin % GRAIN_PER_PAGE;
 				__demand.li->read(origin/GRAIN_PER_PAGE, PAGESIZE, _value_dr_check, ASYNC, a_req);
 	#else
-				__demand.li->read(origin, PAGESIZE, _value_dr_check, ASYNC, make_algo_req(DATAR, _value_dr_check, NULL, wb_entry, NULL));
+				__demand.li->read(origin, PAGESIZE, _value_dr_check, ASYNC, make_algo_req_rw(DATAR, _value_dr_check, NULL, wb_entry));
 	#endif
 				wb_retry_cnt++;
 				continue;
@@ -479,13 +408,14 @@ wb_retry:
 			cmt->state = DIRTY;
 			updated++;
 
-			if (h_params->cnt < MAX_HASH_COLLISION) stat.w_hash_collision_cnt[h_params->cnt]++;
+			if (h_params->cnt < MAX_HASH_COLLISION) d_stat.w_hash_collision_cnt[h_params->cnt]++;
 			//else abort();
 			member.max_try = (h_params->cnt > member.max_try) ? h_params->cnt : member.max_try;
 
 #ifdef DVALUE
 			/* oob setting */
-			((lpa_t *)fl.list[h_params->fl_idx].lpa_list)[origin%GRAIN_PER_PAGE] = lpa;
+			//((lpa_t *)fl.list[h_params->fl_idx].lpa_list)[origin%GRAIN_PER_PAGE] = lpa;
+			set_oob(bm, lpa, wb_entry->ppa/GRAIN_PER_PAGE, wb_entry->ppa%GRAIN_PER_PAGE); 
 #endif
 		}
 	}
@@ -497,7 +427,7 @@ wb_retry:
 		wb_entry = (snode *)q_dequeue(member.wb_retry_q);
 		if (wb_entry == NULL) continue;
 
-		lpa_t lpa = _get_lpa(NULL, wb_entry);
+		lpa_t lpa = get_lpa(wb_entry->key, wb_entry->hash_params);
 		cmt = member.cmt[IDX(lpa)];
 		struct pt_struct *pt = member.mem_table[cmt->idx];
 		struct hash_params *h_params = (struct hash_params *)wb_entry->hash_params;
@@ -520,13 +450,14 @@ wb_retry:
 			cmt->state = DIRTY;
 			updated++;
 
-			if (h_params->cnt < MAX_HASH_COLLISION) stat.w_hash_collision_cnt[h_params->cnt]++;
+			if (h_params->cnt < MAX_HASH_COLLISION) d_stat.w_hash_collision_cnt[h_params->cnt]++;
 			//else abort();
 			member.max_try = (h_params->cnt > member.max_try) ? h_params->cnt : member.max_try;
 
 #ifdef DVALUE
 			/* oob setting */
-			((lpa_t *)fl.list[h_params->fl_idx].lpa_list)[origin%GRAIN_PER_PAGE] = lpa;
+			//((lpa_t *)fl.list[h_params->fl_idx].lpa_list)[origin%GRAIN_PER_PAGE] = lpa;
+			set_oob(bm, lpa, wb_entry->ppa/GRAIN_PER_PAGE, wb_entry->ppa%GRAIN_PER_PAGE);
 #endif
 		
 		} else if (h_params->find == HASH_KEY_DIFF) {
@@ -545,10 +476,11 @@ wb_retry:
 			cmt->state = CLEAN;
 
 			value_set *_value_mw = inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
-			__demand.li->write(cmt->t_ppa, PAGESIZE, _value_mw, ASYNC, make_algo_req(MAPPINGW, _value_mw, NULL, NULL, NULL));
+			__demand.li->write(cmt->t_ppa, PAGESIZE, _value_mw, ASYNC, make_algo_req_rw(MAPPINGW, _value_mw, NULL, NULL));
 
 			bm->populate_bit(bm, cmt->t_ppa);
-			bm->set_oob(bm, (char *)&cmt->idx, sizeof(cmt->idx), cmt->t_ppa);
+			//bm->set_oob(bm, (char *)&cmt->idx, sizeof(cmt->idx), cmt->t_ppa);
+			set_oob(bm, cmt->idx, cmt->t_ppa, 0);
 		}
 	}
 
@@ -570,19 +502,19 @@ static skiplist *_do_wb_flush(skiplist *wb) {
 	blockmanager *bm = __demand.bm;
 #ifdef DVALUE
 	for (int i = 0; i < fl.size; i++) {
-		lpa_t *lpa_list = fl.list[i].lpa_list;
+		//lpa_t *lpa_list = fl.list[i].lpa_list;
 		ppa_t ppa = fl.list[i].ppa;
 		value_set *value = fl.list[i].value;
 
-		__demand.li->write(ppa, PAGESIZE, value, ASYNC, make_algo_req(DATAW, value, NULL, NULL, NULL));
-		bm->set_oob(bm, (char *)lpa_list, 64, ppa);
-		bm->populate_bit(bm, ppa);
-		for (int j = 0; j < GRAIN_PER_PAGE; j++) {
+		__demand.li->write(ppa, PAGESIZE, value, ASYNC, make_algo_req_rw(DATAW, value, NULL, NULL));
+		//bm->set_oob(bm, (char *)lpa_list, 64, ppa);
+		//bm->populate_bit(bm, ppa);
+/*		for (int j = 0; j < GRAIN_PER_PAGE; j++) {
 			if (lpa_list[j] != UINT32_MAX) {
 				validate_grain(bm, ppa * GRAIN_PER_PAGE + j);
 			}
-		}
-		free(lpa_list);
+		} */
+		//free(lpa_list);
 	}
 	free(fl.list);
 #else
@@ -591,12 +523,13 @@ static skiplist *_do_wb_flush(skiplist *wb) {
 	for (size_t i = 0; i < env.wb_flush_size; i++) {
 		wb_entry = skiplist_get_next(iter);
 
-		lpa_t lpa = _get_lpa(NULL, wb_entry);
+		lpa_t lpa = get_lpa(wb_entry->key, wb_entry->hash_params);
 		ppa_t ppa = wb_entry->ppa;
 		value_set *value = wb_entry->value;
 
-		__demand.li->write(ppa, PAGESIZE, value, ASYNC, make_algo_req(DATAW, value, NULL, wb_entry, NULL));
-		bm->set_oob(bm, (char *)&lpa, sizeof(lpa), ppa);
+		__demand.li->write(ppa, PAGESIZE, value, ASYNC, make_algo_req_rw(DATAW, value, NULL, wb_entry));
+		//bm->set_oob(bm, (char *)&lpa, sizeof(lpa), ppa);
+		set_oob(bm, lpa, ppa, 0);
 		bm->populate_bit(bm, ppa);
 
 		wb_entry->value = NULL;
@@ -667,21 +600,21 @@ void *demand_end_req(algo_req *a_req) {
 
 	switch (a_req->type) {
 	case DATAR:
-		stat.data_r++;
+		d_stat.data_r++;
 #ifdef HASH_KVSSD
 		if (IS_READ(req)) {
 			req->type_ftl++;
 
 			h_params = (struct hash_params *)req->hash_params;
 #ifdef DVALUE
-			copy_key_from_value(&check_key, req->value->value + offset * GRAINED_UNIT);
+			copy_key_from_grain(&check_key, req->value, offset);
 #else
-			copy_key_from_value(&check_key, req->value->value);
+			copy_key_from_value(&check_key, req->value);
 #endif
 
 			if (KEYCMP(req->key, check_key) == 0) {
 				if (h_params->cnt < MAX_HASH_COLLISION) {
-					stat.r_hash_collision_cnt[h_params->cnt]++;
+					d_stat.r_hash_collision_cnt[h_params->cnt]++;
 				}
 				free(h_params);
 				req->end_req(req);
@@ -693,9 +626,9 @@ void *demand_end_req(algo_req *a_req) {
 		} else {
 			h_params = (struct hash_params *)wb_entry->hash_params;
 #ifdef DVALUE
-			copy_key_from_value(&check_key, d_params->value->value + offset * GRAINED_UNIT);
+			copy_key_from_grain(&check_key, d_params->value, offset);
 #else
-			copy_key_from_value(&check_key, d_params->value->value);
+			copy_key_from_value(&check_key, d_params->value);
 #endif
 
 			if (KEYCMP(wb_entry->key, check_key) == 0) {
@@ -715,14 +648,14 @@ void *demand_end_req(algo_req *a_req) {
 #endif
 		break;
 	case DATAW:
-		stat.data_w++;
+		d_stat.data_w++;
 		inf_free_valueset(d_params->value, FS_MALLOC_W);
 #ifndef DVALUE
 		free(wb_entry->hash_params);
 #endif
 		break;
 	case MAPPINGR:
-		stat.trans_r++;
+		d_stat.trans_r++;
 		inf_free_valueset(d_params->value, FS_MALLOC_R);
 		if (IS_READ(req)) {
 			inf_assign_try(req);
@@ -731,7 +664,7 @@ void *demand_end_req(algo_req *a_req) {
 		else if (cmt) q_enqueue((void *)cmt, member.wb_cmt_load_q);
 		break;
 	case MAPPINGW:
-		stat.trans_w++;
+		d_stat.trans_w++;
 		inf_free_valueset(d_params->value, FS_MALLOC_W);
 		if (IS_READ(req)) {
 			inf_assign_try(req);
@@ -739,28 +672,28 @@ void *demand_end_req(algo_req *a_req) {
 		}
 		break;
 	case GCDR:
-		stat.data_r_dgc++;
+		d_stat.data_r_dgc++;
 		member.nr_valid_read_done++;
 		break;
 	case GCDW:
-		stat.data_w_dgc++;
+		d_stat.data_w_dgc++;
 		inf_free_valueset(d_params->value, FS_MALLOC_W);
 		break;
 	case GCMR_DGC:
-		stat.trans_r_dgc++;
+		d_stat.trans_r_dgc++;
 		member.nr_tpages_read_done++;
 		inf_free_valueset(d_params->value, FS_MALLOC_R);
 		break;
 	case GCMW_DGC:
-		stat.trans_w_dgc++;
+		d_stat.trans_w_dgc++;
 		inf_free_valueset(d_params->value, FS_MALLOC_W);
 		break;
 	case GCMR:
-		stat.trans_r_tgc++;
+		d_stat.trans_r_tgc++;
 		member.nr_valid_read_done++;
 		break;
 	case GCMW:
-		stat.trans_w_tgc++;
+		d_stat.trans_w_tgc++;
 		inf_free_valueset(d_params->value, FS_MALLOC_W);
 		break;
 	default:
