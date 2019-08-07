@@ -70,6 +70,7 @@ lsm_block* lb_init(uint8_t type, uint32_t ppa);
 void lb_free(lsm_block *b);
 
 uint32_t getPPA(uint8_t type, KEYT, bool);//in DVALUE return block id;
+bool page_check_available(uint8_t type, uint32_t needed_page);
 uint32_t getRPPA(uint8_t type,KEYT, bool);
 
 lsm_block* getBlock(uint8_t type);

@@ -466,4 +466,22 @@ bool is_invalid_piece(lsm_block *b, uint32_t ppa){
 	return !(b->bitset[bit_idx] & (1<<bit_off));
 }
 
+bool page_check_available(uint8_t type, uint32_t needed_page){
+	pm *t;
+	blockmanager *bm=LSM.bm;
+	if(type==DATA){
+		t=&d_m;	
+	}
+	else if(type==HEADER){
+		t=&map_m;
+	}
+	else{
+		abort();
+	}
+	uint32_t res=bm->pt_remain_page(bm,t->active,MAP_S);
+	if(res<needed_page){
+		if(type==HEADER) gc_header();	
+	}
+
+}
 #endif

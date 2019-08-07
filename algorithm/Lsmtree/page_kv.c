@@ -54,7 +54,7 @@ int gc_header(){
 		if(bm->is_invalid_page(bm, tpage)){
 			continue;
 		}
-
+		
 		tables[i]=(htable_t*)malloc(sizeof(htable_t));
 		gc_data_read(tpage,tables[i],false,NULL);
 		i++;

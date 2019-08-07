@@ -516,3 +516,15 @@ void htable_read_postproc(run_t *r){
 		}
 	}
 }
+
+uint32_t sequential_move_next_level(level *origin, level *target,KEYT start, KEYT end){
+	uint32_t res=0;
+	run_t **target_s=NULL;
+	res=LSM.lop->unmatch_find(origin,start,end,&target_s);
+	for(int i=0; target_s[i]!=NULL; i++){
+		LSM.lop->insert(target,target_s[i]);
+		target_s[i]->iscompactioning=SEQCOMP;
+	}
+	free(target_s);
+	return res;
+}

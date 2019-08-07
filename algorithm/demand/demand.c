@@ -33,7 +33,7 @@ struct algorithm __demand = {
 
 struct demand_env env;
 struct demand_member member;
-struct demand_stat stat;
+struct demand_stat d_stat;
 
 #ifdef HASH_KVSSD
 KEYT key_max, key_min;
@@ -114,6 +114,8 @@ static void demand_env_init(struct demand_env *const _env) {
 	_env->nr_dgrains = _env->nr_dpages * GRAIN_PER_PAGE;
 	_env->nr_valid_tpages *= GRAIN_PER_PAGE;
 #endif
+
+	_env->nr_total_entries = _env->nr_valid_tpages * EPP;
 
 	print_demand_env(_env);
 }
@@ -205,7 +207,7 @@ uint32_t demand_create(lower_info *li, blockmanager *bm, algorithm *algo){
 	demand_member_init(&member);
 
 	/* init stat */
-	demand_stat_init(&stat);
+	demand_stat_init(&d_stat);
 
 	/* create() for range query */
 	range_create();
@@ -320,7 +322,7 @@ static void demand_member_free(struct demand_member *const _member) {
 void demand_destroy(lower_info *li, algorithm *algo){
 
 	/* print stat */
-	print_demand_stat(&stat);
+	print_demand_stat(&d_stat);
 
 	/* free member */
 	demand_member_free(&member);

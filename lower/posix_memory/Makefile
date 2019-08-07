@@ -1,6 +1,7 @@
 
 SRCS +=\
 	   posix.c\
+	   pipe.c\
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\

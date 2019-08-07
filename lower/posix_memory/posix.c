@@ -1,5 +1,6 @@
 #define _LARGEFILE64_SOURCE
 #include "posix.h"
+#include "pipe.h"
 #include "../../include/settings.h"
 #include "../../bench/bench.h"
 #include "../../bench/measurement.h"
@@ -27,6 +28,8 @@ bool stopflag;
 #endif
 
 cl_lock *lower_flying;
+char *invalidate_ppa_ptr;
+char *result_addr;
 
 lower_info my_posix={
 	.create=posix_create,
@@ -50,7 +53,11 @@ lower_info my_posix={
 	.stop=posix_stop,
 	.lower_alloc=NULL,
 	.lower_free=NULL,
-	.lower_flying_req_wait=posix_flying_req_wait
+	.lower_flying_req_wait=posix_flying_req_wait,
+	.lower_show_info=NULL,
+	.hw_do_merge=posix_hw_do_merge,
+	.hw_get_kt=posix_hw_get_kt,
+	.hw_get_inv=posix_hw_get_inv
 };
  uint32_t d_write_cnt, m_write_cnt, gcd_write_cnt, gcm_write_cnt;
 
@@ -154,6 +161,9 @@ uint32_t posix_create(lower_info *li, blockmanager *b){
 	li->PPS=_PPS;
 	li->TS=TOTALSIZE;
 	lower_flying=cl_init(QDEPTH,true);
+	
+	invalidate_ppa_ptr=(char*)malloc(sizeof(uint32_t)*81920);
+	result_addr=(char*)malloc(sizeof(uint32_t)*8192*1000);
 
 	printf("!!! posix memory LASYNC: %d NOP:%d!!!\n", LASYNC,li->NOP);
 	li->write_op=li->read_op=li->trim_op=0;
@@ -193,6 +203,8 @@ void *posix_destroy(lower_info *li){
 	free(seg_table);
 	pthread_mutex_destroy(&my_posix.lower_lock);
 	pthread_mutex_destroy(&fd_lock);
+	free(invalidate_ppa_ptr);
+	free(result_addr);
 #if (LASYNC==1)
 	stopflag = true;
 	q_free(p_q);
@@ -323,4 +335,106 @@ void* posix_trim_a_block(uint32_t PPA, bool async){
 		seg_table[t].storage=NULL;
 	}
 	return NULL;
+}
+
+void print_array(uint32_t *arr, int num){
+	printf("target:");
+	for(int i=0; i<num; i++) printf("%d, ",arr[i]);
+	printf("\n");
+}
+
+uint32_t posix_hw_do_merge(uint32_t lp_num, ppa_t *lp_array, uint32_t hp_num,ppa_t *hp_array,ppa_t *tp_array, uint32_t* ktable_num, uint32_t *invliadate_num){
+	p_body *lp, *hp, *rp;
+	lp=pbody_init(seg_table,lp_array,lp_num);
+	hp=pbody_init(seg_table,hp_array,hp_num);
+	rp=pbody_init(seg_table,tp_array,lp_num+hp_num);
+	
+	uint32_t lppa, hppa, rppa;
+	KEYT lp_key=pbody_get_next_key(lp,&lppa);
+	KEYT hp_key=pbody_get_next_key(hp,&hppa);
+	KEYT insert_key;
+	int next_pop=0;
+	int result_cnt=0;
+	int invalid_cnt=0;
+	char *res_data;
+/*
+	print_array(lp_array,lp_num);
+	print_array(hp_array,hp_num);
+	print_array(tp_array,hp_num+lp_num);*/
+	//int round=0;
+//	printf("merge_start \n");
+	while(!(lp_key.len==UINT8_MAX && hp_key.len==UINT8_MAX)){
+	/*	printf("round:%d\n",round++);
+		if(round==935){
+			printf("break!\n");
+		}*/
+		if(lp_key.len==UINT8_MAX){
+			insert_key=hp_key;
+			rppa=hppa;
+			next_pop=1;
+		}
+		else if(hp_key.len==UINT8_MAX){
+			insert_key=lp_key;
+			rppa=lppa;
+			next_pop=-1;
+		}
+		else{
+			if(!KEYVALCHECK(lp_key)){
+				printf("%.*s\n",KEYFORMAT(lp_key));
+				abort();
+			}
+			if(!KEYVALCHECK(hp_key)){
+				printf("%.*s\n",KEYFORMAT(hp_key));
+				abort();
+			}
+
+			next_pop=KEYCMP(lp_key,hp_key);
+			if(next_pop<0){
+				insert_key=lp_key;
+				rppa=lppa;
+			}
+			else if(next_pop>0){
+				insert_key=hp_key;
+				rppa=hppa;
+			}
+			else{
+				memcpy(&invalidate_ppa_ptr[invalid_cnt++*sizeof(uint32_t)],&lppa,sizeof(lppa));
+				rppa=hppa;
+				insert_key=hp_key;
+			}
+		}
+	
+		if((res_data=pbody_insert_new_key(rp,insert_key,rppa,false))){
+			memcpy(&result_addr[result_cnt*PAGESIZE],res_data,PAGESIZE);
+		//	pbody_data_print(&result_addr[result_cnt*PAGESIZE]);		
+			result_cnt++;
+		}
+		
+		if(next_pop<0) lp_key=pbody_get_next_key(lp,&lppa);
+		else if(next_pop>0) hp_key=pbody_get_next_key(hp,&hppa);
+		else{
+			lp_key=pbody_get_next_key(lp,&lppa);
+			hp_key=pbody_get_next_key(hp,&hppa);
+		}
+	}
+
+	if((res_data=pbody_insert_new_key(rp,insert_key,0,true))){
+			memcpy(&result_addr[result_cnt*PAGESIZE],res_data,PAGESIZE);
+		//	pbody_data_print(&result_addr[result_cnt*PAGESIZE]);		
+			result_cnt++;
+	}
+	*ktable_num=result_cnt;
+	*invliadate_num=invalid_cnt;
+	free(rp);
+	free(lp);
+	free(hp);
+	return 1;
+}
+
+char * posix_hw_get_kt(){
+	return result_addr;
+}
+
+char *posix_hw_get_inv(){
+	return invalidate_ppa_ptr;
 }

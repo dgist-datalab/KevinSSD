@@ -73,6 +73,7 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 
 bool htable_read_preproc(run_t *r);
 void htable_read_postproc(run_t *r);
+uint32_t sequential_move_next_level(level *origin, level *target,KEYT start, KEYT end);
 
 
 

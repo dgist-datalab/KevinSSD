@@ -5,10 +5,11 @@ extern lsmtree LSM;
 #ifdef KVSSD
 extern KEYT key_min, key_max;
 #endif
-
 extern MeasureTime write_opt_time[10];
-void make_pbn_array(ppa_t *ar, level *t){
-	lev_iter *iter=LSM.lop->get_iter(t,t->start,t->end);
+
+void make_pbn_array(ppa_t *ar, level *t, int start_idx){
+//	lev_iter *iter=LSM.lop->get_iter(t,t->start,t->end);
+	lev_iter *iter=LSM.lop->get_iter_from_run(t,LSM.lop->get_run_idx(t,start_idx),LSM.lop->get_run_idx(t,t->n_num));
 	run_t *now;
 	int idx=0;
 	while((now=LSM.lop->iter_nxt(iter))){
@@ -39,19 +40,28 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 		}
 		free(datas);
 	}
+	/*sequencial move*/
+	int except=0;
+#ifndef MONKEY
+	KEYT start=upper?upper->start:lnode->start;
+	KEYT end=upper?upper->end:lnode->end;
+	except=sequential_move_next_level(origin,t,start,end);
+#endif
 	
+	lp_num=lp_num-except;
 	lp_array=(ppa_t*)malloc(sizeof(ppa_t)*lp_num);
 	hp_array=(ppa_t*)malloc(sizeof(ppa_t)*hp_num);
 	
-	make_pbn_array(lp_array,origin);
+	make_pbn_array(lp_array,origin,except);
 	if(upper){
-		make_pbn_array(hp_array,upper);
+		make_pbn_array(hp_array,upper,0);
 	}else{
 		hp_array[0]=lnode->entry->pbn;
 	}
 	
 	uint32_t tp_num=hp_num+lp_num;
 	tp_array=(ppa_t*)malloc(sizeof(ppa_t)*(tp_num));
+	 page_check_available(HEADER, tp_num);
 	for(int i=0; i<tp_num; i++){
 		tp_array[i]=getPPA(HEADER,key_max,false);
 	}
@@ -65,7 +75,6 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	char *kt=LSM.li->hw_get_kt();
 	char *inv=LSM.li->hw_get_inv();
 	run_t *entry;
-	KEYT start, end;
 	uint16_t *body;
 	for(int i=0; i<ktable_num; i++){
 		char *kt_start=&kt[i*PAGESIZE];
@@ -81,6 +90,7 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 		entry=LSM.lop->make_run(start,end,tp_array[i]);
 		LSM.lop->insert(t,entry);
 		LSM.lop->release_run(entry);
+		free(entry);
 	}
 
 	ppa_t *ppa=(ppa_t*)inv;
@@ -92,8 +102,18 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 		erase_PPA(HEADER,tp_array[i]);
 	}
 	
+
+	for(int i=0; i<lp_num; i++){
+		invalidate_PPA(HEADER,lp_array[i]);
+	}
+	for(int i=0; i<hp_num; i++){
+		invalidate_PPA(HEADER,hp_array[i]);
+	}
+
+
 	LSM.li->req_type_cnt[MAPPINGR]+=hp_num+lp_num;
 	LSM.li->req_type_cnt[MAPPINGW]+=ktable_num;
+
 	free(lp_array);
 	free(hp_array);
 	free(tp_array);
