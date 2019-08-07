@@ -438,10 +438,6 @@ uint32_t lsm_set(request * const req){
 	data_input_write++;
 	compaction_check(req->key,force);
 	snode *new_temp;
-	/*
-	if(KEYCONSTCOMP(req->key,"315171000000")==0){
-		printf("3151710000 to mem\n");
-	}*/
 	if(req->type==FS_DELETE_T){
 		new_temp=skiplist_insert(LSM.memtable,req->key,req->value,false);
 	}
@@ -514,8 +510,10 @@ uint32_t lsm_get(request *const req){
 	if(!temp){
 		//printf("nocpy size:%d\n",nocpy_size()/M);
 		//printf("lsmtree size:%d\n",lsm_memory_size()/M);
+	//	LSM.lop->all_print();
 		temp=true;
 	}
+
 	res_type=__lsm_get(req);
 	if(!debug && LSM.disk[0]->n_num>0){
 		debug=true;
@@ -752,10 +750,7 @@ uint32_t __lsm_get(request *const req){
 	lsm_params *params;
 	uint8_t result=0;
 	int *temp_data;
-	/*
-	static int cnt=0;
-	printf("[%d]%.*s\n",cnt++,KEYFORMAT(req->key));
-*/
+
 	if(req->params==NULL){
 		/*memtable*/
 		res=__lsm_get_sub(req,NULL,NULL,LSM.memtable);

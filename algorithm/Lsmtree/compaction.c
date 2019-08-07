@@ -131,13 +131,14 @@ last:
 	//printf("ending\n");
 	LSM.c_level=NULL;
 	//LSM.lop->print_level_summary();
+
 	//LSM.lop->all_print();
 	return res;
 }
 
 uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* upper){
-	KEYT start={0,0};
-	KEYT end={0,0};
+	KEYT start=key_min;
+	KEYT end=key_max;
 	run_t **target_s=NULL;
 	run_t **data=NULL;
 	skiplist *skip=lnode?lnode->mem:skiplist_init();
@@ -145,34 +146,21 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 #ifndef MONKEY
 		start=lnode->start;
 		end=lnode->end;
-#else
-		start=key_min;
 #endif
 	}
 	else{
 		start=upper->start;
 		end=upper->end;
 	}
-	int test_a, test_b;
-//#ifdef MONKEY
-	test_a=LSM.lop->unmatch_find(origin,start,end,&target_s);
-	if(test_a>origin->n_num){
-		DEBUG_LOG("fuck!");
-	}
-	for(int i=0; target_s[i]!=NULL; i++){
-		LSM.lop->insert(t,target_s[i]);
-		target_s[i]->iscompactioning=SEQCOMP;
-	}
-	free(target_s);
-//#endif
+
+#ifndef MONKEY
+	sequential_move_next_level(origin,t,start,end);
+#endif
 
 	compaction_sub_pre();
 
 	if(!upper){
-		test_b=LSM.lop->range_find_compaction(origin,start,end,&target_s);
-		if(!(test_a | test_b)){
-			DEBUG_LOG("can't be");
-		}
+		LSM.lop->range_find_compaction(origin,start,end,&target_s);
 
 		for(int j=0; target_s[j]!=NULL; j++){
 			if(!htable_read_preproc(target_s[j])){

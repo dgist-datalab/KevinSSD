@@ -203,7 +203,7 @@ void array_insert(level *lev, run_t* r){
 	run_t *target=&arrs[lev->n_num];
 	array_run_cpy_to(r,target);
 
-	if(!target->c_entry && r->cpt_data && cache_insertable(LSM.lsm_cache)){
+	if(LSM.comp_opt!=HW && !target->c_entry && r->cpt_data && cache_insertable(LSM.lsm_cache)){
 #ifdef NOCPY
 //		target->cache_data=htable_dummy_assign();
 //		target->cache_data->nocpy_table=(char*)cache_temp;
