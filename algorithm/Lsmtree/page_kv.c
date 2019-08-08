@@ -68,11 +68,8 @@ int gc_header(){
 			continue;
 		}
 
-#ifdef NOCPY
-		KEYT *lpa=LSM.lop->get_lpa_from_data((char*)tables[i]->nocpy_table,tpage,true);
-#else
-		KEYT *lpa=LSM.lop->get_lpa_from_data((char*)tables[i]->sets,tpage,true);
-#endif
+		KEYT *lpa=LSM.nocpy?LSM.lop->get_lpa_from_data((char*)tables[i]->nocpy_table,tpage,true):LSM.lop->get_lpa_from_data((char*)tables[i]->sets,tpage,true);
+
 		run_t **entries=NULL;
 		run_t *target_entry=NULL;
 		bool checkdone=false;
@@ -136,9 +133,7 @@ int gc_header(){
 		}
 		uint32_t n_ppa=getRPPA(HEADER,*lpa,true);
 		target_entry->pbn=n_ppa;
-#ifdef NOCPY
-		nocpy_force_freepage(tpage);
-#endif
+		if(LSM.nocpy)nocpy_force_freepage(tpage);
 		gc_data_write(n_ppa,tables[i],false);
 		free(tables[i]);
 
@@ -148,9 +143,7 @@ int gc_header(){
 	
 	free(tables);
 	for_each_page_in_seg(tseg,tpage,bidx,pidx){
-#ifdef NOCPY
-		nocpy_trim_delay_enq(tpage);
-#endif
+		if(LSM.nocpy) nocpy_trim_delay_enq(tpage);
 		if(pidx==0){
 			lb_free((lsm_block*)tseg->blocks[bidx]->private_data);
 		}
@@ -366,13 +359,12 @@ void gc_data_header_update_add(l_bucket *b){
 void* gc_data_end_req(struct algo_req*const req){
 	lsm_params *params=(lsm_params*)req->params;
 	gc_node *g_target=(gc_node*)params->entry_ptr;
-	#ifdef NOCPY
 
-	#else
-	char *target;
-	target=(PTR)params->target;
-	memcpy(target,params->value->value,PAGESIZE);
-	#endif
+	if(!LSM.nocpy){
+		char *target;
+		target=(PTR)params->target;
+		memcpy(target,params->value->value,PAGESIZE);
+	}
 	inf_free_valueset(params->value,FS_MALLOC_R);
 	g_target->status=READDONE;
 	free(params);
@@ -480,21 +472,13 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 			printf("data :%p\n",data);
 			printf("data_nocpy:%p\n",data->nocpy_table);
 		}*/
-#ifdef NOCPY
-		find=LSM.lop->find_keyset((char*)data->nocpy_table,target->lpa);
-#else
-		find=LSM.lop->find_keyset((char*)data->sets,target->lpa);
-#endif
+		find=LSM.nocpy?LSM.lop->find_keyset((char*)data->nocpy_table,target->lpa): LSM.lop->find_keyset((char*)data->sets,target->lpa);
 		if(find && find->ppa==target->ppa){
 			p->found=find;
 			target->status=DONE;
 			done_cnt++;
 			if(ent->c_entry){
-#ifdef NOCPY
-				p->found2=LSM.lop->find_keyset((char*)ent->cache_nocpy_data_ptr,target->lpa);
-#else
-				p->found2=LSM.lop->find_keyset((char*)ent->cache_data->sets,target->lpa);
-#endif
+				p->found2=LSM.nocpy?LSM.lop->find_keyset((char*)ent->cache_nocpy_data_ptr,target->lpa): p->found2=LSM.lop->find_keyset((char*)ent->cache_data->sets,target->lpa);
 			}
 			else
 				p->found2=NULL;
@@ -604,22 +588,17 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 	}
 
 
-#ifdef NOCPY
 	char *nocpy_temp_table;
-#endif
-
 	for(int i=0; i<idx; i++){
 		ppa_t temp_header=entries[i]->pbn;
 		entries[i]->run_data=NULL;
-#ifdef NOCPY
-		nocpy_temp_table=map_table[i]->nocpy_table;
-		nocpy_force_freepage(entries[i]->pbn);
-#endif
+		if(LSM.nocpy){
+			nocpy_temp_table=map_table[i]->nocpy_table;
+			nocpy_force_freepage(entries[i]->pbn);
+		}
 		invalidate_PPA(HEADER,temp_header);
 		entries[i]->pbn=getPPA(HEADER,entries[i]->key,true);
-#ifdef NOCPY
-		map_table[i]->nocpy_table=nocpy_temp_table;
-#endif
+		if(LSM.nocpy) {map_table[i]->nocpy_table=nocpy_temp_table;}
 		gc_data_write(entries[i]->pbn,map_table[i],false);
 	}
 	free(entries);

@@ -110,10 +110,10 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 			free(entry->key.key);
 			free(entry->end.key);
 			LSM.lop->mem_cvt2table(l_node->mem,entry);
-#ifdef NOCPY
-			nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
-			entry->cpt_data->sets=NULL;
-#endif
+			if(LSM.nocpy){
+				nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
+				entry->cpt_data->sets=NULL;
+			}
 			compaction_htable_write(ppa,entry->cpt_data,entry->key);
 			l_node->entry=entry;
 		}
@@ -229,10 +229,10 @@ skip:
 		free(target_s);
 	}
 	compaction_sub_post();
-#ifdef NOCPY
-	gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
-	LSM.delayed_header_trim=false;
-#endif
+	if(LSM.nocpy){
+		gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
+		LSM.delayed_header_trim=false;
+	}
 	if(!lnode) skiplist_free(skip);
 	return 1;
 }

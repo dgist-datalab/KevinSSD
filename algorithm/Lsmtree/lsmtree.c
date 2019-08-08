@@ -94,7 +94,7 @@ static int32_t get_sizefactor(uint64_t as,uint32_t keynum_in_header){
 	uint32_t _f=LSM.LEVELN;
 	int32_t res;
 	uint64_t all_memory=(TOTALSIZE/1024);
-	caching_size=CACHINGSIZE*(all_memory/(8*K));
+	caching_size=LSM.caching_size*(all_memory/(8*K));
 #if !defined(READCACHE)
 	if(LSM.LEVELCACHING==1 && LSM.LEVELN==2)
 		res=caching_size;
@@ -228,9 +228,8 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	LSM.li=li;
 	algo_lsm.li=li;
 	pm_init();
-#ifdef NOCPY
-	nocpy_init();
-#endif
+	if(LSM.nocpy)
+		nocpy_init();
 
 #ifdef EMULATOR
 	LSM.rb_ppa_key=rb_create();
@@ -264,9 +263,8 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 
 	measure_adding_print(&__get_mt);
 	free(LSM.level_lock);
-#ifdef NOCPY
-	nocpy_free();
-#endif
+	if(LSM.nocpy)
+		nocpy_free();
 	//printf("---------------------------hash_insert_cnt: %u\n",hash_insert_cnt);
 	//SLAB_DUMP(snode_slab)
 
@@ -310,9 +308,7 @@ void* lsm_end_req(algo_req* const req){
 	request* parents=req->parents;
 	bool havetofree=true;
 	void *req_temp_params=NULL;
-#if !defined(NOCPY)||defined(KVSSD)
 	PTR target=NULL;
-#endif
 	htable **header=NULL;
 	htable *table=NULL;
 	//htable mapinfo;
@@ -324,11 +320,7 @@ void* lsm_end_req(algo_req* const req){
 			if(!parents){ //end_req for compaction
 				header=(htable**)params->target;
 				table=*header;
-#ifdef NOCPY
-				//nothing to do;
-#else
-				memcpy(table->sets,params->value->value,PAGESIZE);
-#endif
+				if(!LSM.nocpy) memcpy(table->sets,params->value->value,PAGESIZE);
 				comp_target_get_cnt++;
 				table->done=true;
 				if(epc_check==comp_target_get_cnt+memcpy_cnt){
@@ -365,18 +357,15 @@ void* lsm_end_req(algo_req* const req){
 			htable_free(params->htable_ptr);
 			break;
 		case GCDR:
-#ifdef NOCPY
-
-#ifdef KVSSD
-			target=(PTR)params->target;
-			memcpy(target,params->value->value,PAGESIZE);
-#endif
+			if(LSM.nocpy){
+				target=(PTR)params->target;
+				memcpy(target,params->value->value,PAGESIZE);
+			}
 		case GCHR:
-#else
-		case GCHR:
-			target=(PTR)params->target;//gc has malloc in gc function
-			memcpy(target,params->value->value,PAGESIZE);
-#endif
+			if(!LSM.nocpy){
+				target=(PTR)params->target;//gc has malloc in gc function
+				memcpy(target,params->value->value,PAGESIZE);
+			}
 			if(gc_read_wait==gc_target_get_cnt){
 #ifdef MUTEXLOCK
 				fdlock_unlock(&gc_wait);
@@ -412,11 +401,7 @@ void* lsm_end_req(algo_req* const req){
 		case BGREAD:
 			header=(htable**)params->target;
 			table=*header;
-#ifdef NOCPY
-
-#else
-			memcpy(table->sets,params->value->value,PAGESIZE);
-#endif	
+			if(!LSM.nocpy) memcpy(table->sets,params->value->value,PAGESIZE);
 			inf_free_valueset(params->value,FS_MALLOC_R);
 			fdriver_unlock(params->lock);
 			break;
@@ -597,21 +582,21 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 	}
 
 	if(!res && table){//retry check or cache hit check
-#ifdef NOCPY
-		if(entry){
+		if(LSM.nocpy && entry){
 			table=(keyset*)nocpy_pick(entry->pbn);
 		}
-#endif
 		target_set=LSM.lop->find_keyset((char*)table,req->key);
+		char *src;
 		if(likely(target_set)){
 			if(entry && !entry->c_entry && cache_insertable(LSM.lsm_cache)){
-#ifdef NOCPY
-				char *src=nocpy_pick(entry->pbn);
-				entry->cache_nocpy_data_ptr=src;
-#else
-				htable temp; temp.sets=table;
-				entry->cache_data=htable_copy(&temp);
-#endif
+				if(LSM.nocpy){
+					src=nocpy_pick(entry->pbn);
+					entry->cache_nocpy_data_ptr=src;
+				}
+				else{
+					htable temp; temp.sets=table;
+					entry->cache_data=htable_copy(&temp);
+				}
 				cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
 				entry->c_entry=c_entry;
 			}
@@ -779,11 +764,7 @@ uint32_t __lsm_get(request *const req){
 			run++;
 			goto retry;
 		}
-#ifdef NOCPY
-		mapinfo.sets=(keyset*)nocpy_pick(req->ppa);
-#else
-		mapinfo.sets=(keyset*)req->value->value;
-#endif
+		mapinfo.sets=LSM.nocpy?(keyset*)nocpy_pick(req->ppa):(keyset*)req->value->value;
 		//it can be optimize;
 		_entry=LSM.lop->find_run(LSM.disk[level],req->key);
 
@@ -828,11 +809,7 @@ retry:
 			temp_data[1]=run;
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(entry->c_entry){
-#ifdef NOCPY
-				res=__lsm_get_sub(req,NULL,(keyset*)entry->cache_nocpy_data_ptr,NULL);
-#else
-				res=__lsm_get_sub(req,NULL,entry->cache_data->sets,NULL);
-#endif
+				res=LSM.nocpy?__lsm_get_sub(req,NULL,(keyset*)entry->cache_nocpy_data_ptr,NULL):__lsm_get_sub(req,NULL,entry->cache_data->sets,NULL);
 				if(res){
 					bench_cache_hit(mark);
 					cache_update(LSM.lsm_cache,entry);	
@@ -876,9 +853,7 @@ uint32_t lsm_remove(request *const req){
 
 htable *htable_assign(char *cpy_src, bool using_dma){
 	htable *res=(htable*)malloc(sizeof(htable));
-#ifdef NOCPY
 	res->nocpy_table=NULL;
-#endif
 	if(!using_dma){
 		res->sets=(keyset*)malloc(PAGESIZE);
 		res->t_b=0;
@@ -917,9 +892,7 @@ htable *htable_copy(htable *input){
 htable *htable_dummy_assign(){
 	htable *res=(htable*)malloc(sizeof(htable));
 	res->sets=NULL;
-#ifdef NOCPY
 	res->nocpy_table=NULL;
-#endif
 	res->t_b=0;
 	res->done=0;;
 	res->origin=NULL;
@@ -950,11 +923,9 @@ void htable_print(htable * input,ppa_t ppa){
 extern block bl[_NOB];
 void htable_check(htable *in, KEYT lpa, ppa_t ppa,char *log){
 	keyset *target=NULL;
-#ifdef NOCPY
 	if(in->nocpy_table){
 		target=(keyset*)in->nocpy_table;
 	}
-#endif
 	if(!target){ 
 		//	printf("no table\n");
 		return;
@@ -1021,10 +992,12 @@ uint32_t lsm_argument_set(int argc, char **argv){
 	int c;
 	bool level_flag=false;
 	bool level_c_flag=false;
+	bool memory_c_flag=false;
 	bool gc_opt_flag=false;
 	bool multi_level_comp=false;
+	bool nocpy_option=false;
 	int comp_type=0;
-	while((c=getopt(argc,argv,"lcgom"))!=-1){
+	while((c=getopt(argc,argv,"lcgomnr"))!=-1){
 		switch(c){
 			case 'l':
 				level_flag=true;
@@ -1036,6 +1009,11 @@ uint32_t lsm_argument_set(int argc, char **argv){
 				printf("level caching number:%s\n",argv[optind]);
 				LSM.LEVELCACHING=atoi(argv[optind]);
 				break;
+			case 'r':
+				memory_c_flag=true;
+				printf("level caching number:%s\n",argv[optind]);
+				LSM.caching_size=(float)atoi(argv[optind])/100;
+				break;
 			case 'g':
 				printf("[*]GC optimization\n");
 				gc_opt_flag=true;
@@ -1045,6 +1023,11 @@ uint32_t lsm_argument_set(int argc, char **argv){
 				printf("[*]MULTIPLE compaction\n");
 				multi_level_comp=true;
 				LSM.multi_level_comp=true;
+				break;
+			case 'n':
+				printf("[*]NOCPY\n");
+				LSM.nocpy=true;
+				nocpy_option=true;
 				break;
 			case 'o':
 				comp_type=atoi(argv[optind]);
@@ -1057,6 +1040,8 @@ uint32_t lsm_argument_set(int argc, char **argv){
 	if(!level_c_flag) LSM.LEVELCACHING=0;
 	if(!multi_level_comp) LSM.multi_level_comp=false;
 	if(!gc_opt_flag) LSM.gc_opt=false;
+	if(!nocpy_option) LSM.nocpy=false;
+	if(!memory_c_flag) LSM.caching_size=0;
 	switch(comp_type){
 		case NON:
 			printf("[*]non compaction opt\n");

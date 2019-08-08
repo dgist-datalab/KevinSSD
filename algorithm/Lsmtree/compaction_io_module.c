@@ -42,10 +42,10 @@ void compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 	entry->pbn=ppa;
 
 
-#ifdef NOCPY
-	nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
-	entry->cpt_data->sets=NULL;
-#endif
+	if(LSM.nocpy){
+		nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
+		entry->cpt_data->sets=NULL;
+	}
 	LSM.lop->insert(target,entry);
 	if(isbg){
 		if(LSM.comp_opt==PIPE)
@@ -98,9 +98,7 @@ void compaction_htable_read(run_t *ent,PTR* value){
 	areq->rapid=false;
 	areq->type=HEADERR;
 
-#ifdef NOCPY
-	ent->cpt_data->nocpy_table=nocpy_pick(ent->pbn);
-#endif
+	if(LSM.nocpy) ent->cpt_data->nocpy_table=nocpy_pick(ent->pbn);
 	//printf("R %u\n",ent->pbn);
 	LSM.li->read(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
 	return;

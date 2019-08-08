@@ -6,7 +6,6 @@ extern lsmtree LSM;
 keyset **page;
 
 queue *delayed_trim_queue;
-#ifdef NOCPY
 void nocpy_init(){
 	page=(keyset**)malloc(sizeof(keyset*)*((MAPPART_SEGS)*_PPS));
 	for(int i=0; i<(MAPPART_SEGS)*_PPS; i++){
@@ -98,4 +97,3 @@ void nocpy_trim_delay_flush(){
 		free(req);
 	}
 }
-#endif

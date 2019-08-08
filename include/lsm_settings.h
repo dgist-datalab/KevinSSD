@@ -9,7 +9,6 @@
 #endif
 
 #define RAF 0.01
-//#define LEVELN 2
 
 #if LEVELN!=1
 //#define BLOOM
@@ -19,10 +18,7 @@
 
 //#define EMULATOR
 #define KEYLEN(a) (a.len+sizeof(ppa_t))
-//#define LEVELCACHING 0
-#define CACHINGSIZE CACHING_RATIO
 #define READCACHE
-//#define NOCPY
 #define RANGEGETNUM 2
 //#define USINGSLAB
 

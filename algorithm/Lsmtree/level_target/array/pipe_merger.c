@@ -4,7 +4,7 @@
 p_body *rp;
 char **r_data;
 bool cutter_start;
-
+extern lsmtree LSM;
 char *array_skip_cvt2_data(skiplist *mem){
 	char *res=(char*)malloc(PAGESIZE);
 	uint16_t *bitmap=(uint16_t *)res;
@@ -130,11 +130,7 @@ run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KE
 		free(rp);
 		return NULL;
 	}
-#ifdef NOCPY
-	htable *res=htable_assign(data,0);
-#else
-	htable *res=htable_assign(data,1);
-#endif
+	htable *res=LSM.nocpy?htable_assign(data,0):htable_assign(data,1);
 
 	KEYT start,end;
 	uint16_t *body=(uint16_t*)data;
