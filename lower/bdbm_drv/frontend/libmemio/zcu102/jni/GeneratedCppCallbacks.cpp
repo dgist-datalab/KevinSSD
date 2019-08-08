@@ -200,14 +200,6 @@ int FlashIndicationdisconnect_cb (struct PortalInternal *p) {
     (static_cast<FlashIndicationWrapper *>(p->parent))->disconnect();
     return 0;
 };
-int FlashIndicationmergeDone_cb (  struct PortalInternal *p, const uint32_t numGenKt, const uint32_t numInvalAddr, const uint64_t counter ) {
-    (static_cast<FlashIndicationWrapper *>(p->parent))->mergeDone ( numGenKt, numInvalAddr, counter);
-    return 0;
-};
-int FlashIndicationmergeFlushDone_cb (  struct PortalInternal *p, const uint32_t num ) {
-    (static_cast<FlashIndicationWrapper *>(p->parent))->mergeFlushDone ( num);
-    return 0;
-};
 int FlashIndicationreadDone_cb (  struct PortalInternal *p, const uint32_t tag ) {
     (static_cast<FlashIndicationWrapper *>(p->parent))->readDone ( tag);
     return 0;
@@ -224,13 +216,26 @@ int FlashIndicationdebugDumpResp_cb (  struct PortalInternal *p, const uint32_t 
     (static_cast<FlashIndicationWrapper *>(p->parent))->debugDumpResp ( debug0, debug1, debug2, debug3, debug4, debug5);
     return 0;
 };
+int FlashIndicationmergeDone_cb (  struct PortalInternal *p, const uint32_t numGenKt, const uint32_t numInvalAddr, const uint64_t counter ) {
+    (static_cast<FlashIndicationWrapper *>(p->parent))->mergeDone ( numGenKt, numInvalAddr, counter);
+    return 0;
+};
+int FlashIndicationmergeFlushDone1_cb (  struct PortalInternal *p, const uint32_t num ) {
+    (static_cast<FlashIndicationWrapper *>(p->parent))->mergeFlushDone1 ( num);
+    return 0;
+};
+int FlashIndicationmergeFlushDone2_cb (  struct PortalInternal *p, const uint32_t num ) {
+    (static_cast<FlashIndicationWrapper *>(p->parent))->mergeFlushDone2 ( num);
+    return 0;
+};
 FlashIndicationCb FlashIndication_cbTable = {
     FlashIndicationdisconnect_cb,
-    FlashIndicationmergeDone_cb,
-    FlashIndicationmergeFlushDone_cb,
     FlashIndicationreadDone_cb,
     FlashIndicationwriteDone_cb,
     FlashIndicationeraseDone_cb,
     FlashIndicationdebugDumpResp_cb,
+    FlashIndicationmergeDone_cb,
+    FlashIndicationmergeFlushDone1_cb,
+    FlashIndicationmergeFlushDone2_cb,
 };
 #endif //NO_CPP_PORTAL_CODE
