@@ -44,7 +44,7 @@ char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush){
 	char *res=NULL;
 	static int cnt=0;
 	static int key_cnt=0;
-	if((flush && p->kidx>1) || !p->now_page || p->kidx>=(PAGESIZE-1024)/sizeof(uint16_t)-2 || p->length>=PAGESIZE){
+	if((flush && p->kidx>1) || !p->now_page || p->kidx>=(PAGESIZE-1024)/sizeof(uint16_t)-2 || p->length+(key.len+sizeof(uint32_t))>PAGESIZE){
 		if(p->now_page){
 			p->bitmap_ptr[0]=p->kidx-1;
 			p->bitmap_ptr[p->kidx]=p->length;

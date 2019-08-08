@@ -27,6 +27,7 @@ SRCS +=\
 	   lsmtree.c\
 	   compaction_io_module.c\
 	   compaction_assistant.c\
+	   pipeline_compaction.c\
 	   hw_compaction.c\
 	   compaction.c\
 	   page.c\
