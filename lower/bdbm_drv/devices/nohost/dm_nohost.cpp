@@ -822,5 +822,5 @@ unsigned int *get_merged_kt(){
 	return mergeKt_Buffer;
 }
 uint32_t get_dev_tags(){
-	return 128;
+	return 64;
 }
