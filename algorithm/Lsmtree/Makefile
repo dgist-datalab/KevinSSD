@@ -28,7 +28,6 @@ SRCS +=\
 	   compaction_io_module.c\
 	   compaction_assistant.c\
 	   hw_compaction.c\
-	   pipe_compaction.c\
 	   compaction.c\
 	   page.c\
 	   nocpy.c\

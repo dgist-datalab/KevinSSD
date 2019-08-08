@@ -119,6 +119,14 @@ static inline char KEYTEST(KEYT a, KEYT b){
 	int alen=a.len, blen=b.len;
 	return memcmp(a.key,b.key,alen>blen?blen:alen)?0:1;
 }
+
+static inline bool KEYVALCHECK(KEYT a){
+	if(a.len<=0)
+		return false;
+	if(a.key[0]<0)
+		return false;
+	return true;
+}
 #else
 	#define KEYT uint32_t
 #endif

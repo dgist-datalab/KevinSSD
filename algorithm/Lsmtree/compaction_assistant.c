@@ -95,12 +95,12 @@ bool compaction_init(){
 	pthread_mutex_init(&compaction_flush_wait,NULL);
 	pthread_mutex_lock(&compaction_flush_wait);
 	switch(LSM.comp_opt){
+		case PIPE:
 		case NON:
 			compactor.pt_leveling=partial_leveling;
 			break;
-		case PIPE:
-			compactor.pt_leveling=pipe_partial_leveling;
-			break;
+			//compactor.pt_leveling=pipe_partial_leveling;
+			//break;
 		case HW:
 			compactor.pt_leveling=hw_partial_leveling;
 			break;

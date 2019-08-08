@@ -7,21 +7,7 @@
 #include "../../../../include/settings.h"
 #include "array.h"
 extern lsmtree LSM;
-static inline char *data_from_run(run_t *a){
-#ifdef NOCPY
-	if(a->c_entry){
-		return (char*)a->cache_nocpy_data_ptr;
-	}
-	else{
-		if(a->cpt_data->nocpy_table)
-			return a->cpt_data->nocpy_table;
-		else
-			return (char*)a->cpt_data->sets;//level_caching data
-	}
-#else
-	return (char*)a->cpt_data->sets;
-#endif
-}
+
 void array_tier_align( level *lev){
 	printf("this is empty\n");
 }
@@ -108,6 +94,7 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 	return res;
 }
 //static int merger_cnt;
+
 void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	array_body *des=(array_body*)d->level_data;
 	if(des->skip){
@@ -116,11 +103,6 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	}else{
 		des->skip=skiplist_init();
 	}
-	/*
-	if(merger_cnt==14){
-		printf("break!\n");
-	}
-	printf("merger start: %d\n",merger_cnt++);*/
 	ppa_t *ppa_ptr;
 	KEYT key;
 	uint16_t *bitmap;
@@ -130,7 +112,6 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	for(int i=0; o[i]!=NULL; i++){
 		body=data_from_run(o[i]);
 		bitmap=(uint16_t*)body;
-	//	if(merger_cnt==15) array_header_print(body);
 		for_each_header_start(idx,key,ppa_ptr,bitmap,body)
 			t_node=skiplist_insert_existIgnore(des->skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
 			if(t_node->ppa!=*ppa_ptr){
@@ -142,37 +123,18 @@ void array_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	if(mem){
 		snode *temp, *temp_result;
 		for_each_sk(temp,mem){
-			if(temp->ppa==1308512){
-	//			printf("%d inserted! %d %d\n",temp->ppa,ppa_cnt++,__LINE__);
-			}
 			temp_result=skiplist_insert_existIgnore(des->skip,temp->key,temp->ppa,temp->ppa==UINT32_MAX?false:true);
-			/*
-			   this logic is needed because it has it's own memory
-			   =>not true :2019-07-16
-			if(temp_result){
-				free(temp->key.key);
-			}
-			temp->key.key=NULL;
-			*/
-	
 		}
 	}
 	else{
 		for(int i=0; s[i]!=NULL; i++){
 			body=data_from_run(s[i]);
-
-//			array_header_print(body);
-
 			bitmap=(uint16_t*)body;
 			for_each_header_start(idx,key,ppa_ptr,bitmap,body)
-				if(*ppa_ptr==1308512){
-		//			printf("%d inserted! %d %d\n",1308512,ppa_cnt++,__LINE__);
-				}
 				skiplist_insert_existIgnore(des->skip,key,*ppa_ptr,*ppa_ptr==UINT32_MAX?false:true);
 			for_each_header_end
 		}
 	}
-	//printf("merger end: %d\n",merger_cnt++);
 }
 
 uint32_t all_kn_run,run_num;
