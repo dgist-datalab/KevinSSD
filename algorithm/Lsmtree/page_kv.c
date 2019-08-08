@@ -63,11 +63,10 @@ int gc_header(){
 
 	i=0;
 	for_each_page_in_seg(tseg,tpage,bidx,pidx){
-
 		if(bm->is_invalid_page(bm, tpage)){
 			continue;
 		}
-
+		
 		KEYT *lpa=LSM.nocpy?LSM.lop->get_lpa_from_data((char*)tables[i]->nocpy_table,tpage,true):LSM.lop->get_lpa_from_data((char*)tables[i]->sets,tpage,true);
 
 		run_t **entries=NULL;

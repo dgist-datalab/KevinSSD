@@ -796,6 +796,15 @@ void free_dmaQ_tag (int type, int dmaTag) {
 }
 
 int dm_do_merge(unsigned int ht_num, unsigned int lt_num, unsigned int *kt_num, unsigned int *inv_num){
+	if(ht_num==0 || lt_num==0){
+		fprintf(stderr,"l:%d h:%d\n",lp_num,hp_num);
+		abort();
+	}
+
+	if(lt_num + ht_num > PPA_LIST_SIZE*2){
+		fprintf(stderr,"over kt aborting %d\n",lt_num+ht_num);
+		abort();	
+	}
 	sem_init(&merge_req.merge_lock,0,0);
 	device->startCompaction(ht_num,lt_num);
 	sem_wait(&merge_req.merge_lock);

@@ -15,7 +15,7 @@
 
 #define for_each_header_end }
 
-typedef struct pipe_body{
+typedef struct pipe_lower_body{
 	uint32_t max_page;
 	uint32_t pidx;
 	uint32_t *map_ppa_list;
@@ -26,11 +26,11 @@ typedef struct pipe_body{
 	uint32_t length;
 	uint32_t max_key;
 	uint32_t kidx;
-}p_body;
+}pl_body;
 
-p_body *pbody_init(mem_seg *data, uint32_t *map_ppa_list, uint32_t list_size);
-KEYT pbody_get_next_key(p_body *p, uint32_t *r_ppa);
-char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa,bool f);
+pl_body *plbody_init(mem_seg *data, uint32_t *map_ppa_list, uint32_t list_size);
+KEYT plbody_get_next_key(pl_body *p, uint32_t *r_ppa);
+char *plbody_insert_new_key(pl_body *p,KEYT key, uint32_t ppa,bool f);
 
-void pbody_data_print(char *data);
+void plbody_data_print(char *data);
 #endif

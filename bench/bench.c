@@ -1040,7 +1040,7 @@ int bench_set_params(int argc, char **argv, char **temp_argv){
 						if(optarg!=NULL){
 							key_length=true;
 							KEYLENGTH=atoi(optarg);
-							if(KEYLENGTH>=16 || KEYLENGTH<1){
+							if(KEYLENGTH>16 || KEYLENGTH<1){
 								KEYLENGTH=-1;
 							}
 						}
