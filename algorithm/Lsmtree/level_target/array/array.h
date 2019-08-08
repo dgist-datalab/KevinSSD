@@ -152,6 +152,7 @@ int array_bound_search(run_t *body,uint32_t max_t, KEYT lpa,bool islower);
 keyset_iter *array_key_iter_init(char *key_data,int from);
 keyset *array_key_iter_nxt(keyset_iter *,keyset *);
 run_t *array_p_merger_cutter(skiplist *,run_t **, run_t **,float);
+run_t *array_pipe_p_merger_cutter(skiplist *,run_t **, run_t **,float);
 void array_normal_merger(skiplist *,run_t *r,bool);
 //void array_multi_cutter(skiplist *,KEYT, bool just_one);
 void array_checking_each_key(char *data,void*(*test)(KEYT a,ppa_t ppa));
