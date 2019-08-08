@@ -198,7 +198,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	printf("| start cache :%luMB(%lu page)%.2f(%%)\n",(cached_entry+lev_caching_entry)*PAGESIZE/M,cached_entry+lev_caching_entry,(float)cached_entry/(TOTALSIZE/PAGESIZE/K)*100);
 	printf("| -------- algorithm_log END\n\n");
 	fprintf(stderr,"TOTALSIZE(GB) :%lu HEADERSEG:%d DATASEG:%ld\n",TOTALSIZE/G,MAPPART_SEGS,DATAPART_SEGS);
-	fprintf(stderr,"LEVELN:%d (LEVELCACHING(%d), MEMORY:%f\n",LSM.LEVELN,LSM.LEVELCACHING,CACHINGSIZE);
+	fprintf(stderr,"LEVELN:%d (LEVELCACHING(%d), MEMORY:%f\n",LSM.LEVELN,LSM.LEVELCACHING,LSM.caching_size);
 	pthread_mutex_init(&LSM.memlock,NULL);
 	pthread_mutex_init(&LSM.templock,NULL);
 #ifdef DVALUE

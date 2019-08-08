@@ -478,6 +478,6 @@ bool page_check_available(uint8_t type, uint32_t needed_page){
 	if(res<needed_page){
 		if(type==HEADER) gc_header();	
 	}
-
+	return true;
 }
 #endif
