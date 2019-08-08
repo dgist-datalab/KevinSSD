@@ -184,15 +184,17 @@ class FlashIndication: public FlashIndicationWrapper {
 		virtual void mergeDone(unsigned int numMergedKt, uint32_t numInvalAddr, uint64_t counter) {
 			merge_req.kt_num=numMergedKt;
 			merge_req.inv_num=numInvalAddr;
+		}
+
+		virtual void mergeFlushDone1(unsigned int num) {
+			// num does not mean anything
 			sem_post(&merge_req.merge_lock);
 			sem_destroy(&merge_req.merge_lock);
 		}
 
-		virtual void mergeFlushDone(unsigned int num) {
-			// num does not mean anything
+		virtual void mergeFlushDone2(unsigned int num) {
 
 		}
-
 		virtual void readDone (unsigned int tag){ //, unsigned int status) {
 			int status = 0;
 			//printf ("LOG: readdone: tag=%d status=%d\n", tag, status); fflush (stdout);
@@ -822,5 +824,5 @@ unsigned int *get_merged_kt(){
 	return mergeKt_Buffer;
 }
 uint32_t get_dev_tags(){
-	return 64;
+	return 128;
 }
