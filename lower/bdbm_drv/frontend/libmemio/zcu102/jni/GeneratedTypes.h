@@ -318,23 +318,16 @@ int FlashRequestJson_setDebugVals ( struct PortalInternal *p, const uint32_t fla
 int FlashRequestJson_handleMessage(struct PortalInternal *p, unsigned int channel, int messageFd);
 extern FlashRequestCb FlashRequestJsonProxyReq;
 
-int FlashIndication_mergeDone ( struct PortalInternal *p, const uint32_t numGenKt, const uint32_t numInvalAddr, const uint64_t counter );
-int FlashIndication_mergeFlushDone ( struct PortalInternal *p, const uint32_t num );
 int FlashIndication_readDone ( struct PortalInternal *p, const uint32_t tag );
 int FlashIndication_writeDone ( struct PortalInternal *p, const uint32_t tag );
 int FlashIndication_eraseDone ( struct PortalInternal *p, const uint32_t tag, const uint32_t status );
 int FlashIndication_debugDumpResp ( struct PortalInternal *p, const uint32_t debug0, const uint32_t debug1, const uint32_t debug2, const uint32_t debug3, const uint32_t debug4, const uint32_t debug5 );
-enum { CHAN_NUM_FlashIndication_mergeDone,CHAN_NUM_FlashIndication_mergeFlushDone,CHAN_NUM_FlashIndication_readDone,CHAN_NUM_FlashIndication_writeDone,CHAN_NUM_FlashIndication_eraseDone,CHAN_NUM_FlashIndication_debugDumpResp};
+int FlashIndication_mergeDone ( struct PortalInternal *p, const uint32_t numGenKt, const uint32_t numInvalAddr, const uint64_t counter );
+int FlashIndication_mergeFlushDone1 ( struct PortalInternal *p, const uint32_t num );
+int FlashIndication_mergeFlushDone2 ( struct PortalInternal *p, const uint32_t num );
+enum { CHAN_NUM_FlashIndication_readDone,CHAN_NUM_FlashIndication_writeDone,CHAN_NUM_FlashIndication_eraseDone,CHAN_NUM_FlashIndication_debugDumpResp,CHAN_NUM_FlashIndication_mergeDone,CHAN_NUM_FlashIndication_mergeFlushDone1,CHAN_NUM_FlashIndication_mergeFlushDone2};
 extern const uint32_t FlashIndication_reqinfo;
 
-typedef struct {
-    uint32_t numGenKt;
-    uint32_t numInvalAddr;
-    uint64_t counter;
-} FlashIndication_mergeDoneData;
-typedef struct {
-    uint32_t num;
-} FlashIndication_mergeFlushDoneData;
 typedef struct {
     uint32_t tag;
 } FlashIndication_readDoneData;
@@ -353,32 +346,46 @@ typedef struct {
     uint32_t debug4;
     uint32_t debug5;
 } FlashIndication_debugDumpRespData;
+typedef struct {
+    uint32_t numGenKt;
+    uint32_t numInvalAddr;
+    uint64_t counter;
+} FlashIndication_mergeDoneData;
+typedef struct {
+    uint32_t num;
+} FlashIndication_mergeFlushDone1Data;
+typedef struct {
+    uint32_t num;
+} FlashIndication_mergeFlushDone2Data;
 typedef union {
-    FlashIndication_mergeDoneData mergeDone;
-    FlashIndication_mergeFlushDoneData mergeFlushDone;
     FlashIndication_readDoneData readDone;
     FlashIndication_writeDoneData writeDone;
     FlashIndication_eraseDoneData eraseDone;
     FlashIndication_debugDumpRespData debugDumpResp;
+    FlashIndication_mergeDoneData mergeDone;
+    FlashIndication_mergeFlushDone1Data mergeFlushDone1;
+    FlashIndication_mergeFlushDone2Data mergeFlushDone2;
 } FlashIndicationData;
 int FlashIndication_handleMessage(struct PortalInternal *p, unsigned int channel, int messageFd);
 typedef struct {
     PORTAL_DISCONNECT disconnect;
-    int (*mergeDone) (  struct PortalInternal *p, const uint32_t numGenKt, const uint32_t numInvalAddr, const uint64_t counter );
-    int (*mergeFlushDone) (  struct PortalInternal *p, const uint32_t num );
     int (*readDone) (  struct PortalInternal *p, const uint32_t tag );
     int (*writeDone) (  struct PortalInternal *p, const uint32_t tag );
     int (*eraseDone) (  struct PortalInternal *p, const uint32_t tag, const uint32_t status );
     int (*debugDumpResp) (  struct PortalInternal *p, const uint32_t debug0, const uint32_t debug1, const uint32_t debug2, const uint32_t debug3, const uint32_t debug4, const uint32_t debug5 );
+    int (*mergeDone) (  struct PortalInternal *p, const uint32_t numGenKt, const uint32_t numInvalAddr, const uint64_t counter );
+    int (*mergeFlushDone1) (  struct PortalInternal *p, const uint32_t num );
+    int (*mergeFlushDone2) (  struct PortalInternal *p, const uint32_t num );
 } FlashIndicationCb;
 extern FlashIndicationCb FlashIndicationProxyReq;
 
-int FlashIndicationJson_mergeDone ( struct PortalInternal *p, const uint32_t numGenKt, const uint32_t numInvalAddr, const uint64_t counter );
-int FlashIndicationJson_mergeFlushDone ( struct PortalInternal *p, const uint32_t num );
 int FlashIndicationJson_readDone ( struct PortalInternal *p, const uint32_t tag );
 int FlashIndicationJson_writeDone ( struct PortalInternal *p, const uint32_t tag );
 int FlashIndicationJson_eraseDone ( struct PortalInternal *p, const uint32_t tag, const uint32_t status );
 int FlashIndicationJson_debugDumpResp ( struct PortalInternal *p, const uint32_t debug0, const uint32_t debug1, const uint32_t debug2, const uint32_t debug3, const uint32_t debug4, const uint32_t debug5 );
+int FlashIndicationJson_mergeDone ( struct PortalInternal *p, const uint32_t numGenKt, const uint32_t numInvalAddr, const uint64_t counter );
+int FlashIndicationJson_mergeFlushDone1 ( struct PortalInternal *p, const uint32_t num );
+int FlashIndicationJson_mergeFlushDone2 ( struct PortalInternal *p, const uint32_t num );
 int FlashIndicationJson_handleMessage(struct PortalInternal *p, unsigned int channel, int messageFd);
 extern FlashIndicationCb FlashIndicationJsonProxyReq;
 #ifdef __cplusplus
