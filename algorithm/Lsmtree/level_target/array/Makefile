@@ -1,5 +1,7 @@
 SRCS +=\
 	   array.c\
+	   pipe.c\
+	   pipe_merger.c\
 	   array_level.c\
 
 OBJS :=\

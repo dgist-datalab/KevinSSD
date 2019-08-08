@@ -37,8 +37,8 @@ level_ops a_ops={
 
 	.mem_cvt2table=array_mem_cvt2table,
 
-	.merger=array_merger,
-	.cutter=array_cutter,
+	.merger=array_pipe_merger,
+	.cutter=array_pipe_cutter,
 	.partial_merger_cutter=array_p_merger_cutter,
 	.normal_merger=array_normal_merger,
 //	.normal_cutter=array_multi_cutter,

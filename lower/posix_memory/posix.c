@@ -55,9 +55,10 @@ lower_info my_posix={
 	.lower_free=NULL,
 	.lower_flying_req_wait=posix_flying_req_wait,
 	.lower_show_info=NULL,
+	/*
 	.hw_do_merge=posix_hw_do_merge,
 	.hw_get_kt=posix_hw_get_kt,
-	.hw_get_inv=posix_hw_get_inv
+	.hw_get_inv=posix_hw_get_inv*/
 };
  uint32_t d_write_cnt, m_write_cnt, gcd_write_cnt, gcm_write_cnt;
 
@@ -336,7 +337,7 @@ void* posix_trim_a_block(uint32_t PPA, bool async){
 	}
 	return NULL;
 }
-
+/*
 void print_array(uint32_t *arr, int num){
 	printf("target:");
 	for(int i=0; i<num; i++) printf("%d, ",arr[i]);
@@ -428,3 +429,4 @@ char * posix_hw_get_kt(){
 char *posix_hw_get_inv(){
 	return invalidate_ppa_ptr;
 }
+*/

@@ -22,6 +22,22 @@
 	(key).key=(char*)&(data[bitmap[idx]+sizeof(ppa_t)]);\
 	(key).len=bitmap[idx+1]-bitmap[idx]-sizeof(ppa_t);\
 
+
+static inline char *data_from_run(run_t *a){
+#ifdef NOCPY
+	if(a->c_entry){
+		return (char*)a->cache_nocpy_data_ptr;
+	}
+	else{
+		if(a->cpt_data->nocpy_table)
+			return a->cpt_data->nocpy_table;
+		else
+			return (char*)a->cpt_data->sets;//level_caching data
+	}
+#else
+	return (char*)a->cpt_data->sets;
+#endif
+}
 /*
  0k----- bit map -- 1k-1
  1k
@@ -146,4 +162,9 @@ uint32_t array_get_level_mem_size(level *lev);
 void array_check_order(level *);
 
 void array_print_run(run_t * r);
+
+
+
+void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d);
+run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end);
 #endif
