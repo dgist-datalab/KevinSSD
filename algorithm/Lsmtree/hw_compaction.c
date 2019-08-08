@@ -61,7 +61,7 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	
 	uint32_t tp_num=hp_num+lp_num;
 	tp_array=(ppa_t*)malloc(sizeof(ppa_t)*(tp_num));
-	 page_check_available(HEADER, tp_num);
+	page_check_available(HEADER, tp_num);
 	for(int i=0; i<tp_num; i++){
 		tp_array[i]=getPPA(HEADER,key_max,false);
 	}
