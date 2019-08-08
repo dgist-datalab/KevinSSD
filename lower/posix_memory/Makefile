@@ -1,5 +1,6 @@
 
 SRCS +=\
+	   pipe_lower.c\
 	   posix.c\
 
 OBJS :=\

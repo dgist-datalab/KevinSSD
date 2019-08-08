@@ -48,7 +48,16 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	except=sequential_move_next_level(origin,t,start,end);
 #endif
 	
+
 	lp_num=lp_num-except;
+
+	uint32_t tp_num=hp_num+lp_num;
+	tp_array=(ppa_t*)malloc(sizeof(ppa_t)*(tp_num));
+	page_check_available(HEADER, tp_num);
+	for(int i=0; i<tp_num; i++){
+		tp_array[i]=getPPA(HEADER,key_max,false);
+	}
+
 	lp_array=(ppa_t*)malloc(sizeof(ppa_t)*lp_num);
 	hp_array=(ppa_t*)malloc(sizeof(ppa_t)*hp_num);
 	
@@ -58,13 +67,7 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	}else{
 		hp_array[0]=lnode->entry->pbn;
 	}
-	
-	uint32_t tp_num=hp_num+lp_num;
-	tp_array=(ppa_t*)malloc(sizeof(ppa_t)*(tp_num));
-	page_check_available(HEADER, tp_num);
-	for(int i=0; i<tp_num; i++){
-		tp_array[i]=getPPA(HEADER,key_max,false);
-	}
+
 	uint32_t ktable_num=0, invalidate_num=0;
 	
 	bench_custom_start(write_opt_time,2);

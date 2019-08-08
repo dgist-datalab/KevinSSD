@@ -1,18 +1,17 @@
-#include "pipe.h"
+#include "pipe_lower.h"
 #include "posix.h"
 #include <stdio.h>
 #include <stdlib.h>
 
-p_body *pbody_init(mem_seg *data, uint32_t *map_ppa_list,uint32_t list_size){
-	p_body *res=(p_body*)calloc(sizeof(p_body),1);
+pl_body *plbody_init(mem_seg *data, uint32_t *map_ppa_list,uint32_t list_size){
+	pl_body *res=(pl_body*)calloc(sizeof(pl_body),1);
 	res->data_ptr=data;
 	res->map_ppa_list=map_ppa_list;
 	res->max_page=list_size;
 	return res;
 }
 
-bool print_test;
-void new_page_set(p_body *p, bool iswrite){
+void new_page_set(pl_body *p, bool iswrite){
 	p->now_page=p->data_ptr[p->map_ppa_list[p->pidx++]].storage;
 	if(iswrite && !p->now_page){
 		p->now_page=(char*)malloc(PAGESIZE);
@@ -23,7 +22,7 @@ void new_page_set(p_body *p, bool iswrite){
 	p->length=1024;
 }
 
-KEYT pbody_get_next_key(p_body *p, uint32_t *ppa){
+KEYT plbody_get_next_key(pl_body *p, uint32_t *ppa){
 	if(!p->now_page || (p->pidx<p->max_page && p->kidx>p->max_key)){
 		new_page_set(p,false);
 	}
@@ -41,12 +40,11 @@ KEYT pbody_get_next_key(p_body *p, uint32_t *ppa){
 	return res;
 }
 
-bool test_flag;
-char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush){
+char *plbody_insert_new_key(pl_body *p,KEYT key, uint32_t ppa, bool flush){
 	char *res=NULL;
 	static int cnt=0;
 	static int key_cnt=0;
-	if((flush && p->kidx>1) || !p->now_page || p->kidx>=(PAGESIZE-1024)/sizeof(uint16_t)-2 || p->length>=PAGESIZE){
+	if((flush && p->kidx>1) || !p->now_page || p->kidx>=(PAGESIZE-1024)/sizeof(uint16_t)-2 || p->length+sizeof(uint32_t) + key.len > PAGESIZE){
 		if(p->now_page){
 			p->bitmap_ptr[0]=p->kidx-1;
 			p->bitmap_ptr[p->kidx]=p->length;
@@ -66,7 +64,7 @@ char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush){
 	return res;
 }
 
-void pbody_data_print(char *data){
+void plbody_data_print(char *data){
 	int idx;
 	KEYT key;
 	ppa_t *ppa;
