@@ -121,10 +121,7 @@ void processing_header_read(void *param){
 		areq->type_lower=0;
 		areq->rapid=false;
 		areq->type=HEADERR;
-#ifdef NOCPY
-		r[i]->cpt_data->nocpy_table=nocpy_pick(r[i]->pbn);
-#endif
-
+		if(LSM.nocpy) r[i]->cpt_data->nocpy_table=nocpy_pick(r[i]->pbn);
 		LSM.li->read(r[i]->pbn,PAGESIZE,params->value,ASYNC,areq);
 	}
 	free(r);

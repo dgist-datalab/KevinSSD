@@ -273,14 +273,14 @@ void gc_data_write(uint64_t ppa,htable_t *value,bool isdata){
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 
 	params->lsm_type=isdata?GCDW:GCHW;
-#ifdef NOCPY
-	params->value=inf_get_valueset((PTR)(value)->sets,FS_MALLOC_W,PAGESIZE);
-	if(!isdata){
-		nocpy_copy_from_change((char*)value->nocpy_table,ppa);
+	if(LSM.nocpy){
+		params->value=inf_get_valueset((PTR)(value)->sets,FS_MALLOC_W,PAGESIZE);
+		if(!isdata){
+			nocpy_copy_from_change((char*)value->nocpy_table,ppa);
+		}
 	}
-#else
-	params->value=inf_get_valueset((PTR)(value)->sets,FS_MALLOC_W,PAGESIZE);
-#endif
+	else
+		params->value=inf_get_valueset((PTR)(value)->sets,FS_MALLOC_W,PAGESIZE);
 
 	areq->parents=NULL;
 	areq->end_req=lsm_end_req;
@@ -315,11 +315,9 @@ void gc_data_read(uint64_t ppa,htable_t *value,bool isdata, gc_node *t){
 	areq->type_lower=0;
 	areq->rapid=false;
 	areq->type=params->lsm_type;
-#ifdef NOCPY
-	if(!isdata){
+	if(LSM.nocpy &&  !isdata){
 		value->nocpy_table=nocpy_pick(ppa);
 	}
-#endif
 	algo_lsm.li->read(isdata?CONVPPA(ppa):ppa,PAGESIZE,params->value,ASYNC,areq);
 	return;
 }
@@ -384,14 +382,12 @@ void *pm_get_oob(uint32_t _ppa, int type, bool isgc){
 	return res;
 }
 
-#ifdef NOCPY
 void gc_nocpy_delay_erase(uint32_t ppa){
 	//if(ppa==UINT32_MAX) return;
 	//nocpy_free_block(ppa);
 	nocpy_trim_delay_flush();
 	LSM.delayed_trim_ppa=UINT32_MAX;
 }
-#endif
 void change_new_reserve(uint8_t type){
 	pm *t=NULL;
 	blockmanager *bm=LSM.bm;

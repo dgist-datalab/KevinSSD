@@ -153,23 +153,21 @@ void array_run_cpy_to(run_t *input, run_t *res){
 
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(input->c_entry){
-#ifdef NOCPY
-		res->cache_nocpy_data_ptr=input->cache_nocpy_data_ptr;
-		input->cache_nocpy_data_ptr=NULL;
-#else
-		res->cache_data=input->cache_data;
-		input->cache_data=NULL;
-#endif
+		if(LSM.nocpy){
+			res->cache_nocpy_data_ptr=input->cache_nocpy_data_ptr;
+			input->cache_nocpy_data_ptr=NULL;
+		}
+		else{
+			res->cache_data=input->cache_data;
+			input->cache_data=NULL;
+		}
 		res->c_entry=input->c_entry;
 		res->c_entry->entry=res;
 		input->c_entry=NULL;
 	}else{
 		res->c_entry=NULL;
-#ifdef NOCPY
-		res->cache_nocpy_data_ptr=NULL;
-#else
-		res->cache_data=NULL;
-#endif
+		if(LSM.nocpy) res->cache_nocpy_data_ptr=NULL;
+		else res->cache_data=NULL;
 	}
 	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 	/*
@@ -204,14 +202,12 @@ void array_insert(level *lev, run_t* r){
 	array_run_cpy_to(r,target);
 
 	if(LSM.comp_opt!=HW && !target->c_entry && r->cpt_data && cache_insertable(LSM.lsm_cache)){
-#ifdef NOCPY
-//		target->cache_data=htable_dummy_assign();
-//		target->cache_data->nocpy_table=(char*)cache_temp;
-		target->cache_nocpy_data_ptr=nocpy_pick(r->pbn);
-#else
-		target->cache_data=htable_copy(r->cpt_data);
-		r->cpt_data->sets=NULL;
-#endif
+		if(LSM.nocpy)
+			target->cache_nocpy_data_ptr=nocpy_pick(r->pbn);
+		else{
+			target->cache_data=htable_copy(r->cpt_data);
+			r->cpt_data->sets=NULL;
+		}
 		target->c_entry=cache_insert(LSM.lsm_cache,target,0);
 	}
 
@@ -369,11 +365,8 @@ void array_free_run(run_t *e){
 #endif
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(e->c_entry){
-#ifdef NOCPY
-		e->cache_nocpy_data_ptr=NULL;
-#else
-		htable_free(e->cache_data);
-#endif
+		if(LSM.nocpy) e->cache_nocpy_data_ptr=NULL;
+		else htable_free(e->cache_data);
 		cache_delete_entry_only(LSM.lsm_cache,e);
 	}
 	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
@@ -392,23 +385,21 @@ run_t * array_run_cpy( run_t *input){
 
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(input->c_entry){
-#ifdef NOCPY
-		res->cache_nocpy_data_ptr=input->cache_nocpy_data_ptr;
-		input->cache_nocpy_data_ptr=NULL;
-#else
-		res->cache_data=input->cache_data;
-		input->cache_data=NULL;
-#endif
+		if(LSM.nocpy){
+			res->cache_nocpy_data_ptr=input->cache_nocpy_data_ptr;
+			input->cache_nocpy_data_ptr=NULL;
+		}
+		else{
+			res->cache_data=input->cache_data;
+			input->cache_data=NULL;
+		}
 		res->c_entry=input->c_entry;
 		res->c_entry->entry=res;
 		input->c_entry=NULL;
 	}else{
 		res->c_entry=NULL;
-#ifdef NOCPY
-		res->cache_nocpy_data_ptr=NULL;
-#else
-		res->cache_data=NULL;
-#endif
+		if(LSM.nocpy) res->cache_nocpy_data_ptr=NULL;
+		else res->cache_data=NULL;
 	}
 	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 	/*res->isflying=0;

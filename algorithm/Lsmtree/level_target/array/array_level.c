@@ -48,11 +48,7 @@ run_t *array_range_find_lowerbound(level *lev, KEYT target){
 htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 	/*static int cnt=0;
 	printf("cnt:%d\n",cnt++);*/
-#ifdef NOCPY
-	htable *res=htable_assign(NULL,0);
-#else
-	htable *res=htable_assign(NULL,1);
-#endif
+	htable *res=LSM.nocpy?htable_assign(NULL,0):htable_assign(NULL,1);
 
 #ifdef BLOOM
 	BF *filter=bf_init(mem->size,LSM.disk[0]->fpr);
@@ -147,11 +143,8 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 	KEYT start=src_skip->header->list[1]->key, end;
 
 	/*assign pagesize for header*/
-#ifdef NOCPY
-	htable *res=htable_assign(NULL,0);
-#else
-	htable *res=htable_assign(NULL,1);
-#endif
+	htable *res=LSM.nocpy?htable_assign(NULL,0):htable_assign(NULL,1);
+
 
 #ifdef BLOOM
 	BF* filter=bf_init(KEYBITMAP/sizeof(uint16_t),d->fpr);
@@ -438,11 +431,8 @@ run_t *array_cache_iter_nxt(lev_iter *it){
 		return NULL;
 	}
 
-#ifdef NOCPY
-	htable *res=htable_assign(NULL,0);
-#else
-	htable *res=htable_assign(NULL,1);
-#endif
+	htable *res=LSM.nocpy?htable_assign(NULL,0):htable_assign(NULL,1);
+
 	KEYT start,end;
 	char *ptr=(char*)res->sets;
 	uint16_t *bitmap=(uint16_t*)ptr;
@@ -591,11 +581,9 @@ run_t *array_p_merger_cutter(skiplist *skip,run_t **src, run_t **org, float fpr)
 
 	if(skip->header->list[1]==skip->header) return NULL;
 	KEYT start=skip->header->list[1]->key,end;
-#ifdef NOCPY
-	htable *res=htable_assign(NULL,0);
-#else
-	htable *res=htable_assign(NULL,1);
-#endif
+
+	htable *res=LSM.nocpy?htable_assign(NULL,0):htable_assign(NULL,1);
+
 
 #ifdef BLOOM
 	BF* filter=bf_init(KEYBITMAP/sizeof(uint16_t),fpr);

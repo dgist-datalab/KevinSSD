@@ -126,12 +126,11 @@ void *lsm_iter_end_req(algo_req *const req){
 			}
 			break;
 		case HEADERR:
-#ifdef NOCPY
-			iter->datas[param->level][param->idx]=nocpy_pick(param->ppa);
-#else
-			iter->datas[param->level][param->idx]=(char*)malloc(PAGESIZE);
-			memcpy(iter->datas[param->level][param->idx],param->value->vaue,PAGESIZE);
-#endif
+			if(LSM.nocpy) iter->datas[param->level][param->idx]=nocpy_pick(param->ppa);
+			else{
+				iter->datas[param->level][param->idx]=(char*)malloc(PAGESIZE);
+				memcpy(iter->datas[param->level][param->idx],param->value->vaue,PAGESIZE);
+			}
 			cl_release_with_f(iter->conditional_lock, iter->target,iter->received,release_multi_handler_start);
 			inf_free_valueset(param->value,FS_MALLOC_R);
 

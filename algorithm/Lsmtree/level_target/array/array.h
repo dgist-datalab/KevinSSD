@@ -22,9 +22,10 @@
 	(key).key=(char*)&(data[bitmap[idx]+sizeof(ppa_t)]);\
 	(key).len=bitmap[idx+1]-bitmap[idx]-sizeof(ppa_t);\
 
-
+extern lsmtree LSM;
 static inline char *data_from_run(run_t *a){
-#ifdef NOCPY
+	if(!LSM.nocpy)	return (char*)a->cpt_data->sets;
+
 	if(a->c_entry){
 		return (char*)a->cache_nocpy_data_ptr;
 	}
@@ -34,9 +35,6 @@ static inline char *data_from_run(run_t *a){
 		else
 			return (char*)a->cpt_data->sets;//level_caching data
 	}
-#else
-	return (char*)a->cpt_data->sets;
-#endif
 }
 /*
  0k----- bit map -- 1k-1

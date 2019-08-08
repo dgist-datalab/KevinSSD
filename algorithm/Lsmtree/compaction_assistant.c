@@ -478,10 +478,10 @@ bool htable_read_preproc(run_t *r){
 		cache_entry_lock(LSM.lsm_cache,r->c_entry);
 		memcpy_cnt++;
 
-#ifndef NOCPY
-		r->cpt_data=htable_copy(r->cache_data);
-		r->cpt_data->done=true;
-#endif//when the data is cached, the data will be loaded from memory in merger logic
+		if(!LSM.nocpy){
+			r->cpt_data=htable_copy(r->cache_data);
+			r->cpt_data->done=true;
+		}//when the data is cached, the data will be loaded from memory in merger logic
 		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);		
 		res=true;
 	}
@@ -504,9 +504,7 @@ void htable_read_postproc(run_t *r){
 	}
 	if(r->c_entry){
 		cache_entry_unlock(LSM.lsm_cache,r->c_entry);
-#ifndef NOCPY
-		htable_free(r->cpt_data);
-#endif
+		if(!LSM.nocpy) htable_free(r->cpt_data);
 	}else{
 		htable_free(r->cpt_data);
 		r->cpt_data=NULL;

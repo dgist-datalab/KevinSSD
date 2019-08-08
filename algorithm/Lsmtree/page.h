@@ -99,9 +99,7 @@ void gc_data_write(uint64_t ppa,struct htable_t *value,bool isdata);
 
 int gc_header();
 int gc_data();
-#ifdef NOCPY
 void gc_nocpy_delay_erase(uint32_t );
-#endif
 void gc_data_header_update_add(struct length_bucket *b);
 void gc_data_header_update(struct gc_node **, int size,struct length_bucket *b);
 int gc_data_write_using_bucket(struct length_bucket *b,int target_level,char order);

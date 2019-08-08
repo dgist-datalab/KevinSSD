@@ -41,9 +41,7 @@ typedef struct htable{
 	   2->cached but it isn't used in compaction.
 
 	 */
-#ifdef NOCPY
 	char *nocpy_table;
-#endif
 	value_set *origin;
 	uint8_t t_b;//0, MALLOC
 	//1, valueset from W
@@ -53,9 +51,7 @@ typedef struct htable{
 
 typedef struct htable_t{
 	keyset sets[PAGESIZE/KEYSETSIZE];
-#ifdef NOCPY
 	char *nocpy_table;
-#endif
 	value_set *origin;
 }htable_t;
 
@@ -69,11 +65,8 @@ typedef struct run{
 	//for caching
 	cache_entry *c_entry;
 	volatile char isflying;
-#ifdef NOCPY
 	char *cache_nocpy_data_ptr;
-#else
 	htable *cache_data;
-#endif
 
 	void *from_req;
 	void* waitreq[QDEPTH];

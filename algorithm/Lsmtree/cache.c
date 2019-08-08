@@ -7,6 +7,7 @@
 #include<string.h>
 #include<stdio.h>
 int32_t update,delete_,insert;
+extern lsmtree LSM;
 cache *cache_init(uint32_t noe){
 	cache *c=(cache*)malloc(sizeof(cache));
 	c->m_size=noe;
@@ -49,9 +50,7 @@ cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
 
 	c_ent->locked=false;
 	c_ent->entry=ent;
-#ifndef NOCPY
-	ent->cache_data->iscached=2;
-#endif
+	if(!LSM.nocpy)ent->cache_data->iscached=2;
 	if(c->bottom==NULL){
 		c->bottom=c_ent;
 		c->top=c_ent;
@@ -82,9 +81,7 @@ bool cache_delete(cache *c, run_t * ent){
 	}else if(c_ent==c->top){
 		c->top=c_ent->down;
 	}
-#ifndef NOCPY
-	htable_free(ent->cache_data);
-#endif
+	if(!LSM.nocpy)htable_free(ent->cache_data);
 	c->n_size--;
 	free(c_ent);
 	ent->c_entry=NULL;
@@ -220,11 +217,9 @@ void cache_print(cache *c){
 			printf("fuck!!!\n");
 		}
 #ifdef KVSSD
-	#ifdef NOCPY
-		printf("[%d]c->endtry->key:%s c->entry->pbn:%lu d:%p\n",print_number++,kvssd_tostring(tent->key),tent->pbn,tent->cache_nocpy_data_ptr);
-	#else
-
-	#endif
+		if(LSM.nocpy){
+			printf("[%d]c->endtry->key:%s c->entry->pbn:%lu d:%p\n",print_number++,kvssd_tostring(tent->key),tent->pbn,tent->cache_nocpy_data_ptr);
+		}
 #else
 		printf("[%d]c->entry->key:%d c->entry->pbn:%d d:%p\n",print_number++,tent->key,tent->pbn,tent->cache_data);
 #endif

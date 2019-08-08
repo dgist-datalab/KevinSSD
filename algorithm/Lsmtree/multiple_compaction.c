@@ -165,10 +165,10 @@ uint32_t multiple_leveling(int from, int to){
 		free(wait[i]);
 	}
 	free(wait);
-#ifdef NOCPY
-	gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
-	LSM.delayed_header_trim=false;
-#endif
+	if(LSM.nocpy){
+		gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
+		LSM.delayed_header_trim=false;
+	}
 	
 	if(origin_from>=LSM.LEVELCACHING){
 		skiplist_free(body);
