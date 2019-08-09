@@ -77,6 +77,7 @@ SRCS := \
 	$(DM_COMMON)/dev_main.c \
 	$(DM_COMMON)/dev_params.c \
 	$(DM_NOHOST)/dm_nohost.cpp \
+	$(DM_NOHOST)/sw_poller.cpp \
 	../../../../include/data_struct/hash.c\
 
 ifeq ($(priority), "true")

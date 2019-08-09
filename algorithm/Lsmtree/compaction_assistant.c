@@ -52,13 +52,16 @@ void compaction_selector(level *a, level *b,leveling_node *lnode, pthread_mutex_
 }
 
 void compaction_sub_wait(){
+	/*
+	if(comp_target_get_cnt!=0)
+		printf("%d\n",comp_target_get_cnt);*/
 #ifdef MUTEXLOCK
 	if(epc_check==comp_target_get_cnt+memcpy_cnt)
 		pthread_mutex_unlock(&compaction_wait);
 #elif defined (SPINLOCK)
 	while(comp_target_get_cnt+memcpy_cnt!=epc_check){}
 #endif
-
+	
 	memcpy_cnt=0;
 	comp_target_get_cnt=0;
 	epc_check=0;

@@ -28,7 +28,6 @@ int skiplist_hit;
 #endif
 MeasureTime write_opt_time[10];
 
-
 int main(int argc,char* argv[]){
 	char *temp_argv[10];
 	int temp_cnt=bench_set_params(argc,argv,temp_argv);
@@ -38,7 +37,7 @@ int main(int argc,char* argv[]){
 	memset(t_value,'x',PAGESIZE);
 
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
-	bench_add(RANDRW,0,RANGE,REQNUM*4); //duplicated test
+	bench_add(RANDRW,0,RANGE,REQNUM*2); //duplicated test
 //	bench_add(RANDRW,0,RANGE,REQNUM*2); //duplicated test
 
 //	bench_add(RANDRW,0,RANGE,MAXKEYNUMBER/5);

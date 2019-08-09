@@ -18,6 +18,7 @@ void make_pbn_array(ppa_t *ar, level *t, int start_idx){
 }
 
 uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, level *upper){
+
 	ppa_t* lp_array, *hp_array, *tp_array;
 	ppa_t lp_num, hp_num;
 
@@ -69,7 +70,11 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	}
 
 	uint32_t ktable_num=0, invalidate_num=0;
-	
+	if(!hp_num || !lp_num){
+		LSM.lop->all_print();
+		printf("parameter error!\n");
+		abort();
+	}
 	bench_custom_start(write_opt_time,2);
 	LSM.li->hw_do_merge(lp_num,lp_array,hp_num,hp_array,tp_array,&ktable_num,&invalidate_num);
 	bench_custom_A(write_opt_time,2);

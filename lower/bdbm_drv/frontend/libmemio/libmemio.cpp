@@ -100,7 +100,6 @@ static void __dm_intr_handler (
 
 static int __memio_init_llm_reqs (memio_t* mio)
 {
-	measure_init(&_mt);
 	int ret = 0;
 	if ((mio->rr = (bdbm_llm_req_t*)bdbm_zmalloc (
 			sizeof (bdbm_llm_req_t) * mio->nr_tags)) == NULL) {

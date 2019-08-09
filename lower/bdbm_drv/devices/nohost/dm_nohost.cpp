@@ -34,6 +34,7 @@
 
 #include <semaphore.h>
 
+#include "sw_poller.h"
 #include "debug.h"
 #include "dm_nohost.h"
 #include "dev_params.h"
@@ -204,7 +205,9 @@ class FlashIndication: public FlashIndicationWrapper {
 			//			bdbm_sema_unlock (&global_lock);
 			if( r == NULL ){ printf("readDone: Ack Duplicate with tag=%d, status=%d\n", tag, status); fflush(stdout); return; }
 			//else {  printf("readDone: Ack  with tag=%d, status=%d\n", tag, status); fflush(stdout); }
-			dm_nohost_end_req (_bdi_dm, r);
+
+			sw_poller_enqueue((void*)r);
+			//dm_nohost_end_req (_bdi_dm, r);
 		}
 
 		virtual void writeDone (unsigned int tag){ //, unsigned int status) {
@@ -215,7 +218,9 @@ class FlashIndication: public FlashIndicationWrapper {
 			_priv->llm_reqs[tag] = NULL;
 			//			bdbm_sema_unlock (&global_lock);
 			if( r == NULL ) { printf("writeDone: Ack Duplicate with tag=%d, status=%d\n", tag, status); fflush(stdout); return; }
-			dm_nohost_end_req (_bdi_dm, r);
+
+			sw_poller_enqueue((void*)r);
+			//dm_nohost_end_req (_bdi_dm, r);
 		}
 
 		virtual void eraseDone (unsigned int tag, unsigned int status) {
@@ -232,7 +237,9 @@ class FlashIndication: public FlashIndicationWrapper {
 			else{
 				r->isbad=0;
 			}
-			dm_nohost_end_req (_bdi_dm, r);
+
+			sw_poller_enqueue((void*)r);
+			//dm_nohost_end_req (_bdi_dm, r);
 		}
 
 		virtual void debugDumpResp (unsigned int debug0, unsigned int debug1,  unsigned int debug2, unsigned int debug3, unsigned int debug4, unsigned int debug5) {
@@ -292,6 +299,7 @@ uint32_t __dm_nohost_init_device (
 		bdbm_drv_info_t* bdi, 
 		bdbm_device_params_t* params)
 {
+	sw_poller_init();
 	fprintf(stderr, "Initializing Connectal & DMA...\n");
 
 	device = new FlashRequestProxy(IfcNames_FlashRequestS2H);
@@ -455,7 +463,7 @@ uint32_t dm_nohost_probe (
 
 //	if (__readFTLfromFile ("table.dump.0", ftlPtr) == 0) { //if exists, read from table.dump.0
 //		bdbm_msg ("[dm_nohost_probe] MAP Upload to HW!" ); 
-//		fflush(stdout);
+//	fflush(stdout);
 //		device->uploadMap();
 //		bdbm_sema_lock (&ftl_table_lock); // wait until Ack comes
 //	} else {
@@ -534,6 +542,7 @@ void dm_nohost_close (bdbm_drv_info_t* bdi)
 	pthread_mutex_destroy(&writeDmaQ_mutx);	
 	pthread_mutex_destroy(&readDmaQ_mutx);	
 	pthread_mutex_destroy(&req_mutx);
+	sw_poller_destroy();
 	//
 }
 int readlockbywrite;
