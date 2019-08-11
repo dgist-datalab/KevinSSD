@@ -53,7 +53,6 @@ std::queue<int> *writeDmaQ = NULL;
 std::queue<int> *readDmaQ = NULL;
 
 #include <pthread.h>
-pthread_mutex_t req_mutx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t writeDmaQ_mutx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t readDmaQ_mutx = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t writeDmaQ_cond = PTHREAD_COND_INITIALIZER;
@@ -203,7 +202,9 @@ class FlashIndication: public FlashIndicationWrapper {
 			bdbm_llm_req_t* r = _priv->llm_reqs[tag];
 			_priv->llm_reqs[tag] = NULL;
 			//			bdbm_sema_unlock (&global_lock);
-			if( r == NULL ){ printf("readDone: Ack Duplicate with tag=%d, status=%d\n", tag, status); fflush(stdout); return; }
+			if( r == NULL ){ printf("readDone: Ack Duplicate with tag=%d, status=%d\n", tag, status); fflush(stdout); 
+				device->debugDumpReq(0);
+				return; }
 			//else {  printf("readDone: Ack  with tag=%d, status=%d\n", tag, status); fflush(stdout); }
 
 			sw_poller_enqueue((void*)r);
@@ -541,7 +542,6 @@ void dm_nohost_close (bdbm_drv_info_t* bdi)
 	pthread_cond_destroy(&readDmaQ_cond);	
 	pthread_mutex_destroy(&writeDmaQ_mutx);	
 	pthread_mutex_destroy(&readDmaQ_mutx);	
-	pthread_mutex_destroy(&req_mutx);
 	sw_poller_destroy();
 	//
 }
@@ -555,6 +555,7 @@ uint32_t dm_nohost_make_req (
 	//	bdbm_sema_lock (&global_lock);
 	if (priv->llm_reqs[r->tag] == r) {
 		// timeout & send the request again
+		fprintf(stderr,"time out!\n");
 	} 
 	else if (priv->llm_reqs[r->tag] != NULL) {
 		// busy tag error
@@ -567,7 +568,6 @@ uint32_t dm_nohost_make_req (
 	}
 
 	//	bdbm_sema_unlock (&global_lock);
-	pthread_mutex_lock(&req_mutx);
 	//usleep(1);
 
 
@@ -656,7 +656,6 @@ uint32_t dm_nohost_make_req (
 			break;
 	}
 	//printf("unlock!\n");
-	pthread_mutex_unlock(&req_mutx);
 	return 0;
 }
 struct timeval max_time1;
@@ -680,44 +679,6 @@ void dm_nohost_end_req (
 		bdbm_memcpy (r->fmain.kp_ptr[0], readBuffers[r->tag], 8192);
 		//printf ("READ-LOG: %c %c\n", r->fmain.kp_ptr[0][0], r->fmain.kp_ptr[0][8191]); fflush(stdout);
 	}
-	/*
-	   static bool check_time=false;
-	   struct timeval res,test_time;
-	   test_time.tv_sec=0;
-	   test_time.tv_usec=1000;
-	   lsmtree_req_t* t;
-	   if(r->req_type==REQTYPE_READ){
-	   t=(lsmtree_req_t *)r->req;
-	//		MP(&t->mt);
-	if(!check_time){
-	check_time=true;
-	max_time1=MR(&t->mt);
-	if(timercmp(&max_time1,&test_time,>))
-	big_time_check1++;
-	adding.tv_sec=max_time1.tv_sec;
-	adding.tv_usec=max_time1.tv_usec;
-	}
-	else{
-	res=MR(&t->mt);
-	if(timercmp(&res,&test_time,>))
-	big_time_check1++;
-	if(timercmp(&max_time1,&res,<))
-	max_time1=res;
-	adding.tv_sec+=res.tv_sec;
-	adding.tv_usec+=res.tv_usec;
-	}
-	end_counter++;
-	//		ME(&t->mt,"test");
-	MS(&t->mt);
-	}*/
-	//koo
-	/*
-	   if (r->req_type == REQTYPE_WRITE) {
-	   free_dmaQ_tag(1, r->dmaTag);
-	   }
-	 */
-	//
-	//bdbm_msg ("dm_nohost_end_req done");
 	bdi->ptr_llm_inf->end_req (bdi, r);
 }
 
@@ -842,5 +803,7 @@ unsigned int *get_merged_kt(){
 	return mergeKt_Buffer;
 }
 uint32_t get_dev_tags(){
-	return 64;
+	static const uint32_t tag=64;
+	printf("my_tag:%d\n",tag);
+	return tag;
 }

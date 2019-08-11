@@ -376,7 +376,6 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 	uint8_t result=0;
 	run_t *now=NULL;
 	keyset *found=NULL;
-	static int cnt=0;
 retry:
 	result=lsm_find_run(g->lpa,&now,&found,&params->level,&params->run);
 	switch(result){
@@ -460,7 +459,6 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 		2 - target is incoreect but it is for other nodes;
 	 */
 	bool set_flag=false;
-	uint8_t status=0;
 	bool original_target_processed=false;
 	for(int i=-1; i<ent->gc_wait_idx; i++){
 		gc_node *target=i==-1?g:(gc_node*)ent->gc_waitreq[i];
@@ -476,8 +474,14 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 			p->found=find;
 			target->status=DONE;
 			done_cnt++;
+			
 			if(ent->c_entry){
-				p->found2=LSM.nocpy?LSM.lop->find_keyset((char*)ent->cache_nocpy_data_ptr,target->lpa): p->found2=LSM.lop->find_keyset((char*)ent->cache_data->sets,target->lpa);
+				if(LSM.nocpy){
+					p->found2=LSM.lop->find_keyset((char*)ent->cache_nocpy_data_ptr,target->lpa);
+				}
+				else{
+					p->found2=LSM.lop->find_keyset((char*)ent->cache_data->sets,target->lpa);
+				}
 			}
 			else
 				p->found2=NULL;

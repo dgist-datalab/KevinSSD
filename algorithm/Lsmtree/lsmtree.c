@@ -420,7 +420,6 @@ void* lsm_end_req(algo_req* const req){
 
 uint32_t data_input_write;
 uint32_t lsm_set(request * const req){
-
 	bench_custom_start(write_opt_time,3);
 	static bool force = 0 ;
 	data_input_write++;
@@ -434,9 +433,11 @@ uint32_t lsm_set(request * const req){
 		new_temp=skiplist_insert(LSM.memtable,req->key,req->value,true);
 	}
 
-	LSM.avg_of_length=(LSM.avg_of_length*LSM.length_cnt+req->value->length)/(++LSM.length_cnt);
+	LSM.avg_of_length=(LSM.avg_of_length*LSM.length_cnt+req->value->length)/(LSM.length_cnt+1);
+	LSM.length_cnt++;
 
 	req->value=NULL;
+
 	bench_custom_A(write_opt_time,3);
 	if(LSM.memtable->size==LSM.FLUSHNUM){
 		force=1;
@@ -920,7 +921,7 @@ void htable_print(htable * input,ppa_t ppa){
 #endif
 	}
 	if(check){
-		printf("bad page at %lu cnt:%d---------\n",ppa,cnt);
+		printf("bad page at %u cnt:%d---------\n",ppa,cnt);
 		abort();
 	}
 }

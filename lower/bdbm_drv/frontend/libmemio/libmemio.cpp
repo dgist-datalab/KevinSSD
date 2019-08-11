@@ -212,7 +212,7 @@ static void __memio_free_llm_req (memio_t* mio, bdbm_llm_req_t* r)
 	bdbm_mutex_lock(&mio->tagQMutex);
 	r->req=NULL;
 	mio->tagQ->push(r->tag);
-		bdbm_cond_broadcast(&mio->tagQCond); // wakes up threads waiting for a tag
+	bdbm_cond_broadcast(&mio->tagQCond); // wakes up threads waiting for a tag
 	bdbm_mutex_unlock(&mio->tagQMutex);
 }
 
@@ -295,7 +295,6 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 					printf("wtf!\n");
 				}
 			}
-			measure_init(&my_algo_req->latency_lower);
 		}
 
 

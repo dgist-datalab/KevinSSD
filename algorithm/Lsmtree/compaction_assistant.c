@@ -332,7 +332,6 @@ void *compaction_main(void *input){
 		req=(compR*)_req;
 		leveling_node lnode;
 
-		bench_custom_start(write_opt_time,5);
 		if(req->fromL==-1){
 			LSM.zero_compaction_cnt++;
 			lnode.mem=req->temptable;
@@ -360,7 +359,6 @@ void *compaction_main(void *input){
 #endif
 		free(req);
 		q_dequeue(_this->q);
-		bench_custom_A(write_opt_time,5);
 	}
 	
 	return NULL;

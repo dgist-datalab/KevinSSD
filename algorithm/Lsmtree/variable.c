@@ -27,7 +27,6 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 	uint8_t max_piece=PAGESIZE/PIECE-1; //the max_piece is wrote before enter this section
 	while(src->idx[max_piece]==0 && max_piece>0) --max_piece;
 
-	bench_custom_start(write_opt_time,4);
 //	bool debuging=false;
 	while(max_piece){
 		PTR page=NULL;
@@ -95,7 +94,6 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 		}
 		if(stop) break;
 	}
-	bench_custom_A(write_opt_time,4);
 	*target_valueset_from=v_idx;
 	return v_des;
 }

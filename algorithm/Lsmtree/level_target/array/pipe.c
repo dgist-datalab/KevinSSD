@@ -42,7 +42,6 @@ KEYT pbody_get_next_key(p_body *p, uint32_t *ppa){
 bool test_flag;
 char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush){
 	char *res=NULL;
-	static int cnt=0;
 	static int key_cnt=0;
 	if((flush && p->kidx>1) || !p->now_page || p->kidx>=(PAGESIZE-1024)/sizeof(uint16_t)-2 || p->length+(key.len+sizeof(uint32_t))>PAGESIZE){
 		if(p->now_page){
