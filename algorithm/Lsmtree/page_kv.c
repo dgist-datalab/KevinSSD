@@ -388,6 +388,7 @@ retry:
 				}
 				else{
 					g->invalidate=true;
+					params->level++;
 					goto retry;
 				}
 			}
@@ -533,7 +534,10 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 					params=(gc_params*)malloc(sizeof(gc_params));
 					memset(params,0,sizeof(gc_params));
 					target->params=(void*)params;
-				case RETRY: 
+				case RETRY:
+					if(KEYCONSTCOMP(target->lpa,"100084000000")==0){
+						printf("break!\n");
+					}
 					result=gc_data_issue_header(target,(gc_params*)target->params,size);
 					if(result==CACHING) done_cnt++;
 					break;

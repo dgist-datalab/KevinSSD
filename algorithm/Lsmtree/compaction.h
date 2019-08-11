@@ -58,7 +58,7 @@ void compaction_data_write(leveling_node* lnode);
 void htable_read_postproc(run_t *r);
 void compaction_selector(level *a, level *b,leveling_node *lnode, pthread_mutex_t* lock);
 
-void compaction_htable_write_insert(level *target,run_t *entry,bool isbg);
+uint32_t compaction_htable_write_insert(level *target,run_t *entry,bool isbg);
 uint32_t compaction_htable_hw_read(run_t *ent);
 
 uint32_t compaction_htable_write(ppa_t ppa,htable *input, KEYT lpa);
