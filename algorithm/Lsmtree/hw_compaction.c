@@ -25,21 +25,27 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	lp_num=LSM.lop->get_number_runs(origin);
 	hp_num=upper?LSM.lop->get_number_runs(upper):1;
 
-	if(upper && upper->idx<LSM.LEVELCACHING){
-		run_t **datas;
-		int cache_added_size=LSM.lop->get_number_runs(upper);
-		cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
-		LSM.lop->cache_comp_formatting(upper,&datas);
-
-		for(int i=0; datas[i]!=NULL; i++){
-		#ifdef BLOOM
-			bf_free(datas[i]->filter);
-			datas[i]->filter=LSM.lop->making_filter(datas[i],-1,t->fpr);
-		#endif
-			compaction_htable_write_insert(t,datas[i],false);
-			free(datas[i]);
+	hp_array=(ppa_t*)malloc(sizeof(ppa_t)*hp_num);
+	if(upper){
+		if(upper->idx>=LSM.LEVELCACHING){
+			make_pbn_array(hp_array,upper,0);
 		}
-		free(datas);
+		else{
+			run_t **datas;
+			int cache_added_size=LSM.lop->get_number_runs(upper);
+			cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
+			LSM.lop->cache_comp_formatting(upper,&datas);
+
+			page_check_available(HEADER, hp_num);
+			for(int i=0; datas[i]!=NULL; i++){
+				hp_array[i]=compaction_htable_write_insert(upper,datas[i],false);
+				free(datas[i]);
+			}
+
+			free(datas);
+		}
+	}else{
+		hp_array[0]=lnode->entry->pbn;
 	}
 	/*sequencial move*/
 	int except=0;
@@ -51,7 +57,6 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	
 
 	lp_num=lp_num-except;
-
 	uint32_t tp_num=hp_num+lp_num;
 	tp_array=(ppa_t*)malloc(sizeof(ppa_t)*(tp_num));
 	page_check_available(HEADER, tp_num);
@@ -60,18 +65,10 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	}
 
 	lp_array=(ppa_t*)malloc(sizeof(ppa_t)*lp_num);
-	hp_array=(ppa_t*)malloc(sizeof(ppa_t)*hp_num);
 	
 	make_pbn_array(lp_array,origin,except);
-	if(upper){
-		make_pbn_array(hp_array,upper,0);
-	}else{
-		hp_array[0]=lnode->entry->pbn;
-	}
-
 	uint32_t ktable_num=0, invalidate_num=0;
-	if(!hp_num || !lp_num){
-		LSM.lop->all_print();
+	if(lp_num==0 || hp_num==0){
 		printf("parameter error!\n");
 		abort();
 	}

@@ -38,7 +38,7 @@ void compaction_data_write(leveling_node* lnode){
 	free(data_sets);
 }
 
-void compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
+ppa_t compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 #ifdef KVSSD
 	uint32_t ppa=getPPA(HEADER,key_min,true);
 #else
@@ -46,7 +46,6 @@ void compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 #endif
 	
 	entry->pbn=ppa;
-
 
 	if(LSM.nocpy){
 		nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
@@ -62,6 +61,7 @@ void compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 		compaction_htable_write(entry->pbn,entry->cpt_data,entry->key);
 	}
 	LSM.lop->release_run(entry);
+	return ppa;
 }
 
 uint32_t compaction_htable_write(ppa_t ppa,htable *input, KEYT lpa){
@@ -75,7 +75,6 @@ uint32_t compaction_htable_write(ppa_t ppa,htable *input, KEYT lpa){
 	}else{
 		params->value=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
 	}
-
 
 	params->htable_ptr=input;
 	areq->end_req=lsm_end_req;

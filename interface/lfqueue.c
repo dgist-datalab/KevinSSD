@@ -1,7 +1,7 @@
 #include <memory.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "lfqueue.h"
+#include "lfqueue.c"
 void q_init(struct queue** q, int size){
 	(*q)=(queue*)malloc(sizeof(queue));
 	(*q)->head=(node*)malloc(sizeof(node));
