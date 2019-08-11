@@ -18,6 +18,7 @@ void make_pbn_array(ppa_t *ar, level *t, int start_idx){
 }
 
 uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, level *upper){
+
 	ppa_t* lp_array, *hp_array, *tp_array;
 	ppa_t lp_num, hp_num;
 
@@ -66,7 +67,6 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	lp_array=(ppa_t*)malloc(sizeof(ppa_t)*lp_num);
 	
 	make_pbn_array(lp_array,origin,except);
-
 	uint32_t ktable_num=0, invalidate_num=0;
 	if(lp_num==0 || hp_num==0){
 		printf("parameter error!\n");

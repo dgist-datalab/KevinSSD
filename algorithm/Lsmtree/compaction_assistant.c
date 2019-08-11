@@ -52,13 +52,16 @@ void compaction_selector(level *a, level *b,leveling_node *lnode, pthread_mutex_
 }
 
 void compaction_sub_wait(){
+	/*
+	if(comp_target_get_cnt!=0)
+		printf("%d\n",comp_target_get_cnt);*/
 #ifdef MUTEXLOCK
 	if(epc_check==comp_target_get_cnt+memcpy_cnt)
 		pthread_mutex_unlock(&compaction_wait);
 #elif defined (SPINLOCK)
 	while(comp_target_get_cnt+memcpy_cnt!=epc_check){}
 #endif
-
+	
 	memcpy_cnt=0;
 	comp_target_get_cnt=0;
 	epc_check=0;
@@ -397,16 +400,21 @@ void compaction_check(KEYT key, bool force){
 
 
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
+	
 	compaction_sub_wait();
+	bench_custom_start(write_opt_time,6);
 	LSM.lop->merger(top,src,org,des);
+	bench_custom_A(write_opt_time,6);
 
 	KEYT key,end;
 	run_t* target=NULL;
+	bench_custom_start(write_opt_time,7);
 	while((target=LSM.lop->cutter(top,des,&key,&end))){
 	
 		compaction_htable_write_insert(des,target,false);
 		free(target);
 	}
+	bench_custom_A(write_opt_time,7);
 }
 
 void compaction_lev_seq_processing(level *src, level *des, int headerSize){
