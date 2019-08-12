@@ -216,11 +216,14 @@ void invalidate_PPA(uint8_t type,uint32_t ppa){
 			printf("error in validate_ppa\n");
 			abort();
 	}
-	int res=LSM.bm->unpopulate_bit(LSM.bm,t_p);
-	if(!res && type==HEADER){
-		LSM.lop->all_print();
-	//	LSM.lop->print(LSM.c_level);
-		abort();
+
+	if(type==HEADER){
+		int res=LSM.bm->unpopulate_bit(LSM.bm,t_p);
+		if(!res){
+			LSM.lop->all_print();
+		//	LSM.lop->print(LSM.c_level);
+			abort();
+		}
 	}
 }
 
@@ -239,10 +242,10 @@ void validate_PPA(uint8_t type, uint32_t ppa){
 			printf("error in validate_ppa\n");
 			abort();
 	}
-	int res=LSM.bm->populate_bit(LSM.bm,t_p);
-
-	if(!res && type==HEADER){
-		abort();
+	if(type==HEADER){
+		int res=LSM.bm->populate_bit(LSM.bm,t_p);
+		if(!res)
+			abort();
 	}
 }
 

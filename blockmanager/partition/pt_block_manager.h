@@ -11,6 +11,8 @@ typedef struct part_info{
 	int pnum;
 	int *now_assign;
 	int *max_assign;
+	int *from;
+	int *to;
 	channel **p_channel;
 }p_info;
 
