@@ -12,7 +12,7 @@ pl_body *plbody_init(mem_seg *data, uint32_t *map_ppa_list,uint32_t list_size){
 }
 
 void new_page_set(pl_body *p, bool iswrite){
-	p->now_page=p->data_ptr[p->map_ppa_list[p->pidx++]].storage;
+	p->now_page=p->data_ptr[convert_ppa(p->map_ppa_list[p->pidx++])].storage;
 	if(iswrite && !p->now_page){
 		p->now_page=(char*)malloc(PAGESIZE);
 	}
@@ -48,7 +48,7 @@ char *plbody_insert_new_key(pl_body *p,KEYT key, uint32_t ppa, bool flush){
 		if(p->now_page){
 			p->bitmap_ptr[0]=p->kidx-1;
 			p->bitmap_ptr[p->kidx]=p->length;
-			p->data_ptr[p->map_ppa_list[p->pidx-1]].storage=p->now_page;
+			p->data_ptr[convert_ppa(p->map_ppa_list[p->pidx-1])].storage=p->now_page;
 			res=p->now_page;
 		}
 		if(flush) return res;

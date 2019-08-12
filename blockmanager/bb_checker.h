@@ -16,6 +16,7 @@ typedef struct badblock_checker_node{
 typedef struct badblock_checker{
 	bb_node ent[_RNOS];
 	uint32_t back_index;
+	uint32_t start_block;
 	uint32_t assign;
 	uint32_t max;
 }bb_checker;
