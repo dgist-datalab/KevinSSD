@@ -11,8 +11,12 @@ uint32_t array[128];
 void bb_checker_start(lower_info *li){
 	memset(&checker,0,sizeof(checker));
 	target_cnt=_RNOS*64;
+	srand((unsigned int)time(NULL));
 	printf("_nos:%ld\n",_NOS);
-	checker.assign=0;
+	int random_start_seed=(_RNOS/2)/_NOS+((_RNOS/2)%_NOS?0:-1);
+	checker.assign=(rand()%random_start_seed)*_NOS;
+	checker.start_block=checker.assign;
+	printf("start block number : %d\n",checker.assign);
 	for(uint64_t i=0; i<_RNOS; i++){
 		checker.ent[i].origin_segnum=i*_PPS;
 		checker.ent[i].given_segnum=UINT_MAX;
@@ -63,6 +67,7 @@ uint32_t bb_checker_get_segid(){
 uint32_t bb_checker_fix_ppa(uint32_t ppa){
 	uint32_t res=ppa;
 #ifdef SLC
+	/*
 	uint32_t bus  = res & 0x7;
 	uint32_t chip = (res >> 3) & 0x7;
 	uint32_t page= (res >> 6) & 0xFF;
@@ -82,7 +87,7 @@ uint32_t bb_checker_fix_ppa(uint32_t ppa){
 	if(shouldchg){	
 		block+=_NOS;
 	}
-	res=bus+(chip<<3)+(page<<6)+(block<<14);
+	res=bus+(chip<<3)+(page<<6)+(block<<14);*/
 #endif
 	
 	if(checker.ent[res/_PPS].flag){

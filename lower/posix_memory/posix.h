@@ -22,7 +22,7 @@ void posix_flying_req_wait();
 uint32_t posix_hw_do_merge(uint32_t lp_num, ppa_t *lp_array, uint32_t hp_num,ppa_t *hp_array,ppa_t *tp_array, uint32_t* ktable_num, uint32_t *invliadate_num);
 char * posix_hw_get_kt();
 char *posix_hw_get_inv();
-
+uint32_t convert_ppa(uint32_t);
 
 typedef struct posix_request {
 	FSTYPE type;

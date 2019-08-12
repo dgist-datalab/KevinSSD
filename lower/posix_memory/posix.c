@@ -1,6 +1,7 @@
 #define _LARGEFILE64_SOURCE
 #include "posix.h"
 #include "pipe_lower.h"
+#include "../../blockmanager/bb_checker.h"
 #include "../../include/settings.h"
 #include "../../bench/bench.h"
 #include "../../bench/measurement.h"
@@ -216,9 +217,13 @@ void *posix_destroy(lower_info *li){
 static uint8_t convert_type(uint8_t type) {
 	return (type & (0xff>>1));
 }
-
-void *posix_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
+extern bb_checker checker;
+uint32_t convert_ppa(uint32_t PPA){
+	return PPA-checker.start_block*_PPS;
+}
+void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	uint8_t test_type;
+	uint32_t PPA=convert_ppa(_PPA);
 	if(PPA>_NOP){
 		printf("address error!\n");
 		abort();
@@ -252,8 +257,9 @@ void *posix_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 	return NULL;
 }
 
-void *posix_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
+void *posix_pull_data(uint32_t _PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	uint8_t test_type;
+	uint32_t PPA=convert_ppa(_PPA);
 	if(PPA>_NOP){
 		printf("address error!\n");
 		abort();
@@ -292,8 +298,10 @@ void *posix_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,
 	return NULL;
 }
 
-void *posix_trim_block(uint32_t PPA, bool async){
+void *posix_trim_block(uint32_t _PPA, bool async){
 	abort();
+
+	uint32_t PPA=convert_ppa(_PPA);
 	char *temp=(char *)malloc(my_posix.SOB);
 	memset(temp,0,my_posix.SOB);
 	pthread_mutex_lock(&fd_lock);
@@ -320,7 +328,9 @@ void posix_flying_req_wait(){
 #endif
 }
 
-void* posix_trim_a_block(uint32_t PPA, bool async){
+void* posix_trim_a_block(uint32_t _PPA, bool async){
+
+	uint32_t PPA=convert_ppa(_PPA);
 	if(PPA>_NOP){
 		printf("address error!\n");
 		abort();
@@ -348,7 +358,6 @@ uint32_t posix_hw_do_merge(uint32_t lp_num, ppa_t *lp_array, uint32_t hp_num,ppa
 		fprintf(stderr,"l:%d h:%d\n",lp_num,hp_num);
 		abort();
 	}
-	
 	pl_body *lp, *hp, *rp;
 	lp=plbody_init(seg_table,lp_array,lp_num);
 	hp=plbody_init(seg_table,hp_array,hp_num);

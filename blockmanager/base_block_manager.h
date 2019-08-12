@@ -6,7 +6,7 @@
 #include "../include/data_struct/redblack.h"
 #include "bb_checker.h"
 #include <stdint.h>
-#define GETBLOCKIDX(checker,value) ((GETORGBLOCKID(checker,value)/_PPS*BPS)+value%BPS)
+#define GETBLOCKIDX(checker,value) (((GETORGBLOCKID(checker,value)/_PPS-checker.start_block)*BPS)+value%BPS)
 //#define GETBLOCKIDX(value) ((value>>14)*PUNIT+value%PUNIT)
 #define GETPAGEIDX(value) ((value>>6)&0xff)
 #define GETBLOCKPPA(bl) (((bl)->block_num)+((bl)->punit_num))
