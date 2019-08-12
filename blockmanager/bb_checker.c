@@ -7,14 +7,14 @@
 bb_checker checker;
 volatile uint64_t target_cnt, _cnt, badblock_cnt;
 uint32_t array[128];
-
+#define STARTBLOCKCHUNK 3
 void bb_checker_start(lower_info *li){
 	memset(&checker,0,sizeof(checker));
 	target_cnt=_RNOS*64;
-	srand((unsigned int)time(NULL));
+//	srand((unsigned int)time(NULL));
 	printf("_nos:%ld\n",_NOS);
 	int random_start_seed=(_RNOS/2)/_NOS+((_RNOS/2)%_NOS?0:-1);
-	checker.assign=(rand()%random_start_seed)*_NOS;
+	checker.assign=(rand()%STARTBLOCKCHUNK)*_NOS;
 	checker.start_block=checker.assign;
 	printf("start block number : %d\n",checker.assign);
 	for(uint64_t i=0; i<_RNOS; i++){
@@ -120,10 +120,11 @@ void bb_checker_fixing(){/*
 	}*/
 	printf("_RNOS:%ld\n",_RNOS);
 	checker.back_index=_RNOS-1;
+	int fix_cnt=0;
 #ifdef MLC
-	for(int i=0; i<1*_NOS; i++){
+	for(int i=0; i<(STARTBLOCKCHUNK+1)*_NOS; i++){
 #else
-	for(int i=0; i<2*_NOS; i++){
+	for(int i=0; i<(STARTBLOCKCHUNK+1)*_NOS; i++){
 #endif
 		if(checker.ent[i].flag){
 			if(i+(_RNOS-checker.back_index)>_RNOS){
@@ -134,7 +135,7 @@ void bb_checker_fixing(){/*
 				while(checker.ent[checker.back_index].flag){checker.back_index--;}
 				checker.ent[i].fixed_segnum=checker.ent[checker.back_index].origin_segnum;
 				checker.ent[checker.back_index].given_segnum=checker.ent[i].origin_segnum;
-				printf("bad block %d -> %d\n",checker.ent[i].origin_segnum,checker.ent[i].fixed_segnum);
+				printf("%d - bad block %d -> %d\n",fix_cnt++,checker.ent[i].origin_segnum,checker.ent[i].fixed_segnum);
 				checker.back_index--;
 			}
 		}
