@@ -163,6 +163,7 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 	compaction_sub_pre();
 
 	if(!upper){
+		bench_custom_start(write_opt_time,5);
 		LSM.lop->range_find_compaction(origin,start,end,&target_s);
 
 		for(int j=0; target_s[j]!=NULL; j++){
@@ -181,6 +182,7 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 	}
 	else{
 		int src_num, des_num; //for stream compaction
+		bench_custom_start(write_opt_time,5);
 		des_num=LSM.lop->range_find_compaction(origin,start,end,&target_s);//for stream compaction
 		if(upper->idx<LSM.LEVELCACHING){
 			//for caching more data
