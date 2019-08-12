@@ -121,13 +121,18 @@ uint32_t pbm_create(blockmanager *bm, int pnum, int *epn, lower_info *li){
 	pinfo->now_assign=(int*)malloc(sizeof(int)*pnum);
 	pinfo->max_assign=(int*)malloc(sizeof(int)*pnum);
 	pinfo->p_channel=(channel**)malloc(sizeof(channel) *pnum);
+	pinfo->from=(int*)malloc(sizeof(int)*pnum);
+	pinfo->to=(int*)malloc(sizeof(int)*pnum);
 	int start=0;
 	int end=0;
-	for(int i=0; i<pnum; i++){
+	for(int i=pnum-1 ; i>=0; i--){
 		pinfo->now_assign[i]=0;
 		pinfo->max_assign[i]=epn[i];
 		pinfo->p_channel[i]=(channel*)malloc(sizeof(channel)*BPS);
-		end=epn[i];
+		end+=epn[i];
+		pinfo->from[i]=start;
+		pinfo->to[i]=end-1;
+		printf("%s assign block %d ~ %d( %d ~ %d )\n",i==0?"MAP":"DATA",pinfo->from[i],pinfo->to[i],start*_PPS, (end)*_PPS-1);
 		for(int j=0; j<PUNIT; j++){
 			channel *c=&pinfo->p_channel[i][j];
 			q_init(&c->free_block,end-start);
@@ -161,6 +166,8 @@ uint32_t pbm_destroy(blockmanager *bm){
 		free(pinfo->p_channel[i]);
 	}
 	
+	free(pinfo->from);
+	free(pinfo->to);
 	free(pinfo->now_assign);
 	free(pinfo->max_assign);
 	free(pinfo->p_channel);
@@ -232,7 +239,7 @@ __gsegment* pbm_pt_get_gc_target(blockmanager* bm, int pnum){
 	}else{
 		int max_invalid=0,now_invalid=0;
 		int target_seg=0;
-		for(int i=0; i<pinfo->max_assign[pnum]; i++){
+		for(int i=pinfo->from[pnum]; i<=pinfo->to[pnum]; i++){
 			for(int j=0;j<BPS; j++){
 				now_invalid+=p->base_block[i*BPS+j].invalid_number;
 			}
