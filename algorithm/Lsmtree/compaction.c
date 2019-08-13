@@ -125,6 +125,7 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 	if(level_sequencial(from,to,target,entry,l_node)){
 		goto last;
 	}else{
+		LSM.compaction_cnt++;
 		compactor.pt_leveling(target,target_origin,l_node,from);	
 	}
 	

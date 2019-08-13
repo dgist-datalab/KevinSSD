@@ -314,6 +314,9 @@ void* lsm_end_req(algo_req* const req){
 	htable *table=NULL;
 	//htable mapinfo;
 	switch(params->lsm_type){
+		case TESTREAD:
+			fdriver_unlock(params->lock);
+			break;
 		case OLDDATA:
 			//do nothing
 			break;
@@ -412,7 +415,8 @@ void* lsm_end_req(algo_req* const req){
 	if(parents)
 		parents->end_req(parents);
 	if(havetofree){
-		free(params);
+		if(params->lsm_type!=TESTREAD)
+			free(params);
 		free(req);
 	}
 	return NULL;
@@ -991,6 +995,25 @@ level *lsm_level_resizing(level *target, level *src){
 		//LSM.lop->print_level_summary();
 	}
 	return LSM.lop->init(target_cnt,target->idx,target->fpr,false);
+}
+
+uint32_t lsm_test_read(ppa_t p, char *data){
+	algo_req *lsm_req=(algo_req*)calloc(sizeof(algo_req),1);
+	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
+	params->lsm_type=TESTREAD;
+	params->lock=(fdriver_lock_t*)malloc(sizeof(fdriver_lock_t));
+	fdriver_lock_init(params->lock,0);
+	value_set *v=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
+	lsm_req->end_req=lsm_end_req;
+	lsm_req->params=(void*)params;
+
+	LSM.li->read(p,PAGESIZE,v,ASYNC,lsm_req);
+	fdriver_lock(params->lock);
+	lsm_req->type=DATAR;
+	memcpy(data,v->value,PAGESIZE);
+	free(params);
+	inf_free_valueset(v,FS_MALLOC_R);
+	return 1;
 }
 
 uint32_t lsm_argument_set(int argc, char **argv){

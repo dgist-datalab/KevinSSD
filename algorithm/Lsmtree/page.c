@@ -152,7 +152,7 @@ retry:
 		printf("fuck! no type getPPA");
 		abort();
 	}
-	
+
 	//__block *res=bm->get_block(bm,t->active);
 	ppa_t pick_ppa=bm->get_page_num(bm,t->active);
 	__block *res=bm->pick_block(bm,pick_ppa);
