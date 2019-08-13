@@ -37,7 +37,7 @@ int main(int argc,char* argv[]){
 	memset(t_value,'x',PAGESIZE);
 
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
-	bench_add(RANDRW,0,RANGE,REQNUM*2); //duplicated test
+	bench_add(RANDSET,0,RANGE,REQNUM); //duplicated test
 
 
 //	bench_add(RANDRW,0,RANGE,MAXKEYNUMBER/5*2);
