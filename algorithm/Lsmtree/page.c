@@ -235,6 +235,7 @@ void validate_PPA(uint8_t type, uint32_t ppa){
 			t_p=t_p/NPCINPAGE;
 			validate_piece((lsm_block*)LSM.bm->pick_block(LSM.bm,t_p)->private_data,ppa);
 #endif
+	
 			break;
 		case HEADER:
 				break;

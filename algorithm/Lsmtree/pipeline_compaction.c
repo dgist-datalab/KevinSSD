@@ -105,7 +105,7 @@ uint32_t pipe_partial_leveling(level *t, level *origin, leveling_node* lnode, le
 	bool fix=false;
 	int idx=0,which_level,read_idx=0;
 	run_t *container[2]={0,};
-	skiplist *mem=skiplist_init();
+	skiplist *mem=NULL;
 	run_t *now, *result;
 	lev_iter *up_iter=LSM.lop->get_iter(upper,upper->start,upper->end);
 	lev_iter *org_iter=LSM.lop->get_iter_from_run(origin,start_r,end_r);

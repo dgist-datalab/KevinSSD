@@ -116,20 +116,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	free(hp);
 }
 
-run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end){
-	char *data;
-	if(cutter_start){
-		cutter_start=false;
-		data=pbody_get_data(rp,true);
-	}
-	else{
-		data=pbody_get_data(rp,false);
-	}
-	if(!data) {
-		free(r_data);
-		free(rp);
-		return NULL;
-	}
+run_t *array_pipe_make_run(char *data){
 	htable *res=LSM.nocpy?htable_assign(data,0):htable_assign(data,1);
 
 	KEYT start,end;
@@ -149,4 +136,26 @@ run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KE
 	BLOOM;
 #endif
 	return r;
+}
+run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end){
+	char *data;
+	if(cutter_start){
+		cutter_start=false;
+		data=pbody_get_data(rp,true);
+	}
+	else{
+		data=pbody_get_data(rp,false);
+	}
+	if(!data) {
+		free(r_data);
+		free(rp);
+		return NULL;
+	}
+
+	return array_pipe_make_run(data);
+}
+
+p_body *pm_lp, *pm_hp;
+char *skip_data;
+run_t *array_pipe_p_merger_cutter(skiplist *skip,run_t **src, run_t **org, float f, uint32_t unum, uint32_t lnum){
 }
