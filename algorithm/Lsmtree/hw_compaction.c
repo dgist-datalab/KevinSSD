@@ -18,7 +18,6 @@ void make_pbn_array(ppa_t *ar, level *t, int start_idx){
 }
 
 uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, level *upper){
-
 	ppa_t* lp_array, *hp_array, *tp_array;
 	ppa_t lp_num, hp_num;
 

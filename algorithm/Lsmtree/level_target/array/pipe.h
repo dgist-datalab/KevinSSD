@@ -20,7 +20,7 @@ typedef struct pipe_body{
 
 p_body *pbody_init(char** data, uint32_t list_size);
 KEYT pbody_get_next_key(p_body *p, uint32_t *r_ppa);
-bool pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa,bool f);
+char* pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa,bool f);
 
 char *pbody_get_data(p_body *p, bool init);
 char *pbody_new_data_insert(p_body *p, char **new_data, int new_data_size);

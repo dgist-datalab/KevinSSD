@@ -61,7 +61,7 @@ typedef struct length_bucket{
 #ifdef Lsmtree
 	gc_node **gc_bucket[NPCINPAGE+1];
 #endif
-	uint16_t idx[PAGESIZE/PIECE+1];
+	uint32_t idx[PAGESIZE/PIECE+1];
 	value_set** contents;
 	int contents_num;
 }l_bucket;

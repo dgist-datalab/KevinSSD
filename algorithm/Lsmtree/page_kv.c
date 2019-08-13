@@ -258,7 +258,7 @@ int __gc_data(){
 		footer *foot=(footer*)bm->get_oob(bm,tpage);
 		for(int j=0;j<NPCINPAGE; j++){
 			t_ppa=tpage*NPCINPAGE+j;
-			
+
 			if(is_invalid_piece((lsm_block*)tblock->private_data,t_ppa)){
 				continue;
 			}
@@ -279,10 +279,9 @@ int __gc_data(){
 				goto make_bucket;
 			}
 			else{
-
 				temp_g=gc_data_write_new_page(t_ppa,&((char*)tables[i]->sets)[PIECE*j],NULL,oob_len,lpa);
 				if(!bucket->gc_bucket[temp_g->plength])
-					bucket->gc_bucket[temp_g->plength]=(gc_node**)malloc(sizeof(gc_node*)*_PPS);
+					bucket->gc_bucket[temp_g->plength]=(gc_node**)malloc(sizeof(gc_node*)*16*_PPS);
 				
 				bucket->gc_bucket[temp_g->plength][bucket->idx[temp_g->plength]++]=temp_g;
 				bucket->contents_num++;
@@ -314,6 +313,7 @@ next_page:
 		lb_free((lsm_block*)tblock->private_data);
 		tblock->private_data=NULL;
 	}
+
 	bm->pt_trim_segment(bm,DATA_S,tseg,LSM.li);
 	if(!LSM.gc_opt)
 		change_reserve_to_active(DATA);
@@ -539,9 +539,6 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 					memset(params,0,sizeof(gc_params));
 					target->params=(void*)params;
 				case RETRY:
-					if(KEYCONSTCOMP(target->lpa,"100084000000")==0){
-						printf("break!\n");
-					}
 					result=gc_data_issue_header(target,(gc_params*)target->params,size);
 					if(result==CACHING) done_cnt++;
 					break;
@@ -612,12 +609,14 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 	free(map_table);
 
 	li_node *ln, *lp;
-	for_each_list_node_safe(gc_hlist,ln,lp){
-		temp_gc_h *gch=(temp_gc_h*)ln->data;
-		free(gch->data);
-		gch->d->run_data=NULL;
-		free(gch->d->gc_waitreq);
-		free(gch);
+	if(gc_hlist->size!=0){
+		for_each_list_node_safe(gc_hlist,ln,lp){
+			temp_gc_h *gch=(temp_gc_h*)ln->data;
+			free(gch->data);
+			gch->d->run_data=NULL;
+			free(gch->d->gc_waitreq);
+			free(gch);
+		}
 	}
 	list_free(gc_hlist);
 }	
