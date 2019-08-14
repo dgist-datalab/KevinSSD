@@ -1004,6 +1004,15 @@ void bench_custom_print(MeasureTime *mt,int idx){
 }
 
 int bench_set_params(int argc, char **argv, char **temp_argv){
+	int bit_cnt=0;
+	int piece=PIECE;
+	uint64_t total_size=TOTALSIZE;
+	total_size/=piece;
+	do{bit_cnt++;}while((total_size/=2));
+	if(total_size>32){
+		printf("physical address over 32 bit\n");
+		abort();
+	}
 	struct option options[]={
 		{"locality",1,0,0},
 		{"key-length",1,0,0},
@@ -1049,7 +1058,7 @@ int bench_set_params(int argc, char **argv, char **temp_argv){
 						if(optarg!=NULL){
 							value_size=true;
 							VALUESIZE=atoi(optarg);
-							if(VALUESIZE>=16 || VALUESIZE<1){
+							if(VALUESIZE>NPCINPAGE || VALUESIZE<0){
 								VALUESIZE=-1;
 							}
 						}
@@ -1071,7 +1080,7 @@ int bench_set_params(int argc, char **argv, char **temp_argv){
 		VALUESIZE=-1;
 	}
 	printf("key_length: %d - -1==rand\n",KEYLENGTH==-1?KEYLENGTH:KEYLENGTH*16);
-	printf("value_size: %d - -1==rand\n",VALUESIZE==-1?VALUESIZE:VALUESIZE*512);
+	printf("value_size: %d - -1==rand\n",VALUESIZE==-1?VALUESIZE:VALUESIZE*PIECE);
 
 	optind=0;
 	seq_padding_opt=0;

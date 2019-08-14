@@ -149,7 +149,7 @@ typedef struct level_ops{
 
 	/*mapping operation*/
 	ppa_t (*moveTo_fr_page)(bool isgc);
-	ppa_t (*get_page)(uint8_t plength, KEYT simul_key);
+	ppa_t (*get_page)(uint16_t plength, KEYT simul_key);
 	bool (*block_fchk)();
 
 	void (*range_update)(level *,run_t*,KEYT);
@@ -185,7 +185,7 @@ typedef struct level_ops{
 }level_ops;
 
 ppa_t def_moveTo_fr_page(bool isgc);
-ppa_t def_get_page(uint8_t plegnth, KEYT simul_key);
+ppa_t def_get_page(uint16_t plegnth, KEYT simul_key);
 bool def_blk_fchk();
 
 void def_move_heap( level *des,  level *src);

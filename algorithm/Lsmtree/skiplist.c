@@ -606,7 +606,6 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 	memset(res,0,sizeof(value_set*)*(input->size+1));
 	l_bucket b;
 	memset(&b,0,sizeof(b));
-
 	uint32_t idx=1;
 	snode *target;
 	int total_size=0;
@@ -620,6 +619,9 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 		idx++;
 
 		if(target->value==0) continue;
+		if(b.bucket[target->value->length]==NULL){
+			b.bucket[target->value->length]=(snode**)malloc(sizeof(snode*)*(input->size+1));
+		}
 		b.bucket[target->value->length][b.idx[target->value->length]++]=target;
 		total_size+=target->value->length;
 
@@ -650,6 +652,10 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 #ifdef DVALUE
 	variable_value2Page(from,&b,&res,&res_idx,false);
 #endif
+
+	for(int i=0; i<=NPCINPAGE; i++){
+		if(b.bucket[i]) free(b.bucket[i]);
+	}
 	res[res_idx]=NULL;
 	return res;
 }

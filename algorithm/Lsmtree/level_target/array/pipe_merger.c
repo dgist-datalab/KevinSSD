@@ -158,4 +158,5 @@ run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KE
 p_body *pm_lp, *pm_hp;
 char *skip_data;
 run_t *array_pipe_p_merger_cutter(skiplist *skip,run_t **src, run_t **org, float f, uint32_t unum, uint32_t lnum){
+	return NULL;
 }
