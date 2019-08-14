@@ -31,7 +31,7 @@ struct level;
 typedef struct htable htable;
 
 typedef struct footer{
-	uint8_t map[PAGESIZE/PIECE];
+	uint16_t map[PAGESIZE/PIECE];
 }footer;
  
 #endif
@@ -57,7 +57,8 @@ typedef struct snode{ //skiplist's node
 
 //#ifdef Lsmtree
 typedef struct length_bucket{
-	snode *bucket[PAGESIZE/PIECE+1][2048];
+	//snode *bucket[PAGESIZE/PIECE+1][2048];
+	snode **bucket[NPCINPAGE+1];
 #ifdef Lsmtree
 	gc_node **gc_bucket[NPCINPAGE+1];
 #endif

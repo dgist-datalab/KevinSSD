@@ -64,7 +64,7 @@ ppa_t def_moveTo_fr_page(bool isgc){
 	*/
 }
 
-ppa_t def_get_page(uint8_t plength, KEYT simul_key){
+ppa_t def_get_page(uint16_t plength, KEYT simul_key){
 	ppa_t res=0;
 	if(LSM.active_block->idx_of_ppa>=NPCINPAGE){
 		abort();
