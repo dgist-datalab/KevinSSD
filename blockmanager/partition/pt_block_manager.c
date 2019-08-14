@@ -125,6 +125,7 @@ uint32_t pbm_create(blockmanager *bm, int pnum, int *epn, lower_info *li){
 	pinfo->to=(int*)malloc(sizeof(int)*pnum);
 	int start=0;
 	int end=0;
+	checker.map_first=false;
 	for(int i=pnum-1 ; i>=0; i--){
 		pinfo->now_assign[i]=0;
 		pinfo->max_assign[i]=epn[i];
