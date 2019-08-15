@@ -11,7 +11,7 @@ p_body *pbody_init(char **data,uint32_t size){
 
 bool print_test;
 void new_page_set(p_body *p, bool iswrite){
-	p->now_page=p->data_ptr[p->pidx++];
+	p->now_page=p->data_ptr[p->pidx];
 	if(iswrite && !p->now_page){
 		p->now_page=(char*)malloc(PAGESIZE);
 	}
@@ -19,6 +19,7 @@ void new_page_set(p_body *p, bool iswrite){
 	p->kidx=1;
 	p->max_key=p->bitmap_ptr[0];
 	p->length=1024;
+	p->pidx++;
 }
 
 KEYT pbody_get_next_key(p_body *p, uint32_t *ppa){
@@ -62,15 +63,16 @@ char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush){
 	p->length+=sizeof(uint32_t)+key.len;
 	return res;
 }
-
 char *pbody_get_data(p_body *p, bool init){
 	if(init){
 		p->max_page=p->pidx;
 		p->pidx=0;
 	}
 
-	if(p->pidx<p->max_page)
+	if(p->pidx<p->max_page){
+
 		return p->data_ptr[p->pidx++];
+	}
 	else 
 		return NULL;
 }

@@ -135,8 +135,9 @@ last:
 	//printf("ending\n");
 	LSM.c_level=NULL;
 	//LSM.lop->print_level_summary();
-
-	//LSM.lop->all_print();
+	/*
+	if(LSM.debug_flag)
+		LSM.lop->all_print();*/
 	return res;
 }
 
@@ -160,6 +161,8 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 #ifndef MONKEY
 	//sequential_move_next_level(origin,t,start,end);
 #endif
+	uint32_t total_number=origin->n_num+(upper?upper->n_num:1);
+	page_check_available(HEADER,total_number);
 
 	uint32_t total_number=origin->n_num+(upper?upper->n_num:1);
 	page_check_available(HEADER,total_number);

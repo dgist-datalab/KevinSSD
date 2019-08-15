@@ -4,6 +4,9 @@
 p_body *rp;
 char **r_data;
 bool cutter_start;
+#ifdef BLOOM
+float t_fpr;
+#endif
 extern lsmtree LSM;
 char *array_skip_cvt2_data(skiplist *mem){
 	char *res=(char*)malloc(PAGESIZE);
@@ -15,9 +18,7 @@ char *array_skip_cvt2_data(skiplist *mem){
 		memcpy(&res[data_start],&temp->ppa,sizeof(temp->ppa));
 		memcpy(&res[data_start+sizeof(temp->ppa)],temp->key.key,temp->key.len);
 		bitmap[idx]=data_start;
-#ifdef BLOOM
-		bloomfitlermake;
-#endif
+
 		data_start+=temp->key.len+sizeof(temp->ppa);
 		idx++;
 	}
@@ -29,6 +30,9 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	cutter_start=true;
 	int o_num=0; int u_num=0;
 	char **u_data;
+#ifdef BLOOM
+	t_fpr=d->fpr;
+#endif
 	if(mem){
 		u_num=1;
 		u_data=(char**)malloc(sizeof(char*)*u_num);
@@ -133,7 +137,7 @@ run_t *array_pipe_make_run(char *data){
 	r->cpt_data=res;
 	free(data);
 #ifdef BLOOM
-	BLOOM;
+	r->filter=array_making_filter(r,num,t_fpr);
 #endif
 	return r;
 }

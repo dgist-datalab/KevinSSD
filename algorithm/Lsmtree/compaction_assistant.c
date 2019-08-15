@@ -406,7 +406,6 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 	run_t* target=NULL;
 	bench_custom_start(write_opt_time,7);
 	while((target=LSM.lop->cutter(top,des,&key,&end))){
-	
 		compaction_htable_write_insert(des,target,false);
 		free(target);
 	}

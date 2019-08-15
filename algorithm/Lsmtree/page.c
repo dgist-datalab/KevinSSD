@@ -247,6 +247,8 @@ bool validate_PPA(uint8_t type, uint32_t ppa){
 			printf("error in validate_ppa\n");
 			abort();
 	}
+
+	
 	if(type==HEADER){
 		int res=LSM.bm->populate_bit(LSM.bm,t_p);
 	//	printf("validate: %u\n",ppa);
@@ -488,7 +490,9 @@ bool page_check_available(uint8_t type, uint32_t needed_page){
 	}
 	uint32_t res=bm->pt_remain_page(bm,t->active,MAP_S);
 	if(res<needed_page){
-		if(type==HEADER) gc_header();	
+		if(type==HEADER) gc_header();
+		res=bm->pt_remain_page(bm,t->active,MAP_S);
+		if(res<needed_page) abort();
 	}
 	return true;
 }
