@@ -22,7 +22,6 @@ extern volatile int gc_read_wait;
 extern pm d_m;
 extern pm map_m;
 list *gc_hlist;
-
 typedef struct temp_gc_h{
 	run_t *d;
 	char *data;
@@ -31,8 +30,9 @@ typedef struct temp_gc_h{
 #ifdef KVSSD
 uint32_t gc_cnt=0;
 int gc_header(){
-	//printf("gc_header %u\n",gc_cnt++);
+	printf("gc_header %u\n",gc_cnt++);
 	//printf("gc_header %u",gc_cnt++);
+	LSM.header_gc_cnt++;
 	gc_general_wait_init();
 	lsm_io_sched_flush();
 
@@ -44,7 +44,7 @@ int gc_header(){
 	}
 
 	htable_t **tables=(htable_t**)malloc(sizeof(htable_t*)*_PPS);
-		
+
 	uint32_t tpage=0;
 	int bidx=0;
 	int pidx=0;
@@ -62,8 +62,10 @@ int gc_header(){
 	gc_general_waiting();
 
 	i=0;
+	uint32_t invalidate_cnt=0;
 	for_each_page_in_seg(tseg,tpage,bidx,pidx){
 		if(bm->is_invalid_page(bm, tpage)){
+			invalidate_cnt++;
 			continue;
 		}
 		
@@ -140,6 +142,10 @@ int gc_header(){
 		continue;
 	}
 	
+	if(tseg->invalidate_number!=invalidate_cnt){
+		
+	//	abort();
+	}
 	free(tables);
 	for_each_page_in_seg(tseg,tpage,bidx,pidx){
 		if(LSM.nocpy) nocpy_trim_delay_enq(tpage);
@@ -175,6 +181,7 @@ gc_node *gc_data_write_new_page(uint32_t t_ppa, char *data, htable_t *table, uin
 }
 int __gc_data();
 int gc_data(){
+	LSM.data_gc_cnt++;
 	if(LSM.gc_opt){
 	//	LSM.lop->print_level_summary();
 		while((LSM.LEVELN==1) || LSM.needed_valid_page > (uint32_t) LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S)){

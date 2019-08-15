@@ -134,8 +134,9 @@ last:
 	//printf("ending\n");
 	LSM.c_level=NULL;
 	//LSM.lop->print_level_summary();
-
-	//LSM.lop->all_print();
+	/*
+	if(LSM.debug_flag)
+		LSM.lop->all_print();*/
 	return res;
 }
 
@@ -147,18 +148,20 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 	skiplist *skip=lnode?lnode->mem:skiplist_init();
 	if(!upper){
 #ifndef MONKEY
-		start=lnode->start;
-		end=lnode->end;
+		//start=lnode->start;
+		//end=lnode->end;
 #endif
 	}
 	else{
-		start=upper->start;
-		end=upper->end;
+		//start=upper->start;
+		//end=upper->end;
 	}
 
 #ifndef MONKEY
-	sequential_move_next_level(origin,t,start,end);
+	//sequential_move_next_level(origin,t,start,end);
 #endif
+	uint32_t total_number=origin->n_num+(upper?upper->n_num:1);
+	page_check_available(HEADER,total_number);
 
 	compaction_sub_pre();
 
