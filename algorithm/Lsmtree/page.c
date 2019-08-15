@@ -194,14 +194,14 @@ lsm_block* getRBlock(uint8_t type){
 	return lb;
 }
 
-void invalidate_PPA(uint8_t type,uint32_t ppa){
+bool invalidate_PPA(uint8_t type,uint32_t ppa){
 	uint32_t t_p=ppa;
 	void *t;
 	switch(type){
 		case DATA:
 #ifdef DVALUE
 			t_p=t_p/NPCINPAGE;
-			if(ppa==UINT_MAX) return;
+			if(ppa==UINT_MAX) return true;
 			t=LSM.bm->pick_block(LSM.bm,t_p)->private_data;
 			invalidate_piece((lsm_block*)t,ppa);
 #endif
@@ -220,14 +220,18 @@ void invalidate_PPA(uint8_t type,uint32_t ppa){
 	if(type==HEADER){
 		int res=LSM.bm->unpopulate_bit(LSM.bm,t_p);
 		if(!res){
-			LSM.lop->all_print();
+		//	LSM.lop->all_print();
+			printf("target_ppa:%u\n",ppa);
+			LSM.bm->unpopulate_bit(LSM.bm,t_p);
 		//	LSM.lop->print(LSM.c_level);
-			abort();
+		//	abort();
+			return false;
 		}
 	}
+	return true;
 }
 
-void validate_PPA(uint8_t type, uint32_t ppa){
+bool validate_PPA(uint8_t type, uint32_t ppa){
 	uint32_t t_p=ppa;
 	switch(type){
 		case DATA:
@@ -245,9 +249,13 @@ void validate_PPA(uint8_t type, uint32_t ppa){
 	}
 	if(type==HEADER){
 		int res=LSM.bm->populate_bit(LSM.bm,t_p);
-		if(!res)
+	//	printf("validate: %u\n",ppa);
+		if(!res){
 			abort();
+			return false;
+		}
 	}
+	return true;
 }
 
 void erase_PPA(uint8_t type,uint32_t ppa){

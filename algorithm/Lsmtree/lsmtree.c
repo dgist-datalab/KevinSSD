@@ -424,7 +424,6 @@ void* lsm_end_req(algo_req* const req){
 
 uint32_t data_input_write;
 uint32_t lsm_set(request * const req){
-	bench_custom_start(write_opt_time,3);
 	static bool force = 0 ;
 	data_input_write++;
 	compaction_check(req->key,force);
@@ -442,7 +441,6 @@ uint32_t lsm_set(request * const req){
 
 	req->value=NULL;
 
-	bench_custom_A(write_opt_time,3);
 	if(LSM.memtable->size==LSM.FLUSHNUM){
 		force=1;
 		req->end_req(req); //end write
@@ -594,7 +592,9 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 		if(LSM.nocpy && entry){
 			table=(keyset*)nocpy_pick(entry->pbn);
 		}
+		bench_custom_start(write_opt_time,9);
 		target_set=LSM.lop->find_keyset((char*)table,req->key);
+		bench_custom_A(write_opt_time,9);
 		char *src;
 		if(likely(target_set)){
 			if(entry && !entry->c_entry && cache_insertable(LSM.lsm_cache)){
@@ -622,7 +622,10 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 			algo_req *new_lsm_req;
 			for(int i=0; i<entry->wait_idx; i++){
 				temp_req=(request*)entry->waitreq[i];
+				bench_custom_start(write_opt_time,9);
 				new_target_set=LSM.lop->find_keyset((char*)table,temp_req->key);
+				bench_custom_A(write_opt_time,9);
+
 				int *temp_params=(int*)temp_req->params;
 				temp_params[3]++;
 				if(new_target_set){

@@ -33,6 +33,7 @@ uint32_t gc_cnt=0;
 int gc_header(){
 	//printf("gc_header %u\n",gc_cnt++);
 	//printf("gc_header %u",gc_cnt++);
+	LSM.header_gc_cnt++;
 	gc_general_wait_init();
 	lsm_io_sched_flush();
 
@@ -154,6 +155,7 @@ int gc_header(){
 
 extern bool target_ppa_invalidate;
 gc_node *gc_data_write_new_page(uint32_t t_ppa, char *data, htable_t *table, uint32_t piece, KEYT *lpa){
+	LSM.data_gc_cnt++;
 	gc_node *res=(gc_node *)malloc(sizeof(gc_node));
 	uint32_t n_ppa;
 	res->plength=piece;

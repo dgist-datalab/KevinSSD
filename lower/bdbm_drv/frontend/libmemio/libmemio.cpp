@@ -40,6 +40,7 @@ THE SOFTWARE.
 #ifndef BPS
 #define BPS 64
 #define _PPB 256
+#define PAGESIZE 8129
 #endif
 #include "../../../../include/container.h"
 //#include "../../../../bench/bench.h"

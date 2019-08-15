@@ -130,6 +130,7 @@ void *memio_badblock_checker(uint32_t ppa,uint32_t size, void*(*process)(uint64_
 
 
 void *memio_info_trim_a_block(uint32_t ppa, bool async){
+	memio_info.req_type_cnt[TRIM]++;
 	memio_trim_a_block(mio,ppa);
 	return NULL;
 }

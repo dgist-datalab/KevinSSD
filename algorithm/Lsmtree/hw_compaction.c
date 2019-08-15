@@ -48,6 +48,7 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 				free(datas[i]);
 			}
 
+		
 			free(datas);
 		}
 	}else{
@@ -55,10 +56,12 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	}
 	/*sequencial move*/
 	int except=0;
+	KEYT start,end;
 #ifndef MONKEY
-	KEYT start=upper?upper->start:lnode->start;
-	KEYT end=upper?upper->end:lnode->end;
-	except=sequential_move_next_level(origin,t,start,end);
+	/*
+	start=upper?upper->start:lnode->start;
+	end=upper?upper->end:lnode->end;
+	except=sequential_move_next_level(origin,t,start,end);*/
 #endif
 
 	lp_num=lp_num-except;
@@ -78,6 +81,16 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 		printf("%d parameter error! upnum:%d\n",cnt,hp_num);
 		abort();
 	}
+
+	for(int i=0; i<lp_num; i++){
+		if(!LSM.bm->is_valid_page(LSM.bm,lp_array[i])){
+			LSM.lop->print(origin);
+			printf("%d validate checker fail!\n",lp_array[i]);
+			abort()	;
+		}
+	}
+
+	/*
 	printf("%d cnt\n",cnt);
 	char *test_page;
 	if(cnt==5){
@@ -97,7 +110,13 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 			LSM.lop->header_print(test_page);
 			free(test_page);
 		}
-	}
+	}*/
+	/*
+	uint32_t* test_array=(uint32_t*)malloc(sizeof(uint32_t)*lp_num);
+	for(int i=0; i<lp_num; i++){
+		test_array[i]=lp_array[i];
+	}*/
+
 
 	bench_custom_start(write_opt_time,2);
 	LSM.li->hw_do_merge(lp_num,lp_array,hp_num,hp_array,tp_array,&ktable_num,&invalidate_num);
@@ -128,18 +147,19 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	//	temp.key=&kt_start[body[temp_num]+sizeof(ppa_t)];
 	
 		entry=LSM.lop->make_run(start,end,tp_array[i]);
-		printf("%.*s ~ %.*s num:%d\n",KEYFORMAT(start),KEYFORMAT(end),num);
+	//	printf("%.*s ~ %.*s num:%d\n",KEYFORMAT(start),KEYFORMAT(end),num);
 		LSM.lop->insert(t,entry);
 		LSM.lop->release_run(entry);
 		free(entry);
 	}
+	/*
 	if(cnt==5){
 		printf("last----\n");
 		test_page=(char*)malloc(PAGESIZE);
 		lsm_test_read(tp_array[tp_num-1],test_page);
 		LSM.lop->header_print(test_page);
 		free(test_page);
-	}
+	}*/
 	ppa_t *ppa=(ppa_t*)inv;
 	for(int i=0; i<invalidate_num; i++){
 		invalidate_PPA(DATA,ppa[i]);
@@ -148,12 +168,23 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	for(int i=ktable_num; i<tp_num; i++){
 		erase_PPA(HEADER,tp_array[i]);
 	}
-	
+
 
 	for(int i=0; i<lp_num; i++){
-		invalidate_PPA(HEADER,lp_array[i]);
+		/*
+		if(test_array[i]!=lp_array[i]){
+			printf("fucking involve!\n");
+			abort();
+		}*/
+		//printf("inv validate: %u - %d\n",ppa,__LINE__);;
+		if(!invalidate_PPA(HEADER,lp_array[i])){
+			LSM.lop->print(origin);
+			abort();
+		}
 	}
+//	free(test_array);
 	for(int i=0; i<hp_num; i++){
+		//printf("inv validate: %u - %d\n",ppa,__LINE__);;
 		invalidate_PPA(HEADER,hp_array[i]);
 	}
 

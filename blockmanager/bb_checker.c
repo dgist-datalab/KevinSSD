@@ -11,11 +11,12 @@ uint32_t array[128];
 void bb_checker_start(lower_info *li){
 	memset(&checker,0,sizeof(checker));
 	target_cnt=_RNOS*64;
-//	srand((unsigned int)time(NULL));
+	srand((unsigned int)time(NULL));
 	printf("_nos:%ld\n",_NOS);
 	int random_start_seed=(_RNOS/2)/_NOS+((_RNOS/2)%_NOS?0:-1);
 	checker.assign=(rand()%STARTBLOCKCHUNK)*_NOS;
 	checker.start_block=checker.assign;
+	checker.map_first=true;
 	printf("start block number : %d\n",checker.assign);
 	for(uint64_t i=0; i<_RNOS; i++){
 		checker.ent[i].origin_segnum=i*_PPS;

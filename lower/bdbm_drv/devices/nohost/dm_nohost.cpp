@@ -208,8 +208,8 @@ class FlashIndication: public FlashIndicationWrapper {
 				return; }
 			//else {  printf("readDone: Ack  with tag=%d, status=%d\n", tag, status); fflush(stdout); }
 
-			sw_poller_enqueue((void*)r);
-			//dm_nohost_end_req (_bdi_dm, r);
+			//sw_poller_enqueue((void*)r);
+			dm_nohost_end_req (_bdi_dm, r);
 		}
 
 		virtual void writeDone (unsigned int tag){ //, unsigned int status) {
@@ -221,8 +221,8 @@ class FlashIndication: public FlashIndicationWrapper {
 			//			bdbm_sema_unlock (&global_lock);
 			if( r == NULL ) { printf("writeDone: Ack Duplicate with tag=%d, status=%d\n", tag, status); fflush(stdout); return; }
 
-			sw_poller_enqueue((void*)r);
-			//dm_nohost_end_req (_bdi_dm, r);
+			//sw_poller_enqueue((void*)r);
+			dm_nohost_end_req (_bdi_dm, r);
 		}
 
 		virtual void eraseDone (unsigned int tag, unsigned int status) {
@@ -240,8 +240,8 @@ class FlashIndication: public FlashIndicationWrapper {
 				r->isbad=0;
 			}
 
-			sw_poller_enqueue((void*)r);
-			//dm_nohost_end_req (_bdi_dm, r);
+			//sw_poller_enqueue((void*)r);
+			dm_nohost_end_req (_bdi_dm, r);
 		}
 
 		virtual void debugDumpResp (unsigned int debug0, unsigned int debug1,  unsigned int debug2, unsigned int debug3, unsigned int debug4, unsigned int debug5) {
@@ -311,7 +311,7 @@ uint32_t __dm_nohost_init_device (
 		bdbm_drv_info_t* bdi, 
 		bdbm_device_params_t* params)
 {
-	sw_poller_init();
+	//sw_poller_init();
 	fprintf(stderr, "Initializing Connectal & DMA...\n");
 
 	device = new FlashRequestProxy(IfcNames_FlashRequestS2H);
@@ -564,7 +564,7 @@ void dm_nohost_close (bdbm_drv_info_t* bdi)
 	pthread_cond_destroy(&readDmaQ_cond);	
 	pthread_mutex_destroy(&writeDmaQ_mutx);	
 	pthread_mutex_destroy(&readDmaQ_mutx);	
-	sw_poller_destroy();
+	//sw_poller_destroy();
 	//
 }
 int readlockbywrite;
