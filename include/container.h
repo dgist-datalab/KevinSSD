@@ -191,6 +191,7 @@ typedef struct ghostsegment{ //for gc
 	__block* blocks[BPS];
 	uint16_t now;
 	uint16_t max;
+	uint32_t invalidate_number;
 }__gsegment;
 
 struct blockmanager{
