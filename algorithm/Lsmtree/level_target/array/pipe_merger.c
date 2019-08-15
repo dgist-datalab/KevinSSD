@@ -135,10 +135,10 @@ run_t *array_pipe_make_run(char *data){
 	
 	run_t *r=array_make_run(start,end,-1);
 	r->cpt_data=res;
-	free(data);
 #ifdef BLOOM
 	r->filter=array_making_filter(r,num,t_fpr);
 #endif
+	free(data);
 	return r;
 }
 run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end){
