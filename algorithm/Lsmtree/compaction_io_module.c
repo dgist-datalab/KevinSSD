@@ -46,7 +46,6 @@ ppa_t compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 #endif
 	
 	entry->pbn=ppa;
-
 	if(LSM.nocpy){
 		nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
 		entry->cpt_data->sets=NULL;

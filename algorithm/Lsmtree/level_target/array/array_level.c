@@ -203,7 +203,7 @@ BF* array_making_filter(run_t *data,int num, float fpr){
 	for_each_header_start(idx,key,ppa_ptr,bitmap,body)
 		bf_set(filter,key);
 	for_each_header_end
-	return NULL;
+	return filter;
 }
 
 void array_cache_insert(level *lev,skiplist* mem){
