@@ -28,9 +28,9 @@
 #define T (1024L*G)
 #define P (1024L*T)
 
-#define PIECE 16
+#define PIECE 512
 #define NPCINPAGE (PAGESIZE/PIECE)
-#define MINVALUE 16
+#define MINVALUE PIECE
 
 #ifdef MLC
 

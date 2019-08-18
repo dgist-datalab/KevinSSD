@@ -155,6 +155,7 @@ int gc_header(){
 	}
 	bm->pt_trim_segment(bm,MAP_S,tseg,LSM.li);
 	change_reserve_to_active(HEADER);
+	free(tseg);
 	return 0;
 }
 
@@ -329,6 +330,7 @@ next_page:
 		free(bucket->gc_bucket[i]);
 	}
 	free(bucket);
+	free(tseg);
 	return 1;
 }
 

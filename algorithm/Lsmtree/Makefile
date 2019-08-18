@@ -27,7 +27,7 @@ SRCS +=\
 	   lsmtree.c\
 	   compaction_io_module.c\
 	   compaction_assistant.c\
-	   pipeline_compaction.c\
+	   pipeline_compaction2.c\
 	   hw_compaction.c\
 	   compaction.c\
 	   page.c\
@@ -38,7 +38,6 @@ SRCS +=\
 	   variable.c\
 	   lsmtree_multi.c\
 	   lsmtree_scheduling.c\
-	   multiple_compaction.c\
 	   data_simul.c\
 #merge_compaction.c\
 	   run_array.c\

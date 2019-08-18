@@ -26,6 +26,7 @@ char *array_skip_cvt2_data(skiplist *mem){
 	bitmap[idx]=data_start;
 	return res;
 }
+
 void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	cutter_start=true;
 	int o_num=0; int u_num=0;
@@ -50,9 +51,9 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 
 	r_data=(char**)calloc(sizeof(char*),(o_num+u_num));
 	p_body *lp, *hp;
-	lp=pbody_init(o_data,o_num);
-	hp=pbody_init(u_data,u_num);
-	rp=pbody_init(r_data,o_num+u_num);
+	lp=pbody_init(o_data,o_num,NULL,false);
+	hp=pbody_init(u_data,u_num,NULL,false);
+	rp=pbody_init(r_data,o_num+u_num,NULL,false);
 
 	uint32_t lppa, hppa, rppa;
 	KEYT lp_key=pbody_get_next_key(lp,&lppa);
@@ -116,13 +117,12 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	if(mem) free(u_data[0]);
 	free(o_data);
 	free(u_data);
-	free(lp);
-	free(hp);
+	pbody_clear(lp);
+	pbody_clear(hp);
 }
 
 run_t *array_pipe_make_run(char *data){
 	htable *res=LSM.nocpy?htable_assign(data,0):htable_assign(data,1);
-
 	KEYT start,end;
 	uint16_t *body=(uint16_t*)data;
 	uint32_t num=body[0];
@@ -152,15 +152,112 @@ run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KE
 	}
 	if(!data) {
 		free(r_data);
-		free(rp);
+		pbody_clear(rp);
 		return NULL;
 	}
 
 	return array_pipe_make_run(data);
 }
 
-p_body *pm_lp, *pm_hp;
-char *skip_data;
-run_t *array_pipe_p_merger_cutter(skiplist *skip,run_t **src, run_t **org, float f, uint32_t unum, uint32_t lnum){
+run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data, uint32_t u_num, uint32_t l_num,level *d, void *(*lev_insert_write)(level *,run_t *data)){
+
+	char *skip_data;
+	if(skip){
+		u_num=1;
+		u_data=(pl_run*)malloc(sizeof(pl_run));
+		u_data[0].lock=(fdriver_lock_t*)malloc(sizeof(fdriver_lock_t));
+		fdriver_lock_init(u_data[0].lock,1);
+		skip_data=array_skip_cvt2_data(skip);
+		u_data[0].r=array_pipe_make_run(skip_data);
+	}
+
+	p_body *lp, *hp, *p_rp;
+	char **r_datas=(char**)calloc(sizeof(char*),(u_num+l_num));
+	lp=pbody_init(NULL,l_num,l_data,true);
+	hp=pbody_init(NULL,u_num,u_data,true);
+	p_rp=pbody_init(r_datas,u_num+l_num,NULL,false);
+
+	uint32_t lppa, hppa, p_rppa;
+	KEYT lp_key=pbody_get_next_key(lp,&lppa);
+	KEYT hp_key=pbody_get_next_key(hp,&hppa);
+	KEYT insert_key;
+	int next_pop=0;
+	int result_cnt=0;
+	char *res_data;
+	while(!(lp_key.len==UINT8_MAX && hp_key.len==UINT8_MAX)){
+		if(lp_key.len==UINT8_MAX){
+			insert_key=hp_key;
+			p_rppa=hppa;
+			next_pop=1;
+		}
+		else if(hp_key.len==UINT8_MAX){
+			insert_key=lp_key;
+			p_rppa=lppa;
+			next_pop=-1;
+		}
+		else{
+			if(!KEYVALCHECK(lp_key)){
+				printf("%.*s\n",KEYFORMAT(lp_key));
+				abort();
+			}
+			if(!KEYVALCHECK(hp_key)){
+				printf("%.*s\n",KEYFORMAT(hp_key));
+				abort();
+			}
+
+			next_pop=KEYCMP(lp_key,hp_key);
+			if(next_pop<0){
+				insert_key=lp_key;
+				p_rppa=lppa;
+			}
+			else if(next_pop>0){
+				insert_key=hp_key;
+				p_rppa=hppa;
+			}
+			else{
+				invalidate_PPA(DATA,lppa);
+				p_rppa=hppa;
+				insert_key=hp_key;
+			}
+		}
+	
+		if((res_data=pbody_insert_new_key(p_rp,insert_key,p_rppa,false))){
+			lev_insert_write(d,array_pipe_make_run(res_data));
+			result_cnt++;
+		}
+		
+		if(next_pop<0) lp_key=pbody_get_next_key(lp,&lppa);
+		else if(next_pop>0) hp_key=pbody_get_next_key(hp,&hppa);
+		else{
+			lp_key=pbody_get_next_key(lp,&lppa);
+			hp_key=pbody_get_next_key(hp,&hppa);
+		}
+	}
+	
+	if((res_data=pbody_insert_new_key(p_rp,insert_key,0,true))){
+		lev_insert_write(d,array_pipe_make_run(res_data));
+		result_cnt++;
+	}
+
+	res_data=pbody_get_data(p_rp,false);
+	do{
+		if(!res_data) break;
+		lev_insert_write(d,array_pipe_make_run(res_data));
+		result_cnt++;
+	}
+	while((res_data=pbody_get_data(p_rp,false)));
+
+	if(skip){
+		fdriver_destroy(u_data[0].lock);
+		free(u_data[0].lock);
+		array_free_run(u_data[0].r);
+		htable_free(u_data[0].r->cpt_data);
+		free(u_data[0].r);
+		free(u_data);
+	}
+	free(r_datas);
+	pbody_clear(p_rp);
+	pbody_clear(lp);
+	pbody_clear(hp);
 	return NULL;
 }

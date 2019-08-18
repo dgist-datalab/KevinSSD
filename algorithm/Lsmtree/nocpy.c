@@ -11,7 +11,9 @@ static inline uint32_t convert_ppa(uint32_t ppa){
 	uint32_t dp_segs=DATAPART_SEGS;
 	uint32_t bl_ppa=GETORGBLOCKID(checker,ppa);
 	uint32_t org_block_in_ppa=ppa-bl_ppa;
-	uint32_t org_block=GETORGBLOCKID(checker,ppa)/_PPS-(!checker.map_first?(checker.start_block+dp_segs):checker.start_block);
+	uint32_t org_block=GETORGBLOCKID(checker,ppa)/_PPS;
+	uint32_t temp=(!checker.map_first?(checker.start_block+dp_segs):checker.start_block);
+	org_block-=temp;
 	return org_block*_PPS+org_block_in_ppa;
 	//return ppa-(!checker.map_first?(checker.start_block+dp_segs)*_PPS:checker.start_block*_PPS);
 }

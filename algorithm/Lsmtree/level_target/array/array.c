@@ -39,7 +39,7 @@ level_ops a_ops={
 
 	.merger=array_pipe_merger,
 	.cutter=array_pipe_cutter,
-	.partial_merger_cutter=array_p_merger_cutter,
+	.partial_merger_cutter=array_pipe_p_merger_cutter,
 	.normal_merger=array_normal_merger,
 //	.normal_cutter=array_multi_cutter,
 #ifdef BLOOM

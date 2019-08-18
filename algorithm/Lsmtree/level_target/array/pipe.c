@@ -1,17 +1,26 @@
 #include "pipe.h"
+#include "array.h"
 #include <stdio.h>
 #include <stdlib.h>
 
-p_body *pbody_init(char **data,uint32_t size){
+p_body *pbody_init(char **data,uint32_t size, pl_run *pl_datas, bool read_from_run){
 	p_body *res=(p_body*)calloc(sizeof(p_body),1);
 	res->data_ptr=data;
 	res->max_page=size;
+	res->read_from_run=read_from_run;
+	res->pl_datas=pl_datas;
 	return res;
 }
 
 bool print_test;
 void new_page_set(p_body *p, bool iswrite){
-	p->now_page=p->data_ptr[p->pidx];
+	if(p->read_from_run){
+		fdriver_lock(p->pl_datas[p->pidx].lock);
+		p->now_page=data_from_run(p->pl_datas[p->pidx].r);
+	}
+	else{
+		p->now_page=p->data_ptr[p->pidx];
+	}
 	if(iswrite && !p->now_page){
 		p->now_page=(char*)malloc(PAGESIZE);
 	}
@@ -63,6 +72,7 @@ char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush){
 	p->length+=sizeof(uint32_t)+key.len;
 	return res;
 }
+
 char *pbody_get_data(p_body *p, bool init){
 	if(init){
 		p->max_page=p->pidx;
@@ -70,26 +80,13 @@ char *pbody_get_data(p_body *p, bool init){
 	}
 
 	if(p->pidx<p->max_page){
-
 		return p->data_ptr[p->pidx++];
 	}
 	else 
 		return NULL;
 }
-/*
-void pbody_data_print(char *data){
-	int idx;
-	KEYT key;
-	ppa_t *ppa;
-	uint16_t *bitmap;
-	char *body;
 
-	body=data;
-	bitmap=(uint16_t*)body;
-	
-	for_each_header_start(idx,key,ppa,bitmap,body)
-		printf("[%d]%.*s -- %u\n",idx,KEYFORMAT(key),*ppa);
-	for_each_header_end
-
-	return;
-}*/
+char *pbody_clear(p_body *p){
+	free(p);
+	return NULL;
+}
