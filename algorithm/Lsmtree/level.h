@@ -79,6 +79,11 @@ typedef struct run{
 	char iscompactioning;
 }run_t;
 
+typedef struct pipe_line_run{
+	fdriver_lock_t *lock;
+	run_t *r;
+}pl_run;
+
 typedef struct level{
 	//llog *h;
 	int32_t idx,m_num,n_num;
@@ -132,7 +137,7 @@ typedef struct level_ops{
 
 	void (*merger)( skiplist*, run_t** src,  run_t** org,  level *des);
 	run_t *(*cutter)( skiplist *,  level* des, KEYT* start, KEYT* end);
-	run_t *(*partial_merger_cutter)(skiplist*,run_t **src,run_t **des, float fpr);
+	run_t *(*partial_merger_cutter)(skiplist*,pl_run *, pl_run *,uint32_t, uint32_t, level *,void*(*lev_insert_write)(level*, run_t*));
 	void (*normal_merger)(skiplist *,run_t *t_run, bool);
 //	run_t **(*normal_cutter)(skiplist *,KEYT, bool just_one);
 #ifdef BLOOM
@@ -149,7 +154,7 @@ typedef struct level_ops{
 
 	/*mapping operation*/
 	ppa_t (*moveTo_fr_page)(bool isgc);
-	ppa_t (*get_page)(uint16_t plength, KEYT simul_key);
+	ppa_t (*get_page)(uint8_t plength, KEYT simul_key);
 	bool (*block_fchk)();
 
 	void (*range_update)(level *,run_t*,KEYT);
@@ -185,7 +190,7 @@ typedef struct level_ops{
 }level_ops;
 
 ppa_t def_moveTo_fr_page(bool isgc);
-ppa_t def_get_page(uint16_t plegnth, KEYT simul_key);
+ppa_t def_get_page(uint8_t plegnth, KEYT simul_key);
 bool def_blk_fchk();
 
 void def_move_heap( level *des,  level *src);

@@ -24,7 +24,7 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 		v_des=*target_valueset;
 	}
 
-	uint16_t max_piece=PAGESIZE/PIECE-1; //the max_piece is wrote before enter this section
+	uint8_t max_piece=PAGESIZE/PIECE-1; //the max_piece is wrote before enter this section
 	while(src->idx[max_piece]==0 && max_piece>0) --max_piece;
 
 //	bool debuging=false;

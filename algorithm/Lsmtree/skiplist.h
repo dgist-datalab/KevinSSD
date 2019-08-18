@@ -31,7 +31,7 @@ struct level;
 typedef struct htable htable;
 
 typedef struct footer{
-	uint16_t map[PAGESIZE/PIECE];
+	uint8_t map[PAGESIZE/PIECE];
 }footer;
  
 #endif

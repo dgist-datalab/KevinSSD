@@ -231,6 +231,8 @@ void compaction_cascading(bool *_is_gc_needed){
 	int start_level=0,des_level=-1;
 	bool is_gc_needed=*_is_gc_needed;
 	if(LSM.multi_level_comp){
+		abort();
+
 		for(int i=0; i<LSM.LEVELN; i++){
 			if(LSM.lop->full_check(LSM.disk[i])){
 				des_level=i;
@@ -263,7 +265,8 @@ void compaction_cascading(bool *_is_gc_needed){
 			}
 			start_level=i;
 
-			multiple_leveling(start_level,target_des);
+			LSM.compaction_cnt++;
+			//multiple_leveling(start_level,target_des);
 		}
 	}
 	else{

@@ -152,7 +152,6 @@ int array_bound_search(run_t *body,uint32_t max_t, KEYT lpa,bool islower);
 keyset_iter *array_key_iter_init(char *key_data,int from);
 keyset *array_key_iter_nxt(keyset_iter *,keyset *);
 run_t *array_p_merger_cutter(skiplist *,run_t **, run_t **,float);
-run_t *array_pipe_p_merger_cutter(skiplist *,run_t **, run_t **,float);
 void array_normal_merger(skiplist *,run_t *r,bool);
 //void array_multi_cutter(skiplist *,KEYT, bool just_one);
 void array_checking_each_key(char *data,void*(*test)(KEYT a,ppa_t ppa));
@@ -164,6 +163,7 @@ void array_print_run(run_t * r);
 
 
 
-void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d);
+run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data, uint32_t u_num, uint32_t l_num,level *t, void *(*lev_insert_write)(level *,run_t *data));
+void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*);
 run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end);
 #endif

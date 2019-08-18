@@ -44,6 +44,7 @@ static bool qmanager_write_checking(processor * t,request *req){
 	{
 		res=true;
 		//copy value
+		free(req->key.key);
 	}
 	else{
 #ifdef KVSSD
@@ -560,6 +561,7 @@ bool inf_end_req( request * const req){
 			if(req->value) inf_free_valueset(req->value,FS_MALLOC_R);
 			break;
 		case FS_SET_T:
+			
 			if(req->value) inf_free_valueset(req->value,FS_MALLOC_W);
 			break;
 	}

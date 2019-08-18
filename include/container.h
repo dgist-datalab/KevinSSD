@@ -161,7 +161,7 @@ struct algorithm{
 };
 
 typedef struct __OOBT{
-	char d[NPCINPAGE*2];
+	char d[NPCINPAGE*4];
 }__OOB;
 
 typedef struct masterblock{

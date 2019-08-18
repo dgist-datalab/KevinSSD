@@ -6,78 +6,118 @@
 #include "nocpy.h"
 #include "lsmtree_scheduling.h"
 extern lsmtree LSM;
-
-void make_run_array(run_t **tr, level *t, int start_idx){
-	run_t *now;
-	int idx=0;
-	lev_iter *iter;
-	if(t->idx<LEVELCACHING){
-		LSM.lop->cache_comp_formatting(t,&tr);	
-	}else{
-		iter=LSM.lop->get_iter_from_run(t,LSM.lop->get_run_idx(t,start_idx),LSM.lop->get_run_idx(t,t->n_num));
-	
-		while((now=LSM.lop->iter_nxt(iter))){
-			tr[idx++]=now;
+pl_run *make_pl_run_array(level *t, uint32_t *num){
+	//first lock
+	*num=LSM.lop->get_number_runs(t);
+	pl_run *res=(pl_run*)malloc(sizeof(pl_run)*(*num));
+	if(t->idx<LSM.LEVELCACHING){
+		run_t **tr;
+		LSM.lop->cache_comp_formatting(t,&tr);
+		for(int i=0; tr[i]!=NULL; i++){
+			res[i].r=tr[i];
+			res[i].lock=(fdriver_lock_t*)malloc(sizeof(fdriver_lock_t));
+			fdriver_mutex_init(res[i].lock);
 		}
-		tr[idx]=NULL;
+	}else{
+		lev_iter* iter=LSM.lop->get_iter(t,t->start,t->end);
+		run_t *now;
+		int i=0;
+		while((now=LSM.lop->iter_nxt(iter))){
+			res[i].r=now;
+			res[i].lock=(fdriver_lock_t*)malloc(sizeof(fdriver_lock_t));
+			fdriver_mutex_init(res[i].lock);
+			i++;
+		}
 	}
+	return res;
+}
+
+void pl_run_free(pl_run *pr, uint32_t num ){
+	for(int i=0; i<num; i++){
+		fdriver_destroy(pr[i].lock);
+		free(pr[i].lock);
+		htable_read_postproc(pr[i].r);
+	}
+	free(pr);
+}
+
+void *level_insert_write(level *t, run_t *data){
+	compaction_htable_write_insert(t,data,true);
+	free(data);
+	return NULL;
 }
 
 uint32_t pipe_partial_leveling(level *t, level *origin, leveling_node* lnode, level *upper){
-#ifndef MONKEY
-	KEYT start=upper?upper->start:lnode->start;
-	KEYT end=upper?upper->end:lnode->end;
-	except=sequential_move_next_level(origin,t,start,end);
-#endif
-	uint32_t lp_num=LSM.lop->get_number_runs(origin);
-	uint32_t hp_num=upper?LSM.lop->get_number_runs(upper):1;
-	
-	uint32_t all_num=lp_num+hp_num-except;
-	run_t **read_bunch_data=(run_t**)malloc(sizeof(run_t*)*(all_num+1));
-	fdriver_lock_t **wait=(fdriver_lock_t**)malloc(sizeof(fdirver_lock_t*)*(all_num+1));
-	fdriver_lock_t **read_wait=(fdriver_lock_t**)malloc(sizeof(fdriver_lock_t*)*(all_num+1));
-	
-	run_t **u_run=(run_t**)malloc(sizeof(run_t*)*hp_num+1);
-	run_t **l_run=(run_t**)malloc(sizeof(run_t*)*lp_num+1);
-	if(upper){
-		make_run_array(u_run,upper);
-	}
-	else{
-		u_run[0]=LSM.lop->skip_cvt2_run(lnode->mem);
-		u_run[1]=NULL;
-	}
-	make_run_array(l_run,upper);
-
-	int uidx=0, lidx=0, aidx=0,widx=0;
-	run_t *now;
-	bool togle=false, up_done=false;
-	do{
-		if(updone || togle){
-			now=l_run[lidx++];
-		}else{
-			now=u_run[uidx];
-			if(!now){
-				up_done=true;
-				continue;
-			}
-			uidx++;
-		}
-		if(!now) break;
-		read_wait[aidx]=(fdriver_lock_t*)malloc(sizeof(fdriver_lock_t));
-		if(((!upper || upper->idx<LSM.LEVELCACHING)&& togle==false) ||htable_read_preproc(now)){
-			fdriver_lock_init(wait[widx++],1);
-		}
-		else{
-			read_bunch_data[aidx]=now;
-			fdriver_lock_init(wait[widx],0);
-			read_wait[aidx]=wait[widx++];
-			aidx++;
-		}
-		togle=!togle;
-	}while(1);
+	uint32_t total_number=origin->n_num+(upper?upper->n_num:1);
+	page_check_available(HEADER,total_number);
 	compaction_sub_pre();
 
-	read_bunch_data[aidx]=NULL;
-	compaction_bg_htable_bulkread(read_bunch_data,read_wait);
+	uint32_t u_num=0, l_num=0;
+	pl_run *u_data=NULL, *l_data=NULL;
+	if(upper){
+		u_data=make_pl_run_array(upper,&u_num);
+	}
+	l_data=make_pl_run_array(origin,&l_num);
+
+	uint32_t all_num=u_num+l_num+1;
+	run_t **read_target=(run_t **)malloc(sizeof(run_t*)*all_num);
+	fdriver_lock_t **lock_target=(fdriver_lock_t**)malloc(sizeof(fdriver_lock_t*)*all_num);
+
+	uint32_t target_num=l_num-u_num;
+	int cnt=0;
+	uint32_t min_num=u_num<l_num?u_num:l_num;
+	for(int i=0; i<min_num; i++){
+		run_t *t; fdriver_lock_t *tl;
+		for(int j=0; j<2; j++){
+			t=!j?u_data[i].r:l_data[i].r;
+			tl=!j?u_data[i].lock:l_data[i].lock;
+			if((!j && upper && upper->idx<LSM.LEVELCACHING) || htable_read_preproc(t)){
+				continue;
+			}
+			else{
+				fdriver_lock(tl);
+				read_target[cnt]=t;
+				lock_target[cnt]=tl;
+				cnt++;
+			}
+		}
+	}
+	
+	for(int i=min_num; i<u_num; i++){
+		if((upper && upper->idx<LSM.LEVELCACHING) || htable_read_preproc(u_data[i].r)){
+			continue;
+		}
+		else{
+			fdriver_lock(u_data[i].lock);
+			read_target[cnt]=u_data[i].r;
+			lock_target[cnt]=u_data[i].lock;
+			cnt++;
+		}
+	}
+
+	for(int i=min_num; i<l_num; i++){
+		if(htable_read_preproc(l_data[i].r)){
+			continue;
+		}
+		else{
+			fdriver_lock(l_data[i].lock);
+			read_target[cnt]=l_data[i].r;
+			lock_target[cnt]=l_data[i].lock;
+			cnt++;
+		}
+	}
+	
+	read_target[cnt]=NULL;
+	compaction_bg_htable_bulkread(read_target,lock_target);
+
+	LSM.lop->partial_merger_cutter(lnode?lnode->mem:NULL,u_data,l_data,u_num,l_num,t,level_insert_write);
+
+	compaction_sub_post();
+	if(u_data) pl_run_free(u_data,u_num);
+	pl_run_free(l_data,l_num);
+	if(LSM.nocpy){
+		gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
+		LSM.delayed_header_trim=false;
+	}
 	return 1;
 }	
