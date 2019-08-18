@@ -409,6 +409,7 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 		compaction_htable_write_insert(des,target,false);
 		free(target);
 	}
+	LSM.li->lower_flying_req_wait();
 	bench_custom_A(write_opt_time,7);
 }
 

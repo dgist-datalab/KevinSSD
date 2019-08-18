@@ -21,6 +21,7 @@
 
 extern Redblack rb_tree;
 extern pthread_mutex_t rb_lock;
+extern MeasureTime write_opt_time[10];
 
 master_processor mp;
 

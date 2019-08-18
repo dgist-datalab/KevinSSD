@@ -26,8 +26,7 @@ extern int v_cnt[NPCINPAGE+1];
 #ifdef Lsmtree
 int skiplist_hit;
 #endif
-MeasureTime write_opt_time[10];
-
+MeasureTime write_opt_time[11];
 int main(int argc,char* argv[]){
 	char *temp_argv[10];
 	int temp_cnt=bench_set_params(argc,argv,temp_argv);
@@ -37,7 +36,7 @@ int main(int argc,char* argv[]){
 	memset(t_value,'x',PAGESIZE);
 
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
-	bench_add(RANDRW,0,RANGE,REQNUM*16); //duplicated test
+	bench_add(RANDSET,0,RANGE,REQNUM*4); //duplicated test
 
 //	bench_add(RANDRW,0,RANGE,MAXKEYNUMBER/5*2);
 
@@ -93,7 +92,7 @@ int main(int argc,char* argv[]){
 	printf("bench free\n");
 	//LSM.lop->all_print();
 	inf_free();
-	bench_custom_print(write_opt_time,10);
+	bench_custom_print(write_opt_time,11);
 #ifdef Lsmtree
 	printf("skiplist hit:%d\n",skiplist_hit);
 #endif

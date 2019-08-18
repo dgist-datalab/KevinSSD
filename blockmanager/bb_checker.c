@@ -11,6 +11,7 @@ uint32_t array[128];
 void bb_checker_start(lower_info *li){
 	memset(&checker,0,sizeof(checker));
 	target_cnt=_RNOS*64;
+//	srand(1);
 	srand((unsigned int)time(NULL));
 	printf("_nos:%ld\n",_NOS);
 	int random_start_seed=(_RNOS/2)/_NOS+((_RNOS/2)%_NOS?0:-1);

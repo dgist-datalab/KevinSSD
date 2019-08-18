@@ -163,9 +163,6 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 #endif
 	uint32_t total_number=origin->n_num+(upper?upper->n_num:1);
 	page_check_available(HEADER,total_number);
-
-	uint32_t total_number=origin->n_num+(upper?upper->n_num:1);
-	page_check_available(HEADER,total_number);
 	compaction_sub_pre();
 
 	if(!upper){
