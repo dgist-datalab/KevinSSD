@@ -183,11 +183,13 @@ memio_t* memio_open ()
 		goto fail;
 	}
 
+	bdbm_mutex_init(&mio->req_mutex);
 	return mio;
 
 fail:
 	if (mio)
 		bdbm_free (mio);
+	
 
 	return NULL;
 }
@@ -230,6 +232,7 @@ bool flag=false;
 static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uint8_t* data, int async, void *req, int dmaTag) // async == 0 : sync,  == 1 : async
 
 {
+	bdbm_mutex_lock(&mio->req_mutex);
 	do_io_cnt++;
 	bdbm_llm_req_t* r = NULL;
 	bdbm_dm_inf_t* dm = mio->bdi.ptr_dm_inf;
@@ -309,6 +312,7 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 		cur_buf += mio->io_size;
 		sent += mio->io_size;
 	}
+	bdbm_mutex_unlock(&mio->req_mutex);
 	return sent;
 }
 
@@ -347,6 +351,7 @@ int memio_comp_write (memio_t* mio, uint32_t lba, uint64_t len, uint8_t* data, i
 
 int memio_trim (memio_t* mio, uint32_t lba, uint64_t len, void *(*end_req)(uint64_t,uint8_t))
 {
+	bdbm_mutex_lock(&mio->req_mutex);
 	bdbm_llm_req_t* r = NULL;
 	bdbm_dm_inf_t* dm = mio->bdi.ptr_dm_inf;
 	uint64_t cur_lba = lba;
@@ -388,12 +393,15 @@ int memio_trim (memio_t* mio, uint32_t lba, uint64_t len, void *(*end_req)(uint6
 	}
 
 	/* return the length of bytes transferred */
+	bdbm_mutex_unlock(&mio->req_mutex);
 	return sent;
 }
 
 
 int memio_trim_a_block (memio_t* mio, uint32_t lba)
 {
+
+	bdbm_mutex_lock(&mio->req_mutex);
 	bdbm_llm_req_t* r = NULL;
 	bdbm_dm_inf_t* dm = mio->bdi.ptr_dm_inf;
 	uint64_t cur_lba = lba;
@@ -416,6 +424,7 @@ int memio_trim_a_block (memio_t* mio, uint32_t lba)
 		bdbm_bug_on (1);
 	}
 	/* return the length of bytes transferred */
+	bdbm_mutex_unlock(&mio->req_mutex);
 	return sent;
 }
 
