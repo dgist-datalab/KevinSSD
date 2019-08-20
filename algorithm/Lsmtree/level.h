@@ -160,7 +160,7 @@ typedef struct level_ops{
 	void (*range_update)(level *,run_t*,KEYT);
 	/*level caching*/
 	void (*cache_insert)(level *,skiplist *);
-	void (*cache_merge)(level *from, level *to);
+	void (*cache_merge)( level *from, level *to);
 	void (*cache_free)(level*);
 	int (*cache_comp_formatting)(level *,run_t ***);
 	void (*cache_move)(level*, level *);
