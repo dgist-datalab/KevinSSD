@@ -106,6 +106,15 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 	level *target=lsm_level_resizing(to,from);
 	LSM.c_level=target;
 	run_t *entry=NULL;
+
+	uint32_t up_num=0;
+	if(from){
+		up_num=LSM.lop->get_number_runs(from);
+	}
+	else up_num=1;
+	uint32_t total_number=to->n_num+up_num;
+	page_check_available(HEADER,total_number);
+
 	if(LSM.comp_opt==HW){
 		if(from==NULL){
 			uint32_t ppa=getPPA(HEADER,key_min,true);
@@ -161,8 +170,6 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 #ifndef MONKEY
 	//sequential_move_next_level(origin,t,start,end);
 #endif
-	uint32_t total_number=origin->n_num+(upper?upper->n_num:1);
-	page_check_available(HEADER,total_number);
 	compaction_sub_pre();
 
 	if(!upper){

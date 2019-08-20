@@ -42,7 +42,6 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 			cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
 			LSM.lop->cache_comp_formatting(upper,&datas);
 
-			page_check_available(HEADER, hp_num);
 			for(int i=0; datas[i]!=NULL; i++){
 				hp_array[i]=compaction_htable_write_insert(upper,datas[i],false);
 				free(datas[i]);
@@ -67,7 +66,6 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	lp_num=lp_num-except;
 	uint32_t tp_num=hp_num+lp_num;
 	tp_array=(ppa_t*)malloc(sizeof(ppa_t)*(tp_num));
-	page_check_available(HEADER, tp_num);
 	for(int i=0; i<tp_num; i++){
 		tp_array[i]=getPPA(HEADER,key_max,false);
 	}

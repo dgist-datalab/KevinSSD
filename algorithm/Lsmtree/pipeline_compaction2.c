@@ -48,8 +48,6 @@ void *level_insert_write(level *t, run_t *data){
 }
 
 uint32_t pipe_partial_leveling(level *t, level *origin, leveling_node* lnode, level *upper){
-	uint32_t total_number=origin->n_num+(upper?upper->n_num:1);
-	page_check_available(HEADER,total_number);
 	compaction_sub_pre();
 
 	uint32_t u_num=0, l_num=0;
