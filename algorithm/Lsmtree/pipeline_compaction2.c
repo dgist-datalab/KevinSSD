@@ -5,6 +5,9 @@
 #include "bloomfilter.h"
 #include "nocpy.h"
 #include "lsmtree_scheduling.h"
+#include "../../bench/bench.h"
+
+extern MeasureTime write_opt_time[10];
 extern lsmtree LSM;
 pl_run *make_pl_run_array(level *t, uint32_t *num){
 	//first lock
@@ -54,6 +57,7 @@ uint32_t pipe_partial_leveling(level *t, level *origin, leveling_node* lnode, le
 
 	uint32_t u_num=0, l_num=0;
 	pl_run *u_data=NULL, *l_data=NULL;
+	bench_custom_start(write_opt_time,5);
 	if(upper){
 		u_data=make_pl_run_array(upper,&u_num);
 	}
@@ -119,5 +123,6 @@ uint32_t pipe_partial_leveling(level *t, level *origin, leveling_node* lnode, le
 		gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
 		LSM.delayed_header_trim=false;
 	}
+	bench_custom_A(write_opt_time,5);
 	return 1;
 }	

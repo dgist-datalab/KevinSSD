@@ -30,9 +30,10 @@ typedef struct temp_gc_h{
 #ifdef KVSSD
 uint32_t gc_cnt=0;
 int gc_header(){
-	//printf("gc_header %u\n",gc_cnt++);
+	printf("gc_header %u\n",gc_cnt++);
 	//printf("gc_header %u",gc_cnt++);
 	LSM.header_gc_cnt++;
+	LSM.lop->all_print();
 	gc_general_wait_init();
 	lsm_io_sched_flush();
 

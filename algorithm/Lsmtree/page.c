@@ -95,7 +95,9 @@ retry:
 	if(res==UINT_MAX){
 		printf("cnt:%d\n",cnt);
 	}
-
+	if(res==524278){
+		printf("break!\n");
+	}
 //	printf("%d\n",res);
 	validate_PPA(type,res);
 	return res;
@@ -115,6 +117,9 @@ uint32_t getRPPA(uint8_t type,KEYT lpa, bool b){
 		abort();
 	}
 	res=bm->get_page_num(bm,t->reserve);
+	if(res==524278){
+		printf("break!\n");
+	}
 	validate_PPA(type,res);
 	return res;
 }

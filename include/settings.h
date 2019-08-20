@@ -43,7 +43,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 8L
+#define GIGAUNIT 4L
 #define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
@@ -66,7 +66,7 @@
 #define REQNUM ((GIGAUNIT)*(M/PAGESIZE)*1024L)
 
 #define PARTNUM 2
-#define MAPPART_SEGS 16
+#define MAPPART_SEGS 2
 #define DATAPART_SEGS (_NOS-MAPPART_SEGS)
 enum{
 	MAP_S,DATA_S
