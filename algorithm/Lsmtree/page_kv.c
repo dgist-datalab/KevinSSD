@@ -205,8 +205,8 @@ int gc_data(){
 	return 1;
 }
 int __gc_data(){
-	static int gc_d_cnt=0;
-	printf("%d gc_data!\n",gc_d_cnt++);
+	//static int gc_d_cnt=0;
+	//printf("%d gc_data!\n",gc_d_cnt++);
 	/*
 	if(gc_d_cnt==27){
 		LSM.debug_flag=true;

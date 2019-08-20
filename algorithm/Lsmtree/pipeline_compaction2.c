@@ -61,7 +61,6 @@ uint32_t pipe_partial_leveling(level *t, level *origin, leveling_node* lnode, le
 	run_t **read_target=(run_t **)malloc(sizeof(run_t*)*all_num);
 	fdriver_lock_t **lock_target=(fdriver_lock_t**)malloc(sizeof(fdriver_lock_t*)*all_num);
 
-	uint32_t target_num=l_num-u_num;
 	int cnt=0;
 	uint32_t min_num=u_num<l_num?u_num:l_num;
 	for(int i=0; i<min_num; i++){
@@ -113,9 +112,5 @@ uint32_t pipe_partial_leveling(level *t, level *origin, leveling_node* lnode, le
 	compaction_sub_post();
 	if(u_data) pl_run_free(u_data,u_num);
 	pl_run_free(l_data,l_num);
-	if(LSM.nocpy){
-		gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
-		LSM.delayed_header_trim=false;
-	}
 	return 1;
 }	

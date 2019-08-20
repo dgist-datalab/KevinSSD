@@ -148,6 +148,11 @@ last:
 	/*
 	if(LSM.debug_flag)
 		LSM.lop->all_print();*/
+
+	if(LSM.nocpy){
+		gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
+		LSM.delayed_header_trim=false;
+	}
 	return res;
 }
 
@@ -245,10 +250,6 @@ skip:
 		free(target_s);
 	}
 	compaction_sub_post();
-	if(LSM.nocpy){
-		gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
-		LSM.delayed_header_trim=false;
-	}
 	if(!lnode) skiplist_free(skip);
 	return 1;
 }

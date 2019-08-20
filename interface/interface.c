@@ -671,7 +671,7 @@ bool inf_iter_release(uint32_t iter_id, bool (*added_end)(struct request *const)
 bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value,int len, int seq,void *_req,void (*end_req)(uint32_t,uint32_t,void*)){
 	KEYT t_key;
 	t_key.key=keys;
-	t_key.len=key_len;
+	t_key.len=key_len/16*16+((key_len%16)*16);
 	request *req=inf_get_req_instance(type,t_key,value,len,0,false);
 	req->seq=seq;
 	req->p_req=_req;

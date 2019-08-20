@@ -266,11 +266,6 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	free(LSM.level_lock);
 	if(LSM.nocpy)
 		nocpy_free();
-	//printf("---------------------------hash_insert_cnt: %u\n",hash_insert_cnt);
-	//SLAB_DUMP(snode_slab)
-
-	//printf("avg kn run:%u\n",all_kn_run/run_num);
-	
 }
 
 #ifdef DVALUE

@@ -62,7 +62,6 @@ void bb_checker_start(lower_info *li){
 //	srand(1);
 //	srand((unsigned int)time(NULL));
 	printf("_nos:%ld\n",_NOS);
-	int random_start_seed=(_RNOS/2)/_NOS+((_RNOS/2)%_NOS?0:-1);
 	checker.assign=0;//(rand()%STARTBLOCKCHUNK)*_NOS;
 	checker.start_block=checker.assign;
 	checker.map_first=true;
@@ -83,8 +82,8 @@ void bb_checker_start(lower_info *li){
 //	bb_checker_process(0,true);
 	data_checker_data=(char*)malloc(PAGESIZE);
 	memset(data_checker_data,-1,PAGESIZE);
-	printf("read badblock checking");
-/*	fdriver_lock_init(&bb_lock,0);
+/*	printf("read badblock checking");
+	fdriver_lock_init(&bb_lock,0);
 	bb_read_bb_checker(li);
 	fdriver_lock(&bb_lock);*/
 	free(data_checker_data);
@@ -146,9 +145,6 @@ void bb_checker_fixing(){/*
 	}*/
 	printf("_RNOS:%ld\n",_RNOS);
 	checker.back_index=_RNOS-1;
-	int fix_cnt=0;
-
-	int chunk=_RNOS/4;
 	int start_segnum=0; int max_segnum=_RNOS-1;
 	while(start_segnum<=max_segnum){
 		int test_cnt=0;

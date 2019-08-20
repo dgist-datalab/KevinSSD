@@ -11,8 +11,8 @@
 #define RAF 0.01
 
 #if LEVELN!=1
-//#define BLOOM
-//#define MONKEY
+#define BLOOM
+#define MONKEY
 #endif
 
 
