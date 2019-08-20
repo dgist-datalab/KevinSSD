@@ -428,8 +428,8 @@ int memio_trim_a_block (memio_t* mio, uint32_t lba)
 	return sent;
 }
 
-int memio_do_merge(unsigned int ht_num, unsigned lt_num, unsigned int *kt_num, unsigned int *inv_num){
-	return dm_do_merge(ht_num,lt_num,kt_num,inv_num);
+int memio_do_merge(unsigned int ht_num, unsigned lt_num, unsigned int *kt_num, unsigned int *inv_num,uint32_t ppa_dma_num){
+	return dm_do_merge(ht_num,lt_num,kt_num,inv_num,ppa_dma_num);
 }
 
 void memio_close (memio_t* mio)

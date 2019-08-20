@@ -70,25 +70,27 @@ int FlashRequestJson_setDmaWriteRef ( struct PortalInternal *p, const uint32_t s
     return 0;
 };
 
-int FlashRequestJson_startCompaction ( struct PortalInternal *p, const uint32_t cntHigh, const uint32_t cntLow )
+int FlashRequestJson_startCompaction ( struct PortalInternal *p, const uint32_t cntHigh, const uint32_t cntLow, const uint32_t destPpaFlag )
 {
     Json::Value request;
     request.append(Json::Value("startCompaction"));
     request.append((Json::UInt64)cntHigh);
     request.append((Json::UInt64)cntLow);
+    request.append((Json::UInt64)destPpaFlag);
 
     std::string requestjson = Json::FastWriter().write(request);;
     connectalJsonSend(p, requestjson.c_str(), (int)CHAN_NUM_FlashRequest_startCompaction);
     return 0;
 };
 
-int FlashRequestJson_setDmaKtPpaRef ( struct PortalInternal *p, const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes )
+int FlashRequestJson_setDmaKtPpaRef ( struct PortalInternal *p, const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes1, const uint32_t sgIdRes2 )
 {
     Json::Value request;
     request.append(Json::Value("setDmaKtPpaRef"));
     request.append((Json::UInt64)sgIdHigh);
     request.append((Json::UInt64)sgIdLow);
-    request.append((Json::UInt64)sgIdRes);
+    request.append((Json::UInt64)sgIdRes1);
+    request.append((Json::UInt64)sgIdRes2);
 
     std::string requestjson = Json::FastWriter().write(request);;
     connectalJsonSend(p, requestjson.c_str(), (int)CHAN_NUM_FlashRequest_setDmaKtPpaRef);
@@ -158,7 +160,7 @@ FlashRequestCb FlashRequestJsonProxyReq = {
 FlashRequestCb *pFlashRequestJsonProxyReq = &FlashRequestJsonProxyReq;
 const char * FlashRequestJson_methodSignatures()
 {
-    return "{\"setDebugVals\": [\"long\", \"long\"], \"writePage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"], \"eraseBlock\": [\"long\", \"long\", \"long\", \"long\"], \"debugDumpReq\": [\"long\"], \"setDmaWriteRef\": [\"long\"], \"setDmaKtOutputRef\": [\"long\", \"long\"], \"setDmaKtPpaRef\": [\"long\", \"long\", \"long\"], \"startCompaction\": [\"long\", \"long\"], \"setDmaReadRef\": [\"long\"], \"start\": [\"long\"], \"readPage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"]}";
+    return "{\"setDebugVals\": [\"long\", \"long\"], \"writePage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"], \"eraseBlock\": [\"long\", \"long\", \"long\", \"long\"], \"debugDumpReq\": [\"long\"], \"setDmaWriteRef\": [\"long\"], \"setDmaKtOutputRef\": [\"long\", \"long\"], \"setDmaKtPpaRef\": [\"long\", \"long\", \"long\", \"long\"], \"startCompaction\": [\"long\", \"long\", \"long\"], \"setDmaReadRef\": [\"long\"], \"start\": [\"long\"], \"readPage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"]}";
 }
 
 int FlashRequestJson_handleMessage(struct PortalInternal *p, unsigned int channel, int messageFd)
@@ -192,11 +194,11 @@ int FlashRequestJson_handleMessage(struct PortalInternal *p, unsigned int channe
       } break;
     case CHAN_NUM_FlashRequest_startCompaction: {
         
-        ((FlashRequestCb *)p->cb)->startCompaction(p, tempdata.startCompaction.cntHigh, tempdata.startCompaction.cntLow);
+        ((FlashRequestCb *)p->cb)->startCompaction(p, tempdata.startCompaction.cntHigh, tempdata.startCompaction.cntLow, tempdata.startCompaction.destPpaFlag);
       } break;
     case CHAN_NUM_FlashRequest_setDmaKtPpaRef: {
         
-        ((FlashRequestCb *)p->cb)->setDmaKtPpaRef(p, tempdata.setDmaKtPpaRef.sgIdHigh, tempdata.setDmaKtPpaRef.sgIdLow, tempdata.setDmaKtPpaRef.sgIdRes);
+        ((FlashRequestCb *)p->cb)->setDmaKtPpaRef(p, tempdata.setDmaKtPpaRef.sgIdHigh, tempdata.setDmaKtPpaRef.sgIdLow, tempdata.setDmaKtPpaRef.sgIdRes1, tempdata.setDmaKtPpaRef.sgIdRes2);
       } break;
     case CHAN_NUM_FlashRequest_setDmaKtOutputRef: {
         

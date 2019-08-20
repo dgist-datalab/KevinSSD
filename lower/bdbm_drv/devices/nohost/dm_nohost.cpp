@@ -111,6 +111,7 @@ unsigned int ref_srcAlloc;
 unsigned int ref_highPpaList;
 unsigned int ref_lowPpaList;
 unsigned int ref_resPpaList;
+unsigned int ref_resPpaList2;
 unsigned int ref_mergedKtBuf;
 unsigned int ref_invalPpaList;
 
@@ -119,6 +120,7 @@ unsigned int* srcBuffer;
 unsigned int* lowPpaList_Buffer;
 unsigned int* highPpaList_Buffer;
 unsigned int* resPpaList_Buffer;
+unsigned int* resPpaList_Buffer2;
 unsigned int* invPpaList_Buffer;
 unsigned int* mergeKt_Buffer;
 
@@ -185,12 +187,13 @@ class FlashIndication: public FlashIndicationWrapper {
 		virtual void mergeDone(unsigned int numMergedKt, uint32_t numInvalAddr, uint64_t counter) {
 			merge_req.kt_num=numMergedKt;
 			merge_req.inv_num=numInvalAddr;
+			sem_post(&merge_req.merge_lock);
+			sem_destroy(&merge_req.merge_lock);
 		}
 
 		virtual void mergeFlushDone1(unsigned int num) {
 			// num does not mean anything
-			sem_post(&merge_req.merge_lock);
-			sem_destroy(&merge_req.merge_lock);
+
 		}
 
 		virtual void mergeFlushDone2(unsigned int num) {
@@ -294,7 +297,7 @@ int __writeFTLtoFile (const char* path, void* ptr) {
 
 FlashIndication *indication;
 DmaBuffer *srcDmaBuffer, *dstDmaBuffer, *blkmapDmaBuffer;
-DmaBuffer *highPpaList, *lowPpaList, *resPpaList; // PPA Lists
+DmaBuffer *highPpaList, *lowPpaList, *resPpaList, *resPpaList2; // PPA Lists
 DmaBuffer *mergedKtBuf, *invalPpaList;
 uint32_t get_ppa_list_size(){ return 4*PPA_LIST_SIZE;}
 uint32_t get_result_ppa_list_size(){
@@ -328,6 +331,7 @@ uint32_t __dm_nohost_init_device (
 	highPpaList = new DmaBuffer(get_ppa_list_size());
 	lowPpaList = new DmaBuffer(get_ppa_list_size());
 	resPpaList = new DmaBuffer(get_result_ppa_list_size());
+	resPpaList2 = new DmaBuffer(get_result_ppa_list_size());
 
 	mergedKtBuf = new DmaBuffer(get_result_kt_size());
 	invalPpaList = new DmaBuffer(get_inv_ppa_list_size());
@@ -340,6 +344,7 @@ uint32_t __dm_nohost_init_device (
 	highPpaList = new DmaBuffer(get_ppa_list_size(),false);
 	lowPpaList = new DmaBuffer(get_ppa_list_size(),false);
 	resPpaList = new DmaBuffer(get_result_ppa_list_size(),false);
+	resPpaList2 = new DmaBuffer(get_result_ppa_list_size(),false);
 
 	mergedKtBuf = new DmaBuffer(get_result_kt_size(),false);
 	invalPpaList = new DmaBuffer(get_inv_ppa_list_size(),false);
@@ -351,6 +356,7 @@ uint32_t __dm_nohost_init_device (
 	highPpaList_Buffer=(unsigned int*)highPpaList->buffer();
 	lowPpaList_Buffer=(unsigned int*)lowPpaList->buffer();
 	resPpaList_Buffer=(unsigned int*)resPpaList->buffer();
+	resPpaList_Buffer2=(unsigned int*)resPpaList2->buffer();
 	invPpaList_Buffer=(unsigned int*)invalPpaList->buffer();
 	mergeKt_Buffer=(unsigned int*)mergedKtBuf->buffer();
 
@@ -375,6 +381,7 @@ uint32_t __dm_nohost_init_device (
 	highPpaList->cacheInvalidate(0, 1);
 	lowPpaList->cacheInvalidate(0, 1);
 	resPpaList->cacheInvalidate(0, 1);
+	resPpaList2->cacheInvalidate(0, 1);
 	mergedKtBuf->cacheInvalidate(0, 1);
 	invalPpaList->cacheInvalidate(0, 1);
 
@@ -389,18 +396,20 @@ uint32_t __dm_nohost_init_device (
 	fprintf(stderr,"lowPpa %d size:%d\n",ref_lowPpaList, get_ppa_list_size());
 	ref_resPpaList = resPpaList->reference();
 	fprintf(stderr,"resPpa %d size %d\n",ref_resPpaList,get_result_ppa_list_size());
+	ref_resPpaList2 = resPpaList2->reference();
+	fprintf(stderr,"resPpa2 %d size %d\n",ref_resPpaList2,get_result_ppa_list_size());
 
 	ref_mergedKtBuf = mergedKtBuf->reference();
 	fprintf(stderr,"mergeResult %d size %d\n",ref_mergedKtBuf,get_result_kt_size());
 	ref_invalPpaList = invalPpaList->reference();
 	fprintf(stderr,"inv %d size %d\n",ref_invalPpaList,get_inv_ppa_list_size());
 	
-	fprintf(stderr,"total memory:%d MB, %d MB\n",(srcAlloc_sz+dstAlloc_sz)/MBYTE,(get_ppa_list_size()*2+get_result_ppa_list_size()+get_result_kt_size()+get_inv_ppa_list_size())/MBYTE);
+	fprintf(stderr,"total memory:%d MB, %d MB\n",(srcAlloc_sz+dstAlloc_sz)/MBYTE,(get_ppa_list_size()*2+2*get_result_ppa_list_size()+get_result_kt_size()+get_inv_ppa_list_size())/MBYTE);
 
 	device->setDmaWriteRef(ref_dstAlloc);
 	device->setDmaReadRef(ref_srcAlloc);
 
-	device->setDmaKtPpaRef(ref_highPpaList, ref_lowPpaList, ref_resPpaList);
+	device->setDmaKtPpaRef(ref_highPpaList, ref_lowPpaList, ref_resPpaList, ref_resPpaList2);
 	device->setDmaKtOutputRef(ref_mergedKtBuf, ref_invalPpaList);
 
 	for (int t = 0; t < NUM_TAGS; t++) {
@@ -787,7 +796,7 @@ void free_dmaQ_tag (int type, int dmaTag) {
 	return;
 }
 
-int dm_do_merge(unsigned int ht_num, unsigned int lt_num, unsigned int *kt_num, unsigned int *inv_num){
+int dm_do_merge(unsigned int ht_num, unsigned int lt_num, unsigned int *kt_num, unsigned int *inv_num, uint32_t ppa_dma_num){
 	if(ht_num==0 || lt_num==0){
 		fprintf(stderr,"l:%d h:%d\n",lt_num,ht_num);
 		abort();
@@ -802,7 +811,9 @@ int dm_do_merge(unsigned int ht_num, unsigned int lt_num, unsigned int *kt_num, 
 		abort();
 	}
 	sem_init(&merge_req.merge_lock,0,0);
-	device->startCompaction(ht_num,lt_num);
+
+	device->startCompaction(ht_num,lt_num,ppa_dma_num);
+
 	sem_wait(&merge_req.merge_lock);
 	*kt_num=merge_req.kt_num;
 	*inv_num=merge_req.inv_num;
@@ -820,7 +831,9 @@ unsigned int *get_high_ppali(){
 unsigned int *get_res_ppali(){
 	return resPpaList_Buffer;
 }
-
+unsigned int *get_res_ppali2(){
+	return resPpaList_Buffer2;
+}
 unsigned int *get_inv_ppali(){
 	return invPpaList_Buffer;
 }

@@ -3,7 +3,7 @@
 
 #define DataBusWidth 128
 #define NumReadClients 3
-#define NumWriteClients 9
+#define NumWriteClients 8
 #define NumReFlash 2
 #define NumWeFlash 4
 #define IMPORT_HOST_CLOCKS ""

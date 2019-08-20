@@ -49,6 +49,6 @@ int memio_trim_a_block (memio_t* mio, uint32_t lba);
 
 void memio_close (memio_t* mio);
 int memio_alloc_dma (int type, char** buf);void memio_free_dma (int type, int dmaTag);
-int memio_do_merge(unsigned int ht_num, unsigned lt_num, unsigned int *kt_num, unsigned int *inv_num);
+int memio_do_merge(unsigned int ht_num, unsigned lt_num, unsigned int *kt_num, unsigned int *inv_num, uint32_t dma_ppa);
 bool memio_is_clean(memio_t *mio);
 void memio_show_info();

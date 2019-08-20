@@ -63,26 +63,28 @@ int FlashRequest_setDmaWriteRef ( struct PortalInternal *p, const uint32_t sgId 
     return 0;
 };
 
-int FlashRequest_startCompaction ( struct PortalInternal *p, const uint32_t cntHigh, const uint32_t cntLow )
+int FlashRequest_startCompaction ( struct PortalInternal *p, const uint32_t cntHigh, const uint32_t cntLow, const uint32_t destPpaFlag )
 {
-    volatile unsigned int* temp_working_addr_start = p->transport->mapchannelReq(p, CHAN_NUM_FlashRequest_startCompaction, 3);
+    volatile unsigned int* temp_working_addr_start = p->transport->mapchannelReq(p, CHAN_NUM_FlashRequest_startCompaction, 4);
     volatile unsigned int* temp_working_addr = temp_working_addr_start;
     if (p->transport->busywait(p, CHAN_NUM_FlashRequest_startCompaction, "FlashRequest_startCompaction")) return 1;
     p->transport->write(p, &temp_working_addr, cntHigh);
     p->transport->write(p, &temp_working_addr, cntLow);
-    p->transport->send(p, temp_working_addr_start, (CHAN_NUM_FlashRequest_startCompaction << 16) | 3, -1);
+    p->transport->write(p, &temp_working_addr, destPpaFlag);
+    p->transport->send(p, temp_working_addr_start, (CHAN_NUM_FlashRequest_startCompaction << 16) | 4, -1);
     return 0;
 };
 
-int FlashRequest_setDmaKtPpaRef ( struct PortalInternal *p, const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes )
+int FlashRequest_setDmaKtPpaRef ( struct PortalInternal *p, const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes1, const uint32_t sgIdRes2 )
 {
-    volatile unsigned int* temp_working_addr_start = p->transport->mapchannelReq(p, CHAN_NUM_FlashRequest_setDmaKtPpaRef, 4);
+    volatile unsigned int* temp_working_addr_start = p->transport->mapchannelReq(p, CHAN_NUM_FlashRequest_setDmaKtPpaRef, 5);
     volatile unsigned int* temp_working_addr = temp_working_addr_start;
     if (p->transport->busywait(p, CHAN_NUM_FlashRequest_setDmaKtPpaRef, "FlashRequest_setDmaKtPpaRef")) return 1;
     p->transport->write(p, &temp_working_addr, sgIdHigh);
     p->transport->write(p, &temp_working_addr, sgIdLow);
-    p->transport->write(p, &temp_working_addr, sgIdRes);
-    p->transport->send(p, temp_working_addr_start, (CHAN_NUM_FlashRequest_setDmaKtPpaRef << 16) | 4, -1);
+    p->transport->write(p, &temp_working_addr, sgIdRes1);
+    p->transport->write(p, &temp_working_addr, sgIdRes2);
+    p->transport->send(p, temp_working_addr_start, (CHAN_NUM_FlashRequest_setDmaKtPpaRef << 16) | 5, -1);
     return 0;
 };
 
@@ -147,7 +149,7 @@ FlashRequestCb *pFlashRequestProxyReq = &FlashRequestProxyReq;
 const uint32_t FlashRequest_reqinfo = 0xb001c;
 const char * FlashRequest_methodSignatures()
 {
-    return "{\"setDebugVals\": [\"long\", \"long\"], \"writePage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"], \"eraseBlock\": [\"long\", \"long\", \"long\", \"long\"], \"debugDumpReq\": [\"long\"], \"setDmaWriteRef\": [\"long\"], \"setDmaKtOutputRef\": [\"long\", \"long\"], \"setDmaKtPpaRef\": [\"long\", \"long\", \"long\"], \"startCompaction\": [\"long\", \"long\"], \"setDmaReadRef\": [\"long\"], \"start\": [\"long\"], \"readPage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"]}";
+    return "{\"setDebugVals\": [\"long\", \"long\"], \"writePage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"], \"eraseBlock\": [\"long\", \"long\", \"long\", \"long\"], \"debugDumpReq\": [\"long\"], \"setDmaWriteRef\": [\"long\"], \"setDmaKtOutputRef\": [\"long\", \"long\"], \"setDmaKtPpaRef\": [\"long\", \"long\", \"long\", \"long\"], \"startCompaction\": [\"long\", \"long\", \"long\"], \"setDmaReadRef\": [\"long\"], \"start\": [\"long\"], \"readPage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"]}";
 }
 
 int FlashRequest_handleMessage(struct PortalInternal *p, unsigned int channel, int messageFd)
@@ -222,23 +224,27 @@ int FlashRequest_handleMessage(struct PortalInternal *p, unsigned int channel, i
       } break;
     case CHAN_NUM_FlashRequest_startCompaction: {
         
-        p->transport->recv(p, temp_working_addr, 2, &tmpfd);
+        p->transport->recv(p, temp_working_addr, 3, &tmpfd);
         tmp = p->transport->read(p, &temp_working_addr);
         tempdata.startCompaction.cntHigh = (uint32_t)(((tmp)&0xfffffffful));
         tmp = p->transport->read(p, &temp_working_addr);
         tempdata.startCompaction.cntLow = (uint32_t)(((tmp)&0xfffffffful));
-        ((FlashRequestCb *)p->cb)->startCompaction(p, tempdata.startCompaction.cntHigh, tempdata.startCompaction.cntLow);
+        tmp = p->transport->read(p, &temp_working_addr);
+        tempdata.startCompaction.destPpaFlag = (uint32_t)(((tmp)&0xfffffffful));
+        ((FlashRequestCb *)p->cb)->startCompaction(p, tempdata.startCompaction.cntHigh, tempdata.startCompaction.cntLow, tempdata.startCompaction.destPpaFlag);
       } break;
     case CHAN_NUM_FlashRequest_setDmaKtPpaRef: {
         
-        p->transport->recv(p, temp_working_addr, 3, &tmpfd);
+        p->transport->recv(p, temp_working_addr, 4, &tmpfd);
         tmp = p->transport->read(p, &temp_working_addr);
         tempdata.setDmaKtPpaRef.sgIdHigh = (uint32_t)(((tmp)&0xfffffffful));
         tmp = p->transport->read(p, &temp_working_addr);
         tempdata.setDmaKtPpaRef.sgIdLow = (uint32_t)(((tmp)&0xfffffffful));
         tmp = p->transport->read(p, &temp_working_addr);
-        tempdata.setDmaKtPpaRef.sgIdRes = (uint32_t)(((tmp)&0xfffffffful));
-        ((FlashRequestCb *)p->cb)->setDmaKtPpaRef(p, tempdata.setDmaKtPpaRef.sgIdHigh, tempdata.setDmaKtPpaRef.sgIdLow, tempdata.setDmaKtPpaRef.sgIdRes);
+        tempdata.setDmaKtPpaRef.sgIdRes1 = (uint32_t)(((tmp)&0xfffffffful));
+        tmp = p->transport->read(p, &temp_working_addr);
+        tempdata.setDmaKtPpaRef.sgIdRes2 = (uint32_t)(((tmp)&0xfffffffful));
+        ((FlashRequestCb *)p->cb)->setDmaKtPpaRef(p, tempdata.setDmaKtPpaRef.sgIdHigh, tempdata.setDmaKtPpaRef.sgIdLow, tempdata.setDmaKtPpaRef.sgIdRes1, tempdata.setDmaKtPpaRef.sgIdRes2);
       } break;
     case CHAN_NUM_FlashRequest_setDmaKtOutputRef: {
         
