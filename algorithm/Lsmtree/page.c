@@ -493,6 +493,9 @@ bool page_check_available(uint8_t type, uint32_t needed_page){
 	else{
 		abort();
 	}
+	if(type==HEADER && !t->active){
+		t->active=bm->pt_get_segment(bm,MAP_S,false);
+	}
 	uint32_t res=bm->pt_remain_page(bm,t->active,MAP_S);
 	if(res<needed_page){
 		if(type==HEADER) gc_header();
