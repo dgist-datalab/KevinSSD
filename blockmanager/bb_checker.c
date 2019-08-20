@@ -1,4 +1,6 @@
 #include "bb_checker.h"
+#include "../interface/interface.h"
+#include "../include/sem_lock.h"
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -7,20 +9,67 @@
 bb_checker checker;
 volatile uint64_t target_cnt, _cnt, badblock_cnt;
 uint32_t array[128];
-#define STARTBLOCKCHUNK 3
+fdriver_lock_t bb_lock;
+//#define STARTBLOCKCHUNK 3
+char *data_checker_data;
+
+typedef struct temp_params{
+	uint32_t ppa;
+	value_set *v;
+}tp;
+void *temp_end_req(algo_req *temp){
+	static int cnt=0;
+	tp *params=(tp*)temp->params;
+	uint32_t seg=params->ppa>>14;
+	int cmp=memcmp(params->v->value,data_checker_data,PAGESIZE);
+	if(!checker.ent[seg].flag && cmp){
+		checker.ent[seg].flag=true;
+		printf("new badblock %u\n",seg<<14);
+	}
+	
+	inf_free_valueset(params->v,FS_GET_T);
+	if(++cnt%10==0){
+		printf("\rread bb_checking....[ %lf ]",(double)cnt/(_RNOS*_PPS)*100);
+		fflush(stdout);
+	}
+	if(cnt==(_RNOS*_PPS)){
+		fdriver_unlock(&bb_lock);
+	}
+	free(temp);
+	free(params);
+	return NULL;
+}
+
+void bb_read_bb_checker(lower_info *li){
+	algo_req *temp;
+	tp *params;
+	for(uint32_t i=0; i<_RNOS*_PPS; i++){
+		temp=(algo_req*)calloc(sizeof(algo_req),1);
+		temp->type=FS_GET_T;
+		temp->end_req=temp_end_req;
+
+		params=(tp*)calloc(sizeof(tp),1);
+		params->ppa=i;
+		params->v=inf_get_valueset(NULL,FS_GET_T,PAGESIZE);
+		temp->params=(void*)params;
+		li->read(i,PAGESIZE,params->v,ASYNC,temp);
+	}
+}
+
 void bb_checker_start(lower_info *li){
 	memset(&checker,0,sizeof(checker));
 	target_cnt=_RNOS*64;
-	srand((unsigned int)time(NULL));
+//	srand(1);
+//	srand((unsigned int)time(NULL));
 	printf("_nos:%ld\n",_NOS);
 	int random_start_seed=(_RNOS/2)/_NOS+((_RNOS/2)%_NOS?0:-1);
-	checker.assign=(rand()%STARTBLOCKCHUNK)*_NOS;
+	checker.assign=0;//(rand()%STARTBLOCKCHUNK)*_NOS;
 	checker.start_block=checker.assign;
 	checker.map_first=true;
 	printf("start block number : %d\n",checker.assign);
 	for(uint64_t i=0; i<_RNOS; i++){
 		checker.ent[i].origin_segnum=i*_PPS;
-		checker.ent[i].given_segnum=UINT_MAX;
+		checker.ent[i].deprived_from_segnum=UINT_MAX;
 		if(!li->device_badblock_checker){
 			_cnt+=BPS;
 			continue;
@@ -32,9 +81,16 @@ void bb_checker_start(lower_info *li){
 	while(target_cnt!=_cnt){}
 	printf("\n");
 //	bb_checker_process(0,true);
+	data_checker_data=(char*)malloc(PAGESIZE);
+	memset(data_checker_data,-1,PAGESIZE);
+	printf("read badblock checking");
+/*	fdriver_lock_init(&bb_lock,0);
+	bb_read_bb_checker(li);
+	fdriver_lock(&bb_lock);*/
+	free(data_checker_data);
 	printf("badblock_cnt: %lu\n",badblock_cnt);
 	bb_checker_fixing();
-	printf("checking done!\n");
+	printf("checking done!\n");	
 
 	//exit(1);
 	return;
@@ -56,48 +112,17 @@ void *bb_checker_process(uint64_t bad_seg,uint8_t isbad){
 }
 
 uint32_t bb_checker_get_segid(){
+	/*
 	uint32_t res=0;
 	if(checker.ent[checker.assign].flag){
 		res=checker.ent[checker.assign++].fixed_segnum;
 	}else{
 		res=checker.ent[checker.assign++].origin_segnum;
-	}
-	return res;
+	}*/
+	return checker.ent[checker.assign++].origin_segnum;
 }
 
-uint32_t bb_checker_fix_ppa(uint32_t ppa){
-	uint32_t res=ppa;
-#ifdef SLC
-	/*
-	uint32_t bus  = res & 0x7;
-	uint32_t chip = (res >> 3) & 0x7;
-	uint32_t page= (res >> 6) & 0xFF;
-	uint32_t block = (res >> 14);
-	bool shouldchg=false;
 
-	if(page>=4){
-		if(page>=254 || page <6){
-			page=page-4;
-			shouldchg=true;
-		}else if(page%4<2){
-			page=page>6?page-6:page;
-			shouldchg=true;
-		}
-	}
-
-	if(shouldchg){	
-		block+=_NOS;
-	}
-	res=bus+(chip<<3)+(page<<6)+(block<<14);*/
-#endif
-	
-	if(checker.ent[res/_PPS].flag){
-		uint32_t origin_remain=res%(_PPS);
-		res=checker.ent[res/_PPS].fixed_segnum+origin_remain;
-		return res;
-	}
-	else return res;
-}
 
 uint32_t bb_checker_fixed_segment(uint32_t ppa){
 	uint32_t res=ppa/(1<<14);
@@ -122,23 +147,48 @@ void bb_checker_fixing(){/*
 	printf("_RNOS:%ld\n",_RNOS);
 	checker.back_index=_RNOS-1;
 	int fix_cnt=0;
-#ifdef MLC
-	for(int i=0; i<(STARTBLOCKCHUNK+1)*_NOS; i++){
-#else
-	for(int i=0; i<(STARTBLOCKCHUNK+1)*_NOS; i++){
-#endif
-		if(checker.ent[i].flag){
-			if(i+(_RNOS-checker.back_index)>_RNOS){
-				printf("too many bad segment, please down scale the TOTALSIZE\n");
-				exit(1);
+
+	int chunk=_RNOS/4;
+	int start_segnum=0; int max_segnum=_RNOS-1;
+	while(start_segnum<=max_segnum){
+		int test_cnt=0;
+		if(checker.ent[start_segnum].flag){ //fix bad block
+			while(checker.ent[max_segnum-test_cnt].flag){test_cnt++;}
+			max_segnum-=test_cnt;
+			if(max_segnum<=start_segnum){
+				break;
 			}
-			else{
-				while(checker.ent[checker.back_index].flag){checker.back_index--;}
-				checker.ent[i].fixed_segnum=checker.ent[checker.back_index].origin_segnum;
-				checker.ent[checker.back_index].given_segnum=checker.ent[i].origin_segnum;
-				printf("%d - bad block %d -> %d\n",fix_cnt++,checker.ent[i].origin_segnum,checker.ent[i].fixed_segnum);
-				checker.back_index--;
-			}
+			checker.ent[start_segnum].fixed_segnum=checker.ent[max_segnum].origin_segnum;
+			checker.ent[max_segnum].deprived_from_segnum=checker.ent[start_segnum].origin_segnum;
+			max_segnum--;
+			test_cnt=0;
 		}
+		//find pair segment;
+		while(checker.ent[max_segnum-test_cnt].flag){
+			test_cnt++;
+		}
+		if(max_segnum<=start_segnum){
+			break;
+		}
+
+		max_segnum-=test_cnt;
+		checker.ent[start_segnum].pair_segnum=checker.ent[max_segnum].origin_segnum;
+		checker.ent[max_segnum].pair_segnum=checker.ent[start_segnum].origin_segnum;
+		max_segnum--;
+		start_segnum++;
 	}
+	
+	printf("TOTAL segnum:%d\n",start_segnum);
+	/*
+	for(int i=0; i<start_segnum; i++){
+		if(checker.ent[i].flag){
+			printf("[badblock] %d(%d) ",checker.ent[i].fixed_segnum,checker.ent[i].origin_segnum);
+		}
+		else{
+			printf("[normal] %d ",checker.ent[i].origin_segnum);
+		}
+		printf(" && %d\n",checker.ent[i].pair_segnum);
+	}
+	*/
+
 }

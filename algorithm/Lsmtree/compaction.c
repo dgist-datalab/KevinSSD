@@ -125,6 +125,7 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 	if(level_sequencial(from,to,target,entry,l_node)){
 		goto last;
 	}else{
+		LSM.compaction_cnt++;
 		compactor.pt_leveling(target,target_origin,l_node,from);	
 	}
 	
@@ -162,7 +163,6 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 #endif
 	uint32_t total_number=origin->n_num+(upper?upper->n_num:1);
 	page_check_available(HEADER,total_number);
-
 	compaction_sub_pre();
 
 	if(!upper){

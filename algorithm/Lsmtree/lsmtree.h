@@ -36,6 +36,7 @@
 #define OLDDATA 13
 #define BGREAD 15
 #define BGWRITE 16
+#define TESTREAD 17
 
 //lower type, algo type
 typedef struct level level;
@@ -187,7 +188,9 @@ void htable_check(htable *in,KEYT lpa,ppa_t ppa,char *);
 uint32_t lsm_multi_set(request *const, uint32_t num);
 uint32_t lsm_range_get(request *const);
 uint32_t lsm_memory_size();
-uint32_t lsm_simul_put(ppa_t ppa, KEYT key); //copy the value
+uint32_t lsm_simul_put(ppa_t ppa, KEYT key);
+//copy the value
+uint32_t lsm_test_read(ppa_t ppa, char *data);
 level *lsm_level_resizing(level *target, level *src);
 KEYT* lsm_simul_get(ppa_t ppa); //copy the value
 void lsm_simul_del(ppa_t ppa);

@@ -3,7 +3,7 @@
 
 #define DataBusWidth 128
 #define NumReadClients 3
-#define NumWriteClients 9
+#define NumWriteClients 8
 #define NumReFlash 2
 #define NumWeFlash 4
 #define IMPORT_HOST_CLOCKS ""
@@ -19,7 +19,7 @@
 #define SlaveControlAddrWidth 5
 #define BurstLenSize 10
 #define project_dir "$(DTOP)"
-#define MainClockPeriod 5.714000
+#define MainClockPeriod 5.000000
 #define DerivedClockPeriod 9.090000
 #define XILINX 1
 #define ZYNQ ""

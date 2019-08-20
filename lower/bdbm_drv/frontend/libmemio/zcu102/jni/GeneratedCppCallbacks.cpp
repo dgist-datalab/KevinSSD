@@ -155,12 +155,12 @@ int FlashRequestsetDmaWriteRef_cb (  struct PortalInternal *p, const uint32_t sg
     (static_cast<FlashRequestWrapper *>(p->parent))->setDmaWriteRef ( sgId);
     return 0;
 };
-int FlashRequeststartCompaction_cb (  struct PortalInternal *p, const uint32_t cntHigh, const uint32_t cntLow ) {
-    (static_cast<FlashRequestWrapper *>(p->parent))->startCompaction ( cntHigh, cntLow);
+int FlashRequeststartCompaction_cb (  struct PortalInternal *p, const uint32_t cntHigh, const uint32_t cntLow, const uint32_t destPpaFlag ) {
+    (static_cast<FlashRequestWrapper *>(p->parent))->startCompaction ( cntHigh, cntLow, destPpaFlag);
     return 0;
 };
-int FlashRequestsetDmaKtPpaRef_cb (  struct PortalInternal *p, const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes ) {
-    (static_cast<FlashRequestWrapper *>(p->parent))->setDmaKtPpaRef ( sgIdHigh, sgIdLow, sgIdRes);
+int FlashRequestsetDmaKtPpaRef_cb (  struct PortalInternal *p, const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes1, const uint32_t sgIdRes2 ) {
+    (static_cast<FlashRequestWrapper *>(p->parent))->setDmaKtPpaRef ( sgIdHigh, sgIdLow, sgIdRes1, sgIdRes2);
     return 0;
 };
 int FlashRequestsetDmaKtOutputRef_cb (  struct PortalInternal *p, const uint32_t sgIdKtBuf, const uint32_t sgIdInvalPPA ) {

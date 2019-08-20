@@ -214,8 +214,8 @@ int FlashRequest_writePage ( struct PortalInternal *p, const uint32_t bus, const
 int FlashRequest_eraseBlock ( struct PortalInternal *p, const uint32_t bus, const uint32_t chip, const uint32_t block, const uint32_t tag );
 int FlashRequest_setDmaReadRef ( struct PortalInternal *p, const uint32_t sgId );
 int FlashRequest_setDmaWriteRef ( struct PortalInternal *p, const uint32_t sgId );
-int FlashRequest_startCompaction ( struct PortalInternal *p, const uint32_t cntHigh, const uint32_t cntLow );
-int FlashRequest_setDmaKtPpaRef ( struct PortalInternal *p, const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes );
+int FlashRequest_startCompaction ( struct PortalInternal *p, const uint32_t cntHigh, const uint32_t cntLow, const uint32_t destPpaFlag );
+int FlashRequest_setDmaKtPpaRef ( struct PortalInternal *p, const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes1, const uint32_t sgIdRes2 );
 int FlashRequest_setDmaKtOutputRef ( struct PortalInternal *p, const uint32_t sgIdKtBuf, const uint32_t sgIdInvalPPA );
 int FlashRequest_start ( struct PortalInternal *p, const uint32_t dummy );
 int FlashRequest_debugDumpReq ( struct PortalInternal *p, const uint32_t dummy );
@@ -254,11 +254,13 @@ typedef struct {
 typedef struct {
     uint32_t cntHigh;
     uint32_t cntLow;
+    uint32_t destPpaFlag;
 } FlashRequest_startCompactionData;
 typedef struct {
     uint32_t sgIdHigh;
     uint32_t sgIdLow;
-    uint32_t sgIdRes;
+    uint32_t sgIdRes1;
+    uint32_t sgIdRes2;
 } FlashRequest_setDmaKtPpaRefData;
 typedef struct {
     uint32_t sgIdKtBuf;
@@ -295,8 +297,8 @@ typedef struct {
     int (*eraseBlock) (  struct PortalInternal *p, const uint32_t bus, const uint32_t chip, const uint32_t block, const uint32_t tag );
     int (*setDmaReadRef) (  struct PortalInternal *p, const uint32_t sgId );
     int (*setDmaWriteRef) (  struct PortalInternal *p, const uint32_t sgId );
-    int (*startCompaction) (  struct PortalInternal *p, const uint32_t cntHigh, const uint32_t cntLow );
-    int (*setDmaKtPpaRef) (  struct PortalInternal *p, const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes );
+    int (*startCompaction) (  struct PortalInternal *p, const uint32_t cntHigh, const uint32_t cntLow, const uint32_t destPpaFlag );
+    int (*setDmaKtPpaRef) (  struct PortalInternal *p, const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes1, const uint32_t sgIdRes2 );
     int (*setDmaKtOutputRef) (  struct PortalInternal *p, const uint32_t sgIdKtBuf, const uint32_t sgIdInvalPPA );
     int (*start) (  struct PortalInternal *p, const uint32_t dummy );
     int (*debugDumpReq) (  struct PortalInternal *p, const uint32_t dummy );
@@ -309,8 +311,8 @@ int FlashRequestJson_writePage ( struct PortalInternal *p, const uint32_t bus, c
 int FlashRequestJson_eraseBlock ( struct PortalInternal *p, const uint32_t bus, const uint32_t chip, const uint32_t block, const uint32_t tag );
 int FlashRequestJson_setDmaReadRef ( struct PortalInternal *p, const uint32_t sgId );
 int FlashRequestJson_setDmaWriteRef ( struct PortalInternal *p, const uint32_t sgId );
-int FlashRequestJson_startCompaction ( struct PortalInternal *p, const uint32_t cntHigh, const uint32_t cntLow );
-int FlashRequestJson_setDmaKtPpaRef ( struct PortalInternal *p, const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes );
+int FlashRequestJson_startCompaction ( struct PortalInternal *p, const uint32_t cntHigh, const uint32_t cntLow, const uint32_t destPpaFlag );
+int FlashRequestJson_setDmaKtPpaRef ( struct PortalInternal *p, const uint32_t sgIdHigh, const uint32_t sgIdLow, const uint32_t sgIdRes1, const uint32_t sgIdRes2 );
 int FlashRequestJson_setDmaKtOutputRef ( struct PortalInternal *p, const uint32_t sgIdKtBuf, const uint32_t sgIdInvalPPA );
 int FlashRequestJson_start ( struct PortalInternal *p, const uint32_t dummy );
 int FlashRequestJson_debugDumpReq ( struct PortalInternal *p, const uint32_t dummy );
