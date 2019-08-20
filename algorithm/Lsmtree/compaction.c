@@ -113,7 +113,7 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 	}
 	else up_num=1;
 	uint32_t total_number=to->n_num+up_num;
-	page_check_available(HEADER,total_number);
+	page_check_available(HEADER,total_number+(LSM.comp_opt==HW?1:0));
 
 	if(LSM.comp_opt==HW){
 		if(from==NULL){
@@ -130,7 +130,8 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 			l_node->entry=entry;
 		}
 	}
-	
+
+
 	if(level_sequencial(from,to,target,entry,l_node)){
 		goto last;
 	}else{
