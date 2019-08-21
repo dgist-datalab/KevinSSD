@@ -217,8 +217,8 @@ bool invalidate_PPA(uint8_t type,uint32_t ppa){
 			abort();
 	}
 
+	int res=LSM.bm->unpopulate_bit(LSM.bm,t_p);
 	if(type==HEADER){
-		int res=LSM.bm->unpopulate_bit(LSM.bm,t_p);
 		if(!res){
 		//	LSM.lop->all_print();
 			printf("target_ppa:%u\n",ppa);
@@ -249,8 +249,8 @@ bool validate_PPA(uint8_t type, uint32_t ppa){
 	}
 
 	
+	int res=LSM.bm->populate_bit(LSM.bm,t_p);
 	if(type==HEADER){
-		int res=LSM.bm->populate_bit(LSM.bm,t_p);
 	//	printf("validate: %u\n",ppa);
 		if(!res){
 			abort();

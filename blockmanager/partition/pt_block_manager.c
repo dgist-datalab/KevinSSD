@@ -230,12 +230,14 @@ __gsegment* pbm_pt_get_gc_target(blockmanager* bm, int pnum){
 	p_info *pinfo=(p_info*) p->private_data;
 	res->now=0;
 	res->max=BPS;
+	int invalidate_number=0;
 	if(pnum==DATA_S){
 		for(int i=0; i<BPS; i++){
 			mh_construct(pinfo->p_channel[pnum][i].max_heap);
 			__block *b=(__block*)mh_get_max(pinfo->p_channel[pnum][i].max_heap);
 			if(!b) abort();
 			res->blocks[i]=b;
+			invalidate_number+=b->invalid_number;
 		}
 	}else{
 		int max_invalid=0,now_invalid=0;
@@ -257,6 +259,11 @@ __gsegment* pbm_pt_get_gc_target(blockmanager* bm, int pnum){
 		for(int j=0; j<BPS; j++){
 			res->blocks[j]=&p->base_block[target_seg*BPS+j];
 		}
+		invalidate_number=max_invalid;
+	}
+	if(invalidate_number==0){
+		printf("invalidate number 0 at %s\n",pnum==DATA_S?"DATA":"MAP");
+		abort();
 	}
 	return res;
 }
