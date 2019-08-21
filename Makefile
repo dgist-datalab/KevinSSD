@@ -12,7 +12,7 @@ DEBUGFLAGS=\
 			-rdynamic\
 			-Wno-pointer-arith\
 			-g\
--fsanitize=address\
+#-fsanitize=address\
 #	-DBUSE_DEBUG
 
 export COMMONFLAGS=\
@@ -26,7 +26,9 @@ export COMMONFLAGS=\
 			-Wno-unused-but-set-variable\
 			-DCHECKINGTIME\
 			-DKVSSD\
-#		-O3\
+			-march=armv8-a+crypto\
+			-mcpu=cortex-a53\
+			-O3\
 #			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
@@ -83,6 +85,7 @@ SRCS +=\
 	./interface/interface.c\
 	./interface/buse.c\
 	./include/FS.c\
+	./include/sha256_arm.c\
 	./include/slab.c\
 	./include/utils/debug_tools.c\
 	./include/utils/dl_sync.c\

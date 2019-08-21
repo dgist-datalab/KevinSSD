@@ -1,4 +1,5 @@
 #include"bloomfilter.h"
+#include "../../include/sha256_arm.h"
 #include<math.h>
 #include<stdio.h>
 #include<string.h>
@@ -170,6 +171,7 @@ void bf_set(BF *input, KEYT key){
 	for(uint32_t i=0; i<input->k; i++){
 #if defined(KVSSD) && defined(Lsmtree)
 		MurmurHash3_x86_32(key.key,key.len,i,&h);
+	//	sha256_process_arm((uint8_t*)key.key,key.len,i,(void*)&h);
 #else
 		h=hashfunction((key<<19) | (i<<7));
 #endif
@@ -190,6 +192,7 @@ bool bf_check(BF* input, KEYT key){
 	for(uint32_t i=0; i<input->k; i++){
 #if defined(KVSSD) && defined(Lsmtree)
 		MurmurHash3_x86_32(key.key,key.len,i,&h);
+	//	sha256_process_arm((uint8_t*)key.key,key.len,i,(void*)&h);
 #else
 		h=hashfunction((key<<19) | (i<<7));
 #endif

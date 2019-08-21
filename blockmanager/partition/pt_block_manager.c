@@ -126,14 +126,14 @@ uint32_t pbm_create(blockmanager *bm, int pnum, int *epn, lower_info *li){
 	int start=0;
 	int end=0;
 	checker.map_first=false;
-	for(int i=pnum-1 ; i>=0; i--){
+	for(int i=0 ; i<pnum; i++){
 		pinfo->now_assign[i]=0;
 		pinfo->max_assign[i]=epn[i];
 		pinfo->p_channel[i]=(channel*)malloc(sizeof(channel)*BPS);
 		end+=epn[i];
 		pinfo->from[i]=start;
 		pinfo->to[i]=end-1;
-		printf("%s assign block %d ~ %d( %d ~ %d )\n",i==0?"MAP":"DATA",start,end-1,p->base_block[pinfo->from[i]*64].block_num,p->base_block[(pinfo->to[i])*64].block_num+_PPS-1);
+		printf("%s assign block %d ~ %d( %d ~ %d )\n",i==0?"MAP":"DATA",start,end-1,p->base_block[pinfo->from[i]*64].block_num,p->base_block[(pinfo->to[i])*64].block_num+OPPS-1);
 		for(int j=0; j<PUNIT; j++){
 			channel *c=&pinfo->p_channel[i][j];
 			q_init(&c->free_block,end-start);
@@ -230,12 +230,14 @@ __gsegment* pbm_pt_get_gc_target(blockmanager* bm, int pnum){
 	p_info *pinfo=(p_info*) p->private_data;
 	res->now=0;
 	res->max=BPS;
+	int invalidate_number=0;
 	if(pnum==DATA_S){
 		for(int i=0; i<BPS; i++){
 			mh_construct(pinfo->p_channel[pnum][i].max_heap);
 			__block *b=(__block*)mh_get_max(pinfo->p_channel[pnum][i].max_heap);
 			if(!b) abort();
 			res->blocks[i]=b;
+			invalidate_number+=b->invalid_number;
 		}
 	}else{
 		int max_invalid=0,now_invalid=0;
@@ -257,6 +259,11 @@ __gsegment* pbm_pt_get_gc_target(blockmanager* bm, int pnum){
 		for(int j=0; j<BPS; j++){
 			res->blocks[j]=&p->base_block[target_seg*BPS+j];
 		}
+		invalidate_number=max_invalid;
+	}
+	if(invalidate_number==0){
+		printf("invalidate number 0 at %s\n",pnum==DATA_S?"DATA":"MAP");
+		abort();
 	}
 	return res;
 }

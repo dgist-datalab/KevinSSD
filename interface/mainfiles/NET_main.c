@@ -122,7 +122,7 @@ int main(int argc, char *argv[]){
 	static int cnt=1;
 //	FILE *fp=fopen("trace", "w");
 	while(1){
-		data=(netdata*)malloc(sizeof(netdata));
+		data=(netdata*)calloc(sizeof(netdata),1);
 		early_reply=fd_sock_requests(net,data);
 
 	//	fd_print_netdata(fp,data);

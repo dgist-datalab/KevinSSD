@@ -158,7 +158,7 @@ uint32_t posix_create(lower_info *li, blockmanager *b){
 	li->SOB=BLOCKSIZE*BPS;
 	li->SOP=PAGESIZE;
 	li->SOK=sizeof(uint32_t);
-	li->PPB=_PPB;
+	li->PPB=OPPB;
 	li->PPS=_PPS;
 	li->TS=TOTALSIZE;
 	lower_flying=cl_init(QDEPTH,true);
@@ -329,14 +329,13 @@ void posix_flying_req_wait(){
 }
 
 void* posix_trim_a_block(uint32_t _PPA, bool async){
-
 	uint32_t PPA=convert_ppa(_PPA);
 	if(PPA>_NOP){
 		printf("address error!\n");
 		abort();
 	}
 	my_posix.req_type_cnt[TRIM]++;
-	for(int i=0; i<_PPB; i++){
+	for(int i=0; i<OPPB; i++){
 		uint32_t t=PPA+i*PUNIT;
 		if(!seg_table[t].storage){
 			//abort();

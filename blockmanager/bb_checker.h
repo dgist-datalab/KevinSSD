@@ -30,12 +30,14 @@ uint32_t bb_checker_fixed_segment(uint32_t ppa);
 uint32_t bb_checker_paired_segment(uint32_t ppa);
 uint32_t bb_checker_get_segid();
 uint32_t bb_checker_get_originid(uint32_t seg_id);
-static inline uint32_t bb_checker_fix_ppa(bb_checker _checker,uint32_t ppa){
+uint32_t bb_checker_slc_page(uint32_t page);
+/*
+static inline uint32_t bb_checker_fix_ppa(bool isfixing, uint32_t fixed_block, uint32_t pair_block,uint32_t ppa){
 	uint32_t res=ppa;
 	uint32_t block = (res >> 14);
-	bool isfixing=_checker.ent[block].flag;
-	uint32_t fixed_block=_checker.ent[block].fixed_segnum;
-	uint32_t pair_block=_checker.ent[block].pair_segnum;
+	//bool isfixing=_checker.ent[block].flag;
+	//uint32_t fixed_block=_checker.ent[block].fixed_segnum;
+	//uint32_t pair_block=_checker.ent[block].pair_segnum;
 
 
 	uint32_t bus  = res & 0x7;
@@ -43,6 +45,7 @@ static inline uint32_t bb_checker_fix_ppa(bb_checker _checker,uint32_t ppa){
 	uint32_t page= (res >> 6) & 0xFF;
 	bool shouldchg=false;
 
+	
 	if(page>=4){
 		if(page>=254 || page <6){
 			page=page-4;
@@ -55,12 +58,14 @@ static inline uint32_t bb_checker_fix_ppa(bb_checker _checker,uint32_t ppa){
 
 	res=bus+(chip<<3)+(page<<6)+(block<<14);
 	uint32_t origin_remain=res%(_PPS);
+	
 	if(isfixing){
 		return fixed_block+origin_remain;
 	}
 	else if(shouldchg){
+		//return ppa;
 		return pair_block+origin_remain;
 	}
-	return res;
-}
+	return ppa;
+}*/
 #endif

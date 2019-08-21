@@ -43,13 +43,16 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 4L
+
+#define GIGAUNIT 16L
 #define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
 #define PAGESIZE (8*K)
-#define _PPB (256)
+#define _PPB (128)
+#define OPPB (256)
 #define BPS (64)
+#define OPPS (1<<14)
 #define _PPS (_PPB*BPS)
 #define PUNIT (64)
 

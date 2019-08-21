@@ -228,7 +228,8 @@ struct blockmanager{
 	void *private_data;
 };
 
-#define PPAMAKER(bl,idx) ((bl)->punit_num)+(idx<<6)+((bl)->block_num)
+#define FIXPPA(page) (page<4?page: (page%4<2?(page/4-1)*8+6+(page%4):(page/4-1)*8+8+(page%4)))
+#define PPAMAKER(bl,idx) ((bl)->punit_num)+(FIXPPA(idx)<<6)+((bl)->block_num)
 
 #define for_each_block(segs,block,idx)\
 	for(idx=0,block=segs->blocks[idx];idx<BPS; block=++idx>BPS?segs->blocks[idx-1]:segs->blocks[idx])

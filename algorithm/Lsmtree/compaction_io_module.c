@@ -34,7 +34,6 @@ void compaction_data_write(leveling_node* lnode){
 		}
 		LSM.li->write(CONVPPA(data_sets[i]->ppa),PAGESIZE,params->value,ASYNC,lsm_req);
 	}
-//	LSM.li->lower_flying_req_wait();
 	bench_custom_A(write_opt_time,1);
 	free(data_sets);
 }

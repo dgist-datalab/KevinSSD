@@ -30,10 +30,10 @@ typedef struct temp_gc_h{
 #ifdef KVSSD
 uint32_t gc_cnt=0;
 int gc_header(){
-	printf("gc_header %u\n",gc_cnt++);
+	//printf("gc_header %u\n",gc_cnt++);
 	//printf("gc_header %u",gc_cnt++);
 	LSM.header_gc_cnt++;
-	LSM.lop->all_print();
+	//LSM.lop->all_print();
 	gc_general_wait_init();
 	lsm_io_sched_flush();
 
@@ -206,8 +206,8 @@ int gc_data(){
 	return 1;
 }
 int __gc_data(){
-	static int gc_d_cnt=0;
-	printf("%d gc_data!\n",gc_d_cnt++);
+	//static int gc_d_cnt=0;
+	//printf("%d gc_data!\n",gc_d_cnt++);
 	/*
 	if(gc_d_cnt==27){
 		LSM.debug_flag=true;
@@ -361,6 +361,7 @@ void gc_data_header_update_add(l_bucket *b){
 	}
 
 	qsort(gc_array,idx, sizeof(gc_node**),gc_node_compare);
+	
 	gc_data_header_update(gc_array,idx,b);
 	free(gc_array);
 }
@@ -563,6 +564,7 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 	}
 
 	gc_read_wait=0;
+	
 	int g_idx;
 	for(int i=0; i<b->idx[NPCINPAGE]; i++){
 		gc_node *t=b->gc_bucket[NPCINPAGE][i];
@@ -589,7 +591,6 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 			p->found->ppa=t->plength==0?-1:t->nppa;	
 			if(p->found2) p->found2->ppa=p->found->ppa;
 		}
-
 		if(p->data){
 			map_table[idx]=p->data;
 			entries[idx]=p->ent;
