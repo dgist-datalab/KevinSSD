@@ -144,13 +144,13 @@ run_t *array_pipe_make_run(char *data, BF *f){
 
 run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end){
 	char *data;
-	BF **f;
+	BF *f;
 	if(cutter_start){
 		cutter_start=false;
-		data=pbody_get_data(rp,true,f);
+		data=pbody_get_data(rp,true,&f);
 	}
 	else{
-		data=pbody_get_data(rp,false,f);
+		data=pbody_get_data(rp,false,&f);
 	}
 	if(!data) {
 		free(r_data);
@@ -158,7 +158,7 @@ run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KE
 		return NULL;
 	}
 
-	return array_pipe_make_run(data,*f);
+	return array_pipe_make_run(data,f);
 }
 
 run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data, uint32_t u_num, uint32_t l_num,level *d, void *(*lev_insert_write)(level *,run_t *data)){
