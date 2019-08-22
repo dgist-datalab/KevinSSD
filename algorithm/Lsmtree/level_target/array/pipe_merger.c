@@ -97,8 +97,12 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 				insert_key=hp_key;
 			}
 		}
-	
-		if((pbody_insert_new_key(rp,insert_key,rppa,false,NULL))){
+#ifdef BLOOM
+		if((pbody_insert_new_key(rp,insert_key,rppa,false,NULL)))
+#else
+		if((pbody_insert_new_key(rp,insert_key,rppa,false)))
+#endif
+		{
 			result_cnt++;
 		}
 		
@@ -109,10 +113,14 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 			hp_key=pbody_get_next_key(hp,&hppa);
 		}
 	}
-
-	if((pbody_insert_new_key(rp,insert_key,0,true,NULL))){
+#ifdef BLOOM
+	if((pbody_insert_new_key(rp,insert_key,rppa,false,NULL)))
+#else
+	if((pbody_insert_new_key(rp,insert_key,rppa,false)))
+#endif
+		{
 			result_cnt++;
-	}
+		}	
 
 	if(mem) free(u_data[0]);
 	free(o_data);
@@ -120,8 +128,12 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	pbody_clear(lp);
 	pbody_clear(hp);
 }
-
-run_t *array_pipe_make_run(char *data, BF *f){
+#ifdef BLOOM
+run_t *array_pipe_make_run(char *data, BF *f)
+#else
+run_t *array_pipe_make_run(char *data)
+#endif
+{
 	htable *res=LSM.nocpy?htable_assign(data,0):htable_assign(data,1);
 	KEYT start,end;
 	uint16_t *body=(uint16_t*)data;
@@ -144,21 +156,34 @@ run_t *array_pipe_make_run(char *data, BF *f){
 
 run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end){
 	char *data;
+#ifdef BLOOM
 	BF *f;
+#endif
 	if(cutter_start){
 		cutter_start=false;
+#ifdef BLOOM
 		data=pbody_get_data(rp,true,&f);
+#else
+		data=pbody_get_data(rp,true);
+#endif
 	}
 	else{
+#ifdef BLOOM
 		data=pbody_get_data(rp,false,&f);
+#else
+		data=pbody_get_data(rp,false);
+#endif
 	}
 	if(!data) {
 		free(r_data);
 		pbody_clear(rp);
 		return NULL;
 	}
-
+#ifdef BLOOM
 	return array_pipe_make_run(data,f);
+#else
+	return array_pipe_make_run(data);
+#endif
 }
 
 run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data, uint32_t u_num, uint32_t l_num,level *d, void *(*lev_insert_write)(level *,run_t *data)){
@@ -170,7 +195,11 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 		u_data[0].lock=(fdriver_lock_t*)malloc(sizeof(fdriver_lock_t));
 		fdriver_lock_init(u_data[0].lock,1);
 		skip_data=array_skip_cvt2_data(skip);
+#ifdef BLOOM
 		u_data[0].r=array_pipe_make_run(skip_data,NULL);
+#else
+		u_data[0].r=array_pipe_make_run(skip_data);
+#endif
 	}
 
 	p_body *lp, *hp, *p_rp;
@@ -186,7 +215,9 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 	int next_pop=0;
 	int result_cnt=0;
 	char *res_data;
+#ifdef BLOOM
 	BF **filter;
+#endif
 	while(!(lp_key.len==UINT8_MAX && hp_key.len==UINT8_MAX)){
 		if(lp_key.len==UINT8_MAX){
 			insert_key=hp_key;
@@ -223,9 +254,18 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 				insert_key=hp_key;
 			}
 		}
-	
-		if((res_data=pbody_insert_new_key(p_rp,insert_key,p_rppa,false,filter))){
+#ifdef BLOOM
+		if((res_data=pbody_insert_new_key(p_rp,insert_key,p_rppa,false,filter)))
+#else
+		if((res_data=pbody_insert_new_key(p_rp,insert_key,p_rppa,false)))
+#endif
+		{
+
+#ifdef BLOOM
 			lev_insert_write(d,array_pipe_make_run(res_data,*filter));
+#else
+			lev_insert_write(d,array_pipe_make_run(res_data));
+#endif
 			result_cnt++;
 		}
 		
@@ -236,19 +276,38 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 			hp_key=pbody_get_next_key(hp,&hppa);
 		}
 	}
-	
-	if((res_data=pbody_insert_new_key(p_rp,insert_key,0,true,filter))){
-		lev_insert_write(d,array_pipe_make_run(res_data,*filter));
+#ifdef BLOOM
+	if((res_data=pbody_insert_new_key(p_rp,insert_key,0,true,filter)))
+#else
+	if((res_data=pbody_insert_new_key(p_rp,insert_key,0,true)))
+#endif
+	{
+#ifdef BLOOM
+			lev_insert_write(d,array_pipe_make_run(res_data,*filter));
+#else
+			lev_insert_write(d,array_pipe_make_run(res_data));
+#endif
 		result_cnt++;
 	}
-
+#ifdef BLOOM
 	res_data=pbody_get_data(p_rp,false,filter);
+#else
+	res_data=pbody_get_data(p_rp,false);
+#endif
 	do{
 		if(!res_data) break;
+#ifdef BLOOM
 		lev_insert_write(d,array_pipe_make_run(res_data,*filter));
+#else
+		lev_insert_write(d,array_pipe_make_run(res_data));
+#endif
 		result_cnt++;
 	}
+#ifdef BLOOM
 	while((res_data=pbody_get_data(p_rp,false,filter)));
+#else
+	while((res_data=pbody_get_data(p_rp,false)));
+#endif
 
 	if(skip){
 		fdriver_destroy(u_data[0].lock);

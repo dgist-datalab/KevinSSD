@@ -62,7 +62,12 @@ KEYT pbody_get_next_key(p_body *p, uint32_t *ppa){
 }
 
 bool test_flag;
-char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush, BF **f){
+#ifdef BLOOM
+char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush, BF **f)
+#else
+char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush)
+#endif
+{
 	char *res=NULL;
 	static int key_cnt=0;
 	if((flush && p->kidx>1) || !p->now_page || p->kidx>=(PAGESIZE-1024)/sizeof(uint16_t)-2 || p->length+(key.len+sizeof(uint32_t))>PAGESIZE){
@@ -73,7 +78,9 @@ char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush, BF **f)
 			res=p->now_page;
 		}
 		if(flush){
+#ifdef BLOOM
 			if(f) *f=p->filters[p->pidx];
+#endif
 			return res;
 		}
 		new_page_set(p,true);
@@ -91,24 +98,32 @@ char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush, BF **f)
 	return res;
 }
 
-char *pbody_get_data(p_body *p, bool init,BF **f){
+#ifdef BLOOM
+char *pbody_get_data(p_body *p, bool init,BF **f)
+#else
+char *pbody_get_data(p_body *p, bool init)
+#endif	
+{
 	if(init){
 		p->max_page=p->pidx;
 		p->pidx=0;
 	}
 
 	if(p->pidx<p->max_page){
+#ifdef BLOOM
 		*f=p->filters[p->pidx];
+#endif
 		return p->data_ptr[p->pidx++];
 	}
 	else{
-		*f=NULL;
 		return NULL;
 	}
 }
 
 char *pbody_clear(p_body *p){
+#ifdef BLOOM
 	free(p->filters);
+#endif
 	free(p);
 	return NULL;
 }
