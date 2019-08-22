@@ -113,6 +113,7 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 	}
 	else up_num=1;
 	uint32_t total_number=to->n_num+up_num+1;
+	LSM.result_padding=2;
 	page_check_available(HEADER,total_number+(LSM.comp_opt==HW?1:0)+LSM.result_padding);
 
 	if(LSM.comp_opt==HW){

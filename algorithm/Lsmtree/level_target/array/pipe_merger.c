@@ -49,7 +49,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	char **o_data=(char**)malloc(sizeof(char*)*o_num);
 	for(int i=0; o[i]!=NULL; i++){ o_data[i]=data_from_run(o[i]);}
 
-	r_data=(char**)calloc(sizeof(char*),(o_num+u_num));
+	r_data=(char**)calloc(sizeof(char*),(o_num+u_num+LSM.result_padding));
 	p_body *lp, *hp;
 	lp=pbody_init(o_data,o_num,NULL,false,d->fpr,false);
 	hp=pbody_init(u_data,u_num,NULL,false,d->fpr,false);
@@ -203,7 +203,7 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 	}
 
 	p_body *lp, *hp, *p_rp;
-	char **r_datas=(char**)calloc(sizeof(char*),(u_num+l_num));
+	char **r_datas=(char**)calloc(sizeof(char*),(u_num+l_num+LSM.result_padding));
 	lp=pbody_init(NULL,l_num,l_data,true,d->fpr,false);
 	hp=pbody_init(NULL,u_num,u_data,true,d->fpr,false);
 	p_rp=pbody_init(r_datas,u_num+l_num+LSM.result_padding,NULL,false,d->fpr,true);

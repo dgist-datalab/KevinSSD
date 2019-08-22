@@ -26,12 +26,16 @@ void new_page_set(p_body *p, bool iswrite){
 		p->now_page=data_from_run(p->pl_datas[p->pidx].r);
 	}
 	else{
+		if(p->pidx>=p->max_page){
+			printf("%d %d \n", p->pidx, p->max_page);
+		}
 		if(iswrite){
 #ifdef BLOOM
 			p->filters[p->pidx]=bf_init(LSM.keynum_in_header,p->fpr);
 #endif
 		}
 		p->now_page=p->data_ptr[p->pidx];
+
 	}
 	if(iswrite && !p->now_page){
 		p->now_page=(char*)malloc(PAGESIZE);
