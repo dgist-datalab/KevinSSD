@@ -33,7 +33,6 @@ int gc_header(){
 	//printf("gc_header %u\n",gc_cnt++);
 	//printf("gc_header %u",gc_cnt++);
 	LSM.header_gc_cnt++;
-	//LSM.lop->all_print();
 	gc_general_wait_init();
 	lsm_io_sched_flush();
 
@@ -208,10 +207,7 @@ int gc_data(){
 int __gc_data(){
 	//static int gc_d_cnt=0;
 	//printf("%d gc_data!\n",gc_d_cnt++);
-	/*
-	if(gc_d_cnt==27){
-		LSM.debug_flag=true;
-	}*/
+
 	/*
 	if(LSM.LEVELN!=1){
 		compaction_force();
@@ -534,16 +530,9 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 
 	while(done_cnt!=size){
 		cnttt++;
-		/*
-		if(LSM.debug_flag){
-			printf("round :%d\n",cnttt);
-		}*/
 		for(int i=0; i<size; i++){
 			if(g[i]->status==DONE) continue;
 			gc_node *target=g[i];
-			/*
-			if(LSM.debug_flag){
-			}*/
 			switch(target->status){
 				case NOTISSUE:
 					params=(gc_params*)malloc(sizeof(gc_params));

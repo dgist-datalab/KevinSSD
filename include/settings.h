@@ -43,16 +43,13 @@
 
 #elif defined(SLC)
 
-
 #define GIGAUNIT 16L
 #define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
 #define PAGESIZE (8*K)
-#define _PPB (128)
-#define OPPB (256)
+#define _PPB (256)
 #define BPS (64)
-#define OPPS (1<<14)
 #define _PPS (_PPB*BPS)
 #define PUNIT (64)
 
@@ -139,7 +136,7 @@ static inline bool KEYVALCHECK(KEYT a){
 #define ASYNC 1
 #define QSIZE (1024)
 #define LOWQDEPTH (64)
-#define QDEPTH (64)
+#define QDEPTH (128)
 
 #define THPOOL
 #define NUM_THREAD 4

@@ -1,5 +1,6 @@
 #include "../../include/settings.h"
 #include "../../bench/measurement.h"
+#include "../../blockmanager/bb_checker.h"
 #include "../../algorithm/Lsmtree/lsmtree.h"
 #include "frontend/libmemio/libmemio.h"
 #include "devices/nohost/dm_nohost.h"
@@ -9,9 +10,9 @@
 #include <limits.h>
 #include <string.h>
 pthread_mutex_t test_lock;
-
-memio_t *mio;
 extern lsmtree LSM;
+extern bb_checker checker;
+memio_t *mio;
 lower_info memio_info={
 	.create=memio_info_create,
 	.destroy=memio_info_destroy,
@@ -31,7 +32,6 @@ lower_info memio_info={
 	.hw_get_inv=memio_get_inv
 };
 
-MeasureTime li_tt;
 uint32_t memio_info_create(lower_info *li, blockmanager *bm){
 	li->NOB=_NOB;
 	li->NOP=_NOP;
@@ -40,7 +40,7 @@ uint32_t memio_info_create(lower_info *li, blockmanager *bm){
 	li->SOK=sizeof(uint32_t);
 	li->PPB=_PPB;
 	li->TS=TOTALSIZE;
-	measure_init(&li_tt);
+
 	li->write_op=li->read_op=li->trim_op=0;
 	pthread_mutex_init(&memio_info.lower_lock,NULL);
 	measure_init(&li->writeTime);
@@ -72,7 +72,6 @@ void *memio_info_destroy(lower_info *li){
 
 	li->write_op=li->read_op=li->trim_op=0;
 	memio_close(mio);
-
 	return NULL;
 }
 
@@ -86,12 +85,15 @@ void *memio_info_push_data(uint32_t ppa, uint32_t size, value_set *value, bool a
 	if(t_type < LREQ_TYPE_NUM){
 		memio_info.req_type_cnt[t_type]++;
 	}
-	memio_write(mio,ppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
+
+	bb_node t=checker.ent[ppa>>14];
+	uint32_t fppa=bb_checker_fix_ppa(t.flag,t.fixed_segnum,t.pair_segnum,ppa);
+	memio_write(mio,fppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
+	//memio_write(mio,bb_checker_fix_ppa(checker,ppa),(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	//memio_write(mio,ppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	//pthread_mutex_lock(&test_lock);
 	return NULL;
 }
-
 void *memio_info_pull_data(uint32_t ppa, uint32_t size, value_set *value, bool async, algo_req *const req){
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
@@ -102,26 +104,24 @@ void *memio_info_pull_data(uint32_t ppa, uint32_t size, value_set *value, bool a
 		memio_info.req_type_cnt[t_type]++;
 	}
 
-	memio_read(mio,ppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
-	//memio_read(mio,ppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
-	//pthread_mutex_lock(&test_lock);
+	bb_node t=checker.ent[ppa>>14];
+	uint32_t fppa=bb_checker_fix_ppa(t.flag,t.fixed_segnum,t.pair_segnum,ppa);
+	memio_write(mio,fppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	return NULL;
 }
 
 void *memio_info_trim_block(uint32_t ppa, bool async){
 	//int value=memio_trim(mio,bb_checker_fix_ppa(ppa),(1<<14)*PAGESIZE,NULL);
-	uint32_t fppa=ppa;
 	uint32_t block_n=ppa>>14;
 	int value;
-	/*
-	if(t->flag){
-		value=memio_trim(mio,fppa,(1<<14)*PAGESIZE, NULL);
+	if(checker.ent[block_n].flag){
+		value=memio_trim(mio,checker.ent[block_n].fixed_segnum,(1<<14)*PAGESIZE, NULL);
 	}
-	else{*/
+	else{
 		value=memio_trim(mio,ppa,(1<<14)*PAGESIZE, NULL);
-	//}
+	}
 	
-	//value=memio_trim(mio,t->pair_segnum,(1<<14)*PAGESIZE,NULL);
+	value=memio_trim(mio,checker.ent[block_n].pair_segnum,(1<<14)*PAGESIZE,NULL);
 	
 	memio_info.req_type_cnt[TRIM]++;
 	if(value==0){
@@ -146,8 +146,6 @@ void *memio_badblock_checker(uint32_t ppa,uint32_t size, void*(*process)(uint64_
 
 void *memio_info_trim_a_block(uint32_t ppa, bool async){
 	memio_info.req_type_cnt[TRIM]++;
-
-	/*
 	uint32_t pp=ppa%BPS;
 	uint32_t block_n=ppa>>14;
 	if(checker.ent[block_n].flag){
@@ -155,8 +153,8 @@ void *memio_info_trim_a_block(uint32_t ppa, bool async){
 	}
 	else{
 		memio_trim_a_block(mio,ppa);
-	}*/
-	memio_trim_a_block(mio,ppa);
+	}
+	memio_trim_a_block(mio,checker.ent[block_n].pair_segnum+pp);
 	return NULL;
 }
 
@@ -172,9 +170,9 @@ void memio_show_info_(){
 }
 
 void change_ppa_list(uint32_t *des, uint32_t *src, uint32_t num){
-	for(uint32_t i=0; i<num; i++){
-		//des[i]=bb_checker_fix_ppa(checker,src[i]);
-	}
+//	for(uint32_t i=0; i<num; i++){
+//		des[i]=bb_checker_fix_ppa(checker,src[i]);
+//	}
 }
 
 uint32_t memio_do_merge(uint32_t lp_num, ppa_t *lp_array, uint32_t hp_num,ppa_t *hp_array,ppa_t *tp_array, uint32_t* ktable_num, uint32_t *invalidate_num){

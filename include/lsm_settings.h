@@ -8,11 +8,11 @@
 #define KEYBITMAP 1024
 #endif
 
-#define RAF 1.0
+#define RAF 0.1
 
 #if LEVELN!=1
 #define BLOOM
-//#define MONKEY
+#define MONKEY
 #endif
 
 

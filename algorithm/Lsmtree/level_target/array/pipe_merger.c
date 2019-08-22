@@ -51,9 +51,9 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 
 	r_data=(char**)calloc(sizeof(char*),(o_num+u_num));
 	p_body *lp, *hp;
-	lp=pbody_init(o_data,o_num,NULL,false);
-	hp=pbody_init(u_data,u_num,NULL,false);
-	rp=pbody_init(r_data,o_num+u_num,NULL,false);
+	lp=pbody_init(o_data,o_num,NULL,false,d->fpr,false);
+	hp=pbody_init(u_data,u_num,NULL,false,d->fpr,false);
+	rp=pbody_init(r_data,o_num+u_num,NULL,false,d->fpr,true);
 
 	uint32_t lppa, hppa, rppa;
 	KEYT lp_key=pbody_get_next_key(lp,&lppa);
@@ -98,7 +98,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 			}
 		}
 	
-		if((pbody_insert_new_key(rp,insert_key,rppa,false))){
+		if((pbody_insert_new_key(rp,insert_key,rppa,false,NULL))){
 			result_cnt++;
 		}
 		
@@ -110,7 +110,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 		}
 	}
 
-	if((pbody_insert_new_key(rp,insert_key,0,true))){
+	if((pbody_insert_new_key(rp,insert_key,0,true,NULL))){
 			result_cnt++;
 	}
 
@@ -121,7 +121,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	pbody_clear(hp);
 }
 
-run_t *array_pipe_make_run(char *data){
+run_t *array_pipe_make_run(char *data, BF *f){
 	htable *res=LSM.nocpy?htable_assign(data,0):htable_assign(data,1);
 	KEYT start,end;
 	uint16_t *body=(uint16_t*)data;
@@ -136,7 +136,7 @@ run_t *array_pipe_make_run(char *data){
 	run_t *r=array_make_run(start,end,-1);
 	r->cpt_data=res;
 #ifdef BLOOM
-	r->filter=array_making_filter(r,num,t_fpr);
+	r->filter=f;
 #endif
 	free(data);
 	return r;
@@ -144,12 +144,13 @@ run_t *array_pipe_make_run(char *data){
 
 run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end){
 	char *data;
+	BF **f;
 	if(cutter_start){
 		cutter_start=false;
-		data=pbody_get_data(rp,true);
+		data=pbody_get_data(rp,true,f);
 	}
 	else{
-		data=pbody_get_data(rp,false);
+		data=pbody_get_data(rp,false,f);
 	}
 	if(!data) {
 		free(r_data);
@@ -157,7 +158,7 @@ run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KE
 		return NULL;
 	}
 
-	return array_pipe_make_run(data);
+	return array_pipe_make_run(data,*f);
 }
 
 run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data, uint32_t u_num, uint32_t l_num,level *d, void *(*lev_insert_write)(level *,run_t *data)){
@@ -169,14 +170,14 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 		u_data[0].lock=(fdriver_lock_t*)malloc(sizeof(fdriver_lock_t));
 		fdriver_lock_init(u_data[0].lock,1);
 		skip_data=array_skip_cvt2_data(skip);
-		u_data[0].r=array_pipe_make_run(skip_data);
+		u_data[0].r=array_pipe_make_run(skip_data,NULL);
 	}
 
 	p_body *lp, *hp, *p_rp;
 	char **r_datas=(char**)calloc(sizeof(char*),(u_num+l_num));
-	lp=pbody_init(NULL,l_num,l_data,true);
-	hp=pbody_init(NULL,u_num,u_data,true);
-	p_rp=pbody_init(r_datas,u_num+l_num,NULL,false);
+	lp=pbody_init(NULL,l_num,l_data,true,d->fpr,false);
+	hp=pbody_init(NULL,u_num,u_data,true,d->fpr,false);
+	p_rp=pbody_init(r_datas,u_num+l_num,NULL,false,d->fpr,true);
 
 	uint32_t lppa, hppa, p_rppa;
 	KEYT lp_key=pbody_get_next_key(lp,&lppa);
@@ -185,6 +186,7 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 	int next_pop=0;
 	int result_cnt=0;
 	char *res_data;
+	BF **filter;
 	while(!(lp_key.len==UINT8_MAX && hp_key.len==UINT8_MAX)){
 		if(lp_key.len==UINT8_MAX){
 			insert_key=hp_key;
@@ -222,8 +224,8 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 			}
 		}
 	
-		if((res_data=pbody_insert_new_key(p_rp,insert_key,p_rppa,false))){
-			lev_insert_write(d,array_pipe_make_run(res_data));
+		if((res_data=pbody_insert_new_key(p_rp,insert_key,p_rppa,false,filter))){
+			lev_insert_write(d,array_pipe_make_run(res_data,*filter));
 			result_cnt++;
 		}
 		
@@ -235,18 +237,18 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 		}
 	}
 	
-	if((res_data=pbody_insert_new_key(p_rp,insert_key,0,true))){
-		lev_insert_write(d,array_pipe_make_run(res_data));
+	if((res_data=pbody_insert_new_key(p_rp,insert_key,0,true,filter))){
+		lev_insert_write(d,array_pipe_make_run(res_data,*filter));
 		result_cnt++;
 	}
 
-	res_data=pbody_get_data(p_rp,false);
+	res_data=pbody_get_data(p_rp,false,filter);
 	do{
 		if(!res_data) break;
-		lev_insert_write(d,array_pipe_make_run(res_data));
+		lev_insert_write(d,array_pipe_make_run(res_data,*filter));
 		result_cnt++;
 	}
-	while((res_data=pbody_get_data(p_rp,false)));
+	while((res_data=pbody_get_data(p_rp,false,filter)));
 
 	if(skip){
 		fdriver_destroy(u_data[0].lock);

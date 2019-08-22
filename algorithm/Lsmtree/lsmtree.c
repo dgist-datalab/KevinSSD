@@ -494,13 +494,16 @@ uint32_t lsm_get(request *const req){
 		//		cache_print(LSM.lsm_cache);
 	}
 	lsm_proc_re_q();
+	static MeasureTime aaa;
 	if(!temp){
 		//printf("nocpy size:%d\n",nocpy_size()/M);
 		//printf("lsmtree size:%d\n",lsm_memory_size()/M);
 	//	LSM.lop->all_print();
 		temp=true;
+		LSM.lop->print_level_summary();
+		LSM.debug_flag=true;
 	}
-
+	
 	res_type=__lsm_get(req);
 	if(!debug && LSM.disk[0]->n_num>0){
 		debug=true;
@@ -742,7 +745,7 @@ uint32_t __lsm_get(request *const req){
 	lsm_params *params;
 	uint8_t result=0;
 	int *temp_data;
-	LSM.readstart=true;
+
 	if(req->params==NULL){
 		/*memtable*/
 		res=__lsm_get_sub(req,NULL,NULL,LSM.memtable);

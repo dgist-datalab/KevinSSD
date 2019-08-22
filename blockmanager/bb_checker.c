@@ -1,7 +1,6 @@
 #include "bb_checker.h"
 #include "../interface/interface.h"
 #include "../include/sem_lock.h"
-#include "../bench/measurement.h"
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -13,7 +12,7 @@ uint32_t array[128];
 fdriver_lock_t bb_lock;
 //#define STARTBLOCKCHUNK 3
 char *data_checker_data;
-extern MeasureTime li_tt;
+
 typedef struct temp_params{
 	uint32_t ppa;
 	value_set *v;
@@ -22,19 +21,18 @@ void *temp_end_req(algo_req *temp){
 	static int cnt=0;
 	tp *params=(tp*)temp->params;
 	uint32_t seg=params->ppa>>14;
-	int cmp=0;//memcmp(params->v->value,data_checker_data,PAGESIZE);
+	int cmp=memcmp(params->v->value,data_checker_data,PAGESIZE);
 	if(!checker.ent[seg].flag && cmp){
 		checker.ent[seg].flag=true;
 		printf("new badblock %u\n",seg<<14);
 	}
 	
 	inf_free_valueset(params->v,FS_GET_T);
-	/*
 	if(++cnt%10==0){
-		printf("\rread bb_checking....[ %lf ]",(double)cnt/(_RNOS*OPPS)*100);
+		printf("\rread bb_checking....[ %lf ]",(double)cnt/(_RNOS*_PPS)*100);
 		fflush(stdout);
-	}*/
-	if(++cnt==(5*OPPS)){
+	}
+	if(cnt==(_RNOS*_PPS)){
 		fdriver_unlock(&bb_lock);
 	}
 	free(temp);
@@ -45,7 +43,7 @@ void *temp_end_req(algo_req *temp){
 void bb_read_bb_checker(lower_info *li){
 	algo_req *temp;
 	tp *params;
-	for(uint32_t i=0; i<5*OPPS; i++){
+	for(uint32_t i=0; i<_RNOS*_PPS; i++){
 		temp=(algo_req*)calloc(sizeof(algo_req),1);
 		temp->type=FS_GET_T;
 		temp->end_req=temp_end_req;
@@ -57,7 +55,7 @@ void bb_read_bb_checker(lower_info *li){
 		li->read(i,PAGESIZE,params->v,ASYNC,temp);
 	}
 }
-MeasureTime test;
+
 void bb_checker_start(lower_info *li){
 	memset(&checker,0,sizeof(checker));
 	target_cnt=_RNOS*64;
@@ -68,43 +66,32 @@ void bb_checker_start(lower_info *li){
 	checker.start_block=checker.assign;
 	checker.map_first=true;
 	printf("start block number : %d\n",checker.assign);
-/*
-	printf("read badblock checking\n");
-	data_checker_data=(char*)malloc(PAGESIZE);
-	memset(data_checker_data,-1,PAGESIZE);
-	measure_init(&test);
-	measure_start(&test);
-	fdriver_lock_init(&bb_lock,0);
-	bb_read_bb_checker(li);
-	fdriver_lock(&bb_lock);
-	free(data_checker_data);
-	measure_adding(&test);
-	measure_adding_print(&test);
-	measure_adding_print(&li_tt);
-	printf("read badblock checking done\n");
-	exit(1);
-*/
 	for(uint64_t i=0; i<_RNOS; i++){
-		checker.ent[i].origin_segnum=i*OPPS;
+		checker.ent[i].origin_segnum=i*_PPS;
 		checker.ent[i].deprived_from_segnum=UINT_MAX;
 		if(!li->device_badblock_checker){
 			_cnt+=BPS;
 			continue;
 		}
-		li->device_badblock_checker(i*OPPS,OPPS*PAGESIZE,bb_checker_process);
+		li->device_badblock_checker(i*_PPS,_PPS*PAGESIZE,bb_checker_process);
 		//memio_trim(mio,i*(1<<14),(1<<14)*PAGESIZE,bb_checker_process);
 	}
 
 	while(target_cnt!=_cnt){}
 	printf("\n");
 //	bb_checker_process(0,true);
-
-
+	data_checker_data=(char*)malloc(PAGESIZE);
+	memset(data_checker_data,-1,PAGESIZE);
+/*	printf("read badblock checking");
+	fdriver_lock_init(&bb_lock,0);
+	bb_read_bb_checker(li);
+	fdriver_lock(&bb_lock);*/
+	free(data_checker_data);
 	printf("badblock_cnt: %lu\n",badblock_cnt);
 	bb_checker_fixing();
 	printf("checking done!\n");	
 
-
+	//exit(1);
 	return;
 }
 
@@ -124,12 +111,13 @@ void *bb_checker_process(uint64_t bad_seg,uint8_t isbad){
 }
 
 uint32_t bb_checker_get_segid(){
+	/*
 	uint32_t res=0;
 	if(checker.ent[checker.assign].flag){
 		res=checker.ent[checker.assign++].fixed_segnum;
 	}else{
 		res=checker.ent[checker.assign++].origin_segnum;
-	}
+	}*/
 	return checker.ent[checker.assign++].origin_segnum;
 }
 
@@ -171,7 +159,6 @@ void bb_checker_fixing(){/*
 			max_segnum--;
 			test_cnt=0;
 		}
-		/*
 		//find pair segment;
 		while(checker.ent[max_segnum-test_cnt].flag){
 			test_cnt++;
@@ -183,7 +170,7 @@ void bb_checker_fixing(){/*
 		max_segnum-=test_cnt;
 		checker.ent[start_segnum].pair_segnum=checker.ent[max_segnum].origin_segnum;
 		checker.ent[max_segnum].pair_segnum=checker.ent[start_segnum].origin_segnum;
-		max_segnum--;*/
+		max_segnum--;
 		start_segnum++;
 	}
 	

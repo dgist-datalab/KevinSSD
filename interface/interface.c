@@ -168,6 +168,7 @@ uint64_t inter_cnt;
 bool force_write_start;
 int write_stop;
 static request *get_next_request(processor *pr){
+
 	void *_inf_req=NULL;
 	if(force_write_start || (write_stop && pr->req_q->size==QDEPTH) || sync_apps)
 		write_stop=false;
@@ -217,6 +218,7 @@ void *p_main(void *__input){
 				if(first_get){
 					first_get=false;
 				}
+			//	printf("%d now %d max\n",inf_cond->cnt,inf_cond->now);
 				mp.algo->read(inf_req);
 				break;
 			case FS_SET_T:

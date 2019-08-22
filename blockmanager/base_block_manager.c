@@ -216,7 +216,12 @@ int base_unpopulate_bit (struct blockmanager* bm, uint32_t ppa){
 	}
 	b->bitset[bt]&=~(1<<of);
 	b->invalid_number++;
-
+	/*
+	if(0<=ppa && ppa< _PPS*MAPPART_SEGS){
+		if(b->invalid_number>_PPB){
+			abort();
+		}
+	}*/
 	return res;
 }
 
@@ -280,8 +285,7 @@ int base_get_page_num(struct blockmanager* bm,__segment *s){
 	int blocknumber=s->now++;
 	if(s->now==BPS) s->now=0;
 	__block *b=s->blocks[blocknumber];
-	uint32_t page=FIXPPA(b->now);
-	b->now++;
+	uint32_t page=b->now++;
 	int res=b->block_num;
 	res+=page<<6;
 	res+=b->punit_num;

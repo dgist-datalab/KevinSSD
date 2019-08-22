@@ -145,9 +145,6 @@ last:
 	//printf("ending\n");
 	LSM.c_level=NULL;
 	//LSM.lop->print_level_summary();
-	/*
-	if(LSM.debug_flag)
-		LSM.lop->all_print();*/
 
 	if(LSM.nocpy){
 		gc_nocpy_delay_erase(LSM.delayed_trim_ppa);

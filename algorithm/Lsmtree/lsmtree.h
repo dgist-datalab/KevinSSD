@@ -112,7 +112,6 @@ typedef struct lsmtree{
 	uint32_t added_header;
 
 	bool debug_flag;
-	bool readstart;
 
 	level **disk;
 	level *c_level;
