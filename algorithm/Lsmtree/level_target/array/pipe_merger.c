@@ -53,7 +53,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	p_body *lp, *hp;
 	lp=pbody_init(o_data,o_num,NULL,false,d->fpr,false);
 	hp=pbody_init(u_data,u_num,NULL,false,d->fpr,false);
-	rp=pbody_init(r_data,o_num+u_num,NULL,false,d->fpr,true);
+	rp=pbody_init(r_data,o_num+u_num+LSM.result_padding,NULL,false,d->fpr,true);
 
 	uint32_t lppa, hppa, rppa;
 	KEYT lp_key=pbody_get_next_key(lp,&lppa);
@@ -177,7 +177,7 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 	char **r_datas=(char**)calloc(sizeof(char*),(u_num+l_num));
 	lp=pbody_init(NULL,l_num,l_data,true,d->fpr,false);
 	hp=pbody_init(NULL,u_num,u_data,true,d->fpr,false);
-	p_rp=pbody_init(r_datas,u_num+l_num,NULL,false,d->fpr,true);
+	p_rp=pbody_init(r_datas,u_num+l_num+LSM.result_padding,NULL,false,d->fpr,true);
 
 	uint32_t lppa, hppa, p_rppa;
 	KEYT lp_key=pbody_get_next_key(lp,&lppa);

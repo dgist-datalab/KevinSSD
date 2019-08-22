@@ -112,6 +112,7 @@ uint32_t lsm_create(lower_info *li,blockmanager *bm, algorithm *lsm){
 #else
 	__lsm_create_normal(li,lsm);
 #endif
+	LSM.result_padding=2;
 	return res;
 }
 
@@ -136,7 +137,6 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	lsm_bind_ops(&LSM);
 	LSM.memtable=skiplist_init();
 	LSM.debug_flag=false;
-	//SIZEFACTOR=get_sizefactor(TOTALSIZE);
 	SIZEFACTOR=get_sizefactor(RANGE,LSM.FLUSHNUM);
 	LSM.size_factor=SIZEFACTOR;
 	unsigned long long sol;
