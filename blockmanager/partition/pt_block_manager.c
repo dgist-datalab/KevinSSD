@@ -34,6 +34,7 @@ struct blockmanager pt_bm={
 	.pt_remain_page=pbm_pt_remain_page,
 	.pt_isgc_needed=pbm_pt_isgc_needed,
 	.change_pt_reserve=pbm_change_pt_reserve,
+	.pt_reserve_to_free=pbm_reserve_to_free,
 };
 
 void pt_mh_swap_hptr(void *a, void *b){
@@ -225,7 +226,7 @@ __segment* pbm_change_pt_reserve(blockmanager *bm, int pt_num, __segment* reserv
 }
 
 __gsegment* pbm_pt_get_gc_target(blockmanager* bm, int pnum){
-	__gsegment *res=(__gsegment*)malloc(sizeof(__gsegment));
+	__gsegment *res=(__gsegment*)calloc(sizeof(__gsegment),1);
 	bbm_pri *p=(bbm_pri*)bm->private_data;
 	p_info *pinfo=(p_info*) p->private_data;
 	res->now=0;
@@ -263,8 +264,9 @@ __gsegment* pbm_pt_get_gc_target(blockmanager* bm, int pnum){
 	}
 	if(invalidate_number==0){
 		printf("invalidate number 0 at %s\n",pnum==DATA_S?"DATA":"MAP");
-		abort();
+		//abort();
 	}
+	res->invalidate_number=invalidate_number;
 	return res;
 }
 
@@ -286,6 +288,9 @@ void pbm_pt_trim_segment(blockmanager* bm, int pnum, __gsegment *target, lower_i
 		channel *c=&pinfo->p_channel[pnum][i];
 	//	mh_insert_append(c->max_heap,(void*)b);
 		q_enqueue((void*)b,c->free_block);
+		if(pnum==MAP_S){
+			//printf("free block :%d\n",c->free_block->size);
+		}
 		if(pnum==DATA_S){
 			rb_find_int(p->seg_map,b->seg_idx,&target_node);
 			target_seg=(__segment*)target_node->item;
@@ -329,4 +334,40 @@ bool pbm_pt_isgc_needed(struct blockmanager* bm, int pt_num){
 	p_info *pinfo=(p_info*) p->private_data;
 
 	return pinfo->p_channel[pt_num][0].free_block->size==0;
+}
+
+uint32_t pbm_reserve_to_free(struct blockmanager *bm, int pnum,__segment *reserve){
+	bbm_pri *p=(bbm_pri*)bm->private_data;
+	p_info *pinfo=(p_info*) p->private_data;
+	Redblack target_node;
+	__segment *target_seg;
+
+	for(int i=0; i<BPS;i++){
+		__block* b=reserve->blocks[i];
+		if(b->invalid_number){
+			printf("it can't have invalid_number\n");
+			abort();
+		}
+		b->invalid_number=0;
+		b->now=0;
+		channel *c=&pinfo->p_channel[pnum][i];
+	//	mh_insert_append(c->max_heap,(void*)b);
+		q_enqueue((void*)b,c->free_block);
+		if(pnum==MAP_S){
+	//		printf("free block :%d\n",c->free_block->size);
+		}
+		if(pnum==DATA_S){
+			rb_find_int(p->seg_map,b->seg_idx,&target_node);
+			target_seg=(__segment*)target_node->item;
+			target_seg->invalid_blocks++;
+			if(target_seg->invalid_blocks==BPS){
+				//printf("delete segment!\n");
+				free(target_seg);
+				rb_delete(target_node,true);
+			}
+		}
+	}
+	free(reserve);
+	pinfo->now_assign[pnum]--;
+	return 1;
 }

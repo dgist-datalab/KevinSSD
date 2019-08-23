@@ -34,7 +34,10 @@ void pm_init(){
 	map_m.reserve=bm->pt_get_segment(bm,MAP_S,true);
 	map_m.target=NULL;
 	map_m.active=NULL;
-
+	if(LSM.comp_opt==HW){
+		q_init(&map_m.erased_q,_PPS);
+	}
+	
 	fdriver_mutex_init(&gc_wait);
 }
 
@@ -82,6 +85,10 @@ retry:
 			if(bm->pt_isgc_needed(bm,MAP_S)){
 				bm->check_full(bm,t->active,MASTER_PAGE);
 				gc_header();
+				if(!t->reserve){
+					change_new_reserve(MAP_S);
+				}
+				//abort();
 				goto retry;
 			}
 			t->active=bm->pt_get_segment(bm,MAP_S,false);
@@ -91,9 +98,16 @@ retry:
 		printf("fuck! no type getPPA");
 		abort();
 	}
-	res=bm->get_page_num(bm,t->active);
+	if(type==HEADER && LSM.comp_opt==HW && map_m.erased_q->size){
+		void *t=q_dequeue(map_m.erased_q);
+		res=*(uint32_t*)t;
+		free(t);
+	}
+	else
+		res=bm->get_page_num(bm,t->active);
 	if(res==UINT_MAX){
 		printf("cnt:%d\n",cnt);
+		abort();
 	}
 
 //	printf("%d\n",res);
@@ -101,7 +115,7 @@ retry:
 	return res;
 }
 
-uint32_t getRPPA(uint8_t type,KEYT lpa, bool b){
+uint32_t getRPPA(uint8_t type,KEYT lpa, bool b,__gsegment *issame_bl){
 	pm *t;
 	blockmanager *bm=LSM.bm;
 	uint32_t res=-1;
@@ -114,7 +128,21 @@ uint32_t getRPPA(uint8_t type,KEYT lpa, bool b){
 		printf("fuck! no type getPPA");
 		abort();
 	}
-	res=bm->get_page_num(bm,t->reserve);
+	
+	if(type==HEADER){
+		if(LSM.bm->check_full(LSM.bm,t->active,MASTER_BLOCK)){	
+			if(issame_bl->blocks[0]->block_num==map_m.active->blocks[0]->block_num){
+				printf("can't be\n");
+				abort();
+			}
+			LSM.bm->pt_reserve_to_free(LSM.bm,MAP_S,t->reserve);
+			t->reserve=NULL;
+			t->active=bm->pt_get_segment(bm,MAP_S,false);
+		//	printf("no tseg, reserve to active\n");
+		}
+
+		res=bm->get_page_num(bm,t->active);
+	}
 	validate_PPA(type,res);
 	return res;
 }
@@ -143,6 +171,7 @@ retry:
 		if(!t->active || bm->check_full(bm,t->active,MASTER_BLOCK)){
 			if(bm->pt_isgc_needed(bm,MAP_S)){
 				gc_header();
+				abort();
 				goto retry;
 			}
 			t->active=bm->pt_get_segment(bm,DATA_S,false);
@@ -228,6 +257,9 @@ bool invalidate_PPA(uint8_t type,uint32_t ppa){
 			return false;
 		}
 	}
+	if(res==4663824){
+		printf("invalidate!\n");
+	}
 	return true;
 }
 
@@ -279,6 +311,11 @@ void erase_PPA(uint8_t type,uint32_t ppa){
 	int res=LSM.bm->erase_bit(LSM.bm,t_p);
 	if(!res && type==HEADER){
 		abort();
+	}
+	if(type==HEADER){
+		uint32_t *temp=(uint32_t*)malloc(sizeof(uint32_t));
+		*temp=ppa;
+		q_enqueue((void*)temp,map_m.erased_q);
 	}
 }
 
@@ -492,10 +529,23 @@ bool page_check_available(uint8_t type, uint32_t needed_page){
 		t->active=bm->pt_get_segment(bm,MAP_S,false);
 	}
 	uint32_t res=bm->pt_remain_page(bm,t->active,MAP_S);
+	static int cnt=0;
+	if(cnt==1332 || cnt==1324){
+		//printf("break!\n");
+	}
+	//printf("%d\n",cnt++);
+
 	if(res<needed_page){
-		if(type==HEADER) gc_header();
+retry:
+		int t_res;
+		if(type==HEADER) t_res=gc_header();
+		if(!t->reserve){
+			change_new_reserve(MAP_S);
+		}
 		res=bm->pt_remain_page(bm,t->active,MAP_S);
-		if(res<needed_page) abort();
+		if(res<needed_page){
+			goto retry;
+		}
 	}
 	return true;
 }

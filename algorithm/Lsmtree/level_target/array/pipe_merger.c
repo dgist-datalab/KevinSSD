@@ -26,7 +26,21 @@ char *array_skip_cvt2_data(skiplist *mem){
 	bitmap[idx]=data_start;
 	return res;
 }
-
+void temp_func(char* body, level *d, bool insert){
+	int idx;
+	uint16_t *bitmap=(uint16_t*)body;
+	KEYT key;
+	ppa_t *ppa_ptr;
+	for_each_header_start(idx,key,ppa_ptr,bitmap,body)
+		if(KEYCONSTCOMP(key,"215155000000")==0){
+			if(insert)
+				printf("insert into %d\n",d->idx);
+			else{
+				printf("cutter %d\n",d->idx);
+			}
+		}
+	for_each_header_end
+}
 void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	cutter_start=true;
 	int o_num=0; int u_num=0;
@@ -38,16 +52,23 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 		u_num=1;
 		u_data=(char**)malloc(sizeof(char*)*u_num);
 		u_data[0]=array_skip_cvt2_data(mem);
+//		temp_func(u_data[0],d,true);
 	}
 	else{
 		for(int i=0; s[i]!=NULL; i++) u_num++;
 		u_data=(char**)malloc(sizeof(char*)*u_num);
-		for(int i=0; i<u_num; i++) {u_data[i]=data_from_run(s[i]);}
+		for(int i=0; i<u_num; i++) {
+			u_data[i]=data_from_run(s[i]);
+			//temp_func(u_data[i],d,true);
+		}
 	}
 
 	for(int i=0;o[i]!=NULL ;i++) o_num++;
 	char **o_data=(char**)malloc(sizeof(char*)*o_num);
-	for(int i=0; o[i]!=NULL; i++){ o_data[i]=data_from_run(o[i]);}
+	for(int i=0; o[i]!=NULL; i++){ 
+		o_data[i]=data_from_run(o[i]);
+		//temp_func(o_data[i],d,true);
+	}
 
 	r_data=(char**)calloc(sizeof(char*),(o_num+u_num+LSM.result_padding));
 	p_body *lp, *hp;
@@ -97,6 +118,10 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 				insert_key=hp_key;
 			}
 		}
+		/*
+		if(KEYCONSTCOMP(insert_key,"215155000000")==0){
+			printf("----real insert into %d\n",d->idx);
+		}*/
 #ifdef BLOOM
 		if((pbody_insert_new_key(rp,insert_key,rppa,false,NULL)))
 #else
@@ -114,9 +139,9 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 		}
 	}
 #ifdef BLOOM
-	if((pbody_insert_new_key(rp,insert_key,rppa,false,NULL)))
+	if((pbody_insert_new_key(rp,insert_key,rppa,true,NULL)))
 #else
-	if((pbody_insert_new_key(rp,insert_key,rppa,false)))
+	if((pbody_insert_new_key(rp,insert_key,rppa,true)))
 #endif
 		{
 			result_cnt++;
@@ -179,6 +204,8 @@ run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KE
 		pbody_clear(rp);
 		return NULL;
 	}
+	
+	//temp_func(data,d,false);
 #ifdef BLOOM
 	return array_pipe_make_run(data,f);
 #else

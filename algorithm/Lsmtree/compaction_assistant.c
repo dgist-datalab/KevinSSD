@@ -498,6 +498,7 @@ bool htable_read_preproc(run_t *r){
 		r->cpt_data=htable_assign(NULL,false);
 		r->cpt_data->iscached=0;
 	}
+
 	if(!r->iscompactioning) r->iscompactioning=COMP;
 	return res;
 }

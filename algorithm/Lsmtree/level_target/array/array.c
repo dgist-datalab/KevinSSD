@@ -700,7 +700,9 @@ void array_print_level_summary(){
 			if(LSM.disk[i]->n_num==0){
 				printf("[%d] n_num:%d m_num:%d\n",i+1,LSM.disk[i]->n_num,LSM.disk[i]->m_num);
 			}
-			printf("[%d] n_num:%d m_num:%d %.*s ~ %.*s\n",i+1,LSM.disk[i]->n_num,LSM.disk[i]->m_num,KEYFORMAT(LSM.disk[i]->start),KEYFORMAT(LSM.disk[i]->end));
+			else {
+				printf("[%d] n_num:%d m_num:%d %.*s ~ %.*s\n",i+1,LSM.disk[i]->n_num,LSM.disk[i]->m_num,KEYFORMAT(LSM.disk[i]->start),KEYFORMAT(LSM.disk[i]->end));
+			}
 		}
 	}	
 }

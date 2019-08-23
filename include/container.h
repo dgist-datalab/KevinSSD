@@ -223,6 +223,7 @@ struct blockmanager{
 	int (*pt_remain_page)(struct blockmanager*, __segment *active,int pt_num);
 	bool (*pt_isgc_needed)(struct blockmanager*, int pt_num);
 	__segment* (*change_pt_reserve)(struct blockmanager *,int pt_num, __segment *reserve);
+	uint32_t (*pt_reserve_to_free)(struct blockmanager*, int pt_num, __segment *reserve);
 
 	lower_info *li;
 	void *private_data;

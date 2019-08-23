@@ -38,9 +38,23 @@ int gc_header(){
 
 	blockmanager *bm=LSM.bm;
 	__gsegment *tseg=bm->pt_get_gc_target(bm,MAP_S);
+	//printf("gh : %d\n",tseg->blocks[0]->block_num);
 	if(!tseg){
 		printf("error invalid gsegment!\n");
 		abort();
+	}
+
+	//printf("inv number:%d\n",tseg->invalidate_number);
+	if(tseg->invalidate_number==0){
+		LSM.lop->print_level_summary();
+		printf("device full!\n");
+		abort();
+	}
+	if(tseg->blocks[0]->block_num==map_m.active->blocks[0]->block_num){
+		free(map_m.active);
+	//	printf("tseg, reserve to active\n");
+		map_m.active=map_m.reserve;
+		map_m.reserve=NULL;
 	}
 
 	htable_t **tables=(htable_t**)malloc(sizeof(htable_t*)*_PPS);
@@ -132,7 +146,7 @@ int gc_header(){
 			i++;
 			continue;
 		}
-		uint32_t n_ppa=getRPPA(HEADER,*lpa,true);
+		uint32_t n_ppa=getRPPA(HEADER,*lpa,true,tseg);
 		target_entry->pbn=n_ppa;
 		if(LSM.nocpy)nocpy_force_freepage(tpage);
 		gc_data_write(n_ppa,tables[i],false);
@@ -141,10 +155,7 @@ int gc_header(){
 		i++;
 		continue;
 	}
-	
-	if(tseg->invalidate_number!=invalidate_cnt){
-		//	abort();
-	}
+
 	free(tables);
 	for_each_page_in_seg(tseg,tpage,bidx,pidx){
 		if(LSM.nocpy) nocpy_trim_delay_enq(tpage);
@@ -152,10 +163,13 @@ int gc_header(){
 			lb_free((lsm_block*)tseg->blocks[bidx]->private_data);
 		}
 	}
+	int res=0;
 	bm->pt_trim_segment(bm,MAP_S,tseg,LSM.li);
-	change_reserve_to_active(HEADER);
+	if(tseg->blocks[0]->block_num == map_m.active->blocks[0]->block_num){
+		res=1;
+	}
 	free(tseg);
-	return 0;
+	return res;
 }
 
 extern bool target_ppa_invalidate;
@@ -205,9 +219,8 @@ int gc_data(){
 	return 1;
 }
 int __gc_data(){
-	//static int gc_d_cnt=0;
-	//printf("%d gc_data!\n",gc_d_cnt++);
-
+	static int gc_d_cnt=0;
+	printf("%d gc_data!\n",gc_d_cnt++);
 	/*
 	if(LSM.LEVELN!=1){
 		compaction_force();
@@ -224,7 +237,7 @@ int __gc_data(){
 	int bidx=0;
 	int pidx=0;
 	int i=0;
-
+	//printf("invalidate number:%d\n",tseg->invalidate_number);
 	for_each_page_in_seg_blocks(tseg,tblock,tpage,bidx,pidx){
 #ifdef DVALUE
 		bool page_read=false;
@@ -431,8 +444,9 @@ retry:
 			}
 			break;
 		case NOTFOUND:
-			printf("lpa: %.*s ppa:%u\n",KEYFORMAT(g->lpa),g->ppa);
+			result=lsm_find_run(g->lpa,&now,&found,&params->level,&params->run);
 			LSM.lop->all_print();
+			printf("lpa: %.*s ppa:%u\n",KEYFORMAT(g->lpa),g->ppa);
 			abort();
 			break;
 	}

@@ -101,7 +101,7 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 		return tres;
 	}
 
-	//printf("leveling start[%d->%d]\n",from?from->idx:0,to->idx);
+	//printf("leveling start[%d->%d]\n",from?from->idx+1:0,to->idx+1);
 	level *target_origin=to;
 	level *target=lsm_level_resizing(to,from);
 	LSM.c_level=target;
@@ -160,20 +160,6 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 	run_t **target_s=NULL;
 	run_t **data=NULL;
 	skiplist *skip=lnode?lnode->mem:skiplist_init();
-	if(!upper){
-#ifndef MONKEY
-		//start=lnode->start;
-		//end=lnode->end;
-#endif
-	}
-	else{
-		//start=upper->start;
-		//end=upper->end;
-	}
-
-#ifndef MONKEY
-	//sequential_move_next_level(origin,t,start,end);
-#endif
 	compaction_sub_pre();
 
 	if(!upper){
@@ -249,5 +235,6 @@ skip:
 	}
 	compaction_sub_post();
 	if(!lnode) skiplist_free(skip);
+//	LSM.lop->print_level_summary();
 	return 1;
 }

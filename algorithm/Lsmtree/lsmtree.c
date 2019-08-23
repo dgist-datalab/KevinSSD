@@ -979,7 +979,13 @@ level *lsm_level_resizing(level *target, level *src){
 		LSM.size_factor=get_sizefactor(RANGE,LSM.keynum_in_header);
 		if(before!=LSM.size_factor){
 			memset(LSM.size_factor_change,1,sizeof(bool)*LSM.LEVELN);
-			printf("change %d->%d\n",before,LSM.size_factor);
+			uint32_t total_header=0;
+			uint32_t t=LSM.size_factor;
+			for(int i=0; i<LSM.LEVELN; i++){
+				total_header+=t;
+				t*=LSM.size_factor;
+			}
+			printf("change %d->%d (%d:%d)\n",before,LSM.size_factor,total_header,(MAPPART_SEGS-1)*_PPS);
 		}
 	}
 	

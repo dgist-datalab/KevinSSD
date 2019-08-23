@@ -2,6 +2,7 @@
 #define __PAGE_H__
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
+#include "../../interface/queue.h"
 #include "level.h"
 #include "skiplist.h"
 
@@ -62,6 +63,7 @@ typedef struct page_manager{
 	__gsegment *target;//gc_target;
 	__segment *reserve; //no reserve block ->null
 	__segment *active;
+	queue *erased_q;
 }pm;
 
 
@@ -71,7 +73,7 @@ void lb_free(lsm_block *b);
 
 uint32_t getPPA(uint8_t type, KEYT, bool);//in DVALUE return block id;
 bool page_check_available(uint8_t type, uint32_t needed_page);
-uint32_t getRPPA(uint8_t type,KEYT, bool);
+uint32_t getRPPA(uint8_t type,KEYT, bool, __gsegment *issame_bl);
 
 lsm_block* getBlock(uint8_t type);
 lsm_block* getRBlock(uint8_t type);
