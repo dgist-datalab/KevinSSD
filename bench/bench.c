@@ -319,7 +319,7 @@ void bench_print(){
 			fprintf(stderr,"[IOPS 1] %lf\n",_m->m_num/total_time1/2);
 			fprintf(stderr,"[throughput2] %lf(kb/s)\n",throughput2);
 			fprintf(stderr,"             %lf(mb/s)\n",throughput2/1024);
-			printf("[IOPS 2] %lf\n",_m->m_num/total_time2/2);
+			fprintf(stderr,"[IOPS 2] %lf\n",_m->m_num/total_time2/2);
 			fprintf(stderr,"[cache hit cnt,ratio] %ld, %lf\n",_m->cache_hit,(double)_m->cache_hit/(_m->m_num/2));
 			printf("[READ WRITE CNT] %ld %ld\n",_m->read_cnt,_m->write_cnt);
 		}
