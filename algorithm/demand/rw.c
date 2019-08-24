@@ -250,7 +250,8 @@ static void _do_wb_assign_ppa(skiplist *wb) {
 
 #ifdef DVALUE
 	l_bucket *wb_bucket = (l_bucket *)malloc(sizeof(l_bucket));
-	for (int i = 0; i <= GRAIN_PER_PAGE; i++) {
+	for (int i = 1; i <= GRAIN_PER_PAGE; i++) {
+		wb_bucket->bucket[i] = (snode **)calloc(env.wb_flush_size, sizeof(snode *));
 		wb_bucket->idx[i] = 0;
 	}
 
@@ -315,6 +316,7 @@ static void _do_wb_assign_ppa(skiplist *wb) {
 
 		fl.size++;
 	}
+	for (int i = 1; i <= GRAIN_PER_PAGE; i++) free(wb_bucket->bucket[i]);
 	free(wb_bucket);
 #else
 	for (int i = 0; i < env.wb_flush_size; i++) {
