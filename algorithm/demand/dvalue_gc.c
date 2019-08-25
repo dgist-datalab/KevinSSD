@@ -230,7 +230,7 @@ int dpage_gc_dvalue(blockmanager *bm) {
 	d_reserve = bm->change_pt_reserve(bm, DATA_S, d_reserve);
 
 	for (int i = 0; i < nr_read_pages; i++) {
-		inf_free_valueset(bulk_table[i]->origin, PAGESIZE);
+		inf_free_valueset(bulk_table[i]->origin, FS_MALLOC_R);
 		free(bulk_table[i]);
 	}
 	free(bulk_table);

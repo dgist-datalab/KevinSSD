@@ -76,7 +76,7 @@ static int _do_bulk_write_valid_pages(blockmanager *bm, struct gc_table_struct *
 			member.cmt[bulk_table[i]->lpa_list[0]]->t_ppa = new_ppa;
 		}
 
-		inf_free_valueset(bulk_table[i]->origin, PAGESIZE);
+		inf_free_valueset(bulk_table[i]->origin, FS_MALLOC_R);
 	}
 	return 0;
 }
