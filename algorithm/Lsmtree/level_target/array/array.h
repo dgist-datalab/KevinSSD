@@ -24,12 +24,15 @@
 
 extern lsmtree LSM;
 static inline char *data_from_run(run_t *a){
-	if(!LSM.nocpy)	return (char*)a->cpt_data->sets;
-
 	if(a->c_entry){
+		if(!LSM.nocpy)	return (char*)a->cpt_data->sets;
 		return (char*)a->cache_nocpy_data_ptr;
 	}
+	else if(a->level_caching_data){
+		return a->level_caching_data;
+	}
 	else{
+		if(!LSM.nocpy)	return (char*)a->cpt_data->sets;
 		if(a->cpt_data->nocpy_table)
 			return a->cpt_data->nocpy_table;
 		else
@@ -47,7 +50,7 @@ static inline char *data_from_run(run_t *a){
  7k---------------- 8k-1
  */
 typedef struct array_body{
-	skiplist *skip;
+//	skiplist *skip;
 	run_t *arrs;
 }array_body;
 
@@ -124,11 +127,11 @@ uint32_t array_get_numbers_run(level *);
 #ifdef BLOOM
 BF* array_making_filter(run_t *,int,float );
 #endif
-
+int array_cache_comp_formatting(level *,run_t ***, bool);
+/*
 void array_cache_insert(level *,skiplist*);
 void array_cache_merge(level *, level *);
 void array_cache_free(level *);
-int array_cache_comp_formatting(level *,run_t ***);
 void array_cache_move(level *, level *);
 keyset *array_cache_find(level *, KEYT lpa);
 
@@ -139,7 +142,7 @@ skiplist* array_cache_get_body(level *);
 run_t *array_cache_iter_nxt(lev_iter *);
 //char *array_cache_find_lowerbound(level *, KEYT lpa, KEYT *start,bool);
 int array_cache_get_sz(level*);
-
+*/
 keyset_iter* array_header_get_keyiter(level *, char *,KEYT *);
 keyset array_header_next_key(level *, keyset_iter *);
 void array_header_next_key_pick(level *, keyset_iter *, keyset *res);

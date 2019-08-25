@@ -56,19 +56,19 @@ level_ops a_ops={
 	.get_page=def_get_page,
 	.block_fchk=def_blk_fchk,
 	.range_update=array_range_update,
-
+	.cache_comp_formatting=array_cache_comp_formatting,
+/*
 	.cache_insert=array_cache_insert,
 	.cache_merge=array_cache_merge,
 	.cache_free=array_cache_free,
-	.cache_comp_formatting=array_cache_comp_formatting,
 	.cache_move=array_cache_move,
 	.cache_find=array_cache_find,
 	.cache_find_run_data=array_cache_find_run_data,
 	.cache_next_run_data=array_cache_next_run_data,
-	.cache_get_body=array_cache_get_body,
+	//.cache_get_body=array_cache_get_body,
 	.cache_get_iter=array_cache_get_iter,
 	.cache_iter_nxt=array_cache_iter_nxt,
-	
+*/	
 	.header_get_keyiter=array_header_get_keyiter,
 	.header_next_key=array_header_next_key,
 	.header_next_key_pick=array_header_next_key_pick,
@@ -99,11 +99,12 @@ level* array_init(int size, int idx, float fpr, bool istier){
 	level *res=(level*)calloc(sizeof(level),1);
 	array_body *b=(array_body*)calloc(sizeof(array_body),1);
 
-	b->skip=NULL;
+	//b->skip=NULL;
 	b->arrs=NULL;
+	/*
 	if(idx<LSM.LEVELCACHING){
 		b->skip=skiplist_init();
-	}
+	}*/
 
 	res->idx=idx;
 	res->fpr=fpr;
@@ -133,9 +134,10 @@ void array_free(level* lev){
 	}
 */
 	//printf("skip->free\n");
+	/*
 	if(lev->idx<LSM.LEVELCACHING){
 		skiplist_free(b->skip);
-	}
+	}*/
 	free(b);
 	free(lev);
 }
@@ -170,14 +172,10 @@ void array_run_cpy_to(run_t *input, run_t *res){
 		else res->cache_data=NULL;
 	}
 	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-	/*
-	res->isflying=0;
-	res->run_data=NULL;
-	res->req=NULL;
-
-	res->cpt_data=NULL;
-	res->iscompactioning=false;
-	res->wait_idx=0;*/
+	if(input->level_caching_data){
+		res->level_caching_data=input->level_caching_data;
+		input->level_caching_data=NULL;
+	}
 }
 
 void array_body_free(run_t *runs, int size){
@@ -201,7 +199,7 @@ void array_insert(level *lev, run_t* r){
 	run_t *target=&arrs[lev->n_num];
 	array_run_cpy_to(r,target);
 
-	if(LSM.comp_opt!=HW && !target->c_entry && r->cpt_data && cache_insertable(LSM.lsm_cache)){
+	if(lev->idx>=LSM.LEVELCACHING && LSM.comp_opt!=HW && !target->c_entry && r->cpt_data && cache_insertable(LSM.lsm_cache)){
 		if(LSM.nocpy)
 			target->cache_nocpy_data_ptr=nocpy_pick(r->pbn);
 		else{
@@ -370,6 +368,7 @@ void array_free_run(run_t *e){
 		cache_delete_entry_only(LSM.lsm_cache,e);
 	}
 	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+	free(e->level_caching_data);
 	free(e->key.key);
 	free(e->end.key);
 }
@@ -413,9 +412,10 @@ run_t * array_run_cpy( run_t *input){
 }
 
 lev_iter* array_get_iter( level *lev,KEYT start, KEYT end){
+	/*
 	if(lev->idx<LSM.LEVELCACHING){
 		return array_cache_get_iter(lev, start, end);
-	}
+	}*/
 	array_body *b=(array_body*)lev->level_data;
 	lev_iter *it=(lev_iter*)malloc(sizeof(lev_iter));
 	it->from=start;
@@ -455,9 +455,6 @@ lev_iter *array_get_iter_from_run(level *lev, run_t *sr, run_t *er){
 
 
 run_t * array_iter_nxt( lev_iter* in){
-	if(in->lev_idx<LSM.LEVELCACHING){
-		return array_cache_iter_nxt(in);
-	}
 	a_iter *iter=(a_iter*)in->iter_data;
 	if(iter->now==iter->max){
 		free(iter);
@@ -476,11 +473,12 @@ run_t * array_iter_nxt( lev_iter* in){
 void array_print(level *lev){
 	array_body *b=(array_body*)lev->level_data;
 	if(lev->idx<LSM.LEVELCACHING){
+		/*
 		if(!b->skip || b->skip->size==0){
 			printf("[caching data] empty\n");	
-		}else{
-			printf("[caching data] # of entry:%lu -> run:%d\n",b->skip->size,array_get_numbers_run(lev));
-		}
+		}else{*/
+			//printf("[caching data] # of entry:%lu -> run:%d\n",b->skip->size,array_get_numbers_run(lev));
+//		}
 		return;
 	}
 	run_t *arrs=b->arrs;
@@ -685,30 +683,23 @@ run_t *array_get_run_idx(level *lev, int idx){
 
 uint32_t array_get_level_mem_size(level *lev){
 	uint32_t res=0;
-	array_body *b=(array_body*)lev->level_data;
-	res+=skiplist_memory_size(b->skip);
 	res+=sizeof(level)+sizeof(run_t)*lev->m_num;
 	return res;
 }
 
 void array_print_level_summary(){
 	for(int i=0; i<LSM.LEVELN; i++){
-		if(i<LSM.LEVELCACHING){
-			printf("[%d:lev caching] n_num:%d m_num:%d %.*s ~ %.*s\n",i+1,array_cache_get_sz(LSM.disk[i]),LSM.disk[i]->m_num,KEYFORMAT(LSM.disk[i]->start),KEYFORMAT(LSM.disk[i]->end));
+		if(LSM.disk[i]->n_num==0){
+			printf("[%d - %s ] n_num:%d m_num:%d\n",i+1,i<LSM.LEVELCACHING?"C":"NC",LSM.disk[i]->n_num,LSM.disk[i]->m_num);
 		}
-		else{
-			if(LSM.disk[i]->n_num==0){
-				printf("[%d] n_num:%d m_num:%d\n",i+1,LSM.disk[i]->n_num,LSM.disk[i]->m_num);
-			}
-			else {
-				printf("[%d] n_num:%d m_num:%d %.*s ~ %.*s\n",i+1,LSM.disk[i]->n_num,LSM.disk[i]->m_num,KEYFORMAT(LSM.disk[i]->start),KEYFORMAT(LSM.disk[i]->end));
-			}
+		else {
+			printf("[%d - %s] n_num:%d m_num:%d %.*s ~ %.*s\n",i+1,i<LSM.LEVELCACHING?"C":"NC",LSM.disk[i]->n_num,LSM.disk[i]->m_num,KEYFORMAT(LSM.disk[i]->start),KEYFORMAT(LSM.disk[i]->end));
 		}
 	}	
 }
 
 uint32_t array_get_numbers_run(level *lev){
-	return lev->idx<LSM.LEVELCACHING?array_cache_get_sz(lev):lev->n_num;
+	return lev->n_num;
 }
 
 void array_check_order(level *lev){

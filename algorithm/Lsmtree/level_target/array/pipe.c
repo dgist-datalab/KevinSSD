@@ -80,11 +80,11 @@ char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush)
 			p->bitmap_ptr[p->kidx]=p->length;
 			p->data_ptr[p->pidx-1]=p->now_page;
 			res=p->now_page;
+#ifdef BLOOM
+			if(f) *f=p->filters[p->pidx-1];
+#endif
 		}
 		if(flush){
-#ifdef BLOOM
-			if(f) *f=p->filters[p->pidx];
-#endif
 			return res;
 		}
 		new_page_set(p,true);

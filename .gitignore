@@ -24,6 +24,6 @@ range_driver
 ycsb*
 cscope*
 *.bin
-test.sh
+*test.sh
 bd_testcase
 testing/

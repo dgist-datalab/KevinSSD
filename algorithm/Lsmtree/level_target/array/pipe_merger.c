@@ -41,6 +41,7 @@ void temp_func(char* body, level *d, bool insert){
 		}
 	for_each_header_end
 }
+
 void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	cutter_start=true;
 	int o_num=0; int u_num=0;
@@ -59,6 +60,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 		u_data=(char**)malloc(sizeof(char*)*u_num);
 		for(int i=0; i<u_num; i++) {
 			u_data[i]=data_from_run(s[i]);
+			if(!u_data[i]) abort();
 			//temp_func(u_data[i],d,true);
 		}
 	}
@@ -67,6 +69,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	char **o_data=(char**)malloc(sizeof(char*)*o_num);
 	for(int i=0; o[i]!=NULL; i++){ 
 		o_data[i]=data_from_run(o[i]);
+		if(!o_data[i]) abort();
 		//temp_func(o_data[i],d,true);
 	}
 
@@ -154,12 +157,11 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	pbody_clear(hp);
 }
 #ifdef BLOOM
-run_t *array_pipe_make_run(char *data, BF *f)
+run_t *array_pipe_make_run(char *data,uint32_t level_idx, BF *f)
 #else
-run_t *array_pipe_make_run(char *data)
+run_t *array_pipe_make_run(char *data,uint32_t level_idx)
 #endif
 {
-	htable *res=LSM.nocpy?htable_assign(data,0):htable_assign(data,1);
 	KEYT start,end;
 	uint16_t *body=(uint16_t*)data;
 	uint32_t num=body[0];
@@ -171,11 +173,18 @@ run_t *array_pipe_make_run(char *data)
 	end.key=&data[body[num]+sizeof(ppa_t)];
 	
 	run_t *r=array_make_run(start,end,-1);
-	r->cpt_data=res;
+
 #ifdef BLOOM
 	r->filter=f;
 #endif
-	free(data);
+	if(level_idx<LSM.LEVELCACHING){
+		r->level_caching_data=data;
+	}
+	else{
+		htable *res=LSM.nocpy?htable_assign(data,0):htable_assign(data,1);
+		r->cpt_data=res;
+		free(data);
+	}
 	return r;
 }
 
@@ -207,9 +216,9 @@ run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KE
 	
 	//temp_func(data,d,false);
 #ifdef BLOOM
-	return array_pipe_make_run(data,f);
+	return array_pipe_make_run(data,d->idx,f);
 #else
-	return array_pipe_make_run(data);
+	return array_pipe_make_run(data,d->idx);
 #endif
 }
 
@@ -223,9 +232,9 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 		fdriver_lock_init(u_data[0].lock,1);
 		skip_data=array_skip_cvt2_data(skip);
 #ifdef BLOOM
-		u_data[0].r=array_pipe_make_run(skip_data,NULL);
+		u_data[0].r=array_pipe_make_run(skip_data,-1,NULL);
 #else
-		u_data[0].r=array_pipe_make_run(skip_data);
+		u_data[0].r=array_pipe_make_run(skip_data,-1);
 #endif
 	}
 
@@ -243,7 +252,7 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 	int result_cnt=0;
 	char *res_data;
 #ifdef BLOOM
-	BF **filter;
+	BF *filter;
 #endif
 	while(!(lp_key.len==UINT8_MAX && hp_key.len==UINT8_MAX)){
 		if(lp_key.len==UINT8_MAX){
@@ -282,16 +291,16 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 			}
 		}
 #ifdef BLOOM
-		if((res_data=pbody_insert_new_key(p_rp,insert_key,p_rppa,false,filter)))
+		if((res_data=pbody_insert_new_key(p_rp,insert_key,p_rppa,false,&filter)))
 #else
 		if((res_data=pbody_insert_new_key(p_rp,insert_key,p_rppa,false)))
 #endif
 		{
 
 #ifdef BLOOM
-			lev_insert_write(d,array_pipe_make_run(res_data,*filter));
+			lev_insert_write(d,array_pipe_make_run(res_data,d->idx,filter));
 #else
-			lev_insert_write(d,array_pipe_make_run(res_data));
+			lev_insert_write(d,array_pipe_make_run(res_data,d->idx));
 #endif
 			result_cnt++;
 		}
@@ -303,35 +312,38 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 			hp_key=pbody_get_next_key(hp,&hppa);
 		}
 	}
+
 #ifdef BLOOM
-	if((res_data=pbody_insert_new_key(p_rp,insert_key,0,true,filter)))
+	if((res_data=pbody_insert_new_key(p_rp,insert_key,0,true,&filter)))
 #else
 	if((res_data=pbody_insert_new_key(p_rp,insert_key,0,true)))
 #endif
 	{
 #ifdef BLOOM
-			lev_insert_write(d,array_pipe_make_run(res_data,*filter));
+			lev_insert_write(d,array_pipe_make_run(res_data,d->idx,filter));
 #else
-			lev_insert_write(d,array_pipe_make_run(res_data));
+			lev_insert_write(d,array_pipe_make_run(res_data,d->idx));
 #endif
 		result_cnt++;
 	}
+
+
 #ifdef BLOOM
-	res_data=pbody_get_data(p_rp,false,filter);
+	res_data=pbody_get_data(p_rp,false,&filter);
 #else
 	res_data=pbody_get_data(p_rp,false);
 #endif
 	do{
 		if(!res_data) break;
 #ifdef BLOOM
-		lev_insert_write(d,array_pipe_make_run(res_data,*filter));
+		lev_insert_write(d,array_pipe_make_run(res_data,d->idx,filter));
 #else
-		lev_insert_write(d,array_pipe_make_run(res_data));
+		lev_insert_write(d,array_pipe_make_run(res_data,d->idx));
 #endif
 		result_cnt++;
 	}
 #ifdef BLOOM
-	while((res_data=pbody_get_data(p_rp,false,filter)));
+	while((res_data=pbody_get_data(p_rp,false,&filter)));
 #else
 	while((res_data=pbody_get_data(p_rp,false)));
 #endif

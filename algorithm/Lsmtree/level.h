@@ -76,6 +76,7 @@ typedef struct run{
 
 	htable *cpt_data;
 	void *run_data;
+	char *level_caching_data;
 	char iscompactioning;
 }run_t;
 
@@ -158,18 +159,18 @@ typedef struct level_ops{
 	bool (*block_fchk)();
 
 	void (*range_update)(level *,run_t*,KEYT);
+	int (*cache_comp_formatting)(level *,run_t ***,bool isnext_cache);
 	/*level caching*/
-	void (*cache_insert)(level *,skiplist *);
-	void (*cache_merge)( level *from, level *to);
-	void (*cache_free)(level*);
-	int (*cache_comp_formatting)(level *,run_t ***);
-	void (*cache_move)(level*, level *);
-	keyset *(*cache_find)(level *,KEYT);
-	char *(*cache_find_run_data)(level *,KEYT);
-	char *(*cache_next_run_data)(level *, KEYT );
-	skiplist *(*cache_get_body)(level*);
-	lev_iter *(*cache_get_iter)(level *,KEYT from, KEYT to); //from<= x < to
-	run_t *(*cache_iter_nxt)(lev_iter*);
+//	void (*cache_insert)(level *,skiplist *);
+//	void (*cache_merge)( level *from, level *to);
+//	void (*cache_free)(level*);
+//	void (*cache_move)(level*, level *);
+//	keyset *(*cache_find)(level *,KEYT);
+//	char *(*cache_find_run_data)(level *,KEYT);
+//	char *(*cache_next_run_data)(level *, KEYT );
+//	skiplist *(*cache_get_body)(level*);
+//	lev_iter *(*cache_get_iter)(level *,KEYT from, KEYT to); //from<= x < to
+//	run_t *(*cache_iter_nxt)(lev_iter*);
 //	int (*cache_get_size)(level *);
 	keyset_iter* (*header_get_keyiter)(level *, char *, KEYT *);
 	keyset (*header_next_key)(level *, keyset_iter *);

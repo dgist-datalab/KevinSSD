@@ -10,15 +10,14 @@ pl_run *make_pl_run_array(level *t, uint32_t *num){
 	//first lock
 	*num=LSM.lop->get_number_runs(t);
 	pl_run *res=(pl_run*)malloc(sizeof(pl_run)*(*num));
-	if(t->idx<LSM.LEVELCACHING){
+	/*if(t->idx<LSM.LEVELCACHING){
 		run_t **tr;
-		LSM.lop->cache_comp_formatting(t,&tr);
 		for(int i=0; tr[i]!=NULL; i++){
 			res[i].r=tr[i];
 			res[i].lock=(fdriver_lock_t*)malloc(sizeof(fdriver_lock_t));
 			fdriver_mutex_init(res[i].lock);
 		}
-	}else{
+	}else{*/
 		lev_iter* iter=LSM.lop->get_iter(t,t->start,t->end);
 		run_t *now;
 		int i=0;
@@ -28,7 +27,7 @@ pl_run *make_pl_run_array(level *t, uint32_t *num){
 			fdriver_mutex_init(res[i].lock);
 			i++;
 		}
-	}
+//	}
 	return res;
 }
 

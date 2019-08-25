@@ -9,7 +9,6 @@
 #include "../../bench/bench.h"
 #include "./level_target/hash/hash_table.h"
 #include "compaction.h"
-#include "lsmtree_iter.h"
 #include "lsmtree.h"
 #include "page.h"
 #include "nocpy.h"
@@ -412,8 +411,8 @@ void* lsm_end_req(algo_req* const req){
 	if(havetofree){
 		if(params->lsm_type!=TESTREAD)
 			free(params);
-		free(req);
 	}
+	free(req);
 	return NULL;
 }
 
@@ -696,35 +695,36 @@ void dummy_htable_read(uint32_t pbn,request *req){
 }
 
 uint8_t lsm_find_run(KEYT key, run_t ** entry, keyset **found, int *level,int *run){
-	for(int i=level?*level:0; i<LSM.LEVELCACHING; i++){
-		pthread_mutex_lock(&LSM.level_lock[i]);
-		keyset *find=LSM.lop->cache_find(LSM.disk[i],key);
-		pthread_mutex_unlock(&LSM.level_lock[i]);
-		if(find){
-			*found=find;
-			if(level)*level=i;
-			return CACHING;
-		}
-	}
-
 	run_t **entries=NULL;
-	for(int i=level?*level:LSM.LEVELCACHING; i<LSM.LEVELN; i++){
+	for(int i=*level; i<LSM.LEVELN; i++){
 		pthread_mutex_lock(&LSM.level_lock[i]);
 		entries=LSM.lop->find_run(LSM.disk[i],key);
 		pthread_mutex_unlock(&LSM.level_lock[i]);
 		if(!entries){
 			continue;
 		}
-		for(int j=run?*run:0; entries[j]!=NULL; j++){
-			run_t *t_entry=entries[j];
-#ifdef BLOOM
-			if(!bf_check(t_entry->filter,key)) continue;
-#endif
+
+		if(i<LSM.LEVELCACHING){
+			keyset *find=LSM.lop->find_keyset(entries[0]->level_caching_data,key);
+			if(find){
+				*found=find;
+				if(level) *level=i;
+			}
 			free(entries);
-			if(level) *level=i;
-			if(run) *run=j;
-			*entry=t_entry;
-			return FOUND;
+			return CACHING;
+		}
+		else{
+			for(int j=run?*run:0; entries[j]!=NULL; j++){
+				run_t *t_entry=entries[j];
+	#ifdef BLOOM
+				if(!bf_check(t_entry->filter,key)) continue;
+	#endif
+				free(entries);
+				if(level) *level=i;
+				if(run) *run=j;
+				*entry=t_entry;
+				return FOUND;
+			}
 		}
 		if(run) *run=0;
 		free(entries);

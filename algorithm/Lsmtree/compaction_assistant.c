@@ -409,7 +409,13 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 	run_t* target=NULL;
 	bench_custom_start(write_opt_time,7);
 	while((target=LSM.lop->cutter(top,des,&key,&end))){
-		compaction_htable_write_insert(des,target,false);
+		if(des->idx<LSM.LEVELCACHING){
+			LSM.lop->insert(des,target);
+			LSM.lop->release_run(target);
+		}
+		else{
+			compaction_htable_write_insert(des,target,false);
+		}
 		free(target);
 	}
 	//LSM.li->lower_flying_req_wait();
@@ -417,18 +423,28 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 }
 
 void compaction_lev_seq_processing(level *src, level *des, int headerSize){
+	
 	if(src->idx<LSM.LEVELCACHING){
 		run_t **datas;
-		int cache_added_size=LSM.lop->get_number_runs(src);
-		LSM.lop->cache_comp_formatting(src,&datas);
-		cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
+		if(des->idx<LSM.LEVELCACHING){
+			int cache_added_size=LSM.lop->get_number_runs(src);
+			cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
+		LSM.lop->cache_comp_formatting(src,&datas,true);
+		}
+		else{
+			LSM.lop->cache_comp_formatting(src,&datas,false);
+		}
 		for(int i=0;datas[i]!=NULL; i++){
+			if(des->idx<LSM.LEVELCACHING){
+				LSM.lop->insert(des,datas[i]);
+			}
+			else{
 #ifdef BLOOM
-			bf_free(datas[i]->filter);
-			datas[i]->filter=LSM.lop->making_filter(datas[i],-1,des->fpr);
+				datas[i]->filter=LSM.lop->making_filter(datas[i],-1,des->fpr);
 #endif
-			compaction_htable_write_insert(des,datas[i],false);
-			free(datas[i]);
+				compaction_htable_write_insert(des,datas[i],false);
+				free(datas[i]);
+			}
 		}
 		free(datas);
 		return;
@@ -443,7 +459,6 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 	run_t *r;
 	lev_iter *iter=LSM.lop->get_iter(src,src->start, src->end);
 	for_each_lev(r,iter,LSM.lop->iter_nxt){
-
 		r->iscompactioning=SEQMOV;
 		LSM.lop->insert(des,r);
 	}
@@ -481,6 +496,10 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 
 bool htable_read_preproc(run_t *r){
 	bool res=false;
+	if(r->level_caching_data){
+		memcpy_cnt++;
+		return true;
+	}
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(r->c_entry){
 		cache_entry_lock(LSM.lsm_cache,r->c_entry);
@@ -511,7 +530,10 @@ void htable_read_postproc(run_t *r){
 			//the run belong to levelcaching lev
 		}
 	}
-	if(r->c_entry){
+	if(r->level_caching_data){
+	
+	}
+	else if(r->c_entry){
 		cache_entry_unlock(LSM.lsm_cache,r->c_entry);
 		if(!LSM.nocpy) htable_free(r->cpt_data);
 	}else{
