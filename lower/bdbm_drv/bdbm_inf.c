@@ -170,9 +170,10 @@ void memio_show_info_(){
 }
 
 void change_ppa_list(uint32_t *des, uint32_t *src, uint32_t num){
-//	for(uint32_t i=0; i<num; i++){
-//		des[i]=bb_checker_fix_ppa(checker,src[i]);
-//	}
+	for(uint32_t i=0; i<num; i++){
+		bb_node t=checker.ent[src[i]>>14];
+		des[i]=	bb_checker_fix_ppa(t.flag,t.fixed_segnum,t.pair_segnum,ppa);
+	}
 }
 
 uint32_t memio_do_merge(uint32_t lp_num, ppa_t *lp_array, uint32_t hp_num,ppa_t *hp_array,ppa_t *tp_array, uint32_t* ktable_num, uint32_t *invalidate_num){
