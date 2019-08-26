@@ -103,17 +103,18 @@ void bb_checker_start(lower_info *li){
 //	bb_checker_process(0,true);
 	data_checker_data=(char*)malloc(PAGESIZE);
 	memset(data_checker_data,-1,PAGESIZE);
+
+	printf("badblock_cnt: %lu\n",badblock_cnt);
+	bb_checker_fixing();
+	printf("checking done!\n");	
+/*
 	printf("read badblock checking\n");
 	fdriver_lock_init(&bb_lock,0);
 	bb_write_bb_checker(li,TESTPAGE);
 	bb_read_bb_checker(li,TESTPAGE);
 	fdriver_lock(&bb_lock);
-	free(data_checker_data);
-	printf("badblock_cnt: %lu\n",badblock_cnt);
-	bb_checker_fixing();
-	printf("checking done!\n");	
-
-	exit(1);
+	free(data_checker_data);*/
+	//exit(1);
 	return;
 }
 
