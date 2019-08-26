@@ -106,7 +106,7 @@ void *memio_info_pull_data(uint32_t ppa, uint32_t size, value_set *value, bool a
 
 	bb_node t=checker.ent[ppa>>14];
 	uint32_t fppa=bb_checker_fix_ppa(t.flag,t.fixed_segnum,t.pair_segnum,ppa);
-	memio_write(mio,fppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
+	memio_read(mio,fppa,(uint32_t)size,(uint8_t*)value->value,async,(void*)req,value->dmatag);
 	return NULL;
 }
 
