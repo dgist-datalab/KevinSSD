@@ -10,6 +10,7 @@ bb_checker checker;
 volatile uint64_t target_cnt, _cnt, badblock_cnt;
 uint32_t array[128];
 fdriver_lock_t bb_lock;
+#define TESTPAGE (16384*2)
 //#define STARTBLOCKCHUNK 3
 char *data_checker_data;
 
@@ -20,19 +21,21 @@ typedef struct temp_params{
 void *temp_end_req(algo_req *temp){
 	static int cnt=0;
 	tp *params=(tp*)temp->params;
-	uint32_t seg=params->ppa>>14;
-	int cmp=memcmp(params->v->value,data_checker_data,PAGESIZE);
-	if(!checker.ent[seg].flag && cmp){
-		checker.ent[seg].flag=true;
-		printf("new badblock %u\n",seg<<14);
+	uint32_t print_value=0;
+	switch(temp->type){
+		case FS_GET_T:
+			memcpy(&print_value,params->v->value,sizeof(print_value));
+			printf("read data:%u\n",print_value);
+			inf_free_valueset(params->v,FS_GET_T);
+			if(++cnt%10==0){
+				fflush(stdout);
+			}
+			break;
+		case FS_SET_T:
+			inf_free_valueset(params->v,FS_SET_T);
+			break;
 	}
-	
-	inf_free_valueset(params->v,FS_GET_T);
-	if(++cnt%10==0){
-		printf("\rread bb_checking....[ %lf ]",(double)cnt/(_RNOS*_PPS)*100);
-		fflush(stdout);
-	}
-	if(cnt==(_RNOS*_PPS)){
+	if(cnt==TESTPAGE){
 		fdriver_unlock(&bb_lock);
 	}
 	free(temp);
@@ -40,10 +43,28 @@ void *temp_end_req(algo_req *temp){
 	return NULL;
 }
 
-void bb_read_bb_checker(lower_info *li){
+void bb_write_bb_checker(lower_info *li,uint32_t testing_page){
 	algo_req *temp;
 	tp *params;
-	for(uint32_t i=0; i<_RNOS*_PPS; i++){
+	char *temp_test=(char*)malloc(PAGESIZE);
+	for(uint32_t i=0; i<testing_page; i++){
+		memcpy(temp_test,&i,sizeof(i));
+		temp=(algo_req*)calloc(sizeof(algo_req),1);
+		temp->type=FS_SET_T;
+		temp->end_req=temp_end_req;
+
+		params=(tp*)calloc(sizeof(tp),1);
+		params->ppa=i;
+		params->v=inf_get_valueset(temp_test,FS_SET_T,PAGESIZE);
+		temp->params=(void*)params;
+		li->write(i,PAGESIZE,params->v,ASYNC,temp);
+	}
+}
+
+void bb_read_bb_checker(lower_info *li,uint32_t testing_page){
+	algo_req *temp;
+	tp *params;
+	for(uint32_t i=0; i<testing_page; i++){
 		temp=(algo_req*)calloc(sizeof(algo_req),1);
 		temp->type=FS_GET_T;
 		temp->end_req=temp_end_req;
@@ -82,16 +103,17 @@ void bb_checker_start(lower_info *li){
 //	bb_checker_process(0,true);
 	data_checker_data=(char*)malloc(PAGESIZE);
 	memset(data_checker_data,-1,PAGESIZE);
-/*	printf("read badblock checking");
+	printf("read badblock checking\n");
 	fdriver_lock_init(&bb_lock,0);
-	bb_read_bb_checker(li);
-	fdriver_lock(&bb_lock);*/
+	bb_write_bb_checker(li,TESTPAGE);
+	bb_read_bb_checker(li,TESTPAGE);
+	fdriver_lock(&bb_lock);
 	free(data_checker_data);
 	printf("badblock_cnt: %lu\n",badblock_cnt);
 	bb_checker_fixing();
 	printf("checking done!\n");	
 
-	//exit(1);
+	exit(1);
 	return;
 }
 

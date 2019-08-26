@@ -76,7 +76,7 @@ void *l_main(void *__input){
 			continue;
 		}
 		//chang ppa, mapping right ppa from bad block or somthing
-		inf_req->key=bb_checker_fix_ppa(inf_req->key);
+		//inf_req->key=bb_checker_fix_ppa(inf_req->key);
 		switch(inf_req->type){
 			case FS_LOWER_W:
 				posix_push_data(inf_req->key, inf_req->size, inf_req->value, inf_req->isAsync, inf_req->upper_req);
