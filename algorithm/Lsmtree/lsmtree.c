@@ -866,7 +866,7 @@ uint32_t __lsm_get(request *const req){
 retry:
 	if(LSM.comp_opt==HW && temp_data[3]==2){
 		//send data/
-		LSM.li->read(req->ppa,PAGESIZE,req->value,ASYNC,lsm_get_req_factory(req,DATAR));
+		LSM.li->read(CONVPPA(req->ppa),PAGESIZE,req->value,ASYNC,lsm_get_req_factory(req,DATAR));
 		return 1;
 	}
 	result=lsm_find_run(req->key,&entry,&found,&level,&run);
