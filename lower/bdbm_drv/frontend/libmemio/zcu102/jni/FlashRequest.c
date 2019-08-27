@@ -130,6 +130,28 @@ int FlashRequest_setDebugVals ( struct PortalInternal *p, const uint32_t flag, c
     return 0;
 };
 
+int FlashRequest_setDmaKtSearchRef ( struct PortalInternal *p, const uint32_t sgId )
+{
+    volatile unsigned int* temp_working_addr_start = p->transport->mapchannelReq(p, CHAN_NUM_FlashRequest_setDmaKtSearchRef, 2);
+    volatile unsigned int* temp_working_addr = temp_working_addr_start;
+    if (p->transport->busywait(p, CHAN_NUM_FlashRequest_setDmaKtSearchRef, "FlashRequest_setDmaKtSearchRef")) return 1;
+    p->transport->write(p, &temp_working_addr, sgId);
+    p->transport->send(p, temp_working_addr_start, (CHAN_NUM_FlashRequest_setDmaKtSearchRef << 16) | 2, -1);
+    return 0;
+};
+
+int FlashRequest_findKey ( struct PortalInternal *p, const uint32_t ppa, const uint32_t keySz, const uint32_t tag )
+{
+    volatile unsigned int* temp_working_addr_start = p->transport->mapchannelReq(p, CHAN_NUM_FlashRequest_findKey, 4);
+    volatile unsigned int* temp_working_addr = temp_working_addr_start;
+    if (p->transport->busywait(p, CHAN_NUM_FlashRequest_findKey, "FlashRequest_findKey")) return 1;
+    p->transport->write(p, &temp_working_addr, ppa);
+    p->transport->write(p, &temp_working_addr, keySz);
+    p->transport->write(p, &temp_working_addr, tag);
+    p->transport->send(p, temp_working_addr_start, (CHAN_NUM_FlashRequest_findKey << 16) | 4, -1);
+    return 0;
+};
+
 FlashRequestCb FlashRequestProxyReq = {
     portal_disconnect,
     FlashRequest_readPage,
@@ -143,13 +165,15 @@ FlashRequestCb FlashRequestProxyReq = {
     FlashRequest_start,
     FlashRequest_debugDumpReq,
     FlashRequest_setDebugVals,
+    FlashRequest_setDmaKtSearchRef,
+    FlashRequest_findKey,
 };
 FlashRequestCb *pFlashRequestProxyReq = &FlashRequestProxyReq;
 
-const uint32_t FlashRequest_reqinfo = 0xb001c;
+const uint32_t FlashRequest_reqinfo = 0xd001c;
 const char * FlashRequest_methodSignatures()
 {
-    return "{\"setDebugVals\": [\"long\", \"long\"], \"writePage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"], \"eraseBlock\": [\"long\", \"long\", \"long\", \"long\"], \"debugDumpReq\": [\"long\"], \"setDmaWriteRef\": [\"long\"], \"setDmaKtOutputRef\": [\"long\", \"long\"], \"setDmaKtPpaRef\": [\"long\", \"long\", \"long\", \"long\"], \"startCompaction\": [\"long\", \"long\", \"long\"], \"setDmaReadRef\": [\"long\"], \"start\": [\"long\"], \"readPage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"]}";
+    return "{\"setDebugVals\": [\"long\", \"long\"], \"writePage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"], \"eraseBlock\": [\"long\", \"long\", \"long\", \"long\"], \"debugDumpReq\": [\"long\"], \"setDmaKtSearchRef\": [\"long\"], \"setDmaWriteRef\": [\"long\"], \"setDmaKtOutputRef\": [\"long\", \"long\"], \"setDmaKtPpaRef\": [\"long\", \"long\", \"long\", \"long\"], \"findKey\": [\"long\", \"long\", \"long\"], \"startCompaction\": [\"long\", \"long\", \"long\"], \"setDmaReadRef\": [\"long\"], \"start\": [\"long\"], \"readPage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"]}";
 }
 
 int FlashRequest_handleMessage(struct PortalInternal *p, unsigned int channel, int messageFd)
@@ -277,6 +301,24 @@ int FlashRequest_handleMessage(struct PortalInternal *p, unsigned int channel, i
         tmp = p->transport->read(p, &temp_working_addr);
         tempdata.setDebugVals.debugDelay = (uint32_t)(((tmp)&0xfffffffful));
         ((FlashRequestCb *)p->cb)->setDebugVals(p, tempdata.setDebugVals.flag, tempdata.setDebugVals.debugDelay);
+      } break;
+    case CHAN_NUM_FlashRequest_setDmaKtSearchRef: {
+        
+        p->transport->recv(p, temp_working_addr, 1, &tmpfd);
+        tmp = p->transport->read(p, &temp_working_addr);
+        tempdata.setDmaKtSearchRef.sgId = (uint32_t)(((tmp)&0xfffffffful));
+        ((FlashRequestCb *)p->cb)->setDmaKtSearchRef(p, tempdata.setDmaKtSearchRef.sgId);
+      } break;
+    case CHAN_NUM_FlashRequest_findKey: {
+        
+        p->transport->recv(p, temp_working_addr, 3, &tmpfd);
+        tmp = p->transport->read(p, &temp_working_addr);
+        tempdata.findKey.ppa = (uint32_t)(((tmp)&0xfffffffful));
+        tmp = p->transport->read(p, &temp_working_addr);
+        tempdata.findKey.keySz = (uint32_t)(((tmp)&0xfffffffful));
+        tmp = p->transport->read(p, &temp_working_addr);
+        tempdata.findKey.tag = (uint32_t)(((tmp)&0xfffffffful));
+        ((FlashRequestCb *)p->cb)->findKey(p, tempdata.findKey.ppa, tempdata.findKey.keySz, tempdata.findKey.tag);
       } break;
     default:
         PORTAL_PRINTF("FlashRequest_handleMessage: unknown channel 0x%x\n", channel);

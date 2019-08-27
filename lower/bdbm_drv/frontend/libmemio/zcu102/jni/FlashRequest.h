@@ -23,6 +23,8 @@ public:
     int start ( const uint32_t dummy ) { return cb->start (&pint, dummy); };
     int debugDumpReq ( const uint32_t dummy ) { return cb->debugDumpReq (&pint, dummy); };
     int setDebugVals ( const uint32_t flag, const uint32_t debugDelay ) { return cb->setDebugVals (&pint, flag, debugDelay); };
+    int setDmaKtSearchRef ( const uint32_t sgId ) { return cb->setDmaKtSearchRef (&pint, sgId); };
+    int findKey ( const uint32_t ppa, const uint32_t keySz, const uint32_t tag ) { return cb->findKey (&pint, ppa, keySz, tag); };
 };
 
 extern FlashRequestCb FlashRequest_cbTable;
@@ -54,5 +56,7 @@ public:
     virtual void start ( const uint32_t dummy ) = 0;
     virtual void debugDumpReq ( const uint32_t dummy ) = 0;
     virtual void setDebugVals ( const uint32_t flag, const uint32_t debugDelay ) = 0;
+    virtual void setDmaKtSearchRef ( const uint32_t sgId ) = 0;
+    virtual void findKey ( const uint32_t ppa, const uint32_t keySz, const uint32_t tag ) = 0;
 };
 #endif // _FLASHREQUEST_H_

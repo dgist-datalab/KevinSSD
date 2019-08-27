@@ -84,7 +84,9 @@ static void __dm_intr_handler (
 		if(r->req_type==REQTYPE_READ){
 			if(my_algo_req->type_lower<r->path_type)
 				my_algo_req->type_lower=r->path_type;
-
+			if(r->req_type==UINT8_MAX){
+				my_algo_req->type=UINT8_MAX;
+			}
 			my_algo_req->end_req(my_algo_req);
 		}
 		else{
@@ -271,7 +273,6 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 			break;
 		case 3:
 			r->req_type = REQTYPE_META_WRITE;
-			break;
 		}
 		//r->req_type = (dir == 0) ? REQTYPE_READ : REQTYPE_WRITE;
 		r->logaddr.lpa[0] = cur_lba;
@@ -300,8 +301,6 @@ static int __memio_do_io (memio_t* mio, int dir, uint32_t lba, uint64_t len, uin
 				}
 			}
 		}
-
-
 		if ((ret = dm->make_req (&mio->bdi, r)) != 0) {
 			bdbm_error ("dm->make_req() failed (ret = %d)", ret);
 			bdbm_bug_on (1);
@@ -327,6 +326,51 @@ void memio_wait (memio_t* mio)
 	} while ( i != mio->nr_tags-1 );
 
 }
+
+int memio_do_hw_read (memio_t* mio, uint32_t lba, char *key,uint16_t key_len, uint8_t* data, int async, void *req,int dmatag)
+{
+	bdbm_mutex_lock(&mio->req_mutex);
+	do_io_cnt++;
+	bdbm_llm_req_t* r = NULL;
+	bdbm_dm_inf_t* dm = mio->bdi.ptr_dm_inf;
+	uint8_t* cur_buf = data;
+	uint64_t cur_lba = lba;
+	uint64_t sent = 0;
+	int dmatag = dmaTag;
+	int ret, num_lbas;
+
+	/* read wait variables */
+	int counter = (int)(len/mio->io_size);
+	bdbm_cond_t readCond = PTHREAD_COND_INITIALIZER;
+
+	/* see if LBA alignment is correct */
+	__memio_check_alignment (len, mio->io_size);
+
+	mio->req_flag=0;
+
+	bdbm_mutex_lock(&mio->req_mutex);
+	r = __memio_alloc_llm_req (mio,true);
+	bdbm_bug_on (!r);
+	r->path_type=0;
+	r->path_type+=mio->req_flag;
+	r->req_type=REQTYPE_READ;
+	r->logaddr.lpa[0]=cur_lba;
+	r->fmain.kp_ptr[0]=cur_buf;
+	r->async=async;
+	r->req=req;
+	r->dmaTag=dmatag;
+	if (dir==0) {
+		r->cond = &readCond;
+		r->counter = &counter;
+	}
+	char *target_buf=get_findKey_dma();
+	memcpy(&target_buf[r->tag*256+4],key,key_len);
+	dm_do_hw_find(cur_lba,(key_len+4)/16,r->tag);
+	bdbm_mutex_unlock(&mio->req_mutex);
+	return 1;
+}
+
+
 
 int memio_read (memio_t* mio, uint32_t lba, uint64_t len, uint8_t* data, int async, void *req, int dmaTag)
 {

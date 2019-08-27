@@ -179,6 +179,14 @@ int FlashRequestsetDebugVals_cb (  struct PortalInternal *p, const uint32_t flag
     (static_cast<FlashRequestWrapper *>(p->parent))->setDebugVals ( flag, debugDelay);
     return 0;
 };
+int FlashRequestsetDmaKtSearchRef_cb (  struct PortalInternal *p, const uint32_t sgId ) {
+    (static_cast<FlashRequestWrapper *>(p->parent))->setDmaKtSearchRef ( sgId);
+    return 0;
+};
+int FlashRequestfindKey_cb (  struct PortalInternal *p, const uint32_t ppa, const uint32_t keySz, const uint32_t tag ) {
+    (static_cast<FlashRequestWrapper *>(p->parent))->findKey ( ppa, keySz, tag);
+    return 0;
+};
 FlashRequestCb FlashRequest_cbTable = {
     FlashRequestdisconnect_cb,
     FlashRequestreadPage_cb,
@@ -192,6 +200,8 @@ FlashRequestCb FlashRequest_cbTable = {
     FlashRequeststart_cb,
     FlashRequestdebugDumpReq_cb,
     FlashRequestsetDebugVals_cb,
+    FlashRequestsetDmaKtSearchRef_cb,
+    FlashRequestfindKey_cb,
 };
 
 /************** Start of FlashIndicationWrapper CPP ***********/
@@ -228,6 +238,10 @@ int FlashIndicationmergeFlushDone2_cb (  struct PortalInternal *p, const uint32_
     (static_cast<FlashIndicationWrapper *>(p->parent))->mergeFlushDone2 ( num);
     return 0;
 };
+int FlashIndicationfindKeyDone_cb (  struct PortalInternal *p, const uint16_t tag, const uint16_t status, const uint32_t ppa ) {
+    (static_cast<FlashIndicationWrapper *>(p->parent))->findKeyDone ( tag, status, ppa);
+    return 0;
+};
 FlashIndicationCb FlashIndication_cbTable = {
     FlashIndicationdisconnect_cb,
     FlashIndicationreadDone_cb,
@@ -237,5 +251,6 @@ FlashIndicationCb FlashIndication_cbTable = {
     FlashIndicationmergeDone_cb,
     FlashIndicationmergeFlushDone1_cb,
     FlashIndicationmergeFlushDone2_cb,
+    FlashIndicationfindKeyDone_cb,
 };
 #endif //NO_CPP_PORTAL_CODE

@@ -14,6 +14,7 @@ uint32_t memio_info_create(lower_info *li,blockmanager *bm);
 void *memio_info_destroy(lower_info *li);
 void *memio_info_push_data(uint32_t ppa, uint32_t size, value_set* value, bool async, algo_req *const req);
 void *memio_info_pull_data(uint32_t ppa, uint32_t size, value_set* value, bool async, algo_req *const req);
+void *memio_info_hw_read(uint32_t ppa, char* key, uint32_t key_len, value_set* value, bool async, algo_req *const req);
 void *memio_info_trim_block(uint32_t ppa, bool async);
 void *memio_info_trim_a_block(uint32_t ppa, bool async);
 void *memio_info_refresh(struct lower_info* li);

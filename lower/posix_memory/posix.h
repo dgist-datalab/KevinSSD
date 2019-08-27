@@ -19,6 +19,7 @@ void *posix_make_trim(uint32_t ppa, bool async);
 void *posix_refresh(lower_info*);
 void posix_stop();
 void posix_flying_req_wait();
+void* posix_read_hw(uint32_t ppa, char *key,uint32_t key_len, value_set *value,bool async,algo_req * const req);
 uint32_t posix_hw_do_merge(uint32_t lp_num, ppa_t *lp_array, uint32_t hp_num,ppa_t *hp_array,ppa_t *tp_array, uint32_t* ktable_num, uint32_t *invliadate_num);
 char * posix_hw_get_kt();
 char *posix_hw_get_inv();

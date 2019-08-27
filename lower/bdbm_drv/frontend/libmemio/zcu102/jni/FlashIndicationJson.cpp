@@ -87,6 +87,19 @@ int FlashIndicationJson_mergeFlushDone2 ( struct PortalInternal *p, const uint32
     return 0;
 };
 
+int FlashIndicationJson_findKeyDone ( struct PortalInternal *p, const uint16_t tag, const uint16_t status, const uint32_t ppa )
+{
+    Json::Value request;
+    request.append(Json::Value("findKeyDone"));
+    request.append((Json::UInt64)tag);
+    request.append((Json::UInt64)status);
+    request.append((Json::UInt64)ppa);
+
+    std::string requestjson = Json::FastWriter().write(request);;
+    connectalJsonSend(p, requestjson.c_str(), (int)CHAN_NUM_FlashIndication_findKeyDone);
+    return 0;
+};
+
 FlashIndicationCb FlashIndicationJsonProxyReq = {
     portal_disconnect,
     FlashIndicationJson_readDone,
@@ -96,11 +109,12 @@ FlashIndicationCb FlashIndicationJsonProxyReq = {
     FlashIndicationJson_mergeDone,
     FlashIndicationJson_mergeFlushDone1,
     FlashIndicationJson_mergeFlushDone2,
+    FlashIndicationJson_findKeyDone,
 };
 FlashIndicationCb *pFlashIndicationJsonProxyReq = &FlashIndicationJsonProxyReq;
 const char * FlashIndicationJson_methodSignatures()
 {
-    return "{\"readDone\": [\"long\"], \"eraseDone\": [\"long\", \"long\"], \"debugDumpResp\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"], \"writeDone\": [\"long\"], \"mergeFlushDone1\": [\"long\"], \"mergeFlushDone2\": [\"long\"], \"mergeDone\": [\"long\", \"long\", \"long\"]}";
+    return "{\"readDone\": [\"long\"], \"findKeyDone\": [\"long\", \"long\", \"long\"], \"eraseDone\": [\"long\", \"long\"], \"debugDumpResp\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"], \"writeDone\": [\"long\"], \"mergeFlushDone1\": [\"long\"], \"mergeFlushDone2\": [\"long\"], \"mergeDone\": [\"long\", \"long\", \"long\"]}";
 }
 
 int FlashIndicationJson_handleMessage(struct PortalInternal *p, unsigned int channel, int messageFd)
@@ -139,6 +153,10 @@ int FlashIndicationJson_handleMessage(struct PortalInternal *p, unsigned int cha
     case CHAN_NUM_FlashIndication_mergeFlushDone2: {
         
         ((FlashIndicationCb *)p->cb)->mergeFlushDone2(p, tempdata.mergeFlushDone2.num);
+      } break;
+    case CHAN_NUM_FlashIndication_findKeyDone: {
+        
+        ((FlashIndicationCb *)p->cb)->findKeyDone(p, tempdata.findKeyDone.tag, tempdata.findKeyDone.status, tempdata.findKeyDone.ppa);
       } break;
     default:
         PORTAL_PRINTF("FlashIndicationJson_handleMessage: unknown channel 0x%x\n", channel);

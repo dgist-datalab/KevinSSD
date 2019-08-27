@@ -33,4 +33,5 @@ KEYT plbody_get_next_key(pl_body *p, uint32_t *r_ppa);
 char *plbody_insert_new_key(pl_body *p,KEYT key, uint32_t ppa,bool f);
 
 void plbody_data_print(char *data);
+uint32_t find_ppa_from(char *body, char *key, uint32_t len);
 #endif

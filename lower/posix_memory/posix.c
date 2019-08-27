@@ -42,6 +42,7 @@ lower_info my_posix={
 	.write=posix_push_data,
 	.read=posix_pull_data,
 #endif
+	.read_hw=posix_read_hw,
 	.device_badblock_checker=NULL,
 #if (LASYNC==1)
 	.trim_block=posix_make_trim,
@@ -173,9 +174,6 @@ uint32_t posix_create(lower_info *li, blockmanager *b){
 		seg_table[i].storage = NULL;
 	}
 	pthread_mutex_init(&fd_lock,NULL);
-	pthread_mutex_init(&my_posix.lower_lock,NULL);
-	measure_init(&li->writeTime);
-	measure_init(&li->readTime);
 #if (LASYNC==1)
 	stopflag = false;
 	q_init(&p_q, 1024);
@@ -188,8 +186,6 @@ uint32_t posix_create(lower_info *li, blockmanager *b){
 }
 
 void *posix_refresh(lower_info *li){
-	measure_init(&li->writeTime);
-	measure_init(&li->readTime);
 	li->write_op=li->read_op=li->trim_op=0;
 	return NULL;
 }
@@ -202,7 +198,6 @@ void *posix_destroy(lower_info *li){
 		free(seg_table[i].storage);
 	}
 	free(seg_table);
-	pthread_mutex_destroy(&my_posix.lower_lock);
 	pthread_mutex_destroy(&fd_lock);
 	free(invalidate_ppa_ptr);
 	free(result_addr);
@@ -450,3 +445,43 @@ char *posix_hw_get_inv(){
 	return invalidate_ppa_ptr;
 }
 
+void* posix_read_hw(uint32_t _PPA, char *key,uint32_t key_len, value_set *value,bool async,algo_req * const req){
+	uint32_t PPA=convert_ppa(_PPA);
+	if(PPA>_NOP){
+		printf("address error!\n");
+		abort();
+	}
+
+	if(req->type_lower!=1 && req->type_lower!=0){
+		req->type_lower=0;
+	}
+	if(value->dmatag==-1){
+		printf("dmatag -1 error!\n");
+		abort();
+	}
+
+	pthread_mutex_lock(&fd_lock);
+
+	if(my_posix.SOP*PPA >= my_posix.TS){
+		printf("\nread error\n");
+		abort();
+	}
+
+	if(!seg_table[PPA].storage){
+		printf("%u not populated!\n",PPA);
+		abort();
+	}
+	pthread_mutex_unlock(&fd_lock);
+
+	uint32_t res=find_ppa_from(seg_table[PPA].storage,key,key_len);
+	if(res==UINT32_MAX){
+		req->type=UINT8_MAX;
+		req->end_req(req);
+	}
+	else{
+		posix_push_data(res>>16,PAGESIZE,value,async,req);
+	}
+	//memcpy(value->value,seg_table[PPA].storage,size);
+	//req->type_lower=1;
+	return NULL;
+}

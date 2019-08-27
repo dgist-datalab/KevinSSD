@@ -520,19 +520,6 @@ void bench_li_print(lower_info* li,monitor *m){
 	printf("[trim_op]:%ld\n",li->trim_op);
 	printf("[WAF, RAF]: %lf, %lf\n",(float)li->write_op/m->m_num,(float)li->read_op/m->m_num);
 	printf("[if rw test]: %lf(WAF), %lf(RAF)\n",(float)li->write_op/(m->m_num/2),(float)li->read_op/(m->m_num/2));
-	
-	uint64_t sec, usec;
-	sec=li->writeTime.adding.tv_sec;
-	usec=li->writeTime.adding.tv_usec;
-	sec+=usec/1000000;
-	usec%=1000000;
-	printf("[all write Time]:%ld.%ld\n",sec,usec);
-
-	sec=li->readTime.adding.tv_sec;
-	usec=li->readTime.adding.tv_usec;
-	sec+=usec/1000000;
-	usec%=1000000;
-	printf("[all read Time]:%ld.%ld\n",sec,usec);
 }
 
 uint32_t keygenerator(uint32_t range){

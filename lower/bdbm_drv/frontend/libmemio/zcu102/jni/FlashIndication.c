@@ -79,6 +79,17 @@ int FlashIndication_mergeFlushDone2 ( struct PortalInternal *p, const uint32_t n
     return 0;
 };
 
+int FlashIndication_findKeyDone ( struct PortalInternal *p, const uint16_t tag, const uint16_t status, const uint32_t ppa )
+{
+    volatile unsigned int* temp_working_addr_start = p->transport->mapchannelReq(p, CHAN_NUM_FlashIndication_findKeyDone, 3);
+    volatile unsigned int* temp_working_addr = temp_working_addr_start;
+    if (p->transport->busywait(p, CHAN_NUM_FlashIndication_findKeyDone, "FlashIndication_findKeyDone")) return 1;
+    p->transport->write(p, &temp_working_addr, status|(((unsigned long)tag)<<16));
+    p->transport->write(p, &temp_working_addr, ppa);
+    p->transport->send(p, temp_working_addr_start, (CHAN_NUM_FlashIndication_findKeyDone << 16) | 3, -1);
+    return 0;
+};
+
 FlashIndicationCb FlashIndicationProxyReq = {
     portal_disconnect,
     FlashIndication_readDone,
@@ -88,13 +99,14 @@ FlashIndicationCb FlashIndicationProxyReq = {
     FlashIndication_mergeDone,
     FlashIndication_mergeFlushDone1,
     FlashIndication_mergeFlushDone2,
+    FlashIndication_findKeyDone,
 };
 FlashIndicationCb *pFlashIndicationProxyReq = &FlashIndicationProxyReq;
 
-const uint32_t FlashIndication_reqinfo = 0x7001c;
+const uint32_t FlashIndication_reqinfo = 0x8001c;
 const char * FlashIndication_methodSignatures()
 {
-    return "{\"readDone\": [\"long\"], \"eraseDone\": [\"long\", \"long\"], \"debugDumpResp\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"], \"writeDone\": [\"long\"], \"mergeFlushDone1\": [\"long\"], \"mergeFlushDone2\": [\"long\"], \"mergeDone\": [\"long\", \"long\", \"long\"]}";
+    return "{\"readDone\": [\"long\"], \"findKeyDone\": [\"long\", \"long\", \"long\"], \"eraseDone\": [\"long\", \"long\"], \"debugDumpResp\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"], \"writeDone\": [\"long\"], \"mergeFlushDone1\": [\"long\"], \"mergeFlushDone2\": [\"long\"], \"mergeDone\": [\"long\", \"long\", \"long\"]}";
 }
 
 int FlashIndication_handleMessage(struct PortalInternal *p, unsigned int channel, int messageFd)
@@ -172,6 +184,16 @@ int FlashIndication_handleMessage(struct PortalInternal *p, unsigned int channel
         tmp = p->transport->read(p, &temp_working_addr);
         tempdata.mergeFlushDone2.num = (uint32_t)(((tmp)&0xfffffffful));
         ((FlashIndicationCb *)p->cb)->mergeFlushDone2(p, tempdata.mergeFlushDone2.num);
+      } break;
+    case CHAN_NUM_FlashIndication_findKeyDone: {
+        
+        p->transport->recv(p, temp_working_addr, 2, &tmpfd);
+        tmp = p->transport->read(p, &temp_working_addr);
+        tempdata.findKeyDone.status = (uint16_t)(((tmp)&0xfffful));
+        tempdata.findKeyDone.tag = (uint16_t)(((tmp>>16)&0xfffful));
+        tmp = p->transport->read(p, &temp_working_addr);
+        tempdata.findKeyDone.ppa = (uint32_t)(((tmp)&0xfffffffful));
+        ((FlashIndicationCb *)p->cb)->findKeyDone(p, tempdata.findKeyDone.tag, tempdata.findKeyDone.status, tempdata.findKeyDone.ppa);
       } break;
     default:
         PORTAL_PRINTF("FlashIndication_handleMessage: unknown channel 0x%x\n", channel);

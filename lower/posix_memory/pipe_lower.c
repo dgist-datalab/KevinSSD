@@ -76,6 +76,30 @@ void plbody_data_print(char *data){
 	for_each_header_start(idx,key,ppa,bitmap,body)
 		printf("[%d]%.*s -- %u\n",idx,KEYFORMAT(key),*ppa);
 	for_each_header_end
-
 	return;
+}
+
+uint32_t find_ppa_from(char *body, char *key, uint32_t len){
+	uint16_t *bitmap=(uint16_t*)body;
+	int s=1,e=bitmap[0];
+	KEYT target;
+	KEYT temp;
+	temp.key=key;
+	temp.len=len;
+	while(s<=e){
+		int mid=(s+e)/2;
+		target.key=&body[bitmap[mid]+sizeof(ppa_t)];
+		target.len=bitmap[mid+1]-bitmap[mid]-sizeof(ppa_t);
+		int res=KEYCMP(target,temp);
+		if(res==0){
+			return *(uint32_t*)&body[bitmap[mid]];
+		}
+		else if(res<0){
+			s=mid+1;
+		}
+		else{
+			e=mid-1;
+		}
+	}
+	return UINT32_MAX;
 }

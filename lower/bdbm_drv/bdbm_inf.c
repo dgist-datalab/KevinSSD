@@ -18,6 +18,7 @@ lower_info memio_info={
 	.destroy=memio_info_destroy,
 	.write=memio_info_push_data,
 	.read=memio_info_pull_data,
+	.read_hw=memio_info_hw_read,
 	.device_badblock_checker=memio_badblock_checker,
 	.trim_block=memio_info_trim_block,
 	.trim_a_block=memio_info_trim_a_block,
@@ -196,6 +197,11 @@ uint32_t memio_do_merge(uint32_t lp_num, ppa_t *lp_array, uint32_t hp_num,ppa_t 
 	return 1;
 }
 
+void *memio_info_hw_read(uint32_t ppa, char* key, uint32_t key_len, value_set* value, bool async, algo_req *const req){
+
+	memio_do_hw_read(mio,ppa,key,key_len,value->value,async,(void*)req,value->dmatag)
+	return NULL;
+}
 char *memio_get_kt(){
 	return (char*)get_merged_kt();
 }
