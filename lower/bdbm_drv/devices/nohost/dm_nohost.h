@@ -44,7 +44,7 @@ uint32_t dm_nohost_store (bdbm_drv_info_t* bdi, const char* fn);
 
 int dm_do_merge(unsigned int ht_num, unsigned int lt_num, unsigned int *kt_num, unsigned int *inv_num,uint32_t ppa_dma);
 
-int dm_do_hw_find(uint32_t ppa, uint32_t size, uint32_t tag);
+int dm_do_hw_find(uint32_t ppa, uint32_t size, bdbm_llm_req_t* r);
 
 uint32_t get_dev_tags();
 unsigned int *get_low_ppali();

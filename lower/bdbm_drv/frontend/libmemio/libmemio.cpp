@@ -84,12 +84,17 @@ static void __dm_intr_handler (
 		if(r->req_type==REQTYPE_READ){
 			if(my_algo_req->type_lower<r->path_type)
 				my_algo_req->type_lower=r->path_type;
-			if(r->req_type==UINT8_MAX){
-				my_algo_req->type=UINT8_MAX;
-			}
 			my_algo_req->end_req(my_algo_req);
 		}
 		else{
+			if(r->req_type==UINT8_MAX){
+				if(r->logaddr.lpa[0]==UINT32_MAX){
+					my_algo_req->type=UINT8_MAX;
+				}
+				else{
+					my_algo_req->ppa=r->loaddr.lpa[0];
+				}
+			}
 			my_algo_req->end_req(my_algo_req);
 		}
 	}
@@ -336,19 +341,18 @@ int memio_do_hw_read (memio_t* mio, uint32_t lba, char *key,uint16_t key_len, ui
 	uint8_t* cur_buf = data;
 	uint64_t cur_lba = lba;
 	uint64_t sent = 0;
-	int dmatag = dmaTag;
+	int dmaTag = dmatag;
 	int ret, num_lbas;
 
 	/* read wait variables */
-	int counter = (int)(len/mio->io_size);
+	int counter = 1;
 	bdbm_cond_t readCond = PTHREAD_COND_INITIALIZER;
 
 	/* see if LBA alignment is correct */
-	__memio_check_alignment (len, mio->io_size);
+	//__memio_check_alignment (len, mio->io_size);
 
 	mio->req_flag=0;
 
-	bdbm_mutex_lock(&mio->req_mutex);
 	r = __memio_alloc_llm_req (mio,true);
 	bdbm_bug_on (!r);
 	r->path_type=0;
@@ -359,13 +363,13 @@ int memio_do_hw_read (memio_t* mio, uint32_t lba, char *key,uint16_t key_len, ui
 	r->async=async;
 	r->req=req;
 	r->dmaTag=dmatag;
-	if (dir==0) {
-		r->cond = &readCond;
-		r->counter = &counter;
-	}
-	char *target_buf=get_findKey_dma();
+
+	r->cond = &readCond;
+	r->counter = &counter;
+	char *target_buf=(char*)get_findKey_dma();
 	memcpy(&target_buf[r->tag*256+4],key,key_len);
-	dm_do_hw_find(cur_lba,(key_len+4)/16,r->tag);
+	printf("send tag:%d\n",r->tag);
+	dm_do_hw_find(cur_lba,(key_len+4)/16,r);
 	bdbm_mutex_unlock(&mio->req_mutex);
 	return 1;
 }

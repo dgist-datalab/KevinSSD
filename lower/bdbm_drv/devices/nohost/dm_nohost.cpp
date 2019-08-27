@@ -204,14 +204,17 @@ class FlashIndication: public FlashIndicationWrapper {
 		virtual void findKeyDone ( const uint16_t tag, const uint16_t status, const uint32_t ppa ) {
 			bdbm_llm_req_t* r = _priv->llm_reqs[tag];
 			_priv->llm_reqs[tag] = NULL;
+			
+			r->req_type=UINT8_MAX;
 			if(status){
+				printf("find!\n");
 				r->logaddr.lpa[0]=ppa;
-				dm_nohost_make_req(_bdi_dm,r);
 			}
 			else{
-				r->req_type=UINT8_MAX;
-				dm_nohost_end_req(_bdi_dm,r);
+				printf("not_found!\n");
+				r->logaddr.lpa[0]=UINT32_MAX;
 			}
+			dm_nohost_end_req(_bdi_dm,r);
 		}
 
 		virtual void readDone (unsigned int tag){ //, unsigned int status) {
@@ -843,8 +846,9 @@ int dm_do_merge(unsigned int ht_num, unsigned int lt_num, unsigned int *kt_num, 
 	return 1;
 }
 
-int dm_do_hw_find(uint32_t ppa, uint32_t size, uint32_t tag){
-	return device->findKey(ppa,size,tag);
+int dm_do_hw_find(uint32_t ppa, uint32_t size, bdbm_llm_req_t* r){
+	_priv->llm_reqs[r->tag]=r;
+	return device->findKey(ppa,size,r->tag);
 }
 
 unsigned int *get_low_ppali(){

@@ -536,18 +536,23 @@ void* lsm_hw_end_req(algo_req* const req){
 			if(req->type==UINT8_MAX){
 				req_temp_params=parents->params;
 				((int*)req_temp_params)[3]=1;
-				while(1){
-					if(inf_assign_try(parents)){
-						break;
-					}else{
-						if(q_enqueue((void*)parents,LSM.re_q)){
-							break;
-						}
-					}		
-				}
-				parents=NULL;
-				break;
 			}
+			else{
+				req_temp_params=parents->params;
+				parents->ppa=req->ppa;
+				((int*)req_temp_params)[3]=2;
+			}
+			while(1){
+				if(inf_assign_try(parents)){
+					break;
+				}else{
+					if(q_enqueue((void*)parents,LSM.re_q)){
+						break;
+					}
+				}		
+			}
+			parents=NULL;
+			break;
 		case DATAR:
 			if(req->type!=DATAR) abort();
 #ifdef DVALUE
@@ -859,8 +864,13 @@ uint32_t __lsm_get(request *const req){
 
 
 retry:
+	if(LSM.comp_opt==HW && temp_data[3]==2){
+		//send data/
+		LSM.li->read(req->ppa,PAGESIZE,req->value,ASYNC,lsm_get_req_factory(req,DATAR));
+		return 1;
+	}
 	result=lsm_find_run(req->key,&entry,&found,&level,&run);
-	if(temp_data[3]) temp_data[3]=0;
+	if(temp_data[3]==1) temp_data[3]=0;
 	switch(result){
 		case CACHING:
 			if(found){

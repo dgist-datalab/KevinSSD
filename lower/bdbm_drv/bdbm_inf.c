@@ -43,9 +43,6 @@ uint32_t memio_info_create(lower_info *li, blockmanager *bm){
 	li->TS=TOTALSIZE;
 
 	li->write_op=li->read_op=li->trim_op=0;
-	pthread_mutex_init(&memio_info.lower_lock,NULL);
-	measure_init(&li->writeTime);
-	measure_init(&li->readTime);
 	pthread_mutex_init(&test_lock, 0);
 	pthread_mutex_lock(&test_lock);
 	
@@ -61,8 +58,6 @@ static uint8_t test_type(uint8_t type){
 	return type&t_type;
 }
 void *memio_info_destroy(lower_info *li){
-	measure_init(&li->writeTime);
-	measure_init(&li->readTime);
 	for(int i=0; i<LREQ_TYPE_NUM;i++){
 		fprintf(stderr,"%s %lu\n",bench_lower_type(i),li->req_type_cnt[i]);
 	}
@@ -133,8 +128,6 @@ void *memio_info_trim_block(uint32_t ppa, bool async){
 }
 
 void *memio_info_refresh(struct lower_info* li){
-	measure_init(&li->writeTime);
-	measure_init(&li->readTime);
 	li->write_op=li->read_op=li->trim_op=0;
 	return NULL;
 }
@@ -199,7 +192,7 @@ uint32_t memio_do_merge(uint32_t lp_num, ppa_t *lp_array, uint32_t hp_num,ppa_t 
 
 void *memio_info_hw_read(uint32_t ppa, char* key, uint32_t key_len, value_set* value, bool async, algo_req *const req){
 
-	memio_do_hw_read(mio,ppa,key,key_len,value->value,async,(void*)req,value->dmatag)
+	memio_do_hw_read(mio,ppa,key,key_len,(uint8_t *)value->value,async,(void*)req,value->dmatag);
 	return NULL;
 }
 char *memio_get_kt(){
