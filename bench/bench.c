@@ -212,7 +212,7 @@ bench_value* get_bench(){
 		float head=_m->n_num;
 		printf("\r testing.....[%f%%]",head/body*100);
 	}
-	else if(_m->n_num%(_m->m_num<10000?_m->m_num:PRINTPER*(_m->m_num/10000))==0){
+	else if(_m->n_num%(_m->m_num<100?_m->m_num:PRINTPER*(_m->m_num/100))==0){
 #ifdef PROGRESS
 		printf("\r testing...... [%.2lf%%]",(double)(_m->n_num)/(_m->m_num/100));
 		fflush(stdout);
@@ -413,9 +413,10 @@ void bench_cdf_print(uint64_t nor, uint8_t type, bench_data *_d){//number of req
 				break;
 		}	
 	} */
+	static int cnt=0;
 	cumulate_number=0;
 	if((type>RANDSET || type%2==0) || type==NOR){
-		printf("\n[cdf]read---\n");
+		printf("\n(%d)[cdf]read---\n",cnt++);
 		for(int i=0; i<1000000/TIMESLOT+1; i++){
 			cumulate_number+=_d->read_cdf[i];
 			if(_d->read_cdf[i]==0) continue;
@@ -463,6 +464,9 @@ void bench_reap_data(request *const req,lower_info *li){
 		}
 		else{
 			_data->read_cdf[slot_num]++;
+		}
+		if(_m->r_num%1000000==0){
+			bench_cdf_print(_m->r_num,_m->type,_data);
 		}
 	}
 	else if(req->type==FS_SET_T){
