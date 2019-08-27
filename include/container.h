@@ -97,6 +97,7 @@ struct lower_info {
 	void* (*destroy)(struct lower_info*);
 	void* (*write)(uint32_t ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
 	void* (*read)(uint32_t ppa, uint32_t size, value_set *value,bool async,algo_req * const req);
+	void* (*read_hw)(uint32_t ppa, char *key,uint32_t key_len, value_set *value,bool async,algo_req * const req);
 	void* (*device_badblock_checker)(uint32_t ppa,uint32_t size,void *(*process)(uint64_t, uint8_t));
 	void* (*trim_block)(uint32_t ppa,bool async);
 	void* (*trim_a_block)(uint32_t ppa,bool async);
@@ -112,14 +113,10 @@ struct lower_info {
 	struct blockmanager *bm;
 
 	lower_status (*statusOfblock)(BLOCKT);
-	pthread_mutex_t lower_lock;
 	
 	uint64_t write_op;
 	uint64_t read_op;
 	uint64_t trim_op;
-	
-	MeasureTime writeTime;
-	MeasureTime readTime;
 
 	uint32_t NOB;
 	uint32_t NOP;

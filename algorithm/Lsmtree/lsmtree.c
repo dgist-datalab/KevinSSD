@@ -330,6 +330,7 @@ void* lsm_end_req(algo_req* const req){
 				inf_free_valueset(params->value,FS_MALLOC_R);
 			}
 			else{
+				abort();
 				if(!parents->isAsync){ // end_req for lsm_get
 					havetofree=false;
 				}
@@ -526,13 +527,63 @@ uint32_t lsm_get(request *const req){
 	return res_type;
 }
 
+void* lsm_hw_end_req(algo_req* const req){
+	lsm_params *params=(lsm_params*)req->params;
+	request* parents=req->parents;
+	void *req_temp_params=NULL;
+	switch(params->lsm_type){
+		case HEADERR:
+			if(req->type==UINT8_MAX){
+				req_temp_params=parents->params;
+				((int*)req_temp_params)[3]=1;
+				while(1){
+					if(inf_assign_try(parents)){
+						break;
+					}else{
+						if(q_enqueue((void*)parents,LSM.re_q)){
+							break;
+						}
+					}		
+				}
+				parents=NULL;
+				break;
+			}
+		case DATAR:
+			if(req->type!=DATAR) abort();
+#ifdef DVALUE
+			lsm_data_cache_insert(parents->value->ppa,parents->value);
+			parents->value=NULL;
+#endif
+			req_temp_params=parents->params;
+			if(req_temp_params){
+				if(((int*)req_temp_params)[2]==-1){
+					printf("here!\n");
+				}
+				parents->type_ftl=((int*)req_temp_params)[2]-((int*)req_temp_params)[3];
+			}
+			parents->type_lower=req->type_lower;
+			free(req_temp_params);
+			break;
+	}
+	if(parents)
+		parents->end_req(parents);
+	free(params);
+	free(req);
+	return NULL;
+}
+
 algo_req* lsm_get_req_factory(request *parents, uint8_t type){
 	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 	params->lsm_type=type;
 	lsm_req->params=params;
 	lsm_req->parents=parents;
-	lsm_req->end_req=lsm_end_req;
+	if(LSM.comp_opt==HW){
+		lsm_req->end_req=lsm_hw_end_req;
+	}
+	else{
+		lsm_req->end_req=lsm_end_req;
+	}
 	lsm_req->type_lower=0;
 	lsm_req->rapid=true;
 	lsm_req->type=type;
@@ -674,9 +725,19 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 			return res;
 		}
 		req->value->ppa=ppa;
-		LSM.li->read(ppa/(NPCINPAGE),PAGESIZE,req->value,ASYNC,lsm_req);
+		if(LSM.comp_opt!=HW || lsm_req->type==DATAR){
+			LSM.li->read(ppa/(NPCINPAGE),PAGESIZE,req->value,ASYNC,lsm_req);
+		}
+		else{
+			LSM.li->read_hw(ppa/(NPCINPAGE),req->key.key,req->key.len,req->value,ASYNC,lsm_req);
+		}
 #else
-		LSM.li->read(ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+		if(LSM.comp_opt!=HW || lsm_req->type==DATAR){
+			LSM.li->read(ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+		}
+		else{
+			LSM.li->read_hw(ppa,req->key.key,req->key.len,req->value,ASYNC,lsm_req);
+		}
 #endif
 	}
 	return res;
@@ -745,7 +806,6 @@ uint32_t __lsm_get(request *const req){
 	lsm_params *params;
 	uint8_t result=0;
 	int *temp_data;
-
 	if(req->params==NULL){
 		/*memtable*/
 		res=__lsm_get_sub(req,NULL,NULL,LSM.memtable);
@@ -831,7 +891,7 @@ retry:
 
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			temp_data[2]=++round;
-			if(entry->isflying==1){
+			if(LSM.comp_opt!=HW && entry->isflying==1){
 				entry->waitreq[entry->wait_idx++]=(void*)req;
 				res=FOUND;
 			}else{
@@ -845,7 +905,11 @@ retry:
 				params->entry_ptr=(void*)entry;
 				entry->from_req=(void*)req;
 				req->ppa=params->ppa;
-				LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+				if(LSM.comp_opt==HW){
+					LSM.li->read_hw(params->ppa,req->key.key,req->key.len,req->value,ASYNC,lsm_req);
+				}else{
+					LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
+				}
 				__header_read_cnt++;
 				res=FLYING;
 			}

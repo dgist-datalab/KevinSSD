@@ -472,6 +472,9 @@ void* posix_read_hw(uint32_t _PPA, char *key,uint32_t key_len, value_set *value,
 		abort();
 	}
 	pthread_mutex_unlock(&fd_lock);
+	KEYT temp;
+	temp.key=key;
+	temp.len=key_len;
 
 	uint32_t res=find_ppa_from(seg_table[PPA].storage,key,key_len);
 	if(res==UINT32_MAX){
@@ -479,7 +482,8 @@ void* posix_read_hw(uint32_t _PPA, char *key,uint32_t key_len, value_set *value,
 		req->end_req(req);
 	}
 	else{
-		posix_push_data(res>>16,PAGESIZE,value,async,req);
+		req->type=DATAR;
+		posix_pull_data(res/NPCINPAGE,PAGESIZE,value,async,req);
 	}
 	//memcpy(value->value,seg_table[PPA].storage,size);
 	//req->type_lower=1;
