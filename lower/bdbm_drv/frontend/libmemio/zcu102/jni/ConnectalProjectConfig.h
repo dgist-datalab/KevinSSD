@@ -2,7 +2,7 @@
 #define _ConnectalProjectConfig_h
 
 #define DataBusWidth 128
-#define NumReadClients 4
+#define NumReadClients 3
 #define NumWriteClients 8
 #define NumReFlash 2
 #define NumWeFlash 4

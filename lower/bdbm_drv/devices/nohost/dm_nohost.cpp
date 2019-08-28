@@ -200,7 +200,7 @@ class FlashIndication: public FlashIndicationWrapper {
 		virtual void mergeFlushDone2(unsigned int num) {
 
 		}
-		
+#if JNI==4
 		virtual void findKeyDone ( const uint16_t tag, const uint16_t status, const uint32_t ppa ) {
 			bdbm_llm_req_t* r = _priv->llm_reqs[tag];
 			_priv->llm_reqs[tag] = NULL;
@@ -216,7 +216,7 @@ class FlashIndication: public FlashIndicationWrapper {
 			}
 			dm_nohost_end_req(_bdi_dm,r);
 		}
-
+#endif
 		virtual void readDone (unsigned int tag){ //, unsigned int status) {
 			int status = 0;
 			//printf ("LOG: readdone: tag=%d status=%d\n", tag, status); fflush (stdout);
@@ -355,7 +355,10 @@ uint32_t __dm_nohost_init_device (
 
 	mergedKtBuf = new DmaBuffer(get_result_kt_size());
 	invalPpaList = new DmaBuffer(get_inv_ppa_list_size());
+#if JNI==4
 	searchKeyBuf = new DmaBuffer(256*128);
+#endif
+
 #else
 	fprintf(stderr, "USE_ACP = FALSE\n");
 	srcDmaBuffer = new DmaBuffer(srcAlloc_sz, false);
@@ -368,7 +371,10 @@ uint32_t __dm_nohost_init_device (
 
 	mergedKtBuf = new DmaBuffer(get_result_kt_size(),false);
 	invalPpaList = new DmaBuffer(get_inv_ppa_list_size(),false);
+#if JNI==4
 	searchKeyBuf = new DmaBuffer(256*128,false);
+#endif
+
 #endif
 	srcBuffer = (unsigned int*)srcDmaBuffer->buffer();
 	dstBuffer = (unsigned int*)dstDmaBuffer->buffer();
@@ -379,7 +385,9 @@ uint32_t __dm_nohost_init_device (
 	resPpaList_Buffer2=(unsigned int*)resPpaList2->buffer();
 	invPpaList_Buffer=(unsigned int*)invalPpaList->buffer();
 	mergeKt_Buffer=(unsigned int*)mergedKtBuf->buffer();
+#if JNI==4
 	searchKey_Buffer=(unsigned int*)searchKeyBuf->buffer();
+#endif
 
 
 	fprintf(stderr, "USE_ACP = FALSE\n");
@@ -406,7 +414,9 @@ uint32_t __dm_nohost_init_device (
 	resPpaList2->cacheInvalidate(0, 1);
 	mergedKtBuf->cacheInvalidate(0, 1);
 	invalPpaList->cacheInvalidate(0, 1);
+#if JNI==4
 	searchKeyBuf->cacheInvalidate(0,1);
+#endif
 
 	ref_dstAlloc = dstDmaBuffer->reference();
 	fprintf(stderr,"dest %d\n",ref_dstAlloc);
@@ -426,8 +436,10 @@ uint32_t __dm_nohost_init_device (
 	fprintf(stderr,"mergeResult %d size %d\n",ref_mergedKtBuf,get_result_kt_size());
 	ref_invalPpaList = invalPpaList->reference();
 	fprintf(stderr,"inv %d size %d\n",ref_invalPpaList,get_inv_ppa_list_size());
+#if JNI==4
 	ref_searchKeyBuf = searchKeyBuf->reference();
 	fprintf(stderr,"key buf:%d size:%d\n",ref_searchKeyBuf,256*128);
+#endif
 
 	fprintf(stderr,"total memory:%d MB, %d MB\n",(srcAlloc_sz+dstAlloc_sz)/MBYTE,(get_ppa_list_size()*2+2*get_result_ppa_list_size()+get_result_kt_size()+get_inv_ppa_list_size())/MBYTE);
 
@@ -436,7 +448,9 @@ uint32_t __dm_nohost_init_device (
 
 	device->setDmaKtPpaRef(ref_highPpaList, ref_lowPpaList, ref_resPpaList, ref_resPpaList2);
 	device->setDmaKtOutputRef(ref_mergedKtBuf, ref_invalPpaList);
+#if JNI==4
 	device->setDmaKtSearchRef(ref_searchKeyBuf);
+#endif
 
 	for (int t = 0; t < NUM_TAGS; t++) {
 		readTagTable[t].busy = false;
@@ -845,11 +859,12 @@ int dm_do_merge(unsigned int ht_num, unsigned int lt_num, unsigned int *kt_num, 
 	*inv_num=merge_req.inv_num;
 	return 1;
 }
-
+#if JNI==4
 int dm_do_hw_find(uint32_t ppa, uint32_t size, bdbm_llm_req_t* r){
 	_priv->llm_reqs[r->tag]=r;
 	return device->findKey(ppa,size,r->tag);
 }
+#endif
 
 unsigned int *get_low_ppali(){
 	return lowPpaList_Buffer;
@@ -872,10 +887,11 @@ unsigned int *get_inv_ppali(){
 unsigned int *get_merged_kt(){
 	return mergeKt_Buffer;
 }
-
+#if JNI==4
 unsigned int *get_findKey_dma(){
 	return searchKey_Buffer;
 }
+#endif
 
 uint32_t get_dev_tags(){
 	static const uint32_t tag=64;

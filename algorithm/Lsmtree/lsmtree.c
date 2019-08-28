@@ -467,13 +467,13 @@ uint32_t lsm_proc_re_q(){
 				tmp_req->type=FS_NOTFOUND_T;
 				tmp_req->end_req(tmp_req);
 				//tmp_req->type=tmp_req->type==FS_GET_T?FS_NOTFOUND_T:tmp_req->type;
-				if(nor==0){	
+	//			if(nor==0){	
 #ifdef KVSSD
 				printf("not found seq: %d, key:%.*s\n",nor++,KEYFORMAT(tmp_req->key));
 #else
 				printf("not found seq: %d, key:%u\n",nor++,tmp_req->key);
 #endif
-				}
+	//			}
 			}
 		}
 		else 
@@ -509,13 +509,13 @@ uint32_t lsm_get(request *const req){
 	}
 	if(unlikely(res_type==0)){
 		free(req->params);
-		if(nor==0){
+	//	if(nor==0){
 #ifdef KVSSD
 		printf("not found seq: %d, key:%.*s\n",nor++,KEYFORMAT(req->key));
 #else
 		printf("not found seq: %d, key:%u\n",nor++,req->key);
 #endif
-		}
+	//	}
 	
 	//	LSM.lop->all_print();
 		req->type=req->type==FS_GET_T?FS_NOTFOUND_T:req->type;
@@ -582,7 +582,8 @@ algo_req* lsm_get_req_factory(request *parents, uint8_t type){
 	params->lsm_type=type;
 	lsm_req->params=params;
 	lsm_req->parents=parents;
-	if(LSM.comp_opt==HW){
+	if(LSM.hw_read){
+		abort();
 		lsm_req->end_req=lsm_hw_end_req;
 	}
 	else{
@@ -707,6 +708,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 					}
 				}
 			}
+			entry->wait_idx=0;
 			free(entry->waitreq);
 			entry->waitreq=NULL;
 			entry->isflying=0;
@@ -902,9 +904,13 @@ retry:
 
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			temp_data[2]=++round;
-			if(LSM.comp_opt!=HW && entry->isflying==1){
-				entry->waitreq=(void**)calloc(sizeof(void*),QDEPTH);
-				entry->wait_idx=0;
+			if(!LSM.hw_read && entry->isflying==1){			
+				if(entry->wait_idx==0){
+					if(entry->waitreq){
+						abort();
+					}
+					entry->waitreq=(void**)calloc(sizeof(void*),QDEPTH);
+				}
 				entry->waitreq[entry->wait_idx++]=(void*)req;
 				res=FOUND;
 			}else{

@@ -19,7 +19,6 @@ public:
     int mergeDone ( const uint32_t numGenKt, const uint32_t numInvalAddr, const uint64_t counter ) { return cb->mergeDone (&pint, numGenKt, numInvalAddr, counter); };
     int mergeFlushDone1 ( const uint32_t num ) { return cb->mergeFlushDone1 (&pint, num); };
     int mergeFlushDone2 ( const uint32_t num ) { return cb->mergeFlushDone2 (&pint, num); };
-    int findKeyDone ( const uint16_t tag, const uint16_t status, const uint32_t ppa ) { return cb->findKeyDone (&pint, tag, status, ppa); };
 };
 
 extern FlashIndicationCb FlashIndication_cbTable;
@@ -47,6 +46,5 @@ public:
     virtual void mergeDone ( const uint32_t numGenKt, const uint32_t numInvalAddr, const uint64_t counter ) = 0;
     virtual void mergeFlushDone1 ( const uint32_t num ) = 0;
     virtual void mergeFlushDone2 ( const uint32_t num ) = 0;
-    virtual void findKeyDone ( const uint16_t tag, const uint16_t status, const uint32_t ppa ) = 0;
 };
 #endif // _FLASHINDICATION_H_

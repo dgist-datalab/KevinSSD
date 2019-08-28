@@ -143,30 +143,6 @@ int FlashRequestJson_setDebugVals ( struct PortalInternal *p, const uint32_t fla
     return 0;
 };
 
-int FlashRequestJson_setDmaKtSearchRef ( struct PortalInternal *p, const uint32_t sgId )
-{
-    Json::Value request;
-    request.append(Json::Value("setDmaKtSearchRef"));
-    request.append((Json::UInt64)sgId);
-
-    std::string requestjson = Json::FastWriter().write(request);;
-    connectalJsonSend(p, requestjson.c_str(), (int)CHAN_NUM_FlashRequest_setDmaKtSearchRef);
-    return 0;
-};
-
-int FlashRequestJson_findKey ( struct PortalInternal *p, const uint32_t ppa, const uint32_t keySz, const uint32_t tag )
-{
-    Json::Value request;
-    request.append(Json::Value("findKey"));
-    request.append((Json::UInt64)ppa);
-    request.append((Json::UInt64)keySz);
-    request.append((Json::UInt64)tag);
-
-    std::string requestjson = Json::FastWriter().write(request);;
-    connectalJsonSend(p, requestjson.c_str(), (int)CHAN_NUM_FlashRequest_findKey);
-    return 0;
-};
-
 FlashRequestCb FlashRequestJsonProxyReq = {
     portal_disconnect,
     FlashRequestJson_readPage,
@@ -180,13 +156,11 @@ FlashRequestCb FlashRequestJsonProxyReq = {
     FlashRequestJson_start,
     FlashRequestJson_debugDumpReq,
     FlashRequestJson_setDebugVals,
-    FlashRequestJson_setDmaKtSearchRef,
-    FlashRequestJson_findKey,
 };
 FlashRequestCb *pFlashRequestJsonProxyReq = &FlashRequestJsonProxyReq;
 const char * FlashRequestJson_methodSignatures()
 {
-    return "{\"setDebugVals\": [\"long\", \"long\"], \"writePage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"], \"eraseBlock\": [\"long\", \"long\", \"long\", \"long\"], \"debugDumpReq\": [\"long\"], \"setDmaKtSearchRef\": [\"long\"], \"setDmaWriteRef\": [\"long\"], \"setDmaKtOutputRef\": [\"long\", \"long\"], \"setDmaKtPpaRef\": [\"long\", \"long\", \"long\", \"long\"], \"findKey\": [\"long\", \"long\", \"long\"], \"startCompaction\": [\"long\", \"long\", \"long\"], \"setDmaReadRef\": [\"long\"], \"start\": [\"long\"], \"readPage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"]}";
+    return "{\"setDebugVals\": [\"long\", \"long\"], \"writePage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"], \"eraseBlock\": [\"long\", \"long\", \"long\", \"long\"], \"debugDumpReq\": [\"long\"], \"setDmaWriteRef\": [\"long\"], \"setDmaKtOutputRef\": [\"long\", \"long\"], \"setDmaKtPpaRef\": [\"long\", \"long\", \"long\", \"long\"], \"startCompaction\": [\"long\", \"long\", \"long\"], \"setDmaReadRef\": [\"long\"], \"start\": [\"long\"], \"readPage\": [\"long\", \"long\", \"long\", \"long\", \"long\", \"long\"]}";
 }
 
 int FlashRequestJson_handleMessage(struct PortalInternal *p, unsigned int channel, int messageFd)
@@ -241,14 +215,6 @@ int FlashRequestJson_handleMessage(struct PortalInternal *p, unsigned int channe
     case CHAN_NUM_FlashRequest_setDebugVals: {
         
         ((FlashRequestCb *)p->cb)->setDebugVals(p, tempdata.setDebugVals.flag, tempdata.setDebugVals.debugDelay);
-      } break;
-    case CHAN_NUM_FlashRequest_setDmaKtSearchRef: {
-        
-        ((FlashRequestCb *)p->cb)->setDmaKtSearchRef(p, tempdata.setDmaKtSearchRef.sgId);
-      } break;
-    case CHAN_NUM_FlashRequest_findKey: {
-        
-        ((FlashRequestCb *)p->cb)->findKey(p, tempdata.findKey.ppa, tempdata.findKey.keySz, tempdata.findKey.tag);
       } break;
     default:
         PORTAL_PRINTF("FlashRequestJson_handleMessage: unknown channel 0x%x\n", channel);

@@ -1,6 +1,6 @@
 
-CONNECTALDIR?=/home/cwchung/workspace/lightstore/tools/connectal
-DTOP?=/home/cwchung/workspace/lightstore/projects/flash_kt_wr/zcu102
+CONNECTALDIR?=/home/cwchung/workspace/lightstore-test/tools/connectal
+DTOP?=/home/cwchung/workspace/lightstore-test/projects/flash_kt/zcu102
 
 TOOLCHAIN?=aarch64-linux-gnu-
 ifneq ($(TOOLCHAIN),)
@@ -13,7 +13,7 @@ CFLAGS2 =
 
 include $(DTOP)/Makefile.autotop
 include $(CONNECTALDIR)/scripts/Makefile.connectal.application
-SOURCES = /home/cwchung/workspace/lightstore/projects/flash_kt_wr/main.cpp /home/cwchung/workspace/lightstore/tools/connectal/cpp/dmaManager.c /home/cwchung/workspace/lightstore/tools/connectal/cpp/platformMemory.cpp $(PORTAL_SRC_FILES)
+SOURCES = /home/cwchung/workspace/lightstore-test/projects/flash_kt/main.cpp /home/cwchung/workspace/lightstore-test/tools/connectal/cpp/dmaManager.c /home/cwchung/workspace/lightstore-test/tools/connectal/cpp/platformMemory.cpp $(PORTAL_SRC_FILES)
 SOURCES2 =  $(PORTAL_SRC_FILES)
 XSOURCES = $(CONNECTALDIR)/cpp/XsimTop.cpp $(PORTAL_SRC_FILES)
 LDLIBS :=    -lpthread

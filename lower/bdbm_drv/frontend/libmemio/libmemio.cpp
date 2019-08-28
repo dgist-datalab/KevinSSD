@@ -331,7 +331,7 @@ void memio_wait (memio_t* mio)
 	} while ( i != mio->nr_tags-1 );
 
 }
-
+#if JNI==4
 int memio_do_hw_read (memio_t* mio, uint32_t lba, char *key,uint16_t key_len, uint8_t* data, int async, void *req,int dmatag)
 {
 	bdbm_mutex_lock(&mio->req_mutex);
@@ -373,7 +373,12 @@ int memio_do_hw_read (memio_t* mio, uint32_t lba, char *key,uint16_t key_len, ui
 	bdbm_mutex_unlock(&mio->req_mutex);
 	return 1;
 }
-
+#else
+int memio_do_hw_read (memio_t* mio, uint32_t lba, char *key,uint16_t key_len, uint8_t* data, int async, void *req,int dmatag){
+	abort();
+	return 1;
+}
+#endif
 
 
 int memio_read (memio_t* mio, uint32_t lba, uint64_t len, uint8_t* data, int async, void *req, int dmaTag)
