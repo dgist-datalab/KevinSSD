@@ -90,8 +90,8 @@ typedef struct lsmtree{
 	uint32_t LEVELN;
 	uint32_t LEVELCACHING;
 	float caching_size;
+
 	bool nocpy;
-	
 	bool gc_opt;
 	bool multi_level_comp;
 	uint8_t comp_opt;
@@ -99,6 +99,7 @@ typedef struct lsmtree{
 	bool inplace_compaction;
 	bool delayed_header_trim;
 	bool gc_started;
+	bool hw_read;
 	//this is for nocpy, when header_gc triggered in compactioning
 	uint32_t delayed_trim_ppa;//UINT_MAX is nothing to do
 

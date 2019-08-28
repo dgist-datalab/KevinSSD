@@ -330,7 +330,6 @@ void* lsm_end_req(algo_req* const req){
 				inf_free_valueset(params->value,FS_MALLOC_R);
 			}
 			else{
-				abort();
 				if(!parents->isAsync){ // end_req for lsm_get
 					havetofree=false;
 				}
@@ -730,14 +729,14 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 			return res;
 		}
 		req->value->ppa=ppa;
-		if(LSM.comp_opt!=HW || lsm_req->type==DATAR){
+		if(!LSM.hw_read || lsm_req->type==DATAR){
 			LSM.li->read(ppa/(NPCINPAGE),PAGESIZE,req->value,ASYNC,lsm_req);
 		}
 		else{
 			LSM.li->read_hw(ppa/(NPCINPAGE),req->key.key,req->key.len,req->value,ASYNC,lsm_req);
 		}
 #else
-		if(LSM.comp_opt!=HW || lsm_req->type==DATAR){
+		if(!LSM.hw_read || lsm_req->type==DATAR){
 			LSM.li->read(ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 		}
 		else{
@@ -864,7 +863,7 @@ uint32_t __lsm_get(request *const req){
 
 
 retry:
-	if(LSM.comp_opt==HW && temp_data[3]==2){
+	if(LSM.hw_read && temp_data[3]==2){
 		//send data/
 		LSM.li->read(CONVPPA(req->ppa),PAGESIZE,req->value,ASYNC,lsm_get_req_factory(req,DATAR));
 		return 1;
@@ -901,7 +900,7 @@ retry:
 
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			temp_data[2]=++round;
-			if(LSM.comp_opt!=HW && entry->isflying==1){
+			if(!LSM.hw_read && entry->isflying==1){
 				entry->waitreq[entry->wait_idx++]=(void*)req;
 				res=FOUND;
 			}else{
@@ -915,7 +914,7 @@ retry:
 				params->entry_ptr=(void*)entry;
 				entry->from_req=(void*)req;
 				req->ppa=params->ppa;
-				if(LSM.comp_opt==HW){
+				if(LSM.hw_read){
 					LSM.li->read_hw(params->ppa,req->key.key,req->key.len,req->value,ASYNC,lsm_req);
 				}else{
 					LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
@@ -1106,7 +1105,7 @@ uint32_t lsm_argument_set(int argc, char **argv){
 	bool multi_level_comp=false;
 	bool nocpy_option=false;
 	int comp_type=0;
-	while((c=getopt(argc,argv,"lcgomnr"))!=-1){
+	while((c=getopt(argc,argv,"lcgomnrh"))!=-1){
 		switch(c){
 			case 'l':
 				level_flag=true;
@@ -1120,7 +1119,7 @@ uint32_t lsm_argument_set(int argc, char **argv){
 				break;
 			case 'r':
 				memory_c_flag=true;
-				printf("level caching number:%s\n",argv[optind]);
+				printf("caching ratio:%s\n",argv[optind]);
 				LSM.caching_size=(float)atoi(argv[optind])/100;
 				break;
 			case 'g':
@@ -1141,6 +1140,10 @@ uint32_t lsm_argument_set(int argc, char **argv){
 			case 'o':
 				comp_type=atoi(argv[optind]);
 				LSM.comp_opt=comp_type;
+				break;
+			case 'h':
+				printf("[*]hw read!\n");
+				LSM.hw_read=true;
 				break;
 		}
 	}
