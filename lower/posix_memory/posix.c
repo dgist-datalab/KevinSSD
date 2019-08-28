@@ -479,12 +479,11 @@ void* posix_read_hw(uint32_t _PPA, char *key,uint32_t key_len, value_set *value,
 	uint32_t res=find_ppa_from(seg_table[PPA].storage,key,key_len);
 	if(res==UINT32_MAX){
 		req->type=UINT8_MAX;
-		req->end_req(req);
 	}
 	else{
-		req->type=DATAR;
-		posix_pull_data(res/NPCINPAGE,PAGESIZE,value,async,req);
+		req->ppa=res;
 	}
+	req->end_req(req);
 	//memcpy(value->value,seg_table[PPA].storage,size);
 	//req->type_lower=1;
 	return NULL;

@@ -708,6 +708,8 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 					}
 				}
 			}
+			free(entry->waitreq);
+			entry->waitreq=NULL;
 			entry->isflying=0;
 			entry->wait_idx=0;
 		}
@@ -902,6 +904,8 @@ retry:
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			temp_data[2]=++round;
 			if(LSM.comp_opt!=HW && entry->isflying==1){
+				entry->waitreq=(void**)calloc(sizeof(void*),QDEPTH);
+				entry->wait_idx=0;
 				entry->waitreq[entry->wait_idx++]=(void*)req;
 				res=FOUND;
 			}else{
@@ -910,8 +914,7 @@ retry:
 				params->ppa=entry->pbn;
 
 				entry->isflying=1;
-				memset(entry->waitreq,0,sizeof(entry->waitreq));
-				entry->wait_idx=0;
+
 				params->entry_ptr=(void*)entry;
 				entry->from_req=(void*)req;
 				req->ppa=params->ppa;

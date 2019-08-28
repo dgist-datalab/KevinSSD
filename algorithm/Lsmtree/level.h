@@ -69,7 +69,8 @@ typedef struct run{
 	htable *cache_data;
 
 	void *from_req;
-	void* waitreq[QDEPTH];
+	//void* waitreq[QDEPTH];
+	void** waitreq;
 	void **gc_waitreq;
 	int wait_idx;
 	int gc_wait_idx;
@@ -160,18 +161,6 @@ typedef struct level_ops{
 
 	void (*range_update)(level *,run_t*,KEYT);
 	int (*cache_comp_formatting)(level *,run_t ***,bool isnext_cache);
-	/*level caching*/
-//	void (*cache_insert)(level *,skiplist *);
-//	void (*cache_merge)( level *from, level *to);
-//	void (*cache_free)(level*);
-//	void (*cache_move)(level*, level *);
-//	keyset *(*cache_find)(level *,KEYT);
-//	char *(*cache_find_run_data)(level *,KEYT);
-//	char *(*cache_next_run_data)(level *, KEYT );
-//	skiplist *(*cache_get_body)(level*);
-//	lev_iter *(*cache_get_iter)(level *,KEYT from, KEYT to); //from<= x < to
-//	run_t *(*cache_iter_nxt)(lev_iter*);
-//	int (*cache_get_size)(level *);
 	keyset_iter* (*header_get_keyiter)(level *, char *, KEYT *);
 	keyset (*header_next_key)(level *, keyset_iter *);
 	void (*header_next_key_pick)(level *, keyset_iter *, keyset *);
