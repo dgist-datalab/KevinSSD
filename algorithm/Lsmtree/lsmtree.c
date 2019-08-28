@@ -583,7 +583,6 @@ algo_req* lsm_get_req_factory(request *parents, uint8_t type){
 	lsm_req->params=params;
 	lsm_req->parents=parents;
 	if(LSM.hw_read){
-		abort();
 		lsm_req->end_req=lsm_hw_end_req;
 	}
 	else{
