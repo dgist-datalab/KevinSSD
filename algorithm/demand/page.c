@@ -5,13 +5,16 @@
 #include "demand.h"
 #include "page.h"
 #include "utility.h"
+#include "cache.h"
 #include "../../interface/interface.h"
 
 extern algorithm __demand;
 
-extern struct demand_env env;
-extern struct demand_member member;
+extern struct demand_env d_env;
+extern struct demand_member d_member;
 extern struct demand_stat d_stat;
+
+extern struct demand_cache *d_cache;
 
 __segment *d_active;
 __segment *t_active;
@@ -54,8 +57,8 @@ static int _do_bulk_read_valid_pages(blockmanager *bm, struct gc_table_struct **
 }
 
 static void _do_wait_until_read_all(int nr_valid_pages) {
-	while (member.nr_valid_read_done != nr_valid_pages) {}
-	member.nr_valid_read_done = 0;
+	while (d_member.nr_valid_read_done != nr_valid_pages) {}
+	d_member.nr_valid_read_done = 0;
 }
 
 static int _do_bulk_write_valid_pages(blockmanager *bm, struct gc_table_struct **bulk_table, int nr_valid_pages, bool is_data) {
@@ -73,7 +76,7 @@ static int _do_bulk_write_valid_pages(blockmanager *bm, struct gc_table_struct *
 		bm->set_oob(bm, (char *)bulk_table[i]->lpa_list, sizeof(uint32_t), new_ppa);
 
 		if (!is_data) {
-			member.cmt[bulk_table[i]->lpa_list[0]]->t_ppa = new_ppa;
+			d_cache->member.cmt[bulk_table[i]->lpa_list[0]]->t_ppa = new_ppa;
 		}
 
 		inf_free_valueset(bulk_table[i]->origin, FS_MALLOC_R);
@@ -96,7 +99,7 @@ static int _do_bulk_mapping_update(blockmanager *bm, struct gc_table_struct **bu
 	/* read mapping table which needs update */
 	volatile int nr_update_tpages = 0;
 	for (int i = 0; i < nr_valid_pages; i++) {
-		struct cmt_struct *cmt = member.cmt[IDX(bulk_table[i]->lpa_list[0])];
+		struct cmt_struct *cmt = d_cache->member.cmt[IDX(bulk_table[i]->lpa_list[0])];
 
 		if (!CACHE_HIT(cmt->pt)) {
 			value_set *_value_mr = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
@@ -114,13 +117,13 @@ static int _do_bulk_mapping_update(blockmanager *bm, struct gc_table_struct **bu
 	}
 
 	/* wait */
-	while (member.nr_tpages_read_done == nr_update_tpages) {}
-	member.nr_tpages_read_done = 0;
+	while (d_member.nr_tpages_read_done == nr_update_tpages) {}
+	d_member.nr_tpages_read_done = 0;
 
 	/* write */
 	for (int i = 0; i < nr_valid_pages; i++) {
-		struct cmt_struct *cmt = member.cmt[IDX(bulk_table[i]->lpa_list[0])];
-		struct pt_struct *pt = member.mem_table[cmt->idx];
+		struct cmt_struct *cmt = d_cache->member.cmt[IDX(bulk_table[i]->lpa_list[0])];
+		struct pt_struct *pt = d_cache->member.mem_table[cmt->idx];
 
 		pt[OFFSET(bulk_table[i]->lpa_list[0])].ppa = bulk_table[i]->ppa;
 		while (i+1 < nr_valid_pages && IDX(bulk_table[i+1]->lpa_list[0]) == cmt->idx) {
@@ -188,6 +191,9 @@ ppa_t get_dpage(blockmanager *bm) {
 		}
 	}
 	ppa = bm->get_page_num(bm, d_active);
+
+	validate_page(bm, ppa, DATA);
+
 	return ppa;
 }
 
@@ -231,5 +237,28 @@ ppa_t get_tpage(blockmanager *bm) {
 		}
 	}
 	ppa = bm->get_page_num(bm, t_active);
+
+	validate_page(bm, ppa, MAP);
+
 	return ppa;
+}
+
+int validate_page(blockmanager *bm, ppa_t ppa, page_t type) {
+	int rc = 0;
+	rc = bm->populate_bit(bm, ppa);
+	if (unlikely(!rc)) abort();
+	return rc;
+}
+
+int invalidate_page(blockmanager *bm, ppa_t ppa, page_t type) {
+	int rc = 0;
+	if (type == DATA) {
+#ifdef DVALUE
+		rc = invalidate_grain(bm, ppa);
+		if (unlikely(rc)) abort();
+		ppa /= GRAIN_PER_PAGE;
+#endif
+	}
+	rc = bm->unpopulate_bit(bm, ppa);
+	return rc;
 }

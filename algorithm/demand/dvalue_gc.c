@@ -7,13 +7,16 @@
 #include "demand.h"
 #include "page.h"
 #include "utility.h"
+#include "cache.h"
 #include "../../interface/interface.h"
 
 extern algorithm __demand;
 
-extern struct demand_env env;
-extern struct demand_member member;
+extern struct demand_env d_env;
+extern struct demand_member d_member;
 extern struct demand_stat d_stat;
+
+extern struct demand_cache *d_cache;
 
 extern __segment *d_active;
 extern __segment *d_reserve;
@@ -58,8 +61,8 @@ _do_bulk_read_pages_containing_valid_grain
 }
 
 static void _do_wait_until_read_all(int target_number) {
-	while (member.nr_valid_read_done != target_number) {}
-	member.nr_valid_read_done = 0;
+	while (d_member.nr_valid_read_done != target_number) {}
+	d_member.nr_valid_read_done = 0;
 }
 
 struct gc_bucket *gc_bucket;
@@ -156,7 +159,7 @@ static int _do_bulk_mapping_update(blockmanager *bm, int nr_valid_grains) {
 	/* read mapping table which needs update */
 	volatile int nr_update_tpages = 0;
 	for (int i = 0; i < nr_valid_grains; i++) {
-		struct cmt_struct *cmt = member.cmt[IDX(gcb_node_arr[i]->lpa)];
+		struct cmt_struct *cmt = d_cache->member.cmt[IDX(gcb_node_arr[i]->lpa)];
 
 		if (!CACHE_HIT(cmt->pt)) {
 			value_set *_value_mr = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
@@ -175,13 +178,13 @@ static int _do_bulk_mapping_update(blockmanager *bm, int nr_valid_grains) {
 	}
 
 	/* wait */
-	while (member.nr_tpages_read_done == nr_update_tpages) {}
-	member.nr_tpages_read_done = 0;
+	while (d_member.nr_tpages_read_done == nr_update_tpages) {}
+	d_member.nr_tpages_read_done = 0;
 
 	/* write */
 	for (int i = 0; i < nr_valid_grains; i++) {
-		struct cmt_struct *cmt = member.cmt[IDX(gcb_node_arr[i]->lpa)];
-		struct pt_struct *pt = member.mem_table[cmt->idx];
+		struct cmt_struct *cmt = d_cache->member.cmt[IDX(gcb_node_arr[i]->lpa)];
+		struct pt_struct *pt = d_cache->member.mem_table[cmt->idx];
 
 /*		while (i < nr_valid_grains && IDX(gcb_node_arr[i]->lpa) == cmt->idx) {
 			pt[OFFSET(gcb_node_arr[i]->lpa)].ppa = gcb_node_arr[i]->ppa;
