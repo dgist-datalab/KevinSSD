@@ -19,7 +19,7 @@
 #include "../../include/sem_lock.h"
 #include "../../include/data_struct/redblack.h"
 #include "../../interface/interface.h"
-
+#define ONESEGMENT (DEFKEYINHEADER*DEFVALUESIZE)
 #ifdef DVALUE
 	#define CONVPPA(_ppa) _ppa/NPCINPAGE
 #else

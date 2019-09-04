@@ -15,7 +15,8 @@
 	}while(0)
 */
 #define PROGRESS
-#define LOWER_FILE_NAME "../iotest/simulator.data"
+//#define LOWER_FILE_NAME "../iotest/simulator.data"
+#define LOWER_FILE_NAME "./data/simulator.data"
 //#define LOWER_FILE_NAME "/dev/sdb1"
 
 //#define LOWER_FILE_NAME "/dev/robusta"
@@ -32,6 +33,8 @@
 #define PIECE 512
 #define NPCINPAGE (PAGESIZE/PIECE)
 #define MINVALUE PIECE
+#define DEFKEYLENGTH 32
+#define DEFVALUESIZE 1024
 
 #ifdef MLC
 
@@ -44,8 +47,9 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 100L
+#define GIGAUNIT 16L
 #define TOTALSIZE (GIGAUNIT*G)
+#define OP 50
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
 #define PAGESIZE (8*K)
@@ -66,9 +70,12 @@
 //#define RANGE ((GIGAUNIT)*(M/PAGESIZE)*1024L*0.5)
 #define RANGE ((GIGAUNIT)*(M/PAGESIZE)*1024L*0.5*NPCINPAGE)
 #define REQNUM ((GIGAUNIT)*(M/PAGESIZE)*1024L)
+#define SHOWINGSIZE (TOTALSIZE/100*OP)
+#define SHOWINGFULL (SHOWINGSIZE/DEFVALUESIZE)
+#define DEVFULL (TOTALSIZE/DEFVALUESIZE)
 
 #define PARTNUM 2
-#define MAPPART_SEGS 8
+#define MAPPART_SEGS (_NOS/10)
 #define DATAPART_SEGS (_NOS-MAPPART_SEGS)
 enum{
 	MAP_S,DATA_S

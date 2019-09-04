@@ -168,9 +168,6 @@ uint32_t posix_create(lower_info *li, blockmanager * bm){
 		exit(-1);
 	}
 	pthread_mutex_init(&fd_lock,NULL);
-	pthread_mutex_init(&my_posix.lower_lock,NULL);
-	measure_init(&li->writeTime);
-	measure_init(&li->readTime);
 #if (ASYNC==1)
 	stopflag = false;
 	q_init(&p_q, 1024);
@@ -180,14 +177,11 @@ uint32_t posix_create(lower_info *li, blockmanager * bm){
 }
 
 void *posix_refresh(lower_info *li){
-	measure_init(&li->writeTime);
-	measure_init(&li->readTime);
 	li->write_op=li->read_op=li->trim_op=0;
 	return NULL;
 }
 
 void *posix_destroy(lower_info *li){
-	pthread_mutex_destroy(&my_posix.lower_lock);
 	pthread_mutex_destroy(&fd_lock);
 	fclose(_fp);
 	close(_fd);

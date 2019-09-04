@@ -250,7 +250,6 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 	
 	int result_cnt=0;
 	int flushed_idx=0;
-	int remain_queue=0;
 	run_t **result_temp=(run_t**)malloc(sizeof(run_t*)*(u_num+l_num+LSM.result_padding));
 
 	uint32_t lppa, hppa, p_rppa;
@@ -259,7 +258,6 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 	KEYT insert_key;
 	int next_pop=0;
 	char *res_data;
-	lower_info *l=LSM.li;
 #ifdef BLOOM
 	BF *filter;
 #endif
