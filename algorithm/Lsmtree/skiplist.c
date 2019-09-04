@@ -543,7 +543,8 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		free(key.key);
 #endif
 	//	old_req->end_req(old_req);
-
+		list->data_size-=(x->value->length*PIECE);
+		list->data_size+=(value->length*PIECE);
 		x->value=value;
 		x->isvalid=deletef;
 		return x;
@@ -595,6 +596,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 
 		x->level=level;
 		list->size++;
+		list->data_size+=(value->length*PIECE);
 	}
 	return x;
 }

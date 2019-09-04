@@ -74,6 +74,7 @@ typedef struct skiplist{
 #if defined(KVSSD)
 	uint32_t all_length;
 #endif
+	uint32_t data_size;
 	snode *header;
 }skiplist;
 
