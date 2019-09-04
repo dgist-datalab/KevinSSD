@@ -27,6 +27,7 @@
 #define G (1024*M)
 #define T (1024L*G)
 #define P (1024L*T)
+#define MILI (1000000)
 
 #define PIECE 512
 #define NPCINPAGE (PAGESIZE/PIECE)
@@ -43,7 +44,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 16L
+#define GIGAUNIT 100L
 #define TOTALSIZE (GIGAUNIT*G)
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
@@ -78,6 +79,8 @@ enum{
 #endif
 
 #define SIMULATION 0
+
+#define PFTLMEMORY (TOTALSIZE/K)
 
 #define FSTYPE uint8_t
 #define ppa_t uint32_t
