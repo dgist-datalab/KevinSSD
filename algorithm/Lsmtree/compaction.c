@@ -129,7 +129,9 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 				l_node->entry=entry;
 			}
 		}
+		bench_custom_start(write_opt_time,10);
 		compactor.pt_leveling(target,target_origin,l_node,from);	
+		bench_custom_A(write_opt_time,10);
 	}
 	
 last:
@@ -143,6 +145,8 @@ last:
 		gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
 		LSM.delayed_header_trim=false;
 	}
+
+	//LSM.li->lower_flying_req_wait();
 	return res;
 }
 

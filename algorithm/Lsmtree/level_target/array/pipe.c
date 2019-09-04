@@ -3,6 +3,8 @@
 #include "../../lsmtree.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "../../../../bench/bench.h"
+extern MeasureTime write_opt_time[10];
 extern lsmtree LSM;
 p_body *pbody_init(char **data,uint32_t size, pl_run *pl_datas, bool read_from_run,float fpr, bool isres){
 	p_body *res=(p_body*)calloc(sizeof(p_body),1);
@@ -20,9 +22,16 @@ p_body *pbody_init(char **data,uint32_t size, pl_run *pl_datas, bool read_from_r
 }
 
 bool print_test;
+int lock_cnt=0;
 void new_page_set(p_body *p, bool iswrite){
 	if(p->read_from_run){
-		fdriver_lock(p->pl_datas[p->pidx].lock);
+		bench_custom_start(write_opt_time,9);
+		if(fdriver_try_lock(p->pl_datas[p->pidx].lock)==-1){
+			fdriver_lock(p->pl_datas[p->pidx].lock);
+		}
+		else{
+		}
+		bench_custom_A(write_opt_time,9);
 		p->now_page=data_from_run(p->pl_datas[p->pidx].r);
 	}
 	else{

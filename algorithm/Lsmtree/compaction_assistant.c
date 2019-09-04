@@ -407,19 +407,19 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 
 	KEYT key,end;
 	run_t* target=NULL;
-	bench_custom_start(write_opt_time,7);
 	while((target=LSM.lop->cutter(top,des,&key,&end))){
 		if(des->idx<LSM.LEVELCACHING){
 			LSM.lop->insert(des,target);
 			LSM.lop->release_run(target);
 		}
 		else{
+			bench_custom_start(write_opt_time,7);
 			compaction_htable_write_insert(des,target,false);
+			bench_custom_A(write_opt_time,7);
 		}
 		free(target);
 	}
 	//LSM.li->lower_flying_req_wait();
-	bench_custom_A(write_opt_time,7);
 }
 
 void compaction_lev_seq_processing(level *src, level *des, int headerSize){

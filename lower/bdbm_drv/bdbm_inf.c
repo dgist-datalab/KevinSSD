@@ -28,6 +28,8 @@ lower_info memio_info={
 	.lower_free=memio_free_dma,
 	.lower_flying_req_wait=memio_flying_req_wait,
 	.lower_show_info=memio_show_info_,
+
+	.lower_tag_num=memio_tag_num,
 	.hw_do_merge=memio_do_merge,
 	.hw_get_kt=memio_get_kt,
 	.hw_get_inv=memio_get_inv
@@ -201,4 +203,8 @@ char *memio_get_kt(){
 }
 char *memio_get_inv(){
 	return (char*)get_inv_ppali();
+}
+
+uint32_t memio_tag_num(){
+	return mio->tagQ->size();
 }

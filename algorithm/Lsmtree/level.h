@@ -64,21 +64,20 @@ typedef struct run{
 #endif
 	//for caching
 	cache_entry *c_entry;
-	volatile char isflying;
 	char *cache_nocpy_data_ptr;
 	htable *cache_data;
-
-	void *from_req;
-	//void* waitreq[QDEPTH];
-	void** waitreq;
-	void **gc_waitreq;
-	int wait_idx;
-	int gc_wait_idx;
 
 	htable *cpt_data;
 	void *run_data;
 	char *level_caching_data;
 	char iscompactioning;
+
+	volatile char isflying;
+	void *from_req;
+	void** waitreq;
+	void **gc_waitreq;
+	int wait_idx;
+	int gc_wait_idx;
 }run_t;
 
 typedef struct pipe_line_run{

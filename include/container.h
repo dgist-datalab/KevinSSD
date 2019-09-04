@@ -107,6 +107,7 @@ struct lower_info {
 	void (*lower_free) (int type, int dmaTag);
 	void (*lower_flying_req_wait) ();
 	void (*lower_show_info)();
+	uint32_t (*lower_tag_num)();
 	uint32_t (*hw_do_merge)(uint32_t lp_num, ppa_t *lp_array, uint32_t hp_num,ppa_t *hp_array,ppa_t *tp_array, uint32_t* ktable_num, uint32_t *invliadate_num);
 	char *(*hw_get_kt)();
 	char *(*hw_get_inv)();

@@ -1,6 +1,10 @@
 #include "array.h"
 #include "pipe.h"
 #include "../../../../include/settings.h"
+#include "../../../../bench/bench.h"
+#include "../../compaction.h"
+#include "../../nocpy.h"
+extern MeasureTime write_opt_time[10];
 p_body *rp;
 char **r_data;
 bool cutter_start;
@@ -243,14 +247,19 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 	lp=pbody_init(NULL,l_num,l_data,true,d->fpr,false);
 	hp=pbody_init(NULL,u_num,u_data,true,d->fpr,false);
 	p_rp=pbody_init(r_datas,u_num+l_num+LSM.result_padding,NULL,false,d->fpr,true);
+	
+	int result_cnt=0;
+	int flushed_idx=0;
+	int remain_queue=0;
+	run_t **result_temp=(run_t**)malloc(sizeof(run_t*)*(u_num+l_num+LSM.result_padding));
 
 	uint32_t lppa, hppa, p_rppa;
 	KEYT lp_key=pbody_get_next_key(lp,&lppa);
 	KEYT hp_key=pbody_get_next_key(hp,&hppa);
 	KEYT insert_key;
 	int next_pop=0;
-	int result_cnt=0;
 	char *res_data;
+	lower_info *l=LSM.li;
 #ifdef BLOOM
 	BF *filter;
 #endif
@@ -274,7 +283,6 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 				printf("%.*s\n",KEYFORMAT(hp_key));
 				abort();
 			}
-
 			next_pop=KEYCMP(lp_key,hp_key);
 			if(next_pop<0){
 				insert_key=lp_key;
@@ -291,20 +299,19 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 			}
 		}
 #ifdef BLOOM
-		if((res_data=pbody_insert_new_key(p_rp,insert_key,p_rppa,false,&filter)))
+		if((res_data=pbody_insert_new_key(p_rp,insert_key,p_rppa,false,NULL)))
 #else
 		if((res_data=pbody_insert_new_key(p_rp,insert_key,p_rppa,false)))
 #endif
 		{
-
-#ifdef BLOOM
-			lev_insert_write(d,array_pipe_make_run(res_data,d->idx,filter));
+			/*
+#ifdef BOOM
+			result_temp[result_cnt++]=array_pipe_make_run(res_data,d->idx,filter);
 #else
-			lev_insert_write(d,array_pipe_make_run(res_data,d->idx));
-#endif
-			result_cnt++;
+			result_temp[result_cnt++]=array_pipe_make_run(res_data,d->idx);
+#endif	*/
 		}
-		
+
 		if(next_pop<0) lp_key=pbody_get_next_key(lp,&lppa);
 		else if(next_pop>0) hp_key=pbody_get_next_key(hp,&hppa);
 		else{
@@ -319,34 +326,40 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 	if((res_data=pbody_insert_new_key(p_rp,insert_key,0,true)))
 #endif
 	{
+		/*
 #ifdef BLOOM
-			lev_insert_write(d,array_pipe_make_run(res_data,d->idx,filter));
+		result_temp[result_cnt++]=array_pipe_make_run(res_data,d->idx,filter);
 #else
-			lev_insert_write(d,array_pipe_make_run(res_data,d->idx));
-#endif
-		result_cnt++;
+		result_temp[result_cnt++]=array_pipe_make_run(res_data,d->idx);
+#endif	*/
+
 	}
 
 
 #ifdef BLOOM
-	res_data=pbody_get_data(p_rp,false,&filter);
+	res_data=pbody_get_data(p_rp,true,&filter);
 #else
-	res_data=pbody_get_data(p_rp,false);
+	res_data=pbody_get_data(p_rp,true);
 #endif
 	do{
 		if(!res_data) break;
+	//	printf("%d\n",result_cnt);
 #ifdef BLOOM
-		lev_insert_write(d,array_pipe_make_run(res_data,d->idx,filter));
+		result_temp[result_cnt++]=array_pipe_make_run(res_data,d->idx,filter);
 #else
-		lev_insert_write(d,array_pipe_make_run(res_data,d->idx));
-#endif
-		result_cnt++;
+		result_temp[result_cnt++]=array_pipe_make_run(res_data,d->idx);
+#endif		
+
 	}
 #ifdef BLOOM
 	while((res_data=pbody_get_data(p_rp,false,&filter)));
 #else
 	while((res_data=pbody_get_data(p_rp,false)));
 #endif
+	
+	for(int i=flushed_idx; i<result_cnt; i++){
+		lev_insert_write(d,result_temp[i]);
+	}
 
 	if(skip){
 		fdriver_destroy(u_data[0].lock);
@@ -356,6 +369,7 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 		free(u_data[0].r);
 		free(u_data);
 	}
+	free(result_temp);
 	free(r_datas);
 	pbody_clear(p_rp);
 	pbody_clear(lp);
