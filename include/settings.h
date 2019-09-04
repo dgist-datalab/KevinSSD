@@ -66,7 +66,7 @@
 #define REQNUM ((GIGAUNIT)*(M/PAGESIZE)*1024L)
 
 #define PARTNUM 2
-#define MAPPART_SEGS 2
+#define MAPPART_SEGS 8
 #define DATAPART_SEGS (_NOS-MAPPART_SEGS)
 enum{
 	MAP_S,DATA_S
@@ -136,7 +136,7 @@ static inline bool KEYVALCHECK(KEYT a){
 #define ASYNC 1
 #define QSIZE (1024)
 #define LOWQDEPTH (64)
-#define QDEPTH (128)
+#define QDEPTH (64)
 
 #define THPOOL
 #define NUM_THREAD 4
