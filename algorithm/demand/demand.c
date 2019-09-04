@@ -4,17 +4,19 @@
 
 #include "demand.h"
 #include "page.h"
+#include "cache.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <getopt.h>
 #include "../../interface/interface.h"
 #ifdef HASH_KVSSD
 #include "../../include/utils/sha256.h"
 #endif
 
 struct algorithm __demand = {
-	.argument_set = NULL,
+	.argument_set = demand_argument_set,
 	.create = demand_create,
 	.destroy = demand_destroy,
 	.read = demand_read,
@@ -31,13 +33,42 @@ struct algorithm __demand = {
 	.range_query = demand_range_query
 };
 
-struct demand_env env;
-struct demand_member member;
+struct demand_env d_env;
+struct demand_member d_member;
 struct demand_stat d_stat;
+
+struct demand_cache *d_cache;
 
 #ifdef HASH_KVSSD
 KEYT key_max, key_min;
 #endif
+
+
+uint32_t demand_argument_set(int argc, char **argv) {
+	int c;
+	bool ci_flag = false;
+	bool cr_flag = false;
+
+	while ((c=getopt(argc, argv, "cr")) != -1) {
+		switch (c) {
+		case 'c':
+			ci_flag = true;
+			printf("cache id:%s\n", argv[optind]);
+			d_env.cache_id = atoi(argv[optind]);
+			break;
+		case 'r':
+			cr_flag = true;
+			printf("caching ratio:%s\n", argv[optind]);
+			d_env.caching_ratio = (float)atoi(argv[optind])/100;
+			break;
+		}
+	}
+
+	if (!ci_flag) d_env.cache_id = COARSE_GRAINED;
+	if (!cr_flag) d_env.caching_ratio = 0.25;
+
+	return 0;
+}
 
 
 static void print_demand_env(const struct demand_env *_env) {
@@ -46,19 +77,11 @@ static void print_demand_env(const struct demand_env *_env) {
 #ifdef HASH_KVSSD
 	printf(" |---------- algorithm_log : Hash-based Demand KV FTL\n");
 #else
-#ifdef PART_CACHE
-	printf(" |---------- algorithm_log : Cache Partitioned DFTL\n");
-#else
-	if (_env->nr_tpages_optimal_caching == _env->max_cached_tpages) {
-		printf(" |---------- algorithm_log : Page-level FTL\n");
-	} else {
-		printf(" |---------- algorithm_log : Demand-based FTL\n");
-	}
-#endif
+	printf(" |---------- algorithm_log : Demand-based FTL\n");
 #endif
 	printf(" | Total Segments:         %d\n", _env->nr_segments);
-	printf(" |  -Translation Segments: %d (+1 reserved)\n", _env->nr_tsegments);
-	printf(" |  -Data Segments:        %d (+1 reserved)\n", _env->nr_dsegments);
+	printf(" |  -Translation Segments: %d\n", _env->nr_tsegments);
+	printf(" |  -Data Segments:        %d\n", _env->nr_dsegments);
 	printf(" | Total Pages:            %d\n", _env->nr_pages);
 	printf(" |  -Translation Pages:    %d\n", _env->nr_tpages);
 	printf(" |  -Data Pages:           %d\n", _env->nr_dpages);
@@ -66,14 +89,9 @@ static void print_demand_env(const struct demand_env *_env) {
 	printf(" |    -Data Grains:        %d\n", _env->nr_dgrains);
 #endif
 	printf(" |  -Page per Segment:     %d\n", _PPS);
-	printf(" | Total cache pages:      %d\n", _env->nr_valid_tpages);
-#ifdef PART_CACHE
-	printf(" |  -Dirty Cache entries:  %d (! entry level)\n", _env->max_dirty_tentries);
-	printf(" |  -Clean Cache pages:    %d\n", _env->max_clean_tpages);
-#else
+/*	printf(" | Total cache pages:      %d\n", _env->nr_valid_tpages);
 	printf(" |  -Mixed Cache pages:    %d\n", _env->max_cached_tpages);
-#endif
-	printf(" |  -Cache Percentage:     %0.3f%%\n", _env->caching_ratio * 100);
+	printf(" |  -Cache Percentage:     %0.3f%%\n", _env->caching_ratio * 100); */
 	printf(" | WriteBuffer flush size: %ld\n", _env->wb_flush_size);
 	printf(" |\n");
 	printf(" | ! Assume no Shadow buffer\n");
@@ -92,10 +110,10 @@ static void demand_env_init(struct demand_env *const _env) {
 	_env->nr_dsegments = _env->nr_segments - _env->nr_tsegments;
 	_env->nr_dpages = _env->nr_dsegments * _PPS;
 
-	_env->caching_ratio = CACHING_RATIO;
+/*	_env->caching_ratio = CACHING_RATIO;
 	_env->nr_tpages_optimal_caching = _env->nr_pages * 4 / PAGESIZE;
 	_env->nr_valid_tpages = _env->nr_pages * ENTRY_SIZE / PAGESIZE;
-	_env->max_cached_tpages = _env->nr_tpages_optimal_caching * _env->caching_ratio;
+	_env->max_cached_tpages = _env->nr_tpages_optimal_caching * _env->caching_ratio; */
 
 #ifdef WRITE_BACK
 	_env->wb_flush_size = MAX_WRITE_BUF;
@@ -112,10 +130,8 @@ static void demand_env_init(struct demand_env *const _env) {
 #ifdef DVALUE
 	_env->nr_grains = _env->nr_pages * GRAIN_PER_PAGE;
 	_env->nr_dgrains = _env->nr_dpages * GRAIN_PER_PAGE;
-	_env->nr_valid_tpages *= GRAIN_PER_PAGE;
+	//_env->nr_valid_tpages *= GRAIN_PER_PAGE;
 #endif
-
-	_env->nr_total_entries = _env->nr_valid_tpages * EPP;
 
 	print_demand_env(_env);
 }
@@ -133,51 +149,18 @@ static int demand_member_init(struct demand_member *const _member) {
 	memset(key_min.key, 0, sizeof(char) * MAXKEYSIZE);
 #endif
 
-	struct cmt_struct **cmt = (struct cmt_struct **)calloc(env.nr_valid_tpages, sizeof(struct cmt_struct *));
-	for (int i = 0; i < env.nr_valid_tpages; i++) {
-		cmt[i] = (struct cmt_struct *)malloc(sizeof(struct cmt_struct));
-
-		cmt[i]->t_ppa = UINT32_MAX;
-		cmt[i]->idx = i;
-		cmt[i]->pt = NULL;
-		cmt[i]->lru_ptr = NULL;
-		cmt[i]->state = CLEAN;
-		cmt[i]->is_flying = false;
-
-		q_init(&cmt[i]->blocked_q, env.wb_flush_size);
-		q_init(&cmt[i]->wait_q, env.wb_flush_size);
-
-		cmt[i]->dirty_cnt = 0;
-	}
-	_member->cmt = cmt;
-
-	_member->mem_table = (struct pt_struct **)calloc(env.nr_valid_tpages, sizeof(struct pt_struct *));
-	for (int i = 0; i < env.nr_valid_tpages; i++) {
-		_member->mem_table[i] = (struct pt_struct *)malloc(PAGESIZE);
-		for (int j = 0; j < EPP; j++) {
-			_member->mem_table[i][j].ppa = UINT32_MAX;
-#ifdef STORE_KEY_FP
-			_member->mem_table[i][j].key_fp = 0;
-#endif
-		}
-	}
-
-	lru_init(&_member->lru);
-
-	_member->nr_cached_tpages = 0;
-	_member->nr_inflight_tpages = 0;
-
 	_member->write_buffer = skiplist_init();
 
-	q_init(&_member->flying_q, env.wb_flush_size);
-	q_init(&_member->blocked_q, env.wb_flush_size);
-	q_init(&_member->wb_cmt_load_q, env.wb_flush_size);
-	q_init(&_member->wb_retry_q, env.wb_flush_size);
+	q_init(&_member->flying_q, d_env.wb_flush_size);
+	q_init(&_member->blocked_q, d_env.wb_flush_size);
+	//q_init(&_member->wb_cmt_load_q, d_env.wb_flush_size);
+	q_init(&_member->wb_master_q, d_env.wb_flush_size);
+	q_init(&_member->wb_retry_q, d_env.wb_flush_size);
 
 #ifdef PART_CACHE
-	q_init(&_member->wait_q, env.wb_flush_size);
-	q_init(&_member->write_q, env.wb_flush_size);
-	q_init(&_member->flying_q, env.wb_flush_size);
+	q_init(&_member->wait_q, d_env.wb_flush_size);
+	q_init(&_member->write_q, d_env.wb_flush_size);
+	q_init(&_member->flying_q, d_env.wb_flush_size);
 
 	_member->nr_clean_tpages = 0;
 	_member->nr_dirty_tentries = 0;
@@ -201,13 +184,15 @@ uint32_t demand_create(lower_info *li, blockmanager *bm, algorithm *algo){
 	algo->bm = bm;
 
 	/* init env */
-	demand_env_init(&env);
-
+	demand_env_init(&d_env);
 	/* init member */
-	demand_member_init(&member);
-
+	demand_member_init(&d_member);
 	/* init stat */
 	demand_stat_init(&d_stat);
+
+	//d_cache = select_cache(COARSE_GRAINED);
+	//d_cache = select_cache(FINE_GRAINED);
+	d_cache = select_cache((cache_t)d_env.cache_id);
 
 	/* create() for range query */
 	range_create();
@@ -266,16 +251,6 @@ static void print_demand_stat(struct demand_stat *const _stat) {
 	printf("WAF: %.2f\n", (float)(_stat->data_w + amplified_write)/_stat->data_w);
 	puts("");
 
-	puts("===================");
-	puts(" Cache Performance ");
-	puts("===================");
-	puts("");
-
-	printf("Cache_Hit:\t%ld\n", _stat->cache_hit);
-	printf("Cache_Miss:\t%ld\n", _stat->cache_miss);
-	printf("Hit ratio:\t%.2f\n", (float)(_stat->cache_hit)/(_stat->cache_hit+_stat->cache_miss)*100);
-	puts("");
-
 #ifdef HASH_KVSSD
 	puts("================");
 	puts(" Hash Collision ");
@@ -292,24 +267,25 @@ static void print_demand_stat(struct demand_stat *const _stat) {
 }
 
 static void demand_member_free(struct demand_member *const _member) {
-	for (int i = 0; i < env.nr_valid_tpages; i++) {
+/*	for (int i = 0; i < d_env.nr_valid_tpages; i++) {
 		q_free(_member->cmt[i]->blocked_q);
 		q_free(_member->cmt[i]->wait_q);
 		free(_member->cmt[i]);
 	}
 	free(_member->cmt);
 
-	for(int i=0;i<env.nr_valid_tpages;i++) {
+	for(int i=0;i<d_env.nr_valid_tpages;i++) {
 		free(_member->mem_table[i]);
 	}
 	free(_member->mem_table);
 
-	lru_free(_member->lru);
+	lru_free(_member->lru); */
 	skiplist_free(_member->write_buffer);
 
 	q_free(_member->flying_q);
 	q_free(_member->blocked_q);
-	q_free(_member->wb_cmt_load_q);
+	//q_free(_member->wb_cmt_load_q);
+	q_free(_member->wb_master_q);
 	q_free(_member->wb_retry_q);
 
 #ifdef PART_CACHE
@@ -325,7 +301,10 @@ void demand_destroy(lower_info *li, algorithm *algo){
 	print_demand_stat(&d_stat);
 
 	/* free member */
-	demand_member_free(&member);
+	demand_member_free(&d_member);
+
+	/* cleanup cache */
+	d_cache->destroy();
 }
 
 #ifdef HASH_KVSSD

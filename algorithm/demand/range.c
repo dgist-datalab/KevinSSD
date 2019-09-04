@@ -6,8 +6,8 @@
 
 extern algorithm __demand;
 
-extern struct demand_env env;
-extern struct demand_member member;
+extern struct demand_env d_env;
+extern struct demand_member d_member;
 extern struct demand_stat d_stat;
 
 int range_create() {

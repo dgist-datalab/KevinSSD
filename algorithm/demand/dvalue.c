@@ -9,17 +9,17 @@
 
 #include "demand.h"
 
-extern struct demand_env env;
-extern struct demand_member member;
+extern struct demand_env d_env;
+extern struct demand_member d_member;
 extern struct demand_stat d_stat;
 
 static bool *grain_bitmap; // the grain is valid ? 1 : 0
 
 int grain_create() {
-	grain_bitmap = (bool *)calloc(env.nr_grains, sizeof(bool));
+	grain_bitmap = (bool *)calloc(d_env.nr_grains, sizeof(bool));
 	if (!grain_bitmap) return 1;
 
-	memset(grain_bitmap, 0, env.nr_grains * sizeof(bool));
+	memset(grain_bitmap, 0, d_env.nr_grains * sizeof(bool));
 
 	return 0;
 }
@@ -39,17 +39,8 @@ int contains_valid_grain(blockmanager *bm, ppa_t ppa) {
 	return 0;
 }
 
-int clear_grain_bitmap(ppa_t ppa) {
-	pga_t pga = ppa * GRAIN_PER_PAGE;
-
-	memset(&grain_bitmap[pga], 0, _PPS*GRAIN_PER_PAGE*sizeof(bool));
-}
-
 int validate_grain(blockmanager *bm, pga_t pga) {
 	int rc = 0;
-
-	ppa_t ppa = pga / GRAIN_PER_PAGE;
-	bm->populate_bit(bm, ppa);
 
 	if (grain_bitmap[pga] == 1) rc = 1;
 	grain_bitmap[pga] = 1;
@@ -59,9 +50,6 @@ int validate_grain(blockmanager *bm, pga_t pga) {
 
 int invalidate_grain(blockmanager *bm, pga_t pga) {
 	int rc = 0;
-
-	ppa_t ppa = pga / GRAIN_PER_PAGE;
-	bm->unpopulate_bit(bm, ppa);
 
 	if (grain_bitmap[pga] == 0) rc = 1;
 	grain_bitmap[pga] = 0;
