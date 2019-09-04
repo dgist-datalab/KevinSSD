@@ -697,6 +697,7 @@ void seqrw(uint32_t start, uint32_t end, monitor *m){
 
 void randget(uint32_t start, uint32_t end,monitor *m){
 	printf("making rand Get bench!\n");
+	srand(1);
 	for(uint32_t i=0; i<m->m_num; i++){
 #ifdef KVSSD
 		KEYT *t=&m->body[i/m->bech][i%m->bech].key;
@@ -713,6 +714,7 @@ void randget(uint32_t start, uint32_t end,monitor *m){
 
 void randset(uint32_t start, uint32_t end, monitor *m){
 	printf("making rand Set bench!\n");
+	srand(1);
 	for(uint32_t i=0; i<m->m_num; i++){
 #ifdef KVSSD
 		uint32_t t_k;

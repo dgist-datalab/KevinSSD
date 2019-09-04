@@ -86,8 +86,7 @@ extern level_ops a_ops;
 void lsm_bind_ops(lsmtree *l){
 	l->lop=&a_ops;
 	l->KEYNUM=l->lop->get_max_table_entry();
-	l->FLUSHNUM=DEFKEYINHEADER;
-	l->keynum_in_header=8192/32;
+	l->FLUSHNUM=1024;
 	l->keynum_in_header_cnt=0;
 }
 uint32_t __lsm_get(request *const);
@@ -96,7 +95,7 @@ static double get_sizefactor(uint64_t as,uint32_t keynum_in_header){
 	int32_t res;
 	uint64_t all_memory=(SHOWINGSIZE/1024);
 	caching_size=LSM.caching_size*(all_memory/(8*K));
-	as/=ONESEGMENT;
+	as/=keynum_in_header?DEFVALUESIZE*keynum_in_header:ONESEGMENT;
 #if !defined(READCACHE)
 	if(LSM.LEVELCACHING==1 && LSM.LEVELN==2)
 		res=caching_size;
