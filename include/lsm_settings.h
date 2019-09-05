@@ -11,15 +11,15 @@
 #define RAF 0.1
 
 #if LEVELN!=1
-//#define BLOOM
-//#define MONKEY
+#define BLOOM
+#define MONKEY
 #endif
 
 
 //#define EMULATOR
 
 #define DEFKEYINHEADER ((PAGESIZE-KEYBITMAP)/DEFKEYLENGTH)
-#define ONESEGMENT (DEFKEYINHEADER*DEFVALUESIZE)
+//#define ONESEGMENT (DEFKEYINHEADER*DEFVALUESIZE)
 
 #define KEYLEN(a) (a.len+sizeof(ppa_t))
 #define READCACHE

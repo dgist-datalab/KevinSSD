@@ -88,6 +88,7 @@ void lsm_bind_ops(lsmtree *l){
 	l->KEYNUM=l->lop->get_max_table_entry();
 	l->FLUSHNUM=1024;
 	l->keynum_in_header_cnt=0;
+	LSM.ONESEGMENT=(DEFKEYINHEADER*DEFVALUESIZE);
 }
 uint32_t __lsm_get(request *const);
 static double get_sizefactor(uint64_t as,uint32_t keynum_in_header){
@@ -95,7 +96,7 @@ static double get_sizefactor(uint64_t as,uint32_t keynum_in_header){
 	int32_t res;
 	uint64_t all_memory=(SHOWINGSIZE/1024);
 	caching_size=LSM.caching_size*(all_memory/(8*K));
-	as/=keynum_in_header?DEFVALUESIZE*keynum_in_header:ONESEGMENT;
+	as/=LSM.ONESEGMENT;
 #if !defined(READCACHE)
 	if(LSM.LEVELCACHING==1 && LSM.LEVELN==2)
 		res=caching_size;
@@ -167,8 +168,9 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 		if(i<LSM.LEVELCACHING){
 			lev_caching_entry+=LSM.disk[i]->m_num;
 		}
-
-		bloomfilter_memory+=bf_bits(KEYBITMAP/sizeof(uint16_t),target_fpr)*sol;
+		if(i>=LSM.LEVELCACHING){
+			bloomfilter_memory+=bf_bits(KEYBITMAP/sizeof(uint16_t),target_fpr)*sol;
+		}
 		sol*=SIZEFACTOR;
 	}   
 
@@ -180,7 +182,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	printf("| [%d] fpr:1.0000 bytes per entry:%lu noe:%d\n",LSM.LEVELN,bf_bits(LSM.KEYNUM,1),LSM.disk[LSM.LEVELN-1]->m_num);
 	sizeofall+=LSM.disk[LSM.LEVELN-1]->m_num;
 	printf("| level:%d sizefactor:%lf\n",LSM.LEVELN,SIZEFACTOR);
-	printf("| all level size:%lu(MB), %lf(GB)\n",sizeofall,(double)sizeofall*ONESEGMENT/G);
+	printf("| all level size:%lu(MB), %lf(GB)\n",sizeofall,(double)sizeofall*LSM.ONESEGMENT/G);
 	printf("| all level header size: %lu(MB), except last header: %lu(MB)\n",sizeofall*PAGESIZE/M,(sizeofall-LSM.disk[LSM.LEVELN-1]->m_num)*PAGESIZE/M);
 	printf("| WRITE WAF:%f\n",(float)SIZEFACTOR * LSM.LEVELN /LSM.KEYNUM);
 	printf("| top level size:%d(MB)\n",LSM.disk[0]->m_num*8);
@@ -1060,6 +1062,7 @@ uint32_t lsm_memory_size(){
 level *lsm_level_resizing(level *target, level *src){
 	if(target->idx==LSM.LEVELN-1){
 		uint32_t before=LSM.size_factor;
+		LSM.ONESEGMENT=LSM.keynum_in_header*DEFVALUESIZE;
 		LSM.size_factor=get_sizefactor(SHOWINGSIZE,LSM.keynum_in_header);
 		if(before!=LSM.size_factor){
 			memset(LSM.size_factor_change,1,sizeof(bool)*LSM.LEVELN);

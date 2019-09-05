@@ -76,7 +76,7 @@ KEYT pbody_get_next_key(p_body *p, uint32_t *ppa){
 
 bool test_flag;
 #ifdef BLOOM
-char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush, BF **f)
+char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush, BF **f, int lidx)
 #else
 char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush)
 #endif
@@ -90,7 +90,7 @@ char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush)
 			p->data_ptr[p->pidx-1]=p->now_page;
 			res=p->now_page;
 #ifdef BLOOM
-			if(f) *f=p->filters[p->pidx-1];
+			if(f && lidx>=LSM.LEVELCACHING) *f=p->filters[p->pidx-1];
 #endif
 		}
 		if(flush){
@@ -104,7 +104,8 @@ char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush)
 	memcpy(target_idx,&ppa,sizeof(uint32_t));
 	memcpy(&target_idx[sizeof(uint32_t)],key.key,key.len);
 #ifdef BLOOM
-	bf_set(p->filters[p->pidx-1],key);
+	if(lidx>=LSM.LEVELCACHING)
+		bf_set(p->filters[p->pidx-1],key);
 #endif
 	p->bitmap_ptr[p->kidx++]=p->length;
 	p->length+=sizeof(uint32_t)+key.len;

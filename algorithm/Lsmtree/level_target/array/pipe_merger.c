@@ -130,7 +130,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 			printf("----real insert into %d\n",d->idx);
 		}*/
 #ifdef BLOOM
-		if((pbody_insert_new_key(rp,insert_key,rppa,false,NULL)))
+		if((pbody_insert_new_key(rp,insert_key,rppa,false,NULL,d->idx)))
 #else
 		if((pbody_insert_new_key(rp,insert_key,rppa,false)))
 #endif
@@ -146,7 +146,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 		}
 	}
 #ifdef BLOOM
-	if((pbody_insert_new_key(rp,insert_key,rppa,true,NULL)))
+	if((pbody_insert_new_key(rp,insert_key,rppa,true,NULL,d->idx)))
 #else
 	if((pbody_insert_new_key(rp,insert_key,rppa,true)))
 #endif
@@ -297,7 +297,7 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 			}
 		}
 #ifdef BLOOM
-		if((res_data=pbody_insert_new_key(p_rp,insert_key,p_rppa,false,NULL)))
+		if((res_data=pbody_insert_new_key(p_rp,insert_key,p_rppa,false,NULL,d->idx)))
 #else
 		if((res_data=pbody_insert_new_key(p_rp,insert_key,p_rppa,false)))
 #endif
@@ -319,7 +319,7 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 	}
 
 #ifdef BLOOM
-	if((res_data=pbody_insert_new_key(p_rp,insert_key,0,true,&filter)))
+	if((res_data=pbody_insert_new_key(p_rp,insert_key,0,true,&filter,d->idx)))
 #else
 	if((res_data=pbody_insert_new_key(p_rp,insert_key,0,true)))
 #endif
