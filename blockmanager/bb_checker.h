@@ -55,7 +55,7 @@ static inline uint32_t bb_checker_fix_ppa(bool isfixing,uint32_t fixed_block, ui
 
 	res=bus+(chip<<3)+(page<<6)+(block<<14);
 	uint32_t origin_remain=res%(_PPS);
-	if(isfixing){
+	if(!shouldchg && isfixing){
 		return fixed_block+origin_remain;
 	}
 	else if(shouldchg){

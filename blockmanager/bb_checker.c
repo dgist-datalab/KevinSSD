@@ -77,6 +77,17 @@ void bb_read_bb_checker(lower_info *li,uint32_t testing_page){
 	}
 }
 
+void bb_checker_static_bad(){
+	uint32_t arr[]={8438006,66560755,UINT32_MAX};
+	for(int i=0; arr[i]!=UINT32_MAX;i++){
+		uint32_t bad_seg=arr[i]>>14;
+		if(!checker.ent[bad_seg].flag){
+			checker.ent[bad_seg].flag=true;
+			printf("new block bb:%d\n",bad_seg);
+			badblock_cnt++;
+		}
+	}
+}
 void bb_checker_start(lower_info *li){
 	memset(&checker,0,sizeof(checker));
 	target_cnt=_RNOS*64;
@@ -104,6 +115,7 @@ void bb_checker_start(lower_info *li){
 	data_checker_data=(char*)malloc(PAGESIZE);
 	memset(data_checker_data,-1,PAGESIZE);
 
+	bb_checker_static_bad();
 	printf("badblock_cnt: %lu\n",badblock_cnt);
 	bb_checker_fixing();
 	printf("checking done!\n");	
@@ -198,8 +210,8 @@ void bb_checker_fixing(){/*
 	}
 	
 	printf("TOTAL segnum:%d\n",start_segnum);
-	/*
-	for(int i=0; i<start_segnum; i++){
+	
+	for(int i=0; i<128; i++){
 		if(checker.ent[i].flag){
 			printf("[badblock] %d(%d) ",checker.ent[i].fixed_segnum,checker.ent[i].origin_segnum);
 		}
@@ -208,6 +220,4 @@ void bb_checker_fixing(){/*
 		}
 		printf(" && %d\n",checker.ent[i].pair_segnum);
 	}
-	*/
-
 }
