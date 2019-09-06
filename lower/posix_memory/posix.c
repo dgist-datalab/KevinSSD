@@ -57,6 +57,7 @@ lower_info my_posix={
 	.lower_free=NULL,
 	.lower_flying_req_wait=posix_flying_req_wait,
 	.lower_show_info=NULL,
+	.lower_tag_num=NULL,
 	.hw_do_merge=posix_hw_do_merge,
 	.hw_get_kt=posix_hw_get_kt,
 	.hw_get_inv=posix_hw_get_inv

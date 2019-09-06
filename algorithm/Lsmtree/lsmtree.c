@@ -154,15 +154,14 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	printf("| LSM KEYNUM:%d FLUSHNUM:%d\n",LSM.KEYNUM,LSM.FLUSHNUM);
 	LSM.disk=(level**)malloc(sizeof(level*)*LSM.LEVELN);
 	for(int i=0; i<LSM.LEVELN-1; i++){//for lsmtree -1 level
-		LSM.disk[i]=LSM.lop->init((uint32_t)(ceil(sol)),i,target_fpr,false);
 #ifdef BLOOM
 #ifdef MONKEY
 		target_fpr=pow(SIZEFACTOR2,i)*ffpr;
 #else
 		target_fpr=(float)RAF/LSM.LEVELN;
 #endif
-		LSM.disk[i]->fpr=target_fpr;
 #endif
+		LSM.disk[i]=LSM.lop->init((uint32_t)(ceil(sol)),i,target_fpr,false);
 		printf("| [%d] fpr:%lf bytes per entry:%lu noe:%d\n",i+1,target_fpr,bf_bits(KEYBITMAP/sizeof(uint16_t),target_fpr), LSM.disk[i]->m_num);
 		sizeofall+=LSM.disk[i]->m_num;
 		if(i<LSM.LEVELCACHING){
@@ -770,6 +769,10 @@ void dummy_htable_read(uint32_t pbn,request *req){
 uint8_t lsm_find_run(KEYT key, run_t ** entry, keyset **found, int *level,int *run){
 	run_t **entries=NULL;
 	for(int i=*level; i<LSM.LEVELN; i++){
+	#ifdef BLOOM
+		if(!bf_check(LSM.disk[i]->filter,key)) continue;
+	#endif
+
 		pthread_mutex_lock(&LSM.level_lock[i]);
 		entries=LSM.lop->find_run(LSM.disk[i],key);
 		pthread_mutex_unlock(&LSM.level_lock[i]);
@@ -789,9 +792,6 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, keyset **found, int *level,int *r
 		else{
 			for(int j=run?*run:0; entries[j]!=NULL; j++){
 				run_t *t_entry=entries[j];
-	#ifdef BLOOM
-				if(!bf_check(t_entry->filter,key)) continue;
-	#endif
 				free(entries);
 				if(level) *level=i;
 				if(run) *run=j;
@@ -1016,7 +1016,6 @@ void htable_print(htable * input,ppa_t ppa){
 		abort();
 	}
 }
-extern block bl[_NOB];
 void htable_check(htable *in, KEYT lpa, ppa_t ppa,char *log){
 	keyset *target=NULL;
 	if(in->nocpy_table){

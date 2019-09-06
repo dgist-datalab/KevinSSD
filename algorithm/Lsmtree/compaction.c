@@ -37,6 +37,7 @@ uint32_t level_change(level *from ,level *to,level *target, pthread_mutex_t *loc
 }
 
 bool level_sequencial(level *from, level *to,level *des, run_t *entry,leveling_node *lnode){
+	/*
 	KEYT start=from?from->start:lnode->start;
 	KEYT end=from?from->end:lnode->end;
 	if(LSM.lop->chk_overlap(to,start,end)) return false;
@@ -78,7 +79,7 @@ bool level_sequencial(level *from, level *to,level *des, run_t *entry,leveling_n
 
 	if(!target_processed){
 		compaction_lev_seq_processing(to,des,to->n_num);
-	}
+	}*/
 	return true;
 }
 
@@ -88,6 +89,7 @@ static void *testing(KEYT test, ppa_t ppa){
 	}
 	return NULL;
 }
+
 uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *lock){
 	//printf("leveling start[%d->%d]\n",from?from->idx+1:0,to->idx+1);
 	level *target_origin=to;
@@ -106,13 +108,25 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 	uint32_t total_number=to->n_num+up_num+1;
 	LSM.result_padding=2;
 	page_check_available(HEADER,total_number+(LSM.comp_opt==HW?1:0)+LSM.result_padding);
-
+/*
 	if(level_sequencial(from,to,target,entry,l_node)){
 		goto last;
-	}else if(target->idx<LSM.LEVELCACHING){
+	}else */
+
+
+
+	if(target->idx<LSM.LEVELCACHING){
+		if(to->n_num==0){
+			compaction_empty_level(&from,l_node,&target);
+			goto last;
+		}
 		partial_leveling(target,target_origin,l_node,from);	
 	}
 	else{
+		if(to->n_num==0){
+			compaction_empty_level(&from,l_node,&target);
+			goto last;
+		}
 		LSM.compaction_cnt++;
 		if(LSM.comp_opt==HW){
 			if(from==NULL && target->idx>=LSM.LEVELCACHING){
@@ -120,7 +134,7 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 				entry=LSM.lop->make_run(l_node->start,l_node->end,ppa);
 				free(entry->key.key);
 				free(entry->end.key);
-				LSM.lop->mem_cvt2table(l_node->mem,entry);
+				LSM.lop->mem_cvt2table(l_node->mem,entry,NULL);
 				if(LSM.nocpy){
 					nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
 					entry->cpt_data->sets=NULL;
@@ -133,6 +147,8 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 		compactor.pt_leveling(target,target_origin,l_node,from);	
 		bench_custom_A(write_opt_time,10);
 	}
+
+
 	
 last:
 	if(entry) free(entry);

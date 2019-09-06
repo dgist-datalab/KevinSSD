@@ -6,16 +6,15 @@
 #include "../../../../bench/bench.h"
 extern MeasureTime write_opt_time[10];
 extern lsmtree LSM;
-p_body *pbody_init(char **data,uint32_t size, pl_run *pl_datas, bool read_from_run,float fpr, bool isres){
+p_body *pbody_init(char **data,uint32_t size, pl_run *pl_datas, bool read_from_run,BF *filter){
 	p_body *res=(p_body*)calloc(sizeof(p_body),1);
 	res->data_ptr=data;
 	res->max_page=size;
 	res->read_from_run=read_from_run;
 	res->pl_datas=pl_datas;
-	res->fpr=fpr;
 #ifdef BLOOM
-	if(isres){
-		res->filters=(BF**)malloc(sizeof(BF*)*size);
+	if(filter){
+		res->filter=filter;
 	}
 #endif
 	return res;
@@ -37,11 +36,6 @@ void new_page_set(p_body *p, bool iswrite){
 	else{
 		if(p->pidx>=p->max_page){
 			printf("%d %d \n", p->pidx, p->max_page);
-		}
-		if(iswrite){
-#ifdef BLOOM
-			p->filters[p->pidx]=bf_init(LSM.keynum_in_header,p->fpr);
-#endif
 		}
 		p->now_page=p->data_ptr[p->pidx];
 
@@ -75,11 +69,7 @@ KEYT pbody_get_next_key(p_body *p, uint32_t *ppa){
 }
 
 bool test_flag;
-#ifdef BLOOM
-char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush, BF **f, int lidx)
-#else
 char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush)
-#endif
 {
 	char *res=NULL;
 	static int key_cnt=0;
@@ -89,9 +79,6 @@ char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush)
 			p->bitmap_ptr[p->kidx]=p->length;
 			p->data_ptr[p->pidx-1]=p->now_page;
 			res=p->now_page;
-#ifdef BLOOM
-			if(f && lidx>=LSM.LEVELCACHING) *f=p->filters[p->pidx-1];
-#endif
 		}
 		if(flush){
 			return res;
@@ -103,20 +90,17 @@ char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush)
 	char *target_idx=&p->now_page[p->length];
 	memcpy(target_idx,&ppa,sizeof(uint32_t));
 	memcpy(&target_idx[sizeof(uint32_t)],key.key,key.len);
-#ifdef BLOOM
-	if(lidx>=LSM.LEVELCACHING)
-		bf_set(p->filters[p->pidx-1],key);
-#endif
+
+	if(p->filter)
+		bf_set(p->filter,key);
+
 	p->bitmap_ptr[p->kidx++]=p->length;
 	p->length+=sizeof(uint32_t)+key.len;
 	return res;
 }
 
-#ifdef BLOOM
-char *pbody_get_data(p_body *p, bool init,BF **f)
-#else
+
 char *pbody_get_data(p_body *p, bool init)
-#endif	
 {
 	if(init){
 		p->max_page=p->pidx;
@@ -124,9 +108,6 @@ char *pbody_get_data(p_body *p, bool init)
 	}
 
 	if(p->pidx<p->max_page){
-#ifdef BLOOM
-		*f=p->filters[p->pidx];
-#endif
 		return p->data_ptr[p->pidx++];
 	}
 	else{
@@ -135,9 +116,6 @@ char *pbody_get_data(p_body *p, bool init)
 }
 
 char *pbody_clear(p_body *p){
-#ifdef BLOOM
-	free(p->filters);
-#endif
 	free(p);
 	return NULL;
 }

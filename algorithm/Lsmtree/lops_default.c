@@ -3,7 +3,6 @@
 #include "lsmtree.h"
 #include <stdio.h>
 
-extern block bl[_NOB];
 extern int32_t SIZEFACTOR;
 extern lsmtree LSM;
 extern pm d_m;
@@ -134,8 +133,5 @@ run_t *def_make_run(KEYT start, KEYT end, uint32_t pbn){
 	res->c_entry=NULL;
 	
 	res->wait_idx=0;
-#ifdef BLOOM
-	res->filter=NULL;
-#endif
 	return res;
 }
