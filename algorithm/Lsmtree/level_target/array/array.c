@@ -251,7 +251,7 @@ run_t *array_find_run( level* lev,KEYT lpa){
 	int start=0;
 	int mid;
 
-	int res1, res2; //1:compare with start, 2:compare with end
+	int res1; //1:compare with start, 2:compare with end
 	mid=(start+end)/2;
 	while(1){
 		res1=KEYCMP(arrs[mid].key,lpa);

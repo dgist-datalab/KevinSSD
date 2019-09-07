@@ -91,9 +91,9 @@ void lsm_bind_ops(lsmtree *l){
 	LSM.ONESEGMENT=(DEFKEYINHEADER*DEFVALUESIZE);
 }
 uint32_t __lsm_get(request *const);
-static double get_sizefactor(uint64_t as,uint32_t keynum_in_header){
+static float get_sizefactor(uint64_t as,uint32_t keynum_in_header){
 	uint32_t _f=LSM.LEVELN;
-	int32_t res;
+	float res;
 	uint64_t all_memory=(SHOWINGSIZE/1024);
 	caching_size=LSM.caching_size*(all_memory/(8*K));
 	as/=LSM.ONESEGMENT;
@@ -103,6 +103,27 @@ static double get_sizefactor(uint64_t as,uint32_t keynum_in_header){
 	else
 #endif
 		res=_f?ceil(pow(10,log10(as)/(_f))):as/keynum_in_header;
+
+	int i=0;
+	float ff=0.05f;
+	float cnt=0;
+	uint64_t all_header_num;
+	float target;
+
+retry:
+	all_header_num=0;
+	res-=ff;
+	target=res;
+	for(i=0; i<LSM.LEVELN; i++){
+		all_header_num+=round(target);
+		target*=res;
+	}
+	if(all_header_num>as){
+		goto retry;
+	}
+
+	target=res;
+	res=res-(ff*(cnt-1));
 	return res;
 }
 uint32_t lsm_create(lower_info *li,blockmanager *bm, algorithm *lsm){
@@ -161,7 +182,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 		target_fpr=(float)RAF/LSM.LEVELN;
 #endif
 #endif
-		LSM.disk[i]=LSM.lop->init((uint32_t)(ceil(sol)),i,target_fpr,false);
+		LSM.disk[i]=LSM.lop->init((uint32_t)(round(sol)),i,target_fpr,false);
 		printf("| [%d] fpr:%lf bytes per entry:%lu noe:%d\n",i+1,target_fpr,bf_bits(KEYBITMAP/sizeof(uint16_t),target_fpr), LSM.disk[i]->m_num);
 		sizeofall+=LSM.disk[i]->m_num;
 		if(i<LSM.LEVELCACHING){
@@ -199,9 +220,9 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	printf("| start cache :%luMB(%lu page)%.2f(%%)\n",(cached_entry+lev_caching_entry)*PAGESIZE/M,cached_entry+lev_caching_entry,(float)cached_entry/(SHOWINGSIZE/PAGESIZE/K)*100);
 	printf("| -------- algorithm_log END\n\n");
 
-	printf("\n ---------- %u:%u (all_entry : total)\n\n",sizeofall,MAPPART_SEGS*_PPS);
+	printf("\n ---------- %lu:%lu (all_entry : total)\n\n",sizeofall,MAPPART_SEGS*_PPS);
 
-	fprintf(stderr,"SHOWINGSIZE(GB) :%lu HEADERSEG:%d DATASEG:%ld\n",SHOWINGSIZE/G,MAPPART_SEGS,DATAPART_SEGS);
+	fprintf(stderr,"SHOWINGSIZE(GB) :%lu HEADERSEG:%ld DATASEG:%ld\n",SHOWINGSIZE/G,MAPPART_SEGS,DATAPART_SEGS);
 	fprintf(stderr,"LEVELN:%d (LEVELCACHING(%d), MEMORY:%f\n",LSM.LEVELN,LSM.LEVELCACHING,LSM.caching_size);
 	pthread_mutex_init(&LSM.memlock,NULL);
 	pthread_mutex_init(&LSM.templock,NULL);
@@ -1048,18 +1069,18 @@ uint32_t lsm_memory_size(){
 
 level *lsm_level_resizing(level *target, level *src){
 	if(target->idx==LSM.LEVELN-1){
-		uint32_t before=LSM.size_factor;
+		float before=LSM.size_factor;
 		LSM.ONESEGMENT=LSM.keynum_in_header*DEFVALUESIZE;
 		LSM.size_factor=get_sizefactor(SHOWINGSIZE,LSM.keynum_in_header);
 		if(before!=LSM.size_factor){
 			memset(LSM.size_factor_change,1,sizeof(bool)*LSM.LEVELN);
 			uint32_t total_header=0;
-			uint32_t t=LSM.size_factor;
+			float t=LSM.size_factor;
 			for(int i=0; i<LSM.LEVELN; i++){
-				total_header+=t;
+				total_header+=round(t);
 				t*=LSM.size_factor;
 			}
-			printf("change %d->%d (%d:%d)\n",before,LSM.size_factor,total_header,(MAPPART_SEGS-1)*_PPS);
+			printf("change %.5lf->%.5lf (%u:%ld)\n",before,LSM.size_factor,total_header,(MAPPART_SEGS-1)*_PPS);
 		}
 	}
 	
