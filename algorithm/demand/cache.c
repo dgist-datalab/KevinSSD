@@ -40,3 +40,22 @@ struct demand_cache *select_cache(cache_t type) {
 
 	return ret;
 }
+
+void print_cache_stat(struct cache_stat *_stat) {
+	puts("===================");
+	puts(" Cache Performance ");
+	puts("===================");
+	puts("");
+
+	printf("Cache_Hit:\t%ld\n", _stat->cache_hit);
+	printf("Cache_Miss:\t%ld\n", _stat->cache_miss);
+	printf("Hit ratio:\t%.2f%%\n", (float)(_stat->cache_hit)/(_stat->cache_hit+_stat->cache_miss)*100);
+	puts("");
+
+	printf("Blocked miss:\t%ld\n", _stat->blocked_miss);
+	puts("");
+
+	printf("Clean evict:\t%ld\n", _stat->clean_evict);
+	printf("Dirty evict:\t%ld\n", _stat->dirty_evict);
+	puts("");
+}

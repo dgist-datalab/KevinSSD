@@ -40,9 +40,10 @@ static void print_cache_env(struct cache_env *const _env) {
 	puts("");
 	printf(" |---------- Demand Cache Log: Coarse-grained Cache\n");
 	printf(" | Total trans pages:        %d\n", _env->nr_valid_tpages);
-	printf(" | Caching Ratio:            %0.3f%%\n", _env->caching_ratio * 100);
+	//printf(" | Caching Ratio:            %0.3f%%\n", _env->caching_ratio * 100);
+	printf(" | Caching Ratio:            same as PFTL\n");
 	printf(" |  - Max cached tpages:     %d\n", _env->max_cached_tpages);
-	printf(" |  (PageFTL cached tpages:  %d)\n", _env->nr_tpages_optimal_caching);
+	//printf(" |  (PageFTL cached tpages:  %d)\n", _env->nr_tpages_optimal_caching);
 	printf(" |---------- Demand Cache Log END\n");
 	puts("");
 }
@@ -53,8 +54,9 @@ static void cg_env_init(cache_t c_type, struct cache_env *const _env) {
 	_env->nr_valid_tpages = d_env.nr_pages * ENTRY_SIZE / PAGESIZE;
 	_env->nr_valid_tentries = _env->nr_valid_tpages * EPP;
 
-	_env->caching_ratio = d_env.caching_ratio;
-	_env->max_cached_tpages = _env->nr_tpages_optimal_caching * _env->caching_ratio;
+	//_env->caching_ratio = d_env.caching_ratio;
+	//_env->max_cached_tpages = _env->nr_tpages_optimal_caching * _env->caching_ratio;
+	_env->max_cached_tpages = PFTLMEMORY / PAGESIZE;
 	_env->max_cached_tentries = 0; // not used here
 
 #ifdef DVALUE
@@ -116,8 +118,18 @@ int cg_create(cache_t c_type, struct demand_cache *dc) {
 	return 0;
 }
 
+static void cg_print_member() {
+	puts("=====================");
+	puts(" Cache Finish Status ");
+	puts("=====================");
+	puts("");
 
-static void cg_member_destroy(struct cache_member *_member) {
+	printf("Max Cached tpages:     %d\n", cenv->max_cached_tpages);
+	printf("Current Cached tpages: %d\n", cmbr->nr_cached_tpages);
+	puts("");
+}
+
+static void cg_member_free(struct cache_member *_member) {
 	for (int i = 0; i < cenv->nr_valid_tpages; i++) {
 		q_free(_member->cmt[i]->retry_q);
 		q_free(_member->cmt[i]->wait_q);
@@ -132,28 +144,12 @@ static void cg_member_destroy(struct cache_member *_member) {
 	lru_free(_member->lru);
 }
 
-static void print_cache_stat(struct cache_stat *_stat) {
-	puts("===================");
-	puts(" Cache Performance ");
-	puts("===================");
-	puts("");
-
-	printf("Cache_Hit:\t%ld\n", _stat->cache_hit);
-	printf("Cache_Miss:\t%ld\n", _stat->cache_miss);
-	printf("Hit ratio:\t%.2f%%\n", (float)(_stat->cache_hit)/(_stat->cache_hit+_stat->cache_miss)*100);
-	puts("");
-
-	printf("Blocked miss:\t%ld\n", _stat->blocked_miss);
-	puts("");
-
-	printf("Clean evict:\t%ld\n", _stat->clean_evict);
-	printf("Dirty evict:\t%ld\n", _stat->dirty_evict);
-	puts("");
-}
-
 int cg_destroy() {
-	cg_member_destroy(cmbr);
 	print_cache_stat(cstat);
+
+	cg_print_member();
+
+	cg_member_free(cmbr);
 	return 0;
 }
 
@@ -197,16 +193,16 @@ int cg_list_up(lpa_t lpa, request *const req, snode *wb_entry) {
 
 			i_params = get_iparams(req, wb_entry);
 			i_params->jump = GOTO_COMPLETE;
-			i_params->pte = cmbr->mem_table[IDX(lpa)][OFFSET(lpa)];
+			//i_params->pte = cmbr->mem_table[IDX(lpa)][OFFSET(lpa)];
 
 			victim->t_ppa = get_tpage(bm);
 			victim->state = CLEAN;
 
-			struct pt_struct pte = cmbr->mem_table[IDX(lpa)][OFFSET(lpa)];
+			//struct pt_struct pte = cmbr->mem_table[IDX(lpa)][OFFSET(lpa)];
 
 			value_set *_value_mw = inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
 			__demand.li->write(victim->t_ppa, PAGESIZE, _value_mw, ASYNC, make_algo_req_rw(MAPPINGW, _value_mw, req, wb_entry));
-			set_oob(bm, victim->idx, victim->t_ppa, 0);
+			set_oob(bm, victim->idx, victim->t_ppa, MAP);
 
 			rc = 1;
 		} else {
@@ -224,21 +220,23 @@ int cg_list_up(lpa_t lpa, request *const req, snode *wb_entry) {
 		if (req) {
 			request *retry_req;
 			while ((retry_req = (request *)q_dequeue(cmt->retry_q))) {
+				//lpa_t retry_lpa = get_lpa(retry_req->key, retry_req->hash_params);
+
 				struct inflight_params *i_params = get_iparams(retry_req, NULL);
 				i_params->jump = GOTO_COMPLETE;
+				//i_params->pte = cmt->pt[OFFSET(retry_lpa)];
 
-				lpa_t retry_lpa = get_lpa(retry_req->key, retry_req->hash_params);
-				i_params->pte = cmbr->mem_table[IDX(retry_lpa)][OFFSET(retry_lpa)];
 				inf_assign_try(retry_req);
 			}
 		} else if (wb_entry) {
 			snode *retry_wbe;
 			while ((retry_wbe = (snode *)q_dequeue(cmt->retry_q))) {
+				//lpa_t retry_lpa = get_lpa(retry_wbe->key, retry_wbe->hash_params);
+
 				struct inflight_params *i_params = get_iparams(NULL, retry_wbe);
 				i_params->jump = GOTO_COMPLETE;
+				//i_params->pte = cmt->pt[OFFSET(retry_lpa)];
 
-				lpa_t retry_lpa = get_lpa(retry_wbe->key, retry_wbe->hash_params);
-				i_params->pte = cmbr->mem_table[IDX(retry_lpa)][OFFSET(retry_lpa)];
 				q_enqueue((void *)retry_wbe, d_member.wb_retry_q);
 			}
 		}
@@ -282,8 +280,9 @@ int cg_update(lpa_t lpa, struct pt_struct pte) {
 		/* FIXME: to handle later update after evict */
 		cmbr->mem_table[IDX(lpa)][OFFSET(lpa)] = pte;
 
-		static int cnt = 0;
-		printf("cg_update %d\n", ++cnt);
+		//static int cnt = 0;
+		//if (++cnt % 10240 == 0) printf("cg_update %d\n", cnt);
+		//printf("cg_update %d\n", ++cnt);
 	}
 	return 0;
 }
@@ -305,27 +304,15 @@ bool cg_is_full() {
 
 struct pt_struct cg_get_pte(lpa_t lpa) {
 	struct cmt_struct *cmt = cmbr->cmt[IDX(lpa)];
-	if (unlikely(cmt->pt == NULL)) {
+	if (cmt->pt) {
+		return cmt->pt[OFFSET(lpa)];
+	} else {
+		/* FIXME: to handle later update after evict */
+		return cmbr->mem_table[IDX(lpa)][OFFSET(lpa)];
+	}
+/*	if (unlikely(cmt->pt == NULL)) {
 		abort();
 	}
-	struct pt_struct pte = cmt->pt[OFFSET(lpa)];
-	return pte;
+	return cmt->pt[OFFSET(lpa)]; */
 }
 
-ppa_t cg_get_ppa(lpa_t lpa) {
-	struct cmt_struct *cmt = cmbr->cmt[IDX(lpa)];
-	if (unlikely(cmt->pt == NULL)) {
-		abort();
-	}
-	ppa_t ppa = cmt->pt[OFFSET(lpa)].ppa;
-	return ppa;
-}
-
-#ifdef STORE_KEY_FP
-fp_t cg_get_fp(lpa_t lpa) {
-	struct cmt_struct *cmt = cmbr->cmt[IDX(lpa)];
-	if (unlikely(cmt->pt == NULL)) abort();
-	fp_t key_fp = cmt->pt[OFFSET(lpa)].key_fp;
-	return key_fp;
-}
-#endif

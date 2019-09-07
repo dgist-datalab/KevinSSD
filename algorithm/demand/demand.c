@@ -157,18 +157,16 @@ static int demand_member_init(struct demand_member *const _member) {
 	q_init(&_member->wb_master_q, d_env.wb_flush_size);
 	q_init(&_member->wb_retry_q, d_env.wb_flush_size);
 
-#ifdef PART_CACHE
-	q_init(&_member->wait_q, d_env.wb_flush_size);
-	q_init(&_member->write_q, d_env.wb_flush_size);
-	q_init(&_member->flying_q, d_env.wb_flush_size);
-
-	_member->nr_clean_tpages = 0;
-	_member->nr_dirty_tentries = 0;
-#endif
+	struct flush_list *fl = (struct flush_list *)malloc(sizeof(struct flush_list));
+	fl->size = 0;
+	fl->list = (struct flush_node *)calloc(d_env.wb_flush_size, sizeof(struct flush_node));
+	_member->flush_list = fl;
 
 #ifdef HASH_KVSSD
 	_member->max_try = 0;
 #endif
+
+	_member->hash_table = d_htable_init(d_env.wb_flush_size * 2);
 
 	return 0;
 }
@@ -231,8 +229,9 @@ static void print_demand_stat(struct demand_stat *const _stat) {
 
 	printf("Data_Read:\t%ld\n", _stat->data_r);
 	printf("Data_Write:\t%ld\n", _stat->data_w);
+	puts("");
 	printf("Trans_Read:\t%ld\n", _stat->trans_r);
-	printf("Trans_Write:\t%ld\n", _stat->trans_r);
+	printf("Trans_Write:\t%ld\n", _stat->trans_w);
 	puts("");
 	printf("DataGC cnt:\t%ld\n", _stat->dgc_cnt);
 	printf("DataGC_DR:\t%ld\n", _stat->data_r_dgc);

@@ -58,10 +58,6 @@ struct demand_cache {
 	int (*update) (lpa_t lpa, struct pt_struct pte);
 
 	struct pt_struct (*get_pte) (lpa_t lpa);
-/*	ppa_t (*get_ppa) (lpa_t lpa);
-#ifdef STORE_KEY_FP
-	fp_t (*get_fp) (lpa_t lpa);
-#endif */
 
 	bool (*is_hit) (lpa_t lpa);
 	bool (*is_full) ();
@@ -73,5 +69,6 @@ struct demand_cache {
 
 /* Functions */
 struct demand_cache *select_cache(cache_t type);
+void print_cache_stat(struct cache_stat *_stat);
 
 #endif

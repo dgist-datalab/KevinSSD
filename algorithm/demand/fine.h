@@ -17,9 +17,5 @@ int fg_update(lpa_t, struct pt_struct pte);
 bool fg_is_hit(lpa_t);
 bool fg_is_full();
 struct pt_struct fg_get_pte(lpa_t lpa);
-ppa_t fg_get_ppa(lpa_t lpa);
-#ifdef STORE_KEY_FP
-fp_t fg_get_fp(lpa_t lpa);
-#endif
 
 #endif

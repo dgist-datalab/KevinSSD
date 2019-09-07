@@ -14,7 +14,5 @@
 #endif
 
 #define EPP (PAGESIZE / ENTRY_SIZE) // Entry Per Page
-#define IDX(x) ((x) / EPP)
-#define OFFSET(x) ((x) % EPP)
 
 #endif
