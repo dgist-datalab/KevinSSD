@@ -57,6 +57,7 @@ lower_info my_posix={
 	.lower_free=NULL,
 	.lower_flying_req_wait=posix_flying_req_wait,
 	.lower_show_info=NULL,
+	.lower_tag_num=NULL,
 	.hw_do_merge=posix_hw_do_merge,
 	.hw_get_kt=posix_hw_get_kt,
 	.hw_get_inv=posix_hw_get_inv
@@ -227,16 +228,21 @@ void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 		printf("dmatag -1 error!\n");
 		abort();
 	}
-	pthread_mutex_lock(&fd_lock);
 
-	if(my_posix.SOP*PPA >= my_posix.TS){
-		printf("\nwrite error\n");
-		abort();
-	}
 
 	test_type = convert_type(req->type);
 	if(test_type < LREQ_TYPE_NUM){
 		my_posix.req_type_cnt[test_type]++;
+	}
+	
+	if(test_type==DATAW || test_type==DATAR){
+		req->end_req(req);
+		return NULL;
+	}
+
+	if(my_posix.SOP*PPA >= my_posix.TS){
+		printf("\nwrite error\n");
+		abort();
 	}
 
 	if(!seg_table[PPA].storage){
@@ -247,7 +253,6 @@ void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 	}
 	memcpy(seg_table[PPA].storage,value->value,size);
 
-	pthread_mutex_unlock(&fd_lock);
 	req->end_req(req);
 	return NULL;
 }
@@ -268,17 +273,21 @@ void *posix_pull_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 		abort();
 	}
 
-	pthread_mutex_lock(&fd_lock);
+	test_type = convert_type(req->type);
+	if(test_type < LREQ_TYPE_NUM){
+		my_posix.req_type_cnt[test_type]++;
+	}
+
+	if(test_type==DATAW || test_type==DATAR){
+		req->end_req(req);
+		return NULL;
+	}
 
 	if(my_posix.SOP*PPA >= my_posix.TS){
 		printf("\nread error\n");
 		abort();
 	}
 
-	test_type = convert_type(req->type);
-	if(test_type < LREQ_TYPE_NUM){
-		my_posix.req_type_cnt[test_type]++;
-	}
 
 	if(!seg_table[PPA].storage){
 		printf("%u not populated!\n",PPA);
@@ -287,7 +296,6 @@ void *posix_pull_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 	memcpy(value->value,seg_table[PPA].storage,size);
 	req->type_lower=1;
 
-	pthread_mutex_unlock(&fd_lock);
 
 	req->end_req(req);
 	return NULL;
