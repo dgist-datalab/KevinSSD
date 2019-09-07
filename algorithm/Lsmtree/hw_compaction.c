@@ -14,7 +14,7 @@ void make_pbn_array(ppa_t *ar, level *t, int start_idx){
 	run_t *now;
 	int idx=0;
 	while((now=LSM.lop->iter_nxt(iter))){
-		ar[idx++]=now->rp->pbn;
+		ar[idx++]=now->pbn;
 	}
 }
 
@@ -38,15 +38,14 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 		}
 		else{
 			run_t **datas;
-			r_pri **drps;
 			int cache_added_size=LSM.lop->get_number_runs(upper);
 			cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
-			LSM.lop->cache_comp_formatting(upper,&datas,&drps,false);
+			LSM.lop->cache_comp_formatting(upper,&datas,false);
 
 			for(int i=0; datas[i]!=NULL; i++){
 				uint32_t ppa=getPPA(HEADER,datas[i]->key,true);
-				drps[i]->pbn=ppa;
-				compaction_htable_write(ppa,datas[i]->rp->cpt_data,datas[i]->key);
+				datas[i]->pbn=ppa;
+				compaction_htable_write(ppa,datas[i]->cpt_data,datas[i]->key);
 				hp_array[i]=ppa;
 				LSM.lop->release_run(datas[i]);
 				free(datas[i]);
@@ -54,7 +53,7 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 			free(datas);
 		}
 	}else{
-		hp_array[0]=lnode->entry->rp->pbn;
+		hp_array[0]=lnode->entry->pbn;
 	}
 	/*sequencial move*/
 	int except=0;

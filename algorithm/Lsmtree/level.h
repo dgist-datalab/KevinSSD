@@ -55,12 +55,16 @@ typedef struct htable_t{
 	value_set *origin;
 }htable_t;
 
-typedef struct run_private{
+typedef struct run{ 
+	KEYT key;
+	KEYT end;
 	ppa_t pbn;
+
+	//for caching
 	cache_entry *c_entry;
 	char *cache_nocpy_data_ptr;
 	htable *cache_data;
-	//for caching
+
 	htable *cpt_data;
 	void *run_data;
 	char *level_caching_data;
@@ -72,17 +76,11 @@ typedef struct run_private{
 	void **gc_waitreq;
 	int wait_idx;
 	int gc_wait_idx;
-}r_pri;
-
-typedef struct run{ 
-	KEYT key;
-	KEYT end;
-	r_pri* rp;
 }run_t;
 
 typedef struct pipe_line_run{
 	fdriver_lock_t *lock;
-	r_pri *rp;
+	run_t *r;
 }pl_run;
 
 typedef struct level{
@@ -123,7 +121,7 @@ typedef struct level_ops{
 	void (*move_heap)( level* des,  level *src);
 	bool (*chk_overlap)( level *des, KEYT star, KEYT end);
 	uint32_t (*range_find)( level *l,KEYT start, KEYT end,  run_t ***r);
-	uint32_t (*range_find_compaction)( level *l,KEYT start, KEYT end,  run_t ***r, r_pri ***);
+	uint32_t (*range_find_compaction)( level *l,KEYT start, KEYT end,  run_t ***r);
 	uint32_t (*unmatch_find)( level *,KEYT start, KEYT end, run_t ***r);
 	run_t* (*next_run)(level *,KEYT key);
 	lev_iter* (*get_iter)( level*,KEYT from, KEYT to); //from<= x <to
@@ -142,7 +140,7 @@ typedef struct level_ops{
 	htable* (*mem_cvt2table)(skiplist *,run_t *);
 #endif
 
-	void (*merger)( skiplist*, r_pri** src,uint32_t snum,  r_pri** org,uint32_t onum,  level *des);
+	void (*merger)( skiplist*, run_t** src,  run_t** org,  level *des);
 	run_t *(*cutter)( skiplist *,  level* des, KEYT* start, KEYT* end);
 	run_t *(*partial_merger_cutter)(skiplist*,pl_run *, pl_run *,uint32_t, uint32_t, level *,void*(*lev_insert_write)(level*, run_t*));
 	void (*normal_merger)(skiplist *,run_t *t_run, bool);
@@ -154,7 +152,7 @@ typedef struct level_ops{
 	/*run operation*/
 	run_t*(*get_run_idx)(level *, int idx);
 	run_t*(*make_run)(KEYT start, KEYT end, uint32_t pbn);
-	run_t**(*find_run)( level*,KEYT lpa);
+	run_t*(*find_run)( level*,KEYT lpa);
 	run_t**(*find_run_num)( level*,KEYT lpa, uint32_t num);
 	void (*release_run)( run_t *);
 	run_t* (*run_cpy)( run_t *);
@@ -165,7 +163,7 @@ typedef struct level_ops{
 	bool (*block_fchk)();
 
 	void (*range_update)(level *,run_t*,KEYT);
-	int (*cache_comp_formatting)(level *,run_t ***,r_pri ***,bool isnext_cache);
+	int (*cache_comp_formatting)(level *,run_t ***,bool isnext_cache);
 	keyset_iter* (*header_get_keyiter)(level *, char *, KEYT *);
 	keyset (*header_next_key)(level *, keyset_iter *);
 	void (*header_next_key_pick)(level *, keyset_iter *, keyset *);

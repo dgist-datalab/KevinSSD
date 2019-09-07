@@ -53,9 +53,8 @@ htable *array_mem_cvt2table(skiplist*mem,run_t* input)
 	/*static int cnt=0;
 	eprintf("cnt:%d\n",cnt++);*/
 	htable *res=LSM.nocpy?htable_assign(NULL,0):htable_assign(NULL,1);
-	r_pri *irp=input->rp;
-	irp->cpt_data=res;
 
+	input->cpt_data=res;
 #ifdef KVSSD
 	snode *temp;
 	char *ptr=(char*)res->sets;
@@ -94,7 +93,7 @@ htable *array_mem_cvt2table(skiplist*mem,run_t* input)
 
 BF* array_making_filter(run_t *data,int num, float fpr){
 	BF *filter=bf_init(KEYBITMAP/sizeof(uint16_t),fpr);
-	char *body=data_from_run(data->rp);
+	char *body=data_from_run(data);
 	int idx;
 	uint16_t *bitmap=(uint16_t*)body;
 	KEYT key;
@@ -182,7 +181,7 @@ keyset_iter* array_header_get_keyiter(level *lev, char *data,KEYT *key){
 		int target=array_binary_search(arrs,lev->n_num,*key);
 		if(target==-1) p_data->header_data=NULL;
 		else{
-			p_data->header_data=arrs[target].rp->level_caching_data;
+			p_data->header_data=arrs[target].level_caching_data;
 		}
 	}
 	p_data->header_data=data;
@@ -237,7 +236,7 @@ void array_normal_merger(skiplist *skip,run_t *r,bool iswP){
 	KEYT key;
 	char* body;
 	int idx;
-	body=data_from_run(r->rp);
+	body=data_from_run(r);
 	uint16_t *bitmap=(uint16_t*)body;
 	for_each_header_start(idx,key,ppa_ptr,bitmap,body)
 		if(iswP){
@@ -259,29 +258,22 @@ void array_checking_each_key(char *data,void*(*test)(KEYT a, ppa_t pa)){
 	for_each_header_end
 }
 
-int array_cache_comp_formatting(level *lev ,run_t ***des, r_pri ***drps, bool des_cache){
+int array_cache_comp_formatting(level *lev ,run_t ***des, bool des_cache){
 	array_body *b=(array_body*)lev->level_data;
 	run_t *arrs=b->arrs;
 	//static int cnt=0;
 	//can't caculate the exact nubmer of run...
 	run_t **res=(run_t**)malloc(sizeof(run_t*)*(lev->n_num+1));
-	r_pri **rrps=(r_pri**)malloc(sizeof(r_pri*)*(lev->n_num+1));
 	
 	for(int i=0; i<lev->n_num; i++){
 		if(des_cache){
 			res[i]=&arrs[i];
-			rrps[i]=arrs[i].rp;
 		}else{
-			res[i]=array_make_run(arrs[i].key,arrs[i].end,arrs[i].rp->pbn);
-			r_pri *rrp=res[i]->rp;
-			rrps[i]=rrp;
-			rrp->cpt_data=LSM.nocpy?htable_assign(rrp->level_caching_data,0):htable_assign(rrp->level_caching_data,1);
+			res[i]=array_make_run(arrs[i].key,arrs[i].end,arrs[i].pbn);
+			res[i]->cpt_data=LSM.nocpy?htable_assign(arrs[i].level_caching_data,0):htable_assign(arrs[i].level_caching_data,1);
 		}
-
 	}
 	res[lev->n_num]=NULL;
-	rrps[lev->n_num]=NULL;
-	*drps=rrps;
 	*des=res;
 	return lev->n_num;
 }

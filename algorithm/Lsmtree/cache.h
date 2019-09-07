@@ -4,7 +4,7 @@
 #include "level.h"
 #include<pthread.h>
 typedef struct cache_entry{
-	struct run_private* erp;
+	struct run* entry;
 	struct cache_entry *up;
 	struct cache_entry *down;
 	bool locked;
@@ -22,12 +22,12 @@ typedef struct cache{
 }cache;
 
 cache *cache_init(uint32_t);
-struct run_private* cache_get(cache *c);
-cache_entry* cache_insert(cache *, struct run_private *, int );
+struct run* cache_get(cache *c);
+cache_entry* cache_insert(cache *, struct run *, int );
 bool cache_insertable(cache *c);
-bool cache_delete(cache *, struct run_private *);
-bool cache_delete_entry_only(cache *c, struct run_private *erp);
-void cache_update(cache *, struct run_private *);
+bool cache_delete(cache *, struct run *);
+bool cache_delete_entry_only(cache *c, struct run *ent);
+void cache_update(cache *, struct run *);
 void cache_evict(cache *);
 void cache_size_update(cache *c, int m_size);
 void cache_free(cache *);

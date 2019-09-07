@@ -39,17 +39,17 @@ void compaction_data_write(leveling_node* lnode){
 	free(data_sets);
 }
 
-ppa_t compaction_htable_write_insert(level *target,run_t *entry, r_pri *erp,bool isbg){
+ppa_t compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 #ifdef KVSSD
 	uint32_t ppa=getPPA(HEADER,key_min,true);
 #else
 	uint32_t ppa=getPPA(HEADER,0,true);//set ppa;
 #endif
 	
-	erp->pbn=ppa;
+	entry->pbn=ppa;
 	if(LSM.nocpy){
-		nocpy_copy_from_change((char*)erp->cpt_data->sets,ppa);
-		erp->cpt_data->sets=NULL;
+		nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
+		entry->cpt_data->sets=NULL;
 	}
 	LSM.lop->insert(target,entry);
 	if(isbg){
@@ -59,7 +59,7 @@ ppa_t compaction_htable_write_insert(level *target,run_t *entry, r_pri *erp,bool
 		else*/
 			abort();
 	}else{
-		compaction_htable_write(erp->pbn,erp->cpt_data,entry->key);
+		compaction_htable_write(entry->pbn,entry->cpt_data,entry->key);
 	}
 	LSM.lop->release_run(entry);
 	return ppa;
@@ -91,6 +91,12 @@ uint32_t compaction_htable_write(ppa_t ppa,htable *input, KEYT lpa){
 void compaction_htable_read(run_t *ent,PTR* value){
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
+
+	params->lsm_type=HEADERR;
+	//valueset_assign
+	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
+	params->target=value;
+	params->ppa=ent->pbn;
 	areq->parents=NULL;
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
@@ -98,16 +104,9 @@ void compaction_htable_read(run_t *ent,PTR* value){
 	areq->rapid=false;
 	areq->type=HEADERR;
 
-	params->lsm_type=HEADERR;
-	//valueset_assign
-	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
-	params->target=value;
-	r_pri *erp=ent->rp;
-	params->ppa=erp->pbn;
-
-	if(LSM.nocpy) erp->cpt_data->nocpy_table=nocpy_pick(erp->pbn);
+	if(LSM.nocpy) ent->cpt_data->nocpy_table=nocpy_pick(ent->pbn);
 	//printf("R %u\n",ent->pbn);
-	LSM.li->read(params->ppa,PAGESIZE,params->value,ASYNC,areq);
+	LSM.li->read(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
 	return;
 }
 void compaction_bg_htable_bulkread(run_t **r,fdriver_lock_t **locks){

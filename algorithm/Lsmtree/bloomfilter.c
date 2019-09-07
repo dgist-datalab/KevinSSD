@@ -165,7 +165,7 @@ void bf_set(BF *input, KEYT key){
 	int offset;
 	//printf("%u:",key);
 #if defined(KVSSD)
-	MurmurHash3_x86_32(key.key,key.len,2,&th);
+	 MurmurHash3_x86_32(key.key,key.len,2,&th);
 #endif
 
 	for(uint32_t i=0; i<input->k; i++){
@@ -184,11 +184,11 @@ void bf_set(BF *input, KEYT key){
 }
 
 bool bf_check(BF* input, KEYT key){
-	uint32_t h,th;
+	uint32_t h, th;
 	int block,offset;
 	if(input==NULL) return true;
 #if defined(KVSSD)
-	MurmurHash3_x86_32(key.key,key.len,2,&th);
+	 MurmurHash3_x86_32(key.key,key.len,2,&th);
 #endif
 
 	for(uint32_t i=0; i<input->k; i++){

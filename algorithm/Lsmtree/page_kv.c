@@ -85,48 +85,39 @@ int gc_header(){
 		
 		KEYT *lpa=LSM.nocpy?LSM.lop->get_lpa_from_data((char*)tables[i]->nocpy_table,tpage,true):LSM.lop->get_lpa_from_data((char*)tables[i]->sets,tpage,true);
 
-		run_t **entries=NULL;
+		run_t *entries=NULL;
 		run_t *target_entry=NULL;
 		bool checkdone=false;
 		bool shouldwrite=false;
-		r_pri *erp;
 		
 		for(int j=0; j<LSM.LEVELN; j++){
 			entries=LSM.lop->find_run(LSM.disk[j],*lpa);
 			if(entries==NULL) continue;
-			for(int k=0; entries[k]!=NULL; k++){
-				erp=entries[k]->rp;
-				if(erp->pbn==tpage && KEYTEST(entries[k]->key,*lpa)){
-					if(erp->iscompactioning==SEQMOV) break;
-					if(erp->iscompactioning==SEQCOMP) break;
+			if(entries->pbn==tpage && KEYTEST(entries->key,*lpa)){
+				if(entries->iscompactioning==SEQMOV) break;
+				if(entries->iscompactioning==SEQCOMP) break;
 
-					checkdone=true;
-					if(erp->iscompactioning){
-						erp->iscompactioning=INVBYGC;
-						break;
-					}
-					target_entry=entries[k];
-					shouldwrite=true;
+				checkdone=true;
+				if(entries->iscompactioning){
+					entries->iscompactioning=INVBYGC;
 					break;
 				}
+				target_entry=entries;
+				shouldwrite=true;
+				break;
 			}
-			free(entries);
 			if(checkdone) break;
 		}
 
 		if(!checkdone && LSM.c_level){
 			entries=LSM.lop->find_run(LSM.c_level,*lpa);
 			if(entries){
-				for(int k=0; entries[k]!=NULL; k++){
-					erp=entries[k]->rp;
-					if(erp->pbn==tpage){
-						checkdone=true;
-						shouldwrite=true;
-						target_entry=entries[k];
-					}
+				if(entries->pbn==tpage){
+					checkdone=true;
+					shouldwrite=true;
+					target_entry=entries;
 				}
 			}
-			free(entries);
 		}
 
 
@@ -140,21 +131,23 @@ int gc_header(){
 			abort();
 		}
 
+
+
 		if(!shouldwrite){
+			free(tables[i]);
 			free(lpa->key);
 			free(lpa);
-			free(tables[i]);
 			i++;
 			continue;
 		}
+
 		uint32_t n_ppa=getRPPA(HEADER,*lpa,true,tseg);
-		target_entry->rp->pbn=n_ppa;
+		target_entry->pbn=n_ppa;
 		if(LSM.nocpy)nocpy_force_freepage(tpage);
 		gc_data_write(n_ppa,tables[i],false);
+		free(tables[i]);
 		free(lpa->key);
 		free(lpa);
-		free(tables[i]);
-
 		i++;
 		continue;
 	}
@@ -192,6 +185,7 @@ gc_node *gc_data_write_new_page(uint32_t t_ppa, char *data, htable_t *table, uin
 		n_ppa=-1;
 	}
 	res->status=NOTISSUE;
+	res->invalidate=false;
 	res->nppa=n_ppa;
 	res->ppa=t_ppa;
 	return res;
@@ -387,9 +381,6 @@ void* gc_data_end_req(struct algo_req*const req){
 		memcpy(target,params->value->value,PAGESIZE);
 	}
 	inf_free_valueset(params->value,FS_MALLOC_R);
-	if(g_target->status==DONE)
-		abort();
-
 	g_target->status=READDONE;
 	free(params);
 	free(req);
@@ -400,7 +391,6 @@ void* gc_data_end_req(struct algo_req*const req){
 uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size){
 	uint8_t result=0;
 	run_t *now=NULL;
-	r_pri *nrp;
 	keyset *found=NULL;
 retry:
 	result=lsm_find_run(g->lpa,&now,&found,&params->level,&params->run);
@@ -409,54 +399,43 @@ retry:
 			if(found){
 				if(found->ppa==g->ppa){
 					params->found=found;
-					if(g->status==DONE) 
-						abort();
 					g->status=DONE;
 				}
 				else{
-					g->plength=0;
+					g->invalidate=true;
 					params->level++;
 					goto retry;
 				}
-				return CACHING;
 			}
-			else{
-				params->level++;
-				goto retry;
-			}
+			return CACHING;
 		case FOUND:
-			nrp=now->rp;
-			if(nrp->isflying==1){
-				if(g->status==DONE)
-					abort();
+			if(now->isflying==1){
 				g->status=SAMERUN;
-				if(nrp->gc_wait_idx>req_size){
+				if(now->gc_wait_idx>req_size){
 					printf("over_qdepth!\n");
 				}
-				nrp->gc_waitreq[nrp->gc_wait_idx++]=(void*)g;
+				now->gc_waitreq[now->gc_wait_idx++]=(void*)g;
 				params->data=NULL;
 			}
 			else{
-				if(g->status==DONE)
-					abort();
 				g->status=ISSUE;
-				if(!nrp->run_data){
+				if(!now->run_data){
 					temp_gc_h *gch=(temp_gc_h*)malloc(sizeof(temp_gc_h));
 					params->data=(htable_t*)malloc(sizeof(htable_t));
-					nrp->isflying=1;
-					nrp->gc_waitreq=(void**)calloc(sizeof(void*),req_size);
-					nrp->gc_wait_idx=0;
+					now->isflying=1;
+					now->gc_waitreq=(void**)calloc(sizeof(void*),req_size);
+					now->gc_wait_idx=0;
 					gch->d=now;
 					gch->data=(char*)params->data;
 					list_insert(gc_hlist,(void*)gch);
-					gc_data_read(nrp->pbn,params->data,false,g);
+					gc_data_read(now->pbn,params->data,false,g);
 				}
 				else{
 					params->data=NULL;
 					g->status=READDONE;
-					nrp->isflying=1;
-					memset(nrp->gc_waitreq,0,sizeof(void*)*req_size);
-					nrp->gc_wait_idx=0;
+					now->isflying=1;
+					memset(now->gc_waitreq,0,sizeof(void*)*req_size);
+					now->gc_wait_idx=0;
 				}
 			}
 			break;
@@ -476,12 +455,11 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 	int done_cnt=0;
 	keyset *find;
 	run_t *ent=_p->ent;
-	r_pri *erp=ent->rp;
-	htable_t *data=_p->data?_p->data:(htable_t *)erp->run_data;
+	htable_t *data=_p->data?_p->data:(htable_t *)ent->run_data;
 	if(!data){
-		printf("run_data:%p\n",erp->from_req);
+		printf("run_data:%p\n",ent->from_req);
 	}
-	erp->run_data=(void*)data;
+	ent->run_data=(void*)data;
 	if(!data){
 		printf("lpa: %.*s ppa:%u \n",KEYFORMAT(g->lpa),g->ppa);
 		abort();
@@ -500,8 +478,8 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 	 */
 	bool set_flag=false;
 	bool original_target_processed=false;
-	for(int i=-1; i<erp->gc_wait_idx; i++){
-		gc_node *target=i==-1?g:(gc_node*)erp->gc_waitreq[i];
+	for(int i=-1; i<ent->gc_wait_idx; i++){
+		gc_node *target=i==-1?g:(gc_node*)ent->gc_waitreq[i];
 		gc_params *p=(gc_params*)target->params;
 		/*
 		if(test){
@@ -512,18 +490,15 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 		find=LSM.nocpy?LSM.lop->find_keyset((char*)data->nocpy_table,target->lpa): LSM.lop->find_keyset((char*)data->sets,target->lpa);
 		if(find && find->ppa==target->ppa){
 			p->found=find;
-			if(target->status==DONE){
-				abort();
-			}
 			target->status=DONE;
 			done_cnt++;
 			
-			if(erp->c_entry){
+			if(ent->c_entry){
 				if(LSM.nocpy){
-					p->found2=LSM.lop->find_keyset((char*)erp->cache_nocpy_data_ptr,target->lpa);
+					p->found2=LSM.lop->find_keyset((char*)ent->cache_nocpy_data_ptr,target->lpa);
 				}
 				else{
-					p->found2=LSM.lop->find_keyset((char*)erp->cache_data->sets,target->lpa);
+					p->found2=LSM.lop->find_keyset((char*)ent->cache_data->sets,target->lpa);
 				}
 			}
 			else
@@ -538,6 +513,7 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 		}
 		else{
 			if(find){
+				target->invalidate=true;
 				target->plength=0;
 			}
 			
@@ -551,7 +527,7 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 	if(!original_target_processed){
 		gc_data_issue_header(g,_p,size);
 	}
-	erp->isflying=0;
+	ent->isflying=0;
 	return done_cnt;
 }
 
@@ -560,16 +536,12 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 	int result=0;
 	gc_params *params;
 	int cnttt=0;
-	uint32_t cache_cnt=0;
 	gc_hlist=list_init();
 
 	while(done_cnt!=size){
 		cnttt++;
 		for(int i=0; i<size; i++){
 			if(g[i]->status==DONE) continue;
-			if(g[i]==0){
-				printf("break!\n");
-			}
 			gc_node *target=g[i];
 			switch(target->status){
 				case NOTISSUE:
@@ -578,10 +550,7 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 					target->params=(void*)params;
 				case RETRY:
 					result=gc_data_issue_header(target,(gc_params*)target->params,size);
-					if(result==CACHING && g[i]->status==DONE){
-						cache_cnt++;
-						done_cnt++;
-					}
+					if(result==CACHING) done_cnt++;
 					break;
 				case READDONE:
 					done_cnt+=gc_data_each_header_check(target,size);
@@ -635,17 +604,16 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 
 	char *nocpy_temp_table;
 	for(int i=0; i<idx; i++){
-		r_pri *erp=entries[i]->rp;
-		ppa_t temp_header=erp->pbn;
-		erp->run_data=NULL;
+		ppa_t temp_header=entries[i]->pbn;
+		entries[i]->run_data=NULL;
 		if(LSM.nocpy){
 			nocpy_temp_table=map_table[i]->nocpy_table;
-			nocpy_force_freepage(erp->pbn);
+			nocpy_force_freepage(entries[i]->pbn);
 		}
 		invalidate_PPA(HEADER,temp_header);
-		erp->pbn=getPPA(HEADER,entries[i]->key,true);
+		entries[i]->pbn=getPPA(HEADER,entries[i]->key,true);
 		if(LSM.nocpy) {map_table[i]->nocpy_table=nocpy_temp_table;}
-		gc_data_write(erp->pbn,map_table[i],false);
+		gc_data_write(entries[i]->pbn,map_table[i],false);
 	}
 	free(entries);
 	free(map_table);
@@ -655,9 +623,8 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 		for_each_list_node_safe(gc_hlist,ln,lp){
 			temp_gc_h *gch=(temp_gc_h*)ln->data;
 			free(gch->data);
-			r_pri *gch_rp=gch->d->rp;
-			gch_rp->run_data=NULL;
-			free(gch_rp->gc_waitreq);
+			gch->d->run_data=NULL;
+			free(gch->d->gc_waitreq);
 			free(gch);
 		}
 	}

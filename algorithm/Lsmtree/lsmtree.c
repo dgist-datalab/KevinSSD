@@ -172,25 +172,12 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 		}
 		sol*=SIZEFACTOR;
 	}   
-		
+
 #ifdef TIERING
 	LSM.disk[LSM.LEVELN-1]=LSM.lop->init(ceil(sol),LSM.LEVELN-1,1,true);
 #else
 	LSM.disk[LSM.LEVELN-1]=LSM.lop->init(ceil(sol),LSM.LEVELN-1,1,false);
 #endif
-
-#ifdef BLOOM
-#ifdef MONKEY
-	target_fpr=pow(SIZEFACTOR2,i)*ffpr;
-#else
-	target_fpr=(float)RAF/LSM.LEVELN;
-#endif
-	LSM.disk[LSM.LEVELN-1]->fpr=target_fpr;
-#endif
-	bloomfilter_memory+=bf_bits(KEYBITMAP/sizeof(uint16_t),target_fpr)*sol;
-
-
-
 	printf("| [%d] fpr:1.0000 bytes per entry:%lu noe:%d\n",LSM.LEVELN,bf_bits(LSM.KEYNUM,1),LSM.disk[LSM.LEVELN-1]->m_num);
 	sizeofall+=LSM.disk[LSM.LEVELN-1]->m_num;
 	printf("| level:%d sizefactor:%lf\n",LSM.LEVELN,SIZEFACTOR);
@@ -615,19 +602,15 @@ algo_req *lsm_get_empty_algoreq(request *parents){
 	res->parents=parents;
 	return res;
 }
-int __lsm_get_sub(request *req,r_pri *erp, keyset *table,skiplist *list){
+int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 	int res=0;
-	if(!erp && !table && !list){
+	if(!entry && !table && !list){
 		return 0;
 	}
-	uint32_t pbn=erp?erp->pbn:0;
 	uint32_t ppa;
 	algo_req *lsm_req=NULL;
 	snode *target_node;
 	keyset *target_set;
-	//uint32_t pbn=entry?entry->pbn:UINT32_MAX;
-	//r_pri *erp=entry?entry->rp:NULL;
-
 	if(list){//skiplist check for memtable and temp_table;
 		target_node=skiplist_find(list,req->key);
 		if(!target_node) return 0;
@@ -650,8 +633,8 @@ int __lsm_get_sub(request *req,r_pri *erp, keyset *table,skiplist *list){
 		}
 	}
 
-	if(erp && !table){ //tempent check
-		target_set=LSM.lop->find_keyset((char*)erp->cpt_data->sets,req->key);
+	if(entry && !table){ //tempent check
+		target_set=LSM.lop->find_keyset((char*)entry->cpt_data->sets,req->key);
 		if(target_set){
 			lsm_req=lsm_get_req_factory(req,DATAR);
 			bench_cache_hit(req->mark);	
@@ -662,25 +645,23 @@ int __lsm_get_sub(request *req,r_pri *erp, keyset *table,skiplist *list){
 	}
 
 	if(!res && table){//retry check or cache hit check
-		if(LSM.nocpy && erp){
-			table=(keyset*)nocpy_pick(pbn);
+		if(LSM.nocpy && entry){
+			table=(keyset*)nocpy_pick(entry->pbn);
 		}
-		bench_custom_start(write_opt_time,9);
 		target_set=LSM.lop->find_keyset((char*)table,req->key);
-		bench_custom_A(write_opt_time,9);
 		char *src;
 		if(likely(target_set)){
-			if(erp && !erp->c_entry && cache_insertable(LSM.lsm_cache)){
+			if(entry && !entry->c_entry && cache_insertable(LSM.lsm_cache)){
 				if(LSM.nocpy){
-					src=nocpy_pick(pbn);
-					erp->cache_nocpy_data_ptr=src;
+					src=nocpy_pick(entry->pbn);
+					entry->cache_nocpy_data_ptr=src;
 				}
 				else{
 					htable temp; temp.sets=table;
-					erp->cache_data=htable_copy(&temp);
+					entry->cache_data=htable_copy(&temp);
 				}
-				cache_entry *c_entry=cache_insert(LSM.lsm_cache,erp,0);
-				erp->c_entry=c_entry;
+				cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
+				entry->c_entry=c_entry;
 			}
 
 			lsm_req=lsm_get_req_factory(req,DATAR);
@@ -689,15 +670,13 @@ int __lsm_get_sub(request *req,r_pri *erp, keyset *table,skiplist *list){
 			res=4;
 		}
 
-		if(erp){
+		if(entry){
 			request *temp_req;
 			keyset *new_target_set;
 			algo_req *new_lsm_req;
-			for(int i=0; i<erp->wait_idx; i++){
-				temp_req=(request*)erp->waitreq[i];
-				bench_custom_start(write_opt_time,9);
+			for(int i=0; i<entry->wait_idx; i++){
+				temp_req=(request*)entry->waitreq[i];
 				new_target_set=LSM.lop->find_keyset((char*)table,temp_req->key);
-				bench_custom_A(write_opt_time,9);
 
 				int *temp_params=(int*)temp_req->params;
 				temp_params[3]++;
@@ -728,11 +707,11 @@ int __lsm_get_sub(request *req,r_pri *erp, keyset *table,skiplist *list){
 					}
 				}
 			}
-			erp->wait_idx=0;
-			free(erp->waitreq);
-			erp->waitreq=NULL;
-			erp->isflying=0;
-			erp->wait_idx=0;
+			entry->wait_idx=0;
+			free(entry->waitreq);
+			entry->waitreq=NULL;
+			entry->isflying=0;
+			entry->wait_idx=0;
 		}
 	}
 
@@ -784,40 +763,33 @@ void dummy_htable_read(uint32_t pbn,request *req){
 }
 
 uint8_t lsm_find_run(KEYT key, run_t ** entry, keyset **found, int *level,int *run){
-	run_t **entries=NULL;
+	run_t *entries=NULL;
+	if(*run) (*level)++;
 	for(int i=*level; i<LSM.LEVELN; i++){
 	#ifdef BLOOM
 		if(!bf_check(LSM.disk[i]->filter,key)) continue;
 	#endif
-
-		pthread_mutex_lock(&LSM.level_lock[i]);
+		
 		entries=LSM.lop->find_run(LSM.disk[i],key);
-		pthread_mutex_unlock(&LSM.level_lock[i]);
 		if(!entries){
 			continue;
 		}
 
 		if(i<LSM.LEVELCACHING){
-			keyset *find=LSM.lop->find_keyset(entries[0]->rp->level_caching_data,key);
+			keyset *find=LSM.lop->find_keyset(entries->level_caching_data,key);
 			if(find){
 				*found=find;
 				if(level) *level=i;
 			}
-			free(entries);
 			return CACHING;
 		}
 		else{
-			for(int j=run?*run:0; entries[j]!=NULL; j++){
-				run_t *t_entry=entries[j];
-				free(entries);
-				if(level) *level=i;
-				if(run) *run=j;
-				*entry=t_entry;
-				return FOUND;
-			}
+			if(level) *level=i;
+			if(run) *run=0;
+			*entry=entries;
+			return FOUND;
 		}
 		if(run) *run=0;
-		free(entries);
 		continue;
 	}
 	return NOTFOUND;
@@ -830,7 +802,6 @@ uint32_t __lsm_get(request *const req){
 	int mark=req->mark;
 	htable mapinfo;
 	run_t *entry;
-	r_pri *erp;
 	keyset *found=NULL;
 	algo_req *lsm_req=NULL;
 	lsm_params *params;
@@ -855,7 +826,7 @@ uint32_t __lsm_get(request *const req){
 		temp_data[3]=0; //bypass
 	}
 	else{
-		run_t **_entry;
+		run_t *_entry;
 		temp_data=(int*)req->params;
 		level=temp_data[0];
 		run=temp_data[1];
@@ -867,14 +838,13 @@ uint32_t __lsm_get(request *const req){
 		mapinfo.sets=LSM.nocpy?(keyset*)nocpy_pick(req->ppa):(keyset*)req->value->value;
 		//it can be optimize;
 		_entry=LSM.lop->find_run(LSM.disk[level],req->key);
-		erp=_entry[run]->rp;
+
 		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-		res=__lsm_get_sub(req,erp,mapinfo.sets,NULL);
+		res=__lsm_get_sub(req,_entry,mapinfo.sets,NULL);
 		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-		
-		_entry[run]->rp->from_req=NULL;
-		_entry[run]->rp->isflying=0;
-		free(_entry);
+
+		_entry->from_req=NULL;
+		_entry->isflying=0;
 		if(res)return res;
 
 #ifndef FLASHCHCK
@@ -895,7 +865,6 @@ retry:
 		return 1;
 	}
 	result=lsm_find_run(req->key,&entry,&found,&level,&run);
-	erp=entry?entry->rp:NULL;
 	if(temp_data[3]==1) temp_data[3]=0;
 	switch(result){
 		case CACHING:
@@ -914,11 +883,11 @@ retry:
 			temp_data[0]=level;
 			temp_data[1]=run;
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-			if(erp->c_entry){
-				res=LSM.nocpy?__lsm_get_sub(req,NULL,(keyset*)erp->cache_nocpy_data_ptr,NULL):__lsm_get_sub(req,NULL,erp->cache_data->sets,NULL);
+			if(entry->c_entry){
+				res=LSM.nocpy?__lsm_get_sub(req,NULL,(keyset*)entry->cache_nocpy_data_ptr,NULL):__lsm_get_sub(req,NULL,entry->cache_data->sets,NULL);
 				if(res){
 					bench_cache_hit(mark);
-					cache_update(LSM.lsm_cache,erp);	
+					cache_update(LSM.lsm_cache,entry);	
 					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 					res=FOUND;
 					return res;
@@ -927,24 +896,24 @@ retry:
 
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			temp_data[2]=++round;
-			if(!LSM.hw_read && erp->isflying==1){			
-				if(erp->wait_idx==0){
-					if(erp->waitreq){
+			if(!LSM.hw_read && entry->isflying==1){			
+				if(entry->wait_idx==0){
+					if(entry->waitreq){
 						abort();
 					}
-					erp->waitreq=(void**)calloc(sizeof(void*),QDEPTH);
+					entry->waitreq=(void**)calloc(sizeof(void*),QDEPTH);
 				}
-				erp->waitreq[erp->wait_idx++]=(void*)req;
+				entry->waitreq[entry->wait_idx++]=(void*)req;
 				res=FOUND;
 			}else{
 				lsm_req=lsm_get_req_factory(req,HEADERR);
 				params=(lsm_params*)lsm_req->params;
-				params->ppa=entry->rp->pbn;
+				params->ppa=entry->pbn;
 
-				erp->isflying=1;
+				entry->isflying=1;
 
 				params->entry_ptr=(void*)entry;
-				erp->from_req=(void*)req;
+				entry->from_req=(void*)req;
 				req->ppa=params->ppa;
 				if(LSM.hw_read){
 					LSM.li->read_hw(params->ppa,req->key.key,req->key.len,req->value,ASYNC,lsm_req);

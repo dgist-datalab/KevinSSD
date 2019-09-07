@@ -36,7 +36,7 @@ void cache_size_update(cache *c, int m_size){
 	//fprintf(stderr,"%d\n",c->m_size);
 }
 
-cache_entry * cache_insert(cache *c, r_pri *erp, int dmatag){
+cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
 	if(!c->m_size) return NULL;
 	if(c->m_size < c->n_size){
 		int target=c->n_size-c->m_size+1;
@@ -49,8 +49,8 @@ cache_entry * cache_insert(cache *c, r_pri *erp, int dmatag){
 	cache_entry *c_ent=(cache_entry*)malloc(sizeof(cache_entry));
 
 	c_ent->locked=false;
-	c_ent->erp=erp;
-	if(!LSM.nocpy)erp->cache_data->iscached=2;
+	c_ent->entry=ent;
+	if(!LSM.nocpy)ent->cache_data->iscached=2;
 	if(c->bottom==NULL){
 		c->bottom=c_ent;
 		c->top=c_ent;
@@ -69,30 +69,30 @@ cache_entry * cache_insert(cache *c, r_pri *erp, int dmatag){
 	//printf("cache insert:%d\n",c->n_size);
 	return c_ent;
 }
-bool cache_delete(cache *c, r_pri * erp){
+bool cache_delete(cache *c, run_t * ent){
 	delete_++;
-	if(c->n_size==0 || !erp){
+	if(c->n_size==0 || !ent){
 		return false;
 	}
 	//printf("cache delete\n");
-	cache_entry *c_ent=erp->c_entry;	
+	cache_entry *c_ent=ent->c_entry;	
 	if(c_ent==c->bottom){
 		c->bottom=c_ent->up;
 	}else if(c_ent==c->top){
 		c->top=c_ent->down;
 	}
-	if(!LSM.nocpy)htable_free(erp->cache_data);
+	if(!LSM.nocpy)htable_free(ent->cache_data);
 	c->n_size--;
 	free(c_ent);
-	erp->c_entry=NULL;
+	ent->c_entry=NULL;
 	return true;
 }
 
-bool cache_delete_entry_only(cache *c, r_pri *erp){
+bool cache_delete_entry_only(cache *c, run_t *ent){
 	if(c->n_size==0){
 		return false;
 	}
-	cache_entry *c_ent=erp->c_entry;
+	cache_entry *c_ent=ent->c_entry;
 	if(c_ent==NULL) {
 		return false;
 	}
@@ -118,13 +118,13 @@ bool cache_delete_entry_only(cache *c, r_pri *erp){
 	}
 	c->n_size--;
 	free(c_ent);
-	erp->c_entry=NULL;
+	ent->c_entry=NULL;
 	return true;
 }
 
-void cache_update(cache *c, r_pri* erp){
+void cache_update(cache *c, run_t* ent){
 	update++;
-	cache_entry *c_ent=erp->c_entry;
+	cache_entry *c_ent=ent->c_entry;
 	if(c->top==c_ent){ 
 		return;
 	}
@@ -153,7 +153,7 @@ void cache_update(cache *c, r_pri* erp){
 	}
 }
 
-r_pri* cache_get(cache *c){
+run_t* cache_get(cache *c){
 	if(c->n_size==0){
 		return NULL;
 	}
@@ -189,14 +189,14 @@ r_pri* cache_get(cache *c){
 		}
 	}
 
-	if(!res->erp->c_entry || res->erp->c_entry!=res){
+	if(!res->entry->c_entry || res->entry->c_entry!=res){
 		cache_print(c);
 		printf("hello\n");
 	}
-	return res->erp;
+	return res->entry;
 }
 void cache_free(cache *c){
-	r_pri *tmp_ent;
+	run_t *tmp_ent;
 	printf("cache size:%d %d %d\n",c->n_size,c->m_size,c->max_size);
 	while((tmp_ent=cache_get(c))){
 		free(tmp_ent->c_entry);
@@ -210,10 +210,10 @@ int print_number;
 void cache_print(cache *c){
 	cache_entry *start=c->top;
 	print_number=0;
-	r_pri *trp;
+	run_t *tent;
 	while(start!=NULL){
-		trp=start->erp;
-		if(start->erp->c_entry!=start){
+		tent=start->entry;
+		if(start->entry->c_entry!=start){
 			printf("fuck!!!\n");
 		}
 #ifdef KVSSD

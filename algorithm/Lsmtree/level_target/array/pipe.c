@@ -31,7 +31,7 @@ void new_page_set(p_body *p, bool iswrite){
 		else{
 		}
 		bench_custom_A(write_opt_time,9);
-		p->now_page=data_from_run(p->pl_datas[p->pidx].rp);
+		p->now_page=data_from_run(p->pl_datas[p->pidx].r);
 	}
 	else{
 		if(p->pidx>=p->max_page){

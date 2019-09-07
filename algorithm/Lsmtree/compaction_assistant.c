@@ -396,12 +396,13 @@ void compaction_check(KEYT key, bool force){
 
 
 
-void compaction_subprocessing(struct skiplist *top,r_pri** src,uint32_t snum, r_pri** org, uint32_t onum,struct level *des){
+void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
+	
 	compaction_sub_wait();
 	bench_custom_A(write_opt_time,5);
 
 	bench_custom_start(write_opt_time,6);
-	LSM.lop->merger(top,src,snum,org,onum,des);
+	LSM.lop->merger(top,src,org,des);
 	bench_custom_A(write_opt_time,6);
 
 	KEYT key,end;
@@ -413,7 +414,7 @@ void compaction_subprocessing(struct skiplist *top,r_pri** src,uint32_t snum, r_
 		}
 		else{
 			bench_custom_start(write_opt_time,7);
-			compaction_htable_write_insert(des,target,target->rp,false);
+			compaction_htable_write_insert(des,target,false);
 			bench_custom_A(write_opt_time,7);
 		}
 		free(target);
@@ -454,7 +455,7 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 	run_t *r;
 	lev_iter *iter=LSM.lop->get_iter(src,src->start, src->end);
 	for_each_lev(r,iter,LSM.lop->iter_nxt){
-		r->rp->iscompactioning=SEQMOV;
+		r->iscompactioning=SEQMOV;
 		LSM.lop->insert(des,r);
 	}
 }
@@ -486,7 +487,7 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 #endif
 */
 
-bool htable_read_preproc(r_pri *r){
+bool htable_read_preproc(run_t *r){
 	bool res=false;
 	if(r->level_caching_data){
 		memcpy_cnt++;
@@ -514,10 +515,10 @@ bool htable_read_preproc(r_pri *r){
 	return res;
 }
 
-void htable_read_postproc(run_t *rr, r_pri *r, uint32_t pbn){
+void htable_read_postproc(run_t *r){
 	if(r->iscompactioning!=INVBYGC && r->iscompactioning!=SEQCOMP){
-		if(pbn!=UINT32_MAX)
-			invalidate_PPA(HEADER,pbn);
+		if(r->pbn!=UINT32_MAX)
+			invalidate_PPA(HEADER,r->pbn);
 		else{
 			//the run belong to levelcaching lev
 		}
@@ -531,9 +532,9 @@ void htable_read_postproc(run_t *rr, r_pri *r, uint32_t pbn){
 	}else{
 		htable_free(r->cpt_data);
 		r->cpt_data=NULL;
-		if(pbn==UINT32_MAX){
-			LSM.lop->release_run(rr);
-			free(rr);
+		if(r->pbn==UINT32_MAX){
+			LSM.lop->release_run(r);
+			free(r);
 		}
 	}
 }
@@ -544,7 +545,7 @@ uint32_t sequential_move_next_level(level *origin, level *target,KEYT start, KEY
 	res=LSM.lop->unmatch_find(origin,start,end,&target_s);
 	for(int i=0; target_s[i]!=NULL; i++){
 		LSM.lop->insert(target,target_s[i]);
-		target_s[i]->rp->iscompactioning=SEQCOMP;
+		target_s[i]->iscompactioning=SEQCOMP;
 	}
 	free(target_s);
 	return res;
@@ -558,23 +559,22 @@ uint32_t compaction_empty_level(level **from, leveling_node *lnode, level **des)
 		free(entry->end.key);
 
 		LSM.lop->mem_cvt2table(lnode->mem,entry,(*des)->filter);
-		r_pri *erp=entry->rp;
 		if((*des)->idx<LSM.LEVELCACHING){
 			if(LSM.nocpy){
-				erp->level_caching_data=(char*)erp->cpt_data->sets;
-				erp->cpt_data->sets=NULL;
-				htable_free(erp->cpt_data);
+				entry->level_caching_data=(char*)entry->cpt_data->sets;
+				entry->cpt_data->sets=NULL;
+				htable_free(entry->cpt_data);
 			}
 			else{
-				erp->level_caching_data=(char*)malloc(PAGESIZE);
-				memcpy(erp->level_caching_data,erp->cpt_data->sets,PAGESIZE);
-				htable_free(erp->cpt_data);
+				entry->level_caching_data=(char*)malloc(PAGESIZE);
+				memcpy(entry->level_caching_data,entry->cpt_data->sets,PAGESIZE);
+				htable_free(entry->cpt_data);
 			}
 			LSM.lop->insert((*des),entry);
 			LSM.lop->release_run(entry);
 		}
 		else{
-			compaction_htable_write_insert((*des),entry,erp,false);
+			compaction_htable_write_insert((*des),entry,false);
 		}
 		free(entry);
 	}
@@ -582,17 +582,15 @@ uint32_t compaction_empty_level(level **from, leveling_node *lnode, level **des)
 		if((*des)->idx>=LSM.LEVELCACHING && (*from)->idx<LSM.LEVELCACHING){
 			lev_iter *iter=LSM.lop->get_iter((*from),(*from)->start,(*from)->end);
 			run_t *now;
-			r_pri *nrp;
 			while((now=LSM.lop->iter_nxt(iter))){
 				uint32_t ppa=getPPA(HEADER,now->key,true);
-				nrp=now->rp;
-				nrp->pbn=ppa;
-				nrp->cpt_data=LSM.nocpy?htable_assign(nrp->level_caching_data,0):htable_assign(nrp->level_caching_data,1);
+				now->pbn=ppa;
+				now->cpt_data=LSM.nocpy?htable_assign(now->level_caching_data,0):htable_assign(now->level_caching_data,1);
 				if(LSM.nocpy){
-					nocpy_copy_from_change((char*)nrp->cpt_data->sets,ppa);
-					nrp->cpt_data->sets=NULL;
+					nocpy_copy_from_change((char*)now->cpt_data->sets,ppa);
+					now->cpt_data->sets=NULL;
 				}
-				compaction_htable_write(ppa,nrp->cpt_data,now->key);
+				compaction_htable_write(ppa,now->cpt_data,now->key);
 			}
 		}
 		LSM.lop->lev_copy(*des,*from);
