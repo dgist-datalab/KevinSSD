@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include "d_type.h"
 #include "d_param.h"
+#include "d_htable.h"
 #include "../../interface/queue.h"
 #include "../../include/container.h"
 #include "../../include/dl_sync.h"
@@ -68,7 +69,17 @@ struct demand_params{
 
 struct inflight_params{
 	jump_t jump;
-	struct pt_struct pte;
+	//struct pt_struct pte;
+};
+
+struct flush_node {
+	ppa_t ppa;
+	value_set *value;
+};
+
+struct flush_list {
+	int size;
+	struct flush_node *list;
 };
 
 
@@ -104,9 +115,12 @@ struct demand_member {
 	queue *wb_master_q;
 	queue *wb_retry_q;
 
+	struct flush_list *flush_list;
 
 	volatile int nr_valid_read_done;
 	volatile int nr_tpages_read_done;
+
+	struct d_htable *hash_table;
 
 #ifdef HASH_KVSSD
 	int max_try;

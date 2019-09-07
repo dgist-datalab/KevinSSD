@@ -69,7 +69,7 @@ struct gc_bucket *gc_bucket;
 struct gc_bucket_node *gcb_node_arr[_PPS*GRAIN_PER_PAGE];
 static int 
 _do_bulk_write_valid_grains
-(blockmanager *bm, struct gc_table_struct **bulk_table, int nr_read_pages) {
+(blockmanager *bm, struct gc_table_struct **bulk_table, int nr_read_pages, page_t type) {
 	gc_bucket = (struct gc_bucket *)malloc(sizeof(struct gc_bucket));
 	for (int i = 0; i < PAGESIZE/GRAINED_UNIT+1; i++) gc_bucket->idx[i] = 0;
 
@@ -123,7 +123,7 @@ _do_bulk_write_valid_grains
 			memcpy(&page[offset*GRAINED_UNIT], gcb_node->ptr, target_length*GRAINED_UNIT);
 
 			//lpa_list[offset] = gcb_node->lpa;
-			set_oob(bm, gcb_node->lpa, ppa, offset);
+			set_oob(bm, gcb_node->lpa, ppa, type);
 
 			offset += target_length;
 			remain -= target_length * GRAINED_UNIT;
@@ -153,7 +153,7 @@ static int lpa_compare(const void *a, const void *b) {
 	else return 1;
 }
 
-static int _do_bulk_mapping_update(blockmanager *bm, int nr_valid_grains) {
+static int _do_bulk_mapping_update(blockmanager *bm, int nr_valid_grains, page_t type) {
 	qsort(gcb_node_arr, nr_valid_grains, sizeof(struct gc_bucket_node *), lpa_compare);
 
 	/* read mapping table which needs update */
@@ -203,7 +203,7 @@ static int _do_bulk_mapping_update(blockmanager *bm, int nr_valid_grains) {
 
 		bm->populate_bit(bm, cmt->t_ppa);
 		//bm->set_oob(bm, (char *)&cmt->idx, sizeof(cmt->idx), cmt->t_ppa);
-		set_oob(bm, cmt->idx, cmt->t_ppa, 0);
+		set_oob(bm, cmt->idx, cmt->t_ppa, type);
 
 		cmt->state = CLEAN;
 	}
@@ -221,9 +221,9 @@ int dpage_gc_dvalue(blockmanager *bm) {
 
 	_do_wait_until_read_all(nr_read_pages);
 
-	int nr_valid_grains = _do_bulk_write_valid_grains(bm, bulk_table, nr_read_pages);
+	int nr_valid_grains = _do_bulk_write_valid_grains(bm, bulk_table, nr_read_pages, DATA);
 
-	_do_bulk_mapping_update(bm, nr_valid_grains);
+	_do_bulk_mapping_update(bm, nr_valid_grains, DATA);
 
 	/* trim blocks on the gsegemnt */
 	bm->pt_trim_segment(bm, DATA_S, target_seg, __demand.li);

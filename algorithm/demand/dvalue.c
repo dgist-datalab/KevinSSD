@@ -19,8 +19,6 @@ int grain_create() {
 	grain_bitmap = (bool *)calloc(d_env.nr_grains, sizeof(bool));
 	if (!grain_bitmap) return 1;
 
-	memset(grain_bitmap, 0, d_env.nr_grains * sizeof(bool));
-
 	return 0;
 }
 

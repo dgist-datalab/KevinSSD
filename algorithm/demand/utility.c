@@ -51,16 +51,6 @@ struct algo_req *make_algo_req_sync(uint8_t type, value_set *value) {
 	return a_req;
 }
 
-/*struct algo_req *make_algo_req_cmt(uint8_t type, value_set *value, struct cmt_struct *cmt) {
-	struct algo_req *a_req = make_algo_req_default(type, value);
-	a_req->rapid = true;
-
-	struct demand_params *d_params = (struct demand_params *)a_req->params;
-	d_params->cmt = cmt;
-
-	return a_req;
-}*/
-
 void free_algo_req(struct algo_req *a_req) {
 	free(a_req->params);
 	free(a_req);
@@ -121,7 +111,23 @@ lpa_t *get_oob(blockmanager *bm, ppa_t ppa) {
 	return (lpa_t *)bm->get_oob(bm, ppa);
 }
 
-void set_oob(blockmanager *bm, lpa_t lpa, ppa_t ppa, int offset) {
+void set_oob(blockmanager *bm, lpa_t lpa, ppa_t ppa, page_t type) {
+	int offset = 0;
+
+#ifdef DVALUE
+	switch (type) {
+	case DATA:
+		offset = G_OFFSET(ppa);
+		ppa = G_IDX(ppa);
+		break;
+	case MAP:
+		break;
+	default:
+		printf("[ERROR] Invalid type\n");
+		abort();
+	}
+#endif
+
 	lpa_t *lpa_list = get_oob(bm, ppa);
 	lpa_list[offset] = lpa;
 }
@@ -178,4 +184,15 @@ void warn_notfound(char *f, int l) {
 #ifdef WARNING_NOTFOUND
 	printf("[WARNING] Read Target Data Not Found, at %s:%d\n", f, l);
 #endif
+}
+
+int wb_lpa_compare(const void *a, const void *b) {
+	lpa_t lpa_a = ((struct hash_params *)(*(snode **)a)->hash_params)->lpa;
+	lpa_t lpa_b = ((struct hash_params *)(*(snode **)b)->hash_params)->lpa;
+
+	if (lpa_a < lpa_b) return -1;
+	if (lpa_a == lpa_b) return 0;
+	if (lpa_a > lpa_b) return 1;
+
+	return 0;
 }
