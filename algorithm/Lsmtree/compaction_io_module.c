@@ -46,7 +46,7 @@ ppa_t compaction_htable_write_insert(level *target,run_t *entry, r_pri *erp,bool
 	uint32_t ppa=getPPA(HEADER,0,true);//set ppa;
 #endif
 	
-	entry->pbn=ppa;
+	erp->pbn=ppa;
 	if(LSM.nocpy){
 		nocpy_copy_from_change((char*)erp->cpt_data->sets,ppa);
 		erp->cpt_data->sets=NULL;
@@ -59,7 +59,7 @@ ppa_t compaction_htable_write_insert(level *target,run_t *entry, r_pri *erp,bool
 		else*/
 			abort();
 	}else{
-		compaction_htable_write(entry->pbn,erp->cpt_data,entry->key);
+		compaction_htable_write(erp->pbn,erp->cpt_data,entry->key);
 	}
 	LSM.lop->release_run(entry);
 	return ppa;
@@ -91,12 +91,6 @@ uint32_t compaction_htable_write(ppa_t ppa,htable *input, KEYT lpa){
 void compaction_htable_read(run_t *ent,PTR* value){
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-
-	params->lsm_type=HEADERR;
-	//valueset_assign
-	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
-	params->target=value;
-	params->ppa=ent->pbn;
 	areq->parents=NULL;
 	areq->end_req=lsm_end_req;
 	areq->params=(void*)params;
@@ -104,9 +98,15 @@ void compaction_htable_read(run_t *ent,PTR* value){
 	areq->rapid=false;
 	areq->type=HEADERR;
 
-	if(LSM.nocpy) ent->rp->cpt_data->nocpy_table=nocpy_pick(ent->pbn);
+	params->lsm_type=HEADERR;
+	//valueset_assign
+	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
+	params->target=value;
+	params->ppa=ent->rp->pbn;
+
+	if(LSM.nocpy) ent->rp->cpt_data->nocpy_table=nocpy_pick(ent->rp->pbn);
 	//printf("R %u\n",ent->pbn);
-	LSM.li->read(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
+	LSM.li->read(params->ppa,PAGESIZE,params->value,ASYNC,areq);
 	return;
 }
 void compaction_bg_htable_bulkread(run_t **r,fdriver_lock_t **locks){

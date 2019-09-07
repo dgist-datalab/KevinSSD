@@ -109,20 +109,22 @@ void processing_header_read(void *param){
 		areq=(algo_req*)malloc(sizeof(algo_req));
 		params=(lsm_params*)malloc(sizeof(lsm_params));
 
-		params->lsm_type=BGREAD;
-		params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
-		params->target=(PTR*)&r[i]->cpt_data;
-		params->ppa=r[i]->pbn;
-		params->lock=locks[i];
-
 		areq->parents=NULL;
 		areq->end_req=lsm_end_req;
 		areq->params=(void*)params;
 		areq->type_lower=0;
 		areq->rapid=false;
 		areq->type=HEADERR;
-		if(LSM.nocpy) r[i]->cpt_data->nocpy_table=nocpy_pick(r[i]->pbn);
-		LSM.li->read(r[i]->pbn,PAGESIZE,params->value,ASYNC,areq);
+
+		r_pri *rrp=r[i]->rp;
+		params->lsm_type=BGREAD;
+		params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
+		params->target=(PTR*)&rrp->cpt_data;
+		params->ppa=rrp->pbn;
+		params->lock=locks[i];
+
+		if(LSM.nocpy) rrp->cpt_data->nocpy_table=nocpy_pick(rrp->pbn);
+		LSM.li->read(rrp->pbn,PAGESIZE,params->value,ASYNC,areq);
 	}
 	free(r);
 	free(locks);

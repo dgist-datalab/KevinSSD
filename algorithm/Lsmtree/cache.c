@@ -69,30 +69,30 @@ cache_entry * cache_insert(cache *c, r_pri *erp, int dmatag){
 	//printf("cache insert:%d\n",c->n_size);
 	return c_ent;
 }
-bool cache_delete(cache *c, run_t * erp){
+bool cache_delete(cache *c, r_pri * erp){
 	delete_++;
 	if(c->n_size==0 || !erp){
 		return false;
 	}
 	//printf("cache delete\n");
-	cache_entry *c_ent=ent->c_entry;	
+	cache_entry *c_ent=erp->c_entry;	
 	if(c_ent==c->bottom){
 		c->bottom=c_ent->up;
 	}else if(c_ent==c->top){
 		c->top=c_ent->down;
 	}
-	if(!LSM.nocpy)htable_free(ent->cache_data);
+	if(!LSM.nocpy)htable_free(erp->cache_data);
 	c->n_size--;
 	free(c_ent);
-	ent->c_entry=NULL;
+	erp->c_entry=NULL;
 	return true;
 }
 
-bool cache_delete_entry_only(cache *c, run_t *ent){
+bool cache_delete_entry_only(cache *c, r_pri *erp){
 	if(c->n_size==0){
 		return false;
 	}
-	cache_entry *c_ent=ent->c_entry;
+	cache_entry *c_ent=erp->c_entry;
 	if(c_ent==NULL) {
 		return false;
 	}
@@ -118,13 +118,13 @@ bool cache_delete_entry_only(cache *c, run_t *ent){
 	}
 	c->n_size--;
 	free(c_ent);
-	ent->c_entry=NULL;
+	erp->c_entry=NULL;
 	return true;
 }
 
-void cache_update(cache *c, run_t* ent){
+void cache_update(cache *c, r_pri* erp){
 	update++;
-	cache_entry *c_ent=ent->c_entry;
+	cache_entry *c_ent=erp->c_entry;
 	if(c->top==c_ent){ 
 		return;
 	}
@@ -153,7 +153,7 @@ void cache_update(cache *c, run_t* ent){
 	}
 }
 
-run_t* cache_get(cache *c){
+r_pri* cache_get(cache *c){
 	if(c->n_size==0){
 		return NULL;
 	}
@@ -189,14 +189,14 @@ run_t* cache_get(cache *c){
 		}
 	}
 
-	if(!res->entry->c_entry || res->entry->c_entry!=res){
+	if(!res->erp->c_entry || res->erp->c_entry!=res){
 		cache_print(c);
 		printf("hello\n");
 	}
-	return res->entry;
+	return res->erp;
 }
 void cache_free(cache *c){
-	run_t *tmp_ent;
+	r_pri *tmp_ent;
 	printf("cache size:%d %d %d\n",c->n_size,c->m_size,c->max_size);
 	while((tmp_ent=cache_get(c))){
 		free(tmp_ent->c_entry);
@@ -210,10 +210,10 @@ int print_number;
 void cache_print(cache *c){
 	cache_entry *start=c->top;
 	print_number=0;
-	run_t *tent;
+	r_pri *trp;
 	while(start!=NULL){
-		tent=start->entry;
-		if(start->entry->c_entry!=start){
+		trp=start->erp;
+		if(start->erp->c_entry!=start){
 			printf("fuck!!!\n");
 		}
 #ifdef KVSSD

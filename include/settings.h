@@ -47,7 +47,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 16L
+#define GIGAUNIT 64L
 #define TOTALSIZE (GIGAUNIT*G)
 #define OP 50
 #define REALSIZE (512L*G)

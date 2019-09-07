@@ -89,18 +89,20 @@ int gc_header(){
 		run_t *target_entry=NULL;
 		bool checkdone=false;
 		bool shouldwrite=false;
+		r_pri *erp;
 		
 		for(int j=0; j<LSM.LEVELN; j++){
 			entries=LSM.lop->find_run(LSM.disk[j],*lpa);
 			if(entries==NULL) continue;
 			for(int k=0; entries[k]!=NULL; k++){
-				if(entries[k]->pbn==tpage && KEYTEST(entries[k]->key,*lpa)){
-					if(entries[k]->iscompactioning==SEQMOV) break;
-					if(entries[k]->iscompactioning==SEQCOMP) break;
+				erp=entries[k]->rp;
+				if(erp->pbn==tpage && KEYTEST(entries[k]->key,*lpa)){
+					if(erp->iscompactioning==SEQMOV) break;
+					if(erp->iscompactioning==SEQCOMP) break;
 
 					checkdone=true;
-					if(entries[k]->iscompactioning){
-						entries[k]->iscompactioning=INVBYGC;
+					if(erp->iscompactioning){
+						erp->iscompactioning=INVBYGC;
 						break;
 					}
 					target_entry=entries[k];
@@ -116,7 +118,8 @@ int gc_header(){
 			entries=LSM.lop->find_run(LSM.c_level,*lpa);
 			if(entries){
 				for(int k=0; entries[k]!=NULL; k++){
-					if(entries[k]->pbn==tpage){
+					erp=entries[k]->rp;
+					if(erp->pbn==tpage){
 						checkdone=true;
 						shouldwrite=true;
 						target_entry=entries[k];
@@ -147,7 +150,7 @@ int gc_header(){
 			continue;
 		}
 		uint32_t n_ppa=getRPPA(HEADER,*lpa,true,tseg);
-		target_entry->pbn=n_ppa;
+		target_entry->rp->pbn=n_ppa;
 		if(LSM.nocpy)nocpy_force_freepage(tpage);
 		gc_data_write(n_ppa,tables[i],false);
 		free(tables[i]);
@@ -395,6 +398,7 @@ void* gc_data_end_req(struct algo_req*const req){
 uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size){
 	uint8_t result=0;
 	run_t *now=NULL;
+	r_pri *nrp;
 	keyset *found=NULL;
 retry:
 	result=lsm_find_run(g->lpa,&now,&found,&params->level,&params->run);
@@ -413,33 +417,34 @@ retry:
 			}
 			return CACHING;
 		case FOUND:
-			if(now->isflying==1){
+			nrp=now->rp;
+			if(nrp->isflying==1){
 				g->status=SAMERUN;
-				if(now->gc_wait_idx>req_size){
+				if(nrp->gc_wait_idx>req_size){
 					printf("over_qdepth!\n");
 				}
-				now->gc_waitreq[now->gc_wait_idx++]=(void*)g;
+				nrp->gc_waitreq[nrp->gc_wait_idx++]=(void*)g;
 				params->data=NULL;
 			}
 			else{
 				g->status=ISSUE;
-				if(!now->run_data){
+				if(!nrp->run_data){
 					temp_gc_h *gch=(temp_gc_h*)malloc(sizeof(temp_gc_h));
 					params->data=(htable_t*)malloc(sizeof(htable_t));
-					now->isflying=1;
-					now->gc_waitreq=(void**)calloc(sizeof(void*),req_size);
-					now->gc_wait_idx=0;
+					nrp->isflying=1;
+					nrp->gc_waitreq=(void**)calloc(sizeof(void*),req_size);
+					nrp->gc_wait_idx=0;
 					gch->d=now;
 					gch->data=(char*)params->data;
 					list_insert(gc_hlist,(void*)gch);
-					gc_data_read(now->pbn,params->data,false,g);
+					gc_data_read(nrp->pbn,params->data,false,g);
 				}
 				else{
 					params->data=NULL;
 					g->status=READDONE;
-					now->isflying=1;
-					memset(now->gc_waitreq,0,sizeof(void*)*req_size);
-					now->gc_wait_idx=0;
+					nrp->isflying=1;
+					memset(nrp->gc_waitreq,0,sizeof(void*)*req_size);
+					nrp->gc_wait_idx=0;
 				}
 			}
 			break;
@@ -459,11 +464,12 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 	int done_cnt=0;
 	keyset *find;
 	run_t *ent=_p->ent;
-	htable_t *data=_p->data?_p->data:(htable_t *)ent->run_data;
+	r_pri *erp=ent->rp;
+	htable_t *data=_p->data?_p->data:(htable_t *)erp->run_data;
 	if(!data){
-		printf("run_data:%p\n",ent->from_req);
+		printf("run_data:%p\n",erp->from_req);
 	}
-	ent->run_data=(void*)data;
+	erp->run_data=(void*)data;
 	if(!data){
 		printf("lpa: %.*s ppa:%u \n",KEYFORMAT(g->lpa),g->ppa);
 		abort();
@@ -482,8 +488,8 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 	 */
 	bool set_flag=false;
 	bool original_target_processed=false;
-	for(int i=-1; i<ent->gc_wait_idx; i++){
-		gc_node *target=i==-1?g:(gc_node*)ent->gc_waitreq[i];
+	for(int i=-1; i<erp->gc_wait_idx; i++){
+		gc_node *target=i==-1?g:(gc_node*)erp->gc_waitreq[i];
 		gc_params *p=(gc_params*)target->params;
 		/*
 		if(test){
@@ -497,12 +503,12 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 			target->status=DONE;
 			done_cnt++;
 			
-			if(ent->c_entry){
+			if(erp->c_entry){
 				if(LSM.nocpy){
-					p->found2=LSM.lop->find_keyset((char*)ent->cache_nocpy_data_ptr,target->lpa);
+					p->found2=LSM.lop->find_keyset((char*)erp->cache_nocpy_data_ptr,target->lpa);
 				}
 				else{
-					p->found2=LSM.lop->find_keyset((char*)ent->cache_data->sets,target->lpa);
+					p->found2=LSM.lop->find_keyset((char*)erp->cache_data->sets,target->lpa);
 				}
 			}
 			else
@@ -531,7 +537,7 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 	if(!original_target_processed){
 		gc_data_issue_header(g,_p,size);
 	}
-	ent->isflying=0;
+	erp->isflying=0;
 	return done_cnt;
 }
 
@@ -608,16 +614,17 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 
 	char *nocpy_temp_table;
 	for(int i=0; i<idx; i++){
-		ppa_t temp_header=entries[i]->pbn;
-		entries[i]->run_data=NULL;
+		r_pri *erp=entries[i]->rp;
+		ppa_t temp_header=erp->pbn;
+		erp->run_data=NULL;
 		if(LSM.nocpy){
 			nocpy_temp_table=map_table[i]->nocpy_table;
-			nocpy_force_freepage(entries[i]->pbn);
+			nocpy_force_freepage(erp->pbn);
 		}
 		invalidate_PPA(HEADER,temp_header);
-		entries[i]->pbn=getPPA(HEADER,entries[i]->key,true);
+		erp->pbn=getPPA(HEADER,entries[i]->key,true);
 		if(LSM.nocpy) {map_table[i]->nocpy_table=nocpy_temp_table;}
-		gc_data_write(entries[i]->pbn,map_table[i],false);
+		gc_data_write(erp->pbn,map_table[i],false);
 	}
 	free(entries);
 	free(map_table);
@@ -627,8 +634,9 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 		for_each_list_node_safe(gc_hlist,ln,lp){
 			temp_gc_h *gch=(temp_gc_h*)ln->data;
 			free(gch->data);
-			gch->d->run_data=NULL;
-			free(gch->d->gc_waitreq);
+			r_pri *gch_rp=gch->d->rp;
+			gch_rp->run_data=NULL;
+			free(gch_rp->gc_waitreq);
 			free(gch);
 		}
 	}

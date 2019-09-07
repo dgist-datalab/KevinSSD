@@ -79,9 +79,9 @@ void array_pipe_merger(struct skiplist* mem, r_pri** s, r_pri** o, struct level*
 
 	r_data=(char**)calloc(sizeof(char*),(o_num+u_num+LSM.result_padding));
 	p_body *lp, *hp;
-	lp=pbody_init(o_data,o_num,NULL,false,d->fpr,false);
-	hp=pbody_init(u_data,u_num,NULL,false,d->fpr,false);
-	rp=pbody_init(r_data,o_num+u_num+LSM.result_padding,NULL,false,d->fpr,true);
+	lp=pbody_init(o_data,o_num,NULL,false,NULL);
+	hp=pbody_init(u_data,u_num,NULL,false,NULL);
+	rp=pbody_init(r_data,o_num+u_num+LSM.result_padding,NULL,false,d->filter);
 
 	uint32_t lppa, hppa, rppa;
 	KEYT lp_key=pbody_get_next_key(lp,&lppa);
@@ -129,11 +129,7 @@ void array_pipe_merger(struct skiplist* mem, r_pri** s, r_pri** o, struct level*
 		if(KEYCONSTCOMP(insert_key,"215155000000")==0){
 			printf("----real insert into %d\n",d->idx);
 		}*/
-#ifdef BLOOM
-		if((pbody_insert_new_key(rp,insert_key,rppa,false,NULL)))
-#else
 		if((pbody_insert_new_key(rp,insert_key,rppa,false)))
-#endif
 		{
 			result_cnt++;
 		}
@@ -145,11 +141,7 @@ void array_pipe_merger(struct skiplist* mem, r_pri** s, r_pri** o, struct level*
 			hp_key=pbody_get_next_key(hp,&hppa);
 		}
 	}
-#ifdef BLOOM
-	if((pbody_insert_new_key(rp,insert_key,rppa,true,NULL)))
-#else
 	if((pbody_insert_new_key(rp,insert_key,rppa,true)))
-#endif
 		{
 			result_cnt++;
 		}	
@@ -160,11 +152,7 @@ void array_pipe_merger(struct skiplist* mem, r_pri** s, r_pri** o, struct level*
 	pbody_clear(lp);
 	pbody_clear(hp);
 }
-#ifdef BLOOM
-run_t *array_pipe_make_run(char *data,uint32_t level_idx, BF *f)
-#else
 run_t *array_pipe_make_run(char *data,uint32_t level_idx)
-#endif
 {
 	KEYT start,end;
 	uint16_t *body=(uint16_t*)data;
@@ -178,9 +166,6 @@ run_t *array_pipe_make_run(char *data,uint32_t level_idx)
 	
 	run_t *r=array_make_run(start,end,-1);
 
-#ifdef BLOOM
-	r->filter=f;
-#endif
 	if(level_idx<LSM.LEVELCACHING){
 		r->rp->level_caching_data=data;
 	}
@@ -194,23 +179,12 @@ run_t *array_pipe_make_run(char *data,uint32_t level_idx)
 
 run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end){
 	char *data;
-#ifdef BLOOM
-	BF *f;
-#endif
 	if(cutter_start){
 		cutter_start=false;
-#ifdef BLOOM
-		data=pbody_get_data(rp,true,&f);
-#else
 		data=pbody_get_data(rp,true);
-#endif
 	}
 	else{
-#ifdef BLOOM
-		data=pbody_get_data(rp,false,&f);
-#else
 		data=pbody_get_data(rp,false);
-#endif
 	}
 	if(!data) {
 		free(r_data);
@@ -219,11 +193,8 @@ run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KE
 	}
 	
 	//temp_func(data,d,false);
-#ifdef BLOOM
-	return array_pipe_make_run(data,d->idx,f);
-#else
+
 	return array_pipe_make_run(data,d->idx);
-#endif
 }
 
 run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data, uint32_t u_num, uint32_t l_num,level *d, void *(*lev_insert_write)(level *,run_t *data)){
@@ -237,19 +208,13 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 		skip_data=array_skip_cvt2_data(skip);
 		u_data[0].rp=(r_pri*)malloc(sizeof(r_pri));
 		u_data[0].rp->level_caching_data=skip_data;
-		/*
-#ifdef BLOOM
-		u_data[0].rp=(array_pipe_make_run(skip_data,-1,NULL);
-#else
-		u_data[0].rp=array_pipe_make_run(skip_data,-1);
-#endif*/
 	}
 
 	p_body *lp, *hp, *p_rp;
 	char **r_datas=(char**)calloc(sizeof(char*),(u_num+l_num+LSM.result_padding));
-	lp=pbody_init(NULL,l_num,l_data,true,d->fpr,false);
-	hp=pbody_init(NULL,u_num,u_data,true,d->fpr,false);
-	p_rp=pbody_init(r_datas,u_num+l_num+LSM.result_padding,NULL,false,d->fpr,true);
+	lp=pbody_init(NULL,l_num,l_data,true,NULL);
+	hp=pbody_init(NULL,u_num,u_data,true,NULL);
+	p_rp=pbody_init(r_datas,u_num+l_num+LSM.result_padding,NULL,false,NULL);
 	
 	int result_cnt=0;
 	int flushed_idx=0;
@@ -261,9 +226,6 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 	KEYT insert_key;
 	int next_pop=0;
 	char *res_data;
-#ifdef BLOOM
-	BF *filter;
-#endif
 	while(!(lp_key.len==UINT8_MAX && hp_key.len==UINT8_MAX)){
 		if(lp_key.len==UINT8_MAX){
 			insert_key=hp_key;
@@ -299,11 +261,7 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 				insert_key=hp_key;
 			}
 		}
-#ifdef BLOOM
-		if((res_data=pbody_insert_new_key(p_rp,insert_key,p_rppa,false,NULL)))
-#else
 		if((res_data=pbody_insert_new_key(p_rp,insert_key,p_rppa,false)))
-#endif
 		{
 			/*
 #ifdef BOOM
@@ -321,11 +279,7 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 		}
 	}
 
-#ifdef BLOOM
-	if((res_data=pbody_insert_new_key(p_rp,insert_key,0,true,&filter)))
-#else
 	if((res_data=pbody_insert_new_key(p_rp,insert_key,0,true)))
-#endif
 	{
 		/*
 #ifdef BLOOM
@@ -337,26 +291,14 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 	}
 
 
-#ifdef BLOOM
-	res_data=pbody_get_data(p_rp,true,&filter);
-#else
 	res_data=pbody_get_data(p_rp,true);
-#endif
 	do{
 		if(!res_data) break;
 	//	printf("%d\n",result_cnt);
-#ifdef BLOOM
-		result_temp[result_cnt++]=array_pipe_make_run(res_data,d->idx,filter);
-#else
 		result_temp[result_cnt++]=array_pipe_make_run(res_data,d->idx);
-#endif		
 
 	}
-#ifdef BLOOM
-	while((res_data=pbody_get_data(p_rp,false,&filter)));
-#else
 	while((res_data=pbody_get_data(p_rp,false)));
-#endif
 	
 	for(int i=flushed_idx; i<result_cnt; i++){
 		lev_insert_write(d,result_temp[i]);

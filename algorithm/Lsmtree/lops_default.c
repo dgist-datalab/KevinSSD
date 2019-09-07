@@ -3,7 +3,6 @@
 #include "lsmtree.h"
 #include <stdio.h>
 
-extern block bl[_NOB];
 extern int32_t SIZEFACTOR;
 extern lsmtree LSM;
 extern pm d_m;
@@ -130,6 +129,5 @@ run_t *def_make_run(KEYT start, KEYT end, uint32_t pbn){
 	run_t * res=(run_t*)calloc(sizeof(run_t),1);
 	res->key=start;
 	res->end=end;
-	res->pbn=pbn;
 	return res;
 }

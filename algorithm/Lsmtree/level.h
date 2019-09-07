@@ -55,8 +55,8 @@ typedef struct htable_t{
 	value_set *origin;
 }htable_t;
 
-
 typedef struct run_private{
+	ppa_t pbn;
 	cache_entry *c_entry;
 	char *cache_nocpy_data_ptr;
 	htable *cache_data;
@@ -77,10 +77,6 @@ typedef struct run_private{
 typedef struct run{ 
 	KEYT key;
 	KEYT end;
-	ppa_t pbn;
-#ifdef BLOOM
-	BF *filter;
-#endif
 	r_pri* rp;
 }run_t;
 
@@ -96,8 +92,9 @@ typedef struct level{
 	float fpr;
 	bool iscompactioning;
 	bool istier;
-	struct level_ops *op;
-	struct block* now_block;
+#ifdef BLOOM
+	BF *filter;
+#endif
 	void* level_data;
 }level;
 
@@ -116,6 +113,7 @@ typedef struct level_ops{
 	level* (*init)(int size, int idx, float fpr, bool istier);
 	void (*release)( level*);
 	void (*insert)( level* des, run_t *r);
+	void (*lev_copy)(level *des, level *src);
 	keyset *(*find_keyset)(char *data,KEYT lpa);//find one
 	uint32_t (*find_idx_lower_bound)(char *data,KEYT lpa);
 	void (*find_keyset_first)(char *data,KEYT *des);
@@ -138,7 +136,11 @@ typedef struct level_ops{
 	keyset_iter *(*keyset_iter_init)(char *keyset_data, int from);
 	keyset *(*keyset_iter_nxt)(keyset_iter*,keyset *target);
 	/*compaciton operation*/
+#ifdef BLOOM
+	htable* (*mem_cvt2table)(skiplist *,run_t *,BF *);
+#else
 	htable* (*mem_cvt2table)(skiplist *,run_t *);
+#endif
 
 	void (*merger)( skiplist*, r_pri** src,  r_pri** org,  level *des);
 	run_t *(*cutter)( skiplist *,  level* des, KEYT* start, KEYT* end);

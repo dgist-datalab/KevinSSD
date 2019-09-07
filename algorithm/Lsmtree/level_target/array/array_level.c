@@ -44,16 +44,16 @@ run_t *array_range_find_lowerbound(level *lev, KEYT target){
 	}
 	return NULL;*/
 }
-
-htable *array_mem_cvt2table(skiplist *mem,run_t* input){
+#ifdef BLOOM
+htable *array_mem_cvt2table(skiplist* mem,run_t* input,BF *filter)
+#else
+htable *array_mem_cvt2table(skiplist*mem,run_t* input)
+#endif
+{
 	/*static int cnt=0;
 	eprintf("cnt:%d\n",cnt++);*/
 	htable *res=LSM.nocpy?htable_assign(NULL,0):htable_assign(NULL,1);
 	r_pri *irp=input->rp;
-#ifdef BLOOM
-	BF *filter=bf_init(mem->size,LSM.disk[0]->fpr);
-	input->filter=filter;
-#endif
 	irp->cpt_data=res;
 
 #ifdef KVSSD
@@ -77,9 +77,10 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 
 		bitmap[idx]=data_start;
 #ifdef BLOOM
-		bf_set(filter,temp->key);
+		if(filter)bf_set(filter,temp->key);
 #endif
 		data_start+=temp->key.len+sizeof(temp->ppa);
+
 		//free(temp->key.key);
 		idx++;
 	}
@@ -269,7 +270,7 @@ int array_cache_comp_formatting(level *lev ,run_t ***des, bool des_cache){
 		if(des_cache){
 			res[i]=&arrs[i];
 		}else{
-			res[i]=array_make_run(arrs[i].key,arrs[i].end,arrs[i].pbn);
+			res[i]=array_make_run(arrs[i].key,arrs[i].end,arrs[i].rp->pbn);
 			r_pri *rrp=res[i]->rp;
 			rrp->cpt_data=LSM.nocpy?htable_assign(rrp->level_caching_data,0):htable_assign(rrp->level_caching_data,1);
 		}

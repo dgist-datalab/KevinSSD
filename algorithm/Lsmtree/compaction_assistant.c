@@ -421,9 +421,8 @@ void compaction_subprocessing(struct skiplist *top,r_pri** src,r_pri** org, stru
 	}
 	//LSM.li->lower_flying_req_wait();
 }
-
+/*
 void compaction_lev_seq_processing(level *src, level *des, int headerSize){
-	
 	if(src->idx<LSM.LEVELCACHING){
 		run_t **datas;
 		if(des->idx<LSM.LEVELCACHING){
@@ -439,10 +438,7 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 				LSM.lop->insert(des,datas[i]);
 			}
 			else{
-#ifdef BLOOM
-				datas[i]->filter=LSM.lop->making_filter(datas[i],-1,des->fpr);
-#endif
-				compaction_htable_write_insert(des,datas[i],datas[i]->rp,false);
+				compaction_htable_write_insert(des,datas[i],false);
 				free(datas[i]);
 			}
 		}
@@ -481,18 +477,15 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 
 	for(int k=0; target_s[k]; k++){
 		BF *filter=LSM.lop->making_filter(target_s[k],-1,des->fpr);
-		BF *temp=target_s[k]->filter;
 
-		/*filter back*/
-		target_s[k]->filter=filter;
 		htable_read_postproc(target_s[k]);
 		LSM.lop->insert(des,target_s[k]);
-		target_s[k]->filter=temp;
 	}
 	compaction_sub_post();
 	free(target_s);
 }
 #endif
+*/
 
 bool htable_read_preproc(r_pri *r){
 	bool res=false;
@@ -556,4 +549,55 @@ uint32_t sequential_move_next_level(level *origin, level *target,KEYT start, KEY
 	}
 	free(target_s);
 	return res;
+}
+
+
+uint32_t compaction_empty_level(level **from, leveling_node *lnode, level **des){
+	if(!(*from)){
+		run_t *entry=LSM.lop->make_run(lnode->start,lnode->end,-1);
+		free(entry->key.key);
+		free(entry->end.key);
+
+		LSM.lop->mem_cvt2table(lnode->mem,entry,(*des)->filter);
+		r_pri *erp=entry->rp;
+		if((*des)->idx<LSM.LEVELCACHING){
+			if(LSM.nocpy){
+				erp->level_caching_data=(char*)erp->cpt_data->sets;
+				erp->cpt_data->sets=NULL;
+				htable_free(erp->cpt_data);
+			}
+			else{
+				erp->level_caching_data=(char*)malloc(PAGESIZE);
+				memcpy(erp->level_caching_data,erp->cpt_data->sets,PAGESIZE);
+				htable_free(erp->cpt_data);
+			}
+			LSM.lop->insert((*des),entry);
+			LSM.lop->release_run(entry);
+		}
+		else{
+			compaction_htable_write_insert((*des),entry,erp,false);
+		}
+		free(entry);
+	}
+	else{
+		if((*des)->idx>=LSM.LEVELCACHING && (*from)->idx<LSM.LEVELCACHING){
+			lev_iter *iter=LSM.lop->get_iter((*from),(*from)->start,(*from)->end);
+			run_t *now;
+			r_pri *nrp;
+			while((now=LSM.lop->iter_nxt(iter))){
+				uint32_t ppa=getPPA(HEADER,now->key,true);
+				nrp=now->rp;
+				nrp->pbn=ppa;
+				nrp->cpt_data=LSM.nocpy?htable_assign(nrp->level_caching_data,0):htable_assign(nrp->level_caching_data,1);
+				if(LSM.nocpy){
+					nocpy_copy_from_change((char*)nrp->cpt_data->sets,ppa);
+					nrp->cpt_data->sets=NULL;
+				}
+				compaction_htable_write(ppa,nrp->cpt_data,now->key);
+			}
+		}
+		LSM.lop->lev_copy(*des,*from);
+		(*from)->filter=NULL;
+	}
+	return 1;
 }

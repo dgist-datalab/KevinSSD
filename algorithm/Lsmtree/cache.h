@@ -22,7 +22,7 @@ typedef struct cache{
 }cache;
 
 cache *cache_init(uint32_t);
-struct run* cache_get(cache *c);
+struct run_private* cache_get(cache *c);
 cache_entry* cache_insert(cache *, struct run_private *, int );
 bool cache_insertable(cache *c);
 bool cache_delete(cache *, struct run_private *);
