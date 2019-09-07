@@ -206,6 +206,19 @@ uint32_t demand_create(lower_info *li, blockmanager *bm, algorithm *algo){
 	return 0;
 }
 
+static int count_filled_entry() {
+	int ret = 0;
+	for (int i = 0; i < d_cache->env.nr_valid_tpages; i++) {
+		struct pt_struct *pt = d_cache->member.mem_table[i];
+		for (int j = 0; j < EPP; j++) {
+			if (pt[j].ppa != UINT32_MAX) {
+				ret++;
+			}
+		}
+	}
+	return ret;
+}
+
 static void print_hash_collision_cdf(uint64_t *hc) {
 	int total = 0;
 	for (int i = 0; i < MAX_HASH_COLLISION; i++) {
@@ -250,10 +263,28 @@ static void print_demand_stat(struct demand_stat *const _stat) {
 	printf("WAF: %.2f\n", (float)(_stat->data_w + amplified_write)/_stat->data_w);
 	puts("");
 
+	/* write buffer */
+	puts("==============");
+	puts(" Write Buffer ");
+	puts("==============");
+	puts("");
+
+	printf("Write-buffer Hit cnt: %ld\n", _stat->wb_hit);
+	puts("");
+
+
 #ifdef HASH_KVSSD
 	puts("================");
 	puts(" Hash Collision ");
 	puts("================");
+	puts("");
+
+	puts("[Overall Hash-table Load Factor]");
+	int filled_entry_cnt = count_filled_entry();
+	int total_entry_cnt = d_cache->env.nr_valid_tentries;
+	printf("Total entry:  %d\n", total_entry_cnt);
+	printf("Filled entry: %d\n", filled_entry_cnt);
+	printf("Load factor:  %.2f%%\n", (float)filled_entry_cnt/total_entry_cnt*100);
 	puts("");
 
 	puts("[write(insertion)]");

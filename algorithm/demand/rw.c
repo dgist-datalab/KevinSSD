@@ -33,17 +33,19 @@ static uint32_t do_wb_check(skiplist *wb, request *const req) {
 }
 
 static uint32_t read_actual_dpage(ppa_t ppa, request *const req) {
-	if (ppa != UINT32_MAX) {
-		struct algo_req *a_req = make_algo_req_rw(DATAR, NULL, req, NULL);
-#ifdef DVALUE
-		((struct demand_params *)a_req->params)->offset = G_OFFSET(ppa);
-		ppa = G_IDX(ppa);
-#endif
-		__demand.li->read(ppa, PAGESIZE, req->value, ASYNC, a_req);
-	} else {
+	if (IS_INITIAL_PPA(ppa)) {
 		warn_notfound(__FILE__, __LINE__);
+		return UINT32_MAX;
 	}
-	return ppa;
+
+	struct algo_req *a_req = make_algo_req_rw(DATAR, NULL, req, NULL);
+#ifdef DVALUE
+	((struct demand_params *)a_req->params)->offset = G_OFFSET(ppa);
+	ppa = G_IDX(ppa);
+#endif
+
+	__demand.li->read(ppa, PAGESIZE, req->value, ASYNC, a_req);
+	return 0;
 }
 
 static uint32_t read_for_data_check(ppa_t ppa, snode *wb_entry) {
@@ -76,7 +78,6 @@ read_retry:
 #ifdef HASH_KVSSD
 	if (h_params->cnt > d_member.max_try) {
 		rc = UINT32_MAX;
-		printf("key: %.*s ", req->key.len, req->key.key);
 		warn_notfound(__FILE__, __LINE__);
 		goto read_ret;
 	}
@@ -340,6 +341,9 @@ wb_update:
 		pte = d_cache->get_pte(lpa);
 		if (!IS_INITIAL_PPA(pte.ppa)) {
 			invalidate_page(bm, pte.ppa, DATA);
+/*			static int cnt = 0;
+			cnt++;
+			printf("overwrite: %d\n", cnt);*/
 		}
 
 wb_direct_update:
