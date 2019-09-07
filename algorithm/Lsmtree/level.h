@@ -55,18 +55,12 @@ typedef struct htable_t{
 	value_set *origin;
 }htable_t;
 
-typedef struct run{ 
-	KEYT key;
-	KEYT end;
-	ppa_t pbn;
-#ifdef BLOOM
-	BF *filter;
-#endif
-	//for caching
+
+typedef struct run_private{
 	cache_entry *c_entry;
 	char *cache_nocpy_data_ptr;
 	htable *cache_data;
-
+	//for caching
 	htable *cpt_data;
 	void *run_data;
 	char *level_caching_data;
@@ -78,11 +72,21 @@ typedef struct run{
 	void **gc_waitreq;
 	int wait_idx;
 	int gc_wait_idx;
+}r_pri;
+
+typedef struct run{ 
+	KEYT key;
+	KEYT end;
+	ppa_t pbn;
+#ifdef BLOOM
+	BF *filter;
+#endif
+	r_pri* rp;
 }run_t;
 
 typedef struct pipe_line_run{
 	fdriver_lock_t *lock;
-	run_t *r;
+	r_pri *rp;
 }pl_run;
 
 typedef struct level{
@@ -121,7 +125,7 @@ typedef struct level_ops{
 	void (*move_heap)( level* des,  level *src);
 	bool (*chk_overlap)( level *des, KEYT star, KEYT end);
 	uint32_t (*range_find)( level *l,KEYT start, KEYT end,  run_t ***r);
-	uint32_t (*range_find_compaction)( level *l,KEYT start, KEYT end,  run_t ***r);
+	uint32_t (*range_find_compaction)( level *l,KEYT start, KEYT end,  run_t ***r, r_pri ***);
 	uint32_t (*unmatch_find)( level *,KEYT start, KEYT end, run_t ***r);
 	run_t* (*next_run)(level *,KEYT key);
 	lev_iter* (*get_iter)( level*,KEYT from, KEYT to); //from<= x <to
@@ -136,7 +140,7 @@ typedef struct level_ops{
 	/*compaciton operation*/
 	htable* (*mem_cvt2table)(skiplist *,run_t *);
 
-	void (*merger)( skiplist*, run_t** src,  run_t** org,  level *des);
+	void (*merger)( skiplist*, r_pri** src,  r_pri** org,  level *des);
 	run_t *(*cutter)( skiplist *,  level* des, KEYT* start, KEYT* end);
 	run_t *(*partial_merger_cutter)(skiplist*,pl_run *, pl_run *,uint32_t, uint32_t, level *,void*(*lev_insert_write)(level*, run_t*));
 	void (*normal_merger)(skiplist *,run_t *t_run, bool);

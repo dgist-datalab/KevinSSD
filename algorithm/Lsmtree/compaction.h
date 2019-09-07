@@ -55,10 +55,9 @@ void compaction_sub_pre();
 void compaction_sub_wait();
 void compaction_sub_post();
 void compaction_data_write(leveling_node* lnode);
-void htable_read_postproc(run_t *r);
 void compaction_selector(level *a, level *b,leveling_node *lnode, pthread_mutex_t* lock);
 
-uint32_t compaction_htable_write_insert(level *target,run_t *entry,bool isbg);
+uint32_t compaction_htable_write_insert(level *target,run_t *entry,r_pri *erp,bool isbg);
 uint32_t compaction_htable_hw_read(run_t *ent);
 
 uint32_t compaction_htable_write(ppa_t ppa,htable *input, KEYT lpa);
@@ -71,8 +70,8 @@ void compaction_seq_MONKEY(level *,int, level *);
 #endif
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des);
 
-bool htable_read_preproc(run_t *r);
-void htable_read_postproc(run_t *r);
+bool htable_read_preproc(r_pri *r);
+void htable_read_postproc(run_t *rr, r_pri *r, uint32_t pbn);
 uint32_t sequential_move_next_level(level *origin, level *target,KEYT start, KEYT end);
 
 

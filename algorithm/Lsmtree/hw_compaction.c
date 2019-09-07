@@ -45,7 +45,7 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 			for(int i=0; datas[i]!=NULL; i++){
 				uint32_t ppa=getPPA(HEADER,datas[i]->key,true);
 				datas[i]->pbn=ppa;
-				compaction_htable_write(ppa,datas[i]->cpt_data,datas[i]->key);
+				compaction_htable_write(ppa,datas[i]->rp->cpt_data,datas[i]->key);
 				hp_array[i]=ppa;
 				LSM.lop->release_run(datas[i]);
 				free(datas[i]);

@@ -22,7 +22,7 @@ pl_run *make_pl_run_array(level *t, uint32_t *num){
 		run_t *now;
 		int i=0;
 		while((now=LSM.lop->iter_nxt(iter))){
-			res[i].r=now;
+			res[i].rp=now->rp;
 			res[i].lock=(fdriver_lock_t*)malloc(sizeof(fdriver_lock_t));
 			fdriver_mutex_init(res[i].lock);
 			i++;
@@ -35,7 +35,7 @@ void pl_run_free(pl_run *pr, uint32_t num ){
 	for(int i=0; i<num; i++){
 		fdriver_destroy(pr[i].lock);
 		free(pr[i].lock);
-		htable_read_postproc(pr[i].r);
+		htable_read_postproc(pr[i].rp);
 	}
 	free(pr);
 }

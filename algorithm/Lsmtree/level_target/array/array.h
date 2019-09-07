@@ -23,7 +23,7 @@
 	(key).len=bitmap[idx+1]-bitmap[idx]-sizeof(ppa_t);\
 
 extern lsmtree LSM;
-static inline char *data_from_run(run_t *a){
+static inline char *data_from_run(r_pri *a){
 	if(a->c_entry){
 		if(!LSM.nocpy)	return (char*)a->cpt_data->sets;
 		return (char*)a->cache_nocpy_data_ptr;
@@ -89,7 +89,7 @@ run_t **array_find_run( level*,KEYT);
 run_t **array_find_run_num( level*,KEYT, uint32_t);
 
 uint32_t array_range_find( level *,KEYT, KEYT,  run_t ***);
-uint32_t array_range_find_compaction( level *,KEYT, KEYT,  run_t ***);
+uint32_t array_range_find_compaction( level *,KEYT, KEYT,  run_t ***, r_pri ***);
 uint32_t array_unmatch_find( level *,KEYT, KEYT,  run_t ***);
 //bool array_fchk(level *in);
 lev_iter* array_get_iter( level *,KEYT start, KEYT end);
@@ -128,21 +128,6 @@ uint32_t array_get_numbers_run(level *);
 BF* array_making_filter(run_t *,int,float );
 #endif
 int array_cache_comp_formatting(level *,run_t ***, bool);
-/*
-void array_cache_insert(level *,skiplist*);
-void array_cache_merge(level *, level *);
-void array_cache_free(level *);
-void array_cache_move(level *, level *);
-keyset *array_cache_find(level *, KEYT lpa);
-
-char *array_cache_find_run_data(level *,KEYT lpa);
-char *array_cache_next_run_data(level *,KEYT);
-lev_iter *array_cache_get_iter(level *,KEYT from, KEYT to);
-skiplist* array_cache_get_body(level *);
-run_t *array_cache_iter_nxt(lev_iter *);
-//char *array_cache_find_lowerbound(level *, KEYT lpa, KEYT *start,bool);
-int array_cache_get_sz(level*);
-*/
 keyset_iter* array_header_get_keyiter(level *, char *,KEYT *);
 keyset array_header_next_key(level *, keyset_iter *);
 void array_header_next_key_pick(level *, keyset_iter *, keyset *res);
@@ -167,6 +152,6 @@ void array_print_run(run_t * r);
 
 
 run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data, uint32_t u_num, uint32_t l_num,level *t, void *(*lev_insert_write)(level *,run_t *data));
-void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*);
+void array_pipe_merger(struct skiplist* mem, r_pri** s, r_pri** o, struct level*);
 run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end);
 #endif

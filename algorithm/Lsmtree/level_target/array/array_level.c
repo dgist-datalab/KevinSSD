@@ -49,12 +49,12 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 	/*static int cnt=0;
 	eprintf("cnt:%d\n",cnt++);*/
 	htable *res=LSM.nocpy?htable_assign(NULL,0):htable_assign(NULL,1);
-
+	r_pri *irp=input->rp;
 #ifdef BLOOM
 	BF *filter=bf_init(mem->size,LSM.disk[0]->fpr);
 	input->filter=filter;
 #endif
-	input->cpt_data=res;
+	irp->cpt_data=res;
 
 #ifdef KVSSD
 	snode *temp;
@@ -93,7 +93,7 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 
 BF* array_making_filter(run_t *data,int num, float fpr){
 	BF *filter=bf_init(KEYBITMAP/sizeof(uint16_t),fpr);
-	char *body=data_from_run(data);
+	char *body=data_from_run(data->rp);
 	int idx;
 	uint16_t *bitmap=(uint16_t*)body;
 	KEYT key;
@@ -181,7 +181,7 @@ keyset_iter* array_header_get_keyiter(level *lev, char *data,KEYT *key){
 		int target=array_binary_search(arrs,lev->n_num,*key);
 		if(target==-1) p_data->header_data=NULL;
 		else{
-			p_data->header_data=arrs[target].level_caching_data;
+			p_data->header_data=arrs[target].rp->level_caching_data;
 		}
 	}
 	p_data->header_data=data;
@@ -236,7 +236,7 @@ void array_normal_merger(skiplist *skip,run_t *r,bool iswP){
 	KEYT key;
 	char* body;
 	int idx;
-	body=data_from_run(r);
+	body=data_from_run(r->rp);
 	uint16_t *bitmap=(uint16_t*)body;
 	for_each_header_start(idx,key,ppa_ptr,bitmap,body)
 		if(iswP){
@@ -270,7 +270,8 @@ int array_cache_comp_formatting(level *lev ,run_t ***des, bool des_cache){
 			res[i]=&arrs[i];
 		}else{
 			res[i]=array_make_run(arrs[i].key,arrs[i].end,arrs[i].pbn);
-			res[i]->cpt_data=LSM.nocpy?htable_assign(arrs[i].level_caching_data,0):htable_assign(arrs[i].level_caching_data,1);
+			r_pri *rrp=res[i]->rp;
+			rrp->cpt_data=LSM.nocpy?htable_assign(rrp->level_caching_data,0):htable_assign(rrp->level_caching_data,1);
 		}
 	}
 	res[lev->n_num]=NULL;

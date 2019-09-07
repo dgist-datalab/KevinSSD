@@ -36,7 +36,7 @@ void cache_size_update(cache *c, int m_size){
 	//fprintf(stderr,"%d\n",c->m_size);
 }
 
-cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
+cache_entry * cache_insert(cache *c, r_pri *erp, int dmatag){
 	if(!c->m_size) return NULL;
 	if(c->m_size < c->n_size){
 		int target=c->n_size-c->m_size+1;
@@ -49,8 +49,8 @@ cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
 	cache_entry *c_ent=(cache_entry*)malloc(sizeof(cache_entry));
 
 	c_ent->locked=false;
-	c_ent->entry=ent;
-	if(!LSM.nocpy)ent->cache_data->iscached=2;
+	c_ent->erp=erp;
+	if(!LSM.nocpy)erp->cache_data->iscached=2;
 	if(c->bottom==NULL){
 		c->bottom=c_ent;
 		c->top=c_ent;
@@ -69,9 +69,9 @@ cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
 	//printf("cache insert:%d\n",c->n_size);
 	return c_ent;
 }
-bool cache_delete(cache *c, run_t * ent){
+bool cache_delete(cache *c, run_t * erp){
 	delete_++;
-	if(c->n_size==0 || !ent){
+	if(c->n_size==0 || !erp){
 		return false;
 	}
 	//printf("cache delete\n");

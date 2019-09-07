@@ -355,7 +355,7 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overla
 	}
 	x=x->list[1];
 
-	run_t *t_r=(run_t*)value;
+	r_pri *t_r=((run_t*)value)->rp;
 #if defined(KVSSD) && defined(Lsmtree)
 //	if(KEYCMP(key,list->start)<0) list->start=key;
 //	if(KEYCMP(key,list->end)>0) list->end=key;

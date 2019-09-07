@@ -396,7 +396,7 @@ void compaction_check(KEYT key, bool force){
 
 
 
-void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
+void compaction_subprocessing(struct skiplist *top,r_pri** src,r_pri** org, struct level *des){
 	
 	compaction_sub_wait();
 	bench_custom_A(write_opt_time,5);
@@ -414,7 +414,7 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 		}
 		else{
 			bench_custom_start(write_opt_time,7);
-			compaction_htable_write_insert(des,target,false);
+			compaction_htable_write_insert(des,target,target->rp,false);
 			bench_custom_A(write_opt_time,7);
 		}
 		free(target);
@@ -442,7 +442,7 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 #ifdef BLOOM
 				datas[i]->filter=LSM.lop->making_filter(datas[i],-1,des->fpr);
 #endif
-				compaction_htable_write_insert(des,datas[i],false);
+				compaction_htable_write_insert(des,datas[i],datas[i]->rp,false);
 				free(datas[i]);
 			}
 		}
@@ -459,7 +459,7 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 	run_t *r;
 	lev_iter *iter=LSM.lop->get_iter(src,src->start, src->end);
 	for_each_lev(r,iter,LSM.lop->iter_nxt){
-		r->iscompactioning=SEQMOV;
+		r->rp->iscompactioning=SEQMOV;
 		LSM.lop->insert(des,r);
 	}
 }
@@ -494,7 +494,7 @@ void compaction_seq_MONKEY(level *t,int num,level *des){
 }
 #endif
 
-bool htable_read_preproc(run_t *r){
+bool htable_read_preproc(r_pri *r){
 	bool res=false;
 	if(r->level_caching_data){
 		memcpy_cnt++;
@@ -522,10 +522,10 @@ bool htable_read_preproc(run_t *r){
 	return res;
 }
 
-void htable_read_postproc(run_t *r){
+void htable_read_postproc(run_t *rr, r_pri *r, uint32_t pbn){
 	if(r->iscompactioning!=INVBYGC && r->iscompactioning!=SEQCOMP){
-		if(r->pbn!=UINT32_MAX)
-			invalidate_PPA(HEADER,r->pbn);
+		if(pbn!=UINT32_MAX)
+			invalidate_PPA(HEADER,pbn);
 		else{
 			//the run belong to levelcaching lev
 		}
@@ -539,9 +539,9 @@ void htable_read_postproc(run_t *r){
 	}else{
 		htable_free(r->cpt_data);
 		r->cpt_data=NULL;
-		if(r->pbn==UINT32_MAX){
-			LSM.lop->release_run(r);
-			free(r);
+		if(pbn==UINT32_MAX){
+			LSM.lop->release_run(rr);
+			free(rr);
 		}
 	}
 }
@@ -552,7 +552,7 @@ uint32_t sequential_move_next_level(level *origin, level *target,KEYT start, KEY
 	res=LSM.lop->unmatch_find(origin,start,end,&target_s);
 	for(int i=0; target_s[i]!=NULL; i++){
 		LSM.lop->insert(target,target_s[i]);
-		target_s[i]->iscompactioning=SEQCOMP;
+		target_s[i]->rp->iscompactioning=SEQCOMP;
 	}
 	free(target_s);
 	return res;

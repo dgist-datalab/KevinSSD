@@ -39,7 +39,7 @@ void compaction_data_write(leveling_node* lnode){
 	free(data_sets);
 }
 
-ppa_t compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
+ppa_t compaction_htable_write_insert(level *target,run_t *entry, r_pri *erp,bool isbg){
 #ifdef KVSSD
 	uint32_t ppa=getPPA(HEADER,key_min,true);
 #else
@@ -48,8 +48,8 @@ ppa_t compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 	
 	entry->pbn=ppa;
 	if(LSM.nocpy){
-		nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
-		entry->cpt_data->sets=NULL;
+		nocpy_copy_from_change((char*)erp->cpt_data->sets,ppa);
+		erp->cpt_data->sets=NULL;
 	}
 	LSM.lop->insert(target,entry);
 	if(isbg){
@@ -59,7 +59,7 @@ ppa_t compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 		else*/
 			abort();
 	}else{
-		compaction_htable_write(entry->pbn,entry->cpt_data,entry->key);
+		compaction_htable_write(entry->pbn,erp->cpt_data,entry->key);
 	}
 	LSM.lop->release_run(entry);
 	return ppa;
@@ -104,7 +104,7 @@ void compaction_htable_read(run_t *ent,PTR* value){
 	areq->rapid=false;
 	areq->type=HEADERR;
 
-	if(LSM.nocpy) ent->cpt_data->nocpy_table=nocpy_pick(ent->pbn);
+	if(LSM.nocpy) ent->rp->cpt_data->nocpy_table=nocpy_pick(ent->pbn);
 	//printf("R %u\n",ent->pbn);
 	LSM.li->read(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
 	return;

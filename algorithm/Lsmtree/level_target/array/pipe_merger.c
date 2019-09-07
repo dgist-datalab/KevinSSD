@@ -46,7 +46,7 @@ void temp_func(char* body, level *d, bool insert){
 	for_each_header_end
 }
 
-void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
+void array_pipe_merger(struct skiplist* mem, r_pri** s, r_pri** o, struct level* d){
 	cutter_start=true;
 	int o_num=0; int u_num=0;
 	char **u_data;
@@ -182,11 +182,11 @@ run_t *array_pipe_make_run(char *data,uint32_t level_idx)
 	r->filter=f;
 #endif
 	if(level_idx<LSM.LEVELCACHING){
-		r->level_caching_data=data;
+		r->rp->level_caching_data=data;
 	}
 	else{
 		htable *res=LSM.nocpy?htable_assign(data,0):htable_assign(data,1);
-		r->cpt_data=res;
+		r->rp->cpt_data=res;
 		free(data);
 	}
 	return r;
@@ -235,11 +235,14 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 		u_data[0].lock=(fdriver_lock_t*)malloc(sizeof(fdriver_lock_t));
 		fdriver_lock_init(u_data[0].lock,1);
 		skip_data=array_skip_cvt2_data(skip);
+		u_data[0].rp=(r_pri*)malloc(sizeof(r_pri));
+		u_data[0].rp->level_caching_data=skip_data;
+		/*
 #ifdef BLOOM
-		u_data[0].r=array_pipe_make_run(skip_data,-1,NULL);
+		u_data[0].rp=(array_pipe_make_run(skip_data,-1,NULL);
 #else
-		u_data[0].r=array_pipe_make_run(skip_data,-1);
-#endif
+		u_data[0].rp=array_pipe_make_run(skip_data,-1);
+#endif*/
 	}
 
 	p_body *lp, *hp, *p_rp;
@@ -362,9 +365,12 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 	if(skip){
 		fdriver_destroy(u_data[0].lock);
 		free(u_data[0].lock);
+		free(u_data[0].rp->level_caching_data);
+		free(u_data[0].rp);
+		/*
 		array_free_run(u_data[0].r);
 		htable_free(u_data[0].r->cpt_data);
-		free(u_data[0].r);
+		free(u_data[0].r);*/
 		free(u_data);
 	}
 	free(result_temp);

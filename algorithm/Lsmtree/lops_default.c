@@ -126,16 +126,10 @@ bool def_fchk( level *input){
 }
 
 run_t *def_make_run(KEYT start, KEYT end, uint32_t pbn){
+	abort();
 	run_t * res=(run_t*)calloc(sizeof(run_t),1);
 	res->key=start;
 	res->end=end;
 	res->pbn=pbn;
-	res->run_data=NULL;
-	res->c_entry=NULL;
-	
-	res->wait_idx=0;
-#ifdef BLOOM
-	res->filter=NULL;
-#endif
 	return res;
 }
