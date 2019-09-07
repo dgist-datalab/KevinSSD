@@ -46,7 +46,7 @@ void temp_func(char* body, level *d, bool insert){
 	for_each_header_end
 }
 
-void array_pipe_merger(struct skiplist* mem, r_pri** s, r_pri** o, struct level* d){
+void array_pipe_merger(struct skiplist* mem, r_pri** s,uint32_t snum, r_pri** o, uint32_t onum, struct level* d){
 	cutter_start=true;
 	int o_num=0; int u_num=0;
 	char **u_data;
@@ -60,7 +60,7 @@ void array_pipe_merger(struct skiplist* mem, r_pri** s, r_pri** o, struct level*
 //		temp_func(u_data[0],d,true);
 	}
 	else{
-		for(int i=0; s[i]!=NULL; i++) u_num++;
+		u_num=snum;
 		u_data=(char**)malloc(sizeof(char*)*u_num);
 		for(int i=0; i<u_num; i++) {
 			u_data[i]=data_from_run(s[i]);
@@ -68,8 +68,7 @@ void array_pipe_merger(struct skiplist* mem, r_pri** s, r_pri** o, struct level*
 			//temp_func(u_data[i],d,true);
 		}
 	}
-
-	for(int i=0;o[i]!=NULL ;i++) o_num++;
+	o_num=onum;
 	char **o_data=(char**)malloc(sizeof(char*)*o_num);
 	for(int i=0; o[i]!=NULL; i++){ 
 		o_data[i]=data_from_run(o[i]);

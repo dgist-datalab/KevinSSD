@@ -102,9 +102,10 @@ void compaction_htable_read(run_t *ent,PTR* value){
 	//valueset_assign
 	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
 	params->target=value;
-	params->ppa=ent->rp->pbn;
+	r_pri *erp=ent->rp;
+	params->ppa=erp->pbn;
 
-	if(LSM.nocpy) ent->rp->cpt_data->nocpy_table=nocpy_pick(ent->rp->pbn);
+	if(LSM.nocpy) erp->cpt_data->nocpy_table=nocpy_pick(erp->pbn);
 	//printf("R %u\n",ent->pbn);
 	LSM.li->read(params->ppa,PAGESIZE,params->value,ASYNC,areq);
 	return;

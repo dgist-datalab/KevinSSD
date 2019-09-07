@@ -112,7 +112,7 @@ htable *array_mem_cvt2table(skiplist*,run_t*);
 void array_stream_merger(skiplist*,run_t** src, run_t** org,  level *des);
 void array_stream_comp_wait();
 #endif
-void array_merger( skiplist*,  run_t**,  run_t**,  level*);
+void array_merger( skiplist*,  run_t**,uint32_t,  run_t**,uint32_t,  level*);
 void array_merger_wrapper(skiplist *, run_t**, run_t**, level *);
 run_t *array_cutter( skiplist*,  level*, KEYT *start,KEYT *end);
 //run_t *array_range_find_lowerbound(level *,KEYT );
@@ -131,7 +131,7 @@ uint32_t array_get_numbers_run(level *);
 #ifdef BLOOM
 BF* array_making_filter(run_t *,int,float );
 #endif
-int array_cache_comp_formatting(level *,run_t ***, bool);
+int array_cache_comp_formatting(level *,run_t ***, r_pri ***,bool);
 keyset_iter* array_header_get_keyiter(level *, char *,KEYT *);
 keyset array_header_next_key(level *, keyset_iter *);
 void array_header_next_key_pick(level *, keyset_iter *, keyset *res);
@@ -156,6 +156,6 @@ void array_print_run(run_t * r);
 
 
 run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data, uint32_t u_num, uint32_t l_num,level *t, void *(*lev_insert_write)(level *,run_t *data));
-void array_pipe_merger(struct skiplist* mem, r_pri** s, r_pri** o, struct level*);
+void array_pipe_merger(struct skiplist* mem, r_pri** s,uint32_t, r_pri** o,uint32_t, struct level*);
 run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end);
 #endif

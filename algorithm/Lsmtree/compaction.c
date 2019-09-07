@@ -180,8 +180,8 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 
 	if(!upper){
 		bench_custom_start(write_opt_time,5);
-		LSM.lop->range_find_compaction(origin,start,end,&target_s, &trps);
-
+		uint32_t tnum=LSM.lop->range_find_compaction(origin,start,end,&target_s, &trps);
+	
 		for(int j=0; target_s[j]!=NULL; j++){
 			if(!htable_read_preproc(trps[j])){
 				compaction_htable_read(target_s[j],(PTR*)&trps[j]->cpt_data);
@@ -189,7 +189,7 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 			epc_check++;
 		}
 
-		compaction_subprocessing(skip,NULL,trps,t);
+		compaction_subprocessing(skip,NULL,0,trps,tnum,t);
 
 		for(int j=0; target_s[j]!=NULL; j++){
 			htable_read_postproc(target_s[j],trps[j],target_s[j]->rp->pbn);
@@ -205,7 +205,7 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 			//for caching more data
 			int cache_added_size=LSM.lop->get_number_runs(upper);
 			cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
-			src_num=LSM.lop->cache_comp_formatting(upper,&data,upper->idx<LSM.LEVELCACHING);
+			src_num=LSM.lop->cache_comp_formatting(upper,&data,&drps,upper->idx<LSM.LEVELCACHING);
 		}
 		else{
 			src_num=LSM.lop->range_find_compaction(upper,start,end,&data, &drps);	
@@ -236,7 +236,7 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 			epc_check++;
 		}
 skip:
-		compaction_subprocessing(NULL,drps,trps,t);
+		compaction_subprocessing(NULL,drps,src_num,trps,des_num,t);
 
 		for(int i=0; data[i]!=NULL; i++){
 			htable_read_postproc(data[i],drps[i],data[i]->rp->pbn);

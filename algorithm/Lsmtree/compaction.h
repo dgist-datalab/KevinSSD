@@ -70,7 +70,7 @@ uint32_t compaction_empty_level(level **from, leveling_node *mem, level **des);
 #ifdef MONKEY
 void compaction_seq_MONKEY(level *,int, level *);
 #endif
-void compaction_subprocessing(struct skiplist *top, struct run_private** src, struct run_private** org, struct level *des);
+void compaction_subprocessing(struct skiplist *top, struct run_private** src,uint32_t snum, struct run_private** org,uint32_t onum, struct level *des);
 
 bool htable_read_preproc(r_pri *r);
 void htable_read_postproc(run_t *rr, r_pri *r, uint32_t pbn);
@@ -81,6 +81,4 @@ uint32_t sequential_move_next_level(level *origin, level *target,KEYT start, KEY
 uint32_t pipe_partial_leveling(level *t, level *origin, leveling_node* lnode, level *upper);
 uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, level *upper);
 uint32_t partial_leveling(struct level *,struct level *,leveling_node *,struct level *upper);
-
-
 #endif

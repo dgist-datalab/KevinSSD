@@ -140,11 +140,9 @@ int gc_header(){
 			abort();
 		}
 
-
-		free(lpa->key);
-		free(lpa);
-
 		if(!shouldwrite){
+			free(lpa->key);
+			free(lpa);
 			free(tables[i]);
 			i++;
 			continue;
@@ -153,6 +151,8 @@ int gc_header(){
 		target_entry->rp->pbn=n_ppa;
 		if(LSM.nocpy)nocpy_force_freepage(tpage);
 		gc_data_write(n_ppa,tables[i],false);
+		free(lpa->key);
+		free(lpa);
 		free(tables[i]);
 
 		i++;
@@ -192,7 +192,6 @@ gc_node *gc_data_write_new_page(uint32_t t_ppa, char *data, htable_t *table, uin
 		n_ppa=-1;
 	}
 	res->status=NOTISSUE;
-	res->invalidate=false;
 	res->nppa=n_ppa;
 	res->ppa=t_ppa;
 	return res;
@@ -388,6 +387,9 @@ void* gc_data_end_req(struct algo_req*const req){
 		memcpy(target,params->value->value,PAGESIZE);
 	}
 	inf_free_valueset(params->value,FS_MALLOC_R);
+	if(g_target->status==DONE)
+		abort();
+
 	g_target->status=READDONE;
 	free(params);
 	free(req);
@@ -407,18 +409,26 @@ retry:
 			if(found){
 				if(found->ppa==g->ppa){
 					params->found=found;
+					if(g->status==DONE) 
+						abort();
 					g->status=DONE;
 				}
 				else{
-					g->invalidate=true;
+					g->plength=0;
 					params->level++;
 					goto retry;
 				}
+				return CACHING;
 			}
-			return CACHING;
+			else{
+				params->level++;
+				goto retry;
+			}
 		case FOUND:
 			nrp=now->rp;
 			if(nrp->isflying==1){
+				if(g->status==DONE)
+					abort();
 				g->status=SAMERUN;
 				if(nrp->gc_wait_idx>req_size){
 					printf("over_qdepth!\n");
@@ -427,6 +437,8 @@ retry:
 				params->data=NULL;
 			}
 			else{
+				if(g->status==DONE)
+					abort();
 				g->status=ISSUE;
 				if(!nrp->run_data){
 					temp_gc_h *gch=(temp_gc_h*)malloc(sizeof(temp_gc_h));
@@ -500,6 +512,9 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 		find=LSM.nocpy?LSM.lop->find_keyset((char*)data->nocpy_table,target->lpa): LSM.lop->find_keyset((char*)data->sets,target->lpa);
 		if(find && find->ppa==target->ppa){
 			p->found=find;
+			if(target->status==DONE){
+				abort();
+			}
 			target->status=DONE;
 			done_cnt++;
 			
@@ -523,7 +538,6 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 		}
 		else{
 			if(find){
-				target->invalidate=true;
 				target->plength=0;
 			}
 			
@@ -546,12 +560,16 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 	int result=0;
 	gc_params *params;
 	int cnttt=0;
+	uint32_t cache_cnt=0;
 	gc_hlist=list_init();
 
 	while(done_cnt!=size){
 		cnttt++;
 		for(int i=0; i<size; i++){
 			if(g[i]->status==DONE) continue;
+			if(g[i]==0){
+				printf("break!\n");
+			}
 			gc_node *target=g[i];
 			switch(target->status){
 				case NOTISSUE:
@@ -560,7 +578,10 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 					target->params=(void*)params;
 				case RETRY:
 					result=gc_data_issue_header(target,(gc_params*)target->params,size);
-					if(result==CACHING) done_cnt++;
+					if(result==CACHING && g[i]->status==DONE){
+						cache_cnt++;
+						done_cnt++;
+					}
 					break;
 				case READDONE:
 					done_cnt+=gc_data_each_header_check(target,size);

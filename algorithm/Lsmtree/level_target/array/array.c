@@ -149,7 +149,7 @@ void array_free(level* lev){
 	free(lev);
 }
 
-void array_run_pri_cpy_to(r_pri *input, r_pri *res){
+void array_run_pri_cpy_to(r_pri *input, r_pri *res, uint32_t idx){
 	res->pbn=input->pbn;
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(input->c_entry){
@@ -174,13 +174,23 @@ void array_run_pri_cpy_to(r_pri *input, r_pri *res){
 		res->level_caching_data=input->level_caching_data;
 		input->level_caching_data=NULL;
 	}
+
+	if(idx>=LSM.LEVELCACHING && LSM.comp_opt!=HW && !res->c_entry && res->cpt_data && cache_insertable(LSM.lsm_cache)){
+		if(LSM.nocpy)
+			res->cache_nocpy_data_ptr=nocpy_pick(input->pbn);
+		else{
+			res->cache_data=htable_assign((char*)res->cpt_data->sets,0);
+			res->cpt_data->sets=NULL;
+		}
+		res->c_entry=cache_insert(LSM.lsm_cache,res,0);
+	}
 }
 
-void array_run_cpy_to(run_t *input, run_t *res){
+void array_run_cpy_to(run_t *input, run_t *res,uint32_t idx){
 	kvssd_cpy_key(&res->key,&input->key);
 	kvssd_cpy_key(&res->end,&input->end);
 	res->rp=(r_pri*)calloc(sizeof(r_pri),1);
-	array_run_pri_cpy_to(input->rp,res->rp);
+	array_run_pri_cpy_to(input->rp,res->rp,idx);
 }
 
 void array_body_free(run_t *runs, int size){
@@ -199,22 +209,9 @@ void array_insert(level *lev, run_t* r){
 	array_body *b=(array_body*)lev->level_data;
 	run_t *arrs=b->arrs;
 	run_t *target=&arrs[lev->n_num];
-	array_run_cpy_to(r,target);
-	r_pri *trp=target->rp;
-	r_pri *rrp=r->rp;
-	if(lev->idx>=LSM.LEVELCACHING && LSM.comp_opt!=HW && !trp->c_entry && rrp->cpt_data && cache_insertable(LSM.lsm_cache)){
-		if(LSM.nocpy)
-			trp->cache_nocpy_data_ptr=nocpy_pick(trp->pbn);
-		else{
-			trp->cache_data=htable_copy(rrp->cpt_data);
-			rrp->cpt_data->sets=NULL;
-		}
-		trp->c_entry=cache_insert(LSM.lsm_cache,trp,0);
-	}
-
+	array_run_cpy_to(r,target, lev->idx);
 	array_range_update(lev,NULL,target->key);
 	array_range_update(lev,NULL,target->end);
-
 	lev->n_num++;
 }
 
@@ -338,6 +335,7 @@ uint32_t array_range_find_compaction( level *lev ,KEYT s, KEYT e,  run_t ***rc, 
 		r[res++]=ptr;
 	}
 	r[res]=NULL;
+	rp[res]=NULL;
 	*rc=r;
 	*rps=rp;
 	return res;
@@ -737,6 +735,6 @@ void array_lev_copy(level *des, level *src){
 	array_body *sb=(array_body*)src->level_data;
 
 	for(int i=0; i<src->n_num; i++){
-		array_run_cpy_to(&sb->arrs[i],&db->arrs[i]);
+		array_run_cpy_to(&sb->arrs[i],&db->arrs[i],des->idx);
 	}
 }

@@ -142,7 +142,7 @@ typedef struct level_ops{
 	htable* (*mem_cvt2table)(skiplist *,run_t *);
 #endif
 
-	void (*merger)( skiplist*, r_pri** src,  r_pri** org,  level *des);
+	void (*merger)( skiplist*, r_pri** src,uint32_t snum,  r_pri** org,uint32_t onum,  level *des);
 	run_t *(*cutter)( skiplist *,  level* des, KEYT* start, KEYT* end);
 	run_t *(*partial_merger_cutter)(skiplist*,pl_run *, pl_run *,uint32_t, uint32_t, level *,void*(*lev_insert_write)(level*, run_t*));
 	void (*normal_merger)(skiplist *,run_t *t_run, bool);
@@ -165,7 +165,7 @@ typedef struct level_ops{
 	bool (*block_fchk)();
 
 	void (*range_update)(level *,run_t*,KEYT);
-	int (*cache_comp_formatting)(level *,run_t ***,bool isnext_cache);
+	int (*cache_comp_formatting)(level *,run_t ***,r_pri ***,bool isnext_cache);
 	keyset_iter* (*header_get_keyiter)(level *, char *, KEYT *);
 	keyset (*header_next_key)(level *, keyset_iter *);
 	void (*header_next_key_pick)(level *, keyset_iter *, keyset *);

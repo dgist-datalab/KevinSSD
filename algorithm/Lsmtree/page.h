@@ -27,7 +27,6 @@ typedef struct gc_node{
 	uint32_t nppa;
 	KEYT lpa;
 	PTR value;
-	bool invalidate;
 	uint8_t status;
 	uint8_t plength;
 	void *params;

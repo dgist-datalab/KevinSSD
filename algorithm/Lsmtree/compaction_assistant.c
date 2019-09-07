@@ -396,13 +396,12 @@ void compaction_check(KEYT key, bool force){
 
 
 
-void compaction_subprocessing(struct skiplist *top,r_pri** src,r_pri** org, struct level *des){
-	
+void compaction_subprocessing(struct skiplist *top,r_pri** src,uint32_t snum, r_pri** org, uint32_t onum,struct level *des){
 	compaction_sub_wait();
 	bench_custom_A(write_opt_time,5);
 
 	bench_custom_start(write_opt_time,6);
-	LSM.lop->merger(top,src,org,des);
+	LSM.lop->merger(top,src,snum,org,onum,des);
 	bench_custom_A(write_opt_time,6);
 
 	KEYT key,end;

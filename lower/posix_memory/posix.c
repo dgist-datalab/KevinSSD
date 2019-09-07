@@ -234,12 +234,12 @@ void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 	if(test_type < LREQ_TYPE_NUM){
 		my_posix.req_type_cnt[test_type]++;
 	}
-	
+/*	
 	if(test_type==DATAW || test_type==DATAR){
 		req->end_req(req);
 		return NULL;
 	}
-
+*/
 	if(my_posix.SOP*PPA >= my_posix.TS){
 		printf("\nwrite error\n");
 		abort();
@@ -277,12 +277,12 @@ void *posix_pull_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 	if(test_type < LREQ_TYPE_NUM){
 		my_posix.req_type_cnt[test_type]++;
 	}
-
+/*
 	if(test_type==DATAW || test_type==DATAR){
 		req->end_req(req);
 		return NULL;
 	}
-
+*/
 	if(my_posix.SOP*PPA >= my_posix.TS){
 		printf("\nread error\n");
 		abort();

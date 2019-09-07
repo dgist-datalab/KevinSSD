@@ -38,13 +38,14 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 		}
 		else{
 			run_t **datas;
+			r_pri **drps;
 			int cache_added_size=LSM.lop->get_number_runs(upper);
 			cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
-			LSM.lop->cache_comp_formatting(upper,&datas,false);
+			LSM.lop->cache_comp_formatting(upper,&datas,&drps,false);
 
 			for(int i=0; datas[i]!=NULL; i++){
 				uint32_t ppa=getPPA(HEADER,datas[i]->key,true);
-				datas[i]->rp->pbn=ppa;
+				drps[i]->pbn=ppa;
 				compaction_htable_write(ppa,datas[i]->rp->cpt_data,datas[i]->key);
 				hp_array[i]=ppa;
 				LSM.lop->release_run(datas[i]);

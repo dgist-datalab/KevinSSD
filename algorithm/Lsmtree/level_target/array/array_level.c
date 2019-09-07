@@ -259,23 +259,29 @@ void array_checking_each_key(char *data,void*(*test)(KEYT a, ppa_t pa)){
 	for_each_header_end
 }
 
-int array_cache_comp_formatting(level *lev ,run_t ***des, bool des_cache){
+int array_cache_comp_formatting(level *lev ,run_t ***des, r_pri ***drps, bool des_cache){
 	array_body *b=(array_body*)lev->level_data;
 	run_t *arrs=b->arrs;
 	//static int cnt=0;
 	//can't caculate the exact nubmer of run...
 	run_t **res=(run_t**)malloc(sizeof(run_t*)*(lev->n_num+1));
+	r_pri **rrps=(r_pri**)malloc(sizeof(r_pri*)*(lev->n_num+1));
 	
 	for(int i=0; i<lev->n_num; i++){
 		if(des_cache){
 			res[i]=&arrs[i];
+			rrps[i]=arrs[i].rp;
 		}else{
 			res[i]=array_make_run(arrs[i].key,arrs[i].end,arrs[i].rp->pbn);
 			r_pri *rrp=res[i]->rp;
+			rrps[i]=rrp;
 			rrp->cpt_data=LSM.nocpy?htable_assign(rrp->level_caching_data,0):htable_assign(rrp->level_caching_data,1);
 		}
+
 	}
 	res[lev->n_num]=NULL;
+	rrps[lev->n_num]=NULL;
+	*drps=rrps;
 	*des=res;
 	return lev->n_num;
 }
