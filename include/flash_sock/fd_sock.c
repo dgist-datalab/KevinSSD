@@ -5,6 +5,13 @@
 #define NEWSESSION 2
 #define RETRYSESSION 3
 
+#define BUF_PREFETCH_SIZE 16384
+
+char *packet_buffer;
+char *buf_ptr;
+int buf_size;
+int buf_max;
+
 int protocol_type(char *r){
 	switch(r[0]){
 		case 'Y': return YCSB;
@@ -108,6 +115,11 @@ fd_sock_m *fd_sock_init(char *ip, int port, int type){
 		ev.data.fd=server_socket;
 		epoll_ctl(res->fd_epoll,EPOLL_CTL_ADD,server_socket,&ev);
 	}
+
+	packet_buffer = (char *)calloc(BUF_PREFETCH_SIZE, sizeof(char));
+	buf_ptr = packet_buffer;
+	buf_size = 0;
+
 	return res;
 }
 
@@ -178,16 +190,49 @@ int fd_sock_reply(fd_sock_m *f, netdata * nd){
 	return 1;
 }
 
+int buf_read(int fd, char *buf, int len) {
+	int remain = len;
+
+buf_read_retry:
+	if (buf_size >= remain) {
+		memcpy(buf, buf_ptr, remain);
+		buf_size -= remain;
+		buf_ptr += remain;
+
+	} else {
+		if (buf_size > 0) {
+			memcpy(buf, buf_ptr, buf_size);
+			buf += buf_size;
+			remain -= buf_size;
+		}
+
+		buf_size = read(fd, packet_buffer, BUF_PREFETCH_SIZE);
+		if (buf_max < buf_size) buf_max = buf_size;
+		buf_ptr = packet_buffer;
+
+		if (buf_size == 0) {
+			printf("buf orring?\n");
+			return len - remain;
+		}
+
+		goto buf_read_retry;
+	}
+
+	return len;
+}
+
 int fd_sock_read(fd_sock_m* f,char *buf, int len){
 	int readed=0, temp_len;
 	while(len!=readed){
-		if((temp_len=read(f->fd,buf,len-readed))<0){
+		if((temp_len=buf_read(f->fd,buf,len-readed))<0){
 			if(errno==11) continue;
 			printf("errno: %d temp_len:%d\n",errno,temp_len);
 			printf("length read error!\n");
 			abort();
 		}else if(temp_len==0){
 			printf("connection closed :%d\n", errno);
+			printf("buf_max: %d\n", buf_max);
+			buf_max=0;
 			return -1;
 		}
 		readed+=temp_len;
