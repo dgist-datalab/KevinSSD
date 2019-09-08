@@ -62,8 +62,8 @@ static void fg_env_init(cache_t c_type, struct cache_env *const _env) {
 	//_env->max_cached_tentries = d_env.nr_pages * _env->caching_ratio;
 
 #ifdef DVALUE
-	_env->nr_valid_tpages *= GRAIN_PER_PAGE;
-	_env->nr_valid_tentries *= GRAIN_PER_PAGE;
+	_env->nr_valid_tpages *= GRAIN_PER_PAGE / 2;
+	_env->nr_valid_tentries *= GRAIN_PER_PAGE / 2;
 #endif
 
 	print_cache_env(_env);
@@ -307,6 +307,8 @@ int fg_wait_if_flying(lpa_t lpa, request *const req, snode *wb_entry) {
 }
 
 int fg_touch(lpa_t lpa) {
+	struct cmt_struct *cmt = cmbr->cmt[IDX(lpa)];
+	lru_update(cmbr->lru, cmt->lru_ptr);
 	return 0;
 }
 
