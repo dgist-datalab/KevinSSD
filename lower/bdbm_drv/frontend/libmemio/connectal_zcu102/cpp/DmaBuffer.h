@@ -25,7 +25,7 @@
 #include "dmaManager.h"
 
 class DmaBuffer {
-    const int size;
+    const unsigned int size;
     const bool cached;
     int fd;
     char *buf;
@@ -34,7 +34,7 @@ class DmaBuffer {
     static void initDmaManager();
 public:
     // Allocates a portal memory object of specified size and maps it into user process
-    DmaBuffer(int size, bool cached=true);
+    DmaBuffer(unsigned int size, bool cached=true);
     // Dereferences and deallocates the portal memory object
     // if destructor is not called, the object is automatically
     // unreferenced and freed when the process exits
