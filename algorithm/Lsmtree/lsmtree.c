@@ -94,7 +94,7 @@ uint32_t __lsm_get(request *const);
 static float get_sizefactor(uint64_t as,uint32_t keynum_in_header){
 	uint32_t _f=LSM.LEVELN;
 	float res;
-	uint64_t all_memory=(SHOWINGSIZE/1024);
+	uint64_t all_memory=(TOTALSIZE/1024);
 	caching_size=LSM.caching_size*(all_memory/(8*K));
 	as/=LSM.ONESEGMENT;
 #if !defined(READCACHE)
@@ -213,11 +213,11 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	//	uint32_t cached_entry=0;
 	LSM.lsm_cache=cache_init(cached_entry+lev_caching_entry);
 
-	printf("| all caching %.2f(%%) - %lu page\n",(float)caching_size/(SHOWINGSIZE/PAGESIZE/K)*100,caching_size);	
-	printf("| level cache :%luMB(%lu page)%.2f(%%)\n",lev_caching_entry*PAGESIZE/M,lev_caching_entry,(float)lev_caching_entry/(SHOWINGSIZE/PAGESIZE/K)*100);
+	printf("| all caching %.2f(%%) - %lu page\n",(float)caching_size/(TOTALSIZE/PAGESIZE/K)*100,caching_size);	
+	printf("| level cache :%luMB(%lu page)%.2f(%%)\n",lev_caching_entry*PAGESIZE/M,lev_caching_entry,(float)lev_caching_entry/(TOTALSIZE/PAGESIZE/K)*100);
 
-	printf("| entry cache :%uMB(%u page)%.2f(%%)\n",cached_entry*PAGESIZE/M,cached_entry,(float)cached_entry/(SHOWINGSIZE/PAGESIZE/K)*100);
-	printf("| start cache :%luMB(%lu page)%.2f(%%)\n",(cached_entry+lev_caching_entry)*PAGESIZE/M,cached_entry+lev_caching_entry,(float)cached_entry/(SHOWINGSIZE/PAGESIZE/K)*100);
+	printf("| entry cache :%uMB(%u page)%.2f(%%)\n",cached_entry*PAGESIZE/M,cached_entry,(float)cached_entry/(TOTALSIZE/PAGESIZE/K)*100);
+	printf("| start cache :%luMB(%lu page)%.2f(%%)\n",(cached_entry+lev_caching_entry)*PAGESIZE/M,cached_entry+lev_caching_entry,(float)cached_entry/(TOTALSIZE/PAGESIZE/K)*100);
 	printf("| -------- algorithm_log END\n\n");
 
 	printf("\n ---------- %lu:%lu (all_entry : total)\n\n",sizeofall,MAPPART_SEGS*_PPS);
@@ -1175,7 +1175,9 @@ uint32_t lsm_argument_set(int argc, char **argv){
 	if(!multi_level_comp) LSM.multi_level_comp=false;
 	if(!gc_opt_flag) LSM.gc_opt=false;
 	if(!nocpy_option) LSM.nocpy=false;
-	if(!memory_c_flag) LSM.caching_size=0;
+	if(!memory_c_flag){
+		LSM.caching_size=CACHING_RATIO;
+	}
 	switch(comp_type){
 		case NON:
 			printf("[*]non compaction opt\n");
