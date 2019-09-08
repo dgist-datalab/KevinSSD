@@ -323,14 +323,14 @@ wb_data_check:
 		}
 #endif
 		/* hash_table lookup to filter same wb element */
-		//rc = d_htable_find(d_member.hash_table, pte.ppa, lpa);
+		/*rc = d_htable_find(d_member.hash_table, pte.ppa, lpa);
 		if (rc) {
 			h_params->find = HASH_KEY_DIFF;
 			h_params->cnt++;
 
 			free_iparams(NULL, wb_entry);
 			goto wb_retry;
-		}
+		}*/
 
 		/* data check is necessary before update */
 		read_for_data_check(pte.ppa, wb_entry);
