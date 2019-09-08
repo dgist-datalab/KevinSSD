@@ -85,7 +85,7 @@ void array_find_keyset_first(char *data,KEYT *des);
 void array_find_keyset_last(char *data,KEYT *des);
 run_t *array_get_run_idx(level *, int idx);
 run_t *array_make_run(KEYT start, KEYT end, uint32_t pbn);
-run_t **array_find_run( level*,KEYT);
+run_t *array_find_run( level*,KEYT);
 run_t **array_find_run_num( level*,KEYT, uint32_t);
 
 uint32_t array_range_find( level *,KEYT, KEYT,  run_t ***);
@@ -102,8 +102,12 @@ uint32_t a_max_flush_entry(uint32_t);
 void array_free_run( run_t*);
 void array_run_cpy_to(run_t *, run_t *);
 run_t* array_run_cpy( run_t *);
-
+#ifdef BLOOM
+htable *array_mem_cvt2table(skiplist*,run_t*,BF *filter);
+#else
 htable *array_mem_cvt2table(skiplist*,run_t*);
+#endif
+
 #ifdef STREAMCOMP
 void array_stream_merger(skiplist*,run_t** src, run_t** org,  level *des);
 void array_stream_comp_wait();
@@ -161,7 +165,7 @@ void array_checking_each_key(char *data,void*(*test)(KEYT a,ppa_t ppa));
 //run_t *array_lsm_lower_bound_run(lsmtree *lsm, KEYT lpa);
 uint32_t array_get_level_mem_size(level *lev);
 void array_check_order(level *);
-
+void array_lev_copy(level *des, level *src);
 void array_print_run(run_t * r);
 
 

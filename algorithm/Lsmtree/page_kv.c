@@ -85,7 +85,7 @@ int gc_header(){
 		
 		KEYT *lpa=LSM.nocpy?LSM.lop->get_lpa_from_data((char*)tables[i]->nocpy_table,tpage,true):LSM.lop->get_lpa_from_data((char*)tables[i]->sets,tpage,true);
 
-		run_t **entries=NULL;
+		run_t *entries=NULL;
 		run_t *target_entry=NULL;
 		bool checkdone=false;
 		bool shouldwrite=false;
@@ -93,37 +93,31 @@ int gc_header(){
 		for(int j=0; j<LSM.LEVELN; j++){
 			entries=LSM.lop->find_run(LSM.disk[j],*lpa);
 			if(entries==NULL) continue;
-			for(int k=0; entries[k]!=NULL; k++){
-				if(entries[k]->pbn==tpage && KEYTEST(entries[k]->key,*lpa)){
-					if(entries[k]->iscompactioning==SEQMOV) break;
-					if(entries[k]->iscompactioning==SEQCOMP) break;
+			if(entries->pbn==tpage && KEYTEST(entries->key,*lpa)){
+				if(entries->iscompactioning==SEQMOV) break;
+				if(entries->iscompactioning==SEQCOMP) break;
 
-					checkdone=true;
-					if(entries[k]->iscompactioning){
-						entries[k]->iscompactioning=INVBYGC;
-						break;
-					}
-					target_entry=entries[k];
-					shouldwrite=true;
+				checkdone=true;
+				if(entries->iscompactioning){
+					entries->iscompactioning=INVBYGC;
 					break;
 				}
+				target_entry=entries;
+				shouldwrite=true;
+				break;
 			}
-			free(entries);
 			if(checkdone) break;
 		}
 
 		if(!checkdone && LSM.c_level){
 			entries=LSM.lop->find_run(LSM.c_level,*lpa);
 			if(entries){
-				for(int k=0; entries[k]!=NULL; k++){
-					if(entries[k]->pbn==tpage){
-						checkdone=true;
-						shouldwrite=true;
-						target_entry=entries[k];
-					}
+				if(entries->pbn==tpage){
+					checkdone=true;
+					shouldwrite=true;
+					target_entry=entries;
 				}
 			}
-			free(entries);
 		}
 
 
@@ -138,20 +132,22 @@ int gc_header(){
 		}
 
 
-		free(lpa->key);
-		free(lpa);
 
 		if(!shouldwrite){
 			free(tables[i]);
+			free(lpa->key);
+			free(lpa);
 			i++;
 			continue;
 		}
+
 		uint32_t n_ppa=getRPPA(HEADER,*lpa,true,tseg);
 		target_entry->pbn=n_ppa;
 		if(LSM.nocpy)nocpy_force_freepage(tpage);
 		gc_data_write(n_ppa,tables[i],false);
 		free(tables[i]);
-
+		free(lpa->key);
+		free(lpa);
 		i++;
 		continue;
 	}

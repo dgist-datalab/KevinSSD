@@ -537,6 +537,8 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		if(testflag){
 			printf("%d overlap!\n",++cnt);
 		}*/
+		list->data_size-=(x->value->length*PIECE);
+		list->data_size+=(value->length*PIECE);
 		if(x->value)
 			inf_free_valueset(x->value,FS_MALLOC_W);
 #if defined(KVSSD)
@@ -595,6 +597,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 
 		x->level=level;
 		list->size++;
+		list->data_size+=(value->length*PIECE);
 	}
 	return x;
 }

@@ -59,26 +59,23 @@ typedef struct run{
 	KEYT key;
 	KEYT end;
 	ppa_t pbn;
-#ifdef BLOOM
-	BF *filter;
-#endif
+
 	//for caching
 	cache_entry *c_entry;
-	volatile char isflying;
 	char *cache_nocpy_data_ptr;
 	htable *cache_data;
-
-	void *from_req;
-	//void* waitreq[QDEPTH];
-	void** waitreq;
-	void **gc_waitreq;
-	int wait_idx;
-	int gc_wait_idx;
 
 	htable *cpt_data;
 	void *run_data;
 	char *level_caching_data;
 	char iscompactioning;
+
+	volatile char isflying;
+	void *from_req;
+	void** waitreq;
+	void **gc_waitreq;
+	int wait_idx;
+	int gc_wait_idx;
 }run_t;
 
 typedef struct pipe_line_run{
@@ -93,8 +90,9 @@ typedef struct level{
 	float fpr;
 	bool iscompactioning;
 	bool istier;
-	struct level_ops *op;
-	struct block* now_block;
+#ifdef BLOOM
+	BF *filter;
+#endif
 	void* level_data;
 }level;
 
@@ -113,6 +111,7 @@ typedef struct level_ops{
 	level* (*init)(int size, int idx, float fpr, bool istier);
 	void (*release)( level*);
 	void (*insert)( level* des, run_t *r);
+	void (*lev_copy)(level *des, level *src);
 	keyset *(*find_keyset)(char *data,KEYT lpa);//find one
 	uint32_t (*find_idx_lower_bound)(char *data,KEYT lpa);
 	void (*find_keyset_first)(char *data,KEYT *des);
@@ -135,7 +134,11 @@ typedef struct level_ops{
 	keyset_iter *(*keyset_iter_init)(char *keyset_data, int from);
 	keyset *(*keyset_iter_nxt)(keyset_iter*,keyset *target);
 	/*compaciton operation*/
+#ifdef BLOOM
+	htable* (*mem_cvt2table)(skiplist *,run_t *,BF *);
+#else
 	htable* (*mem_cvt2table)(skiplist *,run_t *);
+#endif
 
 	void (*merger)( skiplist*, run_t** src,  run_t** org,  level *des);
 	run_t *(*cutter)( skiplist *,  level* des, KEYT* start, KEYT* end);
@@ -149,7 +152,7 @@ typedef struct level_ops{
 	/*run operation*/
 	run_t*(*get_run_idx)(level *, int idx);
 	run_t*(*make_run)(KEYT start, KEYT end, uint32_t pbn);
-	run_t**(*find_run)( level*,KEYT lpa);
+	run_t*(*find_run)( level*,KEYT lpa);
 	run_t**(*find_run_num)( level*,KEYT lpa, uint32_t num);
 	void (*release_run)( run_t *);
 	run_t* (*run_cpy)( run_t *);

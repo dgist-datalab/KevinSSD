@@ -41,7 +41,7 @@ void pl_run_free(pl_run *pr, uint32_t num ){
 }
 
 void *level_insert_write(level *t, run_t *data){
-	compaction_htable_write_insert(t,data,true);
+	compaction_htable_write_insert(t,data,false);
 	free(data);
 	return NULL;
 }

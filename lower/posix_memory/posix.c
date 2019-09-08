@@ -57,6 +57,7 @@ lower_info my_posix={
 	.lower_free=NULL,
 	.lower_flying_req_wait=posix_flying_req_wait,
 	.lower_show_info=NULL,
+	.lower_tag_num=NULL,
 	.hw_do_merge=posix_hw_do_merge,
 	.hw_get_kt=posix_hw_get_kt,
 	.hw_get_inv=posix_hw_get_inv
@@ -462,6 +463,7 @@ void* posix_read_hw(uint32_t _PPA, char *key,uint32_t key_len, value_set *value,
 
 	pthread_mutex_lock(&fd_lock);
 
+	my_posix.req_type_cnt[MAPPINGR]++;
 	if(my_posix.SOP*PPA >= my_posix.TS){
 		printf("\nread error\n");
 		abort();

@@ -1,52 +1,50 @@
-#ifndef __H_DEMAND__
-#define __H_DEMAND__
+/*
+ * Demand-based FTL Main Header
+ */
+
+#ifndef __DEMAND_H__
+#define __DEMAND_H__
 
 #include <stdint.h>
 #include <pthread.h>
+#include "d_type.h"
+#include "d_param.h"
+#include "d_htable.h"
 #include "../../interface/queue.h"
 #include "../../include/container.h"
-#include "../../include/settings.h"
-#include "../../include/demand_settings.h"
 #include "../../include/dl_sync.h"
-#include "../../include/types.h"
 #include "../Lsmtree/skiplist.h"
 #include "../../include/data_struct/lru_list.h"
 #include "../../include/data_struct/redblack.h"
 
-#ifdef STORE_KEY_FP
-#define ENTRY_SIZE (4+4)
-#else
-#define ENTRY_SIZE (4)
-#endif
-
-#define EPP (PAGESIZE / ENTRY_SIZE) //Number of table entries per page
-#define IDX(x) ((x) / EPP)
-#define OFFSET(x) ((x) % EPP)
-
-#define CLEAN 0
-#define DIRTY 1
-
-#if defined(HASH_KVSSD)
-#define HASH_KEY_INITIAL 0
-#define HASH_KEY_NONE    1
-#define HASH_KEY_SAME    2
-#define HASH_KEY_DIFF    3
-#endif
-
-typedef uint32_t lpa_t;
-typedef uint32_t ppa_t;
-typedef uint32_t fp_t;
-#ifdef DVALUE
-typedef uint32_t pga_t;
-#endif
-
-#define WB_HIT(x) ((x) != NULL)
-#define CACHE_HIT(x) ((x) != NULL)
-#define IS_READ(x) ((x) != NULL)
-#define IS_INFLIGHT(x) ((x) != NULL)
-#define IS_INITIAL_PPA(x) ((x) == UINT32_MAX)
 
 /* Structures */
+// Page table entry
+struct pt_struct {
+	ppa_t ppa; // Index = lpa
+#ifdef STORE_KEY_FP
+	fp_t key_fp;
+#endif
+};
+
+// Cached mapping table
+struct cmt_struct {
+	int32_t idx;
+	struct pt_struct *pt;
+	NODE *lru_ptr;
+	ppa_t t_ppa;
+
+	cmt_state_t state;
+	bool is_flying;
+
+	queue *retry_q;
+	queue *wait_q;
+
+	bool *is_cached;
+	uint32_t cached_cnt;
+	uint32_t dirty_cnt;
+};
+
 struct hash_params {
 	uint32_t hash;
 #ifdef STORE_KEY_FP
@@ -62,43 +60,28 @@ struct hash_params {
 };
 
 struct demand_params{
-    value_set *value;
+	value_set *value;
 	snode *wb_entry;
-	struct cmt_struct *cmt;
-    //dl_sync dftl_mutex;
-#ifdef DVALUE
+	//struct cmt_struct *cmt;
+	dl_sync *sync_mutex;
 	int offset;
-#endif
 };
 
 struct inflight_params{
-    ppa_t t_ppa;
-	bool is_evict;
+	jump_t jump;
+	//struct pt_struct pte;
 };
 
-// Page table entry
-struct pt_struct {
-    ppa_t ppa; // Index = lpa
-#ifdef STORE_KEY_FP
-	fp_t key_fp;
-#endif
+struct flush_node {
+	ppa_t ppa;
+	value_set *value;
 };
 
-// Cached mapping table
-struct cmt_struct {
-    int32_t idx;
-    struct pt_struct *pt;
-    NODE *lru_ptr;
-    ppa_t t_ppa;
-
-    bool state;
-	bool is_flying;
-
-	queue *blocked_q;
-	queue *wait_q;
-
-    uint32_t dirty_cnt;
+struct flush_list {
+	int size;
+	struct flush_node *list;
 };
+
 
 /* Wrapper structures */
 struct demand_env {
@@ -111,57 +94,36 @@ struct demand_env {
 	int nr_dsegments;
 	int nr_dpages;
 
-	float caching_ratio;
-	int nr_tpages_optimal_caching;
-	int nr_valid_tpages;
-	int max_cached_tpages;
-
-	uint64_t wb_flush_size;
-
-#ifdef PART_CACHE
-	float part_ratio;
-	int max_clean_tpages;
-	int max_dirty_tentries;
-#endif
+	volatile uint64_t wb_flush_size;
 
 #if defined(HASH_KVSSD) && defined(DVALUE)
 	int nr_grains;
 	int nr_dgrains;
 #endif
 
-	int nr_total_entries;
+	int cache_id;
+	float caching_ratio;
 };
 
 struct demand_member {
-	struct cmt_struct **cmt;
-	struct pt_struct **mem_table;
 	LRU *lru;
 	skiplist *write_buffer;
 	snode **sorted_list;
 
 	queue *flying_q;
 	queue *blocked_q;
-	queue *wb_cmt_load_q;
+	queue *wb_master_q;
 	queue *wb_retry_q;
 
-	int nr_cached_tpages;
-	int nr_inflight_tpages;
+	struct flush_list *flush_list;
 
 	volatile int nr_valid_read_done;
 	volatile int nr_tpages_read_done;
 
-#ifdef PART_CACHE
-	queue *wait_q;
-	queue *write_q;
-
-	int nr_clean_tpages;
-	int nr_dirty_tentries;
-#endif
+	struct d_htable *hash_table;
 
 #ifdef HASH_KVSSD
 	int max_try;
-#ifdef DVALUE
-#endif
 #endif
 };
 
@@ -178,26 +140,14 @@ struct demand_stat {
 	uint64_t trans_r_tgc;
 	uint64_t trans_w_tgc;
 
-	/* cache performance */
-	uint64_t cache_hit;
-	uint64_t cache_miss;
-	uint64_t clean_evict;
-	uint64_t dirty_evict;
-	uint64_t blocked_miss;
-
 	/* gc trigger count */
 	uint64_t dgc_cnt;
 	uint64_t tgc_cnt;
 	uint64_t tgc_by_read;
 	uint64_t tgc_by_write;
 
-#ifdef WRITE_BACK
 	/* write buffer */
 	uint64_t wb_hit;
-#endif
-
-#ifdef PART_CACHE
-#endif
 
 #ifdef HASH_KVSSD
 	uint64_t w_hash_collision_cnt[MAX_HASH_COLLISION];
@@ -206,6 +156,7 @@ struct demand_stat {
 };
 
 /* Functions */
+uint32_t demand_argument_set(int argc, char **argv);
 uint32_t demand_create(lower_info*, blockmanager*, algorithm*);
 void demand_destroy(lower_info*, algorithm*);
 uint32_t demand_read(request *const);

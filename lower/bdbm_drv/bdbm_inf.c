@@ -28,6 +28,8 @@ lower_info memio_info={
 	.lower_free=memio_free_dma,
 	.lower_flying_req_wait=memio_flying_req_wait,
 	.lower_show_info=memio_show_info_,
+
+	.lower_tag_num=memio_tag_num,
 	.hw_do_merge=memio_do_merge,
 	.hw_get_kt=memio_get_kt,
 	.hw_get_inv=memio_get_inv
@@ -193,6 +195,7 @@ uint32_t memio_do_merge(uint32_t lp_num, ppa_t *lp_array, uint32_t hp_num,ppa_t 
 void *memio_info_hw_read(uint32_t ppa, char* key, uint32_t key_len, value_set* value, bool async, algo_req *const req){
 	bb_node t=checker.ent[ppa>>14];
 	uint32_t fppa=bb_checker_fix_ppa(t.flag,t.fixed_segnum,t.pair_segnum,ppa);
+	memio_info.req_type_cnt[MAPPINGR]++;
 	memio_do_hw_read(mio,fppa,key,key_len,(uint8_t *)value->value,async,(void*)req,value->dmatag);
 	return NULL;
 }
@@ -201,4 +204,8 @@ char *memio_get_kt(){
 }
 char *memio_get_inv(){
 	return (char*)get_inv_ppali();
+}
+
+uint32_t memio_tag_num(){
+	return mio->tagQ->size();
 }

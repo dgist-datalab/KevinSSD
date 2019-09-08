@@ -44,18 +44,17 @@ run_t *array_range_find_lowerbound(level *lev, KEYT target){
 	}
 	return NULL;*/
 }
-
-htable *array_mem_cvt2table(skiplist *mem,run_t* input){
+#ifdef BLOOM
+htable *array_mem_cvt2table(skiplist* mem,run_t* input,BF *filter)
+#else
+htable *array_mem_cvt2table(skiplist*mem,run_t* input)
+#endif
+{
 	/*static int cnt=0;
 	eprintf("cnt:%d\n",cnt++);*/
 	htable *res=LSM.nocpy?htable_assign(NULL,0):htable_assign(NULL,1);
 
-#ifdef BLOOM
-	BF *filter=bf_init(mem->size,LSM.disk[0]->fpr);
-	input->filter=filter;
-#endif
 	input->cpt_data=res;
-
 #ifdef KVSSD
 	snode *temp;
 	char *ptr=(char*)res->sets;
@@ -77,9 +76,10 @@ htable *array_mem_cvt2table(skiplist *mem,run_t* input){
 
 		bitmap[idx]=data_start;
 #ifdef BLOOM
-		bf_set(filter,temp->key);
+		if(filter)bf_set(filter,temp->key);
 #endif
 		data_start+=temp->key.len+sizeof(temp->ppa);
+
 		//free(temp->key.key);
 		idx++;
 	}

@@ -12,11 +12,15 @@
 
 #if LEVELN!=1
 #define BLOOM
-#define MONKEY
+//#define MONKEY
 #endif
 
 
 //#define EMULATOR
+
+#define DEFKEYINHEADER ((PAGESIZE-KEYBITMAP)/DEFKEYLENGTH)
+//#define ONESEGMENT (DEFKEYINHEADER*DEFVALUESIZE)
+
 #define KEYLEN(a) (a.len+sizeof(ppa_t))
 #define READCACHE
 #define RANGEGETNUM 2

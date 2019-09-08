@@ -11,6 +11,7 @@ level_ops a_ops={
 	.init=array_init,
 	.release=array_free,
 	.insert=array_insert,
+	.lev_copy=array_lev_copy,
 	.find_keyset=array_find_keyset,
 	.find_idx_lower_bound=array_find_idx_lower_bound,
 	.find_keyset_first=array_find_keyset_first,
@@ -93,14 +94,15 @@ void array_range_update(level *lev,run_t* r, KEYT key){
 	if(lev->start>key) lev->start=key;
 	if(lev->end<key) lev->end=key;
 #endif
-}
+};
 
 level* array_init(int size, int idx, float fpr, bool istier){
 	level *res=(level*)calloc(sizeof(level),1);
 	array_body *b=(array_body*)calloc(sizeof(array_body),1);
 
 	//b->skip=NULL;
-	b->arrs=NULL;
+	
+	b->arrs=(run_t*)calloc(sizeof(run_t),size);
 	/*
 	if(idx<LSM.LEVELCACHING){
 		b->skip=skiplist_init();
@@ -119,7 +121,10 @@ level* array_init(int size, int idx, float fpr, bool istier){
 	res->end=0;
 #endif
 	res->level_data=(void*)b;
-	res->now_block=NULL;
+
+#ifdef BLOOM
+	res->filter=bf_init(LSM.keynum_in_header*size,fpr);
+#endif
 	//res->h=llog_init();
 
 	return res;
@@ -138,21 +143,18 @@ void array_free(level* lev){
 	if(lev->idx<LSM.LEVELCACHING){
 		skiplist_free(b->skip);
 	}*/
+	if(lev->filter)
+		bf_free(lev->filter);
 	free(b);
 	free(lev);
 }
 
 void array_run_cpy_to(run_t *input, run_t *res){
-	memset(res,0,sizeof(run_t));
+	//memset(res,0,sizeof(run_t));
 	kvssd_cpy_key(&res->key,&input->key);
 	kvssd_cpy_key(&res->end,&input->end);
 
 	res->pbn=input->pbn;
-#ifdef BLOOM
-	res->filter=input->filter;
-	input->filter=NULL;
-#endif
-
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(input->c_entry){
 		if(LSM.nocpy){
@@ -192,9 +194,12 @@ void array_insert(level *lev, run_t* r){
 	}
 
 	array_body *b=(array_body*)lev->level_data;
+	//if(lev->n_num==0){
+	//}
+	/*
 	if(b->arrs==NULL){
 		b->arrs=(run_t*)malloc(sizeof(run_t)*lev->m_num);
-	}
+	}*/
 	run_t *arrs=b->arrs;
 	run_t *target=&arrs[lev->n_num];
 	array_run_cpy_to(r,target);
@@ -238,23 +243,29 @@ keyset* array_find_keyset(char *data,KEYT lpa){
 	return NULL;
 }
 
-run_t **array_find_run( level* lev,KEYT lpa){
+run_t *array_find_run( level* lev,KEYT lpa){
 	array_body *b=(array_body*)lev->level_data;
 	run_t *arrs=b->arrs;
 	if(!arrs || lev->n_num==0) return NULL;
-#ifdef KVSSD
-	if(KEYCMP(lev->start,lpa)>0 || KEYCMP(lev->end,lpa)<0) return NULL;
-#else
-	if(lev->start>lpa || lev->end<lpa) return NULL;
-#endif
-	if(lev->istier) return (run_t**)-1;
+	int end=lev->n_num-1;
+	int start=0;
+	int mid;
 
-	int target_idx=array_binary_search(arrs,lev->n_num,lpa);
-	if(target_idx==-1) return NULL;
-	run_t **res=(run_t**)calloc(sizeof(run_t*),2);
-	res[0]=&arrs[target_idx];
-	res[1]=NULL;
-	return res;
+	int res1; //1:compare with start, 2:compare with end
+	mid=(start+end)/2;
+	while(1){
+		res1=KEYCMP(arrs[mid].key,lpa);
+		if(res1>0) end=mid-1;
+		else if(res1<0) start=mid+1;
+		else {
+			return &arrs[mid];
+		}   
+		mid=(start+end)/2;
+		if(start>end){
+			return &arrs[mid];
+		}   
+	}
+	return NULL;
 }
 
 run_t **array_find_run_num( level* lev,KEYT lpa, uint32_t num){
@@ -358,9 +369,6 @@ uint32_t array_unmatch_find( level *lev,KEYT s, KEYT e,  run_t ***rc){
 
 void array_free_run(run_t *e){
 	//static int cnt=0;
-#ifdef BLOOM
-	if(e->filter) bf_free(e->filter);
-#endif
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(e->c_entry){
 		if(LSM.nocpy) e->cache_nocpy_data_ptr=NULL;
@@ -377,10 +385,6 @@ run_t * array_run_cpy( run_t *input){
 	kvssd_cpy_key(&res->key,&input->key);
 	kvssd_cpy_key(&res->end,&input->end);
 	res->pbn=input->pbn;
-#ifdef BLOOM
-	res->filter=input->filter;
-	input->filter=NULL;
-#endif
 
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(input->c_entry){
@@ -565,9 +569,6 @@ run_t *array_make_run(KEYT start, KEYT end, uint32_t pbn){
 	res->run_data=NULL;
 	res->c_entry=NULL;
 	res->wait_idx=0;
-#ifdef BLOOM
-	res->filter=NULL;
-#endif
 	return res;
 }
 
@@ -693,7 +694,11 @@ void array_print_level_summary(){
 			printf("[%d - %s ] n_num:%d m_num:%d\n",i+1,i<LSM.LEVELCACHING?"C":"NC",LSM.disk[i]->n_num,LSM.disk[i]->m_num);
 		}
 		else {
+#ifdef BLOOM
+			printf("[%d - %s ] n_num:%d m_num:%d filter:%p\n",i+1,i<LSM.LEVELCACHING?"C":"NC",LSM.disk[i]->n_num,LSM.disk[i]->m_num,LSM.disk[i]->filter);
+#else
 			printf("[%d - %s] n_num:%d m_num:%d %.*s ~ %.*s\n",i+1,i<LSM.LEVELCACHING?"C":"NC",LSM.disk[i]->n_num,LSM.disk[i]->m_num,KEYFORMAT(LSM.disk[i]->start),KEYFORMAT(LSM.disk[i]->end));
+#endif
 		}
 	}	
 }
@@ -716,4 +721,20 @@ void array_check_order(level *lev){
 
 void array_print_run(run_t * r){
 	printf("%.*s ~ %.*s : %d\n",KEYFORMAT(r->key),KEYFORMAT(r->end),r->pbn);
+}
+
+void array_lev_copy(level *des, level *src){
+	kvssd_cpy_key(&des->start,&src->start);
+	kvssd_cpy_key(&des->end,&src->end);
+	des->n_num=src->n_num;
+#ifdef BLOOM
+	des->filter=src->filter;
+#endif
+	
+	array_body *db=(array_body*)des->level_data;
+	array_body *sb=(array_body*)src->level_data;
+
+	for(int i=0; i<src->n_num; i++){
+		array_run_cpy_to(&sb->arrs[i],&db->arrs[i]);
+	}
 }

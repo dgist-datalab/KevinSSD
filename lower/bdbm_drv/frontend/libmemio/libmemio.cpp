@@ -368,7 +368,6 @@ int memio_do_hw_read (memio_t* mio, uint32_t lba, char *key,uint16_t key_len, ui
 	r->counter = &counter;
 	char *target_buf=(char*)get_findKey_dma();
 	memcpy(&target_buf[r->tag*256+4],key,key_len);
-	printf("send tag:%d - %.*s\n",r->tag,key_len,&target_buf[r->tag*256+4]);
 	dm_do_hw_find(cur_lba,(key_len+4)/16,r);
 	bdbm_mutex_unlock(&mio->req_mutex);
 	return 1;

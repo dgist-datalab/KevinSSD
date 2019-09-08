@@ -104,8 +104,7 @@ void MurmurHash3_x86_32( const void * key, int len,uint32_t seed, void * out )
 
 	*(uint32_t*)out = h1;
 } 
-#ifndef KVSSD
-static inline uint32_t hashfunction(KEYT key){
+static inline uint32_t hashfunction(uint32_t key){
 	key ^= key >> 15;
 	key *= UINT32_C(0x2c1b3c6d);
 	key ^= key >> 12;
@@ -120,7 +119,6 @@ static inline uint32_t hashfunction(KEYT key){
 	key = key ^ (key >> 16);*/
 	return key;
 }
-#endif
 
 BF* bf_init(int entry, float fpr){
 	if(fpr>1)
@@ -162,14 +160,17 @@ void bf_set(BF *input, KEYT key){
 	if(input==NULL){
 		abort();
 	}
-	uint32_t h;
+	uint32_t h,th;
 	int block;
 	int offset;
 	//printf("%u:",key);
+#if defined(KVSSD)
+	 MurmurHash3_x86_32(key.key,key.len,2,&th);
+#endif
 
 	for(uint32_t i=0; i<input->k; i++){
 #if defined(KVSSD) && defined(Lsmtree)
-		MurmurHash3_x86_32(key.key,key.len,i,&h);
+		h=hashfunction(th | (i<<7));
 #else
 		h=hashfunction((key<<19) | (i<<7));
 #endif
@@ -183,13 +184,16 @@ void bf_set(BF *input, KEYT key){
 }
 
 bool bf_check(BF* input, KEYT key){
-	uint32_t h;
+	uint32_t h, th;
 	int block,offset;
 	if(input==NULL) return true;
+#if defined(KVSSD)
+	 MurmurHash3_x86_32(key.key,key.len,2,&th);
+#endif
 
 	for(uint32_t i=0; i<input->k; i++){
 #if defined(KVSSD) && defined(Lsmtree)
-		MurmurHash3_x86_32(key.key,key.len,i,&h);
+		h=hashfunction(th | (i<<7));
 #else
 		h=hashfunction((key<<19) | (i<<7));
 #endif

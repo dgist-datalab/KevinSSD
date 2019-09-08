@@ -9,6 +9,10 @@ SRCS +=\
 		dvalue.c\
 		dvalue_gc.c\
 		utility.c\
+		cache.c\
+		fine.c\
+		coarse.c\
+		d_htable.c\
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\

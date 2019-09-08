@@ -7,13 +7,16 @@
 #include "demand.h"
 #include "page.h"
 #include "utility.h"
+#include "cache.h"
 #include "../../interface/interface.h"
 
 extern algorithm __demand;
 
-extern struct demand_env env;
-extern struct demand_member member;
+extern struct demand_env d_env;
+extern struct demand_member d_member;
 extern struct demand_stat d_stat;
+
+extern struct demand_cache *d_cache;
 
 extern __segment *d_active;
 extern __segment *d_reserve;
@@ -58,15 +61,15 @@ _do_bulk_read_pages_containing_valid_grain
 }
 
 static void _do_wait_until_read_all(int target_number) {
-	while (member.nr_valid_read_done != target_number) {}
-	member.nr_valid_read_done = 0;
+	while (d_member.nr_valid_read_done != target_number) {}
+	d_member.nr_valid_read_done = 0;
 }
 
 struct gc_bucket *gc_bucket;
 struct gc_bucket_node *gcb_node_arr[_PPS*GRAIN_PER_PAGE];
 static int 
 _do_bulk_write_valid_grains
-(blockmanager *bm, struct gc_table_struct **bulk_table, int nr_read_pages) {
+(blockmanager *bm, struct gc_table_struct **bulk_table, int nr_read_pages, page_t type) {
 	gc_bucket = (struct gc_bucket *)malloc(sizeof(struct gc_bucket));
 	for (int i = 0; i < PAGESIZE/GRAINED_UNIT+1; i++) gc_bucket->idx[i] = 0;
 
@@ -120,7 +123,7 @@ _do_bulk_write_valid_grains
 			memcpy(&page[offset*GRAINED_UNIT], gcb_node->ptr, target_length*GRAINED_UNIT);
 
 			//lpa_list[offset] = gcb_node->lpa;
-			set_oob(bm, gcb_node->lpa, ppa, offset);
+			set_oob(bm, gcb_node->lpa, ppa, type);
 
 			offset += target_length;
 			remain -= target_length * GRAINED_UNIT;
@@ -150,13 +153,13 @@ static int lpa_compare(const void *a, const void *b) {
 	else return 1;
 }
 
-static int _do_bulk_mapping_update(blockmanager *bm, int nr_valid_grains) {
+static int _do_bulk_mapping_update(blockmanager *bm, int nr_valid_grains, page_t type) {
 	qsort(gcb_node_arr, nr_valid_grains, sizeof(struct gc_bucket_node *), lpa_compare);
 
 	/* read mapping table which needs update */
 	volatile int nr_update_tpages = 0;
 	for (int i = 0; i < nr_valid_grains; i++) {
-		struct cmt_struct *cmt = member.cmt[IDX(gcb_node_arr[i]->lpa)];
+		struct cmt_struct *cmt = d_cache->member.cmt[IDX(gcb_node_arr[i]->lpa)];
 
 		if (!CACHE_HIT(cmt->pt)) {
 			value_set *_value_mr = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
@@ -175,13 +178,13 @@ static int _do_bulk_mapping_update(blockmanager *bm, int nr_valid_grains) {
 	}
 
 	/* wait */
-	while (member.nr_tpages_read_done == nr_update_tpages) {}
-	member.nr_tpages_read_done = 0;
+	while (d_member.nr_tpages_read_done == nr_update_tpages) {}
+	d_member.nr_tpages_read_done = 0;
 
 	/* write */
 	for (int i = 0; i < nr_valid_grains; i++) {
-		struct cmt_struct *cmt = member.cmt[IDX(gcb_node_arr[i]->lpa)];
-		struct pt_struct *pt = member.mem_table[cmt->idx];
+		struct cmt_struct *cmt = d_cache->member.cmt[IDX(gcb_node_arr[i]->lpa)];
+		struct pt_struct *pt = d_cache->member.mem_table[cmt->idx];
 
 /*		while (i < nr_valid_grains && IDX(gcb_node_arr[i]->lpa) == cmt->idx) {
 			pt[OFFSET(gcb_node_arr[i]->lpa)].ppa = gcb_node_arr[i]->ppa;
@@ -200,7 +203,7 @@ static int _do_bulk_mapping_update(blockmanager *bm, int nr_valid_grains) {
 
 		bm->populate_bit(bm, cmt->t_ppa);
 		//bm->set_oob(bm, (char *)&cmt->idx, sizeof(cmt->idx), cmt->t_ppa);
-		set_oob(bm, cmt->idx, cmt->t_ppa, 0);
+		set_oob(bm, cmt->idx, cmt->t_ppa, type);
 
 		cmt->state = CLEAN;
 	}
@@ -218,9 +221,9 @@ int dpage_gc_dvalue(blockmanager *bm) {
 
 	_do_wait_until_read_all(nr_read_pages);
 
-	int nr_valid_grains = _do_bulk_write_valid_grains(bm, bulk_table, nr_read_pages);
+	int nr_valid_grains = _do_bulk_write_valid_grains(bm, bulk_table, nr_read_pages, DATA);
 
-	_do_bulk_mapping_update(bm, nr_valid_grains);
+	_do_bulk_mapping_update(bm, nr_valid_grains, DATA);
 
 	/* trim blocks on the gsegemnt */
 	bm->pt_trim_segment(bm, DATA_S, target_seg, __demand.li);

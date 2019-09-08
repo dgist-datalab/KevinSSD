@@ -19,7 +19,7 @@
 #include "../../include/sem_lock.h"
 #include "../../include/data_struct/redblack.h"
 #include "../../interface/interface.h"
-
+//#define ONESEGMENT (DEFKEYINHEADER*DEFVALUESIZE)
 #ifdef DVALUE
 	#define CONVPPA(_ppa) _ppa/NPCINPAGE
 #else
@@ -89,6 +89,7 @@ typedef struct lsmtree{
 	uint32_t FLUSHNUM;
 	uint32_t LEVELN;
 	uint32_t LEVELCACHING;
+	uint32_t ONESEGMENT;
 	float caching_size;
 
 	bool nocpy;
@@ -105,7 +106,7 @@ typedef struct lsmtree{
 
 	uint32_t keynum_in_header;
 	uint32_t keynum_in_header_cnt;
-	uint32_t size_factor;
+	float size_factor;
 	uint32_t result_padding;
 	bool* size_factor_change;//true: it will be changed size
 

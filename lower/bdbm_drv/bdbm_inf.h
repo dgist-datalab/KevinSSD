@@ -22,6 +22,8 @@ void *memio_badblock_checker(uint32_t ppa, uint32_t size, void *(*process)(uint6
 void memio_flying_req_wait();
 void memio_info_stop();
 void memio_show_info_();
+
+uint32_t memio_tag_num();
 uint32_t memio_do_merge(uint32_t lp_num, ppa_t *lp_array, uint32_t hp_num,ppa_t *hp_array,ppa_t *tp_array, uint32_t* ktable_num, uint32_t *invliadate_num);
 char *memio_get_kt();
 char *memio_get_inv();

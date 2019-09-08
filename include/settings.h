@@ -15,7 +15,8 @@
 	}while(0)
 */
 #define PROGRESS
-#define LOWER_FILE_NAME "../iotest/simulator.data"
+//#define LOWER_FILE_NAME "../iotest/simulator.data"
+#define LOWER_FILE_NAME "./data/simulator.data"
 //#define LOWER_FILE_NAME "/dev/sdb1"
 
 //#define LOWER_FILE_NAME "/dev/robusta"
@@ -27,10 +28,13 @@
 #define G (1024*M)
 #define T (1024L*G)
 #define P (1024L*T)
+#define MILI (1000000)
 
 #define PIECE 512
 #define NPCINPAGE (PAGESIZE/PIECE)
 #define MINVALUE PIECE
+#define DEFKEYLENGTH 32
+#define DEFVALUESIZE 1024
 
 #ifdef MLC
 
@@ -45,6 +49,7 @@
 
 #define GIGAUNIT 64L
 #define TOTALSIZE (GIGAUNIT*G)
+#define OP 50
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
 #define PAGESIZE (8*K)
@@ -62,11 +67,15 @@
 #define _RNOS (REALSIZE/(_PPS*PAGESIZE))//real number of segment
 
 #define TOTALKEYNUM ((GIGAUNIT)*(G/PAGESIZE))
-#define RANGE ((GIGAUNIT)*(M/PAGESIZE)*1024L*0.5)
+//#define RANGE ((GIGAUNIT)*(M/PAGESIZE)*1024L*0.5)
+#define RANGE ((GIGAUNIT)*(M/PAGESIZE)*1024L*0.5*NPCINPAGE)
 #define REQNUM ((GIGAUNIT)*(M/PAGESIZE)*1024L)
+#define SHOWINGSIZE (TOTALSIZE/100*OP)
+#define SHOWINGFULL (SHOWINGSIZE/DEFVALUESIZE)
+#define DEVFULL (TOTALSIZE/DEFVALUESIZE)
 
 #define PARTNUM 2
-#define MAPPART_SEGS 8
+#define MAPPART_SEGS (_NOS/10)
 #define DATAPART_SEGS (_NOS-MAPPART_SEGS)
 enum{
 	MAP_S,DATA_S
@@ -77,6 +86,8 @@ enum{
 #endif
 
 #define SIMULATION 0
+
+#define PFTLMEMORY (TOTALSIZE/K)
 
 #define FSTYPE uint8_t
 #define ppa_t uint32_t
@@ -136,7 +147,7 @@ static inline bool KEYVALCHECK(KEYT a){
 #define ASYNC 1
 #define QSIZE (1024)
 #define LOWQDEPTH (64)
-#define QDEPTH (128)
+#define QDEPTH (64)
 
 #define THPOOL
 #define NUM_THREAD 4
