@@ -2,6 +2,7 @@
 #include "level.h"
 #include "lsmtree.h"
 #include "../../bench/bench.h"
+#include "nocpy.h"
 extern lsmtree LSM;
 #ifdef KVSSD
 extern KEYT key_min, key_max;
@@ -41,14 +42,21 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 			int cache_added_size=LSM.lop->get_number_runs(upper);
 			cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
 			LSM.lop->cache_comp_formatting(upper,&datas,false);
-
 			for(int i=0; datas[i]!=NULL; i++){
-				uint32_t ppa=getPPA(HEADER,datas[i]->key,true);
-				datas[i]->pbn=ppa;
-				compaction_htable_write(ppa,datas[i]->cpt_data,datas[i]->key);
+				run_t *now=datas[i];
+				uint32_t ppa=getPPA(HEADER,now->key,true);
+				now->pbn=ppa;
+				if(LSM.nocpy){
+					nocpy_copy_from_change((char*)now->cpt_data->sets,ppa);
+					htable *temp_table=htable_assign((char*)now->cpt_data->sets,1);
+					now->cpt_data->sets=NULL;
+					htable_free(now->cpt_data);
+					now->cpt_data=temp_table;
+				}
+				compaction_htable_write(ppa,now->cpt_data,now->key);
 				hp_array[i]=ppa;
-				LSM.lop->release_run(datas[i]);
-				free(datas[i]);
+				LSM.lop->release_run(now);
+				free(now);
 			}
 			free(datas);
 		}

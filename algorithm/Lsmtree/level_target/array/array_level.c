@@ -270,7 +270,7 @@ int array_cache_comp_formatting(level *lev ,run_t ***des, bool des_cache){
 			res[i]=&arrs[i];
 		}else{
 			res[i]=array_make_run(arrs[i].key,arrs[i].end,arrs[i].pbn);
-			res[i]->cpt_data=(LSM.nocpy && LSM.comp_opt!=HW)?htable_assign(arrs[i].level_caching_data,0):htable_assign(arrs[i].level_caching_data,1);
+			res[i]->cpt_data=LSM.nocpy?htable_assign(arrs[i].level_caching_data,0):htable_assign(arrs[i].level_caching_data,1);
 		}
 	}
 	res[lev->n_num]=NULL;

@@ -585,10 +585,18 @@ uint32_t compaction_empty_level(level **from, leveling_node *lnode, level **des)
 			while((now=LSM.lop->iter_nxt(iter))){
 				uint32_t ppa=getPPA(HEADER,now->key,true);
 				now->pbn=ppa;
-				now->cpt_data=(LSM.nocpy && LSM.comp_opt!=HW)?htable_assign(now->level_caching_data,0):htable_assign(now->level_caching_data,1);
+				now->cpt_data=LSM.nocpy?htable_assign(now->level_caching_data,0):htable_assign(now->level_caching_data,1);
 				if(LSM.nocpy){
 					nocpy_copy_from_change((char*)now->cpt_data->sets,ppa);
-					now->cpt_data->sets=NULL;
+					if(LSM.comp_opt==HW){
+						htable* temp_table=htable_assign((char*)now->cpt_data->sets,1);
+						now->cpt_data->sets=NULL;
+						htable_free(now->cpt_data);
+						now->cpt_data=temp_table;
+					}
+					else{
+						now->cpt_data->sets=NULL;
+					}
 				}
 				compaction_htable_write(ppa,now->cpt_data,now->key);
 			}
