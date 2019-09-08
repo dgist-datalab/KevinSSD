@@ -188,8 +188,6 @@ uint32_t demand_create(lower_info *li, blockmanager *bm, algorithm *algo){
 	/* init stat */
 	demand_stat_init(&d_stat);
 
-	//d_cache = select_cache(COARSE_GRAINED);
-	//d_cache = select_cache(FINE_GRAINED);
 	d_cache = select_cache((cache_t)d_env.cache_id);
 
 	/* create() for range query */
@@ -238,23 +236,22 @@ static void print_demand_stat(struct demand_stat *const _stat) {
 	puts("================");
 	puts(" Device Traffic ");
 	puts("================");
-	puts("");
 
-	printf("Data_Read:\t%ld\n", _stat->data_r);
-	printf("Data_Write:\t%ld\n", _stat->data_w);
+	printf("Data_Read:  \t%ld\n", _stat->data_r);
+	printf("Data_Write: \t%ld\n", _stat->data_w);
 	puts("");
-	printf("Trans_Read:\t%ld\n", _stat->trans_r);
+	printf("Trans_Read: \t%ld\n", _stat->trans_r);
 	printf("Trans_Write:\t%ld\n", _stat->trans_w);
 	puts("");
-	printf("DataGC cnt:\t%ld\n", _stat->dgc_cnt);
-	printf("DataGC_DR:\t%ld\n", _stat->data_r_dgc);
-	printf("DataGC_DW:\t%ld\n", _stat->data_w_dgc);
-	printf("DataGC_TR:\t%ld\n", _stat->trans_r_dgc);
-	printf("DataGC_TW:\t%ld\n", _stat->trans_w_dgc);
+	printf("DataGC cnt: \t%ld\n", _stat->dgc_cnt);
+	printf("DataGC_DR:  \t%ld\n", _stat->data_r_dgc);
+	printf("DataGC_DW:  \t%ld\n", _stat->data_w_dgc);
+	printf("DataGC_TR:  \t%ld\n", _stat->trans_r_dgc);
+	printf("DataGC_TW:  \t%ld\n", _stat->trans_w_dgc);
 	puts("");
 	printf("TransGC cnt:\t%ld\n", _stat->tgc_cnt);
-	printf("TransGC_TR:\t%ld\n", _stat->trans_r_tgc);
-	printf("TransGC_TW:\t%ld\n", _stat->trans_w_tgc);
+	printf("TransGC_TR: \t%ld\n", _stat->trans_r_tgc);
+	printf("TransGC_TW: \t%ld\n", _stat->trans_w_tgc);
 	puts("");
 
 	int amplified_read = _stat->trans_r + _stat->data_r_dgc + _stat->trans_r_dgc + _stat->trans_r_tgc;
@@ -263,11 +260,31 @@ static void print_demand_stat(struct demand_stat *const _stat) {
 	printf("WAF: %.2f\n", (float)(_stat->data_w + amplified_write)/_stat->data_w);
 	puts("");
 
+	/* r/w specific traffic */
+	puts("==============");
+	puts(" R/W analysis ");
+	puts("==============");
+
+	puts("[Read]");
+	printf("*Read Reqs: \t%ld\n", _stat->read_req_cnt);
+	printf("Data read:  \t%ld (+%ld Write-buffer hits)\n", _stat->d_read_on_read, _stat->wb_hit);
+	printf("Data write: \t%ld\n", _stat->d_write_on_read);
+	printf("Trans read: \t%ld\n", _stat->t_read_on_read);
+	printf("Trans write:\t%ld\n", _stat->t_write_on_read);
+	puts("");
+
+	puts("[Write]");
+	printf("*Write Reqs:\t%ld\n", _stat->write_req_cnt);
+	printf("Data read:  \t%ld\n", _stat->d_read_on_write);
+	printf("Data write: \t%ld\n", _stat->d_write_on_write);
+	printf("Trans read: \t%ld\n", _stat->t_read_on_write);
+	printf("Trans write:\t%ld\n", _stat->t_write_on_write);
+	puts("");
+
 	/* write buffer */
 	puts("==============");
 	puts(" Write Buffer ");
 	puts("==============");
-	puts("");
 
 	printf("Write-buffer Hit cnt: %ld\n", _stat->wb_hit);
 	puts("");
@@ -277,7 +294,6 @@ static void print_demand_stat(struct demand_stat *const _stat) {
 	puts("================");
 	puts(" Hash Collision ");
 	puts("================");
-	puts("");
 
 	puts("[Overall Hash-table Load Factor]");
 	int filled_entry_cnt = count_filled_entry();
@@ -408,6 +424,7 @@ uint32_t demand_read(request *const req){
 	uint32_t rc;
 #ifdef HASH_KVSSD
 	if (!req->hash_params) {
+		d_stat.read_req_cnt++;
 		req->hash_params = (void *)make_hash_params(req);
 	}
 #endif
@@ -423,6 +440,7 @@ uint32_t demand_write(request *const req) {
 	uint32_t rc;
 #ifdef HASH_KVSSD
 	if (!req->hash_params) {
+		d_stat.write_req_cnt++;
 		req->hash_params = (void *)make_hash_params(req);
 	}
 #endif
