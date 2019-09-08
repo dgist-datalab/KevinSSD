@@ -58,12 +58,12 @@ static void fg_env_init(cache_t c_type, struct cache_env *const _env) {
 	_env->caching_ratio = d_env.caching_ratio;
 	//_env->max_cached_tpages = _env->nr_tpages_optimal_caching * _env->caching_ratio;
 	_env->max_cached_tpages = PFTLMEMORY / PAGESIZE;
-	_env->max_cached_tentries = PFTLMEMORY / (ENTRY_SIZE + sizeof(struct pt_struct *) + sizeof(lpa_t));
+	_env->max_cached_tentries = PFTLMEMORY / (ENTRY_SIZE + 4 + sizeof(lpa_t));
 	//_env->max_cached_tentries = d_env.nr_pages * _env->caching_ratio;
 
 #ifdef DVALUE
-	_env->nr_valid_tpages *= GRAIN_PER_PAGE;
-	_env->nr_valid_tentries *= GRAIN_PER_PAGE;
+	_env->nr_valid_tpages *= GRAIN_PER_PAGE / 2;
+	_env->nr_valid_tentries *= GRAIN_PER_PAGE / 2;
 #endif
 
 	print_cache_env(_env);
@@ -127,7 +127,6 @@ static void fg_print_member() {
 	puts("=====================");
 	puts(" Cache Finish Status ");
 	puts("=====================");
-	puts("");
 
 	printf("Max Cached tentries:     %d\n", cenv->max_cached_tentries);
 	printf("Current Cached tentries: %d\n", cmbr->nr_cached_tentries);
@@ -307,6 +306,8 @@ int fg_wait_if_flying(lpa_t lpa, request *const req, snode *wb_entry) {
 }
 
 int fg_touch(lpa_t lpa) {
+	struct cmt_struct *cmt = cmbr->cmt[IDX(lpa)];
+	lru_update(cmbr->lru, cmt->lru_ptr);
 	return 0;
 }
 

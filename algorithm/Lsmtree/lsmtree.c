@@ -788,7 +788,10 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, keyset **found, int *level,int *r
 	if(*run) (*level)++;
 	for(int i=*level; i<LSM.LEVELN; i++){
 	#ifdef BLOOM
-		if(!bf_check(LSM.disk[i]->filter,key)) continue;
+		if(i>=LSM.LEVELCACHING && LSM.comp_opt==HW){	
+		}
+		else
+			if(!bf_check(LSM.disk[i]->filter,key)) continue;
 	#endif
 		
 		entries=LSM.lop->find_run(LSM.disk[i],key);
@@ -1108,12 +1111,11 @@ uint32_t lsm_test_read(ppa_t p, char *data){
 	value_set *v=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
 	lsm_req->end_req=lsm_end_req;
 	lsm_req->params=(void*)params;
+	lsm_req->type=DATAR;
 
 	LSM.li->read(p,PAGESIZE,v,ASYNC,lsm_req);
 	fdriver_lock(params->lock);
-	lsm_req->type=DATAR;
 	memcpy(data,v->value,PAGESIZE);
-	free(params);
 	inf_free_valueset(v,FS_MALLOC_R);
 	return 1;
 }
