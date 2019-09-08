@@ -463,6 +463,7 @@ void* posix_read_hw(uint32_t _PPA, char *key,uint32_t key_len, value_set *value,
 
 	pthread_mutex_lock(&fd_lock);
 
+	my_posix.req_type_cnt[MAPPINGR]++;
 	if(my_posix.SOP*PPA >= my_posix.TS){
 		printf("\nread error\n");
 		abort();
