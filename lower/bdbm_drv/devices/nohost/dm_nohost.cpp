@@ -207,11 +207,9 @@ class FlashIndication: public FlashIndicationWrapper {
 			
 			r->req_type=UINT8_MAX;
 			if(status){
-				printf("find!\n");
 				r->logaddr.lpa[0]=ppa;
 			}
 			else{
-				printf("not_found!\n");
 				r->logaddr.lpa[0]=UINT32_MAX;
 			}
 			dm_nohost_end_req(_bdi_dm,r);
@@ -433,7 +431,7 @@ uint32_t __dm_nohost_init_device (
 	fprintf(stderr,"resPpa2 %d size %d\n",ref_resPpaList2,get_result_ppa_list_size());
 
 	ref_mergedKtBuf = mergedKtBuf->reference();
-	fprintf(stderr,"mergeResult %d size %d\n",ref_mergedKtBuf,get_result_kt_size());
+	fprintf(stderr,"mergeResult %d size %d page %d\n",ref_mergedKtBuf,get_result_kt_size(),get_result_kt_size()/8192);
 	ref_invalPpaList = invalPpaList->reference();
 	fprintf(stderr,"inv %d size %d\n",ref_invalPpaList,get_inv_ppa_list_size());
 #if JNI==4

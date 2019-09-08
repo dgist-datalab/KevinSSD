@@ -195,6 +195,7 @@ uint32_t memio_do_merge(uint32_t lp_num, ppa_t *lp_array, uint32_t hp_num,ppa_t 
 void *memio_info_hw_read(uint32_t ppa, char* key, uint32_t key_len, value_set* value, bool async, algo_req *const req){
 	bb_node t=checker.ent[ppa>>14];
 	uint32_t fppa=bb_checker_fix_ppa(t.flag,t.fixed_segnum,t.pair_segnum,ppa);
+	memio_info.req_type_cnt[MAPPINGR]++;
 	memio_do_hw_read(mio,fppa,key,key_len,(uint8_t *)value->value,async,(void*)req,value->dmatag);
 	return NULL;
 }
