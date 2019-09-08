@@ -45,7 +45,6 @@ void print_cache_stat(struct cache_stat *_stat) {
 	puts("===================");
 	puts(" Cache Performance ");
 	puts("===================");
-	puts("");
 
 	printf("Cache_Hit:\t%ld\n", _stat->cache_hit);
 	printf("Cache_Miss:\t%ld\n", _stat->cache_miss);

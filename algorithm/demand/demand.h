@@ -146,6 +146,19 @@ struct demand_stat {
 	uint64_t tgc_by_read;
 	uint64_t tgc_by_write;
 
+	/* r/w specific traffic */
+	uint64_t read_req_cnt;
+	uint64_t write_req_cnt;
+
+	uint64_t d_read_on_read;
+	uint64_t d_write_on_read;
+	uint64_t t_read_on_read;
+	uint64_t t_write_on_read;
+	uint64_t d_read_on_write;
+	uint64_t d_write_on_write;
+	uint64_t t_read_on_write;
+	uint64_t t_write_on_write;
+
 	/* write buffer */
 	uint64_t wb_hit;
 

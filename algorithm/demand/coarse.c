@@ -122,7 +122,6 @@ static void cg_print_member() {
 	puts("=====================");
 	puts(" Cache Finish Status ");
 	puts("=====================");
-	puts("");
 
 	printf("Max Cached tpages:     %d\n", cenv->max_cached_tpages);
 	printf("Current Cached tpages: %d\n", cmbr->nr_cached_tpages);

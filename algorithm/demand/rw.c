@@ -458,6 +458,7 @@ void *demand_end_req(algo_req *a_req) {
 		d_stat.data_r++;
 #ifdef HASH_KVSSD
 		if (IS_READ(req)) {
+			d_stat.d_read_on_read++;
 			req->type_ftl++;
 
 			h_params = (struct hash_params *)req->hash_params;
@@ -473,6 +474,7 @@ void *demand_end_req(algo_req *a_req) {
 				inf_assign_try(req);
 			}
 		} else {
+			d_stat.d_read_on_write++;
 			h_params = (struct hash_params *)wb_entry->hash_params;
 
 			copy_key_from_value(&check_key, d_params->value, offset);
@@ -500,6 +502,8 @@ void *demand_end_req(algo_req *a_req) {
 		break;
 	case DATAW:
 		d_stat.data_w++;
+		d_stat.d_write_on_write++;
+
 		inf_free_valueset(d_params->value, FS_MALLOC_W);
 #ifndef DVALUE
 		free(wb_entry->hash_params);
@@ -509,13 +513,18 @@ void *demand_end_req(algo_req *a_req) {
 		d_stat.trans_r++;
 		inf_free_valueset(d_params->value, FS_MALLOC_R);
 		if (sync_mutex) {
+			if (IS_READ(req)) d_stat.t_read_on_read++;
+			else d_stat.t_read_on_write++;
+
 			dl_sync_arrive(sync_mutex);
 			//free(sync_mutex);
 			break;
 		} else if (IS_READ(req)) {
+			d_stat.t_read_on_read++;
 			req->type_ftl++;
 			inf_assign_try(req);
 		} else {
+			d_stat.t_read_on_write++;
 			q_enqueue((void *)wb_entry, d_member.wb_retry_q);
 		}
 		break;
@@ -523,9 +532,11 @@ void *demand_end_req(algo_req *a_req) {
 		d_stat.trans_w++;
 		inf_free_valueset(d_params->value, FS_MALLOC_W);
 		if (IS_READ(req)) {
+			d_stat.t_write_on_read++;
 			req->type_ftl+=100;
 			inf_assign_try(req);
 		} else {
+			d_stat.t_write_on_write++;
 			q_enqueue((void *)wb_entry, d_member.wb_retry_q);
 		}
 		break;
