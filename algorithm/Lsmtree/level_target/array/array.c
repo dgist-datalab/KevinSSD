@@ -189,7 +189,8 @@ void array_body_free(run_t *runs, int size){
 
 void array_insert(level *lev, run_t* r){
 	if(lev->m_num<=lev->n_num){
-		array_print(lev);
+	//	array_print(lev);
+		printf("level full!!!!\n");
 		abort();
 	}
 

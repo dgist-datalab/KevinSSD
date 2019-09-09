@@ -73,6 +73,7 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 				free(now);
 			}
 			free(datas);
+			LSM.li->lower_flying_req_wait();
 		}
 	}else{
 		hp_array[0]=lnode->entry->pbn;
@@ -122,7 +123,9 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	}
 //	free(test_page);
 
+	printf("u:%d l:%d",hp_num,lp_num);
 	LSM.li->hw_do_merge(lp_num,lp_array,hp_num,hp_array,tp_array,&ktable_num,&invalidate_num);
+	printf("- done ktable_num:%d m_num:%d\n",ktable_num,t->m_num);
 
 
 	char *kt=LSM.li->hw_get_kt();

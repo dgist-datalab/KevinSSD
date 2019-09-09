@@ -513,6 +513,7 @@ uint32_t lsm_get(request *const req){
 	static bool level_show=false;
 	static bool debug=false;
 	uint32_t res_type=0;
+	uint32_t nor=0;
 	if(!level_show){
 		level_show=true;
 		measure_init(&lsm_mt);
@@ -534,13 +535,14 @@ uint32_t lsm_get(request *const req){
 	}
 	if(unlikely(res_type==0)){
 		free(req->params);
-	//	if(nor==0){
+		if(nor==0){
+			nor=1;
 #ifdef KVSSD
 		printf("not found seq: %d, key:%.*s\n",nor++,KEYFORMAT(req->key));
 #else
 		printf("not found seq: %d, key:%u\n",nor++,req->key);
 #endif
-	//	}
+		}
 	
 	//	LSM.lop->all_print();
 		req->type=req->type==FS_GET_T?FS_NOTFOUND_T:req->type;
@@ -1087,7 +1089,7 @@ level *lsm_level_resizing(level *target, level *src){
 		}
 	}
 	
-	uint32_t target_cnt=target->m_num;
+	double target_cnt=target->m_num;
 	if(LSM.size_factor_change[target->idx]){
 		LSM.size_factor_change[target->idx]=false;
 		uint32_t cnt=target->idx+1;
@@ -1099,7 +1101,10 @@ level *lsm_level_resizing(level *target, level *src){
 		LSM.added_header=0;
 		//LSM.lop->print_level_summary();
 	}
-	return LSM.lop->init(target_cnt,target->idx,target->fpr,false);
+	if(target->idx==LSM.LEVELN-1){
+		target_cnt=ceil(LSM.size_factor*LSM.disk[LSM.LEVELN-2]->m_num+(LSM.disk[LSM.LEVELN-2]->m_num*2));
+	}
+	return LSM.lop->init(ceil(target_cnt),target->idx,target->fpr,false);
 }
 
 uint32_t lsm_test_read(ppa_t p, char *data){
