@@ -158,6 +158,7 @@ void *memio_info_trim_a_block(uint32_t ppa, bool async){
 void memio_info_stop(){}
 
 void memio_flying_req_wait(){
+	memio_tag_num();
 	while(!memio_is_clean(mio));
 }
 

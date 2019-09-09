@@ -64,7 +64,7 @@ pthread_mutex_t bus_lock=PTHREAD_MUTEX_INITIALIZER;
 extern pthread_mutex_t endR;
 struct timespec reqtime;
 
-#define PPA_LIST_SIZE (128*1024)
+#define PPA_LIST_SIZE (200*1024)
 #define MBYTE (1024*1024)
 
 #define FPAGE_SIZE (8192)
@@ -189,16 +189,14 @@ class FlashIndication: public FlashIndicationWrapper {
 		virtual void mergeDone(unsigned int numMergedKt, uint32_t numInvalAddr, uint64_t counter) {
 			merge_req.kt_num=numMergedKt;
 			merge_req.inv_num=numInvalAddr;
-			sem_post(&merge_req.merge_lock);
-			sem_destroy(&merge_req.merge_lock);
 		}
 
 		virtual void mergeFlushDone1(unsigned int num) {
 			// num does not mean anything
-
+			sem_post(&merge_req.merge_lock);
+			sem_destroy(&merge_req.merge_lock);
 		}
 		virtual void mergeFlushDone2(unsigned int num) {
-
 		}
 #if JNI==4
 		virtual void findKeyDone ( const uint16_t tag, const uint16_t status, const uint32_t ppa ) {

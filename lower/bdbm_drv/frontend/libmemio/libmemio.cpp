@@ -328,6 +328,7 @@ void memio_wait (memio_t* mio)
 		bdbm_mutex_lock(&mio->tagQMutex);
 		i = mio->tagQ->size();
 		bdbm_mutex_unlock(&mio->tagQMutex);
+		printf("i:%d\n",i);
 	} while ( i != mio->nr_tags-1 );
 
 }
