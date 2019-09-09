@@ -34,7 +34,7 @@
 #define NPCINPAGE (PAGESIZE/PIECE)
 #define MINVALUE PIECE
 #define DEFKEYLENGTH 32
-#define DEFVALUESIZE 1024
+#define DEFVALUESIZE 2048
 
 #ifdef MLC
 
@@ -47,7 +47,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 64L
+#define GIGAUNIT 16L
 #define TOTALSIZE (GIGAUNIT*G)
 #define OP 50
 #define REALSIZE (512L*G)
