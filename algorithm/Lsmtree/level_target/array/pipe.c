@@ -24,13 +24,11 @@ bool print_test;
 int lock_cnt=0;
 void new_page_set(p_body *p, bool iswrite){
 	if(p->read_from_run){
-		bench_custom_start(write_opt_time,9);
 		if(fdriver_try_lock(p->pl_datas[p->pidx].lock)==-1){
 			fdriver_lock(p->pl_datas[p->pidx].lock);
 		}
 		else{
 		}
-		bench_custom_A(write_opt_time,9);
 		p->now_page=data_from_run(p->pl_datas[p->pidx].r);
 	}
 	else{

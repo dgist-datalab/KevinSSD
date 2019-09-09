@@ -189,7 +189,8 @@ void array_body_free(run_t *runs, int size){
 
 void array_insert(level *lev, run_t* r){
 	if(lev->m_num<=lev->n_num){
-		array_print(lev);
+	//	array_print(lev);
+		printf("level full!!!!\n");
 		abort();
 	}
 
@@ -695,9 +696,9 @@ void array_print_level_summary(){
 		}
 		else {
 #ifdef BLOOM
-			printf("[%d - %s ] n_num:%d m_num:%d filter:%p\n",i+1,i<LSM.LEVELCACHING?"C":"NC",LSM.disk[i]->n_num,LSM.disk[i]->m_num,LSM.disk[i]->filter);
+			printf("[%d - %s (%.*s ~ %.*s)] n_num:%d m_num:%d filter:%p\n",i+1,i<LSM.LEVELCACHING?"C":"NC",KEYFORMAT(LSM.disk[i]->start),KEYFORMAT(LSM.disk[i]->end),LSM.disk[i]->n_num,LSM.disk[i]->m_num,LSM.disk[i]->filter);
 #else
-			printf("[%d - %s] n_num:%d m_num:%d %.*s ~ %.*s\n",i+1,i<LSM.LEVELCACHING?"C":"NC",LSM.disk[i]->n_num,LSM.disk[i]->m_num,KEYFORMAT(LSM.disk[i]->start),KEYFORMAT(LSM.disk[i]->end));
+			printf("[%d - %s (%.*s ~ %.*s)] n_num:%d m_num:%d %.*s ~ %.*s\n",i+1,i<LSM.LEVELCACHING?"C":"NC",KEYFORMAT(LSM.disk[i]->start),KEYFORMAT(LSM.disk[i]->end),LSM.disk[i]->n_num,LSM.disk[i]->m_num,KEYFORMAT(LSM.disk[i]->start),KEYFORMAT(LSM.disk[i]->end));
 #endif
 		}
 	}	

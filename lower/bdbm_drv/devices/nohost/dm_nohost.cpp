@@ -64,7 +64,7 @@ pthread_mutex_t bus_lock=PTHREAD_MUTEX_INITIALIZER;
 extern pthread_mutex_t endR;
 struct timespec reqtime;
 
-#define PPA_LIST_SIZE (300*1024)
+#define PPA_LIST_SIZE (128*1024)
 #define MBYTE (1024*1024)
 
 #define FPAGE_SIZE (8192)
