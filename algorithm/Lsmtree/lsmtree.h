@@ -107,6 +107,7 @@ typedef struct lsmtree{
 	uint32_t keynum_in_header;
 	uint32_t keynum_in_header_cnt;
 	float size_factor;
+	float last_size_factor;
 	uint32_t result_padding;
 	bool* size_factor_change;//true: it will be changed size
 
