@@ -1077,6 +1077,6 @@ int bench_set_params(int argc, char **argv, char **temp_argv){
 	printf("value_size: %d - -1==rand\n",VALUESIZE==-1?VALUESIZE:VALUESIZE*PIECE);
 
 	optind=0;
-	seq_padding_opt=1;
+	seq_padding_opt=0;
 	return temp_cnt;
 }
