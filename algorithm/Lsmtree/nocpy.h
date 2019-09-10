@@ -7,13 +7,16 @@
 void nocpy_init();
 void nocpy_free();
 
-void nocpy_copy_to(char *des, KEYT ppa);
-//void nocpy_ack_to_NULL(KEYT ppa);
-void nocpy_free_page(KEYT ppa);
-void nocpy_force_freepage(KEYT ppa);
-void nocpy_free_block(KEYT ppa);
-void nocpy_copy_from(char *src, KEYT ppa);
-void nocpy_copy_from_change(char *src, KEYT ppa);
-char* nocpy_pick(KEYT ppa);
+void nocpy_copy_to(char *des, uint32_t ppa);
+void nocpy_free_page(uint32_t ppa);
+void nocpy_force_freepage(uint32_t ppa);
+void nocpy_free_block(uint32_t ppa);
+void nocpy_copy_from_change(char *src, uint32_t ppa);
+bool nocpy_ptr_check(char *data);
+void nocpy_trim_delay_enq(uint32_t ppa);
+void nocpy_trim_delay_flush();
+
+char* nocpy_pick(uint32_t ppa);
+uint32_t nocpy_size();
 
 #endif

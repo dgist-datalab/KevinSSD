@@ -19,7 +19,7 @@ INCLUDE = $(ROOTDIR)/include
 COMMON = $(ROOTDIR)/common
 DM_COMMON = $(ROOTDIR)/devices/common
 DM_NOHOST = $(ROOTDIR)/devices/nohost
-BOARDDIR = $(BOARD)/jni
+BOARDDIR = $(BOARD)/jni_4.0
 
 CFLAGS += \
 	-g \
@@ -36,6 +36,7 @@ CFLAGS += \
 	-D USE_NEW_RMW \
 	-D NOHOST \
 	-D LIBLSM \
+	-D JNI=4\
 	-std=c++11 \
 	#-D USE_ACP \ # only valid for zc706. mkTop8k_ACP.exe should be used.
 	#-D ZYNQ=1 \ # Already defined in ConnectalProjectConfig.h:20 
@@ -77,6 +78,7 @@ SRCS := \
 	$(DM_COMMON)/dev_main.c \
 	$(DM_COMMON)/dev_params.c \
 	$(DM_NOHOST)/dm_nohost.cpp \
+	$(DM_NOHOST)/sw_poller.cpp \
 	../../../../include/data_struct/hash.c\
 
 ifeq ($(priority), "true")

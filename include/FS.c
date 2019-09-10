@@ -17,15 +17,19 @@ int F_malloc(void **ptr, int size,int rw){
 #ifdef bdbm_drv
 	dmatag=memio_info.lower_alloc(rw,(char**)ptr);
 #elif linux_aio
-	int res;
-	void *target;
-	res=posix_memalign(&target,4*K,size);
-	memset(target,0,size);
+	if(size%(4*K)){
+		(*ptr)=malloc(size);
+	}else{
+		int res;
+		void *target;
+		res=posix_memalign(&target,4*K,size);
+		memset(target,0,size);
 
-	if(res){
-		printf("failed to allocate memory:%d\n",errno);
+		if(res){
+			printf("failed to allocate memory:%d\n",errno);
+		}
+		*ptr=target;
 	}
-	*ptr=target;
 #else
 	(*ptr)=malloc(size);
 #endif	
@@ -34,11 +38,7 @@ int F_malloc(void **ptr, int size,int rw){
 	}
 	return dmatag;
 }
-
 void F_free(void *ptr,int tag,int rw){
-	if(rw==FS_MALLOC_R){
-	//	printf("free tag:%d\n",tag);
-	}
 #ifdef bdbm_drv
 	memio_info.lower_free(rw,tag);
 #else 

@@ -1,11 +1,13 @@
 #include "lsmtree.h"
 #include "../../include/lsm_settings.h"
 #include "../../include/utils/debug_tools.h"
+#include "../../include/utils/kvssd.h"
 #include "cache.h"
 #include<stdlib.h>
 #include<string.h>
 #include<stdio.h>
 int32_t update,delete_,insert;
+extern lsmtree LSM;
 cache *cache_init(uint32_t noe){
 	cache *c=(cache*)malloc(sizeof(cache));
 	c->m_size=noe;
@@ -39,14 +41,16 @@ cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
 	if(c->m_size < c->n_size){
 		int target=c->n_size-c->m_size+1;
 		for(int i=0; i<target; i++){
-			cache_delete(c,cache_get(c));
+			if(!cache_delete(c,cache_get(c))) return NULL;
 		}
 	}
 
 	insert++;
 	cache_entry *c_ent=(cache_entry*)malloc(sizeof(cache_entry));
 
+	c_ent->locked=false;
 	c_ent->entry=ent;
+	if(!LSM.nocpy)ent->cache_data->iscached=2;
 	if(c->bottom==NULL){
 		c->bottom=c_ent;
 		c->top=c_ent;
@@ -67,16 +71,17 @@ cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
 }
 bool cache_delete(cache *c, run_t * ent){
 	delete_++;
-	if(c->n_size==0){
+	if(c->n_size==0 || !ent){
 		return false;
 	}
 	//printf("cache delete\n");
-	cache_entry *c_ent=ent->c_entry;
-	if(ent->cache_data){
-		free(ent->cache_data->sets);
-		free(ent->cache_data);
+	cache_entry *c_ent=ent->c_entry;	
+	if(c_ent==c->bottom){
+		c->bottom=c_ent->up;
+	}else if(c_ent==c->top){
+		c->top=c_ent->down;
 	}
-	ent->cache_data=NULL;
+	if(!LSM.nocpy)htable_free(ent->cache_data);
 	c->n_size--;
 	free(c_ent);
 	ent->c_entry=NULL;
@@ -152,16 +157,38 @@ run_t* cache_get(cache *c){
 	if(c->n_size==0){
 		return NULL;
 	}
-	cache_entry *res=c->bottom;
-	cache_entry *up=res->up;
 
-	if(up==NULL){
+//	cache_entry *res=c->bottom;
+//	cache_entry *up=res->up;
+	int c_cnt=1;
+	cache_entry *res=c->bottom, *up;
+	while(res && res->locked){
+		res=res->up; 
+		c_cnt=0;
+	}
+	if(res)
+		up=res->up;
+	else 
+		return NULL;
+
+	if(up==NULL && c_cnt){
 		c->bottom=c->top=NULL;
 	}
-	else{
-		up->down=NULL;
-		c->bottom=up;
+	else if(c_cnt && res->locked){
+		return NULL;
 	}
+	else{
+		if(res==c->bottom){	
+			up->down=NULL;
+			c->bottom=up;
+		}else{
+			if(up){
+				up->down=res->down;
+				res->down->up=up;
+			}else res->down->up=NULL;
+		}
+	}
+
 	if(!res->entry->c_entry || res->entry->c_entry!=res){
 		cache_print(c);
 		printf("hello\n");
@@ -189,11 +216,28 @@ void cache_print(cache *c){
 		if(start->entry->c_entry!=start){
 			printf("fuck!!!\n");
 		}
-		printf("[%d]c->entry->key:%d c->entry->pbn:%d d:%p\n",print_number++,tent->key,tent->pbn,tent->cache_data);
+#ifdef KVSSD
+		if(LSM.nocpy){
+			//printf("[%d]c->endtry->key:%s c->entry->pbn:%lu d:%p\n",print_number++,kvssd_tostring(tent->key),tent->pbn,tent->cache_nocpy_data_ptr);
+		}
+#else
+		//printf("[%d]c->entry->key:%d c->entry->pbn:%d d:%p\n",print_number++,tent->key,tent->pbn,tent->cache_data);
+#endif
 		start=start->down;
 	}
 }
 
 bool cache_insertable(cache *c){
+	//printf("m:n %d:%d\n", c->m_size, c->n_size);
 	return c->m_size==0?0:1;
+}
+
+void cache_entry_lock(cache *c, cache_entry *entry){
+	c->locked_entry++;
+	entry->locked=true;
+}
+
+void cache_entry_unlock(cache *c, cache_entry *entry){
+	c->locked_entry--;
+	entry->locked=false;
 }

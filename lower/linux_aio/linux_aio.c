@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <linux/fs.h>
 #include<semaphore.h>
 #include <string.h>
@@ -29,6 +30,7 @@ lower_info aio_info={
 	.read=aio_pull_data,
 	.device_badblock_checker=NULL,
 	.trim_block=aio_trim_block,
+	.trim_a_block=aio_trim_a_block,
 	.refresh=aio_refresh,
 	.stop=aio_stop,
 	.lower_alloc=NULL,
@@ -50,7 +52,7 @@ bool wait_flag;
 bool stopflag;
 uint64_t lower_micro_latency;
 MeasureTime total_time;
-long int a, b, sum1, sum2, max1, max2, cnt;
+long int a, b, sum1, sum2, max1, max2;
 
 int type_dist[9][1000];
 int read_dist[1000], write_dist[1000];
@@ -94,17 +96,16 @@ void *poller(void *input) {
 				r=&done_array[i];
 				req=(algo_req*)r->data;
 				cb=r->obj;
-				if(r->res==-22){
+				if(r->res==(uint32_t)-22){
 					printf("error! %s %lu %llu\n",strerror(-r->res),r->res2,cb->u.c.offset);
 				}else if(r->res!=PAGESIZE){
-					printf("data size error %d!\n");
+					printf("data size error %d!\n",errno);
 				}
 				else{
 				//	printf("cb->offset:%d cb->nbytes:%d\n",cb->u.c.offset,cb->u.c.nbytes);
 				}
-				if(req->parents){
-					bench_lower_end(req->parents);
-				}
+				//if(req->parents){
+				//}
 				req->end_req(req);
 				cl_release(lower_flying);
 
@@ -122,14 +123,14 @@ void *poller(void *input) {
 	return NULL;
 }
 
-uint32_t aio_create(lower_info *li){
+uint32_t aio_create(lower_info *li,blockmanager *bm){
 	int ret;
 	sem_init(&sem,0,0);
 	li->NOB=_NOS;
 	li->NOP=_NOP;
 	li->SOB=BLOCKSIZE * BPS;
 	li->SOP=PAGESIZE;
-	li->SOK=sizeof(KEYT);
+	li->SOK=sizeof(uint32_t);
 	li->PPB=_PPB;
 	li->PPS=_PPS;
 	li->TS=TOTALSIZE;
@@ -137,8 +138,14 @@ uint32_t aio_create(lower_info *li){
 	li->all_pages_in_dev=DEVSIZE/PAGESIZE;
 
 	li->write_op=li->read_op=li->trim_op=0;
-	_fd=open("/dev/robusta",O_RDWR|O_DIRECT,0644);
-	//_fd=open64("/media/robusta/data",O_RDWR|O_CREAT|O_DIRECT,0666);
+	printf("file name : %s\n",LOWER_FILE_NAME);
+	//_fd=open(LOWER_FILE_NAME,O_RDWR|O_DIRECT,0644);
+#ifdef __cplusplus
+	_fd=open(LOWER_FILE_NAME,O_RDWR|O_CREAT|O_DIRECT,0666);
+#else
+	_fd=open(LOWER_FILE_NAME,O_RDWR|O_CREAT,0666);
+#endif
+	//_fd=open64(LOWER_FILE_NAME,O_RDWR|O_CREAT|O_DIRECT,0666);
 	if(_fd==-1){
 		printf("file open error!\n");
 		exit(1);
@@ -180,7 +187,7 @@ void *aio_refresh(lower_info *li){
 }
 void *aio_destroy(lower_info *li){
 	for(int i=0; i<LREQ_TYPE_NUM;i++){
-		printf("%s %lu\n",bench_lower_type(i),li->req_type_cnt[i]);
+		fprintf(stderr,"%s %lu\n",bench_lower_type(i),li->req_type_cnt[i]);
 	}
 	close(_fd);
 
@@ -210,26 +217,26 @@ uint64_t offset_hooker(uint64_t origin_offset, uint8_t req_type){
 	}
 	return res%(aio_info.DEV_SIZE);
 }
-void *aio_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
+void *aio_push_data(uint32_t PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	req->ppa = PPA;
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
 		exit(1);
 	}
-	bench_lower_w_start(&aio_info);
 	uint8_t t_type=test_type(req->type);
 	if(t_type < LREQ_TYPE_NUM){
 		aio_info.req_type_cnt[t_type]++;
 	}
 	
-	if(req->parents)
-		bench_lower_start(req->parents);
-
+	if(size !=PAGESIZE){
+		abort();
+	}
 	struct iocb *cb=(struct iocb*)malloc(sizeof(struct iocb));
 	cl_grap(lower_flying);
-
+	
+//	fprintf(stderr,"w %u\n",PPA);
 	//io_prep_pwrite(cb,_fd,(void*)value->value,PAGESIZE,aio_info.SOP*PPA);
-	io_prep_pwrite(cb,_fd,(void*)value->value,PAGESIZE,offset_hooker(aio_info.SOP*PPA,t_type));
+	io_prep_pwrite(cb,_fd,(void*)value->value,PAGESIZE,offset_hooker((uint64_t)aio_info.SOP*PPA,t_type));
 	cb->data=(void*)req;	
 
 #ifdef THPOOL
@@ -244,27 +251,24 @@ void *aio_push_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_r
 	pthread_mutex_unlock(&fd_lock);
 #endif
 
-	bench_lower_w_end(&aio_info);
 	return NULL;
 }
 
-void *aio_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_req *const req){	
+void *aio_pull_data(uint32_t PPA, uint32_t size, value_set* value, bool async,algo_req *const req){	
 	req->ppa = PPA;
 	if(value->dmatag==-1){
 		printf("dmatag -1 error!\n");
 		exit(1);
 	}
-	bench_lower_r_start(&aio_info);
+	
 	uint8_t t_type=test_type(req->type);
 	if(t_type < LREQ_TYPE_NUM){
 		aio_info.req_type_cnt[t_type]++;
 	}
 	
-	if(req->parents)
-		bench_lower_start(req->parents);
 	struct iocb *cb=(struct iocb*)malloc(sizeof(struct iocb));
 	cl_grap(lower_flying);
-	io_prep_pread(cb,_fd,(void*)value->value,PAGESIZE,offset_hooker(aio_info.SOP*PPA,t_type));
+	io_prep_pread(cb,_fd,(void*)value->value,PAGESIZE,offset_hooker((uint64_t)aio_info.SOP*PPA,t_type));
 	cb->data=(void*)req;
 
 #ifdef THPOOL
@@ -279,16 +283,27 @@ void *aio_pull_data(KEYT PPA, uint32_t size, value_set* value, bool async,algo_r
 	pthread_mutex_unlock(&fd_lock);
 #endif
 
-	bench_lower_r_end(&aio_info);
 	return NULL;
 }
 
-void *aio_trim_block(KEYT PPA, bool async){
+void *aio_trim_block(uint32_t PPA, bool async){
 	aio_info.req_type_cnt[TRIM]++;
 	uint64_t range[2];
 	//range[0]=PPA*aio_info.SOP;
-	range[0]=offset_hooker(PPA*aio_info.SOP,TRIM);
-	range[1]=16384*aio_info.SOP;
+	range[0]=offset_hooker((uint64_t)PPA*aio_info.SOP,TRIM);
+	range[1]=_PPS*aio_info.SOP;
+	fprintf(stderr,"T %u\n",PPA);
+	ioctl(_fd,BLKDISCARD,&range);
+	return NULL;
+}
+
+void *aio_trim_a_block(uint32_t PPA, bool async){
+	aio_info.req_type_cnt[TRIM]++;
+	uint64_t range[2];
+	//range[0]=PPA*aio_info.SOP;
+	range[0]=offset_hooker((uint64_t)PPA*aio_info.SOP,TRIM);
+	range[1]=_PPB*aio_info.SOP;
+	//fprintf(stderr,"T %u\n",PPA);
 	ioctl(_fd,BLKDISCARD,&range);
 	return NULL;
 }
@@ -296,7 +311,6 @@ void *aio_trim_block(KEYT PPA, bool async){
 void aio_stop(){}
 
 void aio_flying_req_wait(){
-	while (lower_flying->now != 0) { }
-
+	while (lower_flying->now != 0) {}
 	return ;
 }

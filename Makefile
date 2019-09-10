@@ -1,40 +1,52 @@
 export CC=gcc
 
 TARGET_INF=interface
-TARGET_LOWER=posix
-TARGET_ALGO=pftl
+TARGET_LOWER=posix_async
+TARGET_ALGO=normal
+TARGET_BM=base
+JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
 PPWD=$(pwd)
 
 DEBUGFLAGS=\
 			-rdynamic\
 			-Wno-pointer-arith\
+			-g\
+#-fsanitize=address\
 #	-DBUSE_DEBUG
 
-COMMONFLAGS=\
+export COMMONFLAGS=\
 			-Wno-write-strings\
+			-Wno-sign-compare\
+			-Wno-unused-function\
 			-DLARGEFILE64_SOURCE\
+			-D_GNU_SOURCE\
 			-DSLC\
-#			-O2\
+			-D$(TARGET_BM)\
+			-Wno-unused-but-set-variable\
+			-DCHECKINGTIME\
+			-O3\
 #			-DWRITESYNC\
+			-DKVSSD\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 
 export CFLAGS_ALGO=\
-			 -g\
+			 -fPIC\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
-#-DDVALUE\
-
+#		 -DDVALUE\
 
 export CFLAGS_LOWER=\
-			-g\
+		     -fPIC\
 			 -lpthread\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\
 
 export priority="false"
 export ORIGINAL_PATH=$(PPWD)
+
+export kv_flag="true"
 
 #CFLAGS_ALGO+=-DCOMPACTIONLOG\
 	
@@ -69,7 +81,6 @@ CFLAGS +=\
 SRCS +=\
 	./interface/queue.c\
 	./interface/interface.c\
-	./interface/bb_checker.c\
 	./interface/buse.c\
 	./include/FS.c\
 	./include/slab.c\
@@ -77,12 +88,18 @@ SRCS +=\
 	./include/utils/dl_sync.c\
 	./include/utils/rwlock.c\
 	./include/utils/cond_lock.c\
-	./include/data_struct/hash.c\
+	./include/data_struct/hash_kv.c\
 	./include/data_struct/list.c\
+	./include/data_struct/redblack.c\
+	./include/data_struct/heap.c\
+	./include/data_struct/lru_list.c\
 	./bench/measurement.c\
 	./bench/bench.c\
 	./include/utils/thpool.c\
-#	./include/data_struct/redblack.c\
+	./include/utils/kvssd.c\
+	./include/utils/sha256.c\
+	./blockmanager/base_block_manager.c\
+	./blockmanager/bb_checker.c\
 
 TARGETOBJ =\
 			$(patsubst %.c,%.o,$(SRCS))\
@@ -101,8 +118,8 @@ endif
 LIBS +=\
 		-lpthread\
 		-lm\
-#		-laio\
-		-ljemalloc\
+		-laio\
+	#	-ljemalloc\
 
 all: driver
 
@@ -116,20 +133,31 @@ debug_driver: ./interface/main.c libdriver_d.a
 driver: ./interface/main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
+bd_testcase: ./interface/mainfiles/testcase.c libdriver.a
+	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
+
+kv_driver: ./interface/mainfiles/NET_main.c libdriver.a libfdsock.a
+	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
+
 range_driver: ./interface/range_test_main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 duma_driver: ./interface/main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ -lduma $(ARCH) $(LIBS)
+
+jni: libdriver.a ./jni/DriverInterface.c
+	$(CC) -fPIC -o libdriver.so -shared -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux ./object/* $(LIBS)
 	
+libfdsock.a:
+	cd ./include/flash_sock/ && $(MAKE) libfdsock.a && mv ./libfdsock.a ../../ && cd ../../
 
 libdriver.a: $(TARGETOBJ)
 	mkdir -p object && mkdir -p data
+	cd ./blockmanager/$(TARGET_BM) && $(MAKE) && cd ../../
 	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) clean && $(MAKE) && cd ../../
 	cd ./lower/$(TARGET_LOWER) && $(MAKE) && cd ../../ 
-	cd ./algorithm/blockmanager && $(MAKE) && cd ../../
-#cd ./include/kuk_socket_lib/ && $(MAKE) && mv ./*.o ../../object/ && cd ../../
 	mv ./include/data_struct/*.o ./object/
+	mv -f ./blockmanager/*.o ./object/
 	mv ./include/utils/*.o ./object/
 	mv ./interface/*.o ./object/ && mv ./bench/*.o ./object/ && mv ./include/*.o ./object/
 	$(AR) r $(@) ./object/*
@@ -143,6 +171,8 @@ libdriver.a: $(TARGETOBJ)
 .c.o :
 	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS)
 
+submodule:libdriver.a
+	mv libdriver.a ../objects/
 
 clean :
 	cd ./algorithm/$(TARGET_ALGO) && $(MAKE) clean && cd ../../
@@ -150,7 +180,11 @@ clean :
 	@$(RM) ./data/*
 	@$(RM) ./object/*.o
 	@$(RM) *.a
-	@$(RM) driver
 	@$(RM) driver_memory_check
 	@$(RM) debug_driver
 	@$(RM) duma_driver
+	@$(RM) range_driver
+	@$(RM) *driver
+	@$(RM) bd_testcase
+	@$(RM) libdriver.so
+

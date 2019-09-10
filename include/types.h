@@ -9,14 +9,18 @@
 #define FS_CACHE_HIT_T 6
 #define FS_RMW_T 7
 #define FS_MSET_T 8
-#define FS_ITER_CRT_T 9
-#define FS_ITER_NXT_T 10
-#define FS_ITER_RLS_T 11
-#define FS_RANGEGET_T 12
-#define FS_BUSE_R 13
-#define FS_BUSE_W 14
+#define FS_MGET_T 9
+#define FS_ITER_CRT_T 10
+#define FS_ITER_NXT_T 11
+#define FS_ITER_NXT_VALUE_T 12
+#define FS_ITER_ALL_T 13
+#define FS_ITER_ALL_VALUE_T 14
+#define FS_ITER_RLS_T 15
+#define FS_RANGEGET_T 16
+#define FS_BUSE_R 17
+#define FS_BUSE_W 18
 
-#define LREQ_TYPE_NUM 9
+#define LREQ_TYPE_NUM 11
 #define TRIM 0
 #define MAPPINGR 1
 #define MAPPINGW 2
@@ -26,6 +30,8 @@
 #define DATAW 6
 #define GCDR 7
 #define GCDW 8
+#define GCMR_DGC 9
+#define GCMW_DGC 10
 
 #define FS_MALLOC_W 1
 #define FS_MALLOC_R 2
@@ -43,4 +49,8 @@ typedef enum{
 	RANDRW,MIXED,SEQLATENCY,RANDLATENCY,
 	NOR
 }bench_type;
+
+typedef enum{
+	MASTER_SEGMENT,MASTER_BLOCK,MASTER_PAGE
+}layout_type;
 #endif

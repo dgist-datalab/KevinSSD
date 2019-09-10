@@ -16,7 +16,7 @@ typedef struct badblock_checker{
 void bb_checker_start(lower_info*);
 void *bb_checker_process(uint64_t,uint8_t);
 void bb_checker_fixing();
-KEYT bb_checker_fix_ppa(KEYT ppa);
-KEYT bb_checker_fixed_segment(KEYT ppa);
-KEYT bb_checker_paired_segment(KEYT ppa);
+uint32_t bb_checker_fix_ppa(uint32_t ppa);
+uint32_t bb_checker_fixed_segment(uint32_t ppa);
+uint32_t bb_checker_paired_segment(uint32_t ppa);
 #endif

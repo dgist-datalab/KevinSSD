@@ -2,111 +2,107 @@
 #define __PAGE_H__
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
-#include "heap.h"
-#include "footer.h"
-#include "log_list.h"
-#include <pthread.h>
+#include "../../interface/queue.h"
+#include "level.h"
+#include "skiplist.h"
 
 #define HEADER 0
 #define DATA 1
-#define BLOCK 2
 
 struct level; 
-typedef struct{
-	KEYT ppa;
-	KEYT nppa;
+struct htable_t;
+struct length_bucket;
+enum GCNODE{NOTISSUE,RETRY,ISSUE,READDONE,SAMERUN,DONE};
+typedef struct gc_node_params{
+	int level;
+	int run;
+	struct keyset *found;
+	struct keyset *found2;
+	struct htable_t *data;
+	struct run *ent;
+	int data_status;
+}gc_params;
+typedef struct gc_node{
+	uint32_t ppa;
+	uint32_t nppa;
 	KEYT lpa;
 	PTR value;
+	bool invalidate;
+	uint8_t status;
 	uint8_t plength;
-	uint8_t level;
+	void *params;
 }gc_node;
-typedef struct{
+/*
+typedef struct gc_node_wrapper{
 	gc_node** datas[LEVELN][BPS+1];
 	int size[LEVELN][BPS+1];
 	int cnt[LEVELN];
-}gc_node_wrapper;
+	gc_node*** datas[BPS+1];
+	int *size[BPS+1];
+	int *cnt;
+}gc_node_wrapper;*/
 
-typedef struct{
-	/*genearal pard*/
+/*
+	NOTE:
+		the gc logic only occure when LSM has just the last level.
+		SO, the block doesn't need to have a special ptr which is notice of belonging to level.
+ */
+typedef struct lsm_block{
+	/*genearal part*/
 	bool erased;
-	llog_node *l_node;//pm where the block assigned
-	KEYT ppa;//block start number
-	uint32_t invalid_n;
-
-	/*for data block*/
+	bool isdata_block;
 #ifdef DVALUE
-	uint8_t *length_data;
-	bool isflying;
-	llog *b_log;
-	KEYT *ppage_array;
-	pthread_mutex_t lock;
-	KEYT ldp;//the page number has PVB data;
+	uint8_t *bitset;
 #endif
-
-#ifdef LEVELUSINGHEAP
-	h_node *hn_ptr;
-#else
-	llog_node *hn_ptr;
-#endif
-	uint8_t *bitset;//page validate bit
-	KEYT ppage_idx;
+	uint32_t idx_of_ppa;
+	uint32_t now_ppa;
 	uint8_t level;
-}block;
-
-typedef struct{
-	uint32_t invalid_n;
-	KEYT trimed_block;
-	KEYT segment_idx; //next reserved block
-#ifdef COSTBENEFIT
-	KEYT cost;
-#endif
-	KEYT ppa;
-}segment;
+}lsm_block;
 
 typedef struct page_manager{
-	KEYT block_num;
-	llog *blocks;
-	llog_node *n_log;
-	segment *target;//gc_target;
-	segment *reserve; //no reserve block ->null
-	segment *temp;
-	bool force_flag;
-	block *rblock;
-	uint32_t used_blkn;
-	uint32_t rused_blkn;
-	uint32_t max_blkn;
-	uint32_t segnum;
-	pthread_mutex_t manager_lock;
+	__gsegment *target;//gc_target;
+	__segment *reserve; //no reserve block ->null
+	__segment *active;
+	queue *erased_q;
 }pm;
 
 
-void block_init();
-
 void pm_init();
+lsm_block* lb_init(uint8_t type, uint32_t ppa);
+void lb_free(lsm_block *b);
 
-KEYT getPPA(uint8_t type, KEYT, bool);//in DVALUE return block id;
+uint32_t getPPA(uint8_t type, KEYT, bool);//in DVALUE return block id;
+bool page_check_available(uint8_t type, uint32_t needed_page);
+uint32_t getRPPA(uint8_t type,KEYT, bool, __gsegment *issame_bl);
 
-void invalidate_PPA(KEYT ppa);
-void block_print();
-OOBT PBITSET(KEYT,bool);
-void gc_data_now_block_chg(struct level *in, block *);
+lsm_block* getBlock(uint8_t type);
+lsm_block* getRBlock(uint8_t type);
+
+void change_reserve_to_active(uint8_t type);
+void change_new_reserve(uint8_t type);
+bool invalidate_PPA(uint8_t type,uint32_t ppa);
+void erase_PPA(uint8_t type,uint32_t ppa);
+bool validate_PPA(uint8_t type,uint32_t ppa);
+void pm_set_oob(uint32_t ppa, char *data, int len, int type);
+void *pm_get_oob(uint32_t ppa, int type,bool isgc);
+
+void* gc_data_end_req(struct algo_req*const);
 #ifdef DVALUE
-void block_load(block *b);
-void block_save(block *b);
-void block_meta_init(block *b);
-KEYT getBPPA(KEYT);//block key
-void invalidate_DPPA(KEYT ppa);
-void invalidate_BPPA(KEYT ppa);
-block **get_victim_Dblock(KEYT);
-int gc_block(KEYT tbn);
+void validate_piece(lsm_block *b, uint32_t ppa);
+void invalidate_piece(lsm_block *b, uint32_t ppa);
+bool is_invalid_piece(lsm_block *, uint32_t ppa);
 #endif
-int get_victim_block(pm *);
-bool PBITFULL(KEYT input,bool isrealppa);
-int gc_header(KEYT tbn);
-int gc_data(KEYT tbn);
-bool gc_check(uint8_t,bool);
-bool gc_segment_force();
-KEYT gc_victim_segment(uint8_t type,bool);
-void gc_trim_segment(uint8_t, KEYT pbn);
-block *gc_getrblock_fromseg(uint8_t type);
+bool gc_dynamic_checker(bool last_comp_flag);
+void gc_check(uint8_t type);
+void gc_general_wait_init();
+void gc_general_waiting();
+void gc_data_read(uint64_t ppa,struct htable_t *value,bool isdata, gc_node *);
+void gc_data_write(uint64_t ppa,struct htable_t *value,bool isdata);
+
+int gc_header();
+int gc_data();
+void gc_nocpy_delay_erase(uint32_t );
+void gc_data_header_update_add(struct length_bucket *b);
+void gc_data_header_update(struct gc_node **, int size,struct length_bucket *b);
+int gc_data_write_using_bucket(struct length_bucket *b,int target_level,char order);
 #endif

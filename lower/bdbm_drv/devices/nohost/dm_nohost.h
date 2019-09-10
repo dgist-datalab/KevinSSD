@@ -42,6 +42,19 @@ void dm_nohost_end_req (bdbm_drv_info_t* bdi, bdbm_llm_req_t* ptr_llm_req);
 uint32_t dm_nohost_load (bdbm_drv_info_t* bdi, const char* fn);
 uint32_t dm_nohost_store (bdbm_drv_info_t* bdi, const char* fn);
 
+int dm_do_merge(unsigned int ht_num, unsigned int lt_num, unsigned int *kt_num, unsigned int *inv_num,uint32_t ppa_dma);
+
+int dm_do_hw_find(uint32_t ppa, uint32_t size, bdbm_llm_req_t* r);
+
+uint32_t get_dev_tags();
+unsigned int *get_low_ppali();
+unsigned int *get_high_ppali();
+unsigned int *get_res_ppali();
+unsigned int *get_res_ppali2();
+unsigned int *get_inv_ppali();
+unsigned int *get_merged_kt();
+unsigned int *get_findKey_dma();
+
 void init_dmaQ (std::queue<int>*);
 int alloc_dmaQ_tag (int);
 void free_dmaQ_tag (int, int);

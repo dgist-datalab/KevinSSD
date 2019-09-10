@@ -47,8 +47,8 @@ void *bb_checker_process(uint64_t bad_seg,uint8_t isbad){
 	return NULL;
 }
 
-KEYT bb_checker_fix_ppa(KEYT ppa){
-	KEYT res=ppa;
+uint32_t bb_checker_fix_ppa(uint32_t ppa){
+	uint32_t res=ppa;
 #ifdef SLC
 	uint32_t bus  = res & 0x7;
 	uint32_t chip = (res >> 3) & 0x7;
@@ -80,8 +80,8 @@ KEYT bb_checker_fix_ppa(KEYT ppa){
 	else return res;
 }
 
-KEYT bb_checker_fixed_segment(KEYT ppa){
-	KEYT res=ppa/(1<<14);
+uint32_t bb_checker_fixed_segment(uint32_t ppa){
+	uint32_t res=ppa/(1<<14);
 	if(checker.ent[res].flag){
 		return checker.ent[res].fixed_segnum;
 	}
@@ -89,7 +89,7 @@ KEYT bb_checker_fixed_segment(KEYT ppa){
 		return ppa;
 }
 
-KEYT bb_checker_paired_segment(KEYT ppa){
+uint32_t bb_checker_paired_segment(uint32_t ppa){
 	return bb_checker_fixed_segment((ppa/(1<<14)+_NOS)*(1<<14));
 }
 

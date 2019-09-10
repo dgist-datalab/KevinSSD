@@ -12,6 +12,7 @@
 extern int32_t SIZEFACTOR;
 extern lsmtree LSM;
 extern bool flag_value;
+extern KEYT key_max,key_min;
 #ifdef USINGSLAB
 //extern slab_chain snode_slab;
 extern kmem_cache_t snode_slab;
@@ -20,17 +21,30 @@ extern kmem_cache_t snode_slab;
 void hash_range_update(level *d, run_t *t,KEYT lpa){
 	if(t){
 		snode *sn=(snode*)t->run_data;
-		if(sn && sn->key>lpa)sn->key=lpa;
+#ifdef KVSSD
+		if(sn && KEYCMP(sn->key,lpa)>0) sn->key=lpa;
+#else
+		if(sn && sn->key>lpa) sn->key=lpa;
+#endif
 	}
 
 	if(d){	
 		hash_body* h=(hash_body*)d->level_data;
+#ifdef KVSSD
+		if(h->body){
+			if(KEYCMP(h->body->start,lpa)>0) h->body->start=lpa;
+			if(KEYCMP(h->body->end,lpa)<0) h->body->end=lpa;
+		}
+		if(KEYCMP(d->start,lpa)>0) d->start=lpa;
+		if(KEYCMP(d->end,lpa)<0) d->end=lpa;
+#else
 		if(h->body){
 			if(h->body->start>lpa)h->body->start=lpa;
 			if(h->body->end<lpa)h->body->end=lpa;
 		}
 		if(d->start>lpa) d->start=lpa;
 		if(d->end<lpa) d->end=lpa;
+#endif
 	}
 }
 
@@ -49,8 +63,13 @@ level* hash_init(int size, int idx, float fpr, bool istier){
 	res->istier=istier;
 	res->m_num=size;
 	res->n_num=0;
+#ifdef KVSSD
+	res->start=key_max;
+	res->end=key_min;
+#else
 	res->start=UINT_MAX;
 	res->end=0;
+#endif
 	res->level_data=(void*)hbody;
 	res->now_block=NULL;
 	res->h=llog_init();
@@ -106,6 +125,7 @@ void hash_body_free(hash_body *h){
 	while(now!=h->body->header){
 		if(now->value){
 			hash_free_run((run_t*)now->value);
+			free(now->value);
 		}
 		free(now->list);
 #ifdef USINGSLAB
@@ -158,15 +178,20 @@ void hash_insert(level *lev, run_t *r){
 
 keyset *hash_find_keyset(char *data, KEYT lpa){
 	hash *c=(hash*)data;
-	KEYT h_keyset=f_h(lpa);
-	KEYT idx=0;
+	uint32_t h_keyset=f_h(lpa);
+	uint32_t idx=0;
 #if LEVELN==1
 	keyset* sets=(keyset*)data;
 	return &sets[lpa%FULLMAPNUM];
 #else
 	for(uint32_t i=0; i<c->t_num; i++){
 		idx=(h_keyset+i*i+i)%(HENTRY);
-		if(c->b[idx].lpa==lpa){
+#ifdef KVSSD
+		if(KEYCMP(c->b[idx].lpa,lpa)==0)
+#else
+		if(c->b[idx].lpa==lpa)
+#endif
+		{
 			return &c->b[idx];
 		}
 	}
@@ -174,7 +199,7 @@ keyset *hash_find_keyset(char *data, KEYT lpa){
 	return NULL;
 }
 
-run_t *hash_make_run(KEYT start, KEYT end, KEYT pbn){
+run_t *hash_make_run(KEYT start, KEYT end, uint32_t pbn){
 	run_t * res=(run_t*)calloc(sizeof(run_t),1);
 	res->key=start;
 	res->end=end;
@@ -203,7 +228,11 @@ run_t** hash_find_run( level* lev, KEYT lpa){
 	return res;
 #endif
 	if(!body || body->size==0) return NULL;
+#ifdef KVSSD
+	if(KEYCMP(lev->start,lpa)>0 || KEYCMP(lev->end,lpa)<0) return NULL;
+#else
 	if(lev->start>lpa || lev->end<lpa) return NULL;
+#endif
 	if(lev->istier) return (run_t**)-1;
 	snode *temp=skiplist_strict_range_search(body,lpa);
 	if(!temp) return NULL;
@@ -227,9 +256,20 @@ uint32_t hash_range_find( level *lev, KEYT s, KEYT e,  run_t ***rc){
 	run_t **r=(run_t**)malloc(sizeof(run_t*)*(lev->n_num+1));
 	while(temp && temp!=body->header){
 		ptr=(run_t*)temp->value;
-		if(!(ptr->end<s || ptr->key>e)){
+#ifdef KVSSD
+		if(!(KEYCMP(ptr->end,s)<0 || KEYCMP(ptr->key,e)>0))
+#else
+		if(!(ptr->end<s || ptr->key>e))
+#endif
+		{
 			r[res++]=ptr;
-		}else if(e< ptr->key){
+		}
+#ifdef KVSSD
+		else if(KEYCMP(e,ptr->key)<0)
+#else
+		else if(e< ptr->key)
+#endif
+		{
 			break;
 		}
 		temp=temp->list[1];
@@ -252,7 +292,12 @@ uint32_t hash_unmatch_find( level *lev, KEYT s, KEYT e,  run_t ***rc){
 	snode *temp=body->header->list[1];
 	while(temp && temp!=body->header){
 		ptr=(run_t*)temp->value;
-		if(!(ptr->end<s || ptr->key>e)){
+#ifdef KVSSD
+		if(!(KEYCMP(ptr->end,s)<0 || KEYCMP(ptr->key,e)>0))
+#else
+		if(!(ptr->end<s || ptr->key>e))
+#endif
+		{
 			break;
 		}else{
 			r[res++]=ptr;
@@ -269,8 +314,13 @@ uint32_t hash_unmatch_find( level *lev, KEYT s, KEYT e,  run_t ***rc){
 	temp=skiplist_strict_range_search(body,e);
 	while(temp && temp!=body->header){
 		ptr=(run_t*)temp->value;
-		if(!(ptr->end<s || ptr->key>e)){
-
+#ifdef KVSSD
+		if(!(KEYCMP(ptr->end,s)<0 || KEYCMP(ptr->key,e)>0))
+#else
+		if(!(ptr->end<s || ptr->key>e))
+#endif
+		{
+			//do nothing
 		}else{
 			r[res++]=ptr;
 		}
@@ -294,7 +344,7 @@ void hash_free_run( run_t *e){
 	}
 	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 #if LEVELN!=1
-	free(e);
+	//free(e);
 #endif
 }
 
@@ -363,17 +413,34 @@ run_t* hash_iter_nxt( lev_iter *in){
 void hash_print(level *lev){
 	hash_body *b=(hash_body*)lev->level_data;
 	printf("------------[%d]----------\n",lev->idx);
+#ifdef KVSSD
+	char temp[MAXKEYSIZE+1]={0,};
+	char temp2[MAXKEYSIZE+1]={0,};
+#endif
 #ifdef LEVELCACHING
 	hash_body *lc=b->lev_cache_data;
 	if(lc){
-		if(lc->temp)
+		if(lc->temp){
+#ifdef KVSSD
+			memcpy(temp,lc->temp->key.key,lc->temp->key.len);
+			memcpy(temp2,lc->temp->end.key,lc->temp->end.len);
+			printf("[cache]%s~%s in temp\n",temp,temp2);
+#else
 			printf("[cache]%d~%d in temp\n",lc->temp->key,lc->temp->end);
+#endif
+		}
 		if(lc->body){
 			snode *n;
 			int id=0;
 			for_each_sk(n,lc->body){
 				run_t *t=(run_t*)n->value;
+#ifdef KVSSD
+				memcpy(temp,t->key.key,t->key.len);
+				memcpy(temp2,t->end.key,t->end.len);
+				printf("[cache:%d]%s~%s\n",id,temp,temp2);
+#else
 				printf("[cache:%d]%d~%d\n",id,t->key,t->end);
+#endif
 				id++;
 			}
 		}
@@ -385,12 +452,14 @@ void hash_print(level *lev){
 	int idx=0;
 	int cache_cnt=0;
 	while(now!=b->body->header){
-		run_t *temp=(run_t*)now->value;
-		if(temp->c_entry) cache_cnt++;
-#ifdef BLOOM
-		printf("[%d]%d~%d(%d)-ptr:%p filter:%p wait:%d\n",idx,temp->key,temp->end,temp->pbn,temp,temp->filter,temp->wait_idx);
+		run_t *rtemp=(run_t*)now->value;
+		if(rtemp->c_entry) cache_cnt++;
+#ifdef KVSSD
+		memcpy(temp,rtemp->key.key,rtemp->key.len);
+		memcpy(temp2,rtemp->end.key,rtemp->end.len);
+		printf("[%d]%s~%s(%d)-ptr:%p cached:%s wait:%d\n",idx,temp,temp2,rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx);
 #else
-		printf("[%d]%d~%d(%d)-ptr:%p cached:%s wait:%d\n",idx,temp->key,temp->end,temp->pbn,temp,temp->c_entry?"true":"false",temp->wait_idx);
+		printf("[%d]%d~%d(%d)-ptr:%p cached:%s wait:%d\n",idx,rtemp->key,rtemp->end,rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx);,
 #endif
 		idx++;
 		now=now->list[1];
@@ -398,12 +467,12 @@ void hash_print(level *lev){
 	printf("\t\t\t\tcache_entry number: %d\n",cache_cnt);
 }
 
-KEYT h_max_table_entry(){
+uint32_t h_max_table_entry(){
 	return CUC_ENT_NUM;
 }
 
 
-KEYT h_max_flush_entry(uint32_t in){
+uint32_t h_max_flush_entry(uint32_t in){
 	return (in-1)*LOADF;
 }
 
@@ -422,11 +491,12 @@ uint32_t hash_cached_entries(level *lev){
 		if(lc->body){
 			snode *n;
 			int id=0;
+			/*
 			for_each_sk(n,lc->body){
 				run_t *t=(run_t*)n->value;
 				res++;
-				id++;
-			}
+			/	id++;
+			}*/
 		}
 	}
 #endif

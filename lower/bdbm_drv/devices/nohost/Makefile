@@ -65,6 +65,7 @@ LIBSRC := \
 	$(PWD)/$(CONNECTAL_DIR)/cpp/platformMemory.cpp \
 	$(PWD)/$(CONNECTAL_DIR)/cpp/timer.c \
 	dm_nohost.cpp \
+	sw_poller.cpp \
 
 LIBOBJ := \
 	$(DM_COMMON)/dev_main.o \
@@ -85,6 +86,7 @@ LIBOBJ := \
 	$(PWD)/$(CONNECTAL_DIR)/cpp/platformMemory.o \
 	$(PWD)/$(CONNECTAL_DIR)/cpp/timer.o \
 	dm_nohost.o \
+	sw_poller.o \
 
 all: $(OUT)
 

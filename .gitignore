@@ -18,3 +18,13 @@ robusta*
 .
 *log
 *trace
+driver
+range_driver
+*driver
+*.swp
+ycsb*
+cscope*
+*.bin
+*test.sh
+bd_testcase
+testing/

@@ -17,4 +17,8 @@ void cl_always_release(cl_lock*);
 void cl_now_update(cl_lock*, int);
 void cl_release(cl_lock *);
 void cl_free(cl_lock *);
+
+void cl_grep_with_f(cl_lock *, int s, int d, bool (*cmp)(int,int));
+void cl_release_with_f(cl_lock *, int s, int d, bool (*cmp)(int,int));
+
 #endif

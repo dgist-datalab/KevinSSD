@@ -52,6 +52,20 @@ FlashDriver$ vim ./interface/main.c
 -> add benchmarks what you want (e.g. bench_add(SEQSET,0,RANGE,RANGE); for sequential write bench)
 ```
 
+### Make new main file
+```
+1. copy ./interface/mainfiles/default_main.c [your_main_file]
+2. edit the your main file
+3. edit Makefile
+original Makefile:131
+driver: ./interface/mainfiles/default_main.c libdriver.a
+	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
+
+edited
+driver: [your_main_file] libdriver.a
+	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
+```
+
 ### Makefile
 ```
 FlashDriver$ vim Makefile

@@ -3,10 +3,11 @@
 #include "../include/settings.h"
 #include "../include/container.h"
 #include "measurement.h"
+#include <stdio.h>
 
 #define PRINTPER 1
-#define ALGOTYPE 10
-#define LOWERTYPE 10
+#define ALGOTYPE 300
+#define LOWERTYPE 300
 #define BENCHNUM 16
 
 #ifdef CDF
@@ -24,8 +25,8 @@ typedef struct{
 }bench_value;
 
 typedef struct{
-	KEYT start;
-	KEYT end;
+	uint32_t start;
+	uint32_t end;
 	uint64_t number;
 	bench_type type;
 }bench_meta;
@@ -82,9 +83,9 @@ typedef struct{
 }master;
 
 void bench_init();
-void bench_add(bench_type type,KEYT start, KEYT end,uint64_t number);
+void bench_add(bench_type type,uint32_t start, uint32_t end,uint64_t number);
 bench_value* get_bench();
-void bench_refresh(bench_type, KEYT start, KEYT end, uint64_t number);
+void bench_refresh(bench_type, uint32_t start, uint32_t end, uint64_t number);
 void bench_free();
 
 void bench_print();
@@ -93,23 +94,30 @@ bool bench_is_finish_n(int n);
 bool bench_is_finish();
 
 void bench_cache_hit(int mark);
-void bench_algo_start(request *const);
-void bench_algo_end(request *const);
-void bench_lower_start(request *const);
-void bench_lower_end(request* const);
-void bench_lower_w_start(lower_info *);
-void bench_lower_w_end(lower_info *);
-void bench_lower_r_start(lower_info *);
-void bench_lower_r_end(lower_info *);
-void bench_lower_t(lower_info*);
 void bench_reap_data(request *const,lower_info *);
 void bench_reap_nostart(request *const);
 char *bench_lower_type(int);
+
+void bench_custom_init(MeasureTime *mt, int idx);
+void bench_custom_start(MeasureTime *mt,int idx);
+void bench_custom_A(MeasureTime *mt,int idx);
+void bench_custom_print(MeasureTime *mt, int idx);
+int bench_set_params(int argc, char **argv,char **targv);
+
 #ifdef CDF
 void bench_cdf_print(uint64_t, uint8_t istype, bench_data*);
 #endif
 void bench_update_ftltime(bench_data *_d, request *const req);
-void bench_ftl_cdf_print(bench_data *_d);
+void bench_type_cdf_print(bench_data *_d);
 void free_bnech_all();
 void free_bench_one(bench_value *);
 #endif
+
+void seqget(uint32_t, uint32_t,monitor *);
+void seqset(uint32_t,uint32_t,monitor*);
+void seqrw(uint32_t,uint32_t,monitor *);
+void randget(uint32_t,uint32_t,monitor*);
+void randset(uint32_t,uint32_t,monitor*);
+void randrw(uint32_t,uint32_t,monitor*);
+void mixed(uint32_t,uint32_t,int percentage,monitor*);
+int my_itoa(uint32_t key, char **_target);

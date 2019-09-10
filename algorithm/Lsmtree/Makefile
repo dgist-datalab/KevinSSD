@@ -1,4 +1,4 @@
-L_TARGET=hash
+L_TARGET=array
 AL_PWD=$(PWD)
 
 ifeq ($(CC),cc)
@@ -25,17 +25,26 @@ SRCS +=\
 	   skiplist.c\
 	   bloomfilter.c\
 	   lsmtree.c\
+	   compaction_io_module.c\
+	   compaction_assistant.c\
+	   pipeline_compaction2.c\
+	   hw_compaction.c\
 	   compaction.c\
 	   page.c\
-	   heap.c\
-	   footer.c\
-	   log_list.c\
-	   factory.c\
 	   nocpy.c\
 	   lops_default.c\
 	   cache.c\
+	   page_kv.c\
+	   variable.c\
+	   lsmtree_multi.c\
+	   lsmtree_scheduling.c\
+	   data_simul.c\
 #merge_compaction.c\
 	   run_array.c\
+	   lsmtree_mop.c\
+	   lsmtree_iter.c\
+	   log_list.c\
+
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\

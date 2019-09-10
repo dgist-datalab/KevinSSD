@@ -30,7 +30,7 @@ void DmaBuffer::initDmaManager()
 }
 
 
-DmaBuffer::DmaBuffer(int size, bool cached)
+DmaBuffer::DmaBuffer(unsigned int size, bool cached)
     : size(size), cached(cached), ref(-1)
 {
     fd = portalAlloc(size, cached);

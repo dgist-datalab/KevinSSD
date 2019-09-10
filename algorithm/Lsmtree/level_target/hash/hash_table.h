@@ -5,16 +5,37 @@
 #define CUC_ENT_NUM ((int)(HENTRY*LOADF))
 
 #include <stdint.h>
+#include <limits.h>
 #include <sys/types.h>
 #include "../../skiplist.h"
 #include "../../level.h"
 #include "../../bloomfilter.h"
 
+#ifndef KVSSD
 inline KEYT f_h(KEYT a){ return (a*2654435761);}
+#else
+
+inline uint32_t f_h(KEYT a){
+	uint32_t hash=5381;
+	int c;
+
+	for(uint32_t i=0; i<a.len; i++){
+		c=a.key[i];
+		hash = ((hash<<5) + hash) + c;
+	}
+	return hash;
+}
+#endif
 typedef struct hash{
+#ifdef KVSSD
+	uint16_t n_num;
+	uint16_t t_num;
+	keyset *b;
+#else
 	uint32_t n_num;
 	uint32_t t_num;
 	keyset b[HENTRY];
+#endif
 }hash;
 
 typedef struct hash_body{
@@ -38,14 +59,14 @@ level* hash_init(int size, int idx, float fpr, bool istier);
 void hash_free(level*);
 void hash_insert(level *, run_t*);
 keyset* hash_find_keyset(char *data,KEYT lpa);
-run_t *hash_make_run(KEYT start, KEYT end, KEYT pbn);
+run_t *hash_make_run(KEYT start, KEYT end, uint32_t pbn);
 run_t **hash_find_run( level*,KEYT);
 uint32_t hash_range_find( level *,KEYT, KEYT,  run_t ***);
 uint32_t hash_unmatch_find( level *,KEYT, KEYT,  run_t ***);
 lev_iter* hash_get_iter( level *,KEYT start, KEYT end);
 run_t * hash_iter_nxt( lev_iter*);
-KEYT h_max_table_entry();
-KEYT h_max_flush_entry(uint32_t in);
+uint32_t h_max_table_entry();
+uint32_t h_max_flush_entry(uint32_t in);
 
 
 void hash_free_run( run_t*);
@@ -59,6 +80,7 @@ void hash_stream_comp_wait();
 void hash_merger( skiplist*,  run_t**,  run_t**,  level*, bool);
 void hash_merger_wrapper(skiplist *, run_t**, run_t**, level *);
 run_t *hash_cutter( skiplist*,  level*, KEYT *start,KEYT *end);
+run_t *hash_range_find_start(level *,KEYT );
 
 bool hash_chk_overlap( level *, KEYT, KEYT);
 void hash_overlap(void *);
@@ -66,7 +88,6 @@ void hash_tier_align( level *);
 void hash_print(level *);
 void hash_all_print();
 void hash_body_free(hash_body* );
-
 void hash_range_update(level *,run_t *,KEYT lpa);
 #ifdef BLOOM
 BF* hash_making_filter(run_t *,float );
@@ -79,6 +100,7 @@ void hash_cache_free(level *);
 int hash_cache_comp_formatting(level *,run_t ***);
 void hash_cache_move(level *, level *);
 keyset *hash_cache_find(level *, KEYT lpa);
+run_t *hash_cache_find_run(level *,KEYT lpa);
 int hash_cache_get_sz(level*);
 #endif
 

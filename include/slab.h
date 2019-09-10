@@ -68,13 +68,13 @@ kmem_cache_grow(kmem_cache_t cp);
 void 
 kmem_cache_reap(void);
 
-inline void
+void
 __slab_remove(kmem_cache_t cp, kmem_slab_t slab);
 
-inline void
+void
 __slab_move_to_front(kmem_cache_t cp, kmem_slab_t slab);
 
-inline void
+void
 __slab_move_to_back(kmem_cache_t cp, kmem_slab_t slab);
 
 #endif

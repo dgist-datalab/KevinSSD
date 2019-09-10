@@ -1,41 +1,61 @@
 #include"list.h"
 #include <stdlib.h>
-void __list_insert(_s_list * li, void *data,bool (*func)(void*,void*)){
-	__sli_node *new_=(__sli_node*)malloc(sizeof(__sli_node));
-	new_->data=data;
-	new_->nxt=NULL;
-	if(li->size==0){
-		li->head=li->tail=new_;
-	}
-	else{
-		if(!func || func(li->tail->data,new_->data)){
-			li->tail->nxt=new_;
-			li->tail=new_;
-		}else{
-			free(new_);
-			return;
-		}
-	}
-	li->size++;
-}
-_s_list* __list_init(){
-	_s_list* res=(_s_list*)malloc(sizeof(_s_list));
-	res->size=0;	
+
+list* list_init(){
+	list *res=(list*)malloc(sizeof(list));
+
+	res->size=0;
 	res->head=res->tail=NULL;
 	return res;
 }
-void __list_free(_s_list *li){
+
+inline li_node *new_li_node(void *data){
+	li_node* res=(li_node*)malloc(sizeof(li_node));
+	res->data=data;
+	res->prv=res->nxt=NULL;
+	return res;
+}
+
+
+void list_insert(list *li, void *data){
+	li_node *t=new_li_node(data);
+	li->size++;
 	if(!li->head){
-		free(li); return;
+		li->head=li->tail=t;
+		return;
 	}
-	__sli_node *ptr=li->head;
-	__sli_node *nxt=ptr->nxt;
-	while(ptr){
-		free(ptr);
-		ptr=nxt;
-		if(ptr)
-			nxt=ptr->nxt;
+	
+	t->prv=li->tail;
+	li->tail->nxt=t;
+	li->tail=t;
+	return;
+}
+
+void list_delete_node(list *li, li_node* t){
+	if(t==li->head){
+		li->head=li->head->nxt;
+		if(li->head)
+			li->head->prv=NULL;
+	}
+	else if(t==li->tail){
+		li->tail=li->tail->prv;
+		if(li->tail)
+			li->tail->nxt=NULL;
+	}
+	else{
+		li_node *prv=t->prv, *nxt=t->nxt;
+		prv->nxt=nxt;
+		nxt->prv=prv;	
+	}	
+	li->size--;
+	free(t);
+}
+void list_free(list *li){
+	li_node *now, *nxt;
+	if(li->size){
+		for_each_list_node_safe(li,now,nxt){
+			list_delete_node(li,now);
+		}
 	}
 	free(li);
 }
-

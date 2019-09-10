@@ -26,13 +26,15 @@
 #include <linux/module.h>
 
 #elif defined (USER_MODE)
-#include <stdio.h>
 #include <stdint.h>
 
 #else
 #error Invalid Platform (KERNEL_MODE or USER_MODE)
 #endif
 
+#include <semaphore.h>
+
+#include "sw_poller.h"
 #include "debug.h"
 #include "dm_nohost.h"
 #include "dev_params.h"
@@ -51,7 +53,6 @@ std::queue<int> *writeDmaQ = NULL;
 std::queue<int> *readDmaQ = NULL;
 
 #include <pthread.h>
-pthread_mutex_t req_mutx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t writeDmaQ_mutx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t readDmaQ_mutx = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t writeDmaQ_cond = PTHREAD_COND_INITIALIZER;
@@ -62,6 +63,9 @@ pthread_mutex_t bus_lock=PTHREAD_MUTEX_INITIALIZER;
 
 extern pthread_mutex_t endR;
 struct timespec reqtime;
+
+#define PPA_LIST_SIZE (200*1024)
+#define MBYTE (1024*1024)
 
 #define FPAGE_SIZE (8192)
 #define FPAGE_SIZE_VALID (8192)
@@ -77,7 +81,7 @@ struct timespec reqtime;
 #define NUM_PAGES_PER_BLK 256
 
 //koo
-#define DMASIZE (256*(1024/8))
+#define DMASIZE (128*(1024/8))
 #define METANUM 0
 typedef enum {
 	UNINIT,
@@ -104,9 +108,24 @@ int srcAlloc;
 
 unsigned int ref_dstAlloc;
 unsigned int ref_srcAlloc;
+unsigned int ref_highPpaList;
+unsigned int ref_lowPpaList;
+unsigned int ref_resPpaList;
+unsigned int ref_resPpaList2;
+unsigned int ref_mergedKtBuf;
+unsigned int ref_invalPpaList;
+unsigned int ref_searchKeyBuf;
 
 unsigned int* dstBuffer;
 unsigned int* srcBuffer;
+unsigned int* lowPpaList_Buffer;
+unsigned int* highPpaList_Buffer;
+unsigned int* resPpaList_Buffer;
+unsigned int* resPpaList_Buffer2;
+unsigned int* invPpaList_Buffer;
+unsigned int* mergeKt_Buffer;
+unsigned int* searchKey_Buffer;
+
 
 unsigned int* readBuffers[NUM_TAGS];
 unsigned int* writeBuffers[NUM_TAGS];
@@ -148,17 +167,52 @@ bdbm_dm_inf_t _bdbm_dm_inf = {
 typedef struct {
 	bdbm_spinlock_t lock;
 	bdbm_llm_req_t** llm_reqs;
+	bdbm_llm_req_t* merge_req;
 } dm_nohost_private_t;
 
 dm_nohost_private_t* _priv = NULL;
 
 /* global data structure */
 extern bdbm_drv_info_t* _bdi_dm;
+typedef struct merge_argues{
+	sem_t merge_lock;
+	unsigned int kt_num;
+	unsigned int inv_num;
+}merge_argues;
+
+static merge_argues merge_req;
 
 class FlashIndication: public FlashIndicationWrapper {
 	public:
 		FlashIndication (unsigned int id) : FlashIndicationWrapper (id) { }
 
+		virtual void mergeDone(unsigned int numMergedKt, uint32_t numInvalAddr, uint64_t counter) {
+			merge_req.kt_num=numMergedKt;
+			merge_req.inv_num=numInvalAddr;
+		}
+
+		virtual void mergeFlushDone1(unsigned int num) {
+			// num does not mean anything
+			sem_post(&merge_req.merge_lock);
+			sem_destroy(&merge_req.merge_lock);
+		}
+		virtual void mergeFlushDone2(unsigned int num) {
+		}
+#if JNI==4
+		virtual void findKeyDone ( const uint16_t tag, const uint16_t status, const uint32_t ppa ) {
+			bdbm_llm_req_t* r = _priv->llm_reqs[tag];
+			_priv->llm_reqs[tag] = NULL;
+			
+			r->req_type=UINT8_MAX;
+			if(status){
+				r->logaddr.lpa[0]=ppa;
+			}
+			else{
+				r->logaddr.lpa[0]=UINT32_MAX;
+			}
+			dm_nohost_end_req(_bdi_dm,r);
+		}
+#endif
 		virtual void readDone (unsigned int tag){ //, unsigned int status) {
 			int status = 0;
 			//printf ("LOG: readdone: tag=%d status=%d\n", tag, status); fflush (stdout);
@@ -166,8 +220,12 @@ class FlashIndication: public FlashIndicationWrapper {
 			bdbm_llm_req_t* r = _priv->llm_reqs[tag];
 			_priv->llm_reqs[tag] = NULL;
 			//			bdbm_sema_unlock (&global_lock);
-			if( r == NULL ){ printf("readDone: Ack Duplicate with tag=%d, status=%d\n", tag, status); fflush(stdout); return; }
+			if( r == NULL ){ printf("readDone: Ack Duplicate with tag=%d, status=%d\n", tag, status); fflush(stdout); 
+				device->debugDumpReq(0);
+				return; }
 			//else {  printf("readDone: Ack  with tag=%d, status=%d\n", tag, status); fflush(stdout); }
+
+			//sw_poller_enqueue((void*)r);
 			dm_nohost_end_req (_bdi_dm, r);
 		}
 
@@ -179,6 +237,8 @@ class FlashIndication: public FlashIndicationWrapper {
 			_priv->llm_reqs[tag] = NULL;
 			//			bdbm_sema_unlock (&global_lock);
 			if( r == NULL ) { printf("writeDone: Ack Duplicate with tag=%d, status=%d\n", tag, status); fflush(stdout); return; }
+
+			//sw_poller_enqueue((void*)r);
 			dm_nohost_end_req (_bdi_dm, r);
 		}
 
@@ -196,22 +256,15 @@ class FlashIndication: public FlashIndicationWrapper {
 			else{
 				r->isbad=0;
 			}
+
+			//sw_poller_enqueue((void*)r);
 			dm_nohost_end_req (_bdi_dm, r);
 		}
 
 		virtual void debugDumpResp (unsigned int debug0, unsigned int debug1,  unsigned int debug2, unsigned int debug3, unsigned int debug4, unsigned int debug5) {
-			fprintf(stderr, "LOG: DEBUG DUMP: gearSend = %d, gearRec = %d, aurSend = %d, aurRec = %d, readSend=%d, writeSend=%d\n", debug0, debug1, debug2, debug3, debug4, debug5);
+			fprintf(stderr, "LOG: DEBUG DUMP: gearSend = %u, gearRec = %u, aurSend = %u, aurRec = %u, readSend=%u, writeSend=%u\n", debug0, debug1, debug2, debug3, debug4, debug5);
 		}
 
-//		virtual void uploadDone () {
-//			bdbm_msg ("[dm_nohost_probe] Map Upload(Host->FPGA) done!\n");
-//			bdbm_sema_unlock (&ftl_table_lock);
-//		}
-//
-//		virtual void downloadDone () {
-//			bdbm_msg ("[dm_nohost_close] Map Download(FPGA->Host) done!\n");
-//			bdbm_sema_unlock (&ftl_table_lock);
-//		}
 };
 
 int __readFTLfromFile (const char* path, void* ptr) {
@@ -258,11 +311,26 @@ int __writeFTLtoFile (const char* path, void* ptr) {
 
 FlashIndication *indication;
 DmaBuffer *srcDmaBuffer, *dstDmaBuffer, *blkmapDmaBuffer;
+DmaBuffer *highPpaList, *lowPpaList, *resPpaList, *resPpaList2; // PPA Lists
+DmaBuffer *mergedKtBuf, *invalPpaList;
+DmaBuffer *searchKeyBuf;
+
+uint32_t get_ppa_list_size(){ return 4*PPA_LIST_SIZE;}
+uint32_t get_result_ppa_list_size(){
+	return 2*get_ppa_list_size();
+}
+uint32_t get_result_kt_size(){
+	return (unsigned int)8192*PPA_LIST_SIZE;
+}
+uint32_t get_inv_ppa_list_size(){
+	return 500*4*PPA_LIST_SIZE;
+}
 
 uint32_t __dm_nohost_init_device (
 		bdbm_drv_info_t* bdi, 
 		bdbm_device_params_t* params)
 {
+	//sw_poller_init();
 	fprintf(stderr, "Initializing Connectal & DMA...\n");
 
 	device = new FlashRequestProxy(IfcNames_FlashRequestS2H);
@@ -275,39 +343,110 @@ uint32_t __dm_nohost_init_device (
 	fprintf(stderr, "USE_ACP = TRUE\n");
 	srcDmaBuffer = new DmaBuffer(srcAlloc_sz);
 	dstDmaBuffer = new DmaBuffer(dstAlloc_sz);
+
+	highPpaList = new DmaBuffer(get_ppa_list_size());
+	lowPpaList = new DmaBuffer(get_ppa_list_size());
+	resPpaList = new DmaBuffer(get_result_ppa_list_size());
+	resPpaList2 = new DmaBuffer(get_result_ppa_list_size());
+
+	mergedKtBuf = new DmaBuffer(get_result_kt_size());
+	invalPpaList = new DmaBuffer(get_inv_ppa_list_size());
+#if JNI==4
+	searchKeyBuf = new DmaBuffer(256*128);
+#endif
+
 #else
 	fprintf(stderr, "USE_ACP = FALSE\n");
 	srcDmaBuffer = new DmaBuffer(srcAlloc_sz, false);
 	dstDmaBuffer = new DmaBuffer(dstAlloc_sz, false);
+
+	highPpaList = new DmaBuffer(get_ppa_list_size(),false);
+	lowPpaList = new DmaBuffer(get_ppa_list_size(),false);
+	resPpaList = new DmaBuffer(get_result_ppa_list_size(),false);
+	resPpaList2 = new DmaBuffer(get_result_ppa_list_size(),false);
+
+	mergedKtBuf = new DmaBuffer(get_result_kt_size(),false);
+	invalPpaList = new DmaBuffer(get_inv_ppa_list_size(),false);
+#if JNI==4
+	searchKeyBuf = new DmaBuffer(256*128,false);
+#endif
+
 #endif
 	srcBuffer = (unsigned int*)srcDmaBuffer->buffer();
 	dstBuffer = (unsigned int*)dstDmaBuffer->buffer();
 
+	highPpaList_Buffer=(unsigned int*)highPpaList->buffer();
+	lowPpaList_Buffer=(unsigned int*)lowPpaList->buffer();
+	resPpaList_Buffer=(unsigned int*)resPpaList->buffer();
+	resPpaList_Buffer2=(unsigned int*)resPpaList2->buffer();
+	invPpaList_Buffer=(unsigned int*)invalPpaList->buffer();
+	mergeKt_Buffer=(unsigned int*)mergedKtBuf->buffer();
+#if JNI==4
+	searchKey_Buffer=(unsigned int*)searchKeyBuf->buffer();
+#endif
+
+
 	fprintf(stderr, "USE_ACP = FALSE\n");
 
 	// Memory for FTL
-#if defined(USE_ACP)
-	blkmapDmaBuffer = new DmaBuffer(blkmapAlloc_sz * 2);
-#else
-	blkmapDmaBuffer = new DmaBuffer(blkmapAlloc_sz * 2, false);
-#endif
-	ftlPtr = blkmapDmaBuffer->buffer();
-	blkmap = (uint16_t(*)[NUM_LOGBLKS]) (ftlPtr);  // blkmap[Seg#][LogBlk#]
-	blkmgr = (uint16_t(*)[NUM_CHIPS][NUM_BLOCKS])  (ftlPtr+blkmapAlloc_sz); // blkmgr[Bus][Chip][Block]
+//#if defined(USE_ACP)
+//	blkmapDmaBuffer = new DmaBuffer(blkmapAlloc_sz * 2);
+//#else
+//	blkmapDmaBuffer = new DmaBuffer(blkmapAlloc_sz * 2, false);
+//#endif
+//	ftlPtr = blkmapDmaBuffer->buffer();
+//	blkmap = (uint16_t(*)[NUM_LOGBLKS]) (ftlPtr);  // blkmap[Seg#][LogBlk#]
+//	blkmgr = (uint16_t(*)[NUM_CHIPS][NUM_BLOCKS])  (ftlPtr+blkmapAlloc_sz); // blkmgr[Bus][Chip][Block]
 
 	fprintf(stderr, "Main::allocating memory finished!\n");
 
 	dstDmaBuffer->cacheInvalidate(0, 1);
 	srcDmaBuffer->cacheInvalidate(0, 1);
-	blkmapDmaBuffer->cacheInvalidate(0, 1);
+//	blkmapDmaBuffer->cacheInvalidate(0, 1);
+
+	highPpaList->cacheInvalidate(0, 1);
+	lowPpaList->cacheInvalidate(0, 1);
+	resPpaList->cacheInvalidate(0, 1);
+	resPpaList2->cacheInvalidate(0, 1);
+	mergedKtBuf->cacheInvalidate(0, 1);
+	invalPpaList->cacheInvalidate(0, 1);
+#if JNI==4
+	searchKeyBuf->cacheInvalidate(0,1);
+#endif
 
 	ref_dstAlloc = dstDmaBuffer->reference();
+	fprintf(stderr,"dest %d\n",ref_dstAlloc);
 	ref_srcAlloc = srcDmaBuffer->reference();
-	ref_blkmapAlloc = blkmapDmaBuffer->reference();
+	fprintf(stderr,"src %d\n",ref_srcAlloc);
+
+	ref_highPpaList = highPpaList->reference();
+	fprintf(stderr,"highPpa %d size:%d\n",ref_highPpaList,get_ppa_list_size());
+	ref_lowPpaList = lowPpaList->reference();
+	fprintf(stderr,"lowPpa %d size:%d\n",ref_lowPpaList, get_ppa_list_size());
+	ref_resPpaList = resPpaList->reference();
+	fprintf(stderr,"resPpa %d size %d\n",ref_resPpaList,get_result_ppa_list_size());
+	ref_resPpaList2 = resPpaList2->reference();
+	fprintf(stderr,"resPpa2 %d size %d\n",ref_resPpaList2,get_result_ppa_list_size());
+
+	ref_mergedKtBuf = mergedKtBuf->reference();
+	fprintf(stderr,"mergeResult %d size %u page %d\n",ref_mergedKtBuf,get_result_kt_size(),get_result_kt_size()/8192);
+	ref_invalPpaList = invalPpaList->reference();
+	fprintf(stderr,"inv %d size %d\n",ref_invalPpaList,get_inv_ppa_list_size());
+#if JNI==4
+	ref_searchKeyBuf = searchKeyBuf->reference();
+	fprintf(stderr,"key buf:%d size:%d\n",ref_searchKeyBuf,256*128);
+#endif
+
+	fprintf(stderr,"total memory:%d MB, %d MB\n",(srcAlloc_sz+dstAlloc_sz)/MBYTE,(get_ppa_list_size()*2+2*get_result_ppa_list_size()+get_result_kt_size()+get_inv_ppa_list_size())/MBYTE);
 
 	device->setDmaWriteRef(ref_dstAlloc);
 	device->setDmaReadRef(ref_srcAlloc);
-//	device->setDmaMapRef(ref_blkmapAlloc);
+
+	device->setDmaKtPpaRef(ref_highPpaList, ref_lowPpaList, ref_resPpaList, ref_resPpaList2);
+	device->setDmaKtOutputRef(ref_mergedKtBuf, ref_invalPpaList);
+#if JNI==4
+	device->setDmaKtSearchRef(ref_searchKeyBuf);
+#endif
 
 	for (int t = 0; t < NUM_TAGS; t++) {
 		readTagTable[t].busy = false;
@@ -354,7 +493,6 @@ uint32_t dm_nohost_probe (
 		bdbm_device_params_t* params)
 {
 	dm_nohost_private_t* p = NULL;
-	uint32_t nr_punit;
 
 	bdbm_msg ("[dm_nohost_probe] PROBE STARTED");
 
@@ -379,9 +517,8 @@ uint32_t dm_nohost_probe (
 	bdbm_sema_init (&ftl_table_lock);
 	bdbm_sema_lock (&ftl_table_lock); // initially lock=0 to be used for waiting
 
-	nr_punit = 128;
 	if ((p->llm_reqs = (bdbm_llm_req_t**)bdbm_zmalloc (
-					sizeof (bdbm_llm_req_t*) * nr_punit)) == NULL) {
+					sizeof (bdbm_llm_req_t*) * get_dev_tags())) == NULL) {
 		bdbm_warning ("bdbm_zmalloc failed");
 		goto fail;
 	}
@@ -394,7 +531,7 @@ uint32_t dm_nohost_probe (
 
 //	if (__readFTLfromFile ("table.dump.0", ftlPtr) == 0) { //if exists, read from table.dump.0
 //		bdbm_msg ("[dm_nohost_probe] MAP Upload to HW!" ); 
-//		fflush(stdout);
+//	fflush(stdout);
 //		device->uploadMap();
 //		bdbm_sema_lock (&ftl_table_lock); // wait until Ack comes
 //	} else {
@@ -472,7 +609,7 @@ void dm_nohost_close (bdbm_drv_info_t* bdi)
 	pthread_cond_destroy(&readDmaQ_cond);	
 	pthread_mutex_destroy(&writeDmaQ_mutx);	
 	pthread_mutex_destroy(&readDmaQ_mutx);	
-	pthread_mutex_destroy(&req_mutx);
+	//sw_poller_destroy();
 	//
 }
 int readlockbywrite;
@@ -485,6 +622,7 @@ uint32_t dm_nohost_make_req (
 	//	bdbm_sema_lock (&global_lock);
 	if (priv->llm_reqs[r->tag] == r) {
 		// timeout & send the request again
+		fprintf(stderr,"time out!\n");
 	} 
 	else if (priv->llm_reqs[r->tag] != NULL) {
 		// busy tag error
@@ -497,7 +635,6 @@ uint32_t dm_nohost_make_req (
 	}
 
 	//	bdbm_sema_unlock (&global_lock);
-	pthread_mutex_lock(&req_mutx);
 	//usleep(1);
 
 
@@ -525,10 +662,6 @@ uint32_t dm_nohost_make_req (
 		case REQTYPE_WRITE:
 		case REQTYPE_RMW_WRITE:
 		case REQTYPE_GC_WRITE:
-			// koo
-			//pthread_mutex_lock(&endR);
-			//printf ("LOG: device->writePage, tag=%d lpa=%d\n", r->tag, r->logaddr.lpa[0]); fflush(stdout);
-			//device->writePage (r->tag, r->logaddr.lpa[0], r->dmaTag * FPAGE_SIZE);
 			bus  = r->logaddr.lpa[0] & 0x7;
 			chip = (r->logaddr.lpa[0] >> 3) & 0x7;
 			page = (r->logaddr.lpa[0] >> 6) & 0xFF;
@@ -590,7 +723,6 @@ uint32_t dm_nohost_make_req (
 			break;
 	}
 	//printf("unlock!\n");
-	pthread_mutex_unlock(&req_mutx);
 	return 0;
 }
 struct timeval max_time1;
@@ -614,51 +746,13 @@ void dm_nohost_end_req (
 		bdbm_memcpy (r->fmain.kp_ptr[0], readBuffers[r->tag], 8192);
 		//printf ("READ-LOG: %c %c\n", r->fmain.kp_ptr[0][0], r->fmain.kp_ptr[0][8191]); fflush(stdout);
 	}
-	/*
-	   static bool check_time=false;
-	   struct timeval res,test_time;
-	   test_time.tv_sec=0;
-	   test_time.tv_usec=1000;
-	   lsmtree_req_t* t;
-	   if(r->req_type==REQTYPE_READ){
-	   t=(lsmtree_req_t *)r->req;
-	//		MP(&t->mt);
-	if(!check_time){
-	check_time=true;
-	max_time1=MR(&t->mt);
-	if(timercmp(&max_time1,&test_time,>))
-	big_time_check1++;
-	adding.tv_sec=max_time1.tv_sec;
-	adding.tv_usec=max_time1.tv_usec;
-	}
-	else{
-	res=MR(&t->mt);
-	if(timercmp(&res,&test_time,>))
-	big_time_check1++;
-	if(timercmp(&max_time1,&res,<))
-	max_time1=res;
-	adding.tv_sec+=res.tv_sec;
-	adding.tv_usec+=res.tv_usec;
-	}
-	end_counter++;
-	//		ME(&t->mt,"test");
-	MS(&t->mt);
-	}*/
-	//koo
-	/*
-	   if (r->req_type == REQTYPE_WRITE) {
-	   free_dmaQ_tag(1, r->dmaTag);
-	   }
-	 */
-	//
-	//bdbm_msg ("dm_nohost_end_req done");
 	bdi->ptr_llm_inf->end_req (bdi, r);
 }
 
 
 //koo
 void init_dmaQ (std::queue<int> *q) {
-	for (int i = METANUM; i <DMASIZE; i++) {
+	for (int i = METANUM; i <DMASIZE-1; i++) {
 		//for (int i = 0; i < DMASIZE; i++) {
 		q->push(i);
 	}
@@ -736,4 +830,67 @@ void free_dmaQ_tag (int type, int dmaTag) {
 	   }
 	 */
 	return;
+}
+
+int dm_do_merge(unsigned int ht_num, unsigned int lt_num, unsigned int *kt_num, unsigned int *inv_num, uint32_t ppa_dma_num){
+	if(ht_num==0 || lt_num==0){
+		fprintf(stderr,"l:%d h:%d\n",lt_num,ht_num);
+		abort();
+	}
+
+	if((lt_num + ht_num)*8*1024 >=get_result_kt_size()){
+		fprintf(stderr,"over kt aborting %d\n",lt_num+ht_num);
+		abort();	
+	}
+	if(lt_num > get_ppa_list_size() || ht_num > get_ppa_list_size()){
+		fprintf(stderr,"over size %d %d\n",lt_num,ht_num);
+		abort();
+	}
+	sem_init(&merge_req.merge_lock,0,0);
+
+	device->startCompaction(ht_num,lt_num,ppa_dma_num);
+
+	sem_wait(&merge_req.merge_lock);
+	*kt_num=merge_req.kt_num;
+	*inv_num=merge_req.inv_num;
+	return 1;
+}
+#if JNI==4
+int dm_do_hw_find(uint32_t ppa, uint32_t size, bdbm_llm_req_t* r){
+	_priv->llm_reqs[r->tag]=r;
+	return device->findKey(ppa,size,r->tag);
+}
+#endif
+
+unsigned int *get_low_ppali(){
+	return lowPpaList_Buffer;
+}
+
+unsigned int *get_high_ppali(){
+	return highPpaList_Buffer;
+}
+
+unsigned int *get_res_ppali(){
+	return resPpaList_Buffer;
+}
+unsigned int *get_res_ppali2(){
+	return resPpaList_Buffer2;
+}
+unsigned int *get_inv_ppali(){
+	return invPpaList_Buffer;
+}
+
+unsigned int *get_merged_kt(){
+	return mergeKt_Buffer;
+}
+#if JNI==4
+unsigned int *get_findKey_dma(){
+	return searchKey_Buffer;
+}
+#endif
+
+uint32_t get_dev_tags(){
+	static const uint32_t tag=64;
+	printf("my_tag:%d\n",tag);
+	return tag;
 }
