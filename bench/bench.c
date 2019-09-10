@@ -129,6 +129,9 @@ void bench_make_data(){
 		case MIXED:
 			mixed(start,end,50,_m);
 			break;
+		case FILLRAND:
+			fillrand(start,end,_m);
+			break;
 #ifndef KVSSD
 
 		case SEQLATENCY:
@@ -416,7 +419,7 @@ void bench_cdf_print(uint64_t nor, uint8_t type, bench_data *_d){//number of req
 	} */
 	static int cnt=0;
 	cumulate_number=0;
-	if((type>RANDSET || type%2==0) || type==NOR){
+	if((type>RANDSET || type%2==0) || type==NOR || type==FILLRAND){
 		printf("\n(%d)[cdf]read---\n",cnt++);
 		for(int i=0; i<1000000/TIMESLOT+1; i++){
 			cumulate_number+=_d->read_cdf[i];
@@ -563,7 +566,11 @@ int my_itoa(uint32_t key, char **_target){
 	*_target=(char*)malloc(result);
 	char *target=*_target;
 	t_key=key;
-	for(int i=0; i<result-cnt; i++){
+	target[0]='u';
+	target[1]='s';
+	target[2]='e';
+	target[3]='r';
+	for(int i=4; i<result-cnt; i++){
 		target[i]='0';
 	}
 	for(int i=result-1; i>=result-cnt; i--){
@@ -944,6 +951,44 @@ void rand_latency(uint32_t start, uint32_t end,int percentage, monitor *m){
 	}
 }
 #endif
+
+void fillrand(uint32_t start, uint32_t end, monitor *m){
+	printf("making fillrand Set bench!\n");
+	uint32_t* unique_array=(uint32_t*)malloc(sizeof(uint32_t)*(end-start+2));
+	for(uint32_t i=start; i<=end; i++ ){
+		unique_array[i]=i;
+	}
+	
+	uint32_t range=end-start+1;
+	for(uint32_t i=start; i<=end; i++){
+		int a=rand()%range;
+		int b=rand()%range;
+		uint32_t temp=unique_array[a];
+		unique_array[a]=unique_array[b];
+		unique_array[b]=temp;
+	}
+
+	for(uint32_t i=0; i<m->m_num; i++){
+#ifdef KVSSD
+		KEYT *t=&m->body[i/m->bech][i%m->bech].key;
+		t->len=my_itoa(unique_array[i%range],&t->key);
+		bitmap_set(unique_array[i%range]);
+#else
+		m->body[i/m->bech][i%m->bech].key=unique_array[i%range];
+		bitmap_set(m->body[i/m->bech][i%m->bech].key);
+#endif
+
+#ifdef DVALUE
+		m->body[i/m->bech][i%m->bech].length=get_value_size();
+#else	
+		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
+#endif
+		m->body[i/m->bech][i%m->bech].mark=m->mark;
+		m->body[i/m->bech][i%m->bech].type=FS_SET_T;
+		m->write_cnt++;
+	}
+	free(unique_array);
+}
 
 void bench_cache_hit(int mark){
 	monitor *_m=&_master->m[mark];
