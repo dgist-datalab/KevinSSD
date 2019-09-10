@@ -89,7 +89,7 @@ void bench_make_data(){
 	bench_data *_d=&_master->datas[idx];
 	monitor * _m=&_master->m[idx];
 	_m->mark=idx;
-	_m->bech=_meta->number/(BENCHSETSIZE-1)+(_meta->number%(BENCHSETSIZE)?1:0);
+	_m->bech=_meta->number/(BENCHSETSIZE-1)+(_meta->number%(BENCHSETSIZE-1)?1:0);
 	_m->benchsetsize=(BENCHSETSIZE-1);
 	if(_meta->type==NOR){
 		printf("not fixed test!\n");
@@ -563,12 +563,12 @@ int my_itoa(uint32_t key, char **_target){
 	*_target=(char*)malloc(result);
 	char *target=*_target;
 	t_key=key;
-	for(int i=cnt-1; i>=0; i--){
+	for(int i=0; i<result-cnt; i++){
+		target[i]='0';
+	}
+	for(int i=result-1; i>=result-cnt; i--){
 		target[i]=t_key%10+'0';
 		t_key/=10;
-	}
-	for(int i=cnt; i<result; i++){
-		target[i]='0';
 	}
 	//printf("origin:%d\n",key);
 	//printf("%d %s(%d)\n",result,target,strlen(target));
