@@ -38,6 +38,7 @@ lower_info my_posix={
 	.write=posix_push_data,
 	.read=posix_pull_data,
 #endif
+	.read_hw=NULL,
 	.device_badblock_checker=NULL,
 #if (ASYNC==1)
 	.trim_block=posix_make_trim,
@@ -52,6 +53,7 @@ lower_info my_posix={
 	.lower_free=NULL,
 	.lower_flying_req_wait=posix_flying_req_wait,
 	.lower_show_info=NULL,
+	.lower_tag_num=NULL,
 	.hw_do_merge=NULL,
 	.hw_get_kt=NULL,
 	.hw_get_inv=NULL
