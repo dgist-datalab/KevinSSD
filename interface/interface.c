@@ -44,7 +44,9 @@ static bool qmanager_write_checking(processor * t,request *req){
 	{
 		res=true;
 		//copy value
+#ifdef KVSSD
 		free(req->key.key);
+#endif
 	}
 	else{
 #ifdef KVSSD
