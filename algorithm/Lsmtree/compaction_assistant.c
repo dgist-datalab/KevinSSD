@@ -104,13 +104,11 @@ bool compaction_init(){
 		case NON:
 			compactor.pt_leveling=partial_leveling;
 			break;
-	
 		case HW:
 			compactor.pt_leveling=hw_partial_leveling;
 			break;
 		default:
-			printf("invalid option type");
-			abort();
+			compactor.pt_leveling=partial_leveling;
 			break;
 	}
 

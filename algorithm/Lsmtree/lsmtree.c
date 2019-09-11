@@ -88,7 +88,7 @@ void lsm_bind_ops(lsmtree *l){
 	l->FLUSHNUM=1024;
 	l->keynum_in_header_cnt=0;
 	LSM.keynum_in_header=DEFKEYINHEADER;
-	LSM.ONESEGMENT=(DEFKEYINHEADER*DEFVALUESIZE);
+	LSM.ONESEGMENT=(DEFKEYINHEADER*LSM.VALUESIZE);
 }
 uint32_t __lsm_get(request *const);
 static float get_sizefactor(uint64_t as,uint32_t keynum_in_header){
@@ -1088,7 +1088,7 @@ uint32_t lsm_memory_size(){
 level *lsm_level_resizing(level *target, level *src){
 	if(target->idx==LSM.LEVELN-1){
 		float before=LSM.size_factor;
-		LSM.ONESEGMENT=LSM.keynum_in_header*DEFVALUESIZE;
+		LSM.ONESEGMENT=LSM.keynum_in_header*LSM.VALUESIZE;
 		LSM.size_factor=get_sizefactor(SHOWINGSIZE,LSM.keynum_in_header);
 		if(before!=LSM.size_factor){
 			memset(LSM.size_factor_change,1,sizeof(bool)*LSM.LEVELN);
@@ -1146,8 +1146,9 @@ uint32_t lsm_argument_set(int argc, char **argv){
 	bool gc_opt_flag=false;
 	bool multi_level_comp=false;
 	bool nocpy_option=false;
+	bool value_size=false;
 	int comp_type=0;
-	while((c=getopt(argc,argv,"lcgomnrh"))!=-1){
+	while((c=getopt(argc,argv,"lcgomnrhv"))!=-1){
 		switch(c){
 			case 'l':
 				level_flag=true;
@@ -1186,6 +1187,10 @@ uint32_t lsm_argument_set(int argc, char **argv){
 			case 'h':
 				printf("[*]hw read!\n");
 				LSM.hw_read=true;
+			case 'v':
+				LSM.VALUESIZE=atoi(argv[optind]);
+				printf("value size:%d\n",LSM.VALUESIZE);
+				value_size=true;
 				break;
 		}
 	}
@@ -1195,6 +1200,7 @@ uint32_t lsm_argument_set(int argc, char **argv){
 	if(!multi_level_comp) LSM.multi_level_comp=false;
 	if(!gc_opt_flag) LSM.gc_opt=false;
 	if(!nocpy_option) LSM.nocpy=false;
+	if(!value_size) LSM.VALUESIZE=DEFVALUESIZE;
 	if(!memory_c_flag){
 		LSM.caching_size=CACHING_RATIO;
 	}

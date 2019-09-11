@@ -89,6 +89,7 @@ typedef struct lsmtree{
 	uint32_t FLUSHNUM;
 	uint32_t LEVELN;
 	uint32_t LEVELCACHING;
+	uint32_t VALUESIZE;
 	uint32_t ONESEGMENT;
 	float caching_size;
 
