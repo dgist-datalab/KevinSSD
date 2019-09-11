@@ -1187,6 +1187,7 @@ uint32_t lsm_argument_set(int argc, char **argv){
 			case 'h':
 				printf("[*]hw read!\n");
 				LSM.hw_read=true;
+				break;
 			case 'v':
 				LSM.VALUESIZE=atoi(argv[optind]);
 				printf("value size:%d\n",LSM.VALUESIZE);

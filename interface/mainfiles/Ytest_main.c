@@ -114,7 +114,7 @@ int main(int argc, char *argv[]){
 //		printf("insert argumen!\n");
 //		return 1;
 	}
-	inf_init(1,0,0,argv);
+	inf_init(1,0,argc,argv);
 	FILE *fp = fopen("trace", "r");
 	netdata *data;
 	char temp[8192]={0,};
@@ -141,7 +141,7 @@ int main(int argc, char *argv[]){
 			printf("cnt:%d\n",req_cnt);
 		}
 	}
-	while(!bench_is_finish()){}
+	while(1){}
 	bench_custom_A(write_opt_time,0);
 	inf_free();
 	bench_custom_print(write_opt_time,10);

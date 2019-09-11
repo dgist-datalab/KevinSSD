@@ -184,11 +184,15 @@ keyset_iter* array_header_get_keyiter(level *lev, char *data,KEYT *key){
 			p_data->header_data=arrs[target].level_caching_data;
 		}
 	}
-	p_data->header_data=data;
+	else{
+		p_data->header_data=data;
+	}
+	data=p_data->header_data;
 	if(key==NULL)
 		p_data->idx=0;
-	else
+	else if(data)
 		p_data->idx=array_find_idx_lower_bound(data,*key);
+	else return NULL;
 
 	return res;
 }

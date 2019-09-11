@@ -120,7 +120,7 @@ int main(int argc, char *argv[]){
 	netdata *data;
 	bool early_reply=false;
 	static int cnt=1;
-//	FILE *fp=fopen("trace", "w");
+	//FILE *fp=fopen("trace", "w");
 	while(1){
 		data=(netdata*)calloc(sizeof(netdata),1);
 		early_reply=fd_sock_requests(net,data);
