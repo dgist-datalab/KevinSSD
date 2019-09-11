@@ -11,18 +11,13 @@
 #include <pthread.h>
 #include <errno.h>
 
-#include "../include/settings.h"
-#include "../bench/bench.h"
-#include "interface.h"
-#include "queue.h"
+#include "../../include/settings.h"
+#include "../../bench/bench.h"
+#include "../interface.h"
+#include "../queue.h"
+#include "../../include/flash_sock/fd_sock.h"
 
-typedef struct netdata_t{
-	uint32_t type;
-	uint8_t keylen;
-	uint32_t scanlength;
-	uint32_t seq;
-	char key[UINT8_MAX];
-}netdata;
+
 MeasureTime temp;
 int client_socket;
 queue *n_q;
@@ -119,8 +114,8 @@ int main(int argc, char *argv[]){
 //		printf("insert argumen!\n");
 //		return 1;
 	}
-	inf_init(1,1000000);
-	FILE *fp = fopen("ycsb_load_gc", "r");
+	inf_init(1,0,0,argv);
+	FILE *fp = fopen("trace", "r");
 	netdata *data;
 	char temp[8192]={0,};
 	char data_temp[6];
@@ -131,7 +126,8 @@ int main(int argc, char *argv[]){
 	
 	bench_custom_init(write_opt_time,10);
 	bench_custom_start(write_opt_time,0);
-	while((fscanf(fp,"%d %d %d %s",&data->type,&data->scanlength,&data->keylen,data->key))!=EOF){
+
+	while(fscanf(fp,"%d %d %d %d %s %d\n",&data->type,&data->keylen,&data->seq,&data->scanlength,data->key,&data->valuelen)!=EOF){
 		if(data->type==1 || data->type==2){
 			//printf("%d %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
 		    inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),cnt++,data,kv_main_end_req);	
