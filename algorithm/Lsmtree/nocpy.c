@@ -32,8 +32,8 @@ void nocpy_free_block(uint32_t ppa){
 }
 
 void nocpy_copy_to(char *des, uint32_t ppa){
-	//if(page[ppa]==NULL) page[ppa]=(keyset*)malloc(PAGESIZE);
-	memcpy(des,page[ppa],PAGESIZE);
+	if(page[ppa]==NULL) page[ppa]=(keyset*)malloc(PAGESIZE);
+	memcpy(page[ppa],des,PAGESIZE);
 }
 
 

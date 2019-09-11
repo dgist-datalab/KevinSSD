@@ -55,22 +55,22 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 			run_t **datas;
 			int cache_added_size=LSM.lop->get_number_runs(upper);
 			cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
-			LSM.lop->cache_comp_formatting(upper,&datas,false);
+			LSM.lop->cache_comp_formatting(upper,&datas,true);
 			for(int i=0; datas[i]!=NULL; i++){
 				run_t *now=datas[i];
 				uint32_t ppa=getPPA(HEADER,now->key,true);
 				now->pbn=ppa;
 				if(LSM.nocpy){
-					nocpy_copy_from_change((char*)now->cpt_data->sets,ppa);
-					htable *temp_table=htable_assign((char*)now->cpt_data->sets,1);
-					now->cpt_data->sets=NULL;
-					htable_free(now->cpt_data);
+					nocpy_copy_to((char*)now->level_caching_data,ppa);
+					htable *temp_table=htable_assign((char*)now->level_caching_data,1);
+					//now->cpt_data->sets=NULL;
+					//htable_free(now->cpt_data);
 					now->cpt_data=temp_table;
 				}
 				compaction_htable_write(ppa,now->cpt_data,now->key);
 				hp_array[i]=ppa;
-				LSM.lop->release_run(now);
-				free(now);
+				//LSM.lop->release_run(now);
+				//free(now);
 			}
 			free(datas);
 			LSM.li->lower_flying_req_wait();
