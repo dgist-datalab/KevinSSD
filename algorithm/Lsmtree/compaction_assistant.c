@@ -399,11 +399,8 @@ void compaction_check(KEYT key, bool force){
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
 	
 	compaction_sub_wait();
-	bench_custom_A(write_opt_time,5);
 
-	bench_custom_start(write_opt_time,6);
 	LSM.lop->merger(top,src,org,des);
-	bench_custom_A(write_opt_time,6);
 
 	KEYT key,end;
 	run_t* target=NULL;
@@ -413,9 +410,7 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 			LSM.lop->release_run(target);
 		}
 		else{
-			bench_custom_start(write_opt_time,7);
 			compaction_htable_write_insert(des,target,false);
-			bench_custom_A(write_opt_time,7);
 		}
 		free(target);
 	}

@@ -170,7 +170,7 @@ run_t *array_pipe_make_run(char *data,uint32_t level_idx)
 		r->level_caching_data=data;
 	}
 	else{
-		htable *res=LSM.nocpy?htable_assign(data,0):htable_assign(data,1);
+		htable *res=(LSM.nocpy)?htable_assign(data,0):htable_assign(data,1);
 		r->cpt_data=res;
 		free(data);
 	}

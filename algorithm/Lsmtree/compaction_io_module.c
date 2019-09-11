@@ -10,14 +10,11 @@ extern lsmtree LSM;
 extern MeasureTime write_opt_time[10];
 
 void compaction_data_write(leveling_node* lnode){	
-	bench_custom_start(write_opt_time,0);
 	value_set **data_sets=skiplist_make_valueset(lnode->mem,LSM.disk[0],&lnode->start,&lnode->end);
-	bench_custom_A(write_opt_time,0);
 /*	if(LSM.comp_opt==PIPE){
 		lsm_io_sched_push(SCHED_FLUSH,(void*)data_sets);//make flush background job
 		return;
 	}*/
-	bench_custom_start(write_opt_time,1);
 	for(int i=0; data_sets[i]!=NULL; i++){
 		LSM.last_level_comp_term++;
 		algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
@@ -35,7 +32,6 @@ void compaction_data_write(leveling_node* lnode){
 		LSM.li->write(CONVPPA(data_sets[i]->ppa),PAGESIZE,params->value,ASYNC,lsm_req);
 	}
 	//LSM.li->lower_flying_req_wait();
-	bench_custom_A(write_opt_time,1);
 	free(data_sets);
 }
 
@@ -49,7 +45,14 @@ ppa_t compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 	entry->pbn=ppa;
 	if(LSM.nocpy){
 		nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
-		entry->cpt_data->sets=NULL;
+		if(LSM.hw_read){
+			htable *temp=htable_assign((char*)entry->cpt_data->sets,1);
+			entry->cpt_data->sets=NULL;
+			htable_free(entry->cpt_data);
+			entry->cpt_data=temp;
+		}else{
+			entry->cpt_data->sets=NULL;
+		}
 	}
 	LSM.lop->insert(target,entry);
 	if(isbg){

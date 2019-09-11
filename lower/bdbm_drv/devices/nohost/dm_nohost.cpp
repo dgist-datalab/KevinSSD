@@ -64,7 +64,7 @@ pthread_mutex_t bus_lock=PTHREAD_MUTEX_INITIALIZER;
 extern pthread_mutex_t endR;
 struct timespec reqtime;
 
-#define PPA_LIST_SIZE (40*1024)
+#define PPA_LIST_SIZE (200*1024)
 #define MBYTE (1024*1024)
 
 #define FPAGE_SIZE (8192)
@@ -189,16 +189,14 @@ class FlashIndication: public FlashIndicationWrapper {
 		virtual void mergeDone(unsigned int numMergedKt, uint32_t numInvalAddr, uint64_t counter) {
 			merge_req.kt_num=numMergedKt;
 			merge_req.inv_num=numInvalAddr;
-			sem_post(&merge_req.merge_lock);
-			sem_destroy(&merge_req.merge_lock);
 		}
 
 		virtual void mergeFlushDone1(unsigned int num) {
 			// num does not mean anything
-
+			sem_post(&merge_req.merge_lock);
+			sem_destroy(&merge_req.merge_lock);
 		}
 		virtual void mergeFlushDone2(unsigned int num) {
-
 		}
 #if JNI==4
 		virtual void findKeyDone ( const uint16_t tag, const uint16_t status, const uint32_t ppa ) {
@@ -322,7 +320,7 @@ uint32_t get_result_ppa_list_size(){
 	return 2*get_ppa_list_size();
 }
 uint32_t get_result_kt_size(){
-	return 2*8192*PPA_LIST_SIZE;
+	return (unsigned int)8192*PPA_LIST_SIZE;
 }
 uint32_t get_inv_ppa_list_size(){
 	return 500*4*PPA_LIST_SIZE;
@@ -431,7 +429,7 @@ uint32_t __dm_nohost_init_device (
 	fprintf(stderr,"resPpa2 %d size %d\n",ref_resPpaList2,get_result_ppa_list_size());
 
 	ref_mergedKtBuf = mergedKtBuf->reference();
-	fprintf(stderr,"mergeResult %d size %d page %d\n",ref_mergedKtBuf,get_result_kt_size(),get_result_kt_size()/8192);
+	fprintf(stderr,"mergeResult %d size %u page %d\n",ref_mergedKtBuf,get_result_kt_size(),get_result_kt_size()/8192);
 	ref_invalPpaList = invalPpaList->reference();
 	fprintf(stderr,"inv %d size %d\n",ref_invalPpaList,get_inv_ppa_list_size());
 #if JNI==4

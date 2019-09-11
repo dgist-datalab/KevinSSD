@@ -3,6 +3,11 @@
 #include "lsmtree.h"
 #include "../../bench/bench.h"
 #include "nocpy.h"
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 extern lsmtree LSM;
 #ifdef KVSSD
 extern KEYT key_min, key_max;
@@ -20,6 +25,15 @@ void make_pbn_array(ppa_t *ar, level *t, int start_idx){
 }
 
 uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, level *upper){
+	/*
+	static bool hw_start=false;
+	static int fd_up,fd_down,fd_res;
+	if(!hw_start){
+		hw_start=true;
+		fd_up=open("upper_level.data",O_CREAT|O_TRUNC|O_RDWR,0666);
+		fd_down=open("lower_level.data",O_CREAT|O_TRUNC|O_RDWR,0666);
+		fd_res=open("result_level.data",O_CREAT|O_TRUNC|O_RDWR,0666);
+	}*/
 	ppa_t* lp_array, *hp_array, *tp_array;
 	ppa_t lp_num, hp_num;
 
@@ -59,6 +73,7 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 				free(now);
 			}
 			free(datas);
+			LSM.li->lower_flying_req_wait();
 		}
 	}else{
 		hp_array[0]=lnode->entry->pbn;
@@ -89,18 +104,28 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 		printf("%d parameter error! upnum:%d\n",cnt,hp_num);
 		abort();
 	}
-
+	
+//	char *test_page=(char*)malloc(PAGESIZE);
 	for(int i=0; i<lp_num; i++){
 		if(!LSM.bm->is_valid_page(LSM.bm,lp_array[i])){
 			LSM.lop->print(origin);
 			printf("%d validate checker fail!\n",lp_array[i]);
 			abort()	;
 		}
+		//lsm_test_read(lp_array[i],test_page);
+		//LSM.lop->header_print(test_page);
+		//write(fd_down,test_page,PAGESIZE);
 	}
-	
-	bench_custom_start(write_opt_time,2);
+	for(int i=0; i<hp_num; i++){
+		//lsm_test_read(hp_array[i],test_page);
+		//LSM.lop->header_print(test_page);
+		//write(fd_up,test_page,PAGESIZE);
+	}
+//	free(test_page);
+
+	printf("u:%d l:%d",hp_num,lp_num);
 	LSM.li->hw_do_merge(lp_num,lp_array,hp_num,hp_array,tp_array,&ktable_num,&invalidate_num);
-	bench_custom_A(write_opt_time,2);
+	printf("- done ktable_num:%d m_num:%d\n",ktable_num,t->m_num);
 
 
 	char *kt=LSM.li->hw_get_kt();
@@ -120,7 +145,8 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 		end.len=body[num+1]-body[num]-sizeof(ppa_t);
 		end.key=&kt_start[body[num]+sizeof(ppa_t)];
 
-	
+		//write(fd_res,kt_start,PAGESIZE);
+
 		entry=LSM.lop->make_run(start,end,tp_array[i]);
 		LSM.lop->insert(t,entry);
 		LSM.lop->release_run(entry);

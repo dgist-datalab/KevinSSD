@@ -60,8 +60,8 @@ static void cg_env_init(cache_t c_type, struct cache_env *const _env) {
 	_env->max_cached_tentries = 0; // not used here
 
 #ifdef DVALUE
-	_env->nr_valid_tpages *= GRAIN_PER_PAGE;
-	_env->nr_valid_tentries *= GRAIN_PER_PAGE;
+	_env->nr_valid_tpages *= GRAIN_PER_PAGE / 2;
+	_env->nr_valid_tentries *= GRAIN_PER_PAGE / 2;
 #endif
 
 	print_cache_env(_env);
@@ -122,7 +122,6 @@ static void cg_print_member() {
 	puts("=====================");
 	puts(" Cache Finish Status ");
 	puts("=====================");
-	puts("");
 
 	printf("Max Cached tpages:     %d\n", cenv->max_cached_tpages);
 	printf("Current Cached tpages: %d\n", cmbr->nr_cached_tpages);

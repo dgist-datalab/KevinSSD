@@ -189,7 +189,8 @@ void array_body_free(run_t *runs, int size){
 
 void array_insert(level *lev, run_t* r){
 	if(lev->m_num<=lev->n_num){
-		array_print(lev);
+	//	array_print(lev);
+		printf("level full!!!!\n");
 		abort();
 	}
 
@@ -205,13 +206,18 @@ void array_insert(level *lev, run_t* r){
 	array_run_cpy_to(r,target);
 
 	if(lev->idx>=LSM.LEVELCACHING && LSM.comp_opt!=HW && !target->c_entry && r->cpt_data && cache_insertable(LSM.lsm_cache)){
-		if(LSM.nocpy)
-			target->cache_nocpy_data_ptr=nocpy_pick(r->pbn);
-		else{
-			target->cache_data=htable_copy(r->cpt_data);
-			r->cpt_data->sets=NULL;
+		if(lev->idx>=LSM.LEVELCACHING && LSM.hw_read){
+
 		}
-		target->c_entry=cache_insert(LSM.lsm_cache,target,0);
+		else{
+			if(LSM.nocpy)
+				target->cache_nocpy_data_ptr=nocpy_pick(r->pbn);
+			else{
+				target->cache_data=htable_copy(r->cpt_data);
+				r->cpt_data->sets=NULL;
+			}
+			target->c_entry=cache_insert(LSM.lsm_cache,target,0);
+		}
 	}
 
 	array_range_update(lev,NULL,target->key);
@@ -695,9 +701,9 @@ void array_print_level_summary(){
 		}
 		else {
 #ifdef BLOOM
-			printf("[%d - %s ] n_num:%d m_num:%d filter:%p\n",i+1,i<LSM.LEVELCACHING?"C":"NC",LSM.disk[i]->n_num,LSM.disk[i]->m_num,LSM.disk[i]->filter);
+			printf("[%d - %s (%.*s ~ %.*s)] n_num:%d m_num:%d filter:%p\n",i+1,i<LSM.LEVELCACHING?"C":"NC",KEYFORMAT(LSM.disk[i]->start),KEYFORMAT(LSM.disk[i]->end),LSM.disk[i]->n_num,LSM.disk[i]->m_num,LSM.disk[i]->filter);
 #else
-			printf("[%d - %s] n_num:%d m_num:%d %.*s ~ %.*s\n",i+1,i<LSM.LEVELCACHING?"C":"NC",LSM.disk[i]->n_num,LSM.disk[i]->m_num,KEYFORMAT(LSM.disk[i]->start),KEYFORMAT(LSM.disk[i]->end));
+			printf("[%d - %s (%.*s ~ %.*s)] n_num:%d m_num:%d %.*s ~ %.*s\n",i+1,i<LSM.LEVELCACHING?"C":"NC",KEYFORMAT(LSM.disk[i]->start),KEYFORMAT(LSM.disk[i]->end),LSM.disk[i]->n_num,LSM.disk[i]->m_num,KEYFORMAT(LSM.disk[i]->start),KEYFORMAT(LSM.disk[i]->end));
 #endif
 		}
 	}	
