@@ -286,6 +286,8 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	free(LSM.size_factor_change);
 	//cache_print(LSM.lsm_cache);
 	printf("last summary-----\n");
+	uint32_t cache_data=LSM.lsm_cache->n_size;
+	LSM.lop->print_level_summary();
 	for(int i=0; i<LSM.LEVELN; i++){
 		LSM.lop->release(LSM.disk[i]);
 	}
@@ -293,12 +295,13 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	skiplist_free(LSM.memtable);
 	if(LSM.temptable)
 		skiplist_free(LSM.temptable);
-
-	cache_free(LSM.lsm_cache);
+	
+	fprintf(stderr,"cache size:%d\n",cache_data);
 	fprintf(stderr,"data gc: %d\n",LSM.data_gc_cnt);
 	fprintf(stderr,"header gc: %d\n",LSM.header_gc_cnt);
 	fprintf(stderr,"compactino_cnt:%d\n",LSM.compaction_cnt);
 	fprintf(stderr,"zero compactino_cnt:%d\n",LSM.zero_compaction_cnt);
+	cache_free(LSM.lsm_cache);
 
 	measure_adding_print(&__get_mt);
 	free(LSM.level_lock);

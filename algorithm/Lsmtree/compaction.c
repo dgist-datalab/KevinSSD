@@ -17,9 +17,6 @@ extern lsmtree LSM;
 uint32_t level_change(level *from ,level *to,level *target, pthread_mutex_t *lock){
 	level **src_ptr=NULL, **des_ptr=NULL;
 	des_ptr=&LSM.disk[to->idx];
-	if(from!=NULL && from->idx<LSM.LEVELCACHING){
-		cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+LSM.lop->get_number_runs(from));
-	}
 	if(from!=NULL){ 
 		int from_idx=from->idx;
 		pthread_mutex_lock(&LSM.level_lock[from_idx]);
@@ -33,6 +30,12 @@ uint32_t level_change(level *from ,level *to,level *target, pthread_mutex_t *loc
 	(*des_ptr)=target;
 	pthread_mutex_unlock(lock);
 	LSM.lop->release(to);
+
+	uint32_t level_cache_size=0;
+	for(int i=0; i<LSM.LEVELCACHING; i++){
+		level_cache_size+=LSM.disk[i]->n_num;
+	}
+	cache_size_update(LSM.lsm_cache,LSM.lsm_cache->max_size-level_cache_size);
 	return 1;
 }
 

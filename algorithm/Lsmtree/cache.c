@@ -33,7 +33,6 @@ void cache_size_update(cache *c, int m_size){
 		}
 	}
 	c->m_size=m_size>c->max_size?c->max_size:m_size;
-	//fprintf(stderr,"%d\n",c->m_size);
 }
 
 cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
