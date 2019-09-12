@@ -16,7 +16,6 @@
 #include "../../bench/bench.h"
 #include "../../include/flash_sock/fd_sock.h"
 #include "../../include/flash_sock/buffer_manager.h"
-#include "../interface.h"
 #include "../queue.h"
 fd_sock_manager *net;
 queue *n_q;
@@ -27,7 +26,6 @@ static KEYT minkey,maxkey;
 extern KEYT key_max,key_min;
 void log_print(int sig){
 	fd_sock_clear(net);
-	inf_free();
 
 	exit(1);
 }
@@ -96,6 +94,10 @@ int main(int argc, char *argv[]){
 	char type_parser[10];
 	char *temp_argv[10];
 	int temp_cnt=kv_set_type(argc,argv,temp_argv,type_parser);
+	if(argc<2){
+		printf("plz input file name!\n");
+		exit(1);
+	}
 	struct sigaction sa;
 	sa.sa_handler = log_print;
 	sigaction(SIGINT, &sa, NULL);
@@ -110,7 +112,6 @@ int main(int argc, char *argv[]){
 
 	q_init(&n_q,128);
 	
-	inf_init(1,0,temp_cnt,temp_argv);
 	net=fd_sock_init(IP,PORT,protocol_type(type_parser));
 
 	pthread_t t_id;
@@ -120,29 +121,13 @@ int main(int argc, char *argv[]){
 	netdata *data;
 	bool early_reply=false;
 	static int cnt=1;
-	FILE *fp=fopen("trace_load", "w");
+	FILE *fp=fopen(argv[1], "w");
 	while(1){
 		data=(netdata*)calloc(sizeof(netdata),1);
 		early_reply=fd_sock_requests(net,data);
 
 		fd_print_netdata(fp,data);
-		switch(data->type){
-			case WRITE_TYPE:
-				inf_make_req_apps(data->type,data->key,data->keylen,temp,data->valuelen,data->seq,data->type==2?data:NULL,kv_main_end_req);
-	//			printf("%d %.*s\n",cnt++,data->keylen,data->key);
-				break;
-			case READ_TYPE:
-				//printf("%d %.*s\n",cnt++,data->keylen,data->key);
-				inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE,data->seq,data->type==2?data:NULL,kv_main_end_req);
-				break;
-			case RANGE_TYPE:
-				data->type=FS_RANGEGET_T;
-				inf_make_range_query_apps(FS_RANGEGET_T,data->key,data->keylen,data->seq,data->scanlength,data,kv_main_end_req);
-				break;
-		}
-		if(early_reply){
-			while(!q_enqueue((void*)data,n_q));
-		}
+		while(!q_enqueue((void*)data,n_q));
 	}
 
 	while(!bench_is_finish()){}

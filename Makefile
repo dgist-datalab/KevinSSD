@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=bdbm_drv
+TARGET_LOWER=posix_memory
 TARGET_ALGO=Lsmtree
 TARGET_BM=partition
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
@@ -26,7 +26,7 @@ export COMMONFLAGS=\
 			-Wno-unused-but-set-variable\
 			-DCHECKINGTIME\
 			-DKVSSD\
-			-O3\
+	-O3\
 #			-DWRITESYNC\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
@@ -118,7 +118,7 @@ endif
 LIBS +=\
 		-lpthread\
 		-lm\
-		-laio\
+#	-laio\
 	#	-ljemalloc\
 
 all: driver
@@ -137,6 +137,12 @@ bd_testcase: ./interface/mainfiles/testcase.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 kv_driver: ./interface/mainfiles/NET_main.c libdriver.a libfdsock.a
+	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
+
+tc_driver: ./interface/mainfiles/trace_collect_main.c libdriver.a libfdsock.a
+	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
+
+tr_driver: ./interface/mainfiles/Ytest_main.c libdriver.a libfdsock.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 range_driver: ./interface/range_test_main.c libdriver.a
