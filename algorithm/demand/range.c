@@ -22,6 +22,8 @@ extern cl_lock *flying;
 Redblack rb_tree;
 pthread_mutex_t rb_lock;
 pthread_mutex_t rq_endreq_lock;
+pthread_mutex_t rq_wakeup;
+bool rq_is_sleep;
 
 pthread_t range_poller_id;
 
@@ -39,6 +41,8 @@ void *range_poller(void *null) {
 	sprintf(thread_name,"%s","range_poller");
 	pthread_setname_np(pthread_self(),thread_name);
 
+	pthread_mutex_lock(&rq_wakeup);
+
 	for (;;) {
 		request *range_req = (request *)q_dequeue(d_member.range_q);
 		if (range_req) {
@@ -52,6 +56,9 @@ int range_create() {
 	rb_tree = rb_create();
 	pthread_mutex_init(&rb_lock, NULL);
 	pthread_mutex_init(&rq_endreq_lock, NULL);
+	pthread_mutex_init(&rq_wakeup, NULL);
+	pthread_mutex_lock(&rq_wakeup);
+	rq_is_sleep = true;
 
 	q_init(&d_member.range_q, QDEPTH * 128);
 
@@ -117,8 +124,10 @@ uint32_t demand_range_query(request *const req) {
 
 	Redblack rb_node;
 
-	static int cnt = 0;
-	printf("r %d\n", ++cnt);
+	if (rq_is_sleep) {
+		rq_is_sleep = false;
+		pthread_mutex_unlock(&rq_wakeup);
+	}
 
 	pthread_mutex_lock(&rb_lock);
 	if (rb_find_str(rb_tree, start_key, &rb_node) == 0) {
