@@ -430,7 +430,7 @@ void* lsm_end_req(algo_req* const req){
 				if(((int*)req_temp_params)[2]==-1){
 					printf("here!\n");
 				}
-				parents->type_ftl=((int*)req_temp_params)[2]-((int*)req_temp_params)[3];
+				parents->type_ftl=((int*)req_temp_params)[2];
 			}
 			parents->type_lower=req->type_lower;
 			free(req_temp_params);
@@ -604,7 +604,7 @@ void* lsm_hw_end_req(algo_req* const req){
 				if(((int*)req_temp_params)[2]==-1){
 					printf("here!\n");
 				}
-				parents->type_ftl=((int*)req_temp_params)[2]-((int*)req_temp_params)[3];
+				parents->type_ftl=((int*)req_temp_params)[2];
 			}
 			parents->type_lower=req->type_lower;
 			free(req_temp_params);
