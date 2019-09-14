@@ -116,8 +116,6 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 		goto last;
 	}else */
 
-
-
 	if(target->idx<LSM.LEVELCACHING){
 		if(to->n_num==0){
 			compaction_empty_level(&from,l_node,&target);

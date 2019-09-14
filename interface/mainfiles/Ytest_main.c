@@ -69,22 +69,6 @@ void print_byte(char *data, int len){
 	printf("\n");
 }
 
-void *ack_to_client(void *arg){
-	netdata *net_data;
-	while(1){
-		void *req;
-		req=q_dequeue(n_q);
-		if(!req) continue;
-		net_data=(netdata*)req;
-		//printf("write:");
-		//print_byte((char*)&net_data->seq,sizeof(net_data->seq));
-		write_socket_len((char*)&net_data->seq,sizeof(net_data->seq));
-	//	if(net_data->type==2){
-			free(net_data);
-	//	}
-	}
-}
-
 void kv_main_end_req(uint32_t a, uint32_t b, void *req){
 	if(req==NULL) return;
 	netdata *net_data=(netdata*)req;
@@ -144,10 +128,10 @@ int trace_set_type(int argc, char *argv[], char **targv, char **files){
 	return temp_cnt;
 }
 int main(int argc, char *argv[]){
-	struct sigaction sa;
+	/*struct sigaction sa;
 	sa.sa_handler = log_print;
 	sigaction(SIGINT, &sa, NULL);
-	printf("signal add!\n");
+	printf("signal add!\n");*/
 	char *temp_argv[20];
 	char **filearr=(char**)malloc(sizeof(char*)*2);
 	for(int i=0; i<2; i++) filearr[i]=(char*)calloc(256,1);
@@ -166,13 +150,13 @@ int main(int argc, char *argv[]){
 		bench_custom_start(write_opt_time,i);
 		while(fscanf(fp,"%d %d %d %d %s %d\n",&data->type,&data->keylen,&data->seq,&data->scanlength,data->key,&data->valuelen)!=EOF){
 			if(data->type==1|| data->type==2){
-				inf_make_req_apps(data->type,data->key,data->keylen,temp,data->valuelen,cnt++,data,kv_main_end_req);	
+				inf_make_req_apps(data->type,data->key,data->keylen,temp,data->valuelen,cnt++,NULL,kv_main_end_req);	
 			}
 			else{
 				data->type=FS_RANGEGET_T;
-				inf_make_range_query_apps(data->type,data->key,data->keylen,cnt++,data->scanlength,data,kv_main_end_req);
+				inf_make_range_query_apps(data->type,data->key,data->keylen,cnt++,data->scanlength,NULL,kv_main_end_req);
 			}
-			data=(netdata*)malloc(sizeof(netdata));
+	//		data=(netdata*)malloc(sizeof(netdata));
 			if(req_cnt++%10240==0){
 				printf("cnt:%d\n",req_cnt);
 			}
