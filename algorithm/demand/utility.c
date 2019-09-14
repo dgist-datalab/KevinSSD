@@ -4,9 +4,11 @@
 
 #include "utility.h"
 #include "cache.h"
+#include "../../interface/interface.h"
 
 extern algorithm __demand;
 extern demand_stat d_stat;
+extern demand_member d_member;
 extern demand_cache *d_cache;
 
 struct algo_req *make_algo_req_default(uint8_t type, value_set *value) {
@@ -195,4 +197,12 @@ int wb_lpa_compare(const void *a, const void *b) {
 	if (lpa_a > lpa_b) return 1;
 
 	return 0;
+}
+
+void insert_retry_read(request *const req) {
+	if (req->parents) {
+		q_enqueue((void *)req, d_member.range_q);
+	} else {
+		inf_assign_try(req);
+	}
 }
