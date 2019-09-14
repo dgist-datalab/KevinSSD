@@ -187,7 +187,7 @@ void array_body_free(run_t *runs, int size){
 	free(runs);
 }
 
-void array_insert(level *lev, run_t* r){
+run_t* array_insert(level *lev, run_t* r){
 	if(lev->m_num<=lev->n_num){
 	//	array_print(lev);
 		printf("level full!!!!\n");
@@ -224,6 +224,7 @@ void array_insert(level *lev, run_t* r){
 	array_range_update(lev,NULL,target->end);
 
 	lev->n_num++;
+	return target;
 }
 
 keyset* array_find_keyset(char *data,KEYT lpa){
@@ -265,8 +266,10 @@ run_t *array_find_run( level* lev,KEYT lpa){
 		else if(res1<0) start=mid+1;
 		else {
 			return &arrs[mid];
-		}   
+		} 
 		mid=(start+end)/2;
+	//	__builtin_prefetch(&arrs[(mid+1+end)/2].key,0,1);
+	//	__builtin_prefetch(&arrs[(start+mid-1)/2].key,0,1);
 		if(start>end){
 			return &arrs[mid];
 		}   

@@ -110,7 +110,7 @@ typedef struct level_ops{
 	/*level operation*/
 	level* (*init)(int size, int idx, float fpr, bool istier);
 	void (*release)( level*);
-	void (*insert)( level* des, run_t *r);
+	run_t* (*insert)( level* des, run_t *r);
 	void (*lev_copy)(level *des, level *src);
 	keyset *(*find_keyset)(char *data,KEYT lpa);//find one
 	uint32_t (*find_idx_lower_bound)(char *data,KEYT lpa);
