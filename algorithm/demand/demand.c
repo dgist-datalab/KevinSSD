@@ -149,6 +149,8 @@ static int demand_member_init(struct demand_member *const _member) {
 	memset(key_min.key, 0, sizeof(char) * MAXKEYSIZE);
 #endif
 
+	pthread_mutex_init(&_member->op_lock, NULL);
+
 	_member->write_buffer = skiplist_init();
 
 	q_init(&_member->flying_q, d_env.wb_flush_size);
@@ -422,6 +424,7 @@ static struct hash_params *make_hash_params(request *const req) {
 
 uint32_t demand_read(request *const req){
 	uint32_t rc;
+	pthread_mutex_lock(&d_member.op_lock);
 #ifdef HASH_KVSSD
 	if (!req->hash_params) {
 		d_stat.read_req_cnt++;
@@ -433,11 +436,13 @@ uint32_t demand_read(request *const req){
 		req->type = FS_NOTFOUND_T;
 		req->end_req(req);
 	}
+	pthread_mutex_unlock(&d_member.op_lock);
 	return 0;
 }
 
 uint32_t demand_write(request *const req) {
 	uint32_t rc;
+	pthread_mutex_lock(&d_member.op_lock);
 #ifdef HASH_KVSSD
 	if (!req->hash_params) {
 		d_stat.write_req_cnt++;
@@ -445,6 +450,7 @@ uint32_t demand_write(request *const req) {
 	}
 #endif
 	rc = __demand_write(req);
+	pthread_mutex_unlock(&d_member.op_lock);
 	return rc;
 }
 

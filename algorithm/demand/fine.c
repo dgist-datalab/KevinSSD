@@ -264,7 +264,7 @@ int fg_list_up(lpa_t lpa, request *const req, snode *wb_entry) {
 
 					i_params->jump = GOTO_COMPLETE;
 				}
-				inf_assign_try(retry_req);
+				insert_retry_read(retry_req);
 			}
 		} else if (wb_entry) {
 			snode *retry_wbe;

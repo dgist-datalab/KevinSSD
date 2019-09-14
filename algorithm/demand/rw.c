@@ -471,7 +471,8 @@ void *demand_end_req(algo_req *a_req) {
 			} else {
 				h_params->find = HASH_KEY_DIFF;
 				h_params->cnt++;
-				inf_assign_try(req);
+				insert_retry_read(req);
+				//inf_assign_try(req);
 			}
 		} else {
 			d_stat.d_read_on_write++;
@@ -522,7 +523,8 @@ void *demand_end_req(algo_req *a_req) {
 		} else if (IS_READ(req)) {
 			d_stat.t_read_on_read++;
 			req->type_ftl++;
-			inf_assign_try(req);
+			insert_retry_read(req);
+			//inf_assign_try(req);
 		} else {
 			d_stat.t_read_on_write++;
 			q_enqueue((void *)wb_entry, d_member.wb_retry_q);
@@ -534,7 +536,8 @@ void *demand_end_req(algo_req *a_req) {
 		if (IS_READ(req)) {
 			d_stat.t_write_on_read++;
 			req->type_ftl+=100;
-			inf_assign_try(req);
+			insert_retry_read(req);
+			//inf_assign_try(req);
 		} else {
 			d_stat.t_write_on_write++;
 			q_enqueue((void *)wb_entry, d_member.wb_retry_q);

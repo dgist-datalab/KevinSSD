@@ -106,6 +106,8 @@ struct demand_env {
 };
 
 struct demand_member {
+	pthread_mutex_t op_lock;
+
 	LRU *lru;
 	skiplist *write_buffer;
 	snode **sorted_list;
@@ -114,6 +116,8 @@ struct demand_member {
 	queue *blocked_q;
 	queue *wb_master_q;
 	queue *wb_retry_q;
+
+	queue *range_q;
 
 	struct flush_list *flush_list;
 
