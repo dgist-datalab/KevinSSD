@@ -27,7 +27,7 @@ queue *p_q;
 pthread_t t_id;
 bool stopflag;
 #endif
-#define PPA_LIST_SIZE (20*1024)
+#define PPA_LIST_SIZE (240*1024)
 cl_lock *lower_flying;
 char *invalidate_ppa_ptr;
 char *result_addr;
@@ -166,7 +166,7 @@ uint32_t posix_create(lower_info *li, blockmanager *b){
 	lower_flying=cl_init(QDEPTH,true);
 	
 	invalidate_ppa_ptr=(char*)malloc(sizeof(uint32_t)*PPA_LIST_SIZE*20);
-	result_addr=(char*)malloc(8192*(PPA_LIST_SIZE)*2);
+	result_addr=(char*)malloc(8192*(PPA_LIST_SIZE));
 
 	printf("!!! posix memory LASYNC: %d NOP:%d!!!\n", LASYNC,li->NOP);
 	li->write_op=li->read_op=li->trim_op=0;

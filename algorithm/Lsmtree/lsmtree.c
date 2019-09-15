@@ -1216,6 +1216,9 @@ uint32_t lsm_argument_set(int argc, char **argv){
 		case HW:
 			printf("[*][hw] compaction opt\n");
 			break;
+		case MIXEDCOMP:
+			printf("[*][sw+hw] last level HW compaction opt\n");
+			break;
 		default:
 			printf("[*]invalid option type");
 			abort();

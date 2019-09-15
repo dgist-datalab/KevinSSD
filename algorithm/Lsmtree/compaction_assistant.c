@@ -107,6 +107,9 @@ bool compaction_init(){
 		case HW:
 			compactor.pt_leveling=hw_partial_leveling;
 			break;
+		case MIXEDCOMP:
+			compactor.pt_leveling=hw_partial_leveling;
+			break;
 		default:
 			compactor.pt_leveling=partial_leveling;
 			break;

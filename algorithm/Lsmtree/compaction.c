@@ -146,7 +146,12 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 				l_node->entry=entry;
 			}
 		}
-		compactor.pt_leveling(target,target_origin,l_node,from);	
+		
+		if(LSM.comp_opt==MIXEDCOMP && to->idx!=LSM.LEVELN-1){
+			partial_leveling(target,target_origin,l_node,from);
+		}
+		else
+			compactor.pt_leveling(target,target_origin,l_node,from);
 	}
 
 

@@ -34,7 +34,7 @@ void pm_init(){
 	map_m.reserve=bm->pt_get_segment(bm,MAP_S,true);
 	map_m.target=NULL;
 	map_m.active=NULL;
-	if(LSM.comp_opt==HW){
+	if(LSM.comp_opt==HW || LSM.comp_opt==MIXEDCOMP){
 		q_init(&map_m.erased_q,_PPS);
 	}
 	
@@ -98,7 +98,7 @@ retry:
 		printf("fuck! no type getPPA");
 		abort();
 	}
-	if(type==HEADER && LSM.comp_opt==HW && map_m.erased_q->size){
+	if(type==HEADER && (LSM.comp_opt==HW || LSM.comp_opt==MIXEDCOMP )&& map_m.erased_q->size ){
 		void *t=q_dequeue(map_m.erased_q);
 		res=*(uint32_t*)t;
 		free(t);

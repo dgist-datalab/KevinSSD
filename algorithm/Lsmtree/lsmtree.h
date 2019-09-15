@@ -81,7 +81,7 @@ typedef struct lsm_range_params{
 }lsm_range_params;
 
 enum comp_opt_type{
-	NON,PIPE,HW
+	NON,PIPE,HW,MIXEDCOMP
 };
 
 typedef struct lsmtree{
