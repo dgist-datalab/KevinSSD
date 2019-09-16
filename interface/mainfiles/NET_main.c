@@ -120,12 +120,12 @@ int main(int argc, char *argv[]){
 	netdata *data;
 	bool early_reply=false;
 	static int cnt=1;
-	FILE *fp=fopen("trace_load", "w");
+	//FILE *fp=fopen("trace_load", "w");
 	while(1){
 		data=(netdata*)calloc(sizeof(netdata),1);
 		early_reply=fd_sock_requests(net,data);
 
-		fd_print_netdata(fp,data);
+		//fd_print_netdata(fp,data);
 		switch(data->type){
 			case WRITE_TYPE:
 				inf_make_req_apps(data->type,data->key,data->keylen,temp,data->valuelen,data->seq,data->type==2?data:NULL,kv_main_end_req);
