@@ -341,9 +341,8 @@ wb_update:
 		pte = d_cache->get_pte(lpa);
 		if (!IS_INITIAL_PPA(pte.ppa)) {
 			invalidate_page(bm, pte.ppa, DATA);
-/*			static int cnt = 0;
-			cnt++;
-			printf("overwrite: %d\n", cnt);*/
+			static int over_cnt = 0; over_cnt++;
+			if (over_cnt % 102400 == 0) printf("overwrite: %d\n", over_cnt);
 		}
 
 wb_direct_update:

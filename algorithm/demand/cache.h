@@ -58,6 +58,7 @@ struct demand_cache {
 	int (*update) (lpa_t lpa, struct pt_struct pte);
 
 	struct pt_struct (*get_pte) (lpa_t lpa);
+	struct cmt_struct *(*get_cmt) (lpa_t lpa);
 
 	bool (*is_hit) (lpa_t lpa);
 	bool (*is_full) ();

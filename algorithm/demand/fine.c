@@ -27,6 +27,7 @@ struct demand_cache fg_cache = {
 	.touch = fg_touch,
 	.update = fg_update,
 	.get_pte = fg_get_pte,
+	.get_cmt = fg_get_cmt,
 /*	.get_ppa = fg_get_ppa,
 #ifdef STORE_KEY_FP
 	.get_fp = fg_get_fp,
@@ -357,5 +358,9 @@ struct pt_struct fg_get_pte(lpa_t lpa) {
 	struct pt_struct pte = pt[OFFSET(lpa)];
 
 	return pte; */
+}
+
+struct cmt_struct *fg_get_cmt(lpa_t lpa) {
+	return cmbr->cmt[IDX(lpa)];
 }
 

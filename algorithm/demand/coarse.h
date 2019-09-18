@@ -17,5 +17,6 @@ int cg_update(lpa_t, struct pt_struct pte);
 bool cg_is_hit(lpa_t);
 bool cg_is_full();
 struct pt_struct cg_get_pte(lpa_t lpa);
+struct cmt_struct *cg_get_cmt(lpa_t lpa);
 
 #endif
