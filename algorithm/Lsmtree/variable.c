@@ -78,7 +78,7 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 		}
 
 		if(isgc){
-			gc_data_write(target_ppa,table_data,true);
+			gc_data_write(target_ppa,table_data,GCDW);
 			free(table_data);
 		}
 		else{	

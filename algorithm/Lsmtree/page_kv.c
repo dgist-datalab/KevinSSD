@@ -70,7 +70,7 @@ int gc_header(){
 		}
 		
 		tables[i]=(htable_t*)malloc(sizeof(htable_t));
-		gc_data_read(tpage,tables[i],false,NULL);
+		gc_data_read(tpage,tables[i],GCMR,NULL);
 		i++;
 	}
 	gc_general_waiting();
@@ -144,7 +144,7 @@ int gc_header(){
 		uint32_t n_ppa=getRPPA(HEADER,*lpa,true,tseg);
 		target_entry->pbn=n_ppa;
 		if(LSM.nocpy)nocpy_force_freepage(tpage);
-		gc_data_write(n_ppa,tables[i],false);
+		gc_data_write(n_ppa,tables[i],GCMW);
 		free(tables[i]);
 		free(lpa->key);
 		free(lpa);
@@ -245,14 +245,14 @@ int __gc_data(){
 			else{
 				page_read=true;
 				tables[i]=(htable_t*)malloc(sizeof(htable_t));
-				gc_data_read(npc,tables[i],true,NULL);
+				gc_data_read(npc,tables[i],GCDR,NULL);
 				break;
 			}
 		}
 		if(!page_read) continue;
 #else
 		tables[i]=(htable_t*)malloc(sizeof(htable_t));
-		gc_data_read(tpage,tables[i],true);
+		gc_data_read(tpage,tables[i],GCDR);
 #endif
 		i++;
 	}
@@ -263,7 +263,7 @@ int __gc_data(){
 	//int cnt=0;
 	for_each_page_in_seg_blocks(tseg,tblock,tpage,bidx,pidx){
 		uint32_t t_ppa;
-		KEYT *lpa;
+		KEYT *lpa=NULL;
 		uint8_t oob_len;
 		gc_node *temp_g;
 		bool full_page=false;
@@ -304,7 +304,10 @@ int __gc_data(){
 		}
 		if(used_page)
 			goto next_page;
-		else continue;
+		else{
+			free(lpa);
+			continue;
+		}
 #else 
 		t_ppa=tpage;
 		lpa=LSM.lop->get_lpa_from_data((char*)tables[i]->sets,t_ppa,false);
@@ -406,8 +409,8 @@ retry:
 					params->level++;
 					goto retry;
 				}
+				return CACHING;
 			}
-			return CACHING;
 		case FOUND:
 			if(now->isflying==1){
 				g->status=SAMERUN;
@@ -428,7 +431,7 @@ retry:
 					gch->d=now;
 					gch->data=(char*)params->data;
 					list_insert(gc_hlist,(void*)gch);
-					gc_data_read(now->pbn,params->data,false,g);
+					gc_data_read(now->pbn,params->data,GCMR_DGC,g);
 				}
 				else{
 					params->data=NULL;
@@ -550,7 +553,7 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 					target->params=(void*)params;
 				case RETRY:
 					result=gc_data_issue_header(target,(gc_params*)target->params,size);
-					if(result==CACHING) done_cnt++;
+					//if(result==CACHING) done_cnt++;
 					break;
 				case READDONE:
 					done_cnt+=gc_data_each_header_check(target,size);
@@ -572,7 +575,7 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 		t->nppa=LSM.lop->get_page(NPCINPAGE,t->lpa);
 		footer *foot=(footer*)pm_get_oob(CONVPPA(t->nppa),DATA,false);
 		foot->map[0]=NPCINPAGE;
-		gc_data_write(t->nppa,(htable_t*)t->value,true);
+		gc_data_write(t->nppa,(htable_t*)t->value,GCDW);
 	}
 	b->idx[NPCINPAGE]=0;
 	variable_value2Page(NULL,b,NULL,&g_idx,true);
@@ -613,7 +616,7 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 		invalidate_PPA(HEADER,temp_header);
 		entries[i]->pbn=getPPA(HEADER,entries[i]->key,true);
 		if(LSM.nocpy) {map_table[i]->nocpy_table=nocpy_temp_table;}
-		gc_data_write(entries[i]->pbn,map_table[i],false);
+		gc_data_write(entries[i]->pbn,map_table[i],GCMW_DGC);
 	}
 	free(entries);
 	free(map_table);

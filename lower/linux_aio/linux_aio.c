@@ -160,12 +160,9 @@ uint32_t aio_create(lower_info *li,blockmanager *bm){
 	lower_flying=cl_init(128,false);
 
 	pthread_mutex_init(&fd_lock,NULL);
-	pthread_mutex_init(&aio_info.lower_lock,NULL);
 	pthread_mutex_init(&flying_lock,NULL);
 	sem_init(&sem,0,0);
 
-	measure_init(&li->writeTime);
-	measure_init(&li->readTime);
 	measure_init(&total_time);
 	MS(&total_time);
 
@@ -180,8 +177,6 @@ uint32_t aio_create(lower_info *li,blockmanager *bm){
 }
 
 void *aio_refresh(lower_info *li){
-	measure_init(&li->writeTime);
-	measure_init(&li->readTime);
 	li->write_op=li->read_op=li->trim_op=0;
 	return NULL;
 }

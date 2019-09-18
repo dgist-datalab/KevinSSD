@@ -48,6 +48,10 @@ enum READTYPE{
 	NOTFOUND,FOUND,CACHING,FLYING
 };
 
+enum LSMTYPE{
+	PINNING,FILTERING,CACHE,FILTERCACHE,ALLMIXED
+};
+
 typedef struct lsm_params{
 	//dl_sync lock;
 	uint8_t lsm_type;
@@ -97,6 +101,7 @@ typedef struct lsmtree{
 	bool gc_opt;
 	bool multi_level_comp;
 	uint8_t comp_opt;
+	uint8_t lsm_type;
 
 	bool inplace_compaction;
 	bool delayed_header_trim;

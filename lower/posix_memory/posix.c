@@ -239,10 +239,6 @@ void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 	if(test_type < LREQ_TYPE_NUM){
 		my_posix.req_type_cnt[test_type]++;
 	}
-	if(test_type==DATAR || test_type==DATAW){
-		req->end_req(req);
-		return NULL;
-	}
 
 	if(!seg_table[PPA].storage){
 		seg_table[PPA].storage = (PTR)malloc(PAGESIZE);
@@ -282,15 +278,12 @@ void *posix_pull_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 	if(test_type < LREQ_TYPE_NUM){
 		my_posix.req_type_cnt[test_type]++;
 	}
-	if(test_type==DATAR || test_type==DATAW){
-		req->end_req(req);
-		return NULL;
-	}
 	if(!seg_table[PPA].storage){
 		printf("%u not populated!\n",PPA);
-		abort();
+		//abort();
+	} else {
+		memcpy(value->value,seg_table[PPA].storage,size);
 	}
-	memcpy(value->value,seg_table[PPA].storage,size);
 	req->type_lower=1;
 
 

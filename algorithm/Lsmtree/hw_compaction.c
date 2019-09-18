@@ -154,9 +154,9 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	}
 	fprintf(stderr,"r start %d\n",ktable_num);
 	printf("r start %d\n", hp_num);*/
-	bool iserror=false;
+	//bool iserror=false;
 	run_t *tem=NULL;
-	uint32_t error_num=0;
+	//uint32_t error_num=0;
 	for(int i=0; i<ktable_num; i++){
 		char *kt_start=&kt[i*PAGESIZE];
 		body=(uint16_t*)kt_start;

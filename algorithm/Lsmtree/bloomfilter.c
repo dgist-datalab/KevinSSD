@@ -137,6 +137,14 @@ BF* bf_init(int entry, float fpr){
 	return res;
 }
 
+float bf_fpr_from_memory(int entry, uint32_t memory){
+	int n=entry;
+	int m=memory*8;
+	int k=round(log(2.0)*(double)m/n);
+	float p=pow(1 - exp((double)-k / (m / n)), k);
+	return p;
+}
+
 BF* bf_cpy(BF *src){
 	if(src==NULL) return NULL;
 	BF* res=(BF*)malloc(sizeof(BF));

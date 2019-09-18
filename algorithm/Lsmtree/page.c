@@ -319,14 +319,17 @@ void erase_PPA(uint8_t type,uint32_t ppa){
 	}
 }
 
-void gc_data_write(uint64_t ppa,htable_t *value,bool isdata){
+void gc_data_write(uint64_t ppa,htable_t *value,uint8_t isdata){
+	if(isdata!=GCMW && isdata!=GCMW_DGC && isdata!=GCDW){
+		abort();
+	}
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 
-	params->lsm_type=isdata?GCDW:GCHW;
+	params->lsm_type=isdata;
 	if(LSM.nocpy){
 		params->value=inf_get_valueset((PTR)(value)->sets,FS_MALLOC_W,PAGESIZE);
-		if(!isdata){
+		if(isdata==GCMW || isdata==GCMW_DGC){
 			nocpy_copy_from_change((char*)value->nocpy_table,ppa);
 		}
 	}
@@ -338,16 +341,19 @@ void gc_data_write(uint64_t ppa,htable_t *value,bool isdata){
 	areq->params=(void*)params;
 	areq->type=params->lsm_type;
 	areq->rapid=false;
-	algo_lsm.li->write(isdata?CONVPPA(ppa):ppa,PAGESIZE,params->value,ASYNC,areq);
+	algo_lsm.li->write(isdata==GCDW?CONVPPA(ppa):ppa,PAGESIZE,params->value,ASYNC,areq);
 	return;
 }
 
-void gc_data_read(uint64_t ppa,htable_t *value,bool isdata, gc_node *t){
+void gc_data_read(uint64_t ppa,htable_t *value,uint8_t isdata, gc_node *t){
+	if(isdata!=GCMR && isdata!=GCMR_DGC && isdata!=GCDR){
+		abort();
+	}
 	gc_read_wait++;
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 
-	params->lsm_type=isdata?GCDR:GCHR;
+	params->lsm_type=isdata;
 	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
 	params->target=(PTR*)value->sets;
 	params->ppa=ppa;
@@ -366,10 +372,10 @@ void gc_data_read(uint64_t ppa,htable_t *value,bool isdata, gc_node *t){
 	areq->type_lower=0;
 	areq->rapid=false;
 	areq->type=params->lsm_type;
-	if(LSM.nocpy &&  !isdata){
+	if(LSM.nocpy &&  (isdata==GCMR || isdata==GCMR_DGC)){
 		value->nocpy_table=nocpy_pick(ppa);
 	}
-	algo_lsm.li->read(isdata?CONVPPA(ppa):ppa,PAGESIZE,params->value,ASYNC,areq);
+	algo_lsm.li->read(isdata==GCDR?CONVPPA(ppa):ppa,PAGESIZE,params->value,ASYNC,areq);
 	return;
 }
 

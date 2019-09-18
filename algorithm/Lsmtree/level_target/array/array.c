@@ -143,8 +143,10 @@ void array_free(level* lev){
 	if(lev->idx<LSM.LEVELCACHING){
 		skiplist_free(b->skip);
 	}*/
+#ifdef BLOOM
 	if(lev->filter)
 		bf_free(lev->filter);
+#endif
 	free(b);
 	free(lev);
 }

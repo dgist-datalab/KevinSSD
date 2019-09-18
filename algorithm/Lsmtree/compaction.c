@@ -137,7 +137,11 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 				entry=LSM.lop->make_run(l_node->start,l_node->end,ppa);
 				free(entry->key.key);
 				free(entry->end.key);
+#ifdef BLOOM
 				LSM.lop->mem_cvt2table(l_node->mem,entry,NULL);
+#else
+				LSM.lop->mem_cvt2table(l_node->mem,entry);
+#endif
 				if(LSM.nocpy){
 					nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
 					entry->cpt_data->sets=NULL;
@@ -182,7 +186,6 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 
 	if(!upper){
 		LSM.lop->range_find_compaction(origin,start,end,&target_s);
-
 		for(int j=0; target_s[j]!=NULL; j++){
 			if(!htable_read_preproc(target_s[j])){
 				compaction_htable_read(target_s[j],(PTR*)&target_s[j]->cpt_data);

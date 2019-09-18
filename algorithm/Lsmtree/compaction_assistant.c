@@ -400,7 +400,7 @@ void compaction_check(KEYT key, bool force){
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
 	
 	compaction_sub_wait();
-
+	
 	LSM.lop->merger(top,src,org,des);
 
 	KEYT key,end;
@@ -553,8 +553,11 @@ uint32_t compaction_empty_level(level **from, leveling_node *lnode, level **des)
 		run_t *entry=LSM.lop->make_run(lnode->start,lnode->end,-1);
 		free(entry->key.key);
 		free(entry->end.key);
-
+#ifdef BLOOM
 		LSM.lop->mem_cvt2table(lnode->mem,entry,(*des)->filter);
+#else
+		LSM.lop->mem_cvt2table(lnode->mem,entry);
+#endif
 		if((*des)->idx<LSM.LEVELCACHING){
 			if(LSM.nocpy){
 				entry->level_caching_data=(char*)entry->cpt_data->sets;
@@ -598,7 +601,9 @@ uint32_t compaction_empty_level(level **from, leveling_node *lnode, level **des)
 			}
 		}
 		LSM.lop->lev_copy(*des,*from);
+#ifdef BLOOM
 		(*from)->filter=NULL;
+#endif
 	}
 	return 1;
 }

@@ -96,8 +96,8 @@ bool gc_dynamic_checker(bool last_comp_flag);
 void gc_check(uint8_t type);
 void gc_general_wait_init();
 void gc_general_waiting();
-void gc_data_read(uint64_t ppa,struct htable_t *value,bool isdata, gc_node *);
-void gc_data_write(uint64_t ppa,struct htable_t *value,bool isdata);
+void gc_data_read(uint64_t ppa,struct htable_t *value,uint8_t, gc_node *);
+void gc_data_write(uint64_t ppa,struct htable_t *value,uint8_t);
 
 int gc_header();
 int gc_data();

@@ -139,7 +139,6 @@ retry:
 	target=res;
 	res=res-(ff*(cnt?cnt-1:0));
 	LSM.last_size_factor=asymatric_level?last_size_factor:res;
-	
 	return res;
 }
 uint32_t lsm_create(lower_info *li,blockmanager *bm, algorithm *lsm){
@@ -152,6 +151,25 @@ uint32_t lsm_create(lower_info *li,blockmanager *bm, algorithm *lsm){
 #endif
 	LSM.result_padding=2;
 	return res;
+}
+
+uint64_t get_memory_per_run(lsmtree lsm,float size_factor){
+	uint64_t all_memory=(TOTALSIZE/1024);
+	uint64_t as=SHOWINGSIZE/LSM.ONESEGMENT;
+
+	uint64_t target=1;
+	for(int i=0; i<LSM.LEVELCACHING; i++){
+		all_memory-=(target*size_factor)*PAGESIZE;
+		target*=size_factor;
+	}
+
+	if(LSM.LEVELCACHING){
+	//	as/=last_level;
+	}
+	printf("---memroy per run:%lu\n",all_memory/as);
+	printf("---key in header:%u\n",LSM.keynum_in_header);
+	printf("---# of filtered run:%lu\n",as);
+	return all_memory/as;
 }
 
 uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
@@ -184,35 +202,50 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	uint64_t lev_caching_entry=0;
 	//#else
 	sol=LSM.size_factor;
-	printf("\n| ---------algorithm_log : LSMTREE\t\t\n");
-	printf("| LSM KEYNUM:%d FLUSHNUM:%d\n",LSM.KEYNUM,LSM.FLUSHNUM);
-	LSM.disk=(level**)malloc(sizeof(level*)*LSM.LEVELN);
+	float tt_fpr;
+	if(LSM.lsm_type!=CACHE){
+		uint64_t memory_per_run=get_memory_per_run(LSM,LSM.size_factor);
+		tt_fpr=bf_fpr_from_memory(LSM.keynum_in_header,memory_per_run);
+		printf("filter fpr : %.10f--------\n",tt_fpr);
+		printf("\n| ---------algorithm_log : LSMTREE\t\t\n");
+		printf("| LSM KEYNUM:%d FLUSHNUM:%d\n",LSM.KEYNUM,LSM.FLUSHNUM);
+		LSM.disk=(level**)malloc(sizeof(level*)*LSM.LEVELN);
+	}
+	else{
+		tt_fpr=1;
+	}
+
+
 	for(int i=0; i<LSM.LEVELN-1; i++){//for lsmtree -1 level
 #ifdef BLOOM
 #ifdef MONKEY
 		target_fpr=pow(LSM.size_factor2,i)*ffpr;
 #else
-		target_fpr=(float)RAF/LSM.LEVELN;
+		target_fpr=tt_fpr;
 #endif
 #endif
-		LSM.disk[i]=LSM.lop->init((uint32_t)(round(sol)),i,target_fpr,false);
-		printf("| [%d] fpr:%lf bytes per entry:%lu noe:%d\n",i+1,target_fpr,bf_bits(KEYBITMAP/sizeof(uint16_t),target_fpr), LSM.disk[i]->m_num);
-		sizeofall+=LSM.disk[i]->m_num;
 		if(i<LSM.LEVELCACHING){
+			LSM.disk[i]=LSM.lop->init((uint32_t)(round(sol)),i,1,false);
+			printf("| [%d] fpr:%.12lf bytes per entry:%lu noe:%d\n",i+1,1.0f,bf_bits(LSM.keynum_in_header,target_fpr), LSM.disk[i]->m_num);
 			lev_caching_entry+=LSM.disk[i]->m_num;
 		}
-		if(i>=LSM.LEVELCACHING){
-			bloomfilter_memory+=bf_bits(KEYBITMAP/sizeof(uint16_t),target_fpr)*sol;
+		else if(i>=LSM.LEVELCACHING){
+			printf("????%lf %p\n",round(sol),LSM.lop->init);
+			LSM.disk[i]=LSM.lop->init((uint32_t)(round(sol)),i,target_fpr,false);
+			printf("| [%d] fpr:%.12lf bytes per entry:%lu noe:%d\n",i+1,target_fpr,bf_bits(LSM.keynum_in_header,target_fpr), LSM.disk[i]->m_num);
+			bloomfilter_memory+=bf_bits(LSM.keynum_in_header,target_fpr)*sol;
 		}
+		sizeofall+=LSM.disk[i]->m_num;
 		sol*=LSM.size_factor;
 	}   
-
+	
+	bloomfilter_memory+=bf_bits(LSM.keynum_in_header,target_fpr)*sol;
 #ifdef TIERING
-	LSM.disk[LSM.LEVELN-1]=LSM.lop->init(ceil(sol/LSM.size_factor*LSM.last_size_factor),LSM.LEVELN-1,1,true);
+	LSM.disk[LSM.LEVELN-1]=LSM.lop->init(ceil(sol/LSM.size_factor*LSM.last_size_factor),LSM.LEVELN-1,target_fpr,true);
 #else
-	LSM.disk[LSM.LEVELN-1]=LSM.lop->init(ceil(sol/LSM.size_factor*LSM.last_size_factor),LSM.LEVELN-1,1,false);
+	LSM.disk[LSM.LEVELN-1]=LSM.lop->init(ceil(sol/LSM.size_factor*LSM.last_size_factor),LSM.LEVELN-1,target_fpr,false);
 #endif
-	printf("| [%d] fpr:1.0000 bytes per entry:%lu noe:%d\n",LSM.LEVELN,bf_bits(LSM.KEYNUM,1),LSM.disk[LSM.LEVELN-1]->m_num);
+	printf("| [%d] fpr:%.12lf bytes per entry:%lu noe:%d\n",LSM.LEVELN,target_fpr,bf_bits(LSM.keynum_in_header,target_fpr),LSM.disk[LSM.LEVELN-1]->m_num);
 	sizeofall+=LSM.disk[LSM.LEVELN-1]->m_num;
 	printf("| level:%d sizefactor:%lf last:%lf\n",LSM.LEVELN,LSM.size_factor,LSM.last_size_factor);
 	printf("| all level size:%lu(MB), %lf(GB)\n",sizeofall,(double)sizeofall*LSM.ONESEGMENT/G);
@@ -223,8 +256,12 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 
 	int32_t calc_cache=(caching_size-lev_caching_entry-bloomfilter_memory/PAGESIZE);
 	uint32_t cached_entry=calc_cache<0?0:calc_cache;
-	//	uint32_t cached_entry=0;
-	LSM.lsm_cache=cache_init(cached_entry+lev_caching_entry);
+	if(LSM.lsm_type==PINNING || LSM.lsm_type==FILTERING){
+		LSM.lsm_cache=cache_init(0);
+	}
+	else{
+		LSM.lsm_cache=cache_init(calc_cache);
+	}
 
 	printf("| all caching %.2f(%%) - %lu page\n",(float)caching_size/(TOTALSIZE/PAGESIZE/K)*100,caching_size);	
 	printf("| level cache :%luMB(%lu page)%.2f(%%)\n",lev_caching_entry*PAGESIZE/M,lev_caching_entry,(float)lev_caching_entry/(TOTALSIZE/PAGESIZE/K)*100);
@@ -239,6 +276,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	fprintf(stderr,"LEVELN:%d (LEVELCACHING(%d), MEMORY:%f\n",LSM.LEVELN,LSM.LEVELCACHING,LSM.caching_size);
 	pthread_mutex_init(&LSM.memlock,NULL);
 	pthread_mutex_init(&LSM.templock,NULL);
+
 #ifdef DVALUE
 	pthread_mutex_init(&LSM.data_lock,NULL);
 	LSM.data_ppa=-1;
@@ -401,6 +439,7 @@ void* lsm_end_req(algo_req* const req){
 				target=(PTR)params->target;
 				memcpy(target,params->value->value,PAGESIZE);
 			}
+		case GCMR_DGC:
 		case GCHR:
 			if(!LSM.nocpy){
 				target=(PTR)params->target;//gc has malloc in gc function
@@ -416,6 +455,7 @@ void* lsm_end_req(algo_req* const req){
 			inf_free_valueset(params->value,FS_MALLOC_R);
 			gc_target_get_cnt++;
 			break;
+		case GCMW_DGC:
 		case GCDW:
 		case GCHW:
 			inf_free_valueset(params->value,FS_MALLOC_W);
@@ -820,8 +860,8 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, keyset **found, int *level,int *r
 			if(find){
 				*found=find;
 				if(level) *level=i;
+				return CACHING;
 			}
-			return CACHING;
 		}
 		else{
 			if(level) *level=i;
@@ -1148,9 +1188,15 @@ uint32_t lsm_argument_set(int argc, char **argv){
 	bool multi_level_comp=false;
 	bool nocpy_option=false;
 	bool value_size=false;
+	bool lsm_type=false;
 	int comp_type=0;
-	while((c=getopt(argc,argv,"lcgomnrhv"))!=-1){
+	while((c=getopt(argc,argv,"lcgomnrhvt"))!=-1){
 		switch(c){
+			case 't':
+				lsm_type=true;
+				LSM.lsm_type=atoi(argv[optind]);
+				printf("[*]lsm type:%d\n",LSM.lsm_type);
+				break;
 			case 'l':
 				level_flag=true;
 				printf("level number:%s\n",argv[optind]);
@@ -1203,6 +1249,7 @@ uint32_t lsm_argument_set(int argc, char **argv){
 	if(!gc_opt_flag) LSM.gc_opt=false;
 	if(!nocpy_option) LSM.nocpy=false;
 	if(!value_size) LSM.VALUESIZE=DEFVALUESIZE;
+	if(!lsm_type) LSM.lsm_type=MIXED;
 	if(!memory_c_flag){
 		LSM.caching_size=CACHING_RATIO;
 	}
