@@ -73,7 +73,7 @@ read_retry:
 #endif
 	lpa = get_lpa(req->key, req->hash_params);
 	pte.ppa = UINT32_MAX;
-	pte.key_fp = UINT32_MAX;
+	pte.key_fp = FP_MAX;
 
 #ifdef HASH_KVSSD
 	if (h_params->cnt > d_member.max_try) {
@@ -464,10 +464,16 @@ void *demand_end_req(algo_req *a_req) {
 
 			copy_key_from_value(&check_key, req->value, offset);
 			if (KEYCMP(req->key, check_key) == 0) {
+#ifdef STORE_KEY_FP
+				d_stat.fp_match_r++;
+#endif
 				hash_collision_logging(h_params->cnt, READ);
 				free(h_params);
 				req->end_req(req);
 			} else {
+#ifdef STORE_KEY_FP
+				d_stat.fp_collision_r++;
+#endif
 				h_params->find = HASH_KEY_DIFF;
 				h_params->cnt++;
 				insert_retry_read(req);
@@ -479,6 +485,9 @@ void *demand_end_req(algo_req *a_req) {
 
 			copy_key_from_value(&check_key, d_params->value, offset);
 			if (KEYCMP(wb_entry->key, check_key) == 0) {
+#ifdef STORE_KEY_FP
+				d_stat.fp_match_w++;
+#endif
 				/* hash key found -> update */
 				h_params->find = HASH_KEY_SAME;
 				i_params = get_iparams(NULL, wb_entry);
@@ -488,6 +497,9 @@ void *demand_end_req(algo_req *a_req) {
 
 			} else {
 				/* retry */
+#ifdef STORE_KEY_FP
+				d_stat.fp_collision_w++;
+#endif
 				h_params->find = HASH_KEY_DIFF;
 				h_params->cnt++;
 

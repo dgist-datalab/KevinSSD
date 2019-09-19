@@ -312,6 +312,24 @@ static void print_demand_stat(struct demand_stat *const _stat) {
 	print_hash_collision_cdf(_stat->r_hash_collision_cnt);
 	puts("");
 #endif
+
+#ifdef STORE_KEY_FP
+	puts("=======================");
+	puts(" Fingerprint Collision ");
+	puts("=======================");
+
+	puts("[Read]");
+	printf("fp_match:     %ld\n", _stat->fp_match_r);
+	printf("fp_collision: %ld\n", _stat->fp_collision_r);
+	printf("rate: %.2f\n", (float)_stat->fp_collision_r/(_stat->fp_match_r+_stat->fp_collision_r)*100);
+	puts("");
+
+	puts("[Write]");
+	printf("fp_match:     %ld\n", _stat->fp_match_w);
+	printf("fp_collision: %ld\n", _stat->fp_collision_w);
+	printf("rate: %.2f\n", (float)_stat->fp_collision_w/(_stat->fp_match_w+_stat->fp_collision_w)*100);
+	puts("");
+#endif
 }
 
 static void demand_member_free(struct demand_member *const _member) {

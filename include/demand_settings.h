@@ -9,6 +9,8 @@
 /* Storing the key(or fingerprint(hash) of the key) in the mapping entry */
 #define STORE_KEY_FP
 
+#define FP_SIZE 32
+
 /* Support variable-sized value. Grain entries of the mapping table as GRAINED_UNIT */
 #define GRAINED_UNIT ( PIECE )
 #define VAR_VALUE_MIN ( MINVALUE )
