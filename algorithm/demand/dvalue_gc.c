@@ -29,7 +29,7 @@ struct gc_bucket_node {
 
 struct gc_bucket {
 	struct gc_bucket_node bucket[PAGESIZE/GRAINED_UNIT+1][_PPS*GRAIN_PER_PAGE];
-	uint16_t idx[PAGESIZE/GRAINED_UNIT+1];
+	uint32_t idx[PAGESIZE/GRAINED_UNIT+1];
 };
 
 extern struct algo_req *make_algo_req_default(uint8_t, value_set *);
@@ -131,6 +131,7 @@ _do_bulk_write_valid_grains
 
 		copied_pages++;
 	}
+	printf("[valid grains: %d -> packed pages: %d]\n", nr_valid_grains, copied_pages);
 
 	return nr_valid_grains;
 }
