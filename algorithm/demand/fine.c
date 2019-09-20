@@ -325,6 +325,8 @@ int fg_update(lpa_t lpa, struct pt_struct pte) {
 		if (++cnt % 1024 == 0) {
 			printf("fg_update %d\n", cnt);
 		}
+		cmt->is_cached[OFFSET(lpa)] = true;
+		cmt->cached_cnt++;
 	}
 	return 0;
 }
