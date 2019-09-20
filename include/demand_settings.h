@@ -7,9 +7,11 @@
 #define HASH_KVSSD
 
 /* Storing the key(or fingerprint(hash) of the key) in the mapping entry */
+#define FP_SIZE 0
+#if (FP_SIZE > 0)
 #define STORE_KEY_FP
+#endif
 
-#define FP_SIZE 32
 
 /* Support variable-sized value. Grain entries of the mapping table as GRAINED_UNIT */
 #define GRAINED_UNIT ( PIECE )

@@ -311,9 +311,7 @@ static void print_demand_stat(struct demand_stat *const _stat) {
 	puts("[read]");
 	print_hash_collision_cdf(_stat->r_hash_collision_cnt);
 	puts("");
-#endif
 
-#ifdef STORE_KEY_FP
 	puts("=======================");
 	puts(" Fingerprint Collision ");
 	puts("=======================");
@@ -423,7 +421,7 @@ static uint32_t hashing_key_fp(char* key,uint8_t len) {
 		hashkey ^= bytes_arr[i];
 	}
 
-	return hashkey;
+	return (hashkey & ((1<<FP_SIZE)-1));
 }
 
 static struct hash_params *make_hash_params(request *const req) {

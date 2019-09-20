@@ -73,7 +73,9 @@ read_retry:
 #endif
 	lpa = get_lpa(req->key, req->hash_params);
 	pte.ppa = UINT32_MAX;
+#ifdef STORE_KEY_FP
 	pte.key_fp = FP_MAX;
+#endif
 
 #ifdef HASH_KVSSD
 	if (h_params->cnt > d_member.max_try) {
@@ -268,7 +270,10 @@ wb_retry:
 		h_params = (struct hash_params *)wb_entry->hash_params;
 
 		lpa = get_lpa(wb_entry->key, wb_entry->hash_params);
-		new_pte = { wb_entry->ppa, h_params->key_fp };
+		new_pte.ppa = wb_entry->ppa;
+#ifdef STORE_KEY_FP
+		new_pte.key_fp = h_params->key_fp;
+#endif
 
 		/* inflight wb_entries */
 		if (IS_INFLIGHT(wb_entry->params)) {
@@ -323,14 +328,14 @@ wb_data_check:
 		}
 #endif
 		/* hash_table lookup to filter same wb element */
-		/*rc = d_htable_find(d_member.hash_table, pte.ppa, lpa);
+		rc = d_htable_find(d_member.hash_table, pte.ppa, lpa);
 		if (rc) {
 			h_params->find = HASH_KEY_DIFF;
 			h_params->cnt++;
 
 			free_iparams(NULL, wb_entry);
 			goto wb_retry;
-		}*/
+		}
 
 		/* data check is necessary before update */
 		read_for_data_check(pte.ppa, wb_entry);
@@ -350,7 +355,7 @@ wb_direct_update:
 		updated++;
 		//inflight--;
 
-		//d_htable_insert(d_member.hash_table, new_pte.ppa, lpa);
+		d_htable_insert(d_member.hash_table, new_pte.ppa, lpa);
 
 #ifdef HASH_KVSSD
 		d_member.max_try = (h_params->cnt > d_member.max_try) ? h_params->cnt : d_member.max_try;
@@ -464,16 +469,14 @@ void *demand_end_req(algo_req *a_req) {
 
 			copy_key_from_value(&check_key, req->value, offset);
 			if (KEYCMP(req->key, check_key) == 0) {
-#ifdef STORE_KEY_FP
 				d_stat.fp_match_r++;
-#endif
+
 				hash_collision_logging(h_params->cnt, READ);
 				free(h_params);
 				req->end_req(req);
 			} else {
-#ifdef STORE_KEY_FP
 				d_stat.fp_collision_r++;
-#endif
+
 				h_params->find = HASH_KEY_DIFF;
 				h_params->cnt++;
 				insert_retry_read(req);
@@ -485,10 +488,9 @@ void *demand_end_req(algo_req *a_req) {
 
 			copy_key_from_value(&check_key, d_params->value, offset);
 			if (KEYCMP(wb_entry->key, check_key) == 0) {
-#ifdef STORE_KEY_FP
-				d_stat.fp_match_w++;
-#endif
 				/* hash key found -> update */
+				d_stat.fp_match_w++;
+
 				h_params->find = HASH_KEY_SAME;
 				i_params = get_iparams(NULL, wb_entry);
 				i_params->jump = GOTO_UPDATE;
@@ -497,9 +499,8 @@ void *demand_end_req(algo_req *a_req) {
 
 			} else {
 				/* retry */
-#ifdef STORE_KEY_FP
 				d_stat.fp_collision_w++;
-#endif
+
 				h_params->find = HASH_KEY_DIFF;
 				h_params->cnt++;
 
