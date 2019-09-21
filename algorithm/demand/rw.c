@@ -88,7 +88,10 @@ read_retry:
 	/* inflight request */
 	if (IS_INFLIGHT(req->params)) {
 		struct inflight_params *i_params = (struct inflight_params *)req->params;
-		switch (i_params->jump) {
+		jump_t jump = i_params->jump;
+		free_iparams(req, NULL);
+
+		switch (jump) {
 		case GOTO_LOAD:
 			goto cache_load;
 		case GOTO_LIST:
@@ -278,7 +281,10 @@ wb_retry:
 		/* inflight wb_entries */
 		if (IS_INFLIGHT(wb_entry->params)) {
 			struct inflight_params *i_params = (struct inflight_params *)wb_entry->params;
-			switch (i_params->jump) {
+			jump_t jump = i_params->jump;
+			free_iparams(NULL, wb_entry);
+
+			switch (jump) {
 			case GOTO_LOAD:
 				goto wb_cache_load;
 			case GOTO_LIST:
@@ -323,7 +329,6 @@ wb_data_check:
 			h_params->find = HASH_KEY_DIFF;
 			h_params->cnt++;
 
-			free_iparams(NULL, wb_entry);
 			goto wb_retry;
 		}
 #endif
@@ -333,7 +338,6 @@ wb_data_check:
 			h_params->find = HASH_KEY_DIFF;
 			h_params->cnt++;
 
-			free_iparams(NULL, wb_entry);
 			goto wb_retry;
 		}
 
