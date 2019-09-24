@@ -127,6 +127,8 @@ int trace_set_type(int argc, char *argv[], char **targv, char **files){
 	optind=0;
 	return temp_cnt;
 }
+
+extern master_processor mp;
 int main(int argc, char *argv[]){
 	/*struct sigaction sa;
 	sa.sa_handler = log_print;
@@ -141,28 +143,34 @@ int main(int argc, char *argv[]){
 	char temp[8192]={0,};
 	data=(netdata*)malloc(sizeof(netdata));
 	static int cnt=0;
-	static int req_cnt=0;
+	static volatile int req_cnt=0;
 	//measure_init(&data->temp);
 	
 	bench_custom_init(write_opt_time,10);
-	for(int i=0; i<2; i++){
+	for(int i=0; i<1; i++){
 		FILE *fp = fopen(filearr[i], "r");
 		bench_custom_start(write_opt_time,i);
 		while(fscanf(fp,"%d %d %d %d %s %d\n",&data->type,&data->keylen,&data->seq,&data->scanlength,data->key,&data->valuelen)!=EOF){
 			if(data->type==1|| data->type==2){
-				inf_make_req_apps(data->type,data->key,data->keylen,temp,data->valuelen,cnt++,NULL,kv_main_end_req);	
+				inf_make_req_apps(data->type,data->key,data->keylen,temp,512,cnt++,NULL,kv_main_end_req);	
 			}
 			else{
 				data->type=FS_RANGEGET_T;
 				inf_make_range_query_apps(data->type,data->key,data->keylen,cnt++,data->scanlength,NULL,kv_main_end_req);
 			}
-	//		data=(netdata*)malloc(sizeof(netdata));
 			if(req_cnt++%10240==0){
-				printf("cnt:%d\n",req_cnt);
+				printf("\r%d gc_test",req_cnt);
+				fflush(stdout);
 			}
+			if(req_cnt%10000000==0){
+				printf("\nlog %d req_cnt\n",req_cnt);
+				for(int i=0; i<LREQ_TYPE_NUM;i++){
+					fprintf(stderr,"%s %lu\n",bench_lower_type(i),mp.li->req_type_cnt[i]);
+				}
+			}
+	//		data=(netdata*)malloc(sizeof(netdata));
 		}
 		bench_custom_A(write_opt_time,i);
 	}
-	inf_free();
 	bench_custom_print(write_opt_time,10);
 }

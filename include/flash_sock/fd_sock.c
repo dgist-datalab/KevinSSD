@@ -35,7 +35,6 @@ void fd_sock_epoll_accept(fd_sock_m *f){
 	ev.events=EPOLLIN|EPOLLET;
 	ev.data.fd=client;
 	epoll_ctl(f->fd_epoll,EPOLL_CTL_ADD,client,&ev);
-//	printf("new connection!\n");
 	for(int i=0; i<EPOLL_CLNT; i++){
 		if(r->fd[i]==0){
 			r->fd[i]=client;
@@ -106,7 +105,7 @@ fd_sock_m *fd_sock_init(char *ip, int port, int type){
 
 	if(type!=REDIS){
 		res->fd = accept( server_socket, (struct sockaddr*)&client_addr, &client_addr_size);
-		printf("connected!!!\n");
+		printf("connected!\n");
 	}else{
 		redis_buffer *r=(redis_buffer*)res->private_data;
 		struct epoll_event ev;
@@ -150,6 +149,7 @@ void fd_sock_reaccept(fd_sock_m *f){
 
 int fd_sock_requests(fd_sock_m *f, netdata * nd){
 	int res=0;
+	static bool first=false;
 	do{
 		switch(f->type){
 			case YCSB:
@@ -249,6 +249,7 @@ int fd_sock_read_redis(fd_sock_m* f, netdata *nd){
 	if(nfd==0) return RETRYSESSION;
 	if(event.data.fd==f->server_socket){
 		fd_sock_epoll_accept(f);
+		printf("new accept!\n");
 		return NEWSESSION;
 	}
 	int clnt_idx=-1;
@@ -264,12 +265,14 @@ int fd_sock_read_redis(fd_sock_m* f, netdata *nd){
 	if(buf_is_close_with_add(b,1)){ //skip *
 		epoll_ctl(f->fd_epoll,EPOLL_CTL_DEL,event.data.fd,&event);
 		close(r->fd[clnt_idx]);
+		printf("close!\n");
 		r->fd[clnt_idx]=0;
 		return CLOSEDSESSION;
 	}
 	
 	int phase=0,target_phase=buf_get_number(b),phase_word_size;
 	bool skipping=false;
+
 	while(phase!=target_phase){
 		buf_add_idx(b,1); //skip $
 		int phase_word_size=buf_get_number(b);

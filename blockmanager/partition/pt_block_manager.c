@@ -264,9 +264,12 @@ __gsegment* pbm_pt_get_gc_target(blockmanager* bm, int pnum){
 	}
 	if(invalidate_number==0){
 		printf("invalidate number 0 at %s\n",pnum==DATA_S?"DATA":"MAP");
-		//abort();
+		abort();
 	}
 	res->invalidate_number=invalidate_number;
+	if(pnum==DATA_S){
+		printf("invalidate_number:%d\n",res->invalidate_number);
+	}
 	return res;
 }
 

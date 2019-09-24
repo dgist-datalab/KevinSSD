@@ -232,7 +232,7 @@ bool invalidate_PPA(uint8_t type,uint32_t ppa){
 			t_p=t_p/NPCINPAGE;
 			if(ppa==UINT_MAX) return true;
 			t=LSM.bm->pick_block(LSM.bm,t_p)->private_data;
-			invalidate_piece((lsm_block*)t,ppa);
+			//invalidate_piece((lsm_block*)t,ppa);
 #endif
 
 #ifdef EMULATOR
@@ -256,9 +256,6 @@ bool invalidate_PPA(uint8_t type,uint32_t ppa){
 		//	abort();
 			return false;
 		}
-	}
-	if(res==4663824){
-		printf("invalidate!\n");
 	}
 	return true;
 }
@@ -487,10 +484,11 @@ void validate_piece(lsm_block *b, uint32_t ppa){
 	uint32_t check_idx=page*NPCINPAGE+pc_idx;
 	uint32_t bit_idx=check_idx/8;
 	uint32_t bit_off=check_idx%8;
+	/*
 	if(b->bitset[bit_idx]&(1<<bit_off)){
 		printf("ppa:%d\n",ppa);
 		abort();
-	}
+	}*/
 	b->bitset[bit_idx]|=(1<<bit_off);
 }
 
@@ -501,10 +499,11 @@ void invalidate_piece(lsm_block *b, uint32_t ppa){
 	uint32_t check_idx=page*NPCINPAGE+pc_idx;
 	uint32_t bit_idx=check_idx/8;
 	uint32_t bit_off=check_idx%8;
+	/*
 	if(!(b->bitset[bit_idx]&(1<<bit_off))){
 		printf("ppa:%u",ppa);
 		abort();
-	}
+	}*/
 	b->bitset[bit_idx]&=~(1<<bit_off);
 }
 

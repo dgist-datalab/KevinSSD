@@ -76,6 +76,7 @@ typedef struct run{
 	void **gc_waitreq;
 	int wait_idx;
 	int gc_wait_idx;
+	char gc_should_write;
 }run_t;
 
 typedef struct pipe_line_run{

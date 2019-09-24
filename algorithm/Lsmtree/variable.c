@@ -23,7 +23,7 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 	else{/*v_idx for value_set*/
 		v_des=*target_valueset;
 	}
-
+	uint32_t gc_write_cnt=0;
 	uint8_t max_piece=PAGESIZE/PIECE-1; //the max_piece is wrote before enter this section
 	while(src->idx[max_piece]==0 && max_piece>0) --max_piece;
 
@@ -60,6 +60,9 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 					continue;
 				}
 				target->nppa=LSM.lop->get_page(target->plength,target->lpa);
+				if(target->nppa==1762384){
+					printf("gc new_data!\n");
+				}
 //				printf("%d new_page %d\n",target->ppa,target->nppa);
 				foot->map[target->nppa%NPCINPAGE]=target_length;
 
@@ -67,8 +70,12 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 			}else{
 				snode *target=src->bucket[target_length][src->idx[target_length]-1];
 				target->ppa=LSM.lop->get_page(target->value->length,target->key);
+
 				foot->map[target->ppa%NPCINPAGE]=target->value->length;
 				memcpy(&page[ptr],target->value->value,target_length*PIECE);
+				if(target->ppa==1762384){
+					printf("new_data! %.*s\n",*(uint8_t*)target->value->value,&target->value->value[sizeof(uint8_t)]);
+				}
 			}
 			used_piece+=target_length;
 			src->idx[target_length]--;
@@ -78,6 +85,7 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 		}
 
 		if(isgc){
+			gc_write_cnt++;
 			gc_data_write(target_ppa,table_data,GCDW);
 			free(table_data);
 		}
@@ -95,5 +103,8 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 		if(stop) break;
 	}
 	*target_valueset_from=v_idx;
+	if(isgc){
+		printf("gc_write_cnt:%d\n",gc_write_cnt);
+	}
 	return v_des;
 }

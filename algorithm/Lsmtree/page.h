@@ -12,7 +12,8 @@
 struct level; 
 struct htable_t;
 struct length_bucket;
-enum GCNODE{NOTISSUE,RETRY,ISSUE,READDONE,SAMERUN,DONE};
+enum GCNODE{NOTISSUE,RETRY,ISSUE,READDONE,SAMERUN,DONE,NOUPTDONE};
+enum GCMWTYPE{NOWRITE,DOWRITE,ALREADY};
 typedef struct gc_node_params{
 	int level;
 	int run;

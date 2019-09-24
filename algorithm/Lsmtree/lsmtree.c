@@ -125,6 +125,7 @@ retry:
 	
 	caching_header=all_header_num;
 	if(LSM.LEVELN-1==LSM.LEVELCACHING && caching_size<caching_header){
+	//if(caching_size<caching_header){
 		res-=0.1;
 		asymatric_level=true;
 		goto retry;
@@ -230,7 +231,6 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 			lev_caching_entry+=LSM.disk[i]->m_num;
 		}
 		else if(i>=LSM.LEVELCACHING){
-			printf("????%lf %p\n",round(sol),LSM.lop->init);
 			LSM.disk[i]=LSM.lop->init((uint32_t)(round(sol)),i,target_fpr,false);
 			printf("| [%d] fpr:%.12lf bytes per entry:%lu noe:%d\n",i+1,target_fpr,bf_bits(LSM.keynum_in_header,target_fpr), LSM.disk[i]->m_num);
 			bloomfilter_memory+=bf_bits(LSM.keynum_in_header,target_fpr)*sol;
@@ -250,7 +250,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	printf("| level:%d sizefactor:%lf last:%lf\n",LSM.LEVELN,LSM.size_factor,LSM.last_size_factor);
 	printf("| all level size:%lu(MB), %lf(GB)\n",sizeofall,(double)sizeofall*LSM.ONESEGMENT/G);
 	printf("| all level header size: %lu(MB), except last header: %lu(MB)\n",sizeofall*PAGESIZE/M,(sizeofall-LSM.disk[LSM.LEVELN-1]->m_num)*PAGESIZE/M);
-	printf("| WRITE WAF:%f\n",(float)(LSM.size_factor * LSM.LEVELN+LSM.last_size_factor)/LSM.keynum_in_header+1);
+	printf("| WRITE WAF:%f\n",(float)(LSM.size_factor * (LSM.LEVELN-1-LSM.LEVELCACHING)+LSM.last_size_factor)/LSM.keynum_in_header+1);
 	printf("| top level size:%d(MB)\n",LSM.disk[0]->m_num*8);
 	printf("| bloomfileter : %fKB %fMB\n",(float)bloomfilter_memory/1024,(float)bloomfilter_memory/1024/1024);
 
