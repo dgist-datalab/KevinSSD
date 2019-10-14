@@ -169,6 +169,7 @@ typedef struct masterblock{
 	uint16_t max;
 	uint8_t* bitset;
 	uint16_t invalid_number;
+	int age;
 	uint32_t seg_idx;
 	void *hptr;
 	void *private_data;

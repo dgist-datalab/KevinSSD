@@ -27,6 +27,8 @@ extern int v_cnt[NPCINPAGE+1];
 int skiplist_hit;
 #endif
 MeasureTime write_opt_time[11];
+extern master_processor mp;
+extern uint64_t cumulative_type_cnt[LREQ_TYPE_NUM];
 int main(int argc,char* argv[]){
 	char *temp_argv[10];
 	int temp_cnt=bench_set_params(argc,argv,temp_argv);
@@ -36,8 +38,11 @@ int main(int argc,char* argv[]){
 	memset(t_value,'x',PAGESIZE);
 
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
-
-	bench_add(SEQRW,0,SHOWINGFULL,DEVFULL);
+	
+//	bench_add(FILLRAND,0,SHOWINGFULL,SHOWINGFULL);
+	bench_add(RANDSET,0,SHOWINGFULL,DEVFULL*5);
+//	bench_add(RANDGET,0,SHOWINGFULL,DEVFULL);
+	//bench_add(RANDGET,0,SHOWINGFULL,DEVFULL);
 	//bench_add(RANDSET,0,RANGE,MAXKEYNUMBER/16); //duplicated test
 	//bench_add(RANDGET,0,RANGE,MAXKEYNUMBER/16); //duplicated test
 	//bench_add(RANDSET,0,RANGE,REQNUM); ///duplicated test
@@ -58,6 +63,7 @@ int main(int argc,char* argv[]){
 	MeasureTime aaa;
 	measure_init(&aaa);
 	bool tflag=false;
+	uint32_t req_cnt=0;
 	while((value=get_bench())){
 		temp.length=value->length;
 		if(value->type==FS_SET_T){
@@ -71,7 +77,6 @@ int main(int argc,char* argv[]){
 			tflag=true;
 		}
 
-
 		if(_master->m[_master->n_num].type<=SEQRW) continue;
 		
 #ifndef KVSSD
@@ -82,6 +87,17 @@ int main(int argc,char* argv[]){
 			locality_check2++;
 		}
 #endif
+		req_cnt++;
+		if(req_cnt%10000000==0){
+			printf("\nlog %d req_cnt\n",req_cnt);
+			for(int i=0; i<LREQ_TYPE_NUM;i++){
+				fprintf(stderr,"org %s %lu\n",bench_lower_type(i),mp.li->req_type_cnt[i]);
+			}
+			for(int i=0; i<LREQ_TYPE_NUM;i++){
+				fprintf(stderr,"comp %s %lu\n",bench_lower_type(i),cumulative_type_cnt[i]);
+			}
+			fflush(stderr);
+		}
 	}
 
 	force_write_start=true;

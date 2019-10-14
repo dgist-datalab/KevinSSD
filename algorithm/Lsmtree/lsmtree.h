@@ -135,6 +135,10 @@ typedef struct lsmtree{
 
 	struct skiplist *memtable;
 	struct skiplist *temptable;
+
+	struct skiplist *gc_list;
+	bool gc_compaction_flag;
+
 	struct queue *re_q;
 	struct queue *gc_q;
 

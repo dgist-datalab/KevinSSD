@@ -102,7 +102,6 @@ void mh_insert(mh* h, void *data, int number){
 }
 
 void *mh_get_max(mh* h){
-
 	void *res=(void*)h->body[1].data;
 	h->body[1].data=h->body[h->size].data;
 	h->body[1].cnt=h->body[h->size].cnt;

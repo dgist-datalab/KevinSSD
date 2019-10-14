@@ -147,6 +147,7 @@ uint32_t getRPPA(uint8_t type,KEYT lpa, bool b,__gsegment *issame_bl){
 	return res;
 }
 
+static int32_t block_age=INT32_MAX;
 lsm_block* getBlock(uint8_t type){
 	pm *t;
 	blockmanager *bm=LSM.bm;
@@ -185,6 +186,7 @@ retry:
 	//__block *res=bm->get_block(bm,t->active);
 	ppa_t pick_ppa=bm->get_page_num(bm,t->active);
 	__block *res=bm->pick_block(bm,pick_ppa);
+	res->age=block_age--;
 	lsm_block *lb;
 	if(!res->private_data){
 		lb=lb_init(type);
@@ -211,6 +213,7 @@ lsm_block* getRBlock(uint8_t type){
 
 	ppa_t pick_ppa=bm->get_page_num(bm,t->reserve);
 	__block *res=bm->pick_block(bm,pick_ppa);
+	res->age=block_age--;
 	lsm_block *lb;
 	if(!res->private_data){
 		lb=lb_init(type);
@@ -267,6 +270,7 @@ bool validate_PPA(uint8_t type, uint32_t ppa){
 #ifdef DVALUE
 			t_p=t_p/NPCINPAGE;
 			validate_piece((lsm_block*)LSM.bm->pick_block(LSM.bm,t_p)->private_data,ppa);
+
 #endif
 	
 			break;

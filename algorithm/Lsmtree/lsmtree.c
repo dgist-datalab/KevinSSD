@@ -581,7 +581,6 @@ uint32_t lsm_get(request *const req){
 	//	LSM.lop->all_print();
 		temp=true;
 		LSM.lop->print_level_summary();
-		LSM.debug_flag=true;
 	}
 	
 	res_type=__lsm_get(req);
@@ -817,6 +816,9 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 		}
 #else
 		if(!LSM.hw_read || lsm_req->type==DATAR){
+			if(ppa/16==375090){
+				printf("read ppa :%u\n",ppa);
+			}
 			LSM.li->read(ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 		}
 		else{
