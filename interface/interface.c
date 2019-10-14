@@ -56,11 +56,13 @@ static bool qmanager_write_checking(processor * t,request *req){
 #endif
 	}
 	pthread_mutex_unlock(&t->qm_lock);
+#if 0
 #if defined(KVSSD) && defined(demand)
 	if(res) return res;
 	pthread_mutex_lock(&rb_lock);
 	rb_insert_str(rb_tree, req->key, NULL);
 	pthread_mutex_unlock(&rb_lock);
+#endif
 #endif
 	return res;
 }

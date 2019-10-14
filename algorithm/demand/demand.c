@@ -311,6 +311,22 @@ static void print_demand_stat(struct demand_stat *const _stat) {
 	puts("[read]");
 	print_hash_collision_cdf(_stat->r_hash_collision_cnt);
 	puts("");
+
+	puts("=======================");
+	puts(" Fingerprint Collision ");
+	puts("=======================");
+
+	puts("[Read]");
+	printf("fp_match:     %ld\n", _stat->fp_match_r);
+	printf("fp_collision: %ld\n", _stat->fp_collision_r);
+	printf("rate: %.2f\n", (float)_stat->fp_collision_r/(_stat->fp_match_r+_stat->fp_collision_r)*100);
+	puts("");
+
+	puts("[Write]");
+	printf("fp_match:     %ld\n", _stat->fp_match_w);
+	printf("fp_collision: %ld\n", _stat->fp_collision_w);
+	printf("rate: %.2f\n", (float)_stat->fp_collision_w/(_stat->fp_match_w+_stat->fp_collision_w)*100);
+	puts("");
 #endif
 }
 
@@ -405,7 +421,7 @@ static uint32_t hashing_key_fp(char* key,uint8_t len) {
 		hashkey ^= bytes_arr[i];
 	}
 
-	return hashkey;
+	return (hashkey & ((1<<FP_SIZE)-1));
 }
 
 static struct hash_params *make_hash_params(request *const req) {

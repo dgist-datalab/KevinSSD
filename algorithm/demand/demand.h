@@ -169,7 +169,13 @@ struct demand_stat {
 #ifdef HASH_KVSSD
 	uint64_t w_hash_collision_cnt[MAX_HASH_COLLISION];
 	uint64_t r_hash_collision_cnt[MAX_HASH_COLLISION];
+
+	uint64_t fp_match_r;
+	uint64_t fp_match_w;
+	uint64_t fp_collision_r;
+	uint64_t fp_collision_w;
 #endif
+
 };
 
 /* Functions */
