@@ -8,7 +8,7 @@
 #include "../../include/demand_settings.h"
 
 #ifdef STORE_KEY_FP
-#define ENTRY_SIZE (4+4)
+#define ENTRY_SIZE (4+(FP_SIZE/8))
 #else
 #define ENTRY_SIZE (4)
 #endif

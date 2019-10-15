@@ -106,6 +106,8 @@ struct demand_env {
 };
 
 struct demand_member {
+	pthread_mutex_t op_lock;
+
 	LRU *lru;
 	skiplist *write_buffer;
 	snode **sorted_list;
@@ -114,6 +116,8 @@ struct demand_member {
 	queue *blocked_q;
 	queue *wb_master_q;
 	queue *wb_retry_q;
+
+	queue *range_q;
 
 	struct flush_list *flush_list;
 
@@ -165,7 +169,13 @@ struct demand_stat {
 #ifdef HASH_KVSSD
 	uint64_t w_hash_collision_cnt[MAX_HASH_COLLISION];
 	uint64_t r_hash_collision_cnt[MAX_HASH_COLLISION];
+
+	uint64_t fp_match_r;
+	uint64_t fp_match_w;
+	uint64_t fp_collision_r;
+	uint64_t fp_collision_w;
 #endif
+
 };
 
 /* Functions */

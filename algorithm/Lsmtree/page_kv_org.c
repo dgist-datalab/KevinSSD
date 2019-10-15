@@ -25,7 +25,6 @@ list *gc_hlist;
 typedef struct temp_gc_h{
 	run_t *d;
 	char *data;
-	bool is_should_write;
 }temp_gc_h;
 
 #ifdef KVSSD
@@ -132,6 +131,8 @@ int gc_header(){
 			abort();
 		}
 
+
+
 		if(!shouldwrite){
 			free(tables[i]);
 			free(lpa->key);
@@ -232,23 +233,21 @@ int __gc_data(){
 	int bidx=0;
 	int pidx=0;
 	int i=0;
-	bool debug_flag=false;
 	//printf("invalidate number:%d\n",tseg->invalidate_number);
 	for_each_page_in_seg_blocks(tseg,tblock,tpage,bidx,pidx){
 #ifdef DVALUE
 		bool page_read=false;
 		for(int j=0; j<NPCINPAGE; j++){
 			uint32_t npc=tpage*NPCINPAGE+j;
-			/*
 			if(is_invalid_piece((lsm_block*)tblock->private_data,npc)){
 				continue;
 			}
-			else{*/
+			else{
 				page_read=true;
 				tables[i]=(htable_t*)malloc(sizeof(htable_t));
 				gc_data_read(npc,tables[i],GCDR,NULL);
 				break;
-			//}
+			}
 		}
 		if(!page_read) continue;
 #else
@@ -271,47 +270,42 @@ int __gc_data(){
 #ifdef DVALUE
 		bool used_page=false;
 		footer *foot=(footer*)bm->get_oob(bm,tpage);
-		if(tpage==375090){
-			printf("testing");
-		}
 		for(int j=0;j<NPCINPAGE; j++){
 			t_ppa=tpage*NPCINPAGE+j;
-/*
+
 			if(is_invalid_piece((lsm_block*)tblock->private_data,t_ppa)){
-				continue;
-			}*/
-			oob_len=foot->map[j];
-			if(!oob_len){
-				//printf("%u oob_len:%u\n",t_ppa,oob_len);
-				//abort();
-			//	printf("t_ppa %d not used!\n",t_ppa);
 				continue;
 			}
 			used_page=true;
+			oob_len=foot->map[j];
 			lpa=LSM.lop->get_lpa_from_data(&((char*)tables[i]->sets)[PIECE*j],t_ppa,false);
+	#ifdef EMULATOR
+			lsm_simul_del(t_ppa);
+	#endif
+			if(!lpa->len || !oob_len){
+				printf("%u oob_len:%u\n",t_ppa,oob_len);
+				abort();
+			}
 
 			if(oob_len==NPCINPAGE && oob_len%NPCINPAGE==0){
 				temp_g=gc_data_write_new_page(t_ppa,NULL,tables[i],NPCINPAGE,lpa);
 				full_page=true;
-				free(lpa);
 				goto make_bucket;
 			}
 			else{
 				temp_g=gc_data_write_new_page(t_ppa,&((char*)tables[i]->sets)[PIECE*j],NULL,oob_len,lpa);
 				if(!bucket->gc_bucket[temp_g->plength])
-					bucket->gc_bucket[temp_g->plength]=(gc_node**)malloc(sizeof(gc_node*)*8*_PPS);
+					bucket->gc_bucket[temp_g->plength]=(gc_node**)malloc(sizeof(gc_node*)*16*_PPS);
 				
 				bucket->gc_bucket[temp_g->plength][bucket->idx[temp_g->plength]++]=temp_g;
 				bucket->contents_num++;
 				j+=foot->map[j]-1;
-				free(lpa);
 			}
 		}
 		if(used_page)
 			goto next_page;
 		else{
-			free(tables[i]);
-			i++;
+			free(lpa);
 			continue;
 		}
 #else 
@@ -325,6 +319,7 @@ make_bucket:
 		bucket->gc_bucket[temp_g->plength][bucket->idx[temp_g->plength]++]=temp_g;
 		bucket->contents_num++;
 next_page:
+		free(lpa);
 		if(!full_page) free(tables[i]);
 		i++;
 	}
@@ -365,20 +360,18 @@ int gc_node_compare(const void *a, const void *b){
 }
 
 void gc_data_header_update_add(l_bucket *b){
-	/*
-	gc_node **gc_array=(gc_node**)calloc(sizeof(gc_node),b->contents_num);*/
-	/*
+	gc_node **gc_array=(gc_node**)calloc(sizeof(gc_node),b->contents_num);
 	int idx=0;
 	for(int i=0; i<NPCINPAGE+1; i++){
 		for(int j=0; j<b->idx[i]; j++){
 			gc_array[idx++]=b->gc_bucket[i][j];
 		}
 	}
-*/
-	//qsort(gc_array,idx, sizeof(gc_node**),gc_node_compare);
+
+	qsort(gc_array,idx, sizeof(gc_node**),gc_node_compare);
 	
-	gc_data_header_update(b->gc_bucket[2],b->contents_num,b);
-	//free(gc_array);
+	gc_data_header_update(gc_array,idx,b);
+	free(gc_array);
 }
 
 void* gc_data_end_req(struct algo_req*const req){
@@ -397,38 +390,25 @@ void* gc_data_end_req(struct algo_req*const req){
 
 	return NULL;
 }
-uint32_t update_cache, noupdate_cache;
+
 uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size){
 	uint8_t result=0;
 	run_t *now=NULL;
 	keyset *found=NULL;
-
-//retry:
+retry:
 	result=lsm_find_run(g->lpa,&now,&found,&params->level,&params->run);
-	if(result==FOUND){
-		if(skiplist_find(LSM.memtable,g->lpa)){
-			g->invalidate=true;
-			g->plength=0;
-			g->status=NOUPTDONE;
-			return CACHING;
-		}
-	}
-
 	switch(result){
 		case CACHING:
 			if(found){
 				if(found->ppa==g->ppa){
 					params->found=found;
 					g->status=DONE;
-					update_cache++;
 				}
 				else{
 					g->invalidate=true;
 					g->plength=0;
 					params->level++;
-					g->status=NOUPTDONE;
-					noupdate_cache++;
-			//		goto retry;
+					goto retry;
 				}
 				return CACHING;
 			}
@@ -444,7 +424,7 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 			else{
 				g->status=ISSUE;
 				if(!now->run_data){
-					temp_gc_h *gch=(temp_gc_h*)calloc(sizeof(temp_gc_h),1);
+					temp_gc_h *gch=(temp_gc_h*)malloc(sizeof(temp_gc_h));
 					params->data=(htable_t*)malloc(sizeof(htable_t));
 					now->isflying=1;
 					now->gc_waitreq=(void**)calloc(sizeof(void*),req_size);
@@ -452,7 +432,6 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 					gch->d=now;
 					gch->data=(char*)params->data;
 					list_insert(gc_hlist,(void*)gch);
-					now->gc_should_write=NOWRITE;
 					gc_data_read(now->pbn,params->data,GCMR_DGC,g);
 				}
 				else{
@@ -466,7 +445,7 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 			break;
 		case NOTFOUND:
 			result=lsm_find_run(g->lpa,&now,&found,&params->level,&params->run);
-			LSM.lop->print_level_summary();
+			LSM.lop->all_print();
 			printf("lpa: %.*s ppa:%u\n",KEYFORMAT(g->lpa),g->ppa);
 			abort();
 			break;
@@ -475,8 +454,6 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 	return FOUND;
 }
 
-run_t *debug_run;
-uint32_t header_overlap_cnt;
 uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 	gc_params *_p=(gc_params*)g->params;
 	int done_cnt=0;
@@ -491,7 +468,13 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 		printf("lpa: %.*s ppa:%u \n",KEYFORMAT(g->lpa),g->ppa);
 		abort();
 	}
-
+	/*
+	static int cnt=0;
+	//printf("test:%d\n",cnt++);
+	bool test=false;
+	if(42901==cnt++){
+		test=true;
+	}*/
 	/*
 		0 - useless -> free
 		1 - target is correct
@@ -501,8 +484,13 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 	bool original_target_processed=false;
 	for(int i=-1; i<ent->gc_wait_idx; i++){
 		gc_node *target=i==-1?g:(gc_node*)ent->gc_waitreq[i];
-
 		gc_params *p=(gc_params*)target->params;
+		/*
+		if(test){
+			printf("%.*s - %d\n",KEYFORMAT(target->lpa),i);
+			printf("data :%p\n",data);
+			printf("data_nocpy:%p\n",data->nocpy_table);
+		}*/
 		find=LSM.nocpy?LSM.lop->find_keyset((char*)data->nocpy_table,target->lpa): LSM.lop->find_keyset((char*)data->sets,target->lpa);
 		if(find && find->ppa==target->ppa){
 			p->found=find;
@@ -526,22 +514,14 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 			else if(!set_flag){
 				set_flag=true;
 			}
-			if(p->ent->gc_should_write==DOWRITE){
-				header_overlap_cnt++;
-			}
-			p->ent->gc_should_write=DOWRITE;
 		}
 		else{
 			if(find){
 				target->invalidate=true;
 				target->plength=0;
-				target->status=NOUPTDONE;
-				if(i==-1){original_target_processed=true;
-				}
-				done_cnt++;
-				header_overlap_cnt++;
 			}
-			else if(i!=-1){
+			
+			if(i!=-1){
 				target->status=RETRY;
 			}
 			p->run++;
@@ -561,9 +541,7 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 	gc_params *params;
 	int cnttt=0;
 	gc_hlist=list_init();
-	int cache_cnt=0;
-	update_cache=noupdate_cache=0;
-	header_overlap_cnt=0;
+
 	while(done_cnt!=size){
 		cnttt++;
 		for(int i=0; i<size; i++){
@@ -576,10 +554,7 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 					target->params=(void*)params;
 				case RETRY:
 					result=gc_data_issue_header(target,(gc_params*)target->params,size);
-					if(result==CACHING){
-						cache_cnt++;
-						done_cnt++;
-					}
+					//if(result==CACHING) done_cnt++;
 					break;
 				case READDONE:
 					done_cnt+=gc_data_each_header_check(target,size);
@@ -592,8 +567,7 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 	}
 
 	gc_read_wait=0;
-
-
+	
 	int g_idx;
 	for(int i=0; i<b->idx[NPCINPAGE]; i++){
 		gc_node *t=b->gc_bucket[NPCINPAGE][i];
@@ -608,46 +582,31 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 	variable_value2Page(NULL,b,NULL,&g_idx,true);
 	
 
-//	htable_t** map_table=(htable_t**)malloc(sizeof(htable_t*)*size);
-//	run_t **entries=(run_t**)malloc(sizeof(run_t*)*size);
+	htable_t** map_table=(htable_t**)malloc(sizeof(htable_t*)*size);
+	run_t **entries=(run_t**)malloc(sizeof(run_t*)*size);
 	int idx=0;
-	bool skip_init_flag=false;
-	static int debug_cnt=0;
-	uint32_t new_inserted=0;
 	for(int i=0;i<size; i++){
 		gc_node *t=g[i];
 		gc_params *p=(gc_params*)t->params;
-		if(t->status==NOUPTDONE){
-		
-		}
-		else if(!p->found) 
+		if(!p->found) 
 			abort();
-		else if(t->plength==0){
-			continue;
-		}
 		else{
-			if(t->plength!=0){
-				if(!skip_init_flag){
-					skip_init_flag=true;
-					LSM.gc_list=skiplist_init();
-				}
-				LSM.gc_compaction_flag=true;
-				KEYT temp_lpa;
-				kvssd_cpy_key(&temp_lpa,&t->lpa);
-				skiplist_insert_wP(LSM.gc_list,temp_lpa,t->nppa,false);
-				new_inserted++;
-			}
-			/*p->found->ppa=t->plength==0?-1:t->nppa;	
-			if(p->found2) p->found2->ppa=p->found->ppa;*/
+			p->found->ppa=t->plength==0?-1:t->nppa;	
+			if(p->found2) p->found2->ppa=p->found->ppa;
+		}
+		if(p->data){
+			map_table[idx]=p->data;
+			entries[idx]=p->ent;
+			idx++;
 		}
 		free(t->lpa.key);
 		free(t->value);
 		free(t);
 		free(p);
 	}
-/*	
+
+
 	char *nocpy_temp_table;
-	int map_update_cnt=0;
 	for(int i=0; i<idx; i++){
 		ppa_t temp_header=entries[i]->pbn;
 		entries[i]->run_data=NULL;
@@ -659,12 +618,10 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 		entries[i]->pbn=getPPA(HEADER,entries[i]->key,true);
 		if(LSM.nocpy) {map_table[i]->nocpy_table=nocpy_temp_table;}
 		gc_data_write(entries[i]->pbn,map_table[i],GCMW_DGC);
-		entries[i]->gc_should_write=NOWRITE;
-		map_update_cnt++;
 	}
 	free(entries);
 	free(map_table);
-*/
+
 	li_node *ln, *lp;
 	if(gc_hlist->size!=0){
 		for_each_list_node_safe(gc_hlist,ln,lp){
@@ -676,10 +633,5 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 		}
 	}
 	list_free(gc_hlist);
-	printf("size :%d cache %d(U:N %u:%u), overlap:%d new %d\n",size,cache_cnt,update_cache,noupdate_cache,header_overlap_cnt,new_inserted);
-	/*
-	if(size!=cache_cnt+map_update_cnt){
-		abort();
-	}*/
 }	
 #endif

@@ -89,8 +89,10 @@ char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush)
 	memcpy(target_idx,&ppa,sizeof(uint32_t));
 	memcpy(&target_idx[sizeof(uint32_t)],key.key,key.len);
 
+#ifdef BLOOM
 	if(p->filter)
 		bf_set(p->filter,key);
+#endif
 
 	p->bitmap_ptr[p->kidx++]=p->length;
 	p->length+=sizeof(uint32_t)+key.len;

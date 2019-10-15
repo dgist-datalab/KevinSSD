@@ -62,7 +62,7 @@ typedef struct length_bucket{
 #ifdef Lsmtree
 	gc_node **gc_bucket[NPCINPAGE+1];
 #endif
-	uint32_t idx[PAGESIZE/PIECE+1];
+	uint32_t idx[NPCINPAGE+1];
 	value_set** contents;
 	int contents_num;
 }l_bucket;
@@ -100,6 +100,7 @@ value_set **skiplist_make_valueset(skiplist*,struct level *from, KEYT *start, KE
 snode *skiplist_general_insert(skiplist*,KEYT,void *,void (*overlap)(void*));
 snode *skiplist_pop(skiplist *);
 skiplist *skiplist_cutting_header(skiplist *,uint32_t *avg);
+skiplist *skiplist_cutting_header_se(skiplist *,uint32_t *avg,KEYT *start, KEYT *end);
 #endif
 snode *skiplist_at(skiplist *,int idx);
 int skiplist_delete(skiplist*,KEYT); //delete by key, return 0:normal -1:empty -2:no key

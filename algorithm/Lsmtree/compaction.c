@@ -17,9 +17,6 @@ extern lsmtree LSM;
 uint32_t level_change(level *from ,level *to,level *target, pthread_mutex_t *lock){
 	level **src_ptr=NULL, **des_ptr=NULL;
 	des_ptr=&LSM.disk[to->idx];
-	if(from!=NULL && from->idx<LSM.LEVELCACHING){
-		cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+LSM.lop->get_number_runs(from));
-	}
 	if(from!=NULL){ 
 		int from_idx=from->idx;
 		pthread_mutex_lock(&LSM.level_lock[from_idx]);
@@ -33,6 +30,12 @@ uint32_t level_change(level *from ,level *to,level *target, pthread_mutex_t *loc
 	(*des_ptr)=target;
 	pthread_mutex_unlock(lock);
 	LSM.lop->release(to);
+
+	uint32_t level_cache_size=0;
+	for(int i=0; i<LSM.LEVELCACHING; i++){
+		level_cache_size+=LSM.disk[i]->n_num;
+	}
+	cache_size_update(LSM.lsm_cache,LSM.lsm_cache->max_size-level_cache_size);
 	return 1;
 }
 
@@ -134,7 +137,11 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 				entry=LSM.lop->make_run(l_node->start,l_node->end,ppa);
 				free(entry->key.key);
 				free(entry->end.key);
+#ifdef BLOOM
 				LSM.lop->mem_cvt2table(l_node->mem,entry,NULL);
+#else
+				LSM.lop->mem_cvt2table(l_node->mem,entry);
+#endif
 				if(LSM.nocpy){
 					nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
 					entry->cpt_data->sets=NULL;
@@ -143,7 +150,12 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 				l_node->entry=entry;
 			}
 		}
-		compactor.pt_leveling(target,target_origin,l_node,from);	
+		
+		if(LSM.comp_opt==MIXEDCOMP && to->idx!=LSM.LEVELN-1){
+			partial_leveling(target,target_origin,l_node,from);
+		}
+		else
+			compactor.pt_leveling(target,target_origin,l_node,from);
 	}
 
 
@@ -174,7 +186,6 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 
 	if(!upper){
 		LSM.lop->range_find_compaction(origin,start,end,&target_s);
-
 		for(int j=0; target_s[j]!=NULL; j++){
 			if(!htable_read_preproc(target_s[j])){
 				compaction_htable_read(target_s[j],(PTR*)&target_s[j]->cpt_data);

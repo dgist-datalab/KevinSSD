@@ -27,7 +27,7 @@ queue *p_q;
 pthread_t t_id;
 bool stopflag;
 #endif
-#define PPA_LIST_SIZE (20*1024)
+#define PPA_LIST_SIZE (240*1024)
 cl_lock *lower_flying;
 char *invalidate_ppa_ptr;
 char *result_addr;
@@ -166,7 +166,7 @@ uint32_t posix_create(lower_info *li, blockmanager *b){
 	lower_flying=cl_init(QDEPTH,true);
 	
 	invalidate_ppa_ptr=(char*)malloc(sizeof(uint32_t)*PPA_LIST_SIZE*20);
-	result_addr=(char*)malloc(8192*(PPA_LIST_SIZE)*2);
+	result_addr=(char*)malloc(8192*(PPA_LIST_SIZE));
 
 	printf("!!! posix memory LASYNC: %d NOP:%d!!!\n", LASYNC,li->NOP);
 	li->write_op=li->read_op=li->trim_op=0;
@@ -228,7 +228,6 @@ void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 		printf("dmatag -1 error!\n");
 		abort();
 	}
-	pthread_mutex_lock(&fd_lock);
 
 	if(my_posix.SOP*PPA >= my_posix.TS){
 		printf("\nwrite error\n");
@@ -236,6 +235,7 @@ void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 	}
 
 	test_type = convert_type(req->type);
+
 	if(test_type < LREQ_TYPE_NUM){
 		my_posix.req_type_cnt[test_type]++;
 	}
@@ -248,7 +248,6 @@ void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 	}
 	memcpy(seg_table[PPA].storage,value->value,size);
 
-	pthread_mutex_unlock(&fd_lock);
 	req->end_req(req);
 	return NULL;
 }
@@ -269,7 +268,6 @@ void *posix_pull_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 		abort();
 	}
 
-	pthread_mutex_lock(&fd_lock);
 
 	if(my_posix.SOP*PPA >= my_posix.TS){
 		printf("\nread error\n");
@@ -280,15 +278,14 @@ void *posix_pull_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 	if(test_type < LREQ_TYPE_NUM){
 		my_posix.req_type_cnt[test_type]++;
 	}
-
 	if(!seg_table[PPA].storage){
 		printf("%u not populated!\n",PPA);
-		abort();
+		//abort();
+	} else {
+		memcpy(value->value,seg_table[PPA].storage,size);
 	}
-	memcpy(value->value,seg_table[PPA].storage,size);
 	req->type_lower=1;
 
-	pthread_mutex_unlock(&fd_lock);
 
 	req->end_req(req);
 	return NULL;

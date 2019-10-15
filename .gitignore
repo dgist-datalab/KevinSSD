@@ -17,7 +17,7 @@ robusta*
 *log
 .
 *log
-*trace
+*trace*
 driver
 range_driver
 *driver
@@ -28,3 +28,4 @@ cscope*
 *test.sh
 bd_testcase
 testing/
+test_sh/

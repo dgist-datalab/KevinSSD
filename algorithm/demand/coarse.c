@@ -23,6 +23,7 @@ struct demand_cache cg_cache = {
 	.touch = cg_touch,
 	.update = cg_update,
 	.get_pte = cg_get_pte,
+	.get_cmt = cg_get_cmt,
 /*	.get_ppa = cg_get_ppa,
 #ifdef STORE_KEY_FP
 	.get_fp = cg_get_fp,
@@ -51,7 +52,7 @@ static void cg_env_init(cache_t c_type, struct cache_env *const _env) {
 	_env->c_type = c_type;
 
 	_env->nr_tpages_optimal_caching = d_env.nr_pages * 4 / PAGESIZE;
-	_env->nr_valid_tpages = d_env.nr_pages * ENTRY_SIZE / PAGESIZE;
+	_env->nr_valid_tpages = d_env.nr_pages / EPP + ((d_env.nr_pages % EPP) ? 1 : 0);
 	_env->nr_valid_tentries = _env->nr_valid_tpages * EPP;
 
 	//_env->caching_ratio = d_env.caching_ratio;
@@ -88,7 +89,7 @@ static void cg_member_init(struct cache_member *const _member) {
 
 	_member->mem_table = (struct pt_struct **)calloc(cenv->nr_valid_tpages, sizeof(struct pt_struct *));
 	for (int i = 0; i < cenv->nr_valid_tpages; i++) {
-		_member->mem_table[i] = (struct pt_struct *)malloc(PAGESIZE);
+		_member->mem_table[i] = (struct pt_struct *)malloc(EPP * sizeof(struct pt_struct));
 		for (int j = 0; j < EPP; j++) {
 			_member->mem_table[i][j].ppa = UINT32_MAX;
 #ifdef STORE_KEY_FP
@@ -315,3 +316,6 @@ struct pt_struct cg_get_pte(lpa_t lpa) {
 	return cmt->pt[OFFSET(lpa)]; */
 }
 
+struct cmt_struct *cg_get_cmt(lpa_t lpa) {
+	return cmbr->cmt[IDX(lpa)];
+}

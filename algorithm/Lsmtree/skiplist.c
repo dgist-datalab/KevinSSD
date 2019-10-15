@@ -213,6 +213,7 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
 	{
 		//ignore new one;
 		invalidate_PPA(DATA,ppa);
+		abort();
 		return x;
 	}
 	else{
@@ -421,6 +422,46 @@ skiplist *skiplist_cutting_header(skiplist *in,uint32_t *value){
 		idx++;
 		if(length+KEYLEN(temp->list[1]->key)>=size_limit || idx>=num_limit ) break;
 	}
+	skiplist *res=skiplist_divide(in,temp);
+	res->size=idx;
+	res->all_length=length;
+	in->size-=idx;
+	in->all_length-=length;
+	*value=idx;
+	return res;
+}
+
+skiplist *skiplist_cutting_header_se(skiplist *in,uint32_t *value,KEYT *start, KEYT *end){
+	static uint32_t num_limit=KEYBITMAP/sizeof(uint16_t)-2;
+	static uint32_t size_limit=PAGESIZE-KEYBITMAP;
+	snode *temp;
+	uint32_t length=0;
+	uint32_t idx=0;
+	KEYT t_end;
+	if(in->all_length<size_limit && in->size <num_limit){
+		for_each_sk(temp,in){
+			if(idx==0){
+				kvssd_cpy_key(start,&temp->key);
+			}
+			t_end=temp->key;
+			idx++;
+		}
+		if(idx!=0){
+			kvssd_cpy_key(end,&temp->key);
+		}
+		return in;
+	}
+
+	for_each_sk(temp,in){
+		if(idx==0){
+			kvssd_cpy_key(start,&temp->key);
+		}
+		length+=KEYLEN(temp->key);
+		idx++;
+		t_end=temp->key;
+		if(length+KEYLEN(temp->list[1]->key)>=size_limit || idx>=num_limit ) break;
+	}
+	kvssd_cpy_key(end,&t_end);
 	skiplist *res=skiplist_divide(in,temp);
 	res->size=idx;
 	res->all_length=length;

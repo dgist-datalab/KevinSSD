@@ -5,15 +5,16 @@
 #include<stdlib.h>
 #include<stdint.h>
 typedef struct{
-	uint32_t k;
-	int m;
-	int targetsize;
+	int k;
+	uint64_t m;
+	uint32_t targetsize;
 	int n;
 	float p;
 	char *body;
 }BF;
 
 BF* bf_init(int entry,float fpr);
+float bf_fpr_from_memory(int entry,uint32_t memory);
 void bf_free(BF *);
 uint64_t bf_bits(int entry, float fpr);
 void bf_set(BF *,KEYT);

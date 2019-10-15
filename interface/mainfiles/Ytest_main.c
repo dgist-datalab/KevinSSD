@@ -10,19 +10,15 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <errno.h>
+#include <getopt.h>
 
-#include "../include/settings.h"
-#include "../bench/bench.h"
-#include "interface.h"
-#include "queue.h"
+#include "../../include/settings.h"
+#include "../../bench/bench.h"
+#include "../interface.h"
+#include "../queue.h"
+#include "../../include/flash_sock/fd_sock.h"
 
-typedef struct netdata_t{
-	uint32_t type;
-	uint8_t keylen;
-	uint32_t scanlength;
-	uint32_t seq;
-	char key[UINT8_MAX];
-}netdata;
+
 MeasureTime temp;
 int client_socket;
 queue *n_q;
@@ -73,22 +69,6 @@ void print_byte(char *data, int len){
 	printf("\n");
 }
 
-void *ack_to_client(void *arg){
-	netdata *net_data;
-	while(1){
-		void *req;
-		req=q_dequeue(n_q);
-		if(!req) continue;
-		net_data=(netdata*)req;
-		//printf("write:");
-		//print_byte((char*)&net_data->seq,sizeof(net_data->seq));
-		write_socket_len((char*)&net_data->seq,sizeof(net_data->seq));
-	//	if(net_data->type==2){
-			free(net_data);
-	//	}
-	}
-}
-
 void kv_main_end_req(uint32_t a, uint32_t b, void *req){
 	if(req==NULL) return;
 	netdata *net_data=(netdata*)req;
@@ -108,46 +88,89 @@ void kv_main_end_req(uint32_t a, uint32_t b, void *req){
 }
 
 MeasureTime write_opt_time[10];
-MeasureTime temp_time;
+int trace_set_type(int argc, char *argv[], char **targv, char **files){
+	struct option options[]={
+		{"file",1,0,0},
+		{0,0,0,0}
+	};
+	int temp_cnt=0;
+	for(int i=0; i<argc; i++){
+		if(strncmp(argv[i],"--file",strlen("--file"))==0){
+			i++;
+			continue;
+		}
+		targv[temp_cnt++]=argv[i];
+	}
+
+	int opt;
+	bool file_setting=false;
+	int index;
+	int file_cnt=0;
+	opterr=0;
+	while((opt=getopt_long(argc,argv,"",options,&index))!=-1){
+		switch(opt){
+			case 0:
+				if(optarg!=NULL){
+					strcpy(files[file_cnt++],optarg);
+					file_setting=true;
+				}
+		}
+	}
+	
+	if(!file_setting){
+		printf("plz input filename!\n");
+	}
+	printf("%d file input ready!\n",file_cnt);
+	for(int i=0; i<file_cnt; i++){
+		printf("--%d %s\n",i,files[i]);
+	}
+	optind=0;
+	return temp_cnt;
+}
+
+extern master_processor mp;
 int main(int argc, char *argv[]){
-	struct sigaction sa;
+	/*struct sigaction sa;
 	sa.sa_handler = log_print;
 	sigaction(SIGINT, &sa, NULL);
-	printf("signal add!\n");
-
-	if(argc<2){
-//		printf("insert argumen!\n");
-//		return 1;
-	}
-	inf_init(1,1000000);
-	FILE *fp = fopen("ycsb_load_gc", "r");
+	printf("signal add!\n");*/
+	char *temp_argv[20];
+	char **filearr=(char**)malloc(sizeof(char*)*2);
+	for(int i=0; i<2; i++) filearr[i]=(char*)calloc(256,1);
+	int temp_cnt=trace_set_type(argc,argv,temp_argv,filearr);
+	inf_init(1,0,temp_cnt,temp_argv);
 	netdata *data;
 	char temp[8192]={0,};
-	char data_temp[6];
 	data=(netdata*)malloc(sizeof(netdata));
 	static int cnt=0;
-	static int req_cnt=0;
+	static volatile int req_cnt=0;
 	//measure_init(&data->temp);
 	
 	bench_custom_init(write_opt_time,10);
-	bench_custom_start(write_opt_time,0);
-	while((fscanf(fp,"%d %d %d %s",&data->type,&data->scanlength,&data->keylen,data->key))!=EOF){
-		if(data->type==1 || data->type==2){
-			//printf("%d %d %.*s\n",data->type,data->keylen,data->keylen,data->key);
-		    inf_make_req_apps(data->type,data->key,data->keylen,temp,PAGESIZE-data->keylen-sizeof(data->keylen),cnt++,data,kv_main_end_req);	
+	for(int i=0; i<1; i++){
+		FILE *fp = fopen(filearr[i], "r");
+		bench_custom_start(write_opt_time,i);
+		while(fscanf(fp,"%d %d %d %d %s %d\n",&data->type,&data->keylen,&data->seq,&data->scanlength,data->key,&data->valuelen)!=EOF){
+			if(data->type==1|| data->type==2){
+				inf_make_req_apps(data->type,data->key,data->keylen,temp,512,cnt++,NULL,kv_main_end_req);	
+			}
+			else{
+				data->type=FS_RANGEGET_T;
+				inf_make_range_query_apps(data->type,data->key,data->keylen,cnt++,data->scanlength,NULL,kv_main_end_req);
+			}
+			if(req_cnt++%10240==0){
+				printf("\r%d gc_test",req_cnt);
+				fflush(stdout);
+			}
+			if(req_cnt%10000000==0){
+				printf("\nlog %d req_cnt\n",req_cnt);
+				for(int i=0; i<LREQ_TYPE_NUM;i++){
+					fprintf(stderr,"%s %lu\n",bench_lower_type(i),mp.li->req_type_cnt[i]);
+				}
+			}
+	//		data=(netdata*)malloc(sizeof(netdata));
 		}
-		else{
-			data->type=FS_RANGEGET_T;
-			inf_make_range_query_apps(data->type,data->key,data->keylen,cnt++,data->scanlength,data,kv_main_end_req);
-		}
-		data=(netdata*)malloc(sizeof(netdata));
-		if(req_cnt++%10240==0){
-			printf("cnt:%d\n",req_cnt);
-		}
+		bench_custom_A(write_opt_time,i);
 	}
-	while(!bench_is_finish()){}
-	bench_custom_A(write_opt_time,0);
-	inf_free();
 	bench_custom_print(write_opt_time,10);
-
 }

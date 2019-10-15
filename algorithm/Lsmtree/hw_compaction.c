@@ -55,22 +55,22 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 			run_t **datas;
 			int cache_added_size=LSM.lop->get_number_runs(upper);
 			cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
-			LSM.lop->cache_comp_formatting(upper,&datas,false);
+			LSM.lop->cache_comp_formatting(upper,&datas,LSM.nocpy);
 			for(int i=0; datas[i]!=NULL; i++){
 				run_t *now=datas[i];
 				uint32_t ppa=getPPA(HEADER,now->key,true);
 				now->pbn=ppa;
 				if(LSM.nocpy){
-					nocpy_copy_from_change((char*)now->cpt_data->sets,ppa);
-					htable *temp_table=htable_assign((char*)now->cpt_data->sets,1);
-					now->cpt_data->sets=NULL;
-					htable_free(now->cpt_data);
+					nocpy_copy_to((char*)now->level_caching_data,ppa);
+					htable *temp_table=htable_assign((char*)now->level_caching_data,1);
+					//now->cpt_data->sets=NULL;
+					//htable_free(now->cpt_data);
 					now->cpt_data=temp_table;
 				}
 				compaction_htable_write(ppa,now->cpt_data,now->key);
 				hp_array[i]=ppa;
-				LSM.lop->release_run(now);
-				free(now);
+				//LSM.lop->release_run(now);
+				//free(now);
 			}
 			free(datas);
 			LSM.li->lower_flying_req_wait();
@@ -123,9 +123,9 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	}
 //	free(test_page);
 
-	printf("u:%d l:%d",hp_num,lp_num);
+//	printf("u:%d l:%d",hp_num,lp_num);
 	LSM.li->hw_do_merge(lp_num,lp_array,hp_num,hp_array,tp_array,&ktable_num,&invalidate_num);
-	printf("- done ktable_num:%d m_num:%d\n",ktable_num,t->m_num);
+//	printf("- done ktable_num:%d m_num:%d\n",ktable_num,t->m_num);
 
 
 	char *kt=LSM.li->hw_get_kt();
@@ -134,6 +134,29 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	uint16_t *body;
 	
 //	printf("result\n");
+	/*
+	fprintf(stderr,"h start %d\n", hp_num);
+	printf("h start %d\n", hp_num);
+	int i=0;
+	for(;i<hp_num; i++){
+		fprintf(stderr,"%d\n",i);
+		char *kt_start=&kt[i*PAGESIZE];
+		LSM.lop->header_print(kt_start);
+		write(fd_up,kt_start,PAGESIZE);
+	}
+	fprintf(stderr,"l start :%d\n",lp_num);
+	printf("l start %d\n", hp_num);
+	for(;i<lp_num+hp_num; i++){
+		fprintf(stderr,"%d\n",i);
+		char *kt_start=&kt[i*PAGESIZE];
+		LSM.lop->header_print(kt_start);
+		write(fd_down,kt_start,PAGESIZE);
+	}
+	fprintf(stderr,"r start %d\n",ktable_num);
+	printf("r start %d\n", hp_num);*/
+	//bool iserror=false;
+	run_t *tem=NULL;
+	//uint32_t error_num=0;
 	for(int i=0; i<ktable_num; i++){
 		char *kt_start=&kt[i*PAGESIZE];
 		body=(uint16_t*)kt_start;
@@ -145,14 +168,30 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 		end.len=body[num+1]-body[num]-sizeof(ppa_t);
 		end.key=&kt_start[body[num]+sizeof(ppa_t)];
 
-		//write(fd_res,kt_start,PAGESIZE);
-
+	//	write(fd_res,kt_start,PAGESIZE);
+	//	LSM.lop->header_print(kt_start);
 		entry=LSM.lop->make_run(start,end,tp_array[i]);
-		LSM.lop->insert(t,entry);
+		/*
+		if(tem){
+			if(!iserror &&  KEYCMP(t->end,entry->end)>0){
+				printf("merger sorting error!\n");
+				iserror=true;
+				error_num=i;
+			}
+		}*/
+		tem=LSM.lop->insert(t,entry);
 		LSM.lop->release_run(entry);
 		free(entry);
 	}
-
+/*
+	if(iserror){
+		for(int i=error_num-1; i<error_num+2; i++){
+			char *kt_start=&kt[i*PAGESIZE];
+			LSM.lop->header_print(kt_start);
+		}
+		exit(1);
+	}
+*/
 	ppa_t *ppa=(ppa_t*)inv;
 	for(int i=0; i<invalidate_num; i++){
 		invalidate_PPA(DATA,ppa[i]);

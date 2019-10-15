@@ -73,7 +73,9 @@ read_retry:
 #endif
 	lpa = get_lpa(req->key, req->hash_params);
 	pte.ppa = UINT32_MAX;
-	pte.key_fp = UINT32_MAX;
+#ifdef STORE_KEY_FP
+	pte.key_fp = FP_MAX;
+#endif
 
 #ifdef HASH_KVSSD
 	if (h_params->cnt > d_member.max_try) {
@@ -86,7 +88,10 @@ read_retry:
 	/* inflight request */
 	if (IS_INFLIGHT(req->params)) {
 		struct inflight_params *i_params = (struct inflight_params *)req->params;
-		switch (i_params->jump) {
+		jump_t jump = i_params->jump;
+		free_iparams(req, NULL);
+
+		switch (jump) {
 		case GOTO_LOAD:
 			goto cache_load;
 		case GOTO_LIST:
@@ -268,12 +273,18 @@ wb_retry:
 		h_params = (struct hash_params *)wb_entry->hash_params;
 
 		lpa = get_lpa(wb_entry->key, wb_entry->hash_params);
-		new_pte = { wb_entry->ppa, h_params->key_fp };
+		new_pte.ppa = wb_entry->ppa;
+#ifdef STORE_KEY_FP
+		new_pte.key_fp = h_params->key_fp;
+#endif
 
 		/* inflight wb_entries */
 		if (IS_INFLIGHT(wb_entry->params)) {
 			struct inflight_params *i_params = (struct inflight_params *)wb_entry->params;
-			switch (i_params->jump) {
+			jump_t jump = i_params->jump;
+			free_iparams(NULL, wb_entry);
+
+			switch (jump) {
 			case GOTO_LOAD:
 				goto wb_cache_load;
 			case GOTO_LIST:
@@ -318,19 +329,17 @@ wb_data_check:
 			h_params->find = HASH_KEY_DIFF;
 			h_params->cnt++;
 
-			free_iparams(NULL, wb_entry);
 			goto wb_retry;
 		}
 #endif
 		/* hash_table lookup to filter same wb element */
-		/*rc = d_htable_find(d_member.hash_table, pte.ppa, lpa);
+		rc = d_htable_find(d_member.hash_table, pte.ppa, lpa);
 		if (rc) {
 			h_params->find = HASH_KEY_DIFF;
 			h_params->cnt++;
 
-			free_iparams(NULL, wb_entry);
 			goto wb_retry;
-		}*/
+		}
 
 		/* data check is necessary before update */
 		read_for_data_check(pte.ppa, wb_entry);
@@ -341,9 +350,8 @@ wb_update:
 		pte = d_cache->get_pte(lpa);
 		if (!IS_INITIAL_PPA(pte.ppa)) {
 			invalidate_page(bm, pte.ppa, DATA);
-/*			static int cnt = 0;
-			cnt++;
-			printf("overwrite: %d\n", cnt);*/
+			static int over_cnt = 0; over_cnt++;
+			if (over_cnt % 102400 == 0) printf("overwrite: %d\n", over_cnt);
 		}
 
 wb_direct_update:
@@ -351,7 +359,7 @@ wb_direct_update:
 		updated++;
 		//inflight--;
 
-		//d_htable_insert(d_member.hash_table, new_pte.ppa, lpa);
+		d_htable_insert(d_member.hash_table, new_pte.ppa, lpa);
 
 #ifdef HASH_KVSSD
 		d_member.max_try = (h_params->cnt > d_member.max_try) ? h_params->cnt : d_member.max_try;
@@ -465,13 +473,18 @@ void *demand_end_req(algo_req *a_req) {
 
 			copy_key_from_value(&check_key, req->value, offset);
 			if (KEYCMP(req->key, check_key) == 0) {
+				d_stat.fp_match_r++;
+
 				hash_collision_logging(h_params->cnt, READ);
 				free(h_params);
 				req->end_req(req);
 			} else {
+				d_stat.fp_collision_r++;
+
 				h_params->find = HASH_KEY_DIFF;
 				h_params->cnt++;
-				inf_assign_try(req);
+				insert_retry_read(req);
+				//inf_assign_try(req);
 			}
 		} else {
 			d_stat.d_read_on_write++;
@@ -480,6 +493,8 @@ void *demand_end_req(algo_req *a_req) {
 			copy_key_from_value(&check_key, d_params->value, offset);
 			if (KEYCMP(wb_entry->key, check_key) == 0) {
 				/* hash key found -> update */
+				d_stat.fp_match_w++;
+
 				h_params->find = HASH_KEY_SAME;
 				i_params = get_iparams(NULL, wb_entry);
 				i_params->jump = GOTO_UPDATE;
@@ -488,6 +503,8 @@ void *demand_end_req(algo_req *a_req) {
 
 			} else {
 				/* retry */
+				d_stat.fp_collision_w++;
+
 				h_params->find = HASH_KEY_DIFF;
 				h_params->cnt++;
 
@@ -522,7 +539,8 @@ void *demand_end_req(algo_req *a_req) {
 		} else if (IS_READ(req)) {
 			d_stat.t_read_on_read++;
 			req->type_ftl++;
-			inf_assign_try(req);
+			insert_retry_read(req);
+			//inf_assign_try(req);
 		} else {
 			d_stat.t_read_on_write++;
 			q_enqueue((void *)wb_entry, d_member.wb_retry_q);
@@ -534,7 +552,8 @@ void *demand_end_req(algo_req *a_req) {
 		if (IS_READ(req)) {
 			d_stat.t_write_on_read++;
 			req->type_ftl+=100;
-			inf_assign_try(req);
+			insert_retry_read(req);
+			//inf_assign_try(req);
 		} else {
 			d_stat.t_write_on_write++;
 			q_enqueue((void *)wb_entry, d_member.wb_retry_q);

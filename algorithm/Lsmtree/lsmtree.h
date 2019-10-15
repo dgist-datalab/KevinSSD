@@ -48,6 +48,10 @@ enum READTYPE{
 	NOTFOUND,FOUND,CACHING,FLYING
 };
 
+enum LSMTYPE{
+	PINNING,FILTERING,CACHE,FILTERCACHE,ALLMIXED
+};
+
 typedef struct lsm_params{
 	//dl_sync lock;
 	uint8_t lsm_type;
@@ -81,7 +85,7 @@ typedef struct lsm_range_params{
 }lsm_range_params;
 
 enum comp_opt_type{
-	NON,PIPE,HW
+	NON,PIPE,HW,MIXEDCOMP
 };
 
 typedef struct lsmtree{
@@ -89,6 +93,7 @@ typedef struct lsmtree{
 	uint32_t FLUSHNUM;
 	uint32_t LEVELN;
 	uint32_t LEVELCACHING;
+	uint32_t VALUESIZE;
 	uint32_t ONESEGMENT;
 	float caching_size;
 
@@ -96,6 +101,7 @@ typedef struct lsmtree{
 	bool gc_opt;
 	bool multi_level_comp;
 	uint8_t comp_opt;
+	uint8_t lsm_type;
 
 	bool inplace_compaction;
 	bool delayed_header_trim;
@@ -129,6 +135,10 @@ typedef struct lsmtree{
 
 	struct skiplist *memtable;
 	struct skiplist *temptable;
+
+	struct skiplist *gc_list;
+	bool gc_compaction_flag;
+
 	struct queue *re_q;
 	struct queue *gc_q;
 

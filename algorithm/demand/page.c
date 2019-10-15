@@ -44,6 +44,8 @@ static int _do_bulk_read_valid_pages(blockmanager *bm, struct gc_table_struct **
 			value_set *origin = inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 			__demand.li->read(ppa, PAGESIZE, origin, ASYNC, make_algo_req_default((type == DATA) ? GCDR : GCMR, origin));
 
+			invalidate_page(bm, ppa, type);
+
 			bulk_table[i] = (struct gc_table_struct *)malloc(sizeof(struct gc_table_struct));
 			bulk_table[i]->origin   = origin;
 			bulk_table[i]->lpa_list = (lpa_t *)bm->get_oob(bm, ppa);
@@ -72,8 +74,8 @@ static int _do_bulk_write_valid_pages(blockmanager *bm, struct gc_table_struct *
 
 		bulk_table[i]->ppa = new_ppa;
 
-		bm->populate_bit(bm, new_ppa);
-		bm->set_oob(bm, (char *)bulk_table[i]->lpa_list, sizeof(uint32_t), new_ppa);
+		validate_page(bm, new_ppa, type);
+		set_oob(bm, bulk_table[i]->lpa_list[0], new_ppa, type);
 
 		if (type == MAP) {
 			d_cache->member.cmt[bulk_table[i]->lpa_list[0]]->t_ppa = new_ppa;

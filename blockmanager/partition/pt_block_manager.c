@@ -53,7 +53,7 @@ void pt_mh_assign_hptr(void *a, void *hn){
 
 int pt_get_cnt(void *a){
 	__block *aa=(__block*)a;
-	return aa->invalid_number;
+	return aa->age;
 }
 void pbm_create_print(blockmanager *bm, int pnum){
 /*
@@ -79,6 +79,7 @@ void pbm_create_print(blockmanager *bm, int pnum){
 	__segment *d,*m;
 	d=pbm_pt_get_segment(bm,DATA_S,false);
 	m=pbm_pt_get_segment(bm,MAP_S,false);
+	
 
 	int page;	
 	int idx=0;
@@ -262,11 +263,14 @@ __gsegment* pbm_pt_get_gc_target(blockmanager* bm, int pnum){
 		}
 		invalidate_number=max_invalid;
 	}
-	if(invalidate_number==0){
+	if(pnum==MAP_S && invalidate_number==0){
 		printf("invalidate number 0 at %s\n",pnum==DATA_S?"DATA":"MAP");
-		//abort();
+		abort();
 	}
 	res->invalidate_number=invalidate_number;
+	if(pnum==DATA_S){
+	//	printf("invalidate_number:%d\n",res->invalidate_number);
+	}
 	return res;
 }
 

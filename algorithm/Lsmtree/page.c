@@ -34,7 +34,7 @@ void pm_init(){
 	map_m.reserve=bm->pt_get_segment(bm,MAP_S,true);
 	map_m.target=NULL;
 	map_m.active=NULL;
-	if(LSM.comp_opt==HW){
+	if(LSM.comp_opt==HW || LSM.comp_opt==MIXEDCOMP){
 		q_init(&map_m.erased_q,_PPS);
 	}
 	
@@ -98,7 +98,7 @@ retry:
 		printf("fuck! no type getPPA");
 		abort();
 	}
-	if(type==HEADER && LSM.comp_opt==HW && map_m.erased_q->size){
+	if(type==HEADER && (LSM.comp_opt==HW || LSM.comp_opt==MIXEDCOMP )&& map_m.erased_q->size ){
 		void *t=q_dequeue(map_m.erased_q);
 		res=*(uint32_t*)t;
 		free(t);
@@ -147,6 +147,7 @@ uint32_t getRPPA(uint8_t type,KEYT lpa, bool b,__gsegment *issame_bl){
 	return res;
 }
 
+static int32_t block_age=INT32_MAX;
 lsm_block* getBlock(uint8_t type){
 	pm *t;
 	blockmanager *bm=LSM.bm;
@@ -185,6 +186,7 @@ retry:
 	//__block *res=bm->get_block(bm,t->active);
 	ppa_t pick_ppa=bm->get_page_num(bm,t->active);
 	__block *res=bm->pick_block(bm,pick_ppa);
+	res->age=block_age--;
 	lsm_block *lb;
 	if(!res->private_data){
 		lb=lb_init(type);
@@ -211,6 +213,7 @@ lsm_block* getRBlock(uint8_t type){
 
 	ppa_t pick_ppa=bm->get_page_num(bm,t->reserve);
 	__block *res=bm->pick_block(bm,pick_ppa);
+	res->age=block_age--;
 	lsm_block *lb;
 	if(!res->private_data){
 		lb=lb_init(type);
@@ -232,7 +235,7 @@ bool invalidate_PPA(uint8_t type,uint32_t ppa){
 			t_p=t_p/NPCINPAGE;
 			if(ppa==UINT_MAX) return true;
 			t=LSM.bm->pick_block(LSM.bm,t_p)->private_data;
-			invalidate_piece((lsm_block*)t,ppa);
+			//invalidate_piece((lsm_block*)t,ppa);
 #endif
 
 #ifdef EMULATOR
@@ -257,9 +260,6 @@ bool invalidate_PPA(uint8_t type,uint32_t ppa){
 			return false;
 		}
 	}
-	if(res==4663824){
-		printf("invalidate!\n");
-	}
 	return true;
 }
 
@@ -270,6 +270,7 @@ bool validate_PPA(uint8_t type, uint32_t ppa){
 #ifdef DVALUE
 			t_p=t_p/NPCINPAGE;
 			validate_piece((lsm_block*)LSM.bm->pick_block(LSM.bm,t_p)->private_data,ppa);
+
 #endif
 	
 			break;
@@ -319,14 +320,17 @@ void erase_PPA(uint8_t type,uint32_t ppa){
 	}
 }
 
-void gc_data_write(uint64_t ppa,htable_t *value,bool isdata){
+void gc_data_write(uint64_t ppa,htable_t *value,uint8_t isdata){
+	if(isdata!=GCMW && isdata!=GCMW_DGC && isdata!=GCDW){
+		abort();
+	}
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 
-	params->lsm_type=isdata?GCDW:GCHW;
+	params->lsm_type=isdata;
 	if(LSM.nocpy){
 		params->value=inf_get_valueset((PTR)(value)->sets,FS_MALLOC_W,PAGESIZE);
-		if(!isdata){
+		if(isdata==GCMW || isdata==GCMW_DGC){
 			nocpy_copy_from_change((char*)value->nocpy_table,ppa);
 		}
 	}
@@ -338,16 +342,19 @@ void gc_data_write(uint64_t ppa,htable_t *value,bool isdata){
 	areq->params=(void*)params;
 	areq->type=params->lsm_type;
 	areq->rapid=false;
-	algo_lsm.li->write(isdata?CONVPPA(ppa):ppa,PAGESIZE,params->value,ASYNC,areq);
+	algo_lsm.li->write(isdata==GCDW?CONVPPA(ppa):ppa,PAGESIZE,params->value,ASYNC,areq);
 	return;
 }
 
-void gc_data_read(uint64_t ppa,htable_t *value,bool isdata, gc_node *t){
+void gc_data_read(uint64_t ppa,htable_t *value,uint8_t isdata, gc_node *t){
+	if(isdata!=GCMR && isdata!=GCMR_DGC && isdata!=GCDR){
+		abort();
+	}
 	gc_read_wait++;
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 
-	params->lsm_type=isdata?GCDR:GCHR;
+	params->lsm_type=isdata;
 	params->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
 	params->target=(PTR*)value->sets;
 	params->ppa=ppa;
@@ -366,10 +373,10 @@ void gc_data_read(uint64_t ppa,htable_t *value,bool isdata, gc_node *t){
 	areq->type_lower=0;
 	areq->rapid=false;
 	areq->type=params->lsm_type;
-	if(LSM.nocpy &&  !isdata){
+	if(LSM.nocpy &&  (isdata==GCMR || isdata==GCMR_DGC)){
 		value->nocpy_table=nocpy_pick(ppa);
 	}
-	algo_lsm.li->read(isdata?CONVPPA(ppa):ppa,PAGESIZE,params->value,ASYNC,areq);
+	algo_lsm.li->read(isdata==GCDR?CONVPPA(ppa):ppa,PAGESIZE,params->value,ASYNC,areq);
 	return;
 }
 
@@ -481,10 +488,11 @@ void validate_piece(lsm_block *b, uint32_t ppa){
 	uint32_t check_idx=page*NPCINPAGE+pc_idx;
 	uint32_t bit_idx=check_idx/8;
 	uint32_t bit_off=check_idx%8;
+	/*
 	if(b->bitset[bit_idx]&(1<<bit_off)){
 		printf("ppa:%d\n",ppa);
 		abort();
-	}
+	}*/
 	b->bitset[bit_idx]|=(1<<bit_off);
 }
 
@@ -495,10 +503,11 @@ void invalidate_piece(lsm_block *b, uint32_t ppa){
 	uint32_t check_idx=page*NPCINPAGE+pc_idx;
 	uint32_t bit_idx=check_idx/8;
 	uint32_t bit_off=check_idx%8;
+	/*
 	if(!(b->bitset[bit_idx]&(1<<bit_off))){
 		printf("ppa:%u",ppa);
 		abort();
-	}
+	}*/
 	b->bitset[bit_idx]&=~(1<<bit_off);
 }
 

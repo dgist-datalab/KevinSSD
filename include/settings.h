@@ -47,9 +47,9 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 4L
+#define GIGAUNIT 64L
 #define TOTALSIZE (GIGAUNIT*G)
-#define OP 50
+#define OP 100
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
 #define PAGESIZE (8*K)
@@ -92,7 +92,7 @@ enum{
 #define FSTYPE uint8_t
 #define ppa_t uint32_t
 #ifdef KVSSD
-#define KEYFORMAT(input) input.len>10?10:input.len,input.key
+#define KEYFORMAT(input) input.len>DEFKEYLENGTH?DEFKEYLENGTH:input.len,input.key
 #include<string.h>
 typedef struct str_key{
 	uint8_t len;
@@ -161,7 +161,7 @@ static inline bool KEYVALCHECK(KEYT a){
 #define NETWORKSET
 #define DATATRANS
 
-#define KEYGEN
+//#define KEYGEN
 #define SPINSYNC
 #define interface_pq
 //#define BUSE_MEASURE

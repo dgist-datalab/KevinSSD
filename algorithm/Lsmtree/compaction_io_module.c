@@ -45,7 +45,14 @@ ppa_t compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 	entry->pbn=ppa;
 	if(LSM.nocpy){
 		nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
-		entry->cpt_data->sets=NULL;
+		if(LSM.hw_read){
+			htable *temp=htable_assign((char*)entry->cpt_data->sets,1);
+			entry->cpt_data->sets=NULL;
+			htable_free(entry->cpt_data);
+			entry->cpt_data=temp;
+		}else{
+			entry->cpt_data->sets=NULL;
+		}
 	}
 	LSM.lop->insert(target,entry);
 	if(isbg){

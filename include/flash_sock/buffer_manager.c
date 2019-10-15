@@ -18,6 +18,7 @@ int memmove_read(mybuf* b){
 	if(b->start==0 || b->remain==0){ // start
 		int len=0;
 		len=read(b->fd,&b->buf[b->remain],MAXBUF-b->remain);
+	//	printf("readed req:%.*s\n",len,&b->buf[b->remain]);
 		if(len==0){
 			return -1;
 			//fd_sock_reaccept(b->f);

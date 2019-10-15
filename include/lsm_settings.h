@@ -8,8 +8,6 @@
 #define KEYBITMAP 1024
 #endif
 
-#define RAF 0.1
-
 #if LEVELN!=1
 #define BLOOM
 //#define MONKEY
@@ -30,7 +28,7 @@
 /*lsmtree flash thread*/
 #define KEYSETSIZE 8
 #define CTHREAD 1
-#define CQSIZE 16
+#define CQSIZE 128
 #define FTHREAD 1
 #define FQSIZE 2
 #define RQSIZE 1024

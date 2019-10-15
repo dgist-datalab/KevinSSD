@@ -143,8 +143,10 @@ void array_free(level* lev){
 	if(lev->idx<LSM.LEVELCACHING){
 		skiplist_free(b->skip);
 	}*/
+#ifdef BLOOM
 	if(lev->filter)
 		bf_free(lev->filter);
+#endif
 	free(b);
 	free(lev);
 }
@@ -187,7 +189,7 @@ void array_body_free(run_t *runs, int size){
 	free(runs);
 }
 
-void array_insert(level *lev, run_t* r){
+run_t* array_insert(level *lev, run_t* r){
 	if(lev->m_num<=lev->n_num){
 	//	array_print(lev);
 		printf("level full!!!!\n");
@@ -206,19 +208,25 @@ void array_insert(level *lev, run_t* r){
 	array_run_cpy_to(r,target);
 
 	if(lev->idx>=LSM.LEVELCACHING && LSM.comp_opt!=HW && !target->c_entry && r->cpt_data && cache_insertable(LSM.lsm_cache)){
-		if(LSM.nocpy)
-			target->cache_nocpy_data_ptr=nocpy_pick(r->pbn);
-		else{
-			target->cache_data=htable_copy(r->cpt_data);
-			r->cpt_data->sets=NULL;
+		if(lev->idx>=LSM.LEVELCACHING && LSM.hw_read){
+
 		}
-		target->c_entry=cache_insert(LSM.lsm_cache,target,0);
+		else{
+			if(LSM.nocpy)
+				target->cache_nocpy_data_ptr=nocpy_pick(r->pbn);
+			else{
+				target->cache_data=htable_copy(r->cpt_data);
+				r->cpt_data->sets=NULL;
+			}
+			target->c_entry=cache_insert(LSM.lsm_cache,target,0);
+		}
 	}
 
 	array_range_update(lev,NULL,target->key);
 	array_range_update(lev,NULL,target->end);
 
 	lev->n_num++;
+	return target;
 }
 
 keyset* array_find_keyset(char *data,KEYT lpa){
@@ -260,8 +268,10 @@ run_t *array_find_run( level* lev,KEYT lpa){
 		else if(res1<0) start=mid+1;
 		else {
 			return &arrs[mid];
-		}   
+		} 
 		mid=(start+end)/2;
+	//	__builtin_prefetch(&arrs[(mid+1+end)/2].key,0,1);
+	//	__builtin_prefetch(&arrs[(start+mid-1)/2].key,0,1);
 		if(start>end){
 			return &arrs[mid];
 		}   

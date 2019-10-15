@@ -55,6 +55,11 @@ uint32_t lsm_range_get(request *const req){
 	lsm_proc_re_q();
 	//bench_algo_start(req);
 	res_type=__lsm_range_get(req);
+	static bool first=false;
+	if(!first){
+		first=true;
+		LSM.lop->print_level_summary();
+	}
 	if(res_type==0){
 		req->type=FS_NOTFOUND_T;
 		req->end_req(req);

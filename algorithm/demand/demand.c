@@ -149,6 +149,8 @@ static int demand_member_init(struct demand_member *const _member) {
 	memset(key_min.key, 0, sizeof(char) * MAXKEYSIZE);
 #endif
 
+	pthread_mutex_init(&_member->op_lock, NULL);
+
 	_member->write_buffer = skiplist_init();
 
 	q_init(&_member->flying_q, d_env.wb_flush_size);
@@ -309,6 +311,22 @@ static void print_demand_stat(struct demand_stat *const _stat) {
 	puts("[read]");
 	print_hash_collision_cdf(_stat->r_hash_collision_cnt);
 	puts("");
+
+	puts("=======================");
+	puts(" Fingerprint Collision ");
+	puts("=======================");
+
+	puts("[Read]");
+	printf("fp_match:     %ld\n", _stat->fp_match_r);
+	printf("fp_collision: %ld\n", _stat->fp_collision_r);
+	printf("rate: %.2f\n", (float)_stat->fp_collision_r/(_stat->fp_match_r+_stat->fp_collision_r)*100);
+	puts("");
+
+	puts("[Write]");
+	printf("fp_match:     %ld\n", _stat->fp_match_w);
+	printf("fp_collision: %ld\n", _stat->fp_collision_w);
+	printf("rate: %.2f\n", (float)_stat->fp_collision_w/(_stat->fp_match_w+_stat->fp_collision_w)*100);
+	puts("");
 #endif
 }
 
@@ -403,7 +421,7 @@ static uint32_t hashing_key_fp(char* key,uint8_t len) {
 		hashkey ^= bytes_arr[i];
 	}
 
-	return hashkey;
+	return (hashkey & ((1<<FP_SIZE)-1));
 }
 
 static struct hash_params *make_hash_params(request *const req) {
@@ -422,6 +440,7 @@ static struct hash_params *make_hash_params(request *const req) {
 
 uint32_t demand_read(request *const req){
 	uint32_t rc;
+	pthread_mutex_lock(&d_member.op_lock);
 #ifdef HASH_KVSSD
 	if (!req->hash_params) {
 		d_stat.read_req_cnt++;
@@ -433,11 +452,13 @@ uint32_t demand_read(request *const req){
 		req->type = FS_NOTFOUND_T;
 		req->end_req(req);
 	}
+	pthread_mutex_unlock(&d_member.op_lock);
 	return 0;
 }
 
 uint32_t demand_write(request *const req) {
 	uint32_t rc;
+	pthread_mutex_lock(&d_member.op_lock);
 #ifdef HASH_KVSSD
 	if (!req->hash_params) {
 		d_stat.write_req_cnt++;
@@ -445,6 +466,7 @@ uint32_t demand_write(request *const req) {
 	}
 #endif
 	rc = __demand_write(req);
+	pthread_mutex_unlock(&d_member.op_lock);
 	return rc;
 }
 

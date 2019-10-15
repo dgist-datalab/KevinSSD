@@ -64,11 +64,13 @@ static bool qmanager_write_checking(processor * t,request *req){
 #endif
 	}
 	pthread_mutex_unlock(&t->qm_lock);
-#ifdef hash_dftl
+#if 0
+#if defined(KVSSD) && defined(demand)
 	if(res) return res;
 	pthread_mutex_lock(&rb_lock);
 	rb_insert_str(rb_tree, req->key, NULL);
 	pthread_mutex_unlock(&rb_lock);
+#endif
 #endif
 	return res;
 }
@@ -739,7 +741,7 @@ bool inf_iter_release(uint32_t iter_id, bool (*added_end)(struct request *const)
 bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value,int len, int seq,void *_req,void (*end_req)(uint32_t,uint32_t,void*)){
 	KEYT t_key;
 	t_key.key=keys;
-	t_key.len=key_len/16*16+((key_len%16?16:0));
+	t_key.len=key_len/16*16+((key_len%16?16:0))-sizeof(uint32_t);
 	request *req=inf_get_req_instance(type,t_key,value,len,0,false);
 	req->seq=seq;
 	req->p_req=_req;
@@ -847,7 +849,7 @@ value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
         if(length==PAGESIZE)
             res->value=in_v;
         else{
-            res->value=malloc(PAGESIZE);
+            res->value=(char*)malloc(PAGESIZE);
         }
         return res;
     }

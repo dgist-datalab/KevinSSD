@@ -32,6 +32,7 @@ int contains_valid_grain(blockmanager *bm, ppa_t ppa) {
 		if (is_valid_grain(pga+i)) return 1;
 	}
 
+	/* no valid grain */
 	if (unlikely(bm->is_valid_page(bm, ppa))) abort();
 
 	return 0;

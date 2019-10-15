@@ -85,6 +85,7 @@ ppa_t def_get_page(uint8_t plength, KEYT simul_key){
 	lsm_simul_put(res,simul_key);
 #endif
 	validate_PPA(DATA,res);
+
 	return res;
 }
 

@@ -37,6 +37,9 @@ pthread_mutex_t compaction_wait;
 pthread_mutex_t compaction_flush_wait;
 pthread_mutex_t compaction_req_lock;
 pthread_cond_t compaction_req_cond;
+uint64_t before_type_cnt[LREQ_TYPE_NUM];
+uint64_t after_type_cnt[LREQ_TYPE_NUM];
+uint64_t cumulative_type_cnt[LREQ_TYPE_NUM];
 
 void compaction_sub_pre(){
 	pthread_mutex_lock(&compaction_wait);
@@ -104,13 +107,14 @@ bool compaction_init(){
 		case NON:
 			compactor.pt_leveling=partial_leveling;
 			break;
-	
 		case HW:
 			compactor.pt_leveling=hw_partial_leveling;
 			break;
+		case MIXEDCOMP:
+			compactor.pt_leveling=hw_partial_leveling;
+			break;
 		default:
-			printf("invalid option type");
-			abort();
+			compactor.pt_leveling=partial_leveling;
 			break;
 	}
 
@@ -316,9 +320,6 @@ void *compaction_main(void *input){
 		pthread_mutex_lock(&compaction_req_lock);
 		if(_this->q->size==0){
 			pthread_cond_wait(&compaction_req_cond,&compaction_req_lock);
-		//	cpu_set_t cpuset;
-		//	CPU_ZERO(&cpuset);
-		//	CPU_SET(1,&cpuset);
 		}
 		_req=q_pick(_this->q);
 		pthread_mutex_unlock(&compaction_req_lock);
@@ -347,7 +348,10 @@ void *compaction_main(void *input){
 		}
 		free(lnode.start.key);
 		free(lnode.end.key);
-		
+		if(LSM.gc_compaction_flag){
+			compaction_gc_add(LSM.gc_list);
+			LSM.gc_compaction_flag=false;
+		}	
 		skiplist_free(req->temptable);
 #ifdef WRITEWAIT
 		if(req->last){
@@ -361,6 +365,41 @@ void *compaction_main(void *input){
 	}
 	
 	return NULL;
+}
+
+void compaction_gc_add(skiplist *list){
+	skiplist *temp;
+	uint32_t dummy;
+	leveling_node lnode;
+	bool is_gc_needed=false;
+	for(int i=0; i<LREQ_TYPE_NUM; i++){
+		before_type_cnt[i]=LSM.li->req_type_cnt[i];
+	}
+	bool last=false;
+	bool isfreed=true;
+	do{
+		lnode.start.key=NULL;
+		lnode.end.key=NULL;
+		temp=skiplist_cutting_header_se(list,&dummy,&lnode.start,&lnode.end);
+		lnode.mem=temp;
+		if(temp==list){
+			last=true;
+			if(list->size==0){
+				isfreed=false;
+				break;
+			}
+		}
+		compaction_selector(NULL,LSM.disk[0],&lnode,&LSM.level_lock[0]);
+		compaction_cascading(&is_gc_needed);
+		free(lnode.start.key);
+		free(lnode.end.key);
+		skiplist_free(temp);
+	}while(!last);
+	if(!isfreed)
+		skiplist_free(list);
+	for(int i=0; i<LREQ_TYPE_NUM; i++){
+		cumulative_type_cnt[i]+=LSM.li->req_type_cnt[i]-before_type_cnt[i];
+	}
 }
 
 void compaction_check(KEYT key, bool force){
@@ -394,12 +433,10 @@ void compaction_check(KEYT key, bool force){
 #endif
 }
 
-
-
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
 	
 	compaction_sub_wait();
-
+	
 	LSM.lop->merger(top,src,org,des);
 
 	KEYT key,end;
@@ -552,8 +589,11 @@ uint32_t compaction_empty_level(level **from, leveling_node *lnode, level **des)
 		run_t *entry=LSM.lop->make_run(lnode->start,lnode->end,-1);
 		free(entry->key.key);
 		free(entry->end.key);
-
+#ifdef BLOOM
 		LSM.lop->mem_cvt2table(lnode->mem,entry,(*des)->filter);
+#else
+		LSM.lop->mem_cvt2table(lnode->mem,entry);
+#endif
 		if((*des)->idx<LSM.LEVELCACHING){
 			if(LSM.nocpy){
 				entry->level_caching_data=(char*)entry->cpt_data->sets;
@@ -597,7 +637,9 @@ uint32_t compaction_empty_level(level **from, leveling_node *lnode, level **des)
 			}
 		}
 		LSM.lop->lev_copy(*des,*from);
+#ifdef BLOOM
 		(*from)->filter=NULL;
+#endif
 	}
 	return 1;
 }

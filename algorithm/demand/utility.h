@@ -60,4 +60,6 @@ int hash_collision_logging(int cnt, rw_t type);
 void warn_notfound(char *, int);
 
 int wb_lpa_compare(const void *, const void *);
+
+void insert_retry_read(request *const);
 #endif

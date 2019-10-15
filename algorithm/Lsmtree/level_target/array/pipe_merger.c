@@ -81,7 +81,11 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	p_body *lp, *hp;
 	lp=pbody_init(o_data,o_num,NULL,false,NULL);
 	hp=pbody_init(u_data,u_num,NULL,false,NULL);
+#ifdef BLOOM
 	rp=pbody_init(r_data,o_num+u_num+LSM.result_padding,NULL,false,d->filter);
+#else
+	rp=pbody_init(r_data,o_num+u_num+LSM.result_padding,NULL,false,NULL);
+#endif
 
 	uint32_t lppa, hppa, rppa;
 	KEYT lp_key=pbody_get_next_key(lp,&lppa);
@@ -170,7 +174,7 @@ run_t *array_pipe_make_run(char *data,uint32_t level_idx)
 		r->level_caching_data=data;
 	}
 	else{
-		htable *res=LSM.nocpy?htable_assign(data,0):htable_assign(data,1);
+		htable *res=(LSM.nocpy)?htable_assign(data,0):htable_assign(data,1);
 		r->cpt_data=res;
 		free(data);
 	}

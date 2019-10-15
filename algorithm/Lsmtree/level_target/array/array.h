@@ -78,7 +78,7 @@ typedef struct array_key_iter{
 
 level* array_init(int size, int idx, float fpr, bool istier);
 void array_free(level*);
-void array_insert(level *, run_t*);
+run_t* array_insert(level *, run_t*);
 keyset* array_find_keyset(char *data,KEYT lpa);
 uint32_t array_find_idx_lower_bound(char *data, KEYT lpa);
 void array_find_keyset_first(char *data,KEYT *des);
