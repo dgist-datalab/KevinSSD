@@ -231,7 +231,7 @@ struct blockmanager{
 #define PPAMAKER(bl,idx) ((bl)->punit_num)+(idx<<6)+((bl)->block_num)
 
 #define for_each_block(segs,block,idx)\
-	for(idx=0,block=segs->blocks[idx];idx<BPS; block=++idx>BPS?segs->blocks[idx-1]:segs->blocks[idx])
+	for(idx=0,block=segs->blocks[idx];idx<BPS; block=(++idx)>BPS?segs->blocks[idx-1]:segs->blocks[idx])
 
 #define for_each_page(blocks,page,idx)\
 	for(idx=0,page=blocks->ppa; idx!=PPB; page++,idx++)

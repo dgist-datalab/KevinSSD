@@ -1,4 +1,4 @@
-export CC=gcc
+export CC=g++
 
 TARGET_INF=interface
 TARGET_LOWER=posix_memory
@@ -28,7 +28,6 @@ export COMMONFLAGS=\
 			-O3\
 			-DKVSSD\
 #			-DWRITESYNC\
-			-DKVSSD\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 
@@ -36,7 +35,7 @@ export CFLAGS_ALGO=\
 			 -fPIC\
 			 -Wall\
 			 -D$(TARGET_LOWER)\
-#		 -DDVALUE\
+		 -DDVALUE\
 
 export CFLAGS_LOWER=\
 		     -fPIC\
@@ -82,7 +81,6 @@ CFLAGS +=\
 SRCS +=\
 	./interface/queue.c\
 	./interface/interface.c\
-	./interface/buse.c\
 	./include/FS.c\
 	./include/slab.c\
 	./include/utils/debug_tools.c\
@@ -101,6 +99,7 @@ SRCS +=\
 	./include/utils/sha256.c\
 	./blockmanager/base_block_manager.c\
 	./blockmanager/bb_checker.c\
+#	./interface/buse.c\
 
 TARGETOBJ =\
 			$(patsubst %.c,%.o,$(SRCS))\

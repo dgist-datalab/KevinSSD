@@ -232,7 +232,7 @@ int __gc_data(){
 	int bidx=0;
 	int pidx=0;
 	int i=0;
-	bool debug_flag=false;
+	//bool debug_flag=false;
 	//printf("invalidate number:%d\n",tseg->invalidate_number);
 	for_each_page_in_seg_blocks(tseg,tblock,tpage,bidx,pidx){
 #ifdef DVALUE
@@ -610,9 +610,9 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 
 //	htable_t** map_table=(htable_t**)malloc(sizeof(htable_t*)*size);
 //	run_t **entries=(run_t**)malloc(sizeof(run_t*)*size);
-	int idx=0;
+	//int idx=0;
 	bool skip_init_flag=false;
-	static int debug_cnt=0;
+	//static int debug_cnt=0;
 	uint32_t new_inserted=0;
 	for(int i=0;i<size; i++){
 		gc_node *t=g[i];
