@@ -1128,7 +1128,7 @@ int bench_set_params(int argc, char **argv, char **temp_argv){
 		LOCALITY=50; TARGETRATIO=0.5;
 	}
 	if(!key_length){
-		KEYLENGTH=2;
+		KEYLENGTH=DEFKEYLENGTH/16;
 	}
 	if(!value_size){
 		VALUESIZE=(DEFVALUESIZE-1)/PIECE;

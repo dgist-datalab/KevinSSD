@@ -739,6 +739,7 @@ void array_lev_copy(level *des, level *src){
 	kvssd_cpy_key(&des->end,&src->end);
 	des->n_num=src->n_num;
 #ifdef BLOOM
+	bf_free(des->filter);
 	des->filter=src->filter;
 #endif
 	
