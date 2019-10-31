@@ -21,6 +21,7 @@ typedef struct gc_node_params{
 	struct keyset *found2;
 	struct htable_t *data;
 	struct run *ent;
+
 	int data_status;
 }gc_params;
 typedef struct gc_node{

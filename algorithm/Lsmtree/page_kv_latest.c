@@ -33,6 +33,9 @@ MeasureTime read_datas, mv_datas;
 #ifdef KVSSD
 uint32_t gc_cnt=0;
 int gc_header(){
+
+	//printf("gc_header %u\n",gc_cnt++);
+	//printf("gc_header %u",gc_cnt++);
 	LSM.header_gc_cnt++;
 	gc_general_wait_init();
 	lsm_io_sched_flush();
@@ -387,7 +390,7 @@ void* gc_data_end_req(struct algo_req*const req){
 
 	return NULL;
 }
-uint32_t update_cache, noupdate_cache,nouptdone;
+uint32_t update_cache, noupdate_cache;
 uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size){
 	uint8_t result=0;
 	run_t *now=NULL;
@@ -423,13 +426,7 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 				return CACHING;
 			}
 		case FOUND:
-			if(params->level==LSM.LEVELN-1){
-				//don't have to read meta data
-				g->status=NOUPTDONE;
-				nouptdone++;
-				return DONE;
-			}
-			else if(now->isflying==1){
+			if(now->isflying==1){
 				g->status=SAMERUN;
 				if(now->gc_wait_idx>req_size){
 					printf("over_qdepth!\n");
@@ -555,20 +552,17 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 	uint32_t done_cnt=0;
 	int result=0;
 	gc_params *params;
-	int cnttt=0, passed=0;
+	int cnttt=0;
 	gc_hlist=list_init();
 	int cache_cnt=0;
-	update_cache=noupdate_cache=nouptdone=0;
+	update_cache=noupdate_cache=0;
 	header_overlap_cnt=0;
 
+	MS(&mv_datas);
 	while(done_cnt!=size){
 		cnttt++;
-		passed=0;
 		for(int i=0; i<size; i++){
-			if(g[i]->status==DONE || g[i]->status==NOUPTDONE){
-				passed++;
-				continue;
-			}
+			if(g[i]->status==DONE) continue;
 			gc_node *target=g[i];
 			switch(target->status){
 				case NOTISSUE:
@@ -577,7 +571,7 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 					target->params=(void*)params;
 				case RETRY:
 					result=gc_data_issue_header(target,(gc_params*)target->params,size);
-					if(result==CACHING || result==DONE){
+					if(result==CACHING){
 						cache_cnt++;
 						done_cnt++;
 					}
@@ -590,13 +584,14 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 				abort();
 			}
 		}
-		if(passed==size) break;
 	}
+	ME(&mv_datas,"mv_datas0");
 
 	gc_read_wait=0;
 
 
 	int g_idx;
+	MS(&mv_datas);
 	for(int i=0; i<b->idx[NPCINPAGE]; i++){
 		gc_node *t=b->gc_bucket[NPCINPAGE][i];
 		if(t->plength==0) continue;
@@ -608,8 +603,10 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 	}
 	b->idx[NPCINPAGE]=0;
 	variable_value2Page(NULL,b,NULL,&g_idx,true);
+	ME(&mv_datas,"mv_datas1");
 	
 
+	MS(&mv_datas);
 	bool skip_init_flag=false;
 	uint32_t new_inserted=0;
 	for(int i=0;i<size; i++){
@@ -642,7 +639,9 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 		free(t);
 		free(p);
 	}
+	ME(&mv_datas,"mv_datas2");
 
+	MS(&mv_datas);
 	li_node *ln, *lp;
 	if(gc_hlist->size!=0){
 		for_each_list_node_safe(gc_hlist,ln,lp){
@@ -654,6 +653,7 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 		}
 	}
 	list_free(gc_hlist);
+	ME(&mv_datas,"mv_datas3");
 	printf("size :%d cache %d(U:N %u:%u), overlap:%d new %d\n",size,cache_cnt,update_cache,noupdate_cache,header_overlap_cnt,new_inserted);
 }	
 #endif

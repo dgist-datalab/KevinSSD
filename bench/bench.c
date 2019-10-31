@@ -81,7 +81,7 @@ void bench_init(){
 		}
 	}
 	*/
-	printf("bench:%ld\n",TOTALSIZE/PAGESIZE/8);
+	//printf("bench:%ld\n",TOTALSIZE/PAGESIZE/8);
 	//bitmap=(uint8_t*)malloc(sizeof(uint8_t)*(TOTALSIZE/(PAGESIZE)/8));
 	bitmap=(uint8_t*)malloc(sizeof(uint8_t)*(TOTALSIZE/(PAGESIZE)/8)*NPCINPAGE);
 	_master->error_cnt=0;
@@ -737,7 +737,6 @@ void randget(uint32_t start, uint32_t end,monitor *m){
 
 void randset(uint32_t start, uint32_t end, monitor *m){
 	printf("making rand Set bench!\n");
-	srand(1);
 	for(uint32_t i=0; i<m->m_num; i++){
 #ifdef KVSSD
 		uint32_t t_k;
@@ -1132,7 +1131,7 @@ int bench_set_params(int argc, char **argv, char **temp_argv){
 		KEYLENGTH=2;
 	}
 	if(!value_size){
-		VALUESIZE=1;
+		VALUESIZE=(DEFVALUESIZE-1)/PIECE;
 	}
 	printf("key_length: %d - -1==rand\n",KEYLENGTH==-1?KEYLENGTH:KEYLENGTH*16);
 	printf("value_size: %d - -1==rand\n",VALUESIZE==-1?VALUESIZE:VALUESIZE*PIECE);

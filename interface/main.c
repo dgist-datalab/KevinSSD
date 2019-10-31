@@ -63,7 +63,6 @@ int main(int argc,char* argv[]){
 	MeasureTime aaa;
 	measure_init(&aaa);
 	bool tflag=false;
-	uint32_t req_cnt=0;
 	while((value=get_bench())){
 		temp.length=value->length;
 		if(value->type==FS_SET_T){
@@ -87,6 +86,7 @@ int main(int argc,char* argv[]){
 			locality_check2++;
 		}
 #endif
+		/*
 		req_cnt++;
 		if(req_cnt%10000000==0){
 			printf("\nlog %d req_cnt\n",req_cnt);
@@ -98,6 +98,7 @@ int main(int argc,char* argv[]){
 			}
 			fflush(stderr);
 		}
+		*/
 	}
 
 	force_write_start=true;
