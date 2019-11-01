@@ -39,8 +39,8 @@ int main(int argc,char* argv[]){
 
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
 	
-//	bench_add(FILLRAND,0,SHOWINGFULL,SHOWINGFULL);
-	bench_add(RANDSET,0,SHOWINGFULL,DEVFULL*5);
+	bench_add(SEQSET,0,SHOWINGFULL,SHOWINGFULL);
+	bench_add(RANDSET,0,SHOWINGFULL,SHOWINGFULL*3);
 //	bench_add(RANDGET,0,SHOWINGFULL,DEVFULL);
 	//bench_add(RANDGET,0,SHOWINGFULL,DEVFULL);
 	//bench_add(RANDSET,0,RANGE,MAXKEYNUMBER/16); //duplicated test
@@ -62,30 +62,18 @@ int main(int argc,char* argv[]){
 	int locality_check=0,locality_check2=0;
 	MeasureTime aaa;
 	measure_init(&aaa);
-	bool tflag=false;
+	char *key_free;
 	while((value=get_bench())){
 		temp.length=value->length;
 		if(value->type==FS_SET_T){
 			memcpy(&temp.value[0],&value->key,sizeof(value->key));
 		}
+		key_free=value->key.key;
 		inf_make_req(value->type,value->key,temp.value ,value->length,value->mark);
 #ifdef KVSSD
-		free(value->key.key);
+		free(key_free);
 #endif
-		if(!tflag &&value->type==FS_GET_T){
-			tflag=true;
-		}
-
 		if(_master->m[_master->n_num].type<=SEQRW) continue;
-		
-#ifndef KVSSD
-		if(value->key<RANGE*TARGETRATIO){
-			locality_check++;
-		}
-		else{
-			locality_check2++;
-		}
-#endif
 		/*
 		req_cnt++;
 		if(req_cnt%10000000==0){
