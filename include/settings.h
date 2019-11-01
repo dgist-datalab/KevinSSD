@@ -33,7 +33,8 @@
 #define PIECE 512
 #define NPCINPAGE (PAGESIZE/PIECE)
 #define MINVALUE PIECE
-#define DEFKEYLENGTH 32
+#define MINKEYLENGTH 16
+#define DEFKEYLENGTH 16
 #define DEFVALUESIZE (1024)
 
 #ifdef MLC
@@ -47,9 +48,9 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 8L
+#define GIGAUNIT 256L
 #define TOTALSIZE (GIGAUNIT*G)
-#define OP 70
+#define OP 22
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
 #define PAGESIZE (8*K)
@@ -75,7 +76,8 @@
 #define DEVFULL (TOTALSIZE/DEFVALUESIZE)
 
 #define PARTNUM 2
-#define MAPPART_SEGS (_NOS/10)
+#define SHOWINGSEGS (SHOWINGSIZE/(_PPS*PAGESIZE))
+#define MAPPART_SEGS (SHOWINGSEGS/20)
 #define DATAPART_SEGS (_NOS-MAPPART_SEGS)
 enum{
 	MAP_S,DATA_S

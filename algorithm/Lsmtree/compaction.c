@@ -16,6 +16,10 @@ extern MeasureTime write_opt_time[10];
  extern llp LLP;
  extern lsp LSP;
 extern lsmtree LSM;
+static inline void lower_wait(){
+	lsm_io_sched_flush();	
+	LSM.li->lower_flying_req_wait();
+}
 uint32_t level_change(level *from ,level *to,level *target, pthread_mutex_t *lock){
 	level **src_ptr=NULL, **des_ptr=NULL;
 	des_ptr=&LSM.disk[to->idx];
@@ -113,13 +117,9 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 	uint32_t total_number=to->n_num+up_num+1;
 	LSM.result_padding=2;
 	page_check_available(HEADER,total_number+(GETCOMPOPT(LSM.setup_values)==HW?1:0)+LSM.result_padding);
-/*
-	if(level_sequencial(from,to,target,entry,l_node)){
-		goto last;
-	}else */
 
-
-
+	lower_wait();
+	bench_custom_start(write_opt_time,0);
 	if(target->idx<LSM.LEVELCACHING){
 		if(to->n_num==0){
 			compaction_empty_level(&from,l_node,&target);
@@ -159,8 +159,7 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 		else
 			compactor.pt_leveling(target,target_origin,l_node,from);
 	}
-
-
+	bench_custom_A(write_opt_time,0);
 	
 last:
 	if(entry) free(entry);
@@ -173,7 +172,9 @@ last:
 		gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
 		LSM.delayed_header_trim=false;
 	}
-
+	if(target->idx==LSM.LEVELN-1){
+		printf("last level %d/%d (n:f)\n",target->n_num,target->m_num);
+	}
 	//LSM.li->lower_flying_req_wait();
 	return res;
 }
@@ -188,6 +189,8 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 
 	if(!upper){
 		LSM.lop->range_find_compaction(origin,start,end,&target_s);
+
+		bench_custom_start(write_opt_time,1);
 		for(int j=0; target_s[j]!=NULL; j++){
 			if(!htable_read_preproc(target_s[j])){
 				compaction_htable_read(target_s[j],(PTR*)&target_s[j]->cpt_data);
@@ -218,6 +221,8 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 			printf("can't be\n");
 			abort();
 		}
+
+		bench_custom_start(write_opt_time,1);
 		for(int i=0; target_s[i]!=NULL; i++){
 			run_t *temp=target_s[i];
 			if(temp->iscompactioning==SEQCOMP){

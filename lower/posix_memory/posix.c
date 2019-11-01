@@ -217,6 +217,43 @@ extern bb_checker checker;
 uint32_t convert_ppa(uint32_t PPA){
 	return PPA-checker.start_block*_PPS;
 }
+
+void copy_to_mem(uint32_t PPA, uint8_t type, char *value){
+#ifdef ONLYMAP
+	if(!(type>=MAPPINGR && type<=GCMW)){
+		return;
+	}
+	else{
+#endif
+		if(!seg_table[PPA].storage){
+			seg_table[PPA].storage = (PTR)malloc(PAGESIZE);
+		}
+		else{
+			abort();
+		}	
+		memcpy(seg_table[PPA].storage,value,PAGESIZE);
+#ifdef ONLYMAP
+	}
+#endif
+}
+
+void copy_from_mem(uint32_t PPA, uint8_t type,char *value){
+#ifdef ONLYMAP
+	if(!(type>=MAPPINGR && type<=GCMW)){
+		return;
+	}
+	else{
+#endif
+		if(!seg_table[PPA].storage){
+			printf("%u not populated\n",PPA);
+		}
+		else{
+		}	
+		memcpy(seg_table[PPA].storage,value,PAGESIZE);
+#ifdef ONLYMAP
+	}
+#endif
+}
 void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	uint8_t test_type;
 	uint32_t PPA=convert_ppa(_PPA);
@@ -239,14 +276,8 @@ void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 	if(test_type < LREQ_TYPE_NUM){
 		my_posix.req_type_cnt[test_type]++;
 	}
-
-	if(!seg_table[PPA].storage){
-		seg_table[PPA].storage = (PTR)malloc(PAGESIZE);
-	}
-	else{
-		abort();
-	}
-	memcpy(seg_table[PPA].storage,value->value,size);
+	
+	copy_to_mem(PPA,test_type,value->value);
 
 	req->end_req(req);
 	return NULL;
@@ -278,15 +309,10 @@ void *posix_pull_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 	if(test_type < LREQ_TYPE_NUM){
 		my_posix.req_type_cnt[test_type]++;
 	}
-	if(!seg_table[PPA].storage){
-		printf("%u not populated!\n",PPA);
-		//abort();
-	} else {
-		memcpy(value->value,seg_table[PPA].storage,size);
-	}
+
+	copy_from_mem(PPA,test_type,value->value);
+
 	req->type_lower=1;
-
-
 	req->end_req(req);
 	return NULL;
 }

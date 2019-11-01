@@ -12,7 +12,7 @@ DEBUGFLAGS=\
 			-rdynamic\
 			-Wno-pointer-arith\
 			-g\
--fsanitize=address\
+#-fsanitize=address\
 #	-DBUSE_DEBUG
 
 export COMMONFLAGS=\
@@ -26,7 +26,7 @@ export COMMONFLAGS=\
 			-Wno-unused-but-set-variable\
 			-DCHECKINGTIME\
 			-DKVSSD\
-#			-O3\
+			-O3\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 
@@ -40,6 +40,7 @@ export CFLAGS_LOWER=\
 		     -fPIC\
 			 -lpthread\
 			 -Wall\
+			 -DONLYMAP\
 			 -D_FILE_OFFSET_BITS=64\
 
 export priority="false"
@@ -93,6 +94,7 @@ SRCS +=\
 	./include/data_struct/lru_list.c\
 	./bench/measurement.c\
 	./bench/bench.c\
+	./bench/bench_demand.c\
 	./include/utils/thpool.c\
 	./include/utils/kvssd.c\
 	./include/utils/sha256.c\

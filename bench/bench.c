@@ -45,9 +45,10 @@ static bool bitmap_get(uint32_t key){
 
 	return bitmap[block]&(1<<offset);
 }
-static inline uint32_t get_value_size(){
-	return ((VALUESIZE==-1?(rand()%(NPCINPAGE)-1)+1:VALUESIZE)*PIECE);
-}
+/*
+inline uint32_t GET_VALUE_SIZE{
+	((VALUESIZE==-1?(rand()%(NPCINPAGE)-1)+1:VALUESIZE)*PIECE);
+}*/
 void bench_init(){
 	OVERLAP=0.0;
 	_master=(master*)malloc(sizeof(master));
@@ -136,7 +137,6 @@ void bench_make_data(){
 			fillrand(start,end,_m);
 			break;
 #ifndef KVSSD
-
 		case SEQLATENCY:
 			seq_latency(start,end,50,_m);
 			break;
@@ -190,12 +190,13 @@ void bench_free(){
 	free(_master);
 }
 
-bench_value* get_bench(){
+
+bench_value* __get_bench(){
 	monitor * _m=&_master->m[_master->n_num];
 	if(_m->n_num==0){
 		bench_make_data();
-	}
 
+	}
 	if(_m->n_num==_m->m_num){
 		while(!bench_is_finish_n(_master->n_num)){
 			write_stop = false;
@@ -240,6 +241,18 @@ bench_value* get_bench(){
 	}
 	_m->n_num++;
 	return res;
+}
+bench_value* get_bench(){
+	int idx=_master->n_num;
+	bench_meta *_meta=&_master->meta[idx];
+	switch(_meta->type){
+		case SEQSET:
+		case RANDSET:
+		case RANDGET:
+			return get_bench_ondemand();
+		default:
+			return __get_bench();
+	}
 }
 extern bool force_write_start;
 bool bench_is_finish_n(volatile int n){
@@ -521,7 +534,9 @@ void bench_reap_data(request *const req,lower_info *li){
 #endif
 		MA(&_m->benchTime);
 	}
-
+	if(_m->ondemand){
+		free(_m->dbody[_m->r_num]);
+	}
 	_m->r_num++;
 	pthread_mutex_unlock(&bench_lock);
 }
@@ -672,7 +687,7 @@ void seqset(uint32_t start, uint32_t end,monitor *m){
 		bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #endif
 #ifdef DVALUE
-		m->body[i/m->bech][i%m->bech].length=get_value_size();
+		m->body[i/m->bech][i%m->bech].length=GET_VALUE_SIZE;
 #else
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
@@ -697,7 +712,7 @@ void seqrw(uint32_t start, uint32_t end, monitor *m){
 #endif
 		m->body[i/m->bech][i%m->bech].type=FS_SET_T;
 #ifdef DVALUE
-		m->body[i/m->bech][i%m->bech].length=get_value_size();
+		m->body[i/m->bech][i%m->bech].length=GET_VALUE_SIZE;
 #else	
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
@@ -760,7 +775,7 @@ void randset(uint32_t start, uint32_t end, monitor *m){
 #ifdef DVALUE
 //		m->body[i/m->bech][i%m->bech].length=(rand()%(NPCINPAGE-1)+1)*PIECE;
 //	m->body[i/m->bech][i%m->bech].length=0;
-		m->body[i/m->bech][i%m->bech].length=get_value_size();
+		m->body[i/m->bech][i%m->bech].length=GET_VALUE_SIZE;
 #else	
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
@@ -794,7 +809,7 @@ void randrw(uint32_t start, uint32_t end, monitor *m){
 
 		m->body[i/m->bech][i%m->bech].type=FS_SET_T;
 #ifdef DVALUE
-		m->body[i/m->bech][i%m->bech].length=get_value_size();
+		m->body[i/m->bech][i%m->bech].length=GET_VALUE_SIZE;
 		if(m->body[i/m->bech][i%m->bech].length>PAGESIZE){
 			abort();
 		}
@@ -849,7 +864,7 @@ void mixed(uint32_t start, uint32_t end,int percentage, monitor *m){
 			bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #endif
 #ifdef DVALUE
-			m->body[i/m->bech][i%m->bech].length=get_value_size();
+			m->body[i/m->bech][i%m->bech].length=GET_VALUE_SIZE;
 #else
 			m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
@@ -872,7 +887,7 @@ void seq_latency(uint32_t start, uint32_t end,int percentage, monitor *m){
 		m->body[i/m->bech][i%m->bech].key=start+(i%(end-start));
 		bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #ifdef DVALUE
-		m->body[i/m->bech][i%m->bech].length=get_value_size();
+		m->body[i/m->bech][i%m->bech].length=GET_VALUE_SIZE;
 #else
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
@@ -891,7 +906,7 @@ void seq_latency(uint32_t start, uint32_t end,int percentage, monitor *m){
 			m->body[i/m->bech][i%m->bech].type=FS_SET_T;
 			bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #ifdef DVALUE
-			m->body[i/m->bech][i%m->bech].length=get_value_size();
+			m->body[i/m->bech][i%m->bech].length=GET_VALUE_SIZE;
 #else
 			m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
@@ -920,7 +935,7 @@ void rand_latency(uint32_t start, uint32_t end,int percentage, monitor *m){
 		m->body[i/m->bech][i%m->bech].key=start+rand()%(end-start);
 		bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #ifdef DVALUE
-		m->body[i/m->bech][i%m->bech].length=get_value_size();
+		m->body[i/m->bech][i%m->bech].length=GET_VALUE_SIZE;
 #else
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
@@ -939,7 +954,7 @@ void rand_latency(uint32_t start, uint32_t end,int percentage, monitor *m){
 			m->body[i/m->bech][i%m->bech].type=FS_SET_T;
 			bitmap_set(m->body[i/m->bech][i%m->bech].key);
 #ifdef DVALUE
-			m->body[i/m->bech][i%m->bech].length=get_value_size();
+			m->body[i/m->bech][i%m->bech].length=GET_VALUE_SIZE;
 #else
 			m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif
@@ -994,7 +1009,7 @@ void fillrand(uint32_t start, uint32_t end, monitor *m){
 #endif
 
 #ifdef DVALUE
-		m->body[i/m->bech][i%m->bech].length=get_value_size();
+		m->body[i/m->bech][i%m->bech].length=GET_VALUE_SIZE;
 #else	
 		m->body[i/m->bech][i%m->bech].length=PAGESIZE;
 #endif

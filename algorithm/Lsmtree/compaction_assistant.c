@@ -433,11 +433,16 @@ void compaction_check(KEYT key, bool force){
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
 	
 	compaction_sub_wait();
+	bench_custom_A(write_opt_time,1);
 	
+	bench_custom_start(write_opt_time,3);
 	LSM.lop->merger(top,src,org,des);
+	bench_custom_A(write_opt_time,3);
 
 	KEYT key,end;
 	run_t* target=NULL;
+
+	bench_custom_start(write_opt_time,2);
 	while((target=LSM.lop->cutter(top,des,&key,&end))){
 		if(des->idx<LSM.LEVELCACHING){
 			LSM.lop->insert(des,target);
@@ -448,6 +453,7 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 		}
 		free(target);
 	}
+	bench_custom_A(write_opt_time,2);
 	//LSM.li->lower_flying_req_wait();
 }
 /*
