@@ -3,11 +3,14 @@
 #include "settings.h"
 
 /*lsmtree structure*/
-#define FULLMAPNUM  1024
+#define FLUSHNUM 1024
+//#define MAXKEYINMETASEG (PAGESIZE/MINKEYLENGTH)
+#define MAXKEYINMETASEG (PAGESIZE/DEFKEYLENGTH)
 #ifdef KVSSD
 #define KEYBITMAP 1024
 #endif
 
+#define RAF 0.1
 #if LEVELN!=1
 #define BLOOM
 //#define MONKEY

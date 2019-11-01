@@ -12,7 +12,9 @@ extern compM compactor;
 extern KEYT key_min, key_max;
 #endif
 extern MeasureTime write_opt_time[10];
-
+ extern lmi LMI;
+ extern llp LLP;
+ extern lsp LSP;
 extern lsmtree LSM;
 uint32_t level_change(level *from ,level *to,level *target, pthread_mutex_t *lock){
 	level **src_ptr=NULL, **des_ptr=NULL;
@@ -61,7 +63,7 @@ bool level_sequencial(level *from, level *to,level *des, run_t *entry,leveling_n
 
 		LSM.lop->mem_cvt2table(lnode->mem,entry);
 		if(des->idx<LSM.LEVELCACHING){
-			if(LSM.nocpy){
+			if(ISNOCPY(LSM.setup_values)){
 				entry->level_caching_data=(char*)entry->cpt_data->sets;
 				entry->cpt_data->sets=NULL;
 				htable_free(entry->cpt_data);
@@ -103,14 +105,14 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 	uint32_t up_num=0;
 	if(from){
 		up_num=LSM.lop->get_number_runs(from);
-		if(LSM.comp_opt==HW &&from->idx<LSM.LEVELCACHING){
+		if(GETCOMPOPT(LSM.setup_values)==HW &&from->idx<LSM.LEVELCACHING){
 			up_num*=2;
 		}
 	}
 	else up_num=1;
 	uint32_t total_number=to->n_num+up_num+1;
 	LSM.result_padding=2;
-	page_check_available(HEADER,total_number+(LSM.comp_opt==HW?1:0)+LSM.result_padding);
+	page_check_available(HEADER,total_number+(GETCOMPOPT(LSM.setup_values)==HW?1:0)+LSM.result_padding);
 /*
 	if(level_sequencial(from,to,target,entry,l_node)){
 		goto last;
@@ -130,8 +132,8 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 			compaction_empty_level(&from,l_node,&target);
 			goto last;
 		}
-		LSM.compaction_cnt++;
-		if(LSM.comp_opt==HW){
+		LMI.compaction_cnt++;
+		if(GETCOMPOPT(LSM.setup_values)==HW){
 			if(from==NULL && target->idx>=LSM.LEVELCACHING){
 				uint32_t ppa=getPPA(HEADER,key_min,true);
 				entry=LSM.lop->make_run(l_node->start,l_node->end,ppa);
@@ -142,7 +144,7 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 #else
 				LSM.lop->mem_cvt2table(l_node->mem,entry);
 #endif
-				if(LSM.nocpy){
+				if(ISNOCPY(LSM.setup_values)){
 					nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
 					entry->cpt_data->sets=NULL;
 				}
@@ -151,7 +153,7 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 			}
 		}
 		
-		if(LSM.comp_opt==MIXEDCOMP && to->idx!=LSM.LEVELN-1){
+		if(GETCOMPOPT(LSM.setup_values)==MIXEDCOMP && to->idx!=LSM.LEVELN-1){
 			partial_leveling(target,target_origin,l_node,from);
 		}
 		else
@@ -167,7 +169,7 @@ last:
 	LSM.c_level=NULL;
 	//LSM.lop->print_level_summary();
 
-	if(LSM.nocpy){
+	if(ISNOCPY(LSM.setup_values)){
 		gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
 		LSM.delayed_header_trim=false;
 	}

@@ -3,9 +3,11 @@
 #include "lsmtree.h"
 #include <stdio.h>
 
-extern int32_t SIZEFACTOR;
 extern lsmtree LSM;
 extern pm d_m;
+ extern lmi LMI;
+ extern llp LLP;
+ extern lsp LSP;
 #ifdef KVSSD
 extern KEYT key_min,key_max;
 #endif
@@ -103,7 +105,7 @@ bool def_fchk( level *input){
 	if(input->idx<LSM.LEVELCACHING){
 		int a=LSM.lop->get_number_runs(input);
 		int b=input->idx==0?input->m_num-2:
-			input->m_num/(LSM.size_factor)*(LSM.size_factor-1);
+			input->m_num/(LLP.size_factor)*(LLP.size_factor-1);
 		if(a>=b){
 			return true;
 		}
@@ -114,10 +116,10 @@ bool def_fchk( level *input){
 
 	}
 	else{
-		if(input->n_num>=((input->m_num/(LSM.size_factor)*(LSM.size_factor-1)))){
+		if(input->n_num>=((input->m_num/(LLP.size_factor)*(LLP.size_factor-1)))){
 			return true;
 		}
-		else if(input->m_num>=100 && input->n_num>=(((input->m_num/(LSM.size_factor)*(LSM.size_factor-1)))*95/100)){
+		else if(input->m_num>=100 && input->n_num>=(((input->m_num/(LLP.size_factor)*(LLP.size_factor-1)))*95/100)){
 			return true;
 		}
 	}

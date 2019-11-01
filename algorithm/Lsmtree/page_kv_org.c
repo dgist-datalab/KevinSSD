@@ -30,21 +30,17 @@ typedef struct temp_gc_h{
 #ifdef KVSSD
 uint32_t gc_cnt=0;
 int gc_header(){
-	//printf("gc_header %u\n",gc_cnt++);
-	//printf("gc_header %u",gc_cnt++);
 	LSM.header_gc_cnt++;
 	gc_general_wait_init();
 	lsm_io_sched_flush();
 
 	blockmanager *bm=LSM.bm;
 	__gsegment *tseg=bm->pt_get_gc_target(bm,MAP_S);
-	//printf("gh : %d\n",tseg->blocks[0]->block_num);
 	if(!tseg){
 		printf("error invalid gsegment!\n");
 		abort();
 	}
 
-	//printf("inv number:%d\n",tseg->invalidate_number);
 	if(tseg->invalidate_number==0){
 		LSM.lop->print_level_summary();
 		printf("device full!\n");
@@ -52,7 +48,6 @@ int gc_header(){
 	}
 	if(tseg->blocks[0]->block_num==map_m.active->blocks[0]->block_num){
 		free(map_m.active);
-	//	printf("tseg, reserve to active\n");
 		map_m.active=map_m.reserve;
 		map_m.reserve=NULL;
 	}

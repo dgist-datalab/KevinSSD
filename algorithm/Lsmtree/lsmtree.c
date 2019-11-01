@@ -1,4 +1,3 @@
-
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
@@ -19,17 +18,10 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 extern MeasureTime write_opt_time[10];
-/*
-#define free(a) \
-do{\
-fprintf(stderr,"%s %d:%p\n",__FILE__,__LINE__,a);\
-free(a);\
-}while(0)
- */
+
 #ifdef KVSSD
 KEYT key_max, key_min;
 #endif
-//extern uint32_t hash_insert_cnt;
 
 struct algorithm algo_lsm={
 	.argument_set=lsm_argument_set,
@@ -38,14 +30,6 @@ struct algorithm algo_lsm={
 	.read=lsm_get,
 	.write=lsm_set,
 	.remove=lsm_remove,
-	/*
-	   .iter_create=lsm_iter_create,
-	   .iter_next=lsm_iter_next,
-	   .iter_next_with_value=lsm_iter_next_with_value,
-	   .iter_release=lsm_iter_release,
-	   .iter_all_key=lsm_iter_all_key,
-	   .iter_all_value=lsm_iter_all_value,
-	 */
 	.iter_create=NULL,
 	.iter_next=NULL,
 	.iter_next_with_value=NULL,
@@ -59,118 +43,28 @@ struct algorithm algo_lsm={
 };
 
 lsmtree LSM;
-int save_fd;
-uint64_t caching_size;
+lmi LMI;
+llp LLP;
+lsp LSP;
+/*
+ extern lmi LMI;
+ extern llp LLP;
+ extern lsp LSP;
+ */
 
-MeasureTime __get_mt;
-MeasureTime __get_mt2;
-#ifdef USINGSLAB
-//struct slab_chain snode_slab;
-//extern size_t slab_pagesize;
-kmem_cache_t snode_slab;
-#endif
-
-uint64_t bloomfilter_memory;
-uint64_t __get_max_value;
-int __header_read_cnt;
-
-void lsm_debug_print(){
-	//printf("mt:%ld %.6f\n",__get_mt.adding.tv_sec,(float)__get_mt.adding.tv_usec/1000000);
-	printf("mt2:%ld %.6f\n",__get_mt2.adding.tv_sec,(float)__get_mt2.adding.tv_usec/1000000);
-	printf("header_read_cnt:%d\n",__header_read_cnt);
-	printf("\n");
-}
 extern level_ops h_ops;
 extern level_ops a_ops;
-void lsm_bind_ops(lsmtree *l){
-	l->lop=&a_ops;
-	l->KEYNUM=l->lop->get_max_table_entry();
-	l->FLUSHNUM=1024;
-	l->keynum_in_header_cnt=0;
-	LSM.keynum_in_header=DEFKEYINHEADER;
-	LSM.ONESEGMENT=(DEFKEYINHEADER*LSM.VALUESIZE);
-}
+extern uint32_t all_kn_run,run_num;
+
+extern float get_sizefactor(uint32_t);
+
 uint32_t __lsm_get(request *const);
-static float get_sizefactor(uint64_t as,uint32_t keynum_in_header){
-	uint32_t _f=LSM.LEVELN;
-	float res;
-	uint64_t all_memory=(TOTALSIZE/1024);
-	caching_size=LSM.caching_size*(all_memory/(8*K));
-	as/=LSM.ONESEGMENT;
-#if !defined(READCACHE)
-	if(LSM.LEVELCACHING==1 && LSM.LEVELN==2)
-		res=caching_size;
-	else
-#endif
-		res=_f?ceil(pow(10,log10(as)/(_f))):as/keynum_in_header;
 
-	int i=0;
-	float ff=0.05f;
-	float cnt=0;
-	uint64_t all_header_num;
-	uint64_t caching_header=0;
-	uint32_t before_last_header=0;
-	float last_size_factor=res;
-	float target;
-	bool asymatric_level=false;
-
-retry:
-	all_header_num=0;
-	target=res;
-	for(i=0; i<LSM.LEVELN-1; i++){
-		all_header_num+=round(target);
-		before_last_header=round(target);
-		target*=res;
-	}
-	
-	caching_header=all_header_num;
-	if(LSM.LEVELN-1==LSM.LEVELCACHING && caching_size<caching_header){
-	//if(caching_size<caching_header){
-		res-=0.1;
-		asymatric_level=true;
-		goto retry;
-	}
-	last_size_factor=(float)(as-all_header_num)/before_last_header;
-	all_header_num+=round(before_last_header*last_size_factor);
-	
-	if(all_header_num>as){
-		res-=ff;
-		goto retry;
-	}
-	target=res;
-	res=res-(ff*(cnt?cnt-1:0));
-	LSM.last_size_factor=asymatric_level?last_size_factor:res;
-	return res;
-}
 uint32_t lsm_create(lower_info *li,blockmanager *bm, algorithm *lsm){
-	int res=0;
 	LSM.bm=bm;
-#if(SIMULATION)
-	//return __lsm_create_simulation(li,lsm);
-#else
 	__lsm_create_normal(li,lsm);
-#endif
 	LSM.result_padding=2;
-	return res;
-}
-
-uint64_t get_memory_per_run(lsmtree lsm,float size_factor){
-	uint64_t all_memory=(TOTALSIZE/1024);
-	uint64_t as=SHOWINGSIZE/LSM.ONESEGMENT;
-
-	uint64_t target=1;
-	for(int i=0; i<LSM.LEVELCACHING; i++){
-		all_memory-=(target*size_factor)*PAGESIZE;
-		target*=size_factor;
-	}
-
-	if(LSM.LEVELCACHING){
-	//	as/=last_level;
-	}
-	printf("---memroy per run:%lu\n",all_memory/as);
-	printf("---key in header:%u\n",LSM.keynum_in_header);
-	printf("---# of filtered run:%lu\n",as);
-	return all_memory/as;
+	return 1;
 }
 
 uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
@@ -183,97 +77,13 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	key_min.len=MAXKEYSIZE;
 	memset(key_min.key,0,sizeof(char)*MAXKEYSIZE);
 #endif
-#ifdef USINGSLAB
-	//slab_pagesize=(size_t)sysconf(_SC_PAGESIZE);
-	//slab_init(&snode_slab,sizeof(snode));
-	snode_slab=kmem_cache_create("snode_slab",sizeof(snode),0,NULL,NULL);
-#endif
-	lsm_bind_ops(&LSM);
+
+	LSM.lop=&a_ops;
 	LSM.memtable=skiplist_init();
 	LSM.debug_flag=false;
-	LSM.size_factor=get_sizefactor(SHOWINGSIZE,LSM.keynum_in_header);
+	LSM.result_padding=2;
+	lsm_setup_params();
 
-	double sol;
-#ifdef MONKEY
-	float SIZEFACTOR2=ceil(pow(10,log10(RANGE/LSM.KEYNUM/LSM.LEVELN)/(LSM.LEVELN-1)));
-	float ffpr=RAF*(1-SIZEFACTOR2)/(1-pow(SIZEFACTOR2,LSM.LEVELN-1));
-#endif
-	float target_fpr=0;
-	uint64_t sizeofall=0;
-	uint64_t lev_caching_entry=0;
-	//#else
-	sol=LSM.size_factor;
-	float tt_fpr;
-	if(LSM.lsm_type!=CACHE){
-		uint64_t memory_per_run=get_memory_per_run(LSM,LSM.size_factor);
-		tt_fpr=bf_fpr_from_memory(LSM.keynum_in_header,memory_per_run);
-		printf("filter fpr : %.10f--------\n",tt_fpr);
-		printf("\n| ---------algorithm_log : LSMTREE\t\t\n");
-		printf("| LSM KEYNUM:%d FLUSHNUM:%d\n",LSM.KEYNUM,LSM.FLUSHNUM);
-		LSM.disk=(level**)malloc(sizeof(level*)*LSM.LEVELN);
-	}
-	else{
-		tt_fpr=1;
-	}
-
-
-	for(int i=0; i<LSM.LEVELN-1; i++){//for lsmtree -1 level
-#ifdef BLOOM
-#ifdef MONKEY
-		target_fpr=pow(LSM.size_factor2,i)*ffpr;
-#else
-		target_fpr=tt_fpr;
-#endif
-#endif
-		if(i<LSM.LEVELCACHING){
-			LSM.disk[i]=LSM.lop->init((uint32_t)(round(sol)),i,1,false);
-			printf("| [%d] fpr:%.12lf bytes per entry:%lu noe:%d\n",i+1,1.0f,bf_bits(LSM.keynum_in_header,target_fpr), LSM.disk[i]->m_num);
-			lev_caching_entry+=LSM.disk[i]->m_num;
-		}
-		else if(i>=LSM.LEVELCACHING){
-			LSM.disk[i]=LSM.lop->init((uint32_t)(round(sol)),i,target_fpr,false);
-			printf("| [%d] fpr:%.12lf bytes per entry:%lu noe:%d\n",i+1,target_fpr,bf_bits(LSM.keynum_in_header,target_fpr), LSM.disk[i]->m_num);
-			bloomfilter_memory+=bf_bits(LSM.keynum_in_header,target_fpr)*sol;
-		}
-		sizeofall+=LSM.disk[i]->m_num;
-		sol*=LSM.size_factor;
-	}   
-	
-	bloomfilter_memory+=bf_bits(LSM.keynum_in_header,target_fpr)*sol;
-#ifdef TIERING
-	LSM.disk[LSM.LEVELN-1]=LSM.lop->init(ceil(sol/LSM.size_factor*LSM.last_size_factor),LSM.LEVELN-1,target_fpr,true);
-#else
-	LSM.disk[LSM.LEVELN-1]=LSM.lop->init(ceil(sol/LSM.size_factor*LSM.last_size_factor),LSM.LEVELN-1,target_fpr,false);
-#endif
-	printf("| [%d] fpr:%.12lf bytes per entry:%lu noe:%d\n",LSM.LEVELN,target_fpr,bf_bits(LSM.keynum_in_header,target_fpr),LSM.disk[LSM.LEVELN-1]->m_num);
-	sizeofall+=LSM.disk[LSM.LEVELN-1]->m_num;
-	printf("| level:%d sizefactor:%lf last:%lf\n",LSM.LEVELN,LSM.size_factor,LSM.last_size_factor);
-	printf("| all level size:%lu(MB), %lf(GB)\n",sizeofall,(double)sizeofall*LSM.ONESEGMENT/G);
-	printf("| all level header size: %lu(MB), except last header: %lu(MB)\n",sizeofall*PAGESIZE/M,(sizeofall-LSM.disk[LSM.LEVELN-1]->m_num)*PAGESIZE/M);
-	printf("| WRITE WAF:%f\n",(float)(LSM.size_factor * (LSM.LEVELN-1-LSM.LEVELCACHING)+LSM.last_size_factor)/LSM.keynum_in_header+1);
-	printf("| top level size:%d(MB)\n",LSM.disk[0]->m_num*8);
-	printf("| bloomfileter : %fKB %fMB\n",(float)bloomfilter_memory/1024,(float)bloomfilter_memory/1024/1024);
-
-	int32_t calc_cache=(caching_size-lev_caching_entry-bloomfilter_memory/PAGESIZE);
-	uint32_t cached_entry=calc_cache<0?0:calc_cache;
-	if(LSM.lsm_type==PINNING || LSM.lsm_type==FILTERING){
-		LSM.lsm_cache=cache_init(0);
-	}
-	else{
-		LSM.lsm_cache=cache_init(calc_cache);
-	}
-
-	printf("| all caching %.2f(%%) - %lu page\n",(float)caching_size/(TOTALSIZE/PAGESIZE/K)*100,caching_size);	
-	printf("| level cache :%luMB(%lu page)%.2f(%%)\n",lev_caching_entry*PAGESIZE/M,lev_caching_entry,(float)lev_caching_entry/(TOTALSIZE/PAGESIZE/K)*100);
-
-	printf("| entry cache :%uMB(%u page)%.2f(%%)\n",cached_entry*PAGESIZE/M,cached_entry,(float)cached_entry/(TOTALSIZE/PAGESIZE/K)*100);
-	printf("| start cache :%luMB(%lu page)%.2f(%%)\n",(cached_entry+lev_caching_entry)*PAGESIZE/M,cached_entry+lev_caching_entry,(float)cached_entry/(TOTALSIZE/PAGESIZE/K)*100);
-	printf("| -------- algorithm_log END\n\n");
-
-	printf("\n ---------- %lu:%lu (all_entry : total)\n\n",sizeofall,MAPPART_SEGS*_PPS);
-
-	fprintf(stderr,"SHOWINGSIZE(GB) :%lu HEADERSEG:%ld DATASEG:%ld\n",SHOWINGSIZE/G,MAPPART_SEGS,DATAPART_SEGS);
-	fprintf(stderr,"LEVELN:%d (LEVELCACHING(%d), MEMORY:%f\n",LSM.LEVELN,LSM.LEVELCACHING,LSM.caching_size);
 	pthread_mutex_init(&LSM.memlock,NULL);
 	pthread_mutex_init(&LSM.templock,NULL);
 
@@ -282,46 +92,62 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	LSM.data_ppa=-1;
 #endif
 
-	LSM.last_level_comp_term=LSM.check_cnt=LSM.needed_valid_page=LSM.target_gc_page=0;
-	LSM.size_factor_change=(bool*)malloc(sizeof(bool)*LSM.LEVELN);
-	memset(LSM.size_factor_change,0,sizeof(bool)*LSM.LEVELN);
+	LLP.size_factor_change=(bool*)malloc(sizeof(bool)*LSM.LEVELN);
+	memset(LLP.size_factor_change,0,sizeof(bool)*LSM.LEVELN);
 	LSM.level_lock=(pthread_mutex_t*)malloc(sizeof(pthread_mutex_t)*LSM.LEVELN);
 	for(int i=0; i< LSM.LEVELN; i++){
 		pthread_mutex_init(&LSM.level_lock[i],NULL);
 	}
+
+	float m_num=1;
+	uint64_t all_header_num=0;
+	LSM.disk=(level**)malloc(sizeof(level*)*LSM.LEVELN);
+	printf("|-----LSMTREE params ---------\n");
+	for(int i=0; i<LSM.LEVELN; i++){//for lsmtree -1 level	
+		LSM.disk[i]=LSM.lop->init(ceil(m_num*LLP.size_factor),i,LSP.bf_fprs[i],false);
+		printf("| [%d] fpr:%.12lf noe:%d iscached:%c\n",i,LSP.bf_fprs[i],LSM.disk[i]->m_num,i<LSM.LEVELCACHING?'y':'n');
+		all_header_num+=LSM.disk[i]->m_num;
+		m_num*=LLP.size_factor;
+	}   
+	
+	printf("| level:%d sizefactor:%lf last:%lf\n",LSM.LEVELN,LLP.size_factor,LLP.last_size_factor);
+	printf("| all level size:%lu(MB), %lf(GB)",all_header_num*LSP.ONESEGMENT/M,(double)all_header_num*LSP.ONESEGMENT/G);
+	printf(" target size: %lf(GB)\n",(double)SHOWINGSIZE/G);
+	printf("| all level header size: %lu(MB), except last header: %lu(MB)\n",all_header_num*PAGESIZE/M,(all_header_num-LSM.disk[LSM.LEVELN-1]->m_num)*PAGESIZE/M);
+	printf("| WRITE WAF:%f\n",(float)(LLP.size_factor * (LSM.LEVELN-1-LSM.LEVELCACHING)+LLP.last_size_factor)/LSP.KEYNUM+1);
+	printf("| used memory :%lu page\n",LSP.total_memory/PAGESIZE);	
+	printf("| bloomfileter : %fKB %fMB\n",(float)LSP.bf_memory/K,(float)LSP.bf_memory/M);
+	printf("| level cache :%luMB(%lu page)%.2f(%%)\n",LSP.pin_memory/M,LSP.pin_memory/PAGESIZE,(float)LSP.pin_memory/LSP.total_memory*100);
+	printf("| entry cache :%luMB(%lu page)%.2f(%%)\n",LSP.cache_memory/M,LSP.cache_memory/PAGESIZE,(float)LSP.cache_memory/LSP.total_memory*100);
+	printf("| -------- algorithm_log END\n\n");
+
+	printf("\n ---------- %lu:%lu (all_entry : total)\n\n",all_header_num,MAPPART_SEGS*_PPS);
+
+	fprintf(stderr,"SHOWINGSIZE(GB) :%lu HEADERSEG:%ld DATASEG:%ld\n",SHOWINGSIZE/G,MAPPART_SEGS,DATAPART_SEGS);
+	fprintf(stderr,"LEVELN:%d (LEVELCACHING(%d)\n",LSM.LEVELN,LSM.LEVELCACHING);
+
 	compaction_init();
 	q_init(&LSM.re_q,RQSIZE);
 
-
-	LSM.caching_value=NULL;
 	LSM.delayed_trim_ppa=UINT32_MAX;
-	LSM.gc_started=false;
-	LSM.data_gc_cnt=LSM.header_gc_cnt=LSM.compaction_cnt=0;
-	LSM.zero_compaction_cnt=0;
 
-	LSM.avg_of_length=0;
-	LSM.length_cnt=0;
-	LSM.added_header=0;
 	LSM.li=li;
 	algo_lsm.li=li;
 	pm_init();
-	if(LSM.nocpy)
+	if(ISNOCPY(LSM.setup_values))
 		nocpy_init();
 
+	LSM.lsm_cache=cache_init(LSP.cache_memory/PAGESIZE);
 #ifdef EMULATOR
 	LSM.rb_ppa_key=rb_create();
 #endif
-	//measure_init(&__get_mt);
 	return 0;
 }
 
 
-extern uint32_t data_gc_cnt,header_gc_cnt,block_gc_cnt;
-extern uint32_t all_kn_run,run_num;
 void lsm_destroy(lower_info *li, algorithm *lsm){
-	lsm_debug_print();
 	compaction_free();
-	free(LSM.size_factor_change);
+	free(LLP.size_factor_change);
 	//cache_print(LSM.lsm_cache);
 	printf("last summary-----\n");
 	uint32_t cache_data=LSM.lsm_cache->n_size;
@@ -335,15 +161,14 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 		skiplist_free(LSM.temptable);
 	
 	fprintf(stderr,"cache size:%d\n",cache_data);
-	fprintf(stderr,"data gc: %d\n",LSM.data_gc_cnt);
-	fprintf(stderr,"header gc: %d\n",LSM.header_gc_cnt);
-	fprintf(stderr,"compactino_cnt:%d\n",LSM.compaction_cnt);
-	fprintf(stderr,"zero compactino_cnt:%d\n",LSM.zero_compaction_cnt);
+	fprintf(stderr,"data gc: %d\n",LMI.data_gc_cnt);
+	fprintf(stderr,"header gc: %d\n",LMI.header_gc_cnt);
+	fprintf(stderr,"compactino_cnt:%d\n",LMI.compaction_cnt);
+	fprintf(stderr,"zero compactino_cnt:%d\n",LMI.zero_compaction_cnt);
 	cache_free(LSM.lsm_cache);
 
-	measure_adding_print(&__get_mt);
 	free(LSM.level_lock);
-	if(LSM.nocpy)
+	if(ISNOCPY(LSM.setup_values))
 		nocpy_free();
 }
 
@@ -398,7 +223,7 @@ void* lsm_end_req(algo_req* const req){
 			if(!parents){ //end_req for compaction
 				header=(htable**)params->target;
 				table=*header;
-				if(!LSM.nocpy) memcpy(table->sets,params->value->value,PAGESIZE);
+				if(!ISNOCPY(LSM.setup_values)) memcpy(table->sets,params->value->value,PAGESIZE);
 				comp_target_get_cnt++;
 				table->done=true;
 				if(epc_check==comp_target_get_cnt+memcpy_cnt){
@@ -435,13 +260,13 @@ void* lsm_end_req(algo_req* const req){
 			htable_free(params->htable_ptr);
 			break;
 		case GCDR:
-			if(LSM.nocpy){
+			if(ISNOCPY(LSM.setup_values)){
 				target=(PTR)params->target;
 				memcpy(target,params->value->value,PAGESIZE);
 			}
 		case GCMR_DGC:
 		case GCHR:
-			if(!LSM.nocpy){
+			if(!ISNOCPY(LSM.setup_values)){
 				target=(PTR)params->target;//gc has malloc in gc function
 				memcpy(target,params->value->value,PAGESIZE);
 			}
@@ -481,7 +306,7 @@ void* lsm_end_req(algo_req* const req){
 		case BGREAD:
 			header=(htable**)params->target;
 			table=*header;
-			if(!LSM.nocpy) memcpy(table->sets,params->value->value,PAGESIZE);
+			if(!ISNOCPY(LSM.setup_values)) memcpy(table->sets,params->value->value,PAGESIZE);
 			inf_free_valueset(params->value,FS_MALLOC_R);
 			fdriver_unlock(params->lock);
 			break;
@@ -512,12 +337,12 @@ uint32_t lsm_set(request * const req){
 		new_temp=skiplist_insert(LSM.memtable,req->key,req->value,true);
 	}
 
-	LSM.avg_of_length=(LSM.avg_of_length*LSM.length_cnt+req->value->length)/(LSM.length_cnt+1);
-	LSM.length_cnt++;
+	LLP.avg_of_length=(LLP.avg_of_length*LLP.length_cnt+req->value->length)/(LLP.length_cnt+1);
+	LLP.length_cnt++;
 
 	req->value=NULL;
 
-	if(LSM.memtable->size==LSM.FLUSHNUM){
+	if(LSM.memtable->size==FLUSHNUM){
 		force=1;
 		req->end_req(req); //end write
 		return 1;
@@ -528,6 +353,7 @@ uint32_t lsm_set(request * const req){
 		return 0;
 	}
 }
+
 int nor;
 MeasureTime lsm_mt;
 uint32_t lsm_proc_re_q(){
@@ -662,7 +488,7 @@ algo_req* lsm_get_req_factory(request *parents, uint8_t type){
 	params->lsm_type=type;
 	lsm_req->params=params;
 	lsm_req->parents=parents;
-	if(LSM.hw_read){
+	if(ISHWREAD(LSM.setup_values)){
 		lsm_req->end_req=lsm_hw_end_req;
 	}
 	else{
@@ -721,14 +547,14 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 	}
 
 	if(!res && table){//retry check or cache hit check
-		if(LSM.nocpy && entry){
+		if(ISNOCPY(LSM.setup_values) && entry){
 			table=(keyset*)nocpy_pick(entry->pbn);
 		}
 		target_set=LSM.lop->find_keyset((char*)table,req->key);
 		char *src;
 		if(likely(target_set)){
 			if(entry && !entry->c_entry && cache_insertable(LSM.lsm_cache)){
-				if(LSM.nocpy){
+				if(ISNOCPY(LSM.setup_values)){
 					src=nocpy_pick(entry->pbn);
 					entry->cache_nocpy_data_ptr=src;
 				}
@@ -808,14 +634,14 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 			return res;
 		}
 		req->value->ppa=ppa;
-		if(!LSM.hw_read || lsm_req->type==DATAR){
+		if(!ISHWREAD(LSM.setup_values) || lsm_req->type==DATAR){
 			LSM.li->read(ppa/(NPCINPAGE),PAGESIZE,req->value,ASYNC,lsm_req);
 		}
 		else{
 			LSM.li->read_hw(ppa/(NPCINPAGE),req->key.key,req->key.len,req->value,ASYNC,lsm_req);
 		}
 #else
-		if(!LSM.hw_read || lsm_req->type==DATAR){
+		if(!ISHWREAD(LSM.setup_values) || lsm_req->type==DATAR){
 			if(ppa/16==375090){
 				printf("read ppa :%u\n",ppa);
 			}
@@ -846,7 +672,7 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, keyset **found, int *level,int *r
 	if(*run) (*level)++;
 	for(int i=*level; i<LSM.LEVELN; i++){
 	#ifdef BLOOM
-		if(i>=LSM.LEVELCACHING && LSM.comp_opt==HW){	
+		if(i>=LSM.LEVELCACHING && GETCOMPOPT(LSM.setup_values)==HW){	
 		}
 		else
 			if(!bf_check(LSM.disk[i]->filter,key)) continue;
@@ -917,7 +743,7 @@ uint32_t __lsm_get(request *const req){
 			run++;
 			goto retry;
 		}
-		mapinfo.sets=LSM.nocpy?(keyset*)nocpy_pick(req->ppa):(keyset*)req->value->value;
+		mapinfo.sets=ISNOCPY(LSM.setup_values)?(keyset*)nocpy_pick(req->ppa):(keyset*)req->value->value;
 		//it can be optimize;
 		_entry=LSM.lop->find_run(LSM.disk[level],req->key);
 
@@ -941,7 +767,7 @@ uint32_t __lsm_get(request *const req){
 
 
 retry:
-	if(LSM.hw_read && temp_data[3]==2){
+	if(ISHWREAD(LSM.setup_values) && temp_data[3]==2){
 		//send data/
 		LSM.li->read(CONVPPA(req->ppa),PAGESIZE,req->value,ASYNC,lsm_get_req_factory(req,DATAR));
 		return 1;
@@ -966,7 +792,7 @@ retry:
 			temp_data[1]=run;
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(entry->c_entry){
-				res=LSM.nocpy?__lsm_get_sub(req,NULL,(keyset*)entry->cache_nocpy_data_ptr,NULL):__lsm_get_sub(req,NULL,entry->cache_data->sets,NULL);
+				res=ISNOCPY(LSM.setup_values)?__lsm_get_sub(req,NULL,(keyset*)entry->cache_nocpy_data_ptr,NULL):__lsm_get_sub(req,NULL,entry->cache_data->sets,NULL);
 				if(res){
 					bench_cache_hit(mark);
 					cache_update(LSM.lsm_cache,entry);	
@@ -978,7 +804,7 @@ retry:
 
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			temp_data[2]=++round;
-			if(!LSM.hw_read && entry->isflying==1){			
+			if(!ISHWREAD(LSM.setup_values) && entry->isflying==1){			
 				if(entry->wait_idx==0){
 					if(entry->waitreq){
 						abort();
@@ -997,12 +823,12 @@ retry:
 				params->entry_ptr=(void*)entry;
 				entry->from_req=(void*)req;
 				req->ppa=params->ppa;
-				if(LSM.hw_read){
+				if(ISHWREAD(LSM.setup_values)){
 					LSM.li->read_hw(params->ppa,req->key.key,req->key.len,req->value,ASYNC,lsm_req);
 				}else{
 					LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);
 				}
-				__header_read_cnt++;
+				LMI.__header_read_cnt++;
 				res=FLYING;
 			}
 			break;
@@ -1064,10 +890,11 @@ htable *htable_dummy_assign(){
 	res->origin=NULL;
 	return res;
 }
+
 void htable_print(htable * input,ppa_t ppa){
 	bool check=false;
 	int cnt=0;
-	for(uint32_t i=0; i<FULLMAPNUM; i++){
+	for(uint32_t i=0; i<LSP.KEYNUM; i++){
 #ifndef KVSSD
 		if(input->sets[i].lpa>RANGE && input->sets[i].lpa!=UINT_MAX)
 		{
@@ -1130,35 +957,31 @@ uint32_t lsm_memory_size(){
 
 level *lsm_level_resizing(level *target, level *src){
 	if(target->idx==LSM.LEVELN-1){
-		float before=LSM.size_factor;
-		LSM.ONESEGMENT=LSM.keynum_in_header*LSM.VALUESIZE;
-		LSM.size_factor=get_sizefactor(SHOWINGSIZE,LSM.keynum_in_header);
-		if(before!=LSM.size_factor){
-			memset(LSM.size_factor_change,1,sizeof(bool)*LSM.LEVELN);
+		float before=LLP.size_factor;
+		LSP.ONESEGMENT=LLP.keynum_in_header*LSP.VALUESIZE;
+		LLP.size_factor=get_sizefactor(LLP.keynum_in_header);
+		if(before!=LLP.size_factor){
+			memset(LLP.size_factor_change,1,sizeof(bool)*LSM.LEVELN);
 			uint32_t total_header=0;
-			float t=LSM.size_factor;
+			float t=LLP.size_factor;
 			for(int i=0; i<LSM.LEVELN; i++){
 				total_header+=round(t);
-				t*=LSM.size_factor;
+				t*=LLP.size_factor;
 			}
-			printf("change %.5lf->%.5lf (%u:%ld)\n",before,LSM.size_factor,total_header,(MAPPART_SEGS-1)*_PPS);
+			printf("change %.5lf->%.5lf (%u:%ld)\n",before,LLP.size_factor,total_header,(MAPPART_SEGS-1)*_PPS);
 		}
 	}
 	
 	double target_cnt=target->m_num;
-	if(LSM.size_factor_change[target->idx]){
-		LSM.size_factor_change[target->idx]=false;
+	if(LLP.size_factor_change[target->idx]){
+		LLP.size_factor_change[target->idx]=false;
 		uint32_t cnt=target->idx+1;
 		target_cnt=1;
-		while(cnt--)target_cnt*=LSM.size_factor;
+		while(cnt--)target_cnt*=LLP.size_factor;
 	}
-	if(LSM.added_header && target->idx==LSM.LEVELN-2){
-		target_cnt+=LSM.added_header;
-		LSM.added_header=0;
-		//LSM.lop->print_level_summary();
-	}
+
 	if(target->idx==LSM.LEVELN-1){
-		target_cnt=ceil(LSM.last_size_factor*LSM.disk[LSM.LEVELN-2]->m_num+(LSM.disk[LSM.LEVELN-2]->m_num*2));
+		target_cnt=ceil(LLP.last_size_factor*LSM.disk[LSM.LEVELN-2]->m_num+(LSM.disk[LSM.LEVELN-2]->m_num*2));
 	}
 	return LSM.lop->init(ceil(target_cnt),target->idx,target->fpr,false);
 }
@@ -1187,17 +1010,20 @@ uint32_t lsm_argument_set(int argc, char **argv){
 	bool level_c_flag=false;
 	bool memory_c_flag=false;
 	bool gc_opt_flag=false;
-	bool multi_level_comp=false;
+	//bool multi_level_comp=false;
 	bool nocpy_option=false;
 	bool value_size=false;
 	bool lsm_type=false;
-	int comp_type=0;
-	while((c=getopt(argc,argv,"lcgomnrhvt"))!=-1){
+
+	LSM.setup_values=0;
+	uint32_t value=0;
+	while((c=getopt(argc,argv,"lcgomnrbhvt"))!=-1){
 		switch(c){
 			case 't':
 				lsm_type=true;
-				LSM.lsm_type=atoi(argv[optind]);
-				printf("[*]lsm type:%d\n",LSM.lsm_type);
+				value=atoi(argv[optind]);
+				SETLSMTYPE(LSM.setup_values,value);
+				printf("[*]lsm type:%d\n",value);
 				break;
 			case 'l':
 				level_flag=true;
@@ -1212,50 +1038,52 @@ uint32_t lsm_argument_set(int argc, char **argv){
 			case 'r':
 				memory_c_flag=true;
 				printf("caching ratio:%s\n",argv[optind]);
-				LSM.caching_size=(float)atoi(argv[optind])/100;
+				LSP.caching_size=(float)atoi(argv[optind])/100;
 				break;
 			case 'g':
 				printf("[*]GC optimization\n");
 				gc_opt_flag=true;
-				LSM.gc_opt=true;
+				SETGCOPT(LSM.setup_values);
 				break;
-			case 'm':
-				printf("[*]MULTIPLE compaction\n");
-				multi_level_comp=true;
-				LSM.multi_level_comp=true;
+//			case 'm':
+//				printf("[*]MULTIPLE compaction\n");
+//				multi_level_comp=true;
+//				LSM.multi_level_comp=true;
+//				break;
+			case 'b':
+				value=atoi(argv[optind]);
+				printf("FILTERTYPE(N,B,M):%d\n",value);
+				SETFILTER(LSM.setup_values,value);
 				break;
 			case 'n':
 				printf("[*]NOCPY\n");
-				LSM.nocpy=true;
 				nocpy_option=true;
+				SETNOCPY(LSM.setup_values);
 				break;
 			case 'o':
-				comp_type=atoi(argv[optind]);
-				LSM.comp_opt=comp_type;
+				value=atoi(argv[optind]);
+				SETCOMPOPT(LSM.setup_values,value);
 				break;
 			case 'h':
 				printf("[*]hw read!\n");
-				LSM.hw_read=true;
-				break;
-			case 'v':
-				LSM.VALUESIZE=atoi(argv[optind]);
-				printf("value size:%d\n",LSM.VALUESIZE);
-				value_size=true;
+				SETHWREAD(LSM.setup_values);
 				break;
 		}
 	}
 
-	if(!level_flag) LSM.LEVELN=2;
-	if(!level_c_flag) LSM.LEVELCACHING=0;
-	if(!multi_level_comp) LSM.multi_level_comp=false;
-	if(!gc_opt_flag) LSM.gc_opt=false;
-	if(!nocpy_option) LSM.nocpy=false;
-	if(!value_size) LSM.VALUESIZE=DEFVALUESIZE;
-	if(!lsm_type) LSM.lsm_type=MIXED;
-	if(!memory_c_flag){
-		LSM.caching_size=CACHING_RATIO;
+	if(!level_flag) {
+		LSM.LEVELN=LSP.LEVELN=2;
 	}
-	switch(comp_type){
+	if(!level_c_flag){ 
+		LSM.LEVELCACHING=LSP.LEVELCACHING=0;
+	}
+	if(!value_size){
+		LSP.VALUESIZE=DEFVALUESIZE;
+	}
+	if(!memory_c_flag){
+		LSP.caching_size=0;
+	}
+	switch(GETCOMPOPT(LSM.setup_values)){
 		case NON:
 			printf("[*]non compaction opt\n");
 			break;

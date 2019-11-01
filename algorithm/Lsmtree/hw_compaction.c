@@ -55,12 +55,12 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 			run_t **datas;
 			int cache_added_size=LSM.lop->get_number_runs(upper);
 			cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
-			LSM.lop->cache_comp_formatting(upper,&datas,LSM.nocpy);
+			LSM.lop->cache_comp_formatting(upper,&datas,ISNOCPY(LSM.setup_values));
 			for(int i=0; datas[i]!=NULL; i++){
 				run_t *now=datas[i];
 				uint32_t ppa=getPPA(HEADER,now->key,true);
 				now->pbn=ppa;
-				if(LSM.nocpy){
+				if(ISNOCPY(LSM.setup_values)){
 					nocpy_copy_to((char*)now->level_caching_data,ppa);
 					htable *temp_table=htable_assign((char*)now->level_caching_data,1);
 					//now->cpt_data->sets=NULL;

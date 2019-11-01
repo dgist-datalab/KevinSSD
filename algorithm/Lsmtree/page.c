@@ -34,7 +34,7 @@ void pm_init(){
 	map_m.reserve=bm->pt_get_segment(bm,MAP_S,true);
 	map_m.target=NULL;
 	map_m.active=NULL;
-	if(LSM.comp_opt==HW || LSM.comp_opt==MIXEDCOMP){
+	if(GETCOMPOPT(LSM.setup_values)==HW || GETCOMPOPT(LSM.setup_values)==MIXEDCOMP){
 		q_init(&map_m.erased_q,_PPS);
 	}
 	
@@ -98,7 +98,7 @@ retry:
 		printf("fuck! no type getPPA");
 		abort();
 	}
-	if(type==HEADER && (LSM.comp_opt==HW || LSM.comp_opt==MIXEDCOMP )&& map_m.erased_q->size ){
+	if(type==HEADER && (GETCOMPOPT(LSM.setup_values)==HW || GETCOMPOPT(LSM.setup_values)==MIXEDCOMP )&& map_m.erased_q->size ){
 		void *t=q_dequeue(map_m.erased_q);
 		res=*(uint32_t*)t;
 		free(t);
@@ -158,7 +158,7 @@ retry:
 		if(!t->active || bm->check_full(bm,t->active,MASTER_BLOCK)){
 			if(bm->pt_isgc_needed(bm,DATA_S)){
 				bm->check_full(bm,t->active,MASTER_BLOCK);
-				if(LSM.gc_opt){
+				if(ISGCOPT(LSM.setup_values)){
 					LSM.lop->print_level_summary();
 					abort();
 				}
@@ -328,7 +328,7 @@ void gc_data_write(uint64_t ppa,htable_t *value,uint8_t isdata){
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 
 	params->lsm_type=isdata;
-	if(LSM.nocpy){
+	if(ISNOCPY(LSM.setup_values)){
 		params->value=inf_get_valueset((PTR)(value)->sets,FS_MALLOC_W,PAGESIZE);
 		if(isdata==GCMW || isdata==GCMW_DGC){
 			nocpy_copy_from_change((char*)value->nocpy_table,ppa);
@@ -373,33 +373,13 @@ void gc_data_read(uint64_t ppa,htable_t *value,uint8_t isdata, gc_node *t){
 	areq->type_lower=0;
 	areq->rapid=false;
 	areq->type=params->lsm_type;
-	if(LSM.nocpy &&  (isdata==GCMR || isdata==GCMR_DGC)){
+	if(ISNOCPY(LSM.setup_values) &&  (isdata==GCMR || isdata==GCMR_DGC)){
 		value->nocpy_table=nocpy_pick(ppa);
 	}
 	algo_lsm.li->read(isdata==GCDR?CONVPPA(ppa):ppa,PAGESIZE,params->value,ASYNC,areq);
 	return;
 }
 
-bool gc_dynamic_checker(bool last_comp_flag){
-	bool res=false;
-	int test=LSM.bm->pt_remain_page(LSM.bm,	d_m.active, DATA_S);
-	if((last_comp_flag && (uint32_t)test<LSM.needed_valid_page))
-	{
-		LSM.gc_started=true;
-		res=true;
-		LSM.target_gc_page=LSM.needed_valid_page;
-	}
-
-	/*
-	int calc=LSM.needed_valid_page*LSM.check_cnt;
-	calc+=LSM.last_level_comp_term;
-	calc/=(LSM.check_cnt+1);*/
-	LSM.needed_valid_page=LSM.last_level_comp_term;
-	LSM.check_cnt++;
-	//printf("%d %d(integ, now) - %d\n",LSM.needed_valid_page,LSM.last_level_comp_term, test);
-	LSM.last_level_comp_term=0;
-	return res;
-}
 
 void pm_set_oob(uint32_t _ppa, char *data, int len, int type){
 	int ppa;
@@ -488,11 +468,6 @@ void validate_piece(lsm_block *b, uint32_t ppa){
 	uint32_t check_idx=page*NPCINPAGE+pc_idx;
 	uint32_t bit_idx=check_idx/8;
 	uint32_t bit_off=check_idx%8;
-	/*
-	if(b->bitset[bit_idx]&(1<<bit_off)){
-		printf("ppa:%d\n",ppa);
-		abort();
-	}*/
 	b->bitset[bit_idx]|=(1<<bit_off);
 }
 
@@ -503,11 +478,6 @@ void invalidate_piece(lsm_block *b, uint32_t ppa){
 	uint32_t check_idx=page*NPCINPAGE+pc_idx;
 	uint32_t bit_idx=check_idx/8;
 	uint32_t bit_off=check_idx%8;
-	/*
-	if(!(b->bitset[bit_idx]&(1<<bit_off))){
-		printf("ppa:%u",ppa);
-		abort();
-	}*/
 	b->bitset[bit_idx]&=~(1<<bit_off);
 }
 
@@ -538,12 +508,6 @@ bool page_check_available(uint8_t type, uint32_t needed_page){
 		t->active=bm->pt_get_segment(bm,MAP_S,false);
 	}
 	uint32_t res=bm->pt_remain_page(bm,t->active,MAP_S);
-	static int cnt=0;
-	if(cnt==1332 || cnt==1324){
-		//printf("break!\n");
-	}
-	//printf("%d\n",cnt++);
-
 	if(res<needed_page){
 retry:
 		int t_res;

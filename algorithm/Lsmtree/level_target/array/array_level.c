@@ -52,7 +52,7 @@ htable *array_mem_cvt2table(skiplist*mem,run_t* input)
 {
 	/*static int cnt=0;
 	eprintf("cnt:%d\n",cnt++);*/
-	htable *res=LSM.nocpy?htable_assign(NULL,0):htable_assign(NULL,1);
+	htable *res=ISNOCPY(LSM.setup_values)?htable_assign(NULL,0):htable_assign(NULL,1);
 
 	input->cpt_data=res;
 #ifdef KVSSD
@@ -274,7 +274,7 @@ int array_cache_comp_formatting(level *lev ,run_t ***des, bool des_cache){
 			res[i]=&arrs[i];
 		}else{
 			res[i]=array_make_run(arrs[i].key,arrs[i].end,arrs[i].pbn);
-			res[i]->cpt_data=LSM.nocpy?htable_assign(arrs[i].level_caching_data,0):htable_assign(arrs[i].level_caching_data,1);
+			res[i]->cpt_data=ISNOCPY(LSM.setup_values)?htable_assign(arrs[i].level_caching_data,0):htable_assign(arrs[i].level_caching_data,1);
 		}
 	}
 	res[lev->n_num]=NULL;
@@ -341,7 +341,7 @@ run_t *array_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_
 	KEYT start=src_skip->header->list[1]->key, end;
 
 	/*assign pagesize for header*/
-	htable *res=LSM.nocpy?htable_assign(NULL,0):htable_assign(NULL,1);
+	htable *res=ISNOCPY(LSM.setup_values)?htable_assign(NULL,0):htable_assign(NULL,1);
 
 
 #ifdef BLOOM
@@ -421,7 +421,7 @@ run_t *array_p_merger_cutter(skiplist *skip,run_t **src, run_t **org, float fpr)
 	if(skip->header->list[1]==skip->header) return NULL;
 	KEYT start=skip->header->list[1]->key,end;
 
-	htable *res=LSM.nocpy?htable_assign(NULL,0):htable_assign(NULL,1);
+	htable *res=ISNOCPY(LSM.setup_values)?htable_assign(NULL,0):htable_assign(NULL,1);
 
 
 #ifdef BLOOM

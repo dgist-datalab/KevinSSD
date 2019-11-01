@@ -6,6 +6,7 @@
 
 #include "../../skiplist.h"
 #include "../../level.h"
+#include "../../lsmtree.h"
 #include "../../bloomfilter.h"
 #define for_each_header_start(idx,key,ppa_ptr,bitmap,body)\
 	for(idx=1; bitmap[idx]!=UINT16_MAX && idx<=bitmap[0]; idx++){\
@@ -25,14 +26,14 @@
 extern lsmtree LSM;
 static inline char *data_from_run(run_t *a){
 	if(a->c_entry){
-		if(!LSM.nocpy)	return (char*)a->cpt_data->sets;
+		if(!ISNOCPY(LSM.setup_values))	return (char*)a->cpt_data->sets;
 		return (char*)a->cache_nocpy_data_ptr;
 	}
 	else if(a->level_caching_data){
 		return a->level_caching_data;
 	}
 	else{
-		if(!LSM.nocpy)	return (char*)a->cpt_data->sets;
+		if(!ISNOCPY(LSM.setup_values))	return (char*)a->cpt_data->sets;
 		if(a->cpt_data->nocpy_table)
 			return a->cpt_data->nocpy_table;
 		else

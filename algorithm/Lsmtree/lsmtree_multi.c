@@ -22,7 +22,7 @@ uint32_t lsm_multi_set(request *const req, uint32_t num){
 	}
 	req->end_req(req);
 
-	if(LSM.memtable->size>=LSM.KEYNUM)
+	if(LSM.memtable->size>=MAXKEYINMETASEG)
 		return 1;
 	else 
 		return 0;
@@ -271,7 +271,7 @@ uint32_t __lsm_range_get(request *const req){
 
 		for(int j=0; rs[j]!=NULL; j++){
 			if(rs[j]->c_entry){
-				if(LSM.nocpy) params->mapping_data[i*RANGEGETNUM+j]=rs[j]->cache_nocpy_data_ptr;
+				if(ISNOCPY(LSM.setup_values)) params->mapping_data[i*RANGEGETNUM+j]=rs[j]->cache_nocpy_data_ptr;
 				else{
 					params->mapping_data[i*RANGEGETNUM+j]=(char*)malloc(PAGESIZE);
 					memcpy(params->mapping_data[i*RANGEGETNUM+j],rs[j]->cache_data->sets,PAGESIZE);
@@ -285,7 +285,7 @@ uint32_t __lsm_range_get(request *const req){
 			if(rs[j+1]==NULL && j+1 <RANGEGETNUM){
 				params->max-=(RANGEGETNUM-(j+1));
 			}
-			if(LSM.nocpy)	params->mapping_data[i*RANGEGETNUM+j]=(char*)nocpy_pick(rs[j]->pbn);
+			if(ISNOCPY(LSM.setup_values))	params->mapping_data[i*RANGEGETNUM+j]=(char*)nocpy_pick(rs[j]->pbn);
 			else params->mapping_data[i*RANGEGETNUM+j]=req->multi_value[use_valueset_cnt]->value;
 			read_header[use_valueset_cnt++]=rs[j]->pbn;
 		}

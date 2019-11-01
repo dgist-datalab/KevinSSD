@@ -7,6 +7,9 @@
 #include "../../nocpy.h"
 extern KEYT key_max, key_min;
 extern lsmtree LSM;
+extern lmi LMI;
+extern llp LLP;
+extern lsp LSP;
 level_ops a_ops={
 	.init=array_init,
 	.release=array_free,
@@ -123,7 +126,7 @@ level* array_init(int size, int idx, float fpr, bool istier){
 	res->level_data=(void*)b;
 
 #ifdef BLOOM
-	res->filter=bf_init(LSM.keynum_in_header*size,fpr);
+	res->filter=bf_init(LSP.KEYNUM*size,fpr);
 #endif
 	//res->h=llog_init();
 
@@ -159,7 +162,7 @@ void array_run_cpy_to(run_t *input, run_t *res){
 	res->pbn=input->pbn;
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(input->c_entry){
-		if(LSM.nocpy){
+		if(ISNOCPY(LSM.setup_values)){
 			res->cache_nocpy_data_ptr=input->cache_nocpy_data_ptr;
 			input->cache_nocpy_data_ptr=NULL;
 		}
@@ -172,7 +175,7 @@ void array_run_cpy_to(run_t *input, run_t *res){
 		input->c_entry=NULL;
 	}else{
 		res->c_entry=NULL;
-		if(LSM.nocpy) res->cache_nocpy_data_ptr=NULL;
+		if(ISNOCPY(LSM.setup_values)) res->cache_nocpy_data_ptr=NULL;
 		else res->cache_data=NULL;
 	}
 	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
@@ -191,7 +194,7 @@ void array_body_free(run_t *runs, int size){
 
 run_t* array_insert(level *lev, run_t* r){
 	if(lev->m_num<=lev->n_num){
-	//	array_print(lev);
+		array_print(lev);
 		printf("level full!!!!\n");
 		abort();
 	}
@@ -207,12 +210,12 @@ run_t* array_insert(level *lev, run_t* r){
 	run_t *target=&arrs[lev->n_num];
 	array_run_cpy_to(r,target);
 
-	if(lev->idx>=LSM.LEVELCACHING && LSM.comp_opt!=HW && !target->c_entry && r->cpt_data && cache_insertable(LSM.lsm_cache)){
-		if(lev->idx>=LSM.LEVELCACHING && LSM.hw_read){
+	if(lev->idx>=LSM.LEVELCACHING && GETCOMPOPT(LSM.setup_values)!=HW && !target->c_entry && r->cpt_data && cache_insertable(LSM.lsm_cache)){
+		if(lev->idx>=LSM.LEVELCACHING && ISHWREAD(LSM.setup_values)){
 
 		}
 		else{
-			if(LSM.nocpy)
+			if(ISNOCPY(LSM.setup_values))
 				target->cache_nocpy_data_ptr=nocpy_pick(r->pbn);
 			else{
 				target->cache_data=htable_copy(r->cpt_data);
@@ -382,7 +385,7 @@ void array_free_run(run_t *e){
 	//static int cnt=0;
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(e->c_entry){
-		if(LSM.nocpy) e->cache_nocpy_data_ptr=NULL;
+		if(ISNOCPY(LSM.setup_values)) e->cache_nocpy_data_ptr=NULL;
 		else htable_free(e->cache_data);
 		cache_delete_entry_only(LSM.lsm_cache,e);
 	}
@@ -399,7 +402,7 @@ run_t * array_run_cpy( run_t *input){
 
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(input->c_entry){
-		if(LSM.nocpy){
+		if(ISNOCPY(LSM.setup_values)){
 			res->cache_nocpy_data_ptr=input->cache_nocpy_data_ptr;
 			input->cache_nocpy_data_ptr=NULL;
 		}
@@ -412,7 +415,7 @@ run_t * array_run_cpy( run_t *input){
 		input->c_entry=NULL;
 	}else{
 		res->c_entry=NULL;
-		if(LSM.nocpy) res->cache_nocpy_data_ptr=NULL;
+		if(ISNOCPY(LSM.setup_values)) res->cache_nocpy_data_ptr=NULL;
 		else res->cache_data=NULL;
 	}
 	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);

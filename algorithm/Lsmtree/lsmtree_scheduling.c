@@ -62,7 +62,7 @@ void lsm_io_sched_push(uint8_t type, void *req){
 }
 
 void lsm_io_sched_flush(){
-	while(LSM.comp_opt==PIPE && scheduler.q->size);
+	while(GETCOMPOPT(LSM.setup_values)==PIPE && scheduler.q->size);
 }
 
 void lsm_io_sched_finish(){
@@ -74,7 +74,6 @@ void lsm_io_sched_finish(){
 void processing_flush(void *param){
 	value_set **data_sets=(value_set**)param;
 	for(int i=0; data_sets[i]!=NULL; i++){
-		LSM.last_level_comp_term++;
 		algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 		lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 		params->lsm_type=DATAW;
@@ -121,7 +120,7 @@ void processing_header_read(void *param){
 		areq->type_lower=0;
 		areq->rapid=false;
 		areq->type=HEADERR;
-		if(LSM.nocpy) r[i]->cpt_data->nocpy_table=nocpy_pick(r[i]->pbn);
+		if(ISNOCPY(LSM.setup_values)) r[i]->cpt_data->nocpy_table=nocpy_pick(r[i]->pbn);
 		LSM.li->read(r[i]->pbn,PAGESIZE,params->value,ASYNC,areq);
 	}
 	free(r);

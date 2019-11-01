@@ -29,6 +29,9 @@ extern KEYT key_min, key_max;
 
 volatile int memcpy_cnt;
 extern lsmtree LSM;
+ extern lmi LMI;
+ extern llp LLP;
+ extern lsp LSP;
 extern volatile int comp_target_get_cnt;
 extern MeasureTime write_opt_time[10];
 volatile int epc_check=0;
@@ -75,7 +78,7 @@ void compaction_sub_post(){
 }
 
 void htable_checker(htable *table){
-	for(uint32_t i=0; i<LSM.KEYNUM; i++){
+	for(uint32_t i=0; i<LSP.KEYNUM; i++){
 		if(table->sets[i].ppa<512 && table->sets[i].ppa!=0){
 			printf("here!!\n");
 		}
@@ -100,7 +103,7 @@ bool compaction_init(){
 	pthread_mutex_init(&compaction_wait,NULL);
 	pthread_mutex_init(&compaction_flush_wait,NULL);
 	pthread_mutex_lock(&compaction_flush_wait);
-	switch(LSM.comp_opt){
+	switch(GETCOMPOPT(LSM.setup_values)){
 		case PIPE:
 			compactor.pt_leveling=pipe_partial_leveling;
 			break;
@@ -118,7 +121,7 @@ bool compaction_init(){
 			break;
 	}
 
-	if(LSM.comp_opt==PIPE)
+	if(GETCOMPOPT(LSM.setup_values)==PIPE)
 		lsm_io_sched_init();
 	return true;
 }
@@ -234,6 +237,7 @@ extern pm data_m;
 void compaction_cascading(bool *_is_gc_needed){
 	int start_level=0,des_level=-1;
 	bool is_gc_needed=*_is_gc_needed;
+	/*
 	if(LSM.multi_level_comp){
 		abort();
 
@@ -251,11 +255,9 @@ void compaction_cascading(bool *_is_gc_needed){
 
 		if(is_gc_needed || des_level!=-1){
 			int target_des=des_level+1;
-			if(LSM.gc_opt && !is_gc_needed && target_des==LSM.LEVELN-1){
-				is_gc_needed=gc_dynamic_checker(true);
+			if(ISGCOPT(LSM.setup_values) && !is_gc_needed && target_des==LSM.LEVELN-1){
 			}
 			if(is_gc_needed) target_des=LSM.LEVELN-1; 
-			/*do level caching*/
 
 			int i=0;
 			for(i=start_level; i<target_des; i++){
@@ -273,16 +275,11 @@ void compaction_cascading(bool *_is_gc_needed){
 			//multiple_leveling(start_level,target_des);
 		}
 	}
-	else{
+	else{*/
 		while(1){
 			if(is_gc_needed || unlikely(LSM.lop->full_check(LSM.disk[start_level]))){
 				des_level=(start_level==LSM.LEVELN?start_level:start_level+1);
 				if(des_level==LSM.LEVELN) break;
-				if(start_level==LSM.LEVELN-2){
-					if(LSM.gc_opt && !is_gc_needed){
-						is_gc_needed=gc_dynamic_checker(true);
-					}
-				}
 				compaction_selector(LSM.disk[start_level],LSM.disk[des_level],NULL,&LSM.level_lock[des_level]);
 				LSM.disk[start_level]->iscompactioning=false;
 				start_level++;
@@ -291,7 +288,7 @@ void compaction_cascading(bool *_is_gc_needed){
 				break;
 			}
 		}
-	}
+//	}
 	*_is_gc_needed=is_gc_needed;
 }
 
@@ -343,7 +340,7 @@ void *compaction_main(void *input){
 		if(LSM.LEVELN!=1){
 			compaction_cascading(&is_gc_needed);
 		}
-		if(LSM.gc_opt && is_gc_needed){
+		if(ISGCOPT(LSM.setup_values) && is_gc_needed){
 			gc_data();
 		}
 		free(lnode.start.key);
@@ -403,7 +400,7 @@ void compaction_gc_add(skiplist *list){
 }
 
 void compaction_check(KEYT key, bool force){
-	if(LSM.memtable->size<LSM.FLUSHNUM) return;
+	if(LSM.memtable->size<FLUSHNUM) return;
 	compR *req;
 	bool last;
 	uint32_t avg_cnt;
@@ -414,10 +411,10 @@ void compaction_check(KEYT key, bool force){
 			t=t2;
 		}else{
 			t=skiplist_cutting_header(LSM.memtable,&avg_cnt);
-			LSM.keynum_in_header=(LSM.keynum_in_header*LSM.keynum_in_header_cnt+avg_cnt)/(LSM.keynum_in_header_cnt+1);
+			LLP.keynum_in_header=(LLP.keynum_in_header*LLP.keynum_in_header_cnt+avg_cnt)/(LLP.keynum_in_header_cnt+1);
 		}
 		t2=skiplist_cutting_header(LSM.memtable,&avg_cnt);
-		LSM.keynum_in_header=(LSM.keynum_in_header*LSM.keynum_in_header_cnt+avg_cnt)/(LSM.keynum_in_header_cnt+1);
+		LLP.keynum_in_header=(LLP.keynum_in_header*LLP.keynum_in_header_cnt+avg_cnt)/(LLP.keynum_in_header_cnt+1);
 
 		if(t2==LSM.memtable) last=1;
 		req=(compR*)malloc(sizeof(compR));
@@ -530,7 +527,7 @@ bool htable_read_preproc(run_t *r){
 		cache_entry_lock(LSM.lsm_cache,r->c_entry);
 		memcpy_cnt++;
 
-		if(!LSM.nocpy){
+		if(!ISNOCPY(LSM.setup_values)){
 			r->cpt_data=htable_copy(r->cache_data);
 			r->cpt_data->done=true;
 		}//when the data is cached, the data will be loaded from memory in merger logic
@@ -560,7 +557,7 @@ void htable_read_postproc(run_t *r){
 	}
 	else if(r->c_entry){
 		cache_entry_unlock(LSM.lsm_cache,r->c_entry);
-		if(!LSM.nocpy) htable_free(r->cpt_data);
+		if(!ISNOCPY(LSM.setup_values)) htable_free(r->cpt_data);
 	}else{
 		htable_free(r->cpt_data);
 		r->cpt_data=NULL;
@@ -595,7 +592,7 @@ uint32_t compaction_empty_level(level **from, leveling_node *lnode, level **des)
 		LSM.lop->mem_cvt2table(lnode->mem,entry);
 #endif
 		if((*des)->idx<LSM.LEVELCACHING){
-			if(LSM.nocpy){
+			if(ISNOCPY(LSM.setup_values)){
 				entry->level_caching_data=(char*)entry->cpt_data->sets;
 				entry->cpt_data->sets=NULL;
 				htable_free(entry->cpt_data);
@@ -620,10 +617,10 @@ uint32_t compaction_empty_level(level **from, leveling_node *lnode, level **des)
 			while((now=LSM.lop->iter_nxt(iter))){
 				uint32_t ppa=getPPA(HEADER,now->key,true);
 				now->pbn=ppa;
-				now->cpt_data=LSM.nocpy?htable_assign(now->level_caching_data,0):htable_assign(now->level_caching_data,1);
-				if(LSM.nocpy){
+				now->cpt_data=ISNOCPY(LSM.setup_values)?htable_assign(now->level_caching_data,0):htable_assign(now->level_caching_data,1);
+				if(ISNOCPY(LSM.setup_values)){
 					nocpy_copy_from_change((char*)now->cpt_data->sets,ppa);
-					if(LSM.comp_opt==HW){
+					if(GETCOMPOPT(LSM.setup_values)==HW){
 						htable* temp_table=htable_assign((char*)now->cpt_data->sets,1);
 						now->cpt_data->sets=NULL;
 						htable_free(now->cpt_data);

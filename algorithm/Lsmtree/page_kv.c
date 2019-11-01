@@ -17,6 +17,9 @@
 #include <assert.h>
 extern algorithm algo_lsm;
 extern lsmtree LSM;
+ extern lmi LMI;
+ extern llp LLP;
+ extern lsp LSP;
 extern volatile int gc_target_get_cnt;
 extern volatile int gc_read_wait;
 extern pm d_m;
@@ -33,7 +36,7 @@ MeasureTime read_datas, mv_datas;
 #ifdef KVSSD
 uint32_t gc_cnt=0;
 int gc_header(){
-	LSM.header_gc_cnt++;
+	LMI.header_gc_cnt++;
 	gc_general_wait_init();
 	lsm_io_sched_flush();
 
@@ -84,7 +87,7 @@ int gc_header(){
 			continue;
 		}
 		
-		KEYT *lpa=LSM.nocpy?LSM.lop->get_lpa_from_data((char*)tables[i]->nocpy_table,tpage,true):LSM.lop->get_lpa_from_data((char*)tables[i]->sets,tpage,true);
+		KEYT *lpa=ISNOCPY(LSM.setup_values)?LSM.lop->get_lpa_from_data((char*)tables[i]->nocpy_table,tpage,true):LSM.lop->get_lpa_from_data((char*)tables[i]->sets,tpage,true);
 
 		run_t *entries=NULL;
 		run_t *target_entry=NULL;
@@ -142,7 +145,7 @@ int gc_header(){
 
 		uint32_t n_ppa=getRPPA(HEADER,*lpa,true,tseg);
 		target_entry->pbn=n_ppa;
-		if(LSM.nocpy)nocpy_force_freepage(tpage);
+		if(ISNOCPY(LSM.setup_values))nocpy_force_freepage(tpage);
 		gc_data_write(n_ppa,tables[i],GCMW);
 		free(tables[i]);
 		free(lpa->key);
@@ -153,7 +156,7 @@ int gc_header(){
 
 	free(tables);
 	for_each_page_in_seg(tseg,tpage,bidx,pidx){
-		if(LSM.nocpy) nocpy_trim_delay_enq(tpage);
+		if(ISNOCPY(LSM.setup_values)) nocpy_trim_delay_enq(tpage);
 		if(pidx==0){
 			lb_free((lsm_block*)tseg->blocks[bidx]->private_data);
 		}
@@ -169,7 +172,7 @@ int gc_header(){
 
 extern bool target_ppa_invalidate;
 gc_node *gc_data_write_new_page(uint32_t t_ppa, char *data, htable_t *table, uint32_t piece, KEYT *lpa){
-	LSM.data_gc_cnt++;
+	LMI.data_gc_cnt++;
 	gc_node *res=(gc_node *)malloc(sizeof(gc_node));
 	uint32_t n_ppa;
 	res->plength=piece;
@@ -192,26 +195,8 @@ gc_node *gc_data_write_new_page(uint32_t t_ppa, char *data, htable_t *table, uin
 int __gc_data();
 int gc_data(){
 
-	LSM.data_gc_cnt++;
-	if(LSM.gc_opt){
-	//	LSM.lop->print_level_summary();
-		while((LSM.LEVELN==1) || LSM.needed_valid_page > (uint32_t) LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S)){
-			__gc_data();
-			
-			if(LSM.LEVELN==1) break;
-		}
-		uint32_t remain_page=LSM.bm->pt_remain_page(LSM.bm,d_m.active,DATA_S)-LSM.needed_valid_page;
-		uint32_t cvt_header=(remain_page*NPCINPAGE)/(LSM.keynum_in_header*LSM.avg_of_length);
-		printf("remain page:%d, needed:%d\n",remain_page,LSM.needed_valid_page);
-		printf(" convert to header:%d\n",cvt_header);
-	//	LSM.added_header=cvt_header;
-			
-		if(LSM.bm->check_full(LSM.bm,d_m.active,MASTER_BLOCK))
-			change_reserve_to_active(DATA);
-	}
-	else{
-		__gc_data();
-	}
+	LMI.data_gc_cnt++;
+	__gc_data();
 	return 1;
 }
 int __gc_data(){
@@ -338,7 +323,7 @@ next_page:
 	}
 
 	bm->pt_trim_segment(bm,DATA_S,tseg,LSM.li);
-	if(!LSM.gc_opt)
+	if(!ISGCOPT(LSM.setup_values))
 		change_reserve_to_active(DATA);
 
 	for(int i=0; i<NPCINPAGE+1; i++){
@@ -375,7 +360,7 @@ void* gc_data_end_req(struct algo_req*const req){
 	lsm_params *params=(lsm_params*)req->params;
 	gc_node *g_target=(gc_node*)params->entry_ptr;
 
-	if(!LSM.nocpy){
+	if(!ISNOCPY(LSM.setup_values)){
 		char *target;
 		target=(PTR)params->target;
 		memcpy(target,params->value->value,PAGESIZE);
@@ -499,14 +484,14 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 		gc_node *target=i==-1?g:(gc_node*)ent->gc_waitreq[i];
 
 		gc_params *p=(gc_params*)target->params;
-		find=LSM.nocpy?LSM.lop->find_keyset((char*)data->nocpy_table,target->lpa): LSM.lop->find_keyset((char*)data->sets,target->lpa);
+		find=ISNOCPY(LSM.setup_values)?LSM.lop->find_keyset((char*)data->nocpy_table,target->lpa): LSM.lop->find_keyset((char*)data->sets,target->lpa);
 		if(find && find->ppa==target->ppa){
 			p->found=find;
 			target->status=DONE;
 			done_cnt++;
 			
 			if(ent->c_entry){
-				if(LSM.nocpy){
+				if(ISNOCPY(LSM.setup_values)){
 					p->found2=LSM.lop->find_keyset((char*)ent->cache_nocpy_data_ptr,target->lpa);
 				}
 				else{

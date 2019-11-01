@@ -34,15 +34,6 @@ typedef struct gc_node{
 	uint8_t plength;
 	void *params;
 }gc_node;
-/*
-typedef struct gc_node_wrapper{
-	gc_node** datas[LEVELN][BPS+1];
-	int size[LEVELN][BPS+1];
-	int cnt[LEVELN];
-	gc_node*** datas[BPS+1];
-	int *size[BPS+1];
-	int *cnt;
-}gc_node_wrapper;*/
 
 /*
 	NOTE:
@@ -94,7 +85,6 @@ void validate_piece(lsm_block *b, uint32_t ppa);
 void invalidate_piece(lsm_block *b, uint32_t ppa);
 bool is_invalid_piece(lsm_block *, uint32_t ppa);
 #endif
-bool gc_dynamic_checker(bool last_comp_flag);
 void gc_check(uint8_t type);
 void gc_general_wait_init();
 void gc_general_waiting();

@@ -26,7 +26,6 @@
 	#define CONVPPA(_ppa) _ppa
 #endif
 
-
 #define HEADERR MAPPINGR
 #define HEADERW MAPPINGW
 #define GCHR GCMR
@@ -47,10 +46,26 @@ typedef struct htable htable;
 enum READTYPE{
 	NOTFOUND,FOUND,CACHING,FLYING
 };
-
-enum LSMTYPE{
-	PINNING,FILTERING,CACHE,FILTERCACHE,ALLMIXED
+enum comp_opt_type{
+	NON,PIPE,HW,MIXEDCOMP
 };
+enum LSMTYPE{
+	NOUSE,ONLYCACHE,FIXEDFILTER,ONLYFILTER,ONLYFIXEDFILTER,PINASYM
+};
+
+#define SETNOCPY(a)		(a|=1)
+#define SETGCOPT(a)		(a|=2)
+#define SETHWREAD(a)	(a|=4)
+#define SETCOMPOPT(a,b)	(a=(b<<8)|a)
+#define SETLSMTYPE(a,b) (a=(b<<16)|b)
+#define SETFILTER(a,b)	(a=(b<<3)|a)
+
+#define ISNOCPY(a)		(a&1)
+#define ISGCOPT(a)		(a&2)
+#define ISHWREAD(a)		(a&4)
+#define GETFILTER(a)	((a>>3)&3)	
+#define GETCOMPOPT(a)	((a>>8)&0xff)
+#define GETLSMTYPE(a)	((a>>16)&0xff)
 
 typedef struct lsm_params{
 	//dl_sync lock;
@@ -84,97 +99,104 @@ typedef struct lsm_range_params{
 	lsm_sub_req *children;
 }lsm_range_params;
 
-enum comp_opt_type{
-	NON,PIPE,HW,MIXEDCOMP
-};
 
-typedef struct lsmtree{
-	uint32_t KEYNUM;
-	uint32_t FLUSHNUM;
-	uint32_t LEVELN;
-	uint32_t LEVELCACHING;
-	uint32_t VALUESIZE;
+typedef struct lsmtree_setting_parmaters{
+	uint8_t LEVELN;
+	uint8_t LEVELCACHING;
+	uint16_t VALUESIZE;
 	uint32_t ONESEGMENT;
+	uint32_t KEYNUM;
+	uint32_t HEADERNUM;
 	float caching_size;
+	float *bf_fprs;
 
-	bool nocpy;
-	bool gc_opt;
-	bool multi_level_comp;
-	uint8_t comp_opt;
-	uint8_t lsm_type;
+	uint64_t total_memory;
+	uint64_t level_list_memory;
+	uint64_t bf_memory;
+	uint64_t cache_memory;
+	uint64_t pin_memory;
+	uint64_t remain_memory;
+}lsp;
 
-	bool inplace_compaction;
-	bool delayed_header_trim;
-	bool gc_started;
-	bool hw_read;
-	//this is for nocpy, when header_gc triggered in compactioning
-	uint32_t delayed_trim_ppa;//UINT_MAX is nothing to do
-
-	uint32_t keynum_in_header;
-	uint32_t keynum_in_header_cnt;
+typedef struct lsmtree_levelsize_params{
 	float size_factor;
 	float last_size_factor;
-	uint32_t result_padding;
 	bool* size_factor_change;//true: it will be changed size
 
+	//keynum_in_header real;
+	uint32_t keynum_in_header;
+	uint32_t keynum_in_header_cnt;
+	uint32_t result_padding;
+
+	//for average value in data segment
 	double avg_of_length;
 	uint32_t length_cnt;
-	uint32_t added_header;
+}llp;
 
-	bool debug_flag;
-
-	level **disk;
-	level *c_level;
-	level_ops *lop;
-
-	pthread_mutex_t memlock;
-	pthread_mutex_t templock;
-
-	pthread_mutex_t *level_lock;
-	PTR caching_value;
-
-	struct skiplist *memtable;
-	struct skiplist *temptable;
-
-	struct skiplist *gc_list;
-	bool gc_compaction_flag;
-
-	struct queue *re_q;
-	struct queue *gc_q;
-
-	struct cache* lsm_cache;
-	lower_info* li;
-	blockmanager *bm;
-
-	uint32_t last_level_comp_term; //for avg header
-	uint32_t check_cnt;
-	uint32_t needed_valid_page;
-	uint32_t target_gc_page;
-#ifdef EMULATOR
-	Redblack rb_ppa_key;
-#endif
-
-#ifdef DVALUE
-	/*data caching*/
-	pthread_mutex_t data_lock;
-	ppa_t data_ppa;
-	value_set* data_value;
-#endif
-
+typedef struct lsmtree_monitor_info{
 	/*bench info!*/
 	uint32_t data_gc_cnt;
 	uint32_t header_gc_cnt;
 	uint32_t compaction_cnt;
 	uint32_t zero_compaction_cnt;
+	uint32_t __header_read_cnt;
+}lmi;
 
-	__block* t_block;
+/*
+	setup values 32bit
+	0 byte : 
+		0bit nocpy,
+		1bit gc_opt,
+		2bit hw_read,
+	  3,4bit filtertype,
+	  5~7bit reserved
+	1 byte compaction option
+	2 byte lsm_type
+	3 byte reserved
+ */
+typedef struct lsmtree{
+	uint32_t setup_values;
+	uint8_t LEVELN;
+	uint8_t LEVELCACHING;
+	uint8_t result_padding;
+	//level opertaion sets//
+	struct queue *re_q;
+	pthread_mutex_t *level_lock;
+	pthread_mutex_t memlock;
+	pthread_mutex_t templock;
+	struct skiplist *memtable;
+	struct skiplist *temptable;
+	level **disk;
+	level *c_level;
+	level_ops *lop;
+	lower_info* li;
+#ifdef DVALUE
+	pthread_mutex_t data_lock;
+	ppa_t data_ppa; //for one data caching for read
+	value_set* data_value;
+#endif
+	struct cache* lsm_cache;
+
+	/*for gc*/
+	bool gc_started;
+	struct skiplist *gc_list;
+	bool gc_compaction_flag;
+	blockmanager *bm;
 	struct lsm_block *active_block;
+	bool delayed_header_trim;
+	uint32_t delayed_trim_ppa;
+	//^ UINT_MAX is nothing to do //this is for nocpy, when header_gc triggered in compactioning
+
+#ifdef EMULATOR
+	Redblack rb_ppa_key;
+#endif
+	bool debug_flag;
 }lsmtree;
 
 uint32_t lsm_argument_set(int argc, char **argv);
 uint32_t lsm_create(lower_info *, blockmanager *, algorithm *);
 uint32_t __lsm_create_normal(lower_info *, algorithm *);
-//uint32_t __lsm_create_simulation(lower_info *, algorithm*);
+void lsm_setup_params();
 void lsm_destroy(lower_info*, algorithm*);
 uint32_t lsm_get(request *const);
 uint32_t lsm_set(request *const);
@@ -209,9 +231,3 @@ level *lsm_level_resizing(level *target, level *src);
 KEYT* lsm_simul_get(ppa_t ppa); //copy the value
 void lsm_simul_del(ppa_t ppa);
 #endif
-
-/*
-void lsm_save(lsmtree *);
-void lsm_trim_set(value_set* ,uint8_t *);
-uint8_t *lsm_trim_get(PTR);
-lsmtree* lsm_load();*/
