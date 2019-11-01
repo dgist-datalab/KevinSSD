@@ -203,7 +203,7 @@ bench_value* __get_bench(){
         }
 		printf("\rtesting...... [100%%] done!\n");
 		printf("\n");
-        sleep(5);
+        //sleep(5);
 		
 		for(int i=0; i<BENCHSETSIZE; i++){
 			free(_m->body[i]);

@@ -26,7 +26,7 @@ bench_value *get_bench_ondemand(){
         }
 		printf("\rtesting...... [100%%] done!\n");
 		printf("\n");
-        sleep(5);
+        //sleep(5);
 
 		free(_m->dbody);
 		_master->n_num++;
