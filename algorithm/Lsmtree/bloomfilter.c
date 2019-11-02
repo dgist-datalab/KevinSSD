@@ -1,4 +1,5 @@
 #include"bloomfilter.h"
+#include"../../bench/bench.h"
 #include<math.h>
 #include<stdio.h>
 #include<string.h>
@@ -191,10 +192,12 @@ void bf_set(BF *input, KEYT key){
 	
 }
 
+extern MeasureTime write_opt_time[10];
 bool bf_check(BF* input, KEYT key){
 	uint32_t h, th;
 	int block,offset;
 	if(input==NULL) return true;
+	bench_custom_start(write_opt_time,6);
 #if defined(KVSSD)
 	 MurmurHash3_x86_32(key.key,key.len,2,&th);
 #endif
@@ -211,9 +214,11 @@ bool bf_check(BF* input, KEYT key){
 
 		if(!BITGET(input->body[block],offset)){
 
+			bench_custom_A(write_opt_time,6);
 			return false;
 		}
 	}
+	bench_custom_A(write_opt_time,6);
 	return true;
 }
 void bf_free(BF *input){

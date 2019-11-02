@@ -364,7 +364,10 @@ uint32_t lsm_proc_re_q(){
 			request *tmp_req=(request*)re_q;
 			switch(tmp_req->type){
 				case FS_GET_T:
+
+					bench_custom_start(write_opt_time,7);
 					res_type=__lsm_get(tmp_req);
+					bench_custom_A(write_opt_time,7);
 					break;
 				case FS_RANGEGET_T:
 					res_type=__lsm_range_get(tmp_req);
@@ -409,7 +412,9 @@ uint32_t lsm_get(request *const req){
 		LSM.lop->print_level_summary();
 	}
 	
+	bench_custom_start(write_opt_time,7);
 	res_type=__lsm_get(req);
+	bench_custom_A(write_opt_time,7);
 	if(!debug && LSM.disk[0]->n_num>0){
 		debug=true;
 	}
@@ -536,7 +541,9 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 	}
 
 	if(entry && !table){ //tempent check
+		bench_custom_start(write_opt_time,4);
 		target_set=LSM.lop->find_keyset((char*)entry->cpt_data->sets,req->key);
+		bench_custom_A(write_opt_time,4);
 		if(target_set){
 			lsm_req=lsm_get_req_factory(req,DATAR);
 			bench_cache_hit(req->mark);	
@@ -550,7 +557,9 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 		if(ISNOCPY(LSM.setup_values) && entry){
 			table=(keyset*)nocpy_pick(entry->pbn);
 		}
+		bench_custom_start(write_opt_time,4);
 		target_set=LSM.lop->find_keyset((char*)table,req->key);
+		bench_custom_A(write_opt_time,4);
 		char *src;
 		if(likely(target_set)){
 			if(entry && !entry->c_entry && cache_insertable(LSM.lsm_cache)){
@@ -578,7 +587,9 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 			algo_req *new_lsm_req;
 			for(int i=0; i<entry->wait_idx; i++){
 				temp_req=(request*)entry->waitreq[i];
+				bench_custom_start(write_opt_time,4);
 				new_target_set=LSM.lop->find_keyset((char*)table,temp_req->key);
+				bench_custom_A(write_opt_time,4);
 
 				int *temp_params=(int*)temp_req->params;
 				temp_params[3]++;
@@ -678,13 +689,17 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, keyset **found, int *level,int *r
 			if(!bf_check(LSM.disk[i]->filter,key)) continue;
 	#endif
 		
+		bench_custom_start(write_opt_time,5);
 		entries=LSM.lop->find_run(LSM.disk[i],key);
+		bench_custom_A(write_opt_time,5);
 		if(!entries){
 			continue;
 		}
 
 		if(i<LSM.LEVELCACHING){
+			bench_custom_start(write_opt_time,4);
 			keyset *find=LSM.lop->find_keyset(entries->level_caching_data,key);
+			bench_custom_A(write_opt_time,4);
 			if(find){
 				*found=find;
 				if(level) *level=i;
@@ -744,7 +759,7 @@ uint32_t __lsm_get(request *const req){
 			goto retry;
 		}
 		mapinfo.sets=ISNOCPY(LSM.setup_values)?(keyset*)nocpy_pick(req->ppa):(keyset*)req->value->value;
-		//it can be optimize;
+		//it can be optimize
 		_entry=LSM.lop->find_run(LSM.disk[level],req->key);
 
 		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
