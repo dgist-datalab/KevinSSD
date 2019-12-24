@@ -13,9 +13,10 @@
 #define RAF 0.1
 #if LEVELN!=1
 #define BLOOM
-//#define MONKEY
 #endif
 
+//#define SIMDSEARCHER
+#define MULTILEVELREAD
 
 //#define EMULATOR
 

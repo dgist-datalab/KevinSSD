@@ -28,6 +28,7 @@ lower_info aio_info={
 	.destroy=aio_destroy,
 	.write=aio_push_data,
 	.read=aio_pull_data,
+	.read_hw=NULL,
 	.device_badblock_checker=NULL,
 	.trim_block=aio_trim_block,
 	.trim_a_block=aio_trim_a_block,
@@ -35,7 +36,12 @@ lower_info aio_info={
 	.stop=aio_stop,
 	.lower_alloc=NULL,
 	.lower_free=NULL,
-	.lower_flying_req_wait=aio_flying_req_wait
+	.lower_flying_req_wait=aio_flying_req_wait,
+	.lower_show_info=NULL,
+	.lower_tag_num=NULL,
+	.hw_do_merge=NULL,
+	.hw_get_kt=NULL,
+	.hw_get_inv=NULL
 };
 
 threadpool thpool;
@@ -122,7 +128,7 @@ void *poller(void *input) {
     }
 	return NULL;
 }
-
+extern char target_file[255];
 uint32_t aio_create(lower_info *li,blockmanager *bm){
 	int ret;
 	sem_init(&sem,0,0);
@@ -138,12 +144,17 @@ uint32_t aio_create(lower_info *li,blockmanager *bm){
 	li->all_pages_in_dev=DEVSIZE/PAGESIZE;
 
 	li->write_op=li->read_op=li->trim_op=0;
-	printf("file name : %s\n",LOWER_FILE_NAME);
+	if(target_file[0]==0){
+		printf("file name : %s\n",LOWER_FILE_NAME);
+	}
+	else{
+		printf("file name : %s\n",target_file);
+	}
 	//_fd=open(LOWER_FILE_NAME,O_RDWR|O_DIRECT,0644);
 #ifdef __cplusplus
-	_fd=open(LOWER_FILE_NAME,O_RDWR|O_CREAT|O_DIRECT,0666);
+	_fd=open(target_file,O_RDWR|O_CREAT,0666);
 #else
-	_fd=open(LOWER_FILE_NAME,O_RDWR|O_CREAT,0666);
+	_fd=open(target_file,O_RDWR|O_CREAT,0666);
 #endif
 	//_fd=open64(LOWER_FILE_NAME,O_RDWR|O_CREAT|O_DIRECT,0666);
 	if(_fd==-1){

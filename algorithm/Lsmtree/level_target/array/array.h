@@ -53,6 +53,9 @@ static inline char *data_from_run(run_t *a){
 typedef struct array_body{
 //	skiplist *skip;
 	run_t *arrs;
+#ifdef SIMDSEARCHER
+	char *key_body;
+#endif
 }array_body;
 
 typedef struct array_iter{

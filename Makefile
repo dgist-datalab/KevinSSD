@@ -26,7 +26,7 @@ export COMMONFLAGS=\
 			-Wno-unused-but-set-variable\
 			-DCHECKINGTIME\
 			-DKVSSD\
-			-O3\
+#	-O3\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 
@@ -119,7 +119,7 @@ endif
 LIBS +=\
 		-lpthread\
 		-lm\
-#	-laio\
+	-laio\
 	#	-ljemalloc\
 
 all: driver

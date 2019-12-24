@@ -103,6 +103,7 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 	//printf("leveling start[%d->%d]\n",from?from->idx+1:0,to->idx+1);
 	level *target_origin=to;
 	level *target=lsm_level_resizing(to,from);
+
 	LSM.c_level=target;
 	run_t *entry=NULL;
 
@@ -133,6 +134,9 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 			goto last;
 		}
 		LMI.compaction_cnt++;
+		if(to->idx==LSM.LEVELN-1) 
+			LMI.last_compaction_cnt++;
+
 		if(GETCOMPOPT(LSM.setup_values)==HW){
 			if(from==NULL && target->idx>=LSM.LEVELCACHING){
 				uint32_t ppa=getPPA(HEADER,key_min,true);

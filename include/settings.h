@@ -16,6 +16,7 @@
 */
 #define PROGRESS
 //#define LOWER_FILE_NAME "../iotest/simulator.data"
+//#define LOWER_FILE_NAME "/mnt/dac_test/simulator.data"
 #define LOWER_FILE_NAME "./data/simulator.data"
 //#define LOWER_FILE_NAME "/dev/sdb1"
 
@@ -34,7 +35,7 @@
 #define NPCINPAGE (PAGESIZE/PIECE)
 #define MINVALUE PIECE
 #define MINKEYLENGTH 16
-#define DEFKEYLENGTH 16
+#define DEFKEYLENGTH 32
 #define DEFVALUESIZE (1024)
 
 #ifdef MLC
@@ -48,9 +49,9 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 256L
+#define GIGAUNIT 64L
 #define TOTALSIZE (GIGAUNIT*G)
-#define OP 22
+#define OP 70
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
 #define PAGESIZE (8*K)
@@ -77,7 +78,7 @@
 
 #define PARTNUM 2
 #define SHOWINGSEGS (SHOWINGSIZE/(_PPS*PAGESIZE))
-#define MAPPART_SEGS (SHOWINGSEGS/20)
+#define MAPPART_SEGS (40)
 #define DATAPART_SEGS (_NOS-MAPPART_SEGS)
 enum{
 	MAP_S,DATA_S
@@ -152,7 +153,7 @@ static inline bool KEYVALCHECK(KEYT a){
 #define QDEPTH (64)
 
 #define THPOOL
-#define NUM_THREAD 4
+#define NUM_THREAD 1
 
 #define TCP 1
 //#define IP "10.42.0.2"

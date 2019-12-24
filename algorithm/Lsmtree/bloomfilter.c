@@ -226,3 +226,44 @@ void bf_free(BF *input){
 	free(input->body);
 	free(input);
 }
+
+float bf_fpr_from_memory_monkey(int entry, uint32_t memory,uint32_t level, float size_factor, float normal_fpr){
+	int i;
+	uint32_t calc_memory=0;
+	float ffpr;
+	uint32_t header_num,before;
+	uint32_t tt=pow(size_factor,4);
+	printf("##############%u %u %u\n",bf_bits(entry,normal_fpr)*tt,memory,tt);
+retry:
+	header_num=ceil(size_factor);
+	ffpr=normal_fpr;
+	calc_memory=bf_bits(entry,ffpr)*header_num;
+	for(i=1; i<level; i++){
+		ffpr*=size_factor;
+		header_num=ceil(header_num*size_factor);
+		if(ffpr>1) break;
+		before=calc_memory;
+		calc_memory+=bf_bits(entry,ffpr)*header_num;
+		if(before>calc_memory){
+			printf("over flow!\n");
+		}
+		if(calc_memory>memory) break;
+	}
+
+	if(memory<calc_memory){
+		normal_fpr+=0.0000001;
+		goto retry;
+	}
+	if(ffpr>1){
+		printf("[%f, %f, %d] calc_memory :%u, memory: %u normal:%f\n",ffpr,ffpr/size_factor,i,calc_memory,memory,normal_fpr);
+		normal_fpr/=size_factor*100;
+		goto retry;
+	}
+	if(memory/100*95> calc_memory){
+		normal_fpr+=0.0000001;
+		goto retry;
+	}
+	
+	printf("################## %u %u", calc_memory,memory);
+	return normal_fpr;
+}

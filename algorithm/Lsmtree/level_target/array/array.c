@@ -128,8 +128,6 @@ level* array_init(int size, int idx, float fpr, bool istier){
 #ifdef BLOOM
 	res->filter=bf_init(LSP.KEYNUM*size,fpr);
 #endif
-	//res->h=llog_init();
-
 	return res;
 }
 

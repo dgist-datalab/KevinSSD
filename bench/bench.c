@@ -211,6 +211,15 @@ bench_value* __get_bench(){
 		_master->n_num++;
 		if(_master->n_num==_master->m_num)
 			return NULL;
+	
+		switch(_master->meta[_master->n_num].type){
+			case SEQSET:
+			case RANDSET:
+			case RANDGET:
+				return get_bench_ondemand();
+			defalut:
+				break;
+		}
 
 		bench_make_data();
 		_m=&_master->m[_master->n_num];
@@ -1071,7 +1080,7 @@ void bench_custom_print(MeasureTime *mt,int idx){
 	}
 #endif
 }
-
+char target_file[255];
 int bench_set_params(int argc, char **argv, char **temp_argv){
 	int bit_cnt=0;
 	int piece=PIECE;
@@ -1086,6 +1095,7 @@ int bench_set_params(int argc, char **argv, char **temp_argv){
 		{"locality",1,0,0},
 		{"key-length",1,0,0},
 		{"value-size",1,0,0},
+		{"file",1,0,0},
 		{0,0,0,0}
 	};
 	
@@ -1094,6 +1104,7 @@ int bench_set_params(int argc, char **argv, char **temp_argv){
 		if(strncmp(argv[i],"--locality",strlen("--locality"))==0) continue;
 		if(strncmp(argv[i],"--key-length",strlen("--key-length"))==0) continue;
 		if(strncmp(argv[i],"--value-size",strlen("--value-size"))==0) continue;
+		if(strncmp(argv[i],"--file",strlen("--file"))==0) continue;
 		temp_argv[temp_cnt++]=argv[i];
 	}
 	int index;
@@ -1130,6 +1141,11 @@ int bench_set_params(int argc, char **argv, char **temp_argv){
 							if(VALUESIZE>NPCINPAGE || VALUESIZE<0){
 								VALUESIZE=-1;
 							}
+						}
+						break;
+					case 3:
+						if(optarg!=NULL){
+							strcpy(target_file,optarg);
 						}
 						break;
 				}

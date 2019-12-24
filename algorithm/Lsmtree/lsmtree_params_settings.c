@@ -32,12 +32,16 @@ uint64_t get_memory_per_run(lsmtree lsm,float size_factor);
 
 void lsm_setup_params(){
 	LSP.total_memory=TOTALSIZE/1024;
-//	LSM.total_memory=SHOWINGSIZE/1024;
+//	LSP.total_memory=SHOWINGSIZE/1024;
 	LSP.LEVELN=LSM.LEVELN;
 	LSP.KEYNUM=MAXKEYINMETASEG;
 	LSP.ONESEGMENT=LSP.KEYNUM*LSP.VALUESIZE;
-	LSP.HEADERNUM=SHOWINGSIZE/LSP.ONESEGMENT+SHOWINGSIZE%LSP.ONESEGMENT?1:0;
-
+	printf("SHOWINGSIZE:%lu\n",SHOWINGSIZE);
+	LSP.HEADERNUM=(SHOWINGSIZE/LSP.ONESEGMENT)+(SHOWINGSIZE%LSP.ONESEGMENT?1:0);
+	uint32_t TOTALHEADER=(TOTALSIZE/LSP.ONESEGMENT)+(TOTALSIZE%LSP.ONESEGMENT?1:0);
+	printf("level list size: %lu\n",(TOTALHEADER*(DEFKEYLENGTH+4))/1024/1024);
+	//LSP.total_memory-=(TOTALHEADER*(DEFKEYLENGTH+4));
+	
 	LSP.bf_fprs=(float*)calloc(sizeof(float),LSM.LEVELN);
 	
 	//get_sizefactor set pinning memory, caculate remainmemory,
@@ -78,9 +82,8 @@ float get_sizefactor(uint32_t keynum_in_header){
 	uint32_t _f=LSM.LEVELN;
 	float res;
 
-
 	LSP.ONESEGMENT=keynum_in_header*LSP.VALUESIZE;
-	LSP.HEADERNUM=SHOWINGSIZE/LSP.ONESEGMENT+(SHOWINGSIZE%LSP.ONESEGMENT?1:0);
+	//LSP.HEADERNUM=SHOWINGSIZE/LSP.ONESEGMENT+(SHOWINGSIZE%LSP.ONESEGMENT?1:0);
 	res=_f?ceil(pow(10,log10(LSP.HEADERNUM)/(_f))):LSP.HEADERNUM/keynum_in_header;
 
 	int i=0;
@@ -116,7 +119,7 @@ retry:
 		if(sum*PAGESIZE<LSP.total_memory){
 			break;
 		}else{
-			LSP.LEVELCACHING=--LSM.LEVELCACHING;
+			LSP.LEVELCACHING=LSM.LEVELCACHING;
 			printf("change level pinning level to %d\n",LSM.LEVELCACHING);
 		}
 	}
@@ -129,10 +132,8 @@ retry:
 
 
 float diff_get_sizefactor(uint32_t keynum_in_header){
-	/*
 	uint32_t _f=LSM.LEVELN;
 	float res;
-	uint64_t all_memory=(TOTALSIZE/1024);
 
 	res=_f?ceil(pow(10,log10(LSP.HEADERNUM)/(_f))):LSP.HEADERNUM/keynum_in_header;
 
@@ -148,34 +149,34 @@ float diff_get_sizefactor(uint32_t keynum_in_header){
 retry:
 	all_header_num=0;
 	target=res;
-	for(i=0; i<LSM.LEVELN-1; i++){
+	for(i=0; i<LSM.LEVELCACHING; i++){
 		all_header_num+=round(target);
 		before_last_header=round(target);
 		target*=res;
 	}
 	
 	caching_header=all_header_num;
-	if(LSM.LEVELN-1==LSM.LEVELCACHING && caching_size<caching_header){
+	if(LSM.LEVELN-1==LSM.LEVELCACHING && LSP.total_memory<(caching_header*PAGESIZE)){
 		res-=0.1;
-		asymatric_level=true;
 		goto retry;
 	}
-	last_size_factor=(float)(as-all_header_num)/before_last_header;
+	last_size_factor=(float)(LSP.HEADERNUM-all_header_num)/before_last_header;
 	all_header_num+=round(before_last_header*last_size_factor);
 	
-	if(all_header_num>as){
+	if(all_header_num>LSP.HEADERNUM){
 		res-=ff;
 		goto retry;
 	}
 	target=res;
 	res=res-(ff*(cnt?cnt-1:0));
-	LSM.last_size_factor=asymatric_level?last_size_factor:res;
-	return res;*/
-	return 0;
+	LLP.last_size_factor=last_size_factor;
+	LSP.pin_memory=caching_header*PAGESIZE;
+	LSP.remain_memory=LSP.total_memory-LSP.pin_memory;
+	return res;
 }
 
 uint32_t get_memory_per_run(float size_factor){
-	uint64_t all_memory=(TOTALSIZE/1024);
+	uint64_t all_memory=LSP.total_memory;
 	uint64_t as=LSP.HEADERNUM;
 
 	uint64_t target=1;
@@ -207,7 +208,6 @@ void calc_fpr(float fpr){
 			printf("not ready!\n");
 			//float SIZEFACTOR2=ceil(pow(10,log10(RANGE/MAXKEYINMETASEG/LSM.LEVELN)/(LSM.LEVELN-1)));
 			//float ffpr=RAF*(1-SIZEFACTOR2)/(1-pow(SIZEFACTOR2,LSM.LEVELN-1));
-			abort();
 			break;
 	}
 	LSP.remain_memory-=LSP.bf_memory;
@@ -218,7 +218,11 @@ void calc_fpr_remain_memory(){
 	uint8_t btype=GETFILTER(LSM.setup_values);
 	int i=0;
 	uint32_t run_memory=get_memory_per_run(LLP.size_factor);
+	float start=0;
 	float fpr=bf_fpr_from_memory(LSP.KEYNUM,run_memory);
+	float ffpr=0.0f;
+	uint32_t header_num=ceil(LLP.size_factor);
+	LSP.bf_memory=0;
 	switch(btype){
 		case 0://no filter
 			LSP.bf_memory=0;
@@ -230,7 +234,26 @@ void calc_fpr_remain_memory(){
 			LSP.bf_memory=bf_bits(LSP.KEYNUM,LSP.bf_fprs[0])*LSP.HEADERNUM;
 			break;
 		case 2:
-			abort();
+			start=bf_fpr_from_memory_monkey(LSP.KEYNUM,LSP.remain_memory,LSP.LEVELN,LLP.size_factor, fpr);
+			LSP.bf_fprs[0]=start;
+			LSP.bf_memory+=bf_bits(LSP.KEYNUM,LSP.bf_fprs[0])*header_num;
+			ffpr=(start*LLP.size_factor);
+			header_num=ceil(header_num*LLP.size_factor);
+			for(i=1; i<LSP.LEVELN; i++){
+				LSP.bf_fprs[i]=ffpr;
+				LSP.bf_memory+=bf_bits(LSP.KEYNUM,LSP.bf_fprs[i])*header_num;
+				ffpr*=LLP.size_factor;
+				header_num*=LLP.size_factor;
+			}
+			break;
+		case 3:
+			for(i=0; i<LSP.LEVELN-1;i++){
+				LSP.bf_fprs[i]=0;
+				header_num*=LLP.size_factor;
+			}
+			run_memory=LSP.remain_memory/header_num;
+			LSP.bf_fprs[LSP.LEVELN-1]=bf_fpr_from_memory(LSP.KEYNUM,run_memory);
+			LSP.bf_memory+=bf_bits(LSP.KEYNUM,LSP.bf_fprs[LSP.LEVELN-1])*header_num;
 			break;
 	}
 	LSP.remain_memory-=LSP.bf_memory;

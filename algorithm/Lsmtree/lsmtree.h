@@ -50,14 +50,23 @@ enum comp_opt_type{
 	NON,PIPE,HW,MIXEDCOMP
 };
 enum LSMTYPE{
-	NOUSE,ONLYCACHE,FIXEDFILTER,ONLYFILTER,ONLYFIXEDFILTER,PINASYM
+	NOUSE,ONLYCACHE,FIXEDFILTER,ONLYFILTER,ONLYFIXEDFILTER,PINASYM,LASTFILTER
 };
+
+#ifdef MULTILEVELREAD
+enum GETREQTYPE{
+	GET_INIT,GET_DONE
+};
+#define SETGETREQTYPE (TYPE,LEVEL) ((LEVEL<<2)|TYPE)
+#define GETREQTYPE (VALUE) (value&0x7)
+#define GETREQLEVELN (VALUE) (value>>2)
+#endif
 
 #define SETNOCPY(a)		(a|=1)
 #define SETGCOPT(a)		(a|=2)
 #define SETHWREAD(a)	(a|=4)
 #define SETCOMPOPT(a,b)	(a=(b<<8)|a)
-#define SETLSMTYPE(a,b) (a=(b<<16)|b)
+#define SETLSMTYPE(a,b) (a=(b<<16)|a)
 #define SETFILTER(a,b)	(a=(b<<3)|a)
 
 #define ISNOCPY(a)		(a&1)
@@ -66,6 +75,15 @@ enum LSMTYPE{
 #define GETFILTER(a)	((a>>3)&3)	
 #define GETCOMPOPT(a)	((a>>8)&0xff)
 #define GETLSMTYPE(a)	((a>>16)&0xff)
+
+#ifdef MULTILEVELREAD
+typedef struct multi_req_params{
+	int target_runs;
+	int return_runs;
+	int overlap_cnt;
+	int *target_ppas;
+}mreq_params;
+#endif
 
 typedef struct lsm_params{
 	//dl_sync lock;
@@ -138,8 +156,10 @@ typedef struct lsmtree_monitor_info{
 	uint32_t data_gc_cnt;
 	uint32_t header_gc_cnt;
 	uint32_t compaction_cnt;
+	uint32_t last_compaction_cnt;
 	uint32_t zero_compaction_cnt;
 	uint32_t __header_read_cnt;
+	uint32_t channel_overlap_cnt;
 }lmi;
 
 /*

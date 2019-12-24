@@ -76,8 +76,6 @@ struct request {
 	/* HASH_KVSSD */
 	void *hash_params;
 	struct request *parents;
-
-
 };
 
 struct algo_req{
