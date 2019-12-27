@@ -528,6 +528,7 @@ bool htable_read_preproc(run_t *r){
 		memcpy_cnt++;
 		return true;
 	}
+	/*
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(r->c_entry){
 		cache_entry_lock(LSM.lsm_cache,r->c_entry);
@@ -541,10 +542,10 @@ bool htable_read_preproc(run_t *r){
 		res=true;
 	}
 	else{
-		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);*/
 		r->cpt_data=htable_assign(NULL,false);
 		r->cpt_data->iscached=0;
-	}
+//	}
 
 	if(!r->iscompactioning) r->iscompactioning=COMP;
 	return res;
@@ -560,11 +561,11 @@ void htable_read_postproc(run_t *r){
 	}
 	if(r->level_caching_data){
 	
-	}
+	}/*
 	else if(r->c_entry){
 		cache_entry_unlock(LSM.lsm_cache,r->c_entry);
 		if(!ISNOCPY(LSM.setup_values)) htable_free(r->cpt_data);
-	}else{
+	}*/else{
 		htable_free(r->cpt_data);
 		r->cpt_data=NULL;
 		if(r->pbn==UINT32_MAX){

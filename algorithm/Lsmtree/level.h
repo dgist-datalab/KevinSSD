@@ -62,8 +62,10 @@ typedef struct run{
 
 	//for caching
 	cache_entry *c_entry;
+	/*
 	char *cache_nocpy_data_ptr;
 	htable *cache_data;
+	*/
 
 	htable *cpt_data;
 	void *run_data;

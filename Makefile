@@ -12,7 +12,7 @@ DEBUGFLAGS=\
 			-rdynamic\
 			-Wno-pointer-arith\
 			-g\
-#-fsanitize=address\
+-fsanitize=address\
 #	-DBUSE_DEBUG
 
 export COMMONFLAGS=\
@@ -24,9 +24,9 @@ export COMMONFLAGS=\
 			-DSLC\
 			-D$(TARGET_BM)\
 			-Wno-unused-but-set-variable\
-			-DCHECKINGTIME\
 			-DKVSSD\
 #	-O3\
+#			-DCHECKINGTIME\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 

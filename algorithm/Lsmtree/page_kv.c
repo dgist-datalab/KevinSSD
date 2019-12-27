@@ -489,7 +489,7 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 			p->found=find;
 			target->status=DONE;
 			done_cnt++;
-			
+			/*
 			if(ent->c_entry){
 				if(ISNOCPY(LSM.setup_values)){
 					p->found2=LSM.lop->find_keyset((char*)ent->cache_nocpy_data_ptr,target->lpa);
@@ -498,7 +498,7 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 					p->found2=LSM.lop->find_keyset((char*)ent->cache_data->sets,target->lpa);
 				}
 			}
-			else
+			else*/
 				p->found2=NULL;
 			if(!set_flag && i==-1){
 				set_flag=true;

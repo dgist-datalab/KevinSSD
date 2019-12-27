@@ -121,9 +121,9 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	printf("| entry cache :%luMB(%lu page)%.2f(%%)\n",LSP.cache_memory/M,LSP.cache_memory/PAGESIZE,(float)LSP.cache_memory/LSP.total_memory*100);
 	printf("| -------- algorithm_log END\n\n");
 
-	printf("\n ---------- %lu:%lu (all_entry : total)\n\n",all_header_num,MAPPART_SEGS*_PPS);
+	printf("\n ---------- %lu:%d (all_entry : total)\n\n",all_header_num,MAPPART_SEGS*_PPS);
 
-	fprintf(stderr,"SHOWINGSIZE(GB) :%lu HEADERSEG:%ld DATASEG:%ld\n",SHOWINGSIZE/G,MAPPART_SEGS,DATAPART_SEGS);
+	fprintf(stderr,"SHOWINGSIZE(GB) :%lu HEADERSEG:%d DATASEG:%ld\n",SHOWINGSIZE/G,MAPPART_SEGS,DATAPART_SEGS);
 	fprintf(stderr,"LEVELN:%d (LEVELCACHING(%d)\n",LSM.LEVELN,LSM.LEVELCACHING);
 
 	compaction_init();
@@ -163,9 +163,9 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	fprintf(stderr,"cache size:%d\n",cache_data);
 	fprintf(stderr,"data gc: %d\n",LMI.data_gc_cnt);
 	fprintf(stderr,"header gc: %d\n",LMI.header_gc_cnt);
-	fprintf(stderr,"compactino_cnt:%d\n",LMI.compaction_cnt);
-	fprintf(stderr,"compactino_cnt:%d\n",LMI.last_compaction_cnt);
-	fprintf(stderr,"zero compactino_cnt:%d\n",LMI.zero_compaction_cnt);
+	fprintf(stderr,"compaction_cnt:%d\n",LMI.compaction_cnt);
+	fprintf(stderr,"last_compaction_cnt:%d\n",LMI.last_compaction_cnt);
+	fprintf(stderr,"zero compaction_cnt:%d\n",LMI.zero_compaction_cnt);
 	fprintf(stderr,"channel overlap cnt:%d\n",LMI.channel_overlap_cnt);
 	cache_free(LSM.lsm_cache);
 
@@ -628,9 +628,9 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 		bench_custom_start(write_opt_time,4);
 		target_set=LSM.lop->find_keyset((char*)table,req->key);
 		bench_custom_A(write_opt_time,4);
-		char *src;
 		if(likely(target_set)){
 			if(entry && !entry->c_entry && cache_insertable(LSM.lsm_cache)){
+				/*
 				if(ISNOCPY(LSM.setup_values)){
 					src=nocpy_pick(entry->pbn);
 					entry->cache_nocpy_data_ptr=src;
@@ -638,7 +638,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 				else{
 					htable temp; temp.sets=table;
 					entry->cache_data=htable_copy(&temp);
-				}
+				}*/
 				cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
 				entry->c_entry=c_entry;
 			}
@@ -756,7 +756,7 @@ uint32_t __lsm_get(request *const req){
 
 
 		if(unlikely(res)) return res;
-		req->params=(int*)malloc(sizeof(int)*4);
+		temp_data=(int*)malloc(sizeof(int)*4);
 		req->params=(void*)temp_data;
 		temp_data[0]=level=0;
 		temp_data[1]=run=0;
@@ -819,14 +819,17 @@ retry:
 			temp_data[1]=run;
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(entry->c_entry){
-				res=ISNOCPY(LSM.setup_values)?__lsm_get_sub(req,NULL,(keyset*)entry->cache_nocpy_data_ptr,NULL):__lsm_get_sub(req,NULL,entry->cache_data->sets,NULL);
-				if(res){
+				/*
+				res=ISNOCPY(LSM.setup_values)?__lsm_get_sub(req,NULL,(keyset*)entry->cache_nocpy_data_ptr,NULL):__lsm_get_sub(req,NULL,entry->cache_data->sets,NULL);*/
+//				if(res){
 					bench_cache_hit(mark);
 					cache_update(LSM.lsm_cache,entry);	
 					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 					res=FOUND;
+					lsm_req=lsm_get_req_factory(req,DATAR);
+					LSM.li->read(rand()%MAX_PPA,PAGESIZE,req->value,ASYNC,lsm_req);
 					return res;
-				}
+//				}
 			}
 
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
@@ -995,7 +998,7 @@ level *lsm_level_resizing(level *target, level *src){
 				total_header+=round(t);
 				t*=LLP.size_factor;
 			}
-			printf("change %.5lf->%.5lf (%u:%ld)\n",before,LLP.size_factor,total_header,(MAPPART_SEGS-1)*_PPS);
+			printf("change %.5lf->%.5lf (%u:%d)\n",before,LLP.size_factor,total_header,(MAPPART_SEGS-1)*_PPS);
 		}
 	}
 	
@@ -1008,7 +1011,7 @@ level *lsm_level_resizing(level *target, level *src){
 	}
 
 	if(target->idx==LSM.LEVELN-1){
-		target_cnt=ceil(LLP.last_size_factor*LSM.disk[LSM.LEVELN-2]->m_num+(LSM.disk[LSM.LEVELN-2]->m_num*2));
+		target_cnt=ceil(LLP.last_size_factor*LSM.disk[LSM.LEVELN-2]->m_num+(LSM.disk[LSM.LEVELN-2]->m_num*3));
 	}
 	return LSM.lop->init(ceil(target_cnt),target->idx,target->fpr,false);
 }

@@ -25,11 +25,11 @@
 
 extern lsmtree LSM;
 static inline char *data_from_run(run_t *a){
-	if(a->c_entry){
+	/*if(a->c_entry){
 		if(!ISNOCPY(LSM.setup_values))	return (char*)a->cpt_data->sets;
 		return (char*)a->cache_nocpy_data_ptr;
 	}
-	else if(a->level_caching_data){
+	else*/ if(a->level_caching_data){
 		return a->level_caching_data;
 	}
 	else{

@@ -211,13 +211,12 @@ bench_value* __get_bench(){
 		_master->n_num++;
 		if(_master->n_num==_master->m_num)
 			return NULL;
-	
-		switch(_master->meta[_master->n_num].type){
+		int type=_master->meta[_master->n_num].type;
+		switch(type){
 			case SEQSET:
 			case RANDSET:
 			case RANDGET:
 				return get_bench_ondemand();
-			defalut:
 				break;
 		}
 
@@ -368,10 +367,10 @@ void bench_print(){
 			fprintf(stderr,"[throughput] %lf(kb/s)\n",throughput);
 			fprintf(stderr,"             %lf(mb/s)\n",throughput/1024);
 			printf("[IOPS] %lf\n",_m->m_num/total_time);
-			if(_m->read_cnt){
-				printf("[cache hit cnt,ratio] %ld, %lf\n",_m->cache_hit,(double)_m->cache_hit/(_m->read_cnt));
-				printf("[cache hit cnt,ratio dftl] %ld, %lf\n",_m->cache_hit,(double)_m->cache_hit/(_m->read_cnt+_m->write_cnt));
-			}
+			//if(_m->read_cnt){
+			printf("[cache hit cnt,ratio] %ld, %lf\n",_m->cache_hit,(double)_m->cache_hit/(_m->read_cnt));
+			printf("[cache hit cnt,ratio dftl] %ld, %lf\n",_m->cache_hit,(double)_m->cache_hit/(_m->read_cnt+_m->write_cnt));
+			//}
 			printf("[READ WRITE CNT] %ld %ld\n",_m->read_cnt,_m->write_cnt);
 		}
 		printf("error cnt:%d\n",_master->error_cnt);

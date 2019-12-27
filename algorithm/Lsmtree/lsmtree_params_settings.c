@@ -39,15 +39,16 @@ void lsm_setup_params(){
 	printf("SHOWINGSIZE:%lu\n",SHOWINGSIZE);
 	LSP.HEADERNUM=(SHOWINGSIZE/LSP.ONESEGMENT)+(SHOWINGSIZE%LSP.ONESEGMENT?1:0);
 	uint32_t TOTALHEADER=(TOTALSIZE/LSP.ONESEGMENT)+(TOTALSIZE%LSP.ONESEGMENT?1:0);
-	printf("level list size: %lu\n",(TOTALHEADER*(DEFKEYLENGTH+4))/1024/1024);
+	printf("level list size: %u\n",(TOTALHEADER*(DEFKEYLENGTH+4))/1024/1024);
 	//LSP.total_memory-=(TOTALHEADER*(DEFKEYLENGTH+4));
 	
 	LSP.bf_fprs=(float*)calloc(sizeof(float),LSM.LEVELN);
 	
 	//get_sizefactor set pinning memory, caculate remainmemory,
-	LLP.size_factor=get_sizefactor(LSP.KEYNUM);
-	/*default assigned pinning->filtering->caching*/
 	uint8_t ltype=GETLSMTYPE(LSM.setup_values);
+	if(ltype!=PINASYM)
+		LLP.size_factor=get_sizefactor(LSP.KEYNUM);
+	/*default assigned pinning->filtering->caching*/
 	switch(ltype){
 		case FIXEDFILTER:
 			calc_fpr(RAF);//set fpr and calculate remainmemory
@@ -64,7 +65,8 @@ void lsm_setup_params(){
 			break;
 		case PINASYM:
 			LLP.size_factor=diff_get_sizefactor(LSP.KEYNUM);
-			calc_fpr_remain_memory();
+			calc_fpr(RAF);
+			calc_cache_page();
 			break;
 		case NOUSE:
 			if(GETFILTER(LSM.setup_values)){
@@ -143,9 +145,8 @@ float diff_get_sizefactor(uint32_t keynum_in_header){
 	uint64_t all_header_num;
 	uint64_t caching_header=0;
 	uint32_t before_last_header=0;
-	float last_size_factor=res;
+	float last_size_factor;
 	float target;
-	bool asymatric_level=false;
 retry:
 	all_header_num=0;
 	target=res;
@@ -160,8 +161,13 @@ retry:
 		res-=0.1;
 		goto retry;
 	}
-	last_size_factor=(float)(LSP.HEADERNUM-all_header_num)/before_last_header;
-	all_header_num+=round(before_last_header*last_size_factor);
+	if(LSM.LEVELN-LSM.LEVELCACHING==1){
+		last_size_factor=(float)(LSP.HEADERNUM-all_header_num)/before_last_header;
+		all_header_num+=round(before_last_header*last_size_factor);
+	}
+	else{
+		last_size_factor=res;
+	}
 	
 	if(all_header_num>LSP.HEADERNUM){
 		res-=ff;
@@ -169,6 +175,7 @@ retry:
 	}
 	target=res;
 	res=res-(ff*(cnt?cnt-1:0));
+
 	LLP.last_size_factor=last_size_factor;
 	LSP.pin_memory=caching_header*PAGESIZE;
 	LSP.remain_memory=LSP.total_memory-LSP.pin_memory;
@@ -193,16 +200,20 @@ uint32_t get_memory_per_run(float size_factor){
 
 void calc_fpr(float fpr){
 	uint8_t btype=GETFILTER(LSM.setup_values);
+	uint32_t fpr_total_header=0;
+	float m_num=1;
 	int i=0;
 	switch(btype){
 		case 0://no filter
 			LSP.bf_memory=0;
 			break;
 		case 1://normal filter
-			for(i=0; i<LSP.LEVELN; i++){
-				LSP.bf_fprs[i]=fpr/LSP.LEVELN;
+			for(i=0; i<LSP.LEVELN-1; i++){
+				LSP.bf_fprs[i]=0.25;
+				fpr_total_header+=ceil(m_num*LLP.size_factor);
+				m_num*=LLP.size_factor;
 			}
-			LSP.bf_memory=bf_bits(LSP.KEYNUM,LSP.bf_fprs[0])*LSP.HEADERNUM;
+			LSP.bf_memory=bf_bits(LSP.KEYNUM,LSP.bf_fprs[0])*fpr_total_header;
 			break;
 		case 2://moonkey filter
 			printf("not ready!\n");

@@ -62,6 +62,7 @@
 
 #endif
 
+#define MAX_PPA (33554432)
 #define BLOCKSIZE (_PPB*PAGESIZE)
 #define _NOP (TOTALSIZE/PAGESIZE)
 #define _NOS (TOTALSIZE/(_PPS*PAGESIZE))

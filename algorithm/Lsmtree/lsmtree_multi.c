@@ -270,12 +270,14 @@ uint32_t __lsm_range_get(request *const req){
 		}
 
 		for(int j=0; rs[j]!=NULL; j++){
+			
 			if(rs[j]->c_entry){
+				/*
 				if(ISNOCPY(LSM.setup_values)) params->mapping_data[i*RANGEGETNUM+j]=rs[j]->cache_nocpy_data_ptr;
 				else{
 					params->mapping_data[i*RANGEGETNUM+j]=(char*)malloc(PAGESIZE);
 					memcpy(params->mapping_data[i*RANGEGETNUM+j],rs[j]->cache_data->sets,PAGESIZE);
-				}
+				}*/
 				params->max--;
 				if(rs[j+1]==NULL && j+1 <RANGEGETNUM){
 					params->max-=(RANGEGETNUM-(j+1));

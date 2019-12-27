@@ -286,10 +286,7 @@ void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 void *posix_pull_data(uint32_t _PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	uint8_t test_type;
 	uint32_t PPA=convert_ppa(_PPA);
-	if(PPA>_NOP){
-		printf("address error!\n");
-		abort();
-	}
+
 
 	if(req->type_lower!=1 && req->type_lower!=0){
 		req->type_lower=0;
@@ -309,7 +306,10 @@ void *posix_pull_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 	if(test_type < LREQ_TYPE_NUM){
 		my_posix.req_type_cnt[test_type]++;
 	}
-
+	if(PPA>_NOP && test_type!=DATAR){
+		printf("address error!\n");
+		abort();
+	}
 	copy_from_mem(PPA,test_type,value->value);
 
 	req->type_lower=1;

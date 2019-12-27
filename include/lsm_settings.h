@@ -10,13 +10,13 @@
 #define KEYBITMAP 1024
 #endif
 
-#define RAF 0.1
+#define RAF 1
 #if LEVELN!=1
 #define BLOOM
 #endif
 
 //#define SIMDSEARCHER
-#define MULTILEVELREAD
+//#define MULTILEVELREAD
 
 //#define EMULATOR
 
