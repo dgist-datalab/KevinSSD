@@ -49,7 +49,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 64L
+#define GIGAUNIT 16L
 #define TOTALSIZE (GIGAUNIT*G)
 #define OP 70
 #define REALSIZE (512L*G)
@@ -79,7 +79,7 @@
 
 #define PARTNUM 2
 #define SHOWINGSEGS (SHOWINGSIZE/(_PPS*PAGESIZE))
-#define MAPPART_SEGS (40)
+#define MAPPART_SEGS (10)
 #define DATAPART_SEGS (_NOS-MAPPART_SEGS)
 enum{
 	MAP_S,DATA_S
@@ -131,8 +131,7 @@ static inline int KEYCONSTCOMP(KEYT a, char *s){
 
 static inline char KEYTEST(KEYT a, KEYT b){
 	if(a.len != b.len) return 0;
-	int alen=a.len, blen=b.len;
-	return memcmp(a.key,b.key,alen>blen?blen:alen)?0:1;
+	return memcmp(a.key,b.key,a.len)?0:1;
 }
 
 static inline bool KEYVALCHECK(KEYT a){

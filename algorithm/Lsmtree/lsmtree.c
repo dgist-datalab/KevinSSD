@@ -430,7 +430,6 @@ uint32_t lsm_get(request *const req){
 		debug=true;
 	}
 	if(unlikely(res_type==0)){
-		free(req->params);
 		if(nor==0){
 #ifdef KVSSD
 		printf("not found seq: %d, key:%.*s\n",nor++,KEYFORMAT(req->key));
@@ -442,6 +441,7 @@ uint32_t lsm_get(request *const req){
 	//	LSM.lop->all_print();
 		req->type_ftl=((int*)req->params)[2];
 		req->type=req->type==FS_GET_T?FS_NOTFOUND_T:req->type;
+		free(req->params);
 		req->end_req(req);
 	//sleep(1);
 	//	abort();
@@ -499,13 +499,13 @@ void* lsm_hw_end_req(algo_req* const req){
 	return NULL;
 }
 
-algo_req* lsm_get_req_factory(request *parents, uint8_t type){
+algo_req* lsm_get_req_factory(request *parents, uint8_t type, int level){
 	algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 	params->lsm_type=type;
 	lsm_req->params=params;
 	lsm_req->parents=parents;
-	if(ISHWREAD(LSM.setup_values)){
+	if(ISHWREAD(LSM.setup_values) && level==LSM.LEVELN-1){
 		lsm_req->end_req=lsm_hw_end_req;
 	}
 	else{
@@ -524,7 +524,7 @@ algo_req *lsm_get_empty_algoreq(request *parents){
 
 
 void dummy_htable_read(uint32_t pbn,request *req){
-	algo_req *lsm_req=lsm_get_req_factory(req,DATAR);
+	algo_req *lsm_req=lsm_get_req_factory(req,DATAR,0);
 	lsm_params *params=(lsm_params*)lsm_req->params;
 	lsm_req->type=HEADERR;
 	params->lsm_type=HEADERR;
@@ -548,7 +548,11 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, keyset **found, int *level,int *r
 	#endif
 		
 		bench_custom_start(write_opt_time,5);
+#ifdef FASTFINDRUN
+		entries=LSM.lop->fast_find_run(LSM.disk[i],key);
+#else
 		entries=LSM.lop->find_run(LSM.disk[i],key);
+#endif
 		bench_custom_A(write_opt_time,5);
 		if(!entries){
 			continue;
@@ -576,15 +580,16 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, keyset **found, int *level,int *r
 	return NOTFOUND;
 }
 #ifndef MULTILEVELREAD
-int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
+int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int idx){
 	int res=0;
-	if(!entry && !table && !list){
+	if(!entry && !table && !list && idx != LSM.LEVELN-1){
 		return 0;
 	}
 	uint32_t ppa;
 	algo_req *lsm_req=NULL;
 	snode *target_node;
 	keyset *target_set;
+
 	if(list){//skiplist check for memtable and temp_table;
 		target_node=skiplist_find(list,req->key);
 		if(!target_node) return 0;
@@ -600,7 +605,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 			return 2;
 		}
 		else{
-			lsm_req=lsm_get_req_factory(req,DATAR);
+			lsm_req=lsm_get_req_factory(req,DATAR,0);
 			req->value->ppa=target_node->ppa;
 			ppa=target_node->ppa;
 			res=4;
@@ -612,7 +617,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 		target_set=LSM.lop->find_keyset((char*)entry->cpt_data->sets,req->key);
 		bench_custom_A(write_opt_time,4);
 		if(target_set){
-			lsm_req=lsm_get_req_factory(req,DATAR);
+			lsm_req=lsm_get_req_factory(req,DATAR,0);
 			bench_cache_hit(req->mark);	
 	//		req->value->ppa=target_set->ppa>>1;
 			req->value->ppa=target_set->ppa;
@@ -628,22 +633,24 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 		bench_custom_start(write_opt_time,4);
 		target_set=LSM.lop->find_keyset((char*)table,req->key);
 		bench_custom_A(write_opt_time,4);
+		char *src;
 		if(likely(target_set)){
 			if(entry && !entry->c_entry && cache_insertable(LSM.lsm_cache)){
-				/*
-				if(ISNOCPY(LSM.setup_values)){
-					src=nocpy_pick(entry->pbn);
-					entry->cache_nocpy_data_ptr=src;
+				if(idx!=LSM.LEVELN-1){
+					if(ISNOCPY(LSM.setup_values)){
+						src=nocpy_pick(entry->pbn);
+						entry->cache_nocpy_data_ptr=src;
+					}
+					else{
+						htable temp; temp.sets=table;
+						entry->cache_data=htable_copy(&temp);
+					}
 				}
-				else{
-					htable temp; temp.sets=table;
-					entry->cache_data=htable_copy(&temp);
-				}*/
 				cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
 				entry->c_entry=c_entry;
 			}
 
-			lsm_req=lsm_get_req_factory(req,DATAR);
+			lsm_req=lsm_get_req_factory(req,DATAR,0);
 	//		req->value->ppa=target_set->ppa>>1;
 			req->value->ppa=target_set->ppa;
 			ppa=target_set->ppa;
@@ -663,7 +670,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 				int *temp_params=(int*)temp_req->params;
 				temp_params[3]++;
 				if(new_target_set){
-					new_lsm_req=lsm_get_req_factory(temp_req,DATAR);
+					new_lsm_req=lsm_get_req_factory(temp_req,DATAR,0);
 //					temp_req->value->ppa=new_target_set->ppa>>1;
 					temp_req->value->ppa=new_target_set->ppa;
 #ifdef DVALUE
@@ -696,6 +703,12 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list){
 			entry->isflying=0;
 			entry->wait_idx=0;
 		}
+	}
+	
+	if(!entry && !table && !list && idx==LSM.LEVELN-1){
+		lsm_req=lsm_get_req_factory(req,DATAR,0);
+		ppa=rand()%MAX_PPA;
+		res=4;
 	}
 
 	if(lsm_req==NULL){
@@ -747,11 +760,11 @@ uint32_t __lsm_get(request *const req){
 	int *temp_data;
 	if(req->params==NULL){
 		/*memtable*/
-		res=__lsm_get_sub(req,NULL,NULL,LSM.memtable);
+		res=__lsm_get_sub(req,NULL,NULL,LSM.memtable, 0);
 		if(unlikely(res))return res;
 
 		pthread_mutex_lock(&LSM.templock);
-		res=__lsm_get_sub(req,NULL,NULL,LSM.temptable);
+		res=__lsm_get_sub(req,NULL,NULL,LSM.temptable, 0);
 		pthread_mutex_unlock(&LSM.templock);
 
 
@@ -769,21 +782,30 @@ uint32_t __lsm_get(request *const req){
 		level=temp_data[0];
 		run=temp_data[1];
 		round=temp_data[2];
+
 		if(temp_data[3]){
 			run++;
 			goto retry;
 		}
+
 		mapinfo.sets=ISNOCPY(LSM.setup_values)?(keyset*)nocpy_pick(req->ppa):(keyset*)req->value->value;
 		//it can be optimize
+#ifdef FASTFINDRUN
+		_entry=LSM.lop->fast_find_run(LSM.disk[level],req->key);
+#else
 		_entry=LSM.lop->find_run(LSM.disk[level],req->key);
+#endif
+
 
 		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-		res=__lsm_get_sub(req,_entry,mapinfo.sets,NULL);
+		res=__lsm_get_sub(req,_entry,mapinfo.sets,NULL, level);
 		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+
 
 		_entry->from_req=NULL;
 		_entry->isflying=0;
 		if(res)return res;
+
 #ifndef FLASHCHCK
 		run+=1;
 #endif
@@ -796,7 +818,7 @@ uint32_t __lsm_get(request *const req){
 retry:
 	if(ISHWREAD(LSM.setup_values) && temp_data[3]==2){
 		//send data/
-		LSM.li->read(CONVPPA(req->ppa),PAGESIZE,req->value,ASYNC,lsm_get_req_factory(req,DATAR));
+		LSM.li->read(CONVPPA(req->ppa),PAGESIZE,req->value,ASYNC,lsm_get_req_factory(req,DATAR,level));
 		return 1;
 	}
 	result=lsm_find_run(req->key,&entry,&found,&level,&run);
@@ -804,7 +826,7 @@ retry:
 	switch(result){
 		case CACHING:
 			if(found){
-				lsm_req=lsm_get_req_factory(req,DATAR);
+				lsm_req=lsm_get_req_factory(req,DATAR,level);
 				req->value->ppa=found->ppa;
 				LSM.li->read(CONVPPA(found->ppa),PAGESIZE,req->value,ASYNC,lsm_req);
 			}
@@ -814,27 +836,27 @@ retry:
 			}
 			res=CACHING;
 			break;
-		case FOUND:
+	case FOUND:
 			temp_data[0]=level;
 			temp_data[1]=run;
 			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 			if(entry->c_entry){
-				/*
-				res=ISNOCPY(LSM.setup_values)?__lsm_get_sub(req,NULL,(keyset*)entry->cache_nocpy_data_ptr,NULL):__lsm_get_sub(req,NULL,entry->cache_data->sets,NULL);*/
-//				if(res){
+				res=ISNOCPY(LSM.setup_values)?__lsm_get_sub(req,NULL,(keyset*)entry->cache_nocpy_data_ptr,NULL,level):__lsm_get_sub(req,NULL,entry->cache_data->sets,NULL,level);
+				if(res){
 					bench_cache_hit(mark);
 					cache_update(LSM.lsm_cache,entry);	
 					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 					res=FOUND;
-					lsm_req=lsm_get_req_factory(req,DATAR);
-					LSM.li->read(rand()%MAX_PPA,PAGESIZE,req->value,ASYNC,lsm_req);
 					return res;
-//				}
+				}
+			}
+			else if(level==LSM.LEVELN-1){
+				entry->c_entry=cache_insert(LSM.lsm_cache,entry,0);
 			}
 
 			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			temp_data[2]=++round;
-			if(!ISHWREAD(LSM.setup_values) && entry->isflying==1){			
+			if(!(ISHWREAD(LSM.setup_values) && level==LSM.LEVELN-1) && entry->isflying==1){			
 				if(entry->wait_idx==0){
 					if(entry->waitreq){
 						abort();
@@ -844,7 +866,7 @@ retry:
 				entry->waitreq[entry->wait_idx++]=(void*)req;
 				res=FOUND;
 			}else{
-				lsm_req=lsm_get_req_factory(req,HEADERR);
+				lsm_req=lsm_get_req_factory(req,HEADERR,level);
 				params=(lsm_params*)lsm_req->params;
 				params->ppa=entry->pbn;
 
@@ -853,7 +875,7 @@ retry:
 				params->entry_ptr=(void*)entry;
 				entry->from_req=(void*)req;
 				req->ppa=params->ppa;
-				if(ISHWREAD(LSM.setup_values)){
+				if(ISHWREAD(LSM.setup_values) && level ==LSM.LEVELN-1){
 					LSM.li->read_hw(params->ppa,req->key.key,req->key.len,req->value,ASYNC,lsm_req);
 				}else{
 					LSM.li->read(params->ppa,PAGESIZE,req->value,ASYNC,lsm_req);

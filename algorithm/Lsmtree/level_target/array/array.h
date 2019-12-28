@@ -8,6 +8,9 @@
 #include "../../level.h"
 #include "../../lsmtree.h"
 #include "../../bloomfilter.h"
+#ifdef FASTFINDRUN
+typedef struct array_hash_list hash_list;
+#endif
 #define for_each_header_start(idx,key,ppa_ptr,bitmap,body)\
 	for(idx=1; bitmap[idx]!=UINT16_MAX && idx<=bitmap[0]; idx++){\
 		ppa_ptr=(ppa_t*)&body[bitmap[idx]];\
@@ -55,6 +58,10 @@ typedef struct array_body{
 	run_t *arrs;
 #ifdef SIMDSEARCHER
 	char *key_body;
+#endif 
+
+#ifdef FASTFINDRUN
+	struct btree bt;
 #endif
 }array_body;
 
@@ -90,6 +97,8 @@ void array_find_keyset_last(char *data,KEYT *des);
 run_t *array_get_run_idx(level *, int idx);
 run_t *array_make_run(KEYT start, KEYT end, uint32_t pbn);
 run_t *array_find_run( level*,KEYT);
+run_t *array_fast_find_run( level*,KEYT);
+
 run_t **array_find_run_num( level*,KEYT, uint32_t);
 
 uint32_t array_range_find( level *,KEYT, KEYT,  run_t ***);
@@ -104,7 +113,7 @@ uint32_t a_max_table_entry();
 uint32_t a_max_flush_entry(uint32_t);
 
 void array_free_run( run_t*);
-void array_run_cpy_to(run_t *, run_t *);
+void array_run_cpy_to(run_t *, run_t *,int idx);
 run_t* array_run_cpy( run_t *);
 #ifdef BLOOM
 htable *array_mem_cvt2table(skiplist*,run_t*,BF *filter);

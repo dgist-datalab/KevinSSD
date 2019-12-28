@@ -41,7 +41,7 @@ uint32_t level_change(level *from ,level *to,level *target, pthread_mutex_t *loc
 	for(int i=0; i<LSM.LEVELCACHING; i++){
 		level_cache_size+=LSM.disk[i]->n_num;
 	}
-	cache_size_update(LSM.lsm_cache,LSM.lsm_cache->max_size-level_cache_size);
+	//cache_size_update(LSM.lsm_cache,LSM.lsm_cache->max_size-level_cache_size);
 	return 1;
 }
 
@@ -157,7 +157,7 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 			}
 		}
 		
-		if(GETCOMPOPT(LSM.setup_values)==MIXEDCOMP && to->idx!=LSM.LEVELN-1){
+		if((GETCOMPOPT(LSM.setup_values)==MIXEDCOMP && to->idx!=LSM.LEVELN-1) && to->idx!=LSM.LEVELN-1){
 			partial_leveling(target,target_origin,l_node,from);
 		}
 		else
@@ -214,8 +214,8 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 		des_num=LSM.lop->range_find_compaction(origin,start,end,&target_s);//for stream compaction
 		if(upper->idx<LSM.LEVELCACHING){
 			//for caching more data
-			int cache_added_size=LSM.lop->get_number_runs(upper);
-			cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
+			//int cache_added_size=LSM.lop->get_number_runs(upper);
+			//cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
 			src_num=LSM.lop->cache_comp_formatting(upper,&data,upper->idx<LSM.LEVELCACHING);
 		}
 		else{

@@ -3,6 +3,7 @@ SRCS +=\
 	   pipe.c\
 	   pipe_merger.c\
 	   array_level.c\
+	   hash_list.c\
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\

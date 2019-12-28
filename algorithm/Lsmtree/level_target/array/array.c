@@ -52,6 +52,9 @@ level_ops a_ops={
 	.get_run_idx=array_get_run_idx,
 	.make_run=array_make_run,
 	.find_run=array_find_run,
+#ifdef FASTFINDRUN
+	.fast_find_run=array_fast_find_run,
+#endif
 	.find_run_num=array_find_run_num,
 	.release_run=array_free_run,
 	.run_cpy=array_run_cpy,
@@ -99,10 +102,16 @@ void array_range_update(level *lev,run_t* r, KEYT key){
 #endif
 };
 
+int cmp_function(void *key1, void *key2){
+	return KEYCMP(*(KEYT*)key1, *(KEYT*)key2);
+}
+
 level* array_init(int size, int idx, float fpr, bool istier){
 	level *res=(level*)calloc(sizeof(level),1);
 	array_body *b=(array_body*)calloc(sizeof(array_body),1);
-
+#ifdef FASTFINDRUN
+	btree_init(&b->bt,cmp_function,size);
+#endif
 	//b->skip=NULL;
 	
 	b->arrs=(run_t*)calloc(sizeof(run_t),size);
@@ -133,6 +142,10 @@ level* array_init(int size, int idx, float fpr, bool istier){
 
 void array_free(level* lev){
 	array_body *b=(array_body*)lev->level_data;
+
+#ifdef FASTFINDRUN
+	btree_free(&b->bt);
+#endif
 	array_body_free(b->arrs,lev->n_num);
 /*
 	if(lev->h){
@@ -148,11 +161,13 @@ void array_free(level* lev){
 	if(lev->filter)
 		bf_free(lev->filter);
 #endif
+
+
 	free(b);
 	free(lev);
 }
 
-void array_run_cpy_to(run_t *input, run_t *res){
+void array_run_cpy_to(run_t *input, run_t *res,int idx){
 	//memset(res,0,sizeof(run_t));
 	kvssd_cpy_key(&res->key,&input->key);
 	kvssd_cpy_key(&res->end,&input->end);
@@ -161,15 +176,16 @@ void array_run_cpy_to(run_t *input, run_t *res){
 	
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(input->c_entry){
-		/*
-		if(ISNOCPY(LSM.setup_values)){
-			res->cache_nocpy_data_ptr=input->cache_nocpy_data_ptr;
-			input->cache_nocpy_data_ptr=NULL;
+		if(idx!=LSM.LEVELN-1){
+			if(ISNOCPY(LSM.setup_values)){
+				res->cache_nocpy_data_ptr=input->cache_nocpy_data_ptr;
+				input->cache_nocpy_data_ptr=NULL;
+			}
+			else{
+				res->cache_data=input->cache_data;
+				input->cache_data=NULL;
+			}
 		}
-		else{
-			res->cache_data=input->cache_data;
-			input->cache_data=NULL;
-		}*/
 		res->c_entry=input->c_entry;
 		res->c_entry->entry=res;
 		input->c_entry=NULL;
@@ -209,20 +225,25 @@ run_t* array_insert(level *lev, run_t* r){
 	}*/
 	run_t *arrs=b->arrs;
 	run_t *target=&arrs[lev->n_num];
-	array_run_cpy_to(r,target);
+	array_run_cpy_to(r,target,lev->idx);
+
+#ifdef FASTFINDRUN
+	btree_insert(&b->bt,(void*)&target->key,(void*)target);
+#endif
 
 	if(lev->idx>=LSM.LEVELCACHING && GETCOMPOPT(LSM.setup_values)!=HW && !target->c_entry && r->cpt_data && cache_insertable(LSM.lsm_cache)){
 		if(lev->idx>=LSM.LEVELCACHING && ISHWREAD(LSM.setup_values)){
 
 		}
 		else{
-			/*
-			if(ISNOCPY(LSM.setup_values))
-				target->cache_nocpy_data_ptr=nocpy_pick(r->pbn);
-			else{
-				target->cache_data=htable_copy(r->cpt_data);
-				r->cpt_data->sets=NULL;
-			}*/
+			if(lev->idx!=LSM.LEVELN-1){
+				if(ISNOCPY(LSM.setup_values))
+					target->cache_nocpy_data_ptr=nocpy_pick(r->pbn);
+				else{
+					target->cache_data=htable_copy(r->cpt_data);
+					r->cpt_data->sets=NULL;
+				}
+			}
 			target->c_entry=cache_insert(LSM.lsm_cache,target,0);
 		}
 	}
@@ -283,6 +304,13 @@ run_t *array_find_run( level* lev,KEYT lpa){
 	}
 	return NULL;
 }
+
+#ifdef FASTFINDRUN
+run_t *array_fast_find_run( level* lev,KEYT lpa){
+	array_body *b=(array_body*)lev->level_data;
+	return (run_t*)btree_get(&b->bt, (void*)&lpa);
+}
+#endif
 
 run_t **array_find_run_num( level* lev,KEYT lpa, uint32_t num){
 	array_body *b=(array_body*)lev->level_data;
@@ -387,9 +415,9 @@ void array_free_run(run_t *e){
 	//static int cnt=0;
 	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 	if(e->c_entry){
-		/*
+	
 		if(ISNOCPY(LSM.setup_values)) e->cache_nocpy_data_ptr=NULL;
-		else htable_free(e->cache_data);*/
+		else htable_free(e->cache_data);
 		cache_delete_entry_only(LSM.lsm_cache,e);
 	}
 	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
@@ -755,6 +783,6 @@ void array_lev_copy(level *des, level *src){
 	array_body *sb=(array_body*)src->level_data;
 
 	for(int i=0; i<src->n_num; i++){
-		array_run_cpy_to(&sb->arrs[i],&db->arrs[i]);
+		array_run_cpy_to(&sb->arrs[i],&db->arrs[i],src->idx);
 	}
 }

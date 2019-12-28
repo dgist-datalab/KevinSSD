@@ -62,10 +62,9 @@ typedef struct run{
 
 	//for caching
 	cache_entry *c_entry;
-	/*
 	char *cache_nocpy_data_ptr;
 	htable *cache_data;
-	*/
+	
 
 	htable *cpt_data;
 	void *run_data;
@@ -156,6 +155,9 @@ typedef struct level_ops{
 	run_t*(*get_run_idx)(level *, int idx);
 	run_t*(*make_run)(KEYT start, KEYT end, uint32_t pbn);
 	run_t*(*find_run)( level*,KEYT lpa);
+#ifdef FASTFINDRUN
+	run_t*(*fast_find_run)( level*,KEYT lpa);
+#endif
 	run_t**(*find_run_num)( level*,KEYT lpa, uint32_t num);
 	void (*release_run)( run_t *);
 	run_t* (*run_cpy)( run_t *);

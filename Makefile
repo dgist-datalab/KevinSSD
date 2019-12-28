@@ -12,7 +12,7 @@ DEBUGFLAGS=\
 			-rdynamic\
 			-Wno-pointer-arith\
 			-g\
--fsanitize=address\
+#-fsanitize=address\
 #	-DBUSE_DEBUG
 
 export COMMONFLAGS=\
@@ -100,6 +100,7 @@ SRCS +=\
 	./include/utils/sha256.c\
 	./blockmanager/base_block_manager.c\
 	./blockmanager/bb_checker.c\
+#	./include/3rd/btree/btree.c\
 #	./interface/buse.c\
 
 TARGETOBJ =\

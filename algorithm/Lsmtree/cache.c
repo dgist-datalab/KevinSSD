@@ -49,7 +49,7 @@ cache_entry * cache_insert(cache *c, run_t *ent, int dmatag){
 
 	c_ent->locked=false;
 	c_ent->entry=ent;
-//	if(!ISNOCPY(LSM.setup_values))ent->cache_data->iscached=2;
+	if(!ISNOCPY(LSM.setup_values))ent->cache_data->iscached=2;
 	if(c->bottom==NULL){
 		c->bottom=c_ent;
 		c->top=c_ent;

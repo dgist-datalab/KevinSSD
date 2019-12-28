@@ -444,7 +444,7 @@ void bench_cdf_print(uint64_t nor, uint8_t type, bench_data *_d){//number of req
 	} */
 	static int cnt=0;
 	cumulate_number=0;
-	if((type>RANDSET || type%2==0) || type==NOR || type==FILLRAND){
+	if((type>RANDSET || type%2==0)|| type==RANDGET || type==NOR || type==FILLRAND){
 		printf("\n(%d)[cdf]read---\n",cnt++);
 		for(int i=0; i<1000000/TIMESLOT+1; i++){
 			cumulate_number+=_d->read_cdf[i];

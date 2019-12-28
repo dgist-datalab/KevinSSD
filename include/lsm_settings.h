@@ -28,6 +28,9 @@
 #define RANGEGETNUM 2
 //#define USINGSLAB
 
+//#define FASTFINDRUN
+#define FASTFINDLOADFACTOR 0.5
+
 #define NOEXTENDPPA(ppa) (ppa/NPCINPAGE)
 /*lsmtree flash thread*/
 #define KEYSETSIZE 8
