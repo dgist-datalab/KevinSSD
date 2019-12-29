@@ -18,6 +18,7 @@ extern int LOCALITY;
 extern float TARGETRATIO;
 extern int KEYLENGTH;
 extern int VALUESIZE;
+extern uint32_t INPUTREQNUM;
 extern master *_master;
 extern bool force_write_start;
 extern int seq_padding_opt;
@@ -39,8 +40,8 @@ int main(int argc,char* argv[]){
 
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
 	
-	bench_add(SEQSET,0,SHOWINGFULL,SHOWINGFULL);
-	bench_add(RANDGET,0,SHOWINGFULL,SHOWINGFULL);
+	bench_add(FILLRAND,0,INPUTREQNUM?INPUTREQNUM:SHOWINGFULL,INPUTREQNUM?INPUTREQNUM:SHOWINGFULL);
+	bench_add(RANDGET,0,INPUTREQNUM?INPUTREQNUM:SHOWINGFULL,INPUTREQNUM?INPUTREQNUM:SHOWINGFULL);
 //	bench_add(RANDGET,0,SHOWINGFULL,DEVFULL);
 	//bench_add(RANDGET,0,SHOWINGFULL,DEVFULL);
 	//bench_add(RANDSET,0,RANGE,MAXKEYNUMBER/16); //duplicated test

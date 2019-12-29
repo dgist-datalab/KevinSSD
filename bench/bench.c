@@ -1080,6 +1080,7 @@ void bench_custom_print(MeasureTime *mt,int idx){
 #endif
 }
 char target_file[255];
+uint32_t INPUTREQNUM;
 int bench_set_params(int argc, char **argv, char **temp_argv){
 	int bit_cnt=0;
 	int piece=PIECE;
@@ -1095,6 +1096,7 @@ int bench_set_params(int argc, char **argv, char **temp_argv){
 		{"key-length",1,0,0},
 		{"value-size",1,0,0},
 		{"file",1,0,0},
+		{"request-num",1,0,0},
 		{0,0,0,0}
 	};
 	
@@ -1104,6 +1106,7 @@ int bench_set_params(int argc, char **argv, char **temp_argv){
 		if(strncmp(argv[i],"--key-length",strlen("--key-length"))==0) continue;
 		if(strncmp(argv[i],"--value-size",strlen("--value-size"))==0) continue;
 		if(strncmp(argv[i],"--file",strlen("--file"))==0) continue;
+		if(strncmp(argv[i],"--request-num",strlen("--request-num"))==0) continue;
 		temp_argv[temp_cnt++]=argv[i];
 	}
 	int index;
@@ -1145,6 +1148,11 @@ int bench_set_params(int argc, char **argv, char **temp_argv){
 					case 3:
 						if(optarg!=NULL){
 							strcpy(target_file,optarg);
+						}
+						break;
+					case 4:
+						if(optarg!=NULL){
+							INPUTREQNUM=atoi(optarg);
 						}
 						break;
 				}
