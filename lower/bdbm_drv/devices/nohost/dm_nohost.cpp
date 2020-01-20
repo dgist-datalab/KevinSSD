@@ -64,7 +64,7 @@ pthread_mutex_t bus_lock=PTHREAD_MUTEX_INITIALIZER;
 extern pthread_mutex_t endR;
 struct timespec reqtime;
 
-#define PPA_LIST_SIZE (200*1024)
+#define PPA_LIST_SIZE (220*1024)
 #define MBYTE (1024*1024)
 
 #define FPAGE_SIZE (8192)
@@ -890,7 +890,7 @@ unsigned int *get_findKey_dma(){
 #endif
 
 uint32_t get_dev_tags(){
-	static const uint32_t tag=64;
+	static const uint32_t tag=128;
 	printf("my_tag:%d\n",tag);
 	return tag;
 }

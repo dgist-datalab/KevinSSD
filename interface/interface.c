@@ -57,6 +57,7 @@ static bool qmanager_write_checking(processor * t,request *req){
 #endif
 	}
 	else{
+		
 #ifdef KVSSD
 		rb_insert_str(t->qmanager,req->key,(void*)req);
 #else

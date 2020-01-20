@@ -27,7 +27,6 @@ float get_sizefactor(uint32_t keynum_in_header);
 void calc_fpr(float fpr);
 void calc_fpr_remain_memory();
 uint32_t calc_cache_page();
-float diff_get_sizefactor(uint32_t keynum_in_header);
 uint64_t get_memory_per_run(lsmtree lsm,float size_factor);
 
 void lsm_setup_params(){
@@ -40,7 +39,7 @@ void lsm_setup_params(){
 	LSP.HEADERNUM=(SHOWINGSIZE/LSP.ONESEGMENT)+(SHOWINGSIZE%LSP.ONESEGMENT?1:0);
 	uint32_t TOTALHEADER=(TOTALSIZE/LSP.ONESEGMENT)+(TOTALSIZE%LSP.ONESEGMENT?1:0);
 	printf("level list size: %u\n",(TOTALHEADER*(DEFKEYLENGTH+4))/1024/1024);
-	//LSP.total_memory-=(TOTALHEADER*(DEFKEYLENGTH+4));
+	LSP.total_memory-=(TOTALHEADER*(DEFKEYLENGTH+4));
 	
 	LSP.bf_fprs=(float*)calloc(sizeof(float),LSM.LEVELN);
 	
@@ -272,6 +271,10 @@ void calc_fpr_remain_memory(){
 
 
 uint32_t calc_cache_page(){
+	if(LSP.remain_memory<0){
+		LSP.cache_memory=0;
+		return 0;
+	}
 	LSP.cache_memory=LSP.remain_memory/PAGESIZE*PAGESIZE;
 	LSP.remain_memory-=LSP.cache_memory;
 	return LSP.cache_memory;

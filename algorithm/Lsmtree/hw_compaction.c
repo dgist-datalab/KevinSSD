@@ -50,6 +50,14 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	if(upper){
 		if(upper->idx>=LSM.LEVELCACHING){
 			make_pbn_array(hp_array,upper,0);
+			/*
+			if(ISNOCPY(LSM.setup_values)){
+				for(int i=0; i<hp_num; i++){
+					char *s=nocpy_pick(hp_array[i]);
+					htable *temp_table=htable_assign(s,1);
+					compaction_htable_write(hp_array[i],);
+				}
+			}*/
 		}
 		else{
 			run_t **datas;

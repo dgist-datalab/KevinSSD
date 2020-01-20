@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=posix_memory
+TARGET_LOWER=bdbm_drv
 TARGET_ALGO=Lsmtree
 TARGET_BM=partition
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
@@ -25,7 +25,8 @@ export COMMONFLAGS=\
 			-D$(TARGET_BM)\
 			-Wno-unused-but-set-variable\
 			-DKVSSD\
-#	-O3\
+			-march=armv8-a+crypto\
+	-O3\
 #			-DCHECKINGTIME\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
@@ -92,6 +93,7 @@ SRCS +=\
 	./include/data_struct/redblack.c\
 	./include/data_struct/heap.c\
 	./include/data_struct/lru_list.c\
+	./include/sha256-arm.c\
 	./bench/measurement.c\
 	./bench/bench.c\
 	./bench/bench_demand.c\
@@ -100,7 +102,6 @@ SRCS +=\
 	./include/utils/sha256.c\
 	./blockmanager/base_block_manager.c\
 	./blockmanager/bb_checker.c\
-#	./include/3rd/btree/btree.c\
 #	./interface/buse.c\
 
 TARGETOBJ =\
@@ -120,7 +121,7 @@ endif
 LIBS +=\
 		-lpthread\
 		-lm\
-	-laio\
+#-laio\
 	#	-ljemalloc\
 
 all: driver

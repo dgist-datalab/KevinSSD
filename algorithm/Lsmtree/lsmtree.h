@@ -85,6 +85,11 @@ typedef struct multi_req_params{
 }mreq_params;
 #endif
 
+typedef struct req_params{
+	int datas[4];
+	run_t *entry;
+}rparams;
+
 typedef struct lsm_params{
 	//dl_sync lock;
 	uint8_t lsm_type;
@@ -133,7 +138,7 @@ typedef struct lsmtree_setting_parmaters{
 	uint64_t bf_memory;
 	uint64_t cache_memory;
 	uint64_t pin_memory;
-	uint64_t remain_memory;
+	int64_t remain_memory;
 }lsp;
 
 typedef struct lsmtree_levelsize_params{
@@ -160,6 +165,10 @@ typedef struct lsmtree_monitor_info{
 	uint32_t zero_compaction_cnt;
 	uint32_t __header_read_cnt;
 	uint32_t channel_overlap_cnt;
+#ifdef PREFIXCHECK
+	uint32_t pr_check_cnt;
+#endif
+	uint32_t check_cnt;
 }lmi;
 
 /*
@@ -225,7 +234,7 @@ uint32_t lsm_proc_re_q();
 uint32_t lsm_remove(request *const);
 
 uint32_t __lsm_get(request *const);
-uint8_t lsm_find_run(KEYT key, run_t **,struct keyset **, int *level, int *run);
+uint8_t lsm_find_run(KEYT key, run_t **,run_t *,struct keyset **, int *level, int *run);
 uint32_t __lsm_range_get(request *const);
 
 void* lsm_end_req(struct algo_req*const);
@@ -250,4 +259,5 @@ uint32_t lsm_test_read(ppa_t ppa, char *data);
 level *lsm_level_resizing(level *target, level *src);
 KEYT* lsm_simul_get(ppa_t ppa); //copy the value
 void lsm_simul_del(ppa_t ppa);
+float diff_get_sizefactor(uint32_t keynum_in_header);
 #endif

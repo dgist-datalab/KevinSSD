@@ -60,6 +60,7 @@ bench_value *get_bench_ondemand(){
 bench_value *bench_make_ondemand(){
 	int idx=_master->n_num;
 	bench_meta *_meta=&_master->meta[idx];
+	bench_data *_d=&_master->datas[idx];
 	monitor * _m=&_master->m[idx];
 	if(!_m->m_num){
 		_m->n_num=0;
@@ -86,16 +87,19 @@ bench_value *bench_make_ondemand(){
 				res->type=FS_SET_T;
 				res->length=GET_VALUE_SIZE;
 				t_k=start+(_m->n_num%(end-start));
+				_d->write_cnt++;
 				break;
 		case RANDSET:
 				res->type=FS_SET_T;
 				res->length=GET_VALUE_SIZE;
 				t_k=start+rand()%(end-start);
+				_d->write_cnt++;
 				break;
 		case RANDGET:
 				res->type=FS_GET_T;
 				res->length=PAGESIZE;
 				t_k=start+rand()%(end-start);
+				_d->read_cnt++;
 				break;
 
 		default:

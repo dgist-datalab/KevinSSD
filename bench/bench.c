@@ -594,10 +594,6 @@ int my_itoa(uint32_t key, char **_target){
 	char *target=*_target;
 	t_key=key;
 
-	target[0]='u';
-	target[1]='s';
-	target[2]='e';
-	target[3]='r';
 	/*
 	for(int i=cnt-1+4; i>=4; i--){
 		target[i]=t_key%10+'0';
@@ -608,14 +604,14 @@ int my_itoa(uint32_t key, char **_target){
 	}*/
 	
 
-	
-	for(int i=4; i<result-cnt; i++){
-		target[i]='0';
-	}
-	for(int i=result-1; i>=result-cnt; i--){
+	for(int i=cnt-1; i>=0; i--){
 		target[i]=t_key%10+'0';
 		t_key/=10;
 	}
+	for(int i=cnt; i<result; i++){
+		target[i]='0';
+	}
+
 	//printf("origin:%d\n",key);
 	//printf("%d %s(%d)\n",result,target,strlen(target));
 	return result;

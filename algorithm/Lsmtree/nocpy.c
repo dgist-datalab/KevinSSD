@@ -7,6 +7,7 @@ extern lsmtree LSM;
 keyset **page;
 extern bb_checker checker;
 queue *delayed_trim_queue;
+#define CHANGEPPA(ppa) (ppa-DATAPART_SEGS*16384)
 void nocpy_init(){
 	page=(keyset**)malloc(sizeof(keyset*)*((MAPPART_SEGS)*_PPS));
 	for(int i=0; i<(MAPPART_SEGS)*_PPS; i++){
@@ -17,12 +18,14 @@ void nocpy_init(){
 	q_init(&delayed_trim_queue,((MAPPART_SEGS)*_PPS+1));
 }
 
-void nocpy_free_page(uint32_t ppa){
+void nocpy_free_page(uint32_t _ppa){
+	uint32_t ppa=CHANGEPPA(_ppa);
 	free(page[ppa]);
 	page[ppa]=NULL;
 }
 
-void nocpy_free_block(uint32_t ppa){
+void nocpy_free_block(uint32_t _ppa){
+	uint32_t ppa=CHANGEPPA(_ppa);
 	printf("trim:%d\n",ppa);
 	for(uint32_t i=ppa; i<ppa+_PPS; i++){
 		if(!page[i]) continue;
@@ -31,7 +34,8 @@ void nocpy_free_block(uint32_t ppa){
 	}
 }
 
-void nocpy_copy_to(char *des, uint32_t ppa){
+void nocpy_copy_to(char *des, uint32_t _ppa){
+	uint32_t ppa=CHANGEPPA(_ppa);
 	if(page[ppa]==NULL) page[ppa]=(keyset*)malloc(PAGESIZE);
 	memcpy(page[ppa],des,PAGESIZE);
 }
@@ -46,7 +50,8 @@ void nocpy_free(){
 	nocpy_trim_delay_flush();
 }
 
-void nocpy_copy_from_change(char *des, uint32_t ppa){
+void nocpy_copy_from_change(char *des, uint32_t _ppa){
+	uint32_t ppa=CHANGEPPA(_ppa);
 	if(page[ppa]){
 		printf("existence error %d\n",ppa);
 		abort();
@@ -62,7 +67,8 @@ void nocpy_copy_from_change(char *des, uint32_t ppa){
 	page[ppa]=(keyset*)des;
 }
 
-char *nocpy_pick(uint32_t ppa){
+char *nocpy_pick(uint32_t _ppa){
+	uint32_t ppa=CHANGEPPA(_ppa);
 #if (LEVELN!=1) && !defined(KVSSD)
 	if(page[ppa]->lpa<=0 || page[ppa]->lpa>1024) abort();
 #endif
@@ -80,7 +86,8 @@ uint32_t nocpy_size(){
 	return res;
 }
 
-void nocpy_trim_delay_enq(uint32_t ppa){
+void nocpy_trim_delay_enq(uint32_t _ppa){
+	uint32_t ppa=CHANGEPPA(_ppa);
 	//static int cnt=1;
 	//for(uint32_t i=ppa; i<ppa+_PPB; i++){
 		if(!q_enqueue((void*)page[ppa],delayed_trim_queue)){

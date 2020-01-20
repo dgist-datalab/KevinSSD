@@ -65,7 +65,6 @@ typedef struct run{
 	char *cache_nocpy_data_ptr;
 	htable *cache_data;
 	
-
 	htable *cpt_data;
 	void *run_data;
 	char *level_caching_data;
@@ -149,6 +148,15 @@ typedef struct level_ops{
 //	run_t **(*normal_cutter)(skiplist *,KEYT, bool just_one);
 #ifdef BLOOM
 	BF *(*making_filter)(run_t *, int num, float);
+#endif
+
+#ifdef CACHEREORDER
+	void (*reorder_level)(level *);
+#endif
+
+#ifdef PARTITION
+	void (*make_partition)(level *);
+	run_t *(*find_run_se)(level *lev, KEYT lpa, run_t *upper_run);
 #endif
 
 	/*run operation*/

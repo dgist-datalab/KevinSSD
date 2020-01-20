@@ -1,5 +1,6 @@
 #include"bloomfilter.h"
 #include"../../bench/bench.h"
+#include "../../include/sha256-arm.h"
 #include<math.h>
 #include<stdio.h>
 #include<string.h>
@@ -105,6 +106,16 @@ void MurmurHash3_x86_32( const void * key, int len,uint32_t seed, void * out )
 
 	*(uint32_t*)out = h1;
 } 
+
+//djb2
+static inline uint32_t simple_hash(char *key, uint8_t len){
+	uint32_t hash=5361;
+	for(int i=0; i<len ;i++){
+		hash = ((hash << 5) + hash) + key[i];
+	}
+	return hash;
+}
+
 static inline uint32_t hashfunction(uint32_t key){
 	key ^= key >> 15;
 	key *= UINT32_C(0x2c1b3c6d);
@@ -165,6 +176,7 @@ uint64_t bf_bits(int entry, float fpr){
 	return targetsize;
 }
 
+extern MeasureTime write_opt_time[10];
 void bf_set(BF *input, KEYT key){
 	if(input==NULL){
 		abort();
@@ -174,7 +186,9 @@ void bf_set(BF *input, KEYT key){
 	int offset;
 	//printf("%u:",key);
 #if defined(KVSSD)
-	 MurmurHash3_x86_32(key.key,key.len,2,&th);
+	//th=simple_hash(key.key,key.len);
+	MurmurHash3_x86_32(key.key,key.len,2,&th);
+	//th=sha256_calculate(key.key);
 #endif
 
 	for(uint32_t i=0; i<input->k; i++){
@@ -189,10 +203,8 @@ void bf_set(BF *input, KEYT key){
 
 		BITSET(&input->body[block],offset);
 	}
-	
 }
 
-extern MeasureTime write_opt_time[10];
 bool bf_check(BF* input, KEYT key){
 	uint32_t h, th;
 	int block,offset;
@@ -213,7 +225,6 @@ bool bf_check(BF* input, KEYT key){
 		offset=h%8;
 
 		if(!BITGET(input->body[block],offset)){
-
 			bench_custom_A(write_opt_time,6);
 			return false;
 		}
@@ -233,7 +244,7 @@ float bf_fpr_from_memory_monkey(int entry, uint32_t memory,uint32_t level, float
 	float ffpr;
 	uint32_t header_num,before;
 	uint32_t tt=pow(size_factor,4);
-	printf("##############%lu %u %u\n",bf_bits(entry,normal_fpr)*tt,memory,tt);
+	printf("##############%u %u %u\n",bf_bits(entry,normal_fpr)*tt,memory,tt);
 retry:
 	header_num=ceil(size_factor);
 	ffpr=normal_fpr;

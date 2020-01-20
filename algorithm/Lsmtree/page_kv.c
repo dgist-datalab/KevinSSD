@@ -379,7 +379,7 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 	keyset *found=NULL;
 
 //retry:
-	result=lsm_find_run(g->lpa,&now,&found,&params->level,&params->run);
+	result=lsm_find_run(g->lpa,&now,NULL,&found,&params->level,&params->run);
 	if(result==FOUND){
 		if(skiplist_find(LSM.memtable,g->lpa)){
 			g->invalidate=true;
@@ -446,7 +446,7 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 			}
 			break;
 		case NOTFOUND:
-			result=lsm_find_run(g->lpa,&now,&found,&params->level,&params->run);
+			result=lsm_find_run(g->lpa,&now,NULL,&found,&params->level,&params->run);
 			LSM.lop->print_level_summary();
 			printf("lpa: %.*s ppa:%u\n",KEYFORMAT(g->lpa),g->ppa);
 			abort();

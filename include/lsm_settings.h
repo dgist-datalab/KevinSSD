@@ -17,6 +17,9 @@
 
 //#define SIMDSEARCHER
 //#define MULTILEVELREAD
+//#define CACHEREORDER
+//#define PREFIXCHECK		4
+#define PARTITION
 
 //#define EMULATOR
 

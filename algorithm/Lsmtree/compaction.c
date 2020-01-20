@@ -23,24 +23,36 @@ static inline void lower_wait(){
 uint32_t level_change(level *from ,level *to,level *target, pthread_mutex_t *lock){
 	level **src_ptr=NULL, **des_ptr=NULL;
 	des_ptr=&LSM.disk[to->idx];
+	int from_idx=0;
 	if(from!=NULL){ 
-		int from_idx=from->idx;
+		from_idx=from->idx;
 		pthread_mutex_lock(&LSM.level_lock[from_idx]);
 		src_ptr=&LSM.disk[from->idx];
 		*(src_ptr)=LSM.lop->init(from->m_num,from->idx,from->fpr,from->istier);
 		pthread_mutex_unlock(&LSM.level_lock[from_idx]);
 		LSM.lop->release(from);
 	}
+	
+
+#ifdef PARTITION
+	LSM.lop->make_partition(target);
+#endif
+
 	pthread_mutex_lock(lock);
 	target->iscompactioning=to->iscompactioning;
 	(*des_ptr)=target;
 	pthread_mutex_unlock(lock);
 	LSM.lop->release(to);
+#ifdef CACHEREORDER
+	LSM.lop->reorder_level(target);
+#endif
 
+
+/*
 	uint32_t level_cache_size=0;
 	for(int i=0; i<LSM.LEVELCACHING; i++){
 		level_cache_size+=LSM.disk[i]->n_num;
-	}
+	}*/
 	//cache_size_update(LSM.lsm_cache,LSM.lsm_cache->max_size-level_cache_size);
 	return 1;
 }
@@ -118,9 +130,22 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 	uint32_t total_number=to->n_num+up_num+1;
 	LSM.result_padding=2;
 	page_check_available(HEADER,total_number+(GETCOMPOPT(LSM.setup_values)==HW?1:0)+LSM.result_padding);
+//	lower_wait();
+	if(LSM.LEVELN==1){
+		run_t *temp=LSM.lop->make_run(l_node->start,l_node->end,-1);
+		htable *write_target;
+//		entry=LSM.lop->make_run(l_node->start,l_node->end,)
+		write_target=LSM.lop->mem_cvt2table(l_node->mem,temp,NULL);
+		lev_iter* iter=LSM.lop->get_iter(to,to->start,to->end);
+		run_t *now;
+		while((now=LSM.lop->iter_nxt(iter))){
+			LSM.lop->insert(target,now);
+		}
+		compaction_htable_write_insert(target,temp,false);
+		goto last;
+	}
 
-	lower_wait();
-	bench_custom_start(write_opt_time,0);
+//	bench_custom_start(write_opt_time,0);
 	if(target->idx<LSM.LEVELCACHING){
 		if(to->n_num==0){
 			compaction_empty_level(&from,l_node,&target);
@@ -157,13 +182,14 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 			}
 		}
 		
-		if((GETCOMPOPT(LSM.setup_values)==MIXEDCOMP && to->idx!=LSM.LEVELN-1) && to->idx!=LSM.LEVELN-1){
+		if((GETCOMPOPT(LSM.setup_values)==HW && to->idx==0)){
 			partial_leveling(target,target_origin,l_node,from);
 		}
-		else
+		else{
 			compactor.pt_leveling(target,target_origin,l_node,from);
+		}
 	}
-	bench_custom_A(write_opt_time,0);
+	//bench_custom_A(write_opt_time,0);
 	
 last:
 	if(entry) free(entry);
@@ -176,7 +202,7 @@ last:
 		gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
 		LSM.delayed_header_trim=false;
 	}
-	if(target->idx==LSM.LEVELN-1){
+	if(target->idx==LSM.LEVELN-1 ){
 		printf("last level %d/%d (n:f)\n",target->n_num,target->m_num);
 	}
 	//LSM.li->lower_flying_req_wait();

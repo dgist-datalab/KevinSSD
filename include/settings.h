@@ -49,7 +49,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 16L
+#define GIGAUNIT 64L
 #define TOTALSIZE (GIGAUNIT*G)
 #define OP 70
 #define REALSIZE (512L*G)
@@ -79,7 +79,7 @@
 
 #define PARTNUM 2
 #define SHOWINGSEGS (SHOWINGSIZE/(_PPS*PAGESIZE))
-#define MAPPART_SEGS (10)
+#define MAPPART_SEGS (40)
 #define DATAPART_SEGS (_NOS-MAPPART_SEGS)
 enum{
 	MAP_S,DATA_S
@@ -157,9 +157,9 @@ static inline bool KEYVALCHECK(KEYT a){
 
 #define TCP 1
 //#define IP "10.42.0.2"
-#define IP "127.0.0.1"
+//#define IP "127.0.0.1"
 //#define IP "10.42.0.1"
-//#define IP "192.168.0.7"
+#define IP "192.168.0.7"
 #define PORT 7777
 #define NETWORKSET
 #define DATATRANS

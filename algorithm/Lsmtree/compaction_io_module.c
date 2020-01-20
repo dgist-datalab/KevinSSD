@@ -42,9 +42,13 @@ ppa_t compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 #endif
 	
 	entry->pbn=ppa;
+	/*
+	if(target->idx==LSM.LEVELN-2){
+		printf("break!\n");
+	}*/
 	if(ISNOCPY(LSM.setup_values)){
 		nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
-		if(ISHWREAD(LSM.setup_values)){
+		if(ISHWREAD(LSM.setup_values) && target->idx >= LSM.LEVELCACHING){
 			htable *temp=htable_assign((char*)entry->cpt_data->sets,1);
 			entry->cpt_data->sets=NULL;
 			htable_free(entry->cpt_data);

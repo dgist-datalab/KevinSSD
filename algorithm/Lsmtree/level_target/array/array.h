@@ -53,12 +53,45 @@ static inline char *data_from_run(run_t *a){
  6k
  7k---------------- 8k-1
  */
+typedef struct small_node{
+	KEYT start;
+	run_t *r;
+}s_node;
+
+#ifdef PREFIXCHECK
+typedef struct prifix_node{
+	char pr_key[PREFIXCHECK];
+}pr_node;
+#endif
+
+#ifdef CHUNKSEARCH
+typedef struct chunk_level{
+	char key[32];
+}ch_node;	
+#endif
+
+#ifdef PARTITION
+typedef struct partition_node{
+	uint32_t start;
+	uint32_t end;
+}pt_node;
+#endif
+
 typedef struct array_body{
 //	skiplist *skip;
 	run_t *arrs;
+#ifdef PREFIXCHECK
+	int max_depth;
+	pr_node *pr_arrs;
+#endif
+
 #ifdef SIMDSEARCHER
 	char *key_body;
-#endif 
+#endif
+
+#ifdef PARTITION
+	pt_node *p_nodes;
+#endif
 
 #ifdef FASTFINDRUN
 	struct btree bt;
@@ -115,6 +148,13 @@ uint32_t a_max_flush_entry(uint32_t);
 void array_free_run( run_t*);
 void array_run_cpy_to(run_t *, run_t *,int idx);
 run_t* array_run_cpy( run_t *);
+
+#ifdef CACHEREORDER
+void array_reorder_level (level *);
+run_t *array_reorder_find_run(level *, KEYT);
+
+#endif
+
 #ifdef BLOOM
 htable *array_mem_cvt2table(skiplist*,run_t*,BF *filter);
 #else
@@ -186,4 +226,10 @@ void array_print_run(run_t * r);
 run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data, uint32_t u_num, uint32_t l_num,level *t, void *(*lev_insert_write)(level *,run_t *data));
 void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*);
 run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end);
+
+#ifdef PARTITION
+void array_make_partition(level *lev);
+run_t *array_find_run_se(level *lev, KEYT lpa, run_t *up);
+#endif
+
 #endif

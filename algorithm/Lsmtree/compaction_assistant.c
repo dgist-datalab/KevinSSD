@@ -292,6 +292,7 @@ void compaction_cascading(bool *_is_gc_needed){
 	*_is_gc_needed=is_gc_needed;
 }
 
+extern uint32_t data_input_write;
 void *compaction_main(void *input){
 	void *_req;
 	compR*req;
@@ -358,6 +359,19 @@ void *compaction_main(void *input){
 		}
 #endif
 		free(req);
+
+		bool check=true;
+		for(int i=0; i<LSM.LEVELN; i++){
+			if(LSM.disk[i]->n_num==0){
+				check=false;
+				break;
+			}
+		}
+		if(check){
+			printf("write_cnt %d\n",data_input_write);
+			LSM.lop->print_level_summary();
+		}
+
 		q_dequeue(_this->q);
 	}
 	
@@ -456,14 +470,14 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 	bench_custom_A(write_opt_time,2);
 	//LSM.li->lower_flying_req_wait();
 }
-/*
+
 void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 	if(src->idx<LSM.LEVELCACHING){
 		run_t **datas;
 		if(des->idx<LSM.LEVELCACHING){
 			int cache_added_size=LSM.lop->get_number_runs(src);
 			cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
-		LSM.lop->cache_comp_formatting(src,&datas,true);
+			LSM.lop->cache_comp_formatting(src,&datas,true);
 		}
 		else{
 			LSM.lop->cache_comp_formatting(src,&datas,false);
@@ -494,33 +508,6 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 		LSM.lop->insert(des,r);
 	}
 }
-#ifdef MONKEY
-void compaction_seq_MONKEY(level *t,int num,level *des){
-	run_t **target_s;
-	LSM.lop->range_find(t,t->start,t->end,&target_s);
-
-	compaction_sub_pre();
-	for(int j=0; target_s[j]!=NULL; j++){
-		if(!htable_read_preproc(target_s[j])){
-			compaction_htable_read(target_s[j],(PTR*)&target_s[j]->cpt_data);
-		}
-		target_s[j]->iscompactioning=SEQCOMP;
-		epc_check++;
-	}
-
-	compaction_sub_wait();
-
-	for(int k=0; target_s[k]; k++){
-		BF *filter=LSM.lop->making_filter(target_s[k],-1,des->fpr);
-
-		htable_read_postproc(target_s[k]);
-		LSM.lop->insert(des,target_s[k]);
-	}
-	compaction_sub_post();
-	free(target_s);
-}
-#endif
-*/
 
 bool htable_read_preproc(run_t *r){
 	bool res=false;
