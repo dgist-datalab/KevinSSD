@@ -51,6 +51,7 @@ void compaction_sub_pre(){
 
 void compaction_selector(level *a, level *b,leveling_node *lnode, pthread_mutex_t* lock){
 	if(b->istier){
+
 	}
 	else{
 		leveling(a,b,lnode,lock);
