@@ -55,6 +55,8 @@ bool compaction_force_target(int from, int to);
 void compaction_sub_pre();
 void compaction_sub_wait();
 void compaction_sub_post();
+inline void issue_data_write(value_set **data);
+
 void compaction_data_write(leveling_node* lnode);
 void htable_read_postproc(run_t *r);
 void compaction_selector(level *a, level *b,leveling_node *lnode, pthread_mutex_t* lock);

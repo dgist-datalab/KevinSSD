@@ -32,6 +32,9 @@
 #define GCDW 8
 #define GCMR_DGC 9
 #define GCMW_DGC 10
+#define LOGW 11
+#define LOGR 12
+#define TABLEW 12
 
 #define FS_MALLOC_W 1
 #define FS_MALLOC_R 2

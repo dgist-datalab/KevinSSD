@@ -5,6 +5,7 @@
 #include "bloomfilter.h"
 #include "nocpy.h"
 #include "lsmtree_scheduling.h"
+#include "lsmtree_transaction.h"
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -294,6 +295,7 @@ void compaction_cascading(bool *_is_gc_needed){
 }
 
 extern uint32_t data_input_write;
+
 void *compaction_main(void *input){
 	void *_req;
 	compR*req;
@@ -312,15 +314,19 @@ void *compaction_main(void *input){
 	cpu_set_t cpuset;
 	CPU_ZERO(&cpuset);	
 	CPU_SET(1,&cpuset);
+	leveling_node *trans_node=NULL;
+	bool is_gc_needed=false;
 	while(1){
-#ifdef LEAKCHECK
-		sleep(2);
-#endif
 		pthread_mutex_lock(&compaction_req_lock);
-		if(_this->q->size==0){
+		if(_this->q->size==0 || trans_node==NULL){
 			pthread_cond_wait(&compaction_req_cond,&compaction_req_lock);
 		}
 		_req=q_pick(_this->q);
+		trans_node=transaction_get_comp_target();
+		if(!_req && !trans_node){
+			pthread_mutex_unlock(&compaction_req_lock);
+			continue;
+		}
 		pthread_mutex_unlock(&compaction_req_lock);
 
 		pthread_setaffinity_np(current_thread,sizeof(cpu_set_t),&cpuset);
@@ -328,6 +334,11 @@ void *compaction_main(void *input){
 		if(compactor.stopflag)
 			break;
 
+		if(trans_node){
+			compaction_selector(NULL, LSM.disk[0], trans_node, &LSM.level_lock[0]);
+			goto cascade;
+		}
+		if(!_req) continue;
 
 		req=(compR*)_req;
 		leveling_node lnode;
@@ -336,22 +347,23 @@ void *compaction_main(void *input){
 			lnode.mem=req->temptable;
 			compaction_data_write(&lnode);
 			compaction_selector(NULL,LSM.disk[0],&lnode,&LSM.level_lock[0]);
+			free(lnode.start.key);
+			free(lnode.end.key);
+			skiplist_free(req->temptable);
 		}
-		bool is_gc_needed=false;
 
+cascade:
 		if(LSM.LEVELN!=1){
 			compaction_cascading(&is_gc_needed);
 		}
 		if(ISGCOPT(LSM.setup_values) && is_gc_needed){
 			gc_data();
 		}
-		free(lnode.start.key);
-		free(lnode.end.key);
+
 		if(LSM.gc_compaction_flag){
 			compaction_gc_add(LSM.gc_list);
 			LSM.gc_compaction_flag=false;
 		}	
-		skiplist_free(req->temptable);
 #ifdef WRITEWAIT
 		if(req->last){
 			lsm_io_sched_flush();	
@@ -359,21 +371,11 @@ void *compaction_main(void *input){
 			pthread_mutex_unlock(&compaction_flush_wait);
 		}
 #endif
-		free(req);
 
-		bool check=true;
-		for(int i=0; i<LSM.LEVELN; i++){
-			if(LSM.disk[i]->n_num==0){
-				check=false;
-				break;
-			}
+		if(_req){
+			free(req);
+			q_dequeue(_this->q);
 		}
-		if(check){
-			printf("write_cnt %d\n",data_input_write);
-			LSM.lop->print_level_summary();
-		}
-
-		q_dequeue(_this->q);
 	}
 	
 	return NULL;

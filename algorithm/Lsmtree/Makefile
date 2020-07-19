@@ -41,6 +41,8 @@ SRCS +=\
 	   data_simul.c\
 	   lsmtree_params_settings.c\
 	   lsmtree_multilevel.c\
+	   lsmtree_transaction.c\
+	   transaction_table.c\
 
 #merge_compaction.c\
 	   run_array.c\

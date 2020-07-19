@@ -4,6 +4,7 @@
 #include "bloomfilter.h"
 #include "nocpy.h"
 #include "lsmtree_scheduling.h"
+#include "lsmtree_transaction.h"
 #include "../../bench/bench.h"
 #include <pthread.h>
 extern volatile int epc_check;
@@ -131,25 +132,14 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 	LSM.result_padding=2;
 	page_check_available(HEADER,total_number+(GETCOMPOPT(LSM.setup_values)==HW?1:0)+LSM.result_padding);
 //	lower_wait();
-	if(LSM.LEVELN==1){
-		run_t *temp=LSM.lop->make_run(l_node->start,l_node->end,-1);
-		htable *write_target;
-//		entry=LSM.lop->make_run(l_node->start,l_node->end,)
-		write_target=LSM.lop->mem_cvt2table(l_node->mem,temp,NULL);
-		lev_iter* iter=LSM.lop->get_iter(to,to->start,to->end);
-		run_t *now;
-		while((now=LSM.lop->iter_nxt(iter))){
-			LSM.lop->insert(target,now);
-		}
-		compaction_htable_write_insert(target,temp,false);
-		goto last;
-	}
 
 //	bench_custom_start(write_opt_time,0);
 	if(target->idx<LSM.LEVELCACHING){
-		if(to->n_num==0){
-			compaction_empty_level(&from,l_node,&target);
-			goto last;
+		if(!ISTRANSACTION(LSM.setup_values)){
+			if(to->n_num==0){
+				compaction_empty_level(&from,l_node,&target);
+				goto last;
+			}
 		}
 		partial_leveling(target,target_origin,l_node,from);	
 	}
@@ -217,10 +207,10 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 	skiplist *skip=lnode?lnode->mem:skiplist_init();
 	compaction_sub_pre();
 
-	if(!upper){
+	if(!upper && !ISTRANSACTION(LSM.setup_values)){
+		bench_custom_start(write_opt_time,1);
 		LSM.lop->range_find_compaction(origin,start,end,&target_s);
 
-		bench_custom_start(write_opt_time,1);
 		for(int j=0; target_s[j]!=NULL; j++){
 			if(!htable_read_preproc(target_s[j])){
 				compaction_htable_read(target_s[j],(PTR*)&target_s[j]->cpt_data);
@@ -238,18 +228,27 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 	else{
 		int src_num, des_num; //for stream compaction
 		des_num=LSM.lop->range_find_compaction(origin,start,end,&target_s);//for stream compaction
-		if(upper->idx<LSM.LEVELCACHING){
-			//for caching more data
-			//int cache_added_size=LSM.lop->get_number_runs(upper);
-			//cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
-			src_num=LSM.lop->cache_comp_formatting(upper,&data,upper->idx<LSM.LEVELCACHING);
+		if(uppder){
+			if(upper->idx<LSM.LEVELCACHING){
+				//for caching more data
+				//int cache_added_size=LSM.lop->get_number_runs(upper);
+				//cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
+				src_num=LSM.lop->cache_comp_formatting(upper,&data,upper->idx<LSM.LEVELCACHING);
+			}
+			else{
+				src_num=LSM.lop->range_find_compaction(upper,start,end,&data);	
+			}
+			if(src_num && des_num == 0 ){
+				printf("can't be\n");
+				abort();
+			}
 		}
 		else{
-			src_num=LSM.lop->range_find_compaction(upper,start,end,&data);	
-		}
-		if(src_num && des_num == 0 ){
-			printf("can't be\n");
-			abort();
+			//transaction!!
+			data=(run_t**)malloc(sizeof(run_t*)*2);
+			src_num=1;
+			data[0]=lnode->entry;
+			data[1]=NULL;
 		}
 
 		bench_custom_start(write_opt_time,1);
@@ -264,9 +263,10 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 			epc_check++;
 		}
 
-		if(upper->idx<LSM.LEVELCACHING){
+		if(upper && upper->idx<LSM.LEVELCACHING){
 			goto skip;
 		}
+
 		for(int i=0; data[i]!=NULL; i++){
 			run_t *temp=data[i];
 			if(!htable_read_preproc(temp)){
@@ -276,10 +276,15 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 		}
 skip:
 		compaction_subprocessing(NULL,data,target_s,t);
-
-		for(int i=0; data[i]!=NULL; i++){
-			run_t *temp=data[i];
-			htable_read_postproc(temp);
+	
+		if(upper){
+			for(int i=0; data[i]!=NULL; i++){
+				run_t *temp=data[i];
+				htable_read_postproc(temp);
+			}
+		}
+		else{
+			transaction_invalidate_PPA(LOG, data[0]->ppb);
 		}
 
 		for(int i=0; target_s[i]!=NULL; i++){	

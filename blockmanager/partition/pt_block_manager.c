@@ -137,7 +137,7 @@ uint32_t pbm_create(blockmanager *bm, int pnum, int *epn, lower_info *li){
 		end+=epn[i];
 		pinfo->from[i]=start;
 		pinfo->to[i]=end-1;
-		printf("%s assign block %d ~ %d( %d ~ %d )\n",i==0?"MAP":"DATA",start,end-1,p->base_block[pinfo->from[i]*64].block_num,p->base_block[(pinfo->to[i])*64].block_num+_PPS-1);
+		printf("%d assign block %d ~ %d( %d ~ %d )\n",i,start,end-1,p->base_block[pinfo->from[i]*64].block_num,p->base_block[(pinfo->to[i])*64].block_num+_PPS-1);
 		for(int j=0; j<PUNIT; j++){
 			channel *c=&pinfo->p_channel[i][j];
 			q_init(&c->free_block,end-start);

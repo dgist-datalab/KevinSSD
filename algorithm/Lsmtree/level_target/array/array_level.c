@@ -53,8 +53,8 @@ htable *array_mem_cvt2table(skiplist*mem,run_t* input)
 	/*static int cnt=0;
 	eprintf("cnt:%d\n",cnt++);*/
 	htable *res=ISNOCPY(LSM.setup_values)?htable_assign(NULL,0):htable_assign(NULL,1);
-
-	input->cpt_data=res;
+	if(input)
+		input->cpt_data=res;
 #ifdef KVSSD
 	snode *temp;
 	char *ptr=(char*)res->sets;
@@ -65,10 +65,10 @@ htable *array_mem_cvt2table(skiplist*mem,run_t* input)
 	bitmap[0]=mem->size;
 	for_each_sk(temp,mem){
 		//printf("idx:%d data_start:%d key_len:%d\n",idx,data_start,temp->key.len);
-		if(idx==1){
+		if(input && idx==1){
 			kvssd_cpy_key(&input->key,&temp->key);
 		}
-		else if(idx==mem->size){
+		else if(input && idx==mem->size){
 			kvssd_cpy_key(&input->end,&temp->key);
 		}
 		memcpy(&ptr[data_start],&temp->ppa,sizeof(temp->ppa));

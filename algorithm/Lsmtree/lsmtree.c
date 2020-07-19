@@ -340,14 +340,21 @@ void* lsm_end_req(algo_req* const req){
 }
 
 uint32_t data_input_write;
+
+
 uint32_t lsm_set(request * const req){
 	static bool force = 0 ;
+	if(req->length % 4096 || req->offset % 4096){
+		abort();
+	}
+	uint32_t base=req->offset / 4096;
+
 	data_input_write++;
 	compaction_check(req->key,force);
 	snode *new_temp;
 
 	if(req->type==FS_DELETE_T){
-		new_temp=skiplist_insert(LSM.memtable,req->key,req->value,false);
+		new_temp=skiplist_insert(LSM.memtable,req->key,NULL,false);
 	}
 	else{
 		new_temp=skiplist_insert(LSM.memtable,req->key,req->value,true);
@@ -1109,7 +1116,7 @@ uint32_t lsm_argument_set(int argc, char **argv){
 
 	LSM.setup_values=0;
 	uint32_t value=0;
-	while((c=getopt(argc,argv,"lcgomnrbhvt"))!=-1){
+	while((c=getopt(argc,argv,"lcgomnrbhvtx"))!=-1){
 		switch(c){
 			case 't':
 				lsm_type=true;
@@ -1159,6 +1166,10 @@ uint32_t lsm_argument_set(int argc, char **argv){
 			case 'h':
 				printf("[*]hw read!\n");
 				SETHWREAD(LSM.setup_values);
+				break;
+			case 'x':
+				printf("[*]transaction mode!\n");
+				SETTRANSACTION(LSM.setup_values);
 				break;
 		}
 	}

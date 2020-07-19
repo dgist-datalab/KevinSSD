@@ -1,4 +1,5 @@
 #include "interface.h"
+#include "vectored_interface.h"
 #include "../include/container.h"
 #include "../include/FS.h"
 #include "../bench/bench.h"
@@ -205,6 +206,61 @@ send_req:
 	return (request*)_inf_req;
 }
 
+uint32_t inf_algorithm_caller(request *const inf_req){
+	switch(inf_req->type){
+		case FS_GET_T:
+			if(first_get){
+				first_get=false;
+			}
+			//	printf("%d now %d max\n",inf_cond->cnt,inf_cond->now);
+			mp.algo->read(inf_req);
+			break;
+		case FS_SET_T:
+			write_stop=mp.algo->write(inf_req);
+			break;
+		case FS_DELETE_T:
+			mp.algo->remove(inf_req);
+			break;
+		case FS_RMW_T:
+			mp.algo->read(inf_req);
+			break;
+		case FS_BUSE_R:
+			mp.algo->read(inf_req);
+			break;
+		case FS_BUSE_W:
+			mp.algo->write(inf_req);
+			break;
+#ifdef KVSSD
+		case FS_ITER_CRT_T:
+			mp.algo->iter_create(inf_req);
+			break;
+		case FS_ITER_NXT_T:
+			mp.algo->iter_next(inf_req);
+			break;
+		case FS_ITER_NXT_VALUE_T:
+			mp.algo->iter_next_with_value(inf_req);
+			break;
+		case FS_ITER_ALL_T:
+			mp.algo->iter_all_key(inf_req);
+			break;
+		case FS_ITER_ALL_VALUE_T:
+			mp.algo->iter_all_value(inf_req);
+			break;
+		case FS_RANGEGET_T:
+			mp.algo->range_query(inf_req);
+			break;
+		case FS_ITER_RLS_T:
+			mp.algo->iter_release(inf_req);
+			break;
+#endif
+		default:
+			printf("wtf??, type %d\n", inf_req->type);
+			inf_req->end_req(inf_req);
+			break;
+	}
+
+}
+
 void *p_main(void *__input){
 	request *inf_req;
 	processor *_this=NULL;
@@ -225,69 +281,12 @@ void *p_main(void *__input){
 			cl_release(inf_cond);
 			continue;
 		}
-
+		inf_algorithm_caller(inf_req);
 		inter_cnt++;
 #ifdef CDF
 		inf_req->isstart=true;
 #endif
 		static bool first_get=true;
-		switch(inf_req->type){
-			case FS_GET_T:
-				if(first_get){
-					first_get=false;
-				}
-			//	printf("%d now %d max\n",inf_cond->cnt,inf_cond->now);
-				mp.algo->read(inf_req);
-				break;
-			case FS_SET_T:
-				write_stop=mp.algo->write(inf_req);
-				break;
-			case FS_DELETE_T:
-				mp.algo->remove(inf_req);
-				break;
-			case FS_RMW_T:
-				mp.algo->read(inf_req);
-				break;
-            case FS_BUSE_R:
-                mp.algo->read(inf_req);
-                break;
-            case FS_BUSE_W:
-                mp.algo->write(inf_req);
-                break;
-#ifdef KVSSD
-			case FS_MSET_T:
-				mp.algo->multi_set(inf_req,inf_req->num);
-				break;
-			case FS_MGET_T:
-				mp.algo->multi_get(inf_req,inf_req->num);
-				break;
-			case FS_ITER_CRT_T:
-				mp.algo->iter_create(inf_req);
-				break;
-			case FS_ITER_NXT_T:
-				mp.algo->iter_next(inf_req);
-				break;
-			case FS_ITER_NXT_VALUE_T:
-				mp.algo->iter_next_with_value(inf_req);
-				break;
-			case FS_ITER_ALL_T:
-				mp.algo->iter_all_key(inf_req);
-				break;
-			case FS_ITER_ALL_VALUE_T:
-				mp.algo->iter_all_value(inf_req);
-				break;
-			case FS_RANGEGET_T:
-				mp.algo->range_query(inf_req);
-				break;
-			case FS_ITER_RLS_T:
-				mp.algo->iter_release(inf_req);
-				break;
-#endif
-			default:
-				printf("wtf??, type %d\n", inf_req->type);
-				inf_req->end_req(inf_req);
-				break;
-		}
 	}
 	return NULL;
 }
@@ -360,16 +359,14 @@ void inf_init(int apps_flag, int total_num,int argc, char **argv){
 		pthread_mutex_lock(&t->flag);
 		t->master=&mp;
 
-#ifdef interface_pq
+
 		q_init(&t->req_q,QSIZE);
-		q_init(&t->req_rq,QSIZE);
-		q_init(&t->retry_q,QSIZE);
-		pthread_mutex_init(&t->qm_lock,NULL);
-		t->qmanager=rb_create();
+
+#ifdef interface_vector
+		pthread_create(&t->t_id,NULL,&vectored_main, NULL);
 #else
-		q_init(&t->req_q,QSIZE);
-#endif
 		pthread_create(&t->t_id,NULL,&p_main,NULL);
+#endif
 	}
 
 

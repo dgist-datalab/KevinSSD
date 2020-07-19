@@ -34,19 +34,33 @@ typedef struct value_set{
 	uint32_t offset;
 }value_set;
 
+struct vectored_request{
+	uint32_t size;
+	uint32_t done_cnt;
+	char* buf;
+	request *req_array;
+	void* (*end_req)(void*);
+}vec_request;
+
 struct request {
 	FSTYPE type;
 	KEYT key;
-	uint64_t ppa;/*it can be the iter_idx*/
+	//uint32_t offest;
+	uint32_t tid;
+	uint32_t length;
+	char *buf;
+	//uint64_t ppa;/*it can be the iter_idx*/
 	uint32_t seq;
+#ifdef hash_dftl
 	volatile int num; /*length of requests*/
 	volatile int cpl; /*number of completed requests*/
+#endif
 	int not_found_cnt;
 	value_set *value;
-	value_set **multi_value;
+	//value_set **multi_value;
 	char **app_result;
 
-	KEYT *multi_key;
+	//KEYT *multi_key;
 	bool (*end_req)(struct request *const);
 	void *(*special_func)(void *);
 	bool (*added_end_req)(struct request *const);
@@ -56,16 +70,16 @@ struct request {
 	void *params;
 	void *__hash_node;
 	//pthread_mutex_t async_mutex;
-	fdriver_lock_t sync_lock;
+	//fdriver_lock_t sync_lock;
 	int mark;
 
-/*s:for application req*/
+/*s:for application req
 	char *target_buf;
 	uint32_t inter_offset;
 	uint32_t target_len;
 	char istophalf;
 	FSTYPE org_type;
-/*e:for application req*/
+e:for application req*/
 
 	uint8_t type_ftl;
 	uint8_t type_lower;
@@ -74,8 +88,10 @@ struct request {
 	MeasureTime latency_checker;
 
 	/* HASH_KVSSD */
+#ifdef hash_dftl
 	void *hash_params;
-	struct request *parents;
+#endif
+	struct vec_request *parents;
 };
 
 struct algo_req{
@@ -147,8 +163,6 @@ struct algorithm{
 	uint32_t (*iter_release)(request *const);
 	uint32_t (*iter_all_key)(request *const);
 	uint32_t (*iter_all_value)(request *const);
-	uint32_t (*multi_set)(request *const,int num);
-	uint32_t (*multi_get)(request *const,int num);
 	uint32_t (*range_query)(request *const);
 #endif
 	lower_info* li;

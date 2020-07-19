@@ -9,12 +9,7 @@ extern KEYT key_min, key_max;
 extern lsmtree LSM;
 extern MeasureTime write_opt_time[10];
 
-void compaction_data_write(leveling_node* lnode){	
-	value_set **data_sets=skiplist_make_valueset(lnode->mem,LSM.disk[0],&lnode->start,&lnode->end);
-/*	if(LSM.comp_opt==PIPE){
-		lsm_io_sched_push(SCHED_FLUSH,(void*)data_sets);//make flush background job
-		return;
-	}*/
+inline void issue_data_write(value_set **data){
 	for(int i=0; data_sets[i]!=NULL; i++){
 		algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 		lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
@@ -30,6 +25,15 @@ void compaction_data_write(leveling_node* lnode){
 		}
 		LSM.li->write(CONVPPA(data_sets[i]->ppa),PAGESIZE,params->value,ASYNC,lsm_req);
 	}
+}
+
+void compaction_data_write(leveling_node* lnode){	
+	value_set **data_sets=skiplist_make_valueset(lnode->mem,LSM.disk[0],&lnode->start,&lnode->end);
+/*	if(LSM.comp_opt==PIPE){
+		lsm_io_sched_push(SCHED_FLUSH,(void*)data_sets);//make flush background job
+		return;
+	}*/
+	issue_data_write(data_sets);
 	//LSM.li->lower_flying_req_wait();
 	free(data_sets);
 }

@@ -65,13 +65,15 @@ enum GETREQTYPE{
 #define SETNOCPY(a)		(a|=1)
 #define SETGCOPT(a)		(a|=2)
 #define SETHWREAD(a)	(a|=4)
+#define SETTRANSACTION(a) (a|=(1<<24))
+#define SETFILTER(a,b)	(a=(b<<3)|a)
 #define SETCOMPOPT(a,b)	(a=(b<<8)|a)
 #define SETLSMTYPE(a,b) (a=(b<<16)|a)
-#define SETFILTER(a,b)	(a=(b<<3)|a)
 
 #define ISNOCPY(a)		(a&1)
 #define ISGCOPT(a)		(a&2)
 #define ISHWREAD(a)		(a&4)
+#define ISTRANSACTION(a) (a&(1<<24))
 #define GETFILTER(a)	((a>>3)&3)	
 #define GETCOMPOPT(a)	((a>>8)&0xff)
 #define GETLSMTYPE(a)	((a>>16)&0xff)
@@ -160,6 +162,7 @@ typedef struct lsmtree_monitor_info{
 	/*bench info!*/
 	uint32_t data_gc_cnt;
 	uint32_t header_gc_cnt;
+	uint32_t log_gc_cnt;
 	uint32_t compaction_cnt;
 	uint32_t last_compaction_cnt;
 	uint32_t zero_compaction_cnt;
