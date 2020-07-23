@@ -1,59 +1,66 @@
 #include "lsmtree_transaction.h"
 #include "page.h"
 #include "lsmtree.h"
+#include "nocpy.h"
+#include "../../interface/interface.h"
+#include "nocpy.h"
+#include "lsmtree_scheduling.h"
+#include "level.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
 
-extern pthread_mutex_t compaction_req_lock;
-extern pthread_cond_t compaction_req_cond;
 extern lsmtree LSM;
-tm _tm;
+extern lmi LMI;
+my_tm _tm;
 
 typedef struct transaction_write_params{
 	value_set *value;
-	fdriver_lock_t *lock;
 }t_params;
 
-typedef struct trasnsaction_read_status{
+typedef enum trasnsaction_read_status{
 	MAPPINGREAD, NEXTMAPPING, DATAREAD
 }T_R_STATUS;
 
 typedef struct transaction_read_params{
-	transaction_entry *entry_set;
+	transaction_entry **entry_set;
 	value_set *value;
-	uint16_t index;
+	ppa_t ppa;
+	uint32_t index;
+	uint32_t max;
 	T_R_STATUS state;
 }t_rparams;
+
+typedef struct transaction_commit_params{
+	uint32_t total_num;
+	uint32_t done_num;
+}t_cparams;
 
 void* transaction_end_req(algo_req * const);
 inline uint32_t __transaction_get(request *const);
 ppa_t get_log_PPA(uint32_t type);
 uint32_t gc_log();
 
-uint32_t transaction_init(uint32_t table_entry_number){
-	transaction_table_init(&_tm.ttb, PAGESIZE);
+uint32_t transaction_init(uint32_t cached_size){
+	transaction_table_init(&_tm.ttb, PAGESIZE, cached_size/PAGESIZE);
 	fdriver_mutex_init(&_tm.table_lock);
-	blockmanager *bm=LSM.bm;
 	_tm.t_pm.target=NULL;
 	_tm.t_pm.active=NULL;
 	_tm.t_pm.reserve=NULL;
-
-
 	_tm.last_table=UINT_MAX;
 	return 1;
 }
 
 uint32_t transaction_destroy(){
-	transaction_table_destroy(&_tm.ttb);
+	transaction_table_destroy(_tm.ttb);
 	return 1;
 }
 
 uint32_t transaction_start(request * const req){
-	uint32_t tid=transaction_table_add_new(&_tm.ttb);
-	//if tid==UINT_MAX, table is full
-	memcpy(req->buf,&tid,sizeof(tid));
+	if(transaction_table_add_new(_tm.ttb, req->tid, 0)==UINT_MAX){
+		printf("%s:%d can't add table!\n", __FILE__, __LINE__);
+	}
 	req->end_req(req);
 	return 1;
 }
@@ -66,19 +73,24 @@ uint32_t __trans_write(char *data, value_set *value, ppa_t ppa, uint32_t type, r
 	//write log
 	t_params *tp=(t_params*)malloc(sizeof(t_params));
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
-	tp->lock=NULL;
 	tp->value=data? inf_get_valueset(data, FS_MALLOC_W, PAGESIZE) : value;
+	if(ISNOCPY(LSM.setup_values)){
+		nocpy_copy_from(tp->value->value, ppa);
+	}
+	//printf("transaction write ppa:%u\n", ppa);
 	areq->params=(void*)tp;
 	areq->end_req=transaction_end_req;
 	areq->type=type;
 	areq->parents=req;
-
-	LSM.li->write(ppa, PAGESIZE, log, ASYNC, areq);
+	
+	LSM.li->write(ppa, PAGESIZE, tp->value, ASYNC, areq);
+	return 1;
 }
 
 uint32_t transaction_set(request *const req){
 	transaction_entry *etr;
-	value_set* log=transaction_table_insert_cache(&_tm.ttb. req->tid, req, &etr);
+	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req, &etr);
+	req->value=NULL;
 
 	if(!log){
 		req->end_req(req);
@@ -86,7 +98,7 @@ uint32_t transaction_set(request *const req){
 	}
 
 	ppa_t ppa=get_log_PPA(LOGW);
-	__trans_write(NULL, log, ppa, LOGW, NULL);
+	__trans_write(NULL, log, ppa, LOGW , NULL);
 	etr->ptr.physical_pointer=ppa;
 
 	req->end_req(req);
@@ -94,27 +106,46 @@ uint32_t transaction_set(request *const req){
 }
 
 uint32_t transaction_commit(request *const req){
+	if(!transaction_table_checking_commitable(_tm.ttb, req->tid)){
+		transaction_table_clear_all(_tm.ttb, req->tid);
+		return 0;
+	}
+	t_cparams *cparams=(t_cparams*)malloc(sizeof(t_cparams));
+	req->params=(void*)cparams;
+	cparams->total_num=0;
+	cparams->done_num=0;
+
 	transaction_entry *etr;
-	value_set *log=transaction_force_write(&_tm.ttb, req->tid, &etr);
-	ppa_t ppa=get_log_PPA(LOGW);
-	__trans_write(NULL, log, ppa, LOGW);
-	etr->ptr.physical_pointer=ppa;
+	value_set *log=transaction_table_force_write(_tm.ttb, req->tid, &etr);
+	ppa_t ppa;
+	if(log){
+		ppa=get_log_PPA(LOGW);
+		cparams->total_num=2;
+		__trans_write(NULL, log, ppa, LOGW, req);
+		etr->ptr.physical_pointer=ppa;
+	}
+	else{
+		//no data to commit
+		cparams->total_num=1;
+		transaction_table_clear(_tm.ttb, etr);
+	}
 
 	/*write table*/
 	fdriver_lock(&_tm.table_lock);
 
-	transaction_table_update_all_entry(&_tm.ttb, req->tid, COMMIT);
-	value_set *table_data=transaction_table_get_data(&_tm.ttb);
-	ppa_t ppa=get_log_PPA(TABLEW);
-	__trans_write(NULL, log, ppa, TABLEW, req);
+	transaction_table_update_all_entry(_tm.ttb, req->tid, COMMIT);
+	value_set *table_data=transaction_table_get_data(_tm.ttb);
+	ppa=get_log_PPA(TABLEW);
+	__trans_write(NULL, table_data, ppa, TABLEW, req);
 	if(_tm.last_table!=UINT_MAX)
 		transaction_invalidate_PPA(LOG, _tm.last_table);
 	_tm.last_table=ppa;
 	fdriver_unlock(&_tm.table_lock);
-	
-	pthread_mutex_lock(&compaction_req_lock);
-	pthread_cond_signal(&compaction_req_cond);;
-	pthread_mutex_unlock(&compaction_req_lock);
+
+	leveling_node *lnode;
+	while((lnode=transaction_get_comp_target())){
+		compaction_assign(NULL,lnode);
+	}
 
 	return 1;
 }
@@ -126,97 +157,169 @@ uint32_t processing_read(request *const req, transaction_entry **entry_set, t_rp
 		1 : issue committed data
 		2 : not found in log area
 	 */
-	for(uint32_t i=trp->index ; res[i]!=NULL; i++){
-		transaction_entry *temp=&entry_set[i];
+	uint32_t res=0;
+	for(uint32_t i=trp->index ; entry_set[i]!=NULL; i++){
+		transaction_entry *temp=entry_set[i];
 		switch(temp->status){
-			case CACHE:
+			case CACHED:
 			case CACHEDCOMMIT:
-				res=__lsm_get_sub(req, NULL, NULL, ptr.memtable);
+				res=__lsm_get_sub(req, NULL, NULL, temp->ptr.memtable, 0);
+				trp->index=i+1;
 				return 0;
+			case LOGGED:
 			case COMMIT:
-				trp->index=i;
 				trp->entry_set=entry_set;
-				if(trp->value==NULL)
-					trp->value=inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 				tr_req=(algo_req*)malloc(sizeof(algo_req));
 				tr_req->end_req=transaction_end_req;
 				tr_req->params=(void*)trp;
 				tr_req->type=LOGR;
 				tr_req->parents=req;
+				trp->ppa=temp->ptr.physical_pointer;
 				LSM.li->read(temp->ptr.physical_pointer, PAGESIZE, trp->value, ASYNC, tr_req );
+				trp->index=i+1;
 				return 1;
+			default: 
+				break;
 		}
 	}	
 	return 2;
 }
 
-uint32_t transaction_get(request *const req){
-	transaction_entry *entry_set;
+uint32_t __transaction_get(request *const req){
+	transaction_entry **entry_set;
 	t_rparams *trp=NULL;
 	algo_req *tr_req=NULL;
-	uint32_t res;
+	uint32_t res=2;
+	bool debug_flag=false;
+
+	if(KEYCONSTCOMP(req->key, "6414480000000000000000000000")==0){
+		debug_flag=true;
+	}
+
+	if(req->magic!=0){
+		goto search_lsm;
+	}
+
 	if(!req->params){ //first round
-		transaction_table_find(&_tm.ttb, req->tid, req->key, &entry_set);
-		trp=(t_rparams*)malloc(sizeof(trp));
+		trp=(t_rparams*)malloc(sizeof(t_rparams));
+		trp->max=transaction_table_find(_tm.ttb, req->tid, req->key, &entry_set);
+		trp->index=0;
+		trp->value=req->value;
 		res=processing_read(req, entry_set, trp);
-		if(res < 2){ 
-			req->params=trp; 
-			return res;
-		}
 	}
 	else{
 		trp=(t_rparams*)req->params;
+		if(debug_flag){
+			printf("%d break!\n", trp->index);
+			if(trp->index==114){
+				printf("debug_point\n");
+			}
+		}
 		entry_set=trp->entry_set;
 		/*searching meta segment*/
-		keyset *sets=ISNOCPY(LSM.setup_values) ? (keyset*)nocpy_pinck(req->ppa)
+		keyset *sets=ISNOCPY(LSM.setup_values) ? (keyset*)nocpy_pick(trp->ppa)
 			: (keyset*)trp->value->value;
-		keyest *target=LSM.lop->find_keyset((char*)sets, req->key);
+		keyset *target=LSM.lop->find_keyset((char*)sets, req->key);
 		if(target){
 			/*issue data*/
-			tr_req=(algo_req*)malloc(sizeof(algo_read));
+			tr_req=(algo_req*)malloc(sizeof(algo_req));
 			tr_req->end_req=transaction_end_req;
 			tr_req->params=(void*)trp;
 			tr_req->type=DATAR;
 			tr_req->parents=req;
 			LSM.li->read(target->ppa/NPCINPAGE, PAGESIZE, trp->value, ASYNC, tr_req);
+			free(entry_set);
 			return 1;
 		}
 
 		/*next round*/
-		trp->index++;
 		res=processing_read(req, entry_set, trp);
 	}
-	free(entry_set);
 
+	if(res < 2){ 
+		req->params=trp; 
+		return res;
+	}
+search_lsm:
+	req->magic=1;
+	free(entry_set);
 	//not found in log
 	return __lsm_get(req);
 }
 
+
+inline uint32_t transaction_get_postproc(request *const req, uint32_t res_type){
+	if(res_type==0){
+		free(req->params);
+		req->type=FS_NOTFOUND_T;
+		req->end_req(req);
+	}
+	return res_type;
+}
+
+uint32_t transaction_get(request *const req){
+	void *_req;
+	uint32_t res_type=0;
+	request *temp_req;
+	while(1){
+		if((_req=q_dequeue(LSM.re_q))){
+			temp_req=(request*)_req;
+			res_type=__transaction_get(temp_req);
+			transaction_get_postproc(temp_req,res_type);
+		}
+		else{
+			break;
+		}
+	}
+
+	return transaction_get_postproc(req,__transaction_get(req));
+}
+
 void* transaction_end_req(algo_req * const trans_req){
-	t_params *params;
-	t_rparams *rparams;
+	t_params *params=NULL;
+	t_rparams *rparams=NULL;
+	t_cparams *cparams=NULL;
+	request *parents=trans_req->parents;
 	bool free_struct=true;
 	switch(trans_req->type){
+		case TABLEW:
 		case LOGW:
+			if(parents && parents->params){
+				cparams=(t_cparams*)parents->params;
+				cparams->done_num++;
+			}
+			params=(t_params*)trans_req->params;
+			inf_free_valueset(params->value, FS_MALLOC_W);
 			break;
 		case LOGR:
 			free_struct=false;
 			rparams=(t_rparams*)trans_req->params;
+			if(parents){
+				parents->params=(void*)rparams;
+				while(1){
+					if(inf_assign_try(parents)) break;
+					else{
+						if(q_enqueue((void*)parents, LSM.re_q)){
+							break;
+						}
+					}
+				}
+			}
 			break;
 		case DATAR:
 			rparams=(t_rparams*)trans_req->params;
-			memcpy(req->buf, rparams->value->value[req->offset%4096], req->length);
-			inf_free_valueset(rparams->value, FS_MALLOC_R);
-			req->end_req(req);
+			parents->end_req(parents);
 			break;
 	}
 	
-	if(params->lock){
-		fdriver_unlock(params->lock);
+	if(cparams && cparams->done_num==cparams->total_num){
+		free(cparams);
+		parents->end_req(parents);
 	}
 	
 	if(free_struct){
 		free(params);
+		free(rparams);
 	}
 
 	free(trans_req);
@@ -248,21 +351,25 @@ retry:
 	}
 
 	bm->set_oob(bm, (char*)&type, sizeof(type), res);
-	validate_PPA(LOG, res);
+	bm->populate_bit(bm,res);
 	return res;
 }
 
 leveling_node *transaction_get_comp_target(){
-	transaction_entry *etr=transaction_table_get_comp_target(&_tm.ttb);
+	transaction_entry *etr=transaction_table_get_comp_target(_tm.ttb);
 	if(!etr) return NULL;
 
 	fdriver_lock(&_tm.table_lock);
 	leveling_node *res=(leveling_node*)malloc(sizeof(leveling_node));
 	run_t *new_entry=LSM.lop->make_run(etr->range.start, etr->range.end, etr->ptr.physical_pointer);
 
-	res->start=new_entry->start;
+	etr->status=COMPACTION;
+
+	res->start=new_entry->key;
 	res->end=new_entry->end;
 	res->entry=new_entry;
+	res->tetr=etr;
+	res->mem=NULL;
 	fdriver_unlock(&_tm.table_lock);
 	return res;
 }
@@ -282,11 +389,27 @@ uint32_t gc_log(){
 		abort();
 	} 
 	
-	if(tseg->invalidate_number != _PPS ){,
+	if(tseg->invalidate_number != _PPS ){
 		printf("%s:%d can't be\n", __FILE__, __LINE__);
 		abort();
 	}
 
-	bm->pt_trim_segement(bm,LOG_S, tseg, LSM.li);
+	bm->pt_trim_segment(bm, LOG_S, tseg, LSM.li);
+
+	uint32_t tpage=0;
+	int bidx=0;
+	int pidx=0;
+	for_each_page_in_seg(tseg,tpage,bidx,pidx){
+		nocpy_free_page(tpage);
+	}
+
 	free(tseg);
+	return 1;
+}
+
+uint32_t transaction_clear(transaction_entry *etr){
+	fdriver_lock(&_tm.table_lock);
+	uint32_t res=transaction_table_clear(_tm.ttb, etr);
+	fdriver_unlock(&_tm.table_lock);
+	return res;
 }

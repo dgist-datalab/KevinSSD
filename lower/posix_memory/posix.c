@@ -218,9 +218,31 @@ uint32_t convert_ppa(uint32_t PPA){
 	return PPA-checker.start_block*_PPS;
 }
 
+#ifdef ONLYMAP
+inline bool check_populate_type(uint8_t type){
+	switch(type){
+		case TRIM:
+		case MAPPINGR:
+		case MAPPINGW:
+		case GCMR:
+		case GCMW:
+		case GCMR_DGC:
+		case GCMW_DGC:
+		case LOGW:
+		case LOGR:
+		case TABLEW:
+		case TABLER:
+			return true;
+		default:
+			return false;
+
+	}
+}
+#endif
+
 void copy_to_mem(uint32_t PPA, uint8_t type, char *value){
 #ifdef ONLYMAP
-	if(!(type>=MAPPINGR && type<=GCMW)){
+	if(!check_populate_type(type)){
 		return;
 	}
 	else{
@@ -239,7 +261,7 @@ void copy_to_mem(uint32_t PPA, uint8_t type, char *value){
 
 void copy_from_mem(uint32_t PPA, uint8_t type,char *value){
 #ifdef ONLYMAP
-	if(!(type>=MAPPINGR && type<=GCMW)){
+	if(!check_populate_type(type)){
 		return;
 	}
 	else{
@@ -249,7 +271,7 @@ void copy_from_mem(uint32_t PPA, uint8_t type,char *value){
 		}
 		else{
 		}	
-		memcpy(seg_table[PPA].storage,value,PAGESIZE);
+		memcpy(value,seg_table[PPA].storage,PAGESIZE);
 #ifdef ONLYMAP
 	}
 #endif
@@ -286,7 +308,6 @@ void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 void *posix_pull_data(uint32_t _PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	uint8_t test_type;
 	uint32_t PPA=convert_ppa(_PPA);
-
 
 	if(req->type_lower!=1 && req->type_lower!=0){
 		req->type_lower=0;

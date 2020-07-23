@@ -36,19 +36,19 @@ SRCS +=\
 	   cache.c\
 	   page_kv.c\
 	   variable.c\
-	   lsmtree_multi.c\
 	   lsmtree_scheduling.c\
 	   data_simul.c\
 	   lsmtree_params_settings.c\
 	   lsmtree_multilevel.c\
-	   lsmtree_transaction.c\
 	   transaction_table.c\
+	   lsmtree_transaction.c\
 
 #merge_compaction.c\
 	   run_array.c\
 	   lsmtree_mop.c\
 	   lsmtree_iter.c\
 	   log_list.c\
+	   lsmtree_multi.c\
 
 
 OBJS :=\

@@ -8,6 +8,7 @@
 
 #define HEADER 0
 #define DATA 1
+#define LOG 2
 
 struct level; 
 struct htable_t;

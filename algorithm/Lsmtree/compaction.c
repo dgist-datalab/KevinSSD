@@ -133,14 +133,12 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 	page_check_available(HEADER,total_number+(GETCOMPOPT(LSM.setup_values)==HW?1:0)+LSM.result_padding);
 //	lower_wait();
 
-//	bench_custom_start(write_opt_time,0);
 	if(target->idx<LSM.LEVELCACHING){
-		if(!ISTRANSACTION(LSM.setup_values)){
-			if(to->n_num==0){
-				compaction_empty_level(&from,l_node,&target);
-				goto last;
-			}
+		if(to->n_num==0){
+			compaction_empty_level(&from,l_node,&target);
+			goto last;
 		}
+
 		partial_leveling(target,target_origin,l_node,from);	
 	}
 	else{
@@ -148,6 +146,7 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 			compaction_empty_level(&from,l_node,&target);
 			goto last;
 		}
+
 		LMI.compaction_cnt++;
 		if(to->idx==LSM.LEVELN-1) 
 			LMI.last_compaction_cnt++;
@@ -179,7 +178,6 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *
 			compactor.pt_leveling(target,target_origin,l_node,from);
 		}
 	}
-	//bench_custom_A(write_opt_time,0);
 	
 last:
 	if(entry) free(entry);
@@ -204,11 +202,10 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 	KEYT end=key_max;
 	run_t **target_s=NULL;
 	run_t **data=NULL;
-	skiplist *skip=lnode?lnode->mem:skiplist_init();
+	skiplist *skip=(lnode && lnode->mem)?lnode->mem:skiplist_init();
 	compaction_sub_pre();
 
 	if(!upper && !ISTRANSACTION(LSM.setup_values)){
-		bench_custom_start(write_opt_time,1);
 		LSM.lop->range_find_compaction(origin,start,end,&target_s);
 
 		for(int j=0; target_s[j]!=NULL; j++){
@@ -228,7 +225,7 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 	else{
 		int src_num, des_num; //for stream compaction
 		des_num=LSM.lop->range_find_compaction(origin,start,end,&target_s);//for stream compaction
-		if(uppder){
+		if(upper){
 			if(upper->idx<LSM.LEVELCACHING){
 				//for caching more data
 				//int cache_added_size=LSM.lop->get_number_runs(upper);
@@ -238,6 +235,7 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 			else{
 				src_num=LSM.lop->range_find_compaction(upper,start,end,&data);	
 			}
+
 			if(src_num && des_num == 0 ){
 				printf("can't be\n");
 				abort();
@@ -251,7 +249,6 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 			data[1]=NULL;
 		}
 
-		bench_custom_start(write_opt_time,1);
 		for(int i=0; target_s[i]!=NULL; i++){
 			run_t *temp=target_s[i];
 			if(temp->iscompactioning==SEQCOMP){
@@ -277,14 +274,14 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 skip:
 		compaction_subprocessing(NULL,data,target_s,t);
 	
-		if(upper){
+		if(upper || (ISTRANSACTION(LSM.setup_values))){
 			for(int i=0; data[i]!=NULL; i++){
 				run_t *temp=data[i];
 				htable_read_postproc(temp);
 			}
 		}
 		else{
-			transaction_invalidate_PPA(LOG, data[0]->ppb);
+			transaction_invalidate_PPA(LOG, data[0]->pbn);
 		}
 
 		for(int i=0; target_s[i]!=NULL; i++){	
@@ -296,6 +293,7 @@ skip:
 	}
 	compaction_sub_post();
 	if(!lnode) skiplist_free(skip);
+	else if(lnode && !lnode->mem) skiplist_free(skip);
 //	LSM.lop->print_level_summary();
 	return 1;
 }

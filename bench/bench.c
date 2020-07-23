@@ -100,8 +100,10 @@ void bench_make_data(){
 		return;
 	}
 	printf("%d X %d = %d, answer=%lu\n",_m->bech,_m->benchsetsize,_m->bech*_m->benchsetsize,_meta->number);
-	for(uint32_t i=0; i<_m->benchsetsize; i++){
-		_m->body[i]=(bench_value*)malloc(sizeof(bench_value)*_m->bech);
+	if(_meta->type < TRANSSET){
+		for(uint32_t i=0; i<_m->benchsetsize; i++){
+			_m->body[i]=(bench_value*)malloc(sizeof(bench_value)*_m->bech);
+		}
 	}
 
 	_m->n_num=0;
@@ -135,6 +137,15 @@ void bench_make_data(){
 			break;
 		case FILLRAND:
 			fillrand(start,end,_m);
+			break;
+		case TRANSSET:
+			trans_set(start,end, _m, false);
+			break;
+		case TRANSGET:
+			trans_get(start,end, _m, false);
+			break;
+		case TRANSRW:
+			trans_rw(start,end, _m, false);
 			break;
 #ifndef KVSSD
 		case SEQLATENCY:
@@ -189,7 +200,7 @@ void bench_free(){
 	free(_master->li);
 	free(_master);
 }
-
+;
 
 bench_value* __get_bench(){
 	monitor * _m=&_master->m[_master->n_num];
@@ -238,7 +249,7 @@ bench_value* __get_bench(){
 
     if (_m->n_num == _m->m_num -1) {
         last_ack = true;
-    }
+    };
 	
 	
 	bench_value *res=&_m->body[_m->n_num/_m->bech][_m->n_num%_m->bech];
@@ -264,6 +275,21 @@ bench_value* get_bench(){
 }
 extern bool force_write_start;
 bool bench_is_finish_n(volatile int n){
+
+	if(_master->m[n].command_num){
+		if(_master->m[n].command_num <= _master->m[n].command_return_num){
+			if(_master->m[n].r_num==_master->m[n].m_num){
+				return true;
+			}
+			else{
+				return false;
+			}
+		}
+		else{
+			return false;
+		}
+	}
+
 	if(_master->m[n].r_num==_master->m[n].m_num){
 		_master->m[n].finish=true;
 		return true;
@@ -578,7 +604,7 @@ uint32_t keygenerator_type(uint32_t range,int type){
 }
 #ifdef KVSSD
 
-int my_itoa(uint32_t key, char **_target){
+int my_itoa(uint32_t key, char **_target, char *buf){
 	int cnt=1;
 	int standard=10;
 	int t_key=key;
@@ -590,8 +616,16 @@ int my_itoa(uint32_t key, char **_target){
 	int result=KEYLENGTH==-1?rand()%16+1:KEYLENGTH;
 	result*=16;
 	result-=sizeof(ppa_t);
-	*_target=(char*)malloc(result);
-	char *target=*_target;
+	char *target;
+
+	if(_target){
+		*_target=(char*)malloc(result);
+		target=*_target;
+	}
+	else{
+		target=buf;
+	}
+
 	t_key=key;
 
 	/*
@@ -667,7 +701,7 @@ void seqget(uint32_t start, uint32_t end,monitor *m){
 #ifdef KVSSD
 		KEYT *t=&m->body[i/m->bech][i%m->bech].key;
 		if(seq_padding_opt)t->len=my_itoa_padding(start+(i%(end-start)),&t->key,10);
-		else t->len=my_itoa(start+(i%(end-start)),&t->key);
+		else t->len=my_itoa(start+(i%(end-start)),&t->key,NULL);
 #else
 		m->body[i/m->bech][i%m->bech].key=start+(i%(end-start));
 #endif
@@ -684,7 +718,7 @@ void seqset(uint32_t start, uint32_t end,monitor *m){
 #ifdef KVSSD
 		KEYT *t=&m->body[i/m->bech][i%m->bech].key;
 		if(seq_padding_opt)t->len=my_itoa_padding(start+(i%(end-start)),&t->key,10);
-		else t->len=my_itoa(start+(i%(end-start)),&t->key);
+		else t->len=my_itoa(start+(i%(end-start)),&t->key, NULL);
 		bitmap_set(start+(i%(end-start)));
 #else
 		m->body[i/m->bech][i%m->bech].key=start+(i%(end-start));
@@ -708,7 +742,7 @@ void seqrw(uint32_t start, uint32_t end, monitor *m){
 #ifdef KVSSD
 		KEYT *t=&m->body[i/m->bech][i%m->bech].key;
 		if(seq_padding_opt)t->len=my_itoa_padding(start+(i%(end-start)),&t->key,10);
-		else t->len=my_itoa(start+(i%(end-start)),&t->key);
+		else t->len=my_itoa(start+(i%(end-start)),&t->key, NULL);
 		bitmap_set(start+(i%(end-start)));
 #else
 		m->body[i/m->bech][i%m->bech].key=start+(i%(end-start));
@@ -726,7 +760,7 @@ void seqrw(uint32_t start, uint32_t end, monitor *m){
 #ifdef KVSSD
 		t=&m->body[(i+m->m_num/2)/m->bech][(i+m->m_num/2)%m->bech].key;
 		if(seq_padding_opt)t->len=my_itoa_padding(start+(i%(end-start)),&t->key,10);
-		else t->len=my_itoa(start+(i%(end-start)),&t->key);
+		else t->len=my_itoa(start+(i%(end-start)),&t->key, NULL);
 #else
 		m->body[(i+m->m_num/2)/m->bech][(i+m->m_num/2)%m->bech].key=start+(i%(end-start));
 #endif
@@ -743,7 +777,7 @@ void randget(uint32_t start, uint32_t end,monitor *m){
 	for(uint32_t i=0; i<m->m_num; i++){
 #ifdef KVSSD
 		KEYT *t=&m->body[i/m->bech][i%m->bech].key;
-		t->len=my_itoa(start+rand()%(end-start),&t->key);
+		t->len=my_itoa(start+rand()%(end-start),&t->key, NULL);
 #else
 		m->body[i/m->bech][i%m->bech].key=start+rand()%(end-start);
 #endif
@@ -765,7 +799,7 @@ void randset(uint32_t start, uint32_t end, monitor *m){
 #else
 		t_k=start+rand()%(end-start);
 #endif
-		t->len=my_itoa(t_k,&t->key);
+		t->len=my_itoa(t_k,&t->key, NULL);
 		bitmap_set(t_k);
 #else
 #ifdef KEYGEN
@@ -801,7 +835,7 @@ void randrw(uint32_t start, uint32_t end, monitor *m){
 		t_k=start+rand()%(end-start);
 	#endif
 		bitmap_set(t_k);
-		t->len=my_itoa(t_k,&t->key);
+		t->len=my_itoa(t_k,&t->key, NULL);
 #else
 	#ifdef KEYGEN
 		m->body[i/m->bech][i%m->bech].key=keygenerator(end);
@@ -828,7 +862,7 @@ void randrw(uint32_t start, uint32_t end, monitor *m){
 
 #ifdef KVSSD
 		t=&m->body[(i+m->m_num/2)/m->bech][(i+m->m_num/2)%m->bech].key;
-		t->len=my_itoa(t_k,&t->key);
+		t->len=my_itoa(t_k,&t->key, NULL);
 #else
 		m->body[(i+m->m_num/2)/m->bech][(i+m->m_num/2)%m->bech].key=m->body[i/m->bech][i%m->bech].key;
 #endif
@@ -850,7 +884,7 @@ void mixed(uint32_t start, uint32_t end,int percentage, monitor *m){
 	#else
 		t_k=start+rand()%(end-start);
 	#endif
-		t->len=my_itoa(t_k,&t->key);
+		t->len=my_itoa(t_k,&t->key, NULL);
 #else
 	#ifdef KEYGEN
 		m->body[i/m->bech][i%m->bech].key=keygenerator(end);
@@ -1005,7 +1039,7 @@ void fillrand(uint32_t start, uint32_t end, monitor *m){
 	for(uint32_t i=0; i<m->m_num; i++){
 #ifdef KVSSD
 		KEYT *t=&m->body[i/m->bech][i%m->bech].key;
-		t->len=my_itoa(unique_array[i%range],&t->key);
+		t->len=my_itoa(unique_array[i%range],&t->key, NULL);
 		bitmap_set(unique_array[i%range]);
 #else
 		m->body[i/m->bech][i%m->bech].key=unique_array[i%range];

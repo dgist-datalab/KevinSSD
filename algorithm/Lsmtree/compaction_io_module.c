@@ -8,24 +8,9 @@ extern KEYT key_min, key_max;
 #endif
 extern lsmtree LSM;
 extern MeasureTime write_opt_time[10];
+extern volatile int epc_check;
 
-inline void issue_data_write(value_set **data){
-	for(int i=0; data_sets[i]!=NULL; i++){
-		algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
-		lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-		params->lsm_type=DATAW;
-		params->value=data_sets[i];
-		lsm_req->parents=NULL;
-		lsm_req->params=(void*)params;
-		lsm_req->end_req=lsm_end_req;
-		lsm_req->rapid=true;
-		lsm_req->type=DATAW;
-		if(params->value->dmatag==-1){
-			abort();
-		}
-		LSM.li->write(CONVPPA(data_sets[i]->ppa),PAGESIZE,params->value,ASYNC,lsm_req);
-	}
-}
+
 
 void compaction_data_write(leveling_node* lnode){	
 	value_set **data_sets=skiplist_make_valueset(lnode->mem,LSM.disk[0],&lnode->start,&lnode->end);
@@ -33,7 +18,7 @@ void compaction_data_write(leveling_node* lnode){
 		lsm_io_sched_push(SCHED_FLUSH,(void*)data_sets);//make flush background job
 		return;
 	}*/
-	issue_data_write(data_sets);
+	issue_data_write(data_sets, LSM.li);
 	//LSM.li->lower_flying_req_wait();
 	free(data_sets);
 }
@@ -149,4 +134,14 @@ uint32_t compaction_bg_htable_write(ppa_t ppa,htable *input, KEYT lpa){
 	
 	lsm_io_sched_push(SCHED_HWRITE,(void*)areq);
 	return ppa;
+}
+
+void compaction_run_move_insert(level *target, run_t *entry){
+	if(!htable_read_preproc(entry)){
+		compaction_htable_read(entry, (PTR*)&entry->cpt_data);
+	}
+	epc_check++;
+	compaction_sub_wait();
+	compaction_htable_write_insert(target, entry, false);
+	free(entry);
 }

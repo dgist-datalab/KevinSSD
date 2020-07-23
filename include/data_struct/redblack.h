@@ -52,6 +52,8 @@
  *
  */
 
+#define RB_LINK
+
 #ifndef REDBLACK_H
 #define REDBLACK_H
 

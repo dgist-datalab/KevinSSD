@@ -34,18 +34,20 @@ typedef struct value_set{
 	uint32_t offset;
 }value_set;
 
-struct vectored_request{
+typedef struct vectored_request{
 	uint32_t size;
 	uint32_t done_cnt;
+	uint32_t tid;
 	char* buf;
 	request *req_array;
+	uint32_t mark;
 	void* (*end_req)(void*);
-}vec_request;
+} vec_request;
 
 struct request {
 	FSTYPE type;
 	KEYT key;
-	//uint32_t offest;
+	uint32_t offset;
 	uint32_t tid;
 	uint32_t length;
 	char *buf;
@@ -65,8 +67,7 @@ struct request {
 	void *(*special_func)(void *);
 	bool (*added_end_req)(struct request *const);
 	bool isAsync;
-	void *p_req;
-	void (*p_end_req)(uint32_t,uint32_t,void*);
+	uint8_t magic;
 	void *params;
 	void *__hash_node;
 	//pthread_mutex_t async_mutex;
@@ -91,7 +92,7 @@ e:for application req*/
 #ifdef hash_dftl
 	void *hash_params;
 #endif
-	struct vec_request *parents;
+	struct vectored_request *parents;
 };
 
 struct algo_req{
@@ -165,6 +166,9 @@ struct algorithm{
 	uint32_t (*iter_all_value)(request *const);
 	uint32_t (*range_query)(request *const);
 #endif
+
+	uint32_t (*trans_begin)(request *const);
+	uint32_t (*trans_commit)(request *const);
 	lower_info* li;
 	struct blockmanager *bm;
 	void *algo_body;

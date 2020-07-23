@@ -7,25 +7,23 @@
 #include "transaction_table.h"
 #include "compaction.h"
 
-typedef enum transaction_status{
-	EMPTY, CACHED, LOGGED, COMMIT, CACHEDCOMMIT
-}TSTATUS;
-
 
 typedef struct transaction_manager{
 	fdriver_lock_t table_lock;
 	pm t_pm;
-	transaction_table ttb;
+	struct transaction_table *ttb;
 	ppa_t last_table;
-}tm;
+}my_tm;
 
-uint32_t transaction_init();
+uint32_t transaction_init(uint32_t cached_size);
 uint32_t transaction_start(request *const req);
 uint32_t transaction_commit(request *const req);
 uint32_t transaction_set(request *const req);
 uint32_t transaction_get(request *const req);
 uint32_t transaction_abort(request *const req);
 uint32_t transaction_destroy();
+
+uint32_t transaction_clear(struct transaction_entry *etr);
 bool transaction_invalidate_PPA(uint8_t type, uint32_t ppa);
-leveling_node *transaction_get_comp_target();
+struct leveling_node *transaction_get_comp_target();
 #endif

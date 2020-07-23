@@ -209,9 +209,6 @@ send_req:
 uint32_t inf_algorithm_caller(request *const inf_req){
 	switch(inf_req->type){
 		case FS_GET_T:
-			if(first_get){
-				first_get=false;
-			}
 			//	printf("%d now %d max\n",inf_cond->cnt,inf_cond->now);
 			mp.algo->read(inf_req);
 			break;
@@ -253,12 +250,22 @@ uint32_t inf_algorithm_caller(request *const inf_req){
 			mp.algo->iter_release(inf_req);
 			break;
 #endif
+		case FS_TRANS_BEGIN:
+			mp.algo->trans_begin(inf_req);
+			break;
+		case FS_TRANS_COMMIT:
+			mp.algo->trans_commit(inf_req);
+			break;
+		case FS_TRANS_ABORT:
+			printf("it needs to be implemented!\n");
+			abort();
+			break;
 		default:
 			printf("wtf??, type %d\n", inf_req->type);
 			inf_req->end_req(inf_req);
 			break;
 	}
-
+	return 1;
 }
 
 void *p_main(void *__input){
@@ -286,7 +293,6 @@ void *p_main(void *__input){
 #ifdef CDF
 		inf_req->isstart=true;
 #endif
-		static bool first_get=true;
 	}
 	return NULL;
 }
@@ -333,7 +339,6 @@ bool inf_make_req_fromApp(char _type, KEYT _key,uint32_t offset, uint32_t len,PT
 
 	//request *req=inf_get_req_instance(_type,_key,value,0,true);
 	req->p_req=_req;
-	req->p_end_req=end_func;
 
 	cl_grap(flying);
 #ifdef CDF
@@ -361,6 +366,7 @@ void inf_init(int apps_flag, int total_num,int argc, char **argv){
 
 
 		q_init(&t->req_q,QSIZE);
+		q_init(&t->retry_q,1);
 
 #ifdef interface_vector
 		pthread_create(&t->t_id,NULL,&vectored_main, NULL);
@@ -403,13 +409,13 @@ static request* inf_get_req_common(request *req, bool fromApp, int mark){
 	req->seq=seq_num++;
 	req->special_func=NULL;
 	req->added_end_req=NULL;
-	req->p_req=NULL;
-	req->p_end_req=NULL;
 #ifndef USINGAPP
 	req->mark=mark;
 #endif
 
+#ifdef hash_dftl
 	req->hash_params = NULL;
+#endif
 	req->parents = NULL;
 
 	return req;
@@ -419,11 +425,11 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 	request *req=(request*)malloc(sizeof(request));
 	req->type=type;
 //	req->key=key;
-	req->ppa=0;
-	req->multi_value=NULL;
-	req->multi_key=NULL;
-	req->num=len;
+#ifdef hash_dftl
+	req->num=0;
 	req->cpl=0;
+#endif
+
 #ifdef KVSSD
 	req->key.len=key.len;
 	req->key.key=(char*)malloc(key.len);
@@ -452,14 +458,11 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 			req->value=inf_get_valueset(NULL,FS_GET_T,PAGESIZE);
 			break;
 		case FS_RANGEGET_T:
+			/*
 			req->multi_value=(value_set**)malloc(sizeof(value_set*)*req->num);
 			for(int i=0; i<req->num; i++){
 				req->multi_value[i]=inf_get_valueset(NULL,FS_GET_T,PAGESIZE);
-			}
-			break;
-		case FS_MSET_T:
-			break;
-		case FS_MGET_T:
+			}*/
 			break;
         case FS_BUSE_R:
             req->value=inf_get_valueset(_value,FS_BUSE_R,len);
@@ -477,16 +480,8 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 static request *inf_get_multi_req_instance(const FSTYPE type, KEYT *keys, char **_value, int *len,int req_num,int mark, bool fromApp){
 	request *req=(request*)malloc(sizeof(request));
 	req->type=type;
-	req->multi_key=keys;
-	req->multi_value=(value_set**)malloc(sizeof(value_set*)*req_num);
-	req->num=req_num;
 	int i;
 	switch(type){
-		case FS_MSET_T:
-			for(i=0; i<req_num; i++){
-				req->value=inf_get_valueset(_value[i],FS_SET_T,len[i]);
-			}
-			break;
 		case FS_RANGEGET_T:
 			for(i=0; i<req_num; i++){
 				req->value=inf_get_valueset(_value[i],FS_GET_T,len[i]);
@@ -594,21 +589,17 @@ bool inf_end_req( request * const req){
 		req->added_end_req(req);
 	}
 	
-	int i;//rw_check_type=0;
 	switch(req->type){
 		case FS_ITER_NXT_T:
 			inf_free_valueset(req->value,FS_MALLOC_R);
 			break;
 		case FS_RANGEGET_T:
 		case FS_ITER_NXT_VALUE_T:
-	//		printf("end_req : %d\n",range_getcnt++);
+			printf("need to implement logic!\n");
+			abort();
 #ifdef KVSSD
 			free(req->key.key);
 #endif
-			for(i=0; i<req->num; i++){
-				inf_free_valueset(req->multi_value[i],FS_MALLOC_R);
-			}
-			free(req->multi_value);
 			break;
 
 		case FS_GET_T:
@@ -624,13 +615,6 @@ bool inf_end_req( request * const req){
 			break;
 	}
 
-	if(req->p_req){
-#ifdef BUSE_MEASURE
-        if(req->type==FS_BUSE_R)
-            MA(&infendTime);
-#endif
-		req->p_end_req(req->seq,req->ppa,req->p_req);
-	}
 	free(req);
 	cl_release(flying);
 	return true;
@@ -677,32 +661,18 @@ void inf_print_debug(){
 bool inf_make_multi_req(char type, KEYT key,KEYT *keys,uint32_t iter_id,char **values,uint32_t lengths,bool (*added_end)(struct request *const)){
 	request *req=inf_get_req_instance(type,key,NULL,PAGESIZE,0,false);
 	cl_grap(flying);
-	uint32_t i;
 	switch(type){
-		case FS_MSET_T:
-			/*should implement*/
-			break;
 		case FS_ITER_CRT_T:
-			break;
 		case FS_ITER_NXT_T:
-			req->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
-			req->num=lengths;
-			break;
 		case FS_ITER_NXT_VALUE_T:
-			req->multi_value=(value_set**)malloc(sizeof(value_set*)*lengths);
-			for(i=0; i < lengths; i++){
-				req->multi_value[i]=inf_get_valueset(NULL,FS_GET_T,PAGESIZE);
-			}
-			req->num=lengths;
-			break;
 		case FS_ITER_RLS_T:
-
+			printf("need to implementation!\n");
+			abort();
 			break;
 		default:
 			printf("error in inf_make_multi_req\n");
 			return false;
 	}
-	req->ppa=iter_id;
 	req->added_end_req=added_end;
 	req->isstart=false;
 	measure_init(&req->latency_checker); //make_multi_req
@@ -742,8 +712,6 @@ bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value,int le
 	t_key.len=key_len/16*16+((key_len%16?16:0))-sizeof(uint32_t);
 	request *req=inf_get_req_instance(type,t_key,value,len,0,false);
 	req->seq=seq;
-	req->p_req=_req;
-	req->p_end_req=end_req;
 	
 	cl_grap(flying);
 #ifdef CDF
@@ -760,8 +728,6 @@ bool inf_make_range_query_apps(char type, char *keys, uint8_t key_len,int seq, i
 	t_key.len=key_len;
 	request *req=inf_get_req_instance(type,t_key,NULL,length,0,false);
 	req->seq=seq;
-	req->p_req=_req;
-	req->p_end_req=end_req;
 	
 	cl_grap(flying);
 //	printf("seq:%d\n",req->seq);
@@ -775,11 +741,15 @@ bool inf_make_range_query_apps(char type, char *keys, uint8_t key_len,int seq, i
 }
 
 bool inf_make_mreq_apps(char type, char **keys, uint8_t *key_len, char **values,int num, int seq, void *_req,void (*end_req)(uint32_t,uint32_t, void*)){
+	printf("it needs to implementation!\n");
+	abort();
+	/*
 #ifdef KVSSD
 	static KEYT null_key={0,};
 #else
 	static KEYT null_key=0;
 #endif
+
 	request *req=inf_get_req_instance(type,null_key,NULL,PAGESIZE,0,false);
 	req->multi_key=(KEYT*)malloc(sizeof(KEYT)*num);
 	req->multi_value=(value_set**)malloc(sizeof(value_set*)*num);
@@ -790,14 +760,12 @@ bool inf_make_mreq_apps(char type, char **keys, uint8_t *key_len, char **values,
 	}
 	req->num=num;
 	req->seq=seq;
-	req->p_req=_req;
-	req->p_end_req=end_req;
 #ifdef CDF
 	req->isstart=false;
 	measure_init(&req->latency_checker);//make_mreq
 	measure_start(&req->latency_checker);//make_mreq
 #endif
-	assign_req(req);
+	assign_req(req);*/
 	return true;
 }
 
@@ -825,8 +793,6 @@ bool inf_iter_req_apps(char type, char *prefix, uint8_t key_len,char **value, in
 			break;
 	}
 	req->seq=seq;
-	req->p_req=_req;
-	req->p_end_req=end_req;
 #ifdef CDF
 	req->isstart=false;
 	measure_init(&req->latency_checker); //make_iter
@@ -837,7 +803,6 @@ bool inf_iter_req_apps(char type, char *prefix, uint8_t key_len,char **value, in
 }
 #endif
 
-int v_cnt[NPCINPAGE+1];
 value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
 	value_set *res=(value_set*)malloc(sizeof(value_set));
 	//check dma alloc type
@@ -860,7 +825,6 @@ value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
 		abort();
 	}
 	else{
-		v_cnt[length/PIECE]++;
 		res->dmatag=-1;
 		res->value=(PTR)malloc(length);
 	}

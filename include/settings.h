@@ -15,12 +15,9 @@
 	}while(0)
 */
 #define PROGRESS
-//#define LOWER_FILE_NAME "../iotest/simulator.data"
-//#define LOWER_FILE_NAME "/mnt/dac_test/simulator.data"
 #define LOWER_FILE_NAME "./data/simulator.data"
-//#define LOWER_FILE_NAME "/dev/sdb1"
+#define interface_vector
 
-//#define LOWER_FILE_NAME "/dev/robusta"
 #define BENCH_LOG "./result/"
 #define CACHING_RATIO 1
 
@@ -36,7 +33,7 @@
 #define MINVALUE PIECE
 #define MINKEYLENGTH 16
 #define DEFKEYLENGTH 32
-#define DEFVALUESIZE (1024)
+#define DEFVALUESIZE (4096)
 
 #ifdef MLC
 
@@ -49,7 +46,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 64L
+#define GIGAUNIT 8L
 #define TOTALSIZE (GIGAUNIT*G)
 #define OP 70
 #define REALSIZE (512L*G)
@@ -80,7 +77,7 @@
 #define PARTNUM 3
 #define SHOWINGSEGS (SHOWINGSIZE/(_PPS*PAGESIZE))
 #define LOGPART_SEGS (2)
-#define MAPPART_SEGS (40)
+#define MAPPART_SEGS (5)
 #define DATAPART_SEGS (_NOS-MAPPART_SEGS-LOGPART_SEGS)
 enum{
 	MAP_S,DATA_S, LOG_S
@@ -149,7 +146,7 @@ static inline bool KEYVALCHECK(KEYT a){
 #define V_PTR char * const
 #define PTR char*
 #define ASYNC 1
-#define QSIZE (1024)
+#define QSIZE (1)
 #define LOWQDEPTH (64)
 #define QDEPTH (64)
 
@@ -167,7 +164,7 @@ static inline bool KEYVALCHECK(KEYT a){
 
 //#define KEYGEN
 #define SPINSYNC
-#define interface_pq
+//#define interface_pq
 //#define BUSE_MEASURE
 //#define BUSE_ASYNC 0
 

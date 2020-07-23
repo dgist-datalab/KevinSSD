@@ -9,7 +9,7 @@ extern bb_checker checker;
 queue *delayed_trim_queue;
 #define CHANGEPPA(ppa) (ppa-DATAPART_SEGS*16384)
 void nocpy_init(){
-	page=(keyset**)malloc(sizeof(keyset*)*((MAPPART_SEGS)*_PPS));
+	page=(keyset**)malloc(sizeof(keyset*)*((MAPPART_SEGS+LOG_S)*_PPS));
 	for(int i=0; i<(MAPPART_SEGS)*_PPS; i++){
 		//page[i]=(keyset*)malloc(PAGESIZE);
 		page[i]=NULL;
@@ -27,7 +27,7 @@ void nocpy_free_page(uint32_t _ppa){
 void nocpy_free_block(uint32_t _ppa){
 	uint32_t ppa=CHANGEPPA(_ppa);
 	printf("trim:%d\n",ppa);
-	for(uint32_t i=ppa; i<ppa+_PPS; i++){
+	for(uint32_t i=ppa; i<ppa+_PPB; i++){
 		if(!page[i]) continue;
 		free(page[i]);
 		page[i]=NULL;
@@ -65,6 +65,18 @@ void nocpy_copy_from_change(char *des, uint32_t _ppa){
 	}
 #endif
 	page[ppa]=(keyset*)des;
+}
+
+void nocpy_copy_from(char *src, uint32_t _ppa){
+	uint32_t ppa=CHANGEPPA(_ppa);
+	if(page[ppa]){
+		printf("existence error %d\n",ppa);
+		abort();
+		free(page[ppa]);
+		page[ppa]=NULL;
+	}
+	page[ppa]=(keyset*)malloc(PAGESIZE);
+	memcpy(page[ppa],src,PAGESIZE);
 }
 
 char *nocpy_pick(uint32_t _ppa){

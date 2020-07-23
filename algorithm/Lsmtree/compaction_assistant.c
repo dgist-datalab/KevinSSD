@@ -37,16 +37,14 @@ extern volatile int comp_target_get_cnt;
 extern MeasureTime write_opt_time[10];
 volatile int epc_check=0;
 compM compactor;
-pthread_mutex_t compaction_wait;
-pthread_mutex_t compaction_flush_wait;
-pthread_mutex_t compaction_req_lock;
-pthread_cond_t compaction_req_cond;
+fdriver_lock_t compaction_wait;
+fdriver_lock_t compaction_flush_wait;
 uint64_t before_type_cnt[LREQ_TYPE_NUM];
 uint64_t after_type_cnt[LREQ_TYPE_NUM];
 uint64_t cumulative_type_cnt[LREQ_TYPE_NUM];
 
 void compaction_sub_pre(){
-	pthread_mutex_lock(&compaction_wait);
+	fdriver_lock(&compaction_wait);
 	memcpy_cnt=0;
 }
 
@@ -65,7 +63,7 @@ void compaction_sub_wait(){
 		printf("%d\n",comp_target_get_cnt);*/
 #ifdef MUTEXLOCK
 	if(epc_check==comp_target_get_cnt+memcpy_cnt)
-		pthread_mutex_unlock(&compaction_wait);
+		fdriver_unlock(&compaction_wait);
 #elif defined (SPINLOCK)
 	while(comp_target_get_cnt+memcpy_cnt!=epc_check){}
 #endif
@@ -76,7 +74,7 @@ void compaction_sub_wait(){
 }
 
 void compaction_sub_post(){
-	pthread_mutex_unlock(&compaction_wait);
+	fdriver_unlock(&compaction_wait);
 }
 
 void htable_checker(htable *table){
@@ -91,20 +89,28 @@ bool compaction_init(){
 	compactor.processors=(compP*)malloc(sizeof(compP)*CTHREAD);
 	memset(compactor.processors,0,sizeof(compP)*CTHREAD);
 
-	pthread_mutex_init(&compaction_req_lock,NULL);
-	pthread_cond_init(&compaction_req_cond,NULL);
-
 	for(int i=0; i<CTHREAD; i++){
 		compactor.processors[i].master=&compactor;
 		pthread_mutex_init(&compactor.processors[i].flag, NULL);
 		pthread_mutex_lock(&compactor.processors[i].flag);
-		q_init(&compactor.processors[i].q,CQSIZE);
+
+		compactor.processors[i].q=new std::queue<comp_req_wrapper*>();
+		pthread_mutex_init(&compactor.processors[i].lock, NULL);
+		pthread_cond_init(&compactor.processors[i].cond, NULL);
+
+		pthread_mutex_init(&compactor.processors[i].tag_lock, NULL);
+		pthread_cond_init(&compactor.processors[i].tag_cond, NULL);
+		compactor.processors[i].tagQ=new std::queue<uint32_t>();
+		for(uint32_t j=0; j<CQSIZE; j++){
+			compactor.processors[i].tagQ->push(j);
+		}
+
 		pthread_create(&compactor.processors[i].t_id,NULL,compaction_main,NULL);
 	}
 	compactor.stopflag=false;
-	pthread_mutex_init(&compaction_wait,NULL);
-	pthread_mutex_init(&compaction_flush_wait,NULL);
-	pthread_mutex_lock(&compaction_flush_wait);
+	fdriver_mutex_init(&compaction_wait);
+	fdriver_mutex_init(&compaction_flush_wait);
+	fdriver_lock(&compaction_flush_wait);
 	switch(GETCOMPOPT(LSM.setup_values)){
 		case PIPE:
 			compactor.pt_leveling=pipe_partial_leveling;
@@ -134,69 +140,38 @@ void compaction_free(){
 	int *temp;
 	for(int i=0; i<CTHREAD; i++){
 		compP *t=&compactor.processors[i];
-		pthread_cond_signal(&compaction_req_cond);
+
 		while(pthread_tryjoin_np(t->t_id,(void**)&temp)){
-			pthread_cond_signal(&compaction_req_cond);
 		}
-		q_free(t->q);
+		pthread_mutex_destroy(&t->lock);
+		pthread_cond_destroy(&t->cond);
+		delete t->tagQ;
+		delete t->q;
 	}
 	free(compactor.processors);
 }
 
-void compaction_wait_done(){
-	bool flag=false;
-	while(1){
-#ifdef LEAKCHECK
-		sleep(2);
-#endif
-		for(int i=0; i<CTHREAD; i++){
-			compP* proc=&compactor.processors[i];
-			if(proc->q->size!=CQSIZE){
-				flag=true;
-				break;
-			}
-		}
-		if(flag) break;
-	}
-}
 
-void compaction_assign(compR* req){
-	//static int seq_num=0;
-	bool flag=false;
-	while(1){
-#ifdef LEAKCHECK
-		sleep(2);
-#endif
-		for(int i=0; i<CTHREAD; i++){
-			compP* proc=&compactor.processors[i];
-			pthread_mutex_lock(&compaction_req_lock);
-			if(proc->q->size==0){
-				if(q_enqueue((void*)req,proc->q)){
-					flag=true;
-				}
-				else{
-					DEBUG_LOG("FUCK!");
-				}
-			}
-			else {
-				if(q_enqueue((void*)req,proc->q)){	
-					flag=true;
-				}
-				else{
-					flag=false;
-				}
-			}
-			if(flag){
-				pthread_cond_signal(&compaction_req_cond);
-				pthread_mutex_unlock(&compaction_req_lock);
-				break;
-			}
-			else{
-				pthread_mutex_unlock(&compaction_req_lock);
-			}
-		}
-		if(flag) break;
+void compaction_assign(compR* req, leveling_node *lnode){
+	compP* proc=&compactor.processors[0];
+	uint32_t tag;
+	pthread_mutex_lock(&proc->tag_lock);
+	while(proc->tagQ->empty()){
+		pthread_cond_wait(&proc->tag_cond, &proc->tag_lock);
 	}
+	tag=proc->tagQ->front();
+	proc->tagQ->pop();
+	pthread_mutex_unlock(&proc->tag_lock);
+
+	comp_req_wrapper *comp_req=(comp_req_wrapper*)malloc(sizeof(comp_req_wrapper));
+	comp_req->tag=tag;
+	comp_req->type=req?NORMAL_REQ:COMMIT_REQ;
+	comp_req->request=(req? (void*)req: (void*)lnode);
+
+	pthread_mutex_lock(&proc->lock);
+	proc->q->push(comp_req);
+	pthread_cond_broadcast(&proc->cond);
+	pthread_mutex_unlock(&proc->lock);
 }
 
 bool compaction_force(){
@@ -297,12 +272,10 @@ void compaction_cascading(bool *_is_gc_needed){
 extern uint32_t data_input_write;
 
 void *compaction_main(void *input){
-	void *_req;
-	compR*req;
 	compP *_this=NULL;
 	//static int ccnt=0;
 	char thread_name[128]={0};
-	pthread_t current_thread=pthread_self();
+	//pthread_t current_thread=pthread_self();
 	sprintf(thread_name,"%s","compaction_thread");
 	pthread_setname_np(pthread_self(),thread_name);
 
@@ -314,35 +287,48 @@ void *compaction_main(void *input){
 	cpu_set_t cpuset;
 	CPU_ZERO(&cpuset);	
 	CPU_SET(1,&cpuset);
-	leveling_node *trans_node=NULL;
+
 	bool is_gc_needed=false;
+	leveling_node *trans_node=NULL;
+	compR *req;
+	comp_req_wrapper *wrapper;
 	while(1){
-		pthread_mutex_lock(&compaction_req_lock);
-		if(_this->q->size==0 || trans_node==NULL){
-			pthread_cond_wait(&compaction_req_cond,&compaction_req_lock);
+		pthread_mutex_lock(&_this->lock);
+		while(_this->q->empty()){
+			pthread_cond_wait(&_this->cond, &_this->lock);
 		}
-		_req=q_pick(_this->q);
-		trans_node=transaction_get_comp_target();
-		if(!_req && !trans_node){
-			pthread_mutex_unlock(&compaction_req_lock);
-			continue;
+		wrapper=_this->q->front();
+		_this->q->pop();
+		pthread_mutex_unlock(&_this->lock);
+
+		//pthread_setaffinity_np(current_thread,sizeof(cpu_set_t),&cpuset);
+
+		switch(wrapper->type){
+			case COMMIT_REQ:
+				trans_node=(leveling_node*)wrapper->request;
+				req=NULL;
+				break;
+			case NORMAL_REQ:
+				trans_node=NULL;
+				req=(compR*)wrapper->request;
+				break;
 		}
-		pthread_mutex_unlock(&compaction_req_lock);
 
-		pthread_setaffinity_np(current_thread,sizeof(cpu_set_t),&cpuset);
 
-		if(compactor.stopflag)
-			break;
 
 		if(trans_node){
 			compaction_selector(NULL, LSM.disk[0], trans_node, &LSM.level_lock[0]);
+			transaction_clear(trans_node->tetr);
+			if(trans_node->entry){
+				free(trans_node->entry->key.key);
+				free(trans_node->entry->end.key);
+				free(trans_node->entry);
+			}
+			free(trans_node);
 			goto cascade;
 		}
-		if(!_req) continue;
 
-		req=(compR*)_req;
 		leveling_node lnode;
-
 		if(req->fromL==-1){
 			lnode.mem=req->temptable;
 			compaction_data_write(&lnode);
@@ -364,17 +350,33 @@ cascade:
 			compaction_gc_add(LSM.gc_list);
 			LSM.gc_compaction_flag=false;
 		}	
+
 #ifdef WRITEWAIT
-		if(req->last){
+		if(req && req->last){
 			lsm_io_sched_flush();	
 			LSM.li->lower_flying_req_wait();
-			pthread_mutex_unlock(&compaction_flush_wait);
+			fdriver_unlock(&compaction_flush_wait);
 		}
 #endif
 
-		if(_req){
+		if(req){
 			free(req);
-			q_dequeue(_this->q);
+		}
+
+		uint32_t tag=wrapper->tag;
+		free(wrapper);
+		pthread_mutex_lock(&_this->tag_lock);
+		_this->tagQ->push(tag);
+		pthread_cond_broadcast(&_this->tag_cond);
+		pthread_mutex_unlock(&_this->tag_lock);
+	
+		if(compactor.stopflag){
+			pthread_mutex_lock(&_this->lock);
+			if(_this->q->empty()){
+				pthread_mutex_unlock(&_this->lock);
+				break;
+			}
+			pthread_mutex_unlock(&_this->lock);
 		}
 	}
 	
@@ -438,28 +440,24 @@ void compaction_check(KEYT key, bool force){
 		req->fromL=-1;
 		req->last=last;
 		req->temptable=t;
-		compaction_assign(req);
+		compaction_assign(req, NULL);
 	}while(!last);
 
 #ifdef WRITEWAIT
 	//LSM.memtable=skiplist_init();
-	pthread_mutex_lock(&compaction_flush_wait);
+	fdriver_lock(&compaction_flush_wait);
 #endif
 }
 
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
 	
 	compaction_sub_wait();
-	bench_custom_A(write_opt_time,1);
 	
-	bench_custom_start(write_opt_time,3);
 	LSM.lop->merger(top,src,org,des);
-	bench_custom_A(write_opt_time,3);
 
 	KEYT key,end;
 	run_t* target=NULL;
 
-	bench_custom_start(write_opt_time,2);
 	while((target=LSM.lop->cutter(top,des,&key,&end))){
 		if(des->idx<LSM.LEVELCACHING){
 			LSM.lop->insert(des,target);
@@ -470,7 +468,6 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 		}
 		free(target);
 	}
-	bench_custom_A(write_opt_time,2);
 	//LSM.li->lower_flying_req_wait();
 }
 
@@ -551,11 +548,8 @@ void htable_read_postproc(run_t *r){
 	}
 	if(r->level_caching_data){
 	
-	}/*
-	else if(r->c_entry){
-		cache_entry_unlock(LSM.lsm_cache,r->c_entry);
-		if(!ISNOCPY(LSM.setup_values)) htable_free(r->cpt_data);
-	}*/else{
+	}
+	else{
 		htable_free(r->cpt_data);
 		r->cpt_data=NULL;
 		if(r->pbn==UINT32_MAX){
@@ -580,32 +574,38 @@ uint32_t sequential_move_next_level(level *origin, level *target,KEYT start, KEY
 
 uint32_t compaction_empty_level(level **from, leveling_node *lnode, level **des){
 	if(!(*from)){
-		run_t *entry=LSM.lop->make_run(lnode->start,lnode->end,-1);
-		free(entry->key.key);
-		free(entry->end.key);
+		if(!ISTRANSACTION(LSM.setup_values)){
+			run_t *entry=LSM.lop->make_run(lnode->start,lnode->end,-1);
+			free(entry->key.key);
+			free(entry->end.key);
 #ifdef BLOOM
-		LSM.lop->mem_cvt2table(lnode->mem,entry,(*des)->filter);
+			LSM.lop->mem_cvt2table(lnode->mem,entry,(*des)->filter);
 #else
-		LSM.lop->mem_cvt2table(lnode->mem,entry);
+			LSM.lop->mem_cvt2table(lnode->mem,entry);
 #endif
-		if((*des)->idx<LSM.LEVELCACHING){
-			if(ISNOCPY(LSM.setup_values)){
-				entry->level_caching_data=(char*)entry->cpt_data->sets;
-				entry->cpt_data->sets=NULL;
-				htable_free(entry->cpt_data);
+			if((*des)->idx<LSM.LEVELCACHING){
+				if(ISNOCPY(LSM.setup_values)){
+					entry->level_caching_data=(char*)entry->cpt_data->sets;
+					entry->cpt_data->sets=NULL;
+					htable_free(entry->cpt_data);
+				}
+				else{
+					entry->level_caching_data=(char*)malloc(PAGESIZE);
+					memcpy(entry->level_caching_data,entry->cpt_data->sets,PAGESIZE);
+					htable_free(entry->cpt_data);
+				}
+				LSM.lop->insert((*des),entry);
+				LSM.lop->release_run(entry);
 			}
 			else{
-				entry->level_caching_data=(char*)malloc(PAGESIZE);
-				memcpy(entry->level_caching_data,entry->cpt_data->sets,PAGESIZE);
-				htable_free(entry->cpt_data);
+				compaction_htable_write_insert((*des),entry,false);
 			}
-			LSM.lop->insert((*des),entry);
-			LSM.lop->release_run(entry);
+			free(entry);
 		}
 		else{
-			compaction_htable_write_insert((*des),entry,false);
+			compaction_run_move_insert((*des), lnode->entry);
+			lnode->entry=NULL;
 		}
-		free(entry);
 	}
 	else{
 		if((*des)->idx>=LSM.LEVELCACHING && (*from)->idx<LSM.LEVELCACHING){

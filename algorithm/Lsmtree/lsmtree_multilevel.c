@@ -284,9 +284,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, uint3
 	}
 
 	if(entry && !table){ //tempent check
-		//bench_custom_start(write_opt_time,4);
 		target_set=LSM.lop->find_keyset((char*)entry->cpt_data->sets,req->key);
-		//bench_custom_A(write_opt_time,4);
 		if(target_set){
 			bench_cache_hit(req->mark);	
 			*ppa=target_set->ppa;

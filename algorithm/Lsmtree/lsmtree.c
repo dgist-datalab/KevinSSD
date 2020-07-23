@@ -12,6 +12,7 @@
 #include "lsmtree.h"
 #include "page.h"
 #include "nocpy.h"
+#include "lsmtree_transaction.h"
 #include<stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -36,10 +37,9 @@ struct algorithm algo_lsm={
 	.iter_release=NULL,
 	.iter_all_key=NULL,
 	.iter_all_value=NULL,
-
-	.multi_set=NULL,
-	.multi_get=NULL,
-	.range_query=lsm_range_get,
+	.range_query=NULL,
+	.trans_begin=transaction_start,
+	.trans_commit=transaction_commit
 };
 
 lsmtree LSM;
@@ -51,6 +51,8 @@ lsp LSP;
  extern llp LLP;
  extern lsp LSP;
  */
+
+
 
 extern level_ops h_ops;
 extern level_ops a_ops;
@@ -127,6 +129,9 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	fprintf(stderr,"LEVELN:%d (LEVELCACHING(%d)\n",LSM.LEVELN,LSM.LEVELCACHING);
 
 	compaction_init();
+	if(ISTRANSACTION(LSM.setup_values)){
+		transaction_init(0);
+	}
 	q_init(&LSM.re_q,RQSIZE);
 
 	LSM.delayed_trim_ppa=UINT32_MAX;
@@ -176,6 +181,8 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	free(LSM.level_lock);
 	if(ISNOCPY(LSM.setup_values))
 		nocpy_free();
+
+	transaction_destroy();
 }
 
 #ifdef DVALUE
@@ -343,11 +350,15 @@ uint32_t data_input_write;
 
 
 uint32_t lsm_set(request * const req){
+	if(ISTRANSACTION(LSM.setup_values)){
+		return transaction_set(req);
+	}
+
+
 	static bool force = 0 ;
 	if(req->length % 4096 || req->offset % 4096){
 		abort();
 	}
-	uint32_t base=req->offset / 4096;
 
 	data_input_write++;
 	compaction_check(req->key,force);
@@ -387,12 +398,12 @@ uint32_t lsm_proc_re_q(){
 			request *tmp_req=(request*)re_q;
 			switch(tmp_req->type){
 				case FS_GET_T:
-					bench_custom_start(write_opt_time,7);
 					res_type=__lsm_get(tmp_req);
-					bench_custom_A(write_opt_time,7);
 					break;
 				case FS_RANGEGET_T:
-					res_type=__lsm_range_get(tmp_req);
+					printf("need to be implementation!\n");
+					abort();
+					//res_type=__lsm_range_get(tmp_req);
 					break;
 			}
 			if(res_type==0){
@@ -417,6 +428,9 @@ uint32_t lsm_proc_re_q(){
 }
 
 uint32_t lsm_get(request *const req){
+	if(ISTRANSACTION(LSM.setup_values)){
+		return transaction_get(req);
+	}
 	static bool temp=false;
 	static bool level_show=false;
 	static bool debug=false;
@@ -436,9 +450,7 @@ uint32_t lsm_get(request *const req){
 		LSM.lop->print_level_summary();
 	}
 	
-	bench_custom_start(write_opt_time,7);
 	res_type=__lsm_get(req);
-	bench_custom_A(write_opt_time,7);
 	if(!debug && LSM.disk[0]->n_num>0){
 		debug=true;
 	}
@@ -470,12 +482,14 @@ void* lsm_hw_end_req(algo_req* const req){
 	switch(params->lsm_type){
 		case HEADERR:
 			if(req->type==UINT8_MAX){
-				req_temp_params=parents->params;
+				rp=(rparams*)parents->params;
+				req_temp_params=(void*)rp->datas;
 				((int*)req_temp_params)[3]=1;
 			}
 			else{
-				req_temp_params=parents->params;
-				parents->ppa=req->ppa;
+				rp=(rparams*)parents->params;
+				req_temp_params=(void*)rp->datas;
+				rp->ppa=req->ppa;
 				((int*)req_temp_params)[3]=2;
 			}
 			while(1){
@@ -562,7 +576,6 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 			if(!bf_check(LSM.disk[i]->filter,key)) continue;
 	#endif
 		
-		bench_custom_start(write_opt_time,5);
 
 #ifdef PARTITION
 		if(up_entry){
@@ -575,7 +588,6 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 			entries=LSM.lop->find_run(LSM.disk[i],key);
 #endif
 
-		bench_custom_A(write_opt_time,5);
 		if(!entries){
 #ifdef PARTITION
 			up_entry=NULL;
@@ -584,9 +596,7 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 		}
 
 		if(i<LSM.LEVELCACHING){
-			bench_custom_start(write_opt_time,4);
 			keyset *find=LSM.lop->find_keyset(entries->level_caching_data,key);
-			bench_custom_A(write_opt_time,4);
 			if(find){
 				*found=find;
 				if(level) *level=i;
@@ -622,13 +632,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 		target_node=skiplist_find(list,req->key);
 		if(!target_node) return 0;
 		if(target_node->value){
-		//	memcpy(req->value->value,target_node->value->value,PAGESIZE);
-			if(req->type==FS_MGET_T){
-				//lsm_mget_end_req(lsm_get_empty_algoreq(req));						
-			}
-			else{
-				req->end_req(req);
-			}
+			req->end_req(req);
 			return 2;
 		}
 		else{
@@ -640,9 +644,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 	}
 
 	if(entry && !table && entry->cpt_data){ //tempent check
-		bench_custom_start(write_opt_time,4);
 		target_set=LSM.lop->find_keyset((char*)entry->cpt_data->sets,req->key);
-		bench_custom_A(write_opt_time,4);
 		if(target_set){
 			lsm_req=lsm_get_req_factory(req,DATAR,0);
 	//		req->value->ppa=target_set->ppa>>1;
@@ -656,9 +658,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 		if(ISNOCPY(LSM.setup_values) && entry){
 			table=(keyset*)nocpy_pick(entry->pbn);
 		}
-		bench_custom_start(write_opt_time,4);
 		target_set=LSM.lop->find_keyset((char*)table,req->key);
-		bench_custom_A(write_opt_time,4);
 		char *src;
 		if(likely(target_set)){
 			if(entry && !entry->c_entry && cache_insertable(LSM.lsm_cache)){
@@ -689,9 +689,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 			algo_req *new_lsm_req;
 			for(int i=0; i<entry->wait_idx; i++){
 				temp_req=(request*)entry->waitreq[i];
-				bench_custom_start(write_opt_time,4);
 				new_target_set=LSM.lop->find_keyset((char*)table,temp_req->key);
-				bench_custom_A(write_opt_time,4);
 
 				int *temp_params=(int*)temp_req->params;
 				temp_params[3]++;
@@ -825,7 +823,7 @@ uint32_t __lsm_get(request *const req){
 			goto retry;
 		}
 
-		mapinfo.sets=ISNOCPY(LSM.setup_values)?(keyset*)nocpy_pick(req->ppa):(keyset*)req->value->value;
+		mapinfo.sets=ISNOCPY(LSM.setup_values)?(keyset*)nocpy_pick(rp->ppa):(keyset*)req->value->value;
 /*
 #ifdef FASTFINDRUN
 		_entry=LSM.lop->fast_find_run(LSM.disk[level],req->key);
@@ -853,8 +851,7 @@ uint32_t __lsm_get(request *const req){
 	_temp_data[2]=round=0;*/
 retry:
 	if(ISHWREAD(LSM.setup_values) && temp_data[3]==2){
-		//send data/
-		LSM.li->read(CONVPPA(req->ppa),PAGESIZE,req->value,ASYNC,lsm_get_req_factory(req,DATAR,level));
+		LSM.li->read(CONVPPA(rp->ppa),PAGESIZE,req->value,ASYNC,lsm_get_req_factory(req,DATAR,level));
 		return 1;
 	}
 	result=lsm_find_run(req->key,&entry, entry, &found,&level,&run);
@@ -913,7 +910,7 @@ retry:
 
 				params->entry_ptr=(void*)entry;
 				entry->from_req=(void*)req;
-				req->ppa=params->ppa;
+				rp->ppa=params->ppa;
 				if(ISHWREAD(LSM.setup_values) && level ==LSM.LEVELN-1){
 					LSM.li->read_hw(params->ppa,req->key.key,req->key.len,req->value,ASYNC,lsm_req);
 				}else{

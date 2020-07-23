@@ -2,8 +2,10 @@
 #define __H_COMPT__
 #include "../../include/lsm_settings.h"
 #include "../../interface/queue.h"
+#include "transaction_table.h"
 #include "skiplist.h"
 #include <pthread.h>
+#include <queue>
 typedef struct compaction_processor compP;
 typedef struct compaction_master compM;
 typedef struct compaction_req compR;
@@ -12,6 +14,11 @@ struct Entry;
 struct level;
 struct skiplist;
 struct htable;
+
+typedef enum comp_req_type{
+	COMMIT_REQ, NORMAL_REQ
+}comp_req_type;
+
 struct compaction_req{
 	int fromL;
 	skiplist *temptable;
@@ -23,13 +30,26 @@ typedef struct leveling_node{
 	KEYT start;
 	KEYT end;
 	run_t *entry;
+	transaction_entry *tetr;
 }leveling_node;
+
+typedef struct comp_req_wrapper{
+	void *request;
+	uint32_t tag;
+	comp_req_type type;
+}comp_req_wrapper;
 
 struct compaction_processor{
 	pthread_t t_id;
 	compM *master;
 	pthread_mutex_t flag;
-	queue *q;
+	std::queue<comp_req_wrapper*> *q;
+	pthread_mutex_t lock;
+	pthread_cond_t cond;
+
+	std::queue<uint32_t> *tagQ;
+	pthread_mutex_t tag_lock;
+	pthread_cond_t tag_cond;
 };
 
 struct compaction_master{
@@ -55,7 +75,8 @@ bool compaction_force_target(int from, int to);
 void compaction_sub_pre();
 void compaction_sub_wait();
 void compaction_sub_post();
-inline void issue_data_write(value_set **data);
+
+void compaction_assign(compR* req, leveling_node *lnode);
 
 void compaction_data_write(leveling_node* lnode);
 void htable_read_postproc(run_t *r);
@@ -66,6 +87,8 @@ uint32_t compaction_htable_hw_read(run_t *ent);
 
 uint32_t compaction_htable_write(ppa_t ppa,htable *input, KEYT lpa);
 void compaction_htable_read(run_t *ent,PTR* value);
+
+void compaction_run_move_insert(level *target, run_t *entry);
 void compaction_bg_htable_bulkread(run_t **r,fdriver_lock_t **locks);
 uint32_t compaction_bg_htable_write(ppa_t ppa,htable *input, KEYT lpa);
 
@@ -87,4 +110,21 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 uint32_t partial_leveling(struct level *,struct level *,leveling_node *,struct level *upper);
 
 
+inline void issue_data_write(value_set **data_sets, lower_info *li){
+	for(int i=0; data_sets[i]!=NULL; i++){
+		algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
+		lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
+		params->lsm_type=DATAW;
+		params->value=data_sets[i];
+		lsm_req->parents=NULL;
+		lsm_req->params=(void*)params;
+		lsm_req->end_req=lsm_end_req;
+		lsm_req->rapid=true;
+		lsm_req->type=DATAW;
+		if(params->value->dmatag==-1){
+			abort();
+		}
+		li->write(CONVPPA(data_sets[i]->ppa),PAGESIZE,params->value,ASYNC,lsm_req);
+	}
+}
 #endif

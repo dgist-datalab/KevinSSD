@@ -57,9 +57,9 @@ static void layer_info_mapping(master_processor *mp,int argc, char **argv){
 	mp->li->create(mp->li,mp->bm);
 #if defined(partition) && !defined(Page_ftl)
 	int temp[PARTNUM];
+	temp[LOG_S]=LOGPART_SEGS;
 	temp[MAP_S]=MAPPART_SEGS;
 	temp[DATA_S]=DATAPART_SEGS;
-	temp[LOG_S]=LOGPART_SEGS;
 	mp->bm->pt_create(mp->bm,PARTNUM,temp,mp->li);
 #else
 	mp->bm->create(mp->bm,mp->li);

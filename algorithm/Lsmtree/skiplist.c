@@ -797,7 +797,6 @@ void skiplist_clear(skiplist *list){
 		free(now->key.key);
 		free(now->list);
 #ifdef USINGSLAB
-	//	slab_free(&snode_slab,now);
 		kmem_cache_free(snode_slab,now);
 #else
 		free(now);

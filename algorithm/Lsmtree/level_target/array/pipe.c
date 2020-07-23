@@ -49,8 +49,12 @@ void new_page_set(p_body *p, bool iswrite){
 }
 
 KEYT pbody_get_next_key(p_body *p, uint32_t *ppa){
-	if(!p->now_page || (p->pidx<p->max_page && p->kidx>p->max_key)){
+	if((!p->now_page && p->pidx<p->max_page) || (p->pidx<p->max_page && p->kidx>p->max_key)){
 		new_page_set(p,false);
+	}
+
+	if(!p->now_page && p->pidx >= p->max_page && p->kidx==0){
+		p->kidx=1;
 	}
 
 	KEYT res={0,};

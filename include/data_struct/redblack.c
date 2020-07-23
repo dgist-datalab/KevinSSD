@@ -636,8 +636,8 @@ void rb_delete(Redblack node,bool isint)
 #ifdef KVSSD
 		free(node->key.key);
 #endif
-		free(node);
 	}
+	free(node);
 
 	if (!balance || issentinel(sib))
 		return;

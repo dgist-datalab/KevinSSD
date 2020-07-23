@@ -106,6 +106,6 @@ bench_value *bench_make_ondemand(){
 				break;
 	}
 	res->mark=idx;
-	res->key.len=my_itoa(t_k,&res->key.key);
+	res->key.len=my_itoa(t_k,&res->key.key, NULL);
 	return res;
 }

@@ -89,6 +89,7 @@ typedef struct multi_req_params{
 
 typedef struct req_params{
 	int datas[4];
+	ppa_t ppa;
 	run_t *entry;
 }rparams;
 
@@ -263,4 +264,5 @@ level *lsm_level_resizing(level *target, level *src);
 KEYT* lsm_simul_get(ppa_t ppa); //copy the value
 void lsm_simul_del(ppa_t ppa);
 float diff_get_sizefactor(uint32_t keynum_in_header);
+int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int idx);
 #endif

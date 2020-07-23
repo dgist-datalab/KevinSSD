@@ -12,6 +12,7 @@ void nocpy_free_page(uint32_t ppa);
 void nocpy_force_freepage(uint32_t ppa);
 void nocpy_free_block(uint32_t ppa);
 void nocpy_copy_from_change(char *src, uint32_t ppa);
+void nocpy_copy_from(char *src, uint32_t ppa);
 bool nocpy_ptr_check(char *data);
 void nocpy_trim_delay_enq(uint32_t ppa);
 void nocpy_trim_delay_flush();
