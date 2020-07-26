@@ -36,13 +36,14 @@ int main(int argc,char* argv[]){
 	int temp_cnt=bench_set_params(argc,argv,temp_argv);
 	inf_init(0,0,temp_cnt,temp_argv);
 	bench_init();
+	bench_vectored_configure();
 	bench_transaction_configure(4, 2);
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
-	bench_add(TRANSRW,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL))/1);
+	bench_add(VECTOREDSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)));
 
 	char *value;
 	uint32_t mark;
-	while((value=get_transaction_bench(&mark))){
+	while((value=get_vectored_bench(&mark, true))){
 		inf_vector_make_req(value, bench_transaction_end_req, mark);
 	}
 

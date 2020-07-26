@@ -114,6 +114,7 @@ typedef struct{
 }master;
 
 void bench_init();
+void bench_vectored_configure();
 void bench_transaction_configure(uint32_t commit_term, uint32_t transaction_size);
 void bench_add(bench_type type,uint32_t start, uint32_t end,uint64_t number);
 bench_value* get_bench();
@@ -138,7 +139,7 @@ void bench_custom_print(MeasureTime *mt, int idx);
 int bench_set_params(int argc, char **argv,char **targv);
 bench_value* get_bench_ondemand();
 
-char *get_transaction_bench(uint32_t *mark);
+char *get_vectored_bench(uint32_t *mark, bool istransaction);
 
 #ifdef CDF
 void bench_cdf_print(uint64_t, uint8_t istype, bench_data*);
@@ -158,9 +159,9 @@ void randset(uint32_t,uint32_t,monitor*);
 void randrw(uint32_t,uint32_t,monitor*);
 void mixed(uint32_t,uint32_t,int percentage,monitor*);
 
-void trans_set(uint32_t, uint32_t, monitor*, bool isseq);
-void trans_get(uint32_t, uint32_t, monitor*, bool isseq);
-void trans_rw(uint32_t, uint32_t, monitor*, bool isseq);
+void vectored_set(uint32_t, uint32_t, monitor*, bool isseq);
+void vectored_get(uint32_t, uint32_t, monitor*, bool isseq);
+void vectored_rw(uint32_t, uint32_t, monitor*, bool isseq);
 
 int my_itoa(uint32_t key, char **_target, char *buf);
 

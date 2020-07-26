@@ -5,8 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "sem_lock.h"
+
 typedef struct{
-	pthread_mutex_t lock;
+	fdriver_lock_t lock;
 	pthread_mutex_t cnt_lock;
 	int readcnt;
 }rwlock;

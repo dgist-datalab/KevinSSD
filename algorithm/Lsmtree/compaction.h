@@ -2,6 +2,7 @@
 #define __H_COMPT__
 #include "../../include/lsm_settings.h"
 #include "../../interface/queue.h"
+#include "../../include/rwlock.h"
 #include "transaction_table.h"
 #include "skiplist.h"
 #include <pthread.h>
@@ -62,7 +63,7 @@ bool compaction_init();
 void *compaction_main(void *);
 uint32_t level_one_processing(level *, level *, run_t *, pthread_mutex_t *);
 //void compaction_lev_seq_processing(level *src, level *des, int headerSize);
-uint32_t leveling(level *,level*, leveling_node *,pthread_mutex_t *);
+uint32_t leveling(level *,level*, leveling_node *,rwlock *);
 
 uint32_t multiple_leveling(int from, int to);
 
@@ -80,17 +81,17 @@ void compaction_assign(compR* req, leveling_node *lnode);
 
 void compaction_data_write(leveling_node* lnode);
 void htable_read_postproc(run_t *r);
-void compaction_selector(level *a, level *b,leveling_node *lnode, pthread_mutex_t* lock);
+void compaction_selector(level *a, level *b,leveling_node *lnode, rwlock* lock);
 
 uint32_t compaction_htable_write_insert(level *target,run_t *entry,bool isbg);
 uint32_t compaction_htable_hw_read(run_t *ent);
 
 uint32_t compaction_htable_write(ppa_t ppa,htable *input, KEYT lpa);
-void compaction_htable_read(run_t *ent,PTR* value);
+void compaction_htable_read(run_t *ent, char** value);
 
 void compaction_run_move_insert(level *target, run_t *entry);
-void compaction_bg_htable_bulkread(run_t **r,fdriver_lock_t **locks);
-uint32_t compaction_bg_htable_write(ppa_t ppa,htable *input, KEYT lpa);
+//void compaction_bg_htable_bulkread(run_t **r,fdriver_lock_t **locks);
+//uint32_t compaction_bg_htable_write(ppa_t ppa,htable *input, KEYT lpa);
 
 uint32_t compaction_empty_level(level **from, leveling_node *mem, level **des);
 
@@ -108,6 +109,9 @@ uint32_t sequential_move_next_level(level *origin, level *target,KEYT start, KEY
 uint32_t pipe_partial_leveling(level *t, level *origin, leveling_node* lnode, level *upper);
 uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, level *upper);
 uint32_t partial_leveling(struct level *,struct level *,leveling_node *,struct level *upper);
+
+void compaction_pause();
+void compaction_resume();
 
 
 inline void issue_data_write(value_set **data_sets, lower_info *li){

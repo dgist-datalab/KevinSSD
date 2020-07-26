@@ -7,7 +7,6 @@
 #include "../../include/slab.h"
 #include "../../interface/interface.h"
 #include "../../bench/bench.h"
-#include "./level_target/hash/hash_table.h"
 #include "compaction.h"
 #include "lsmtree.h"
 #include "page.h"

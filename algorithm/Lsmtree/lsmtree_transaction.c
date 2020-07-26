@@ -4,7 +4,6 @@
 #include "nocpy.h"
 #include "../../interface/interface.h"
 #include "nocpy.h"
-#include "lsmtree_scheduling.h"
 #include "level.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -18,19 +17,6 @@ my_tm _tm;
 typedef struct transaction_write_params{
 	value_set *value;
 }t_params;
-
-typedef enum trasnsaction_read_status{
-	MAPPINGREAD, NEXTMAPPING, DATAREAD
-}T_R_STATUS;
-
-typedef struct transaction_read_params{
-	transaction_entry **entry_set;
-	value_set *value;
-	ppa_t ppa;
-	uint32_t index;
-	uint32_t max;
-	T_R_STATUS state;
-}t_rparams;
 
 typedef struct transaction_commit_params{
 	uint32_t total_num;
@@ -90,13 +76,17 @@ uint32_t __trans_write(char *data, value_set *value, ppa_t ppa, uint32_t type, r
 uint32_t transaction_set(request *const req){
 	transaction_entry *etr;
 	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req, &etr);
+
+
 	req->value=NULL;
+
 
 	if(!log){
 		req->end_req(req);
 		return 1;
 	}
 
+	//LSM.lop->checking_each_key(log->value, testing);
 	ppa_t ppa=get_log_PPA(LOGW);
 	__trans_write(NULL, log, ppa, LOGW , NULL);
 	etr->ptr.physical_pointer=ppa;
@@ -108,6 +98,7 @@ uint32_t transaction_set(request *const req){
 uint32_t transaction_commit(request *const req){
 	if(!transaction_table_checking_commitable(_tm.ttb, req->tid)){
 		transaction_table_clear_all(_tm.ttb, req->tid);
+		req->end_req(req);
 		return 0;
 	}
 	t_cparams *cparams=(t_cparams*)malloc(sizeof(t_cparams));
@@ -119,6 +110,7 @@ uint32_t transaction_commit(request *const req){
 	value_set *log=transaction_table_force_write(_tm.ttb, req->tid, &etr);
 	ppa_t ppa;
 	if(log){
+	//	LSM.lop->checking_each_key(log->value, testing);
 		ppa=get_log_PPA(LOGW);
 		cparams->total_num=2;
 		__trans_write(NULL, log, ppa, LOGW, req);
@@ -150,33 +142,70 @@ uint32_t transaction_commit(request *const req){
 	return 1;
 }
 
-uint32_t processing_read(request *const req, transaction_entry **entry_set, t_rparams *trp){
+uint32_t processing_read(void * req, transaction_entry **entry_set, t_rparams *trp, uint8_t type){
+	/*
+	   type
+		0: req from user
+		1: req from gc
+	 */
 	algo_req *tr_req=NULL;
 	/*
 		0 : find data in cache
 		1 : issue committed data
 		2 : not found in log area
 	 */
+	request * user_req=NULL;
+	struct gc_node *gc_req=NULL;
+	
+	switch(type){
+		case 0: user_req=(request *)req; break;
+		case 1: gc_req=(gc_node*)req; break;
+		default: abort(); break;
+	}
+
 	uint32_t res=0;
 	for(uint32_t i=trp->index ; entry_set[i]!=NULL; i++){
 		transaction_entry *temp=entry_set[i];
 		switch(temp->status){
 			case CACHED:
 			case CACHEDCOMMIT:
-				res=__lsm_get_sub(req, NULL, NULL, temp->ptr.memtable, 0);
+				if(type==0){
+					res=__lsm_get_sub(user_req, NULL, NULL, temp->ptr.memtable, 0);
+					if(res){
+						return 0;
+					}
+				}
+				else{
+					snode* t=skiplist_find(temp->ptr.memtable, gc_req->lpa);
+					if(t){
+						if(t->ppa==gc_req->ppa){
+							gc_req->status=DONE;
+							gc_req->found_src=SKIP;
+							gc_req->target=(void*)t;
+						}
+						else{
+							gc_req->status=NOUPTDONE;
+							gc_req->plength=0;
+						}
+						return 0;
+					}
+				}
 				trp->index=i+1;
-				return 0;
+				break;
 			case LOGGED:
 			case COMMIT:
 				trp->entry_set=entry_set;
 				tr_req=(algo_req*)malloc(sizeof(algo_req));
-				tr_req->end_req=transaction_end_req;
+				tr_req->end_req=type==0?transaction_end_req:gc_transaction_end_req;
 				tr_req->params=(void*)trp;
 				tr_req->type=LOGR;
-				tr_req->parents=req;
+				tr_req->parents=(request*)req;
 				trp->ppa=temp->ptr.physical_pointer;
-				LSM.li->read(temp->ptr.physical_pointer, PAGESIZE, trp->value, ASYNC, tr_req );
 				trp->index=i+1;
+				if(type==1){
+					gc_req->status=ISSUE;
+				}
+				LSM.li->read(temp->ptr.physical_pointer, PAGESIZE, trp->value, ASYNC, tr_req );
 				return 1;
 			default: 
 				break;
@@ -185,42 +214,44 @@ uint32_t processing_read(request *const req, transaction_entry **entry_set, t_rp
 	return 2;
 }
 
+
 uint32_t __transaction_get(request *const req){
 	transaction_entry **entry_set;
 	t_rparams *trp=NULL;
 	algo_req *tr_req=NULL;
-	uint32_t res=2;
+	uint32_t res=0;
 	bool debug_flag=false;
 
-	if(KEYCONSTCOMP(req->key, "6414480000000000000000000000")==0){
-		debug_flag=true;
-	}
+	/*
+	if(KEYCONSTCOMP(req->key, "1100090000000000000000000000")==0){
+		printf("break!\n");
+	}*/
 
-	if(req->magic!=0){
+	if(req->magic==1){
 		goto search_lsm;
 	}
 
 	if(!req->params){ //first round
 		trp=(t_rparams*)malloc(sizeof(t_rparams));
 		trp->max=transaction_table_find(_tm.ttb, req->tid, req->key, &entry_set);
+		/*
+		if(trp->max!=0){
+			static int cnt=0;
+			printf("here? %d max:%d\n",cnt++,trp->max);
+		}*/
 		trp->index=0;
 		trp->value=req->value;
-		res=processing_read(req, entry_set, trp);
+		res=processing_read((void*)req, entry_set, trp, 0);
+		req->params=trp; 
 	}
 	else{
 		trp=(t_rparams*)req->params;
-		if(debug_flag){
-			printf("%d break!\n", trp->index);
-			if(trp->index==114){
-				printf("debug_point\n");
-			}
-		}
 		entry_set=trp->entry_set;
 		/*searching meta segment*/
 		keyset *sets=ISNOCPY(LSM.setup_values) ? (keyset*)nocpy_pick(trp->ppa)
 			: (keyset*)trp->value->value;
 		keyset *target=LSM.lop->find_keyset((char*)sets, req->key);
-		if(target){
+		if(target){			
 			/*issue data*/
 			tr_req=(algo_req*)malloc(sizeof(algo_req));
 			tr_req->end_req=transaction_end_req;
@@ -233,16 +264,28 @@ uint32_t __transaction_get(request *const req){
 		}
 
 		/*next round*/
-		res=processing_read(req, entry_set, trp);
+		res=processing_read((void*)req, entry_set, trp,0);
 	}
 
-	if(res < 2){ 
-		req->params=trp; 
-		return res;
+	switch(res){
+		case 0: //CACHED, CACHEDCOMMIT
+			free(entry_set);
+			free(req->params);
+		case 1: //COMMMIT, LOGGED
+			req->magic=2;
+			return res;
+		case 2: //not found in log
+			free(entry_set);
+			req->magic=2;
+			break;
 	}
+
 search_lsm:
+	if(req->magic==2){
+		free(req->params);
+		req->params=NULL;
+	}
 	req->magic=1;
-	free(entry_set);
 	//not found in log
 	return __lsm_get(req);
 }
@@ -252,7 +295,9 @@ inline uint32_t transaction_get_postproc(request *const req, uint32_t res_type){
 	if(res_type==0){
 		free(req->params);
 		req->type=FS_NOTFOUND_T;
+		printf("notfound key: %.*s\n",KEYFORMAT(req->key));
 		req->end_req(req);
+		abort();
 	}
 	return res_type;
 }
@@ -381,7 +426,6 @@ bool transaction_invalidate_PPA(uint8_t type, uint32_t ppa){
 
 uint32_t gc_log(){
 	LMI.log_gc_cnt++;
-	lsm_io_sched_flush();
 	blockmanager *bm=LSM.bm;
 	__gsegment *tseg=bm->pt_get_gc_target(bm, LOG_S);
 	if(!tseg || tseg->invalidate_number==0){

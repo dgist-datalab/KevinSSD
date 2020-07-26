@@ -1,5 +1,4 @@
 #include "compaction.h"
-#include "lsmtree_scheduling.h"
 #include "lsmtree.h"
 #include "nocpy.h"
 #include "../../bench/bench.h"
@@ -83,7 +82,7 @@ uint32_t compaction_htable_write(ppa_t ppa,htable *input, KEYT lpa){
 	return ppa;
 }
 
-void compaction_htable_read(run_t *ent,PTR* value){
+void compaction_htable_read(run_t *ent, char** value){
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 
@@ -104,13 +103,25 @@ void compaction_htable_read(run_t *ent,PTR* value){
 	LSM.li->read(ent->pbn,PAGESIZE,params->value,ASYNC,areq);
 	return;
 }
+
+void compaction_run_move_insert(level *target, run_t *entry){
+	if(!htable_read_preproc(entry)){
+		compaction_htable_read(entry, (char**)&entry->cpt_data->sets);
+	}
+	epc_check++;
+	compaction_sub_wait();
+
+	compaction_htable_write_insert(target, entry, false);
+	free(entry);
+}
+
+/*
 void compaction_bg_htable_bulkread(run_t **r,fdriver_lock_t **locks){
 	void **argv=(void**)malloc(sizeof(void*)*2);
 	argv[0]=(void*)r;
 	argv[1]=(void*)locks;
 	lsm_io_sched_push(SCHED_HREAD,(void*)argv);
 }
-
 
 uint32_t compaction_bg_htable_write(ppa_t ppa,htable *input, KEYT lpa){
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
@@ -134,14 +145,4 @@ uint32_t compaction_bg_htable_write(ppa_t ppa,htable *input, KEYT lpa){
 	
 	lsm_io_sched_push(SCHED_HWRITE,(void*)areq);
 	return ppa;
-}
-
-void compaction_run_move_insert(level *target, run_t *entry){
-	if(!htable_read_preproc(entry)){
-		compaction_htable_read(entry, (PTR*)&entry->cpt_data);
-	}
-	epc_check++;
-	compaction_sub_wait();
-	compaction_htable_write_insert(target, entry, false);
-	free(entry);
-}
+}*/

@@ -41,8 +41,8 @@ export CFLAGS_LOWER=\
 		     -fPIC\
 			 -lpthread\
 			 -Wall\
-			 -DONLYMAP\
 			 -D_FILE_OFFSET_BITS=64\
+#			 -DONLYMAP\
 
 export priority="false"
 export ORIGINAL_PATH=$(PPWD)
@@ -85,9 +85,9 @@ SRCS +=\
 	./interface/vectored_interface.c\
 	./include/FS.c\
 	./include/slab.c\
+	./include/rwlock.c\
 	./include/utils/debug_tools.c\
 	./include/utils/dl_sync.c\
-	./include/utils/rwlock.c\
 	./include/utils/cond_lock.c\
 	./include/data_struct/hash_kv.c\
 	./include/data_struct/list.c\

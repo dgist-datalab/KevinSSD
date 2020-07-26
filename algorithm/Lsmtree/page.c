@@ -68,7 +68,6 @@ uint32_t getPPA(uint8_t type, KEYT lpa, bool b){
 	pm *t;
 	blockmanager *bm=LSM.bm;
 	uint32_t res=-1;
-	static int cnt=0;
 retry:
 	if(type==DATA){
 		t=&d_m;
@@ -91,6 +90,9 @@ retry:
 				//abort();
 				goto retry;
 			}
+			//static int get_active_cnt=0;
+			//printf("cnt: %d\n",get_active_cnt++);
+			if(t->active) free(t->active);
 			t->active=bm->pt_get_segment(bm,MAP_S,false);
 		}
 	}
@@ -106,7 +108,6 @@ retry:
 	else
 		res=bm->get_page_num(bm,t->active);
 	if(res==UINT_MAX){
-		printf("cnt:%d\n",cnt);
 		abort();
 	}
 
@@ -235,7 +236,7 @@ bool invalidate_PPA(uint8_t type,uint32_t ppa){
 			t_p=t_p/NPCINPAGE;
 			if(ppa==UINT_MAX) return true;
 			t=LSM.bm->pick_block(LSM.bm,t_p)->private_data;
-			//invalidate_piece((lsm_block*)t,ppa);
+		//	invalidate_piece((lsm_block*)t,ppa);
 #endif
 
 #ifdef EMULATOR

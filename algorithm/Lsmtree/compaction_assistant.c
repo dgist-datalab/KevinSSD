@@ -4,7 +4,6 @@
 #include "page.h"
 #include "bloomfilter.h"
 #include "nocpy.h"
-#include "lsmtree_scheduling.h"
 #include "lsmtree_transaction.h"
 #include <pthread.h>
 #include <stdlib.h>
@@ -48,12 +47,12 @@ void compaction_sub_pre(){
 	memcpy_cnt=0;
 }
 
-void compaction_selector(level *a, level *b,leveling_node *lnode, pthread_mutex_t* lock){
+void compaction_selector(level *a, level *b,leveling_node *lnode, rwlock* rwlock){
 	if(b->istier){
 
 	}
 	else{
-		leveling(a,b,lnode,lock);
+		leveling(a,b,lnode,rwlock);
 	}
 }
 
@@ -112,9 +111,10 @@ bool compaction_init(){
 	fdriver_mutex_init(&compaction_flush_wait);
 	fdriver_lock(&compaction_flush_wait);
 	switch(GETCOMPOPT(LSM.setup_values)){
+		/*
 		case PIPE:
 			compactor.pt_leveling=pipe_partial_leveling;
-			break;
+			break;*/
 		case NON:
 			compactor.pt_leveling=partial_leveling;
 			break;
@@ -129,8 +129,9 @@ bool compaction_init(){
 			break;
 	}
 
+	/*
 	if(GETCOMPOPT(LSM.setup_values)==PIPE)
-		lsm_io_sched_init();
+		lsm_io_sched_init();*/
 	return true;
 }
 
@@ -142,6 +143,9 @@ void compaction_free(){
 		compP *t=&compactor.processors[i];
 
 		while(pthread_tryjoin_np(t->t_id,(void**)&temp)){
+			pthread_mutex_lock(&t->lock);
+			pthread_cond_broadcast(&t->cond);
+			pthread_mutex_unlock(&t->lock);
 		}
 		pthread_mutex_destroy(&t->lock);
 		pthread_cond_destroy(&t->cond);
@@ -295,6 +299,10 @@ void *compaction_main(void *input){
 	while(1){
 		pthread_mutex_lock(&_this->lock);
 		while(_this->q->empty()){
+			if(compactor.stopflag){
+				pthread_mutex_unlock(&_this->lock);
+				return NULL;
+			}
 			pthread_cond_wait(&_this->cond, &_this->lock);
 		}
 		wrapper=_this->q->front();
@@ -330,6 +338,8 @@ void *compaction_main(void *input){
 
 		leveling_node lnode;
 		if(req->fromL==-1){
+			static int compaction_cnt=0;
+			printf("normal! %d\n", compaction_cnt++);
 			lnode.mem=req->temptable;
 			compaction_data_write(&lnode);
 			compaction_selector(NULL,LSM.disk[0],&lnode,&LSM.level_lock[0]);
@@ -353,7 +363,7 @@ cascade:
 
 #ifdef WRITEWAIT
 		if(req && req->last){
-			lsm_io_sched_flush();	
+			//lsm_io_sched_flush();	
 			LSM.li->lower_flying_req_wait();
 			fdriver_unlock(&compaction_flush_wait);
 		}
@@ -530,7 +540,7 @@ bool htable_read_preproc(run_t *r){
 	}
 	else{
 		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);*/
-		r->cpt_data=htable_assign(NULL,false);
+		r->cpt_data=htable_assign(NULL,!ISNOCPY(LSM.setup_values));
 		r->cpt_data->iscached=0;
 //	}
 

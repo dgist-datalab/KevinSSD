@@ -7,7 +7,6 @@
 #include "../../include/slab.h"
 #include "../../interface/interface.h"
 #include "../../bench/bench.h"
-#include "./level_target/hash/hash_table.h"
 #include "compaction.h"
 #include "lsmtree.h"
 #include "page.h"
@@ -96,9 +95,9 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 
 	LLP.size_factor_change=(bool*)malloc(sizeof(bool)*LSM.LEVELN);
 	memset(LLP.size_factor_change,0,sizeof(bool)*LSM.LEVELN);
-	LSM.level_lock=(pthread_mutex_t*)malloc(sizeof(pthread_mutex_t)*LSM.LEVELN);
+	LSM.level_lock=(rwlock*)malloc(sizeof(rwlock)*LSM.LEVELN);
 	for(int i=0; i< LSM.LEVELN; i++){
-		pthread_mutex_init(&LSM.level_lock[i],NULL);
+		rwlock_init(&LSM.level_lock[i]);
 	}
 
 	float m_num=1;
@@ -143,6 +142,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 		nocpy_init();
 
 	LSM.lsm_cache=cache_init(LSP.cache_memory/PAGESIZE);
+
 #ifdef EMULATOR
 	LSM.rb_ppa_key=rb_create();
 #endif
@@ -153,9 +153,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 void lsm_destroy(lower_info *li, algorithm *lsm){
 	compaction_free();
 	free(LLP.size_factor_change);
-	//cache_print(LSM.lsm_cache);
 	printf("last summary-----\n");
-	uint32_t cache_data=LSM.lsm_cache->n_size;
 	LSM.lop->print_level_summary();
 	for(int i=0; i<LSM.LEVELN; i++){
 		LSM.lop->release(LSM.disk[i]);
@@ -165,7 +163,6 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	if(LSM.temptable)
 		skiplist_free(LSM.temptable);
 	
-	fprintf(stderr,"cache size:%d\n",cache_data);
 	fprintf(stderr,"data gc: %d\n",LMI.data_gc_cnt);
 	fprintf(stderr,"header gc: %d\n",LMI.header_gc_cnt);
 	fprintf(stderr,"compaction_cnt:%d\n",LMI.compaction_cnt);
@@ -176,13 +173,15 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	fprintf(stderr,"pr_check cnt:%d\n",LMI.pr_check_cnt);
 #endif
 	fprintf(stderr,"normal check cnt:%d\n",LMI.check_cnt);
+
 	cache_free(LSM.lsm_cache);
 
 	free(LSM.level_lock);
 	if(ISNOCPY(LSM.setup_values))
 		nocpy_free();
 
-	transaction_destroy();
+	if(ISTRANSACTION(LSM.setup_values))
+		transaction_destroy();
 }
 
 #ifdef DVALUE
@@ -222,8 +221,6 @@ void* lsm_end_req(algo_req* const req){
 	bool havetofree=true;
 	void *req_temp_params=NULL;
 	PTR target=NULL;
-	htable **header=NULL;
-	htable *table=NULL;
 	rparams* rp;
 	//htable mapinfo;
 	switch(params->lsm_type){
@@ -235,11 +232,10 @@ void* lsm_end_req(algo_req* const req){
 			break;
 		case HEADERR:
 			if(!parents){ //end_req for compaction
-				header=(htable**)params->target;
-				table=*header;
-				if(!ISNOCPY(LSM.setup_values)) memcpy(table->sets,params->value->value,PAGESIZE);
+				target=*params->target;
+				if(!ISNOCPY(LSM.setup_values)) memcpy(target,params->value->value,PAGESIZE);
 				comp_target_get_cnt++;
-				table->done=true;
+				//table->done=true;
 				if(epc_check==comp_target_get_cnt+memcpy_cnt){
 #ifdef MUTEXLOCK
 					pthread_mutex_unlock(&compaction_wait);
@@ -325,13 +321,6 @@ void* lsm_end_req(algo_req* const req){
 		case DATAW:
 			inf_free_valueset(params->value,FS_MALLOC_W);
 			break;
-		case BGREAD:
-			header=(htable**)params->target;
-			table=*header;
-			if(!ISNOCPY(LSM.setup_values)) memcpy(table->sets,params->value->value,PAGESIZE);
-			inf_free_valueset(params->value,FS_MALLOC_R);
-			fdriver_unlock(params->lock);
-			break;
 		default:
 			break;
 	}
@@ -356,9 +345,6 @@ uint32_t lsm_set(request * const req){
 
 
 	static bool force = 0 ;
-	if(req->length % 4096 || req->offset % 4096){
-		abort();
-	}
 
 	data_input_write++;
 	compaction_check(req->key,force);
@@ -438,7 +424,6 @@ uint32_t lsm_get(request *const req){
 	if(!level_show){
 		level_show=true;
 		measure_init(&lsm_mt);
-		//		cache_print(LSM.lsm_cache);
 	}
 	lsm_proc_re_q();
 
@@ -565,18 +550,27 @@ void dummy_htable_read(uint32_t pbn,request *req){
 #endif
 }
 
-uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, int *level,int *run){
+uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, int *level,int *run, rwlock **rw_lock){
 	run_t *entries=NULL;
 	if(*run) (*level)++;
+	
 	for(int i=*level; i<LSM.LEVELN; i++){
 	#ifdef BLOOM
 		if(i>=LSM.LEVELCACHING && GETCOMPOPT(LSM.setup_values)==HW){	
 		}
-		else
-			if(!bf_check(LSM.disk[i]->filter,key)) continue;
+		else{
+			if(!bf_check(LSM.disk[i]->filter,key)) {
+				continue;
+			}
+		}
 	#endif
-		
 
+		rwlock* level_rw_lock=&LSM.level_lock[i];
+		if(rw_lock){
+			(*rw_lock)=level_rw_lock;
+		}
+
+		rwlock_read_lock(level_rw_lock);
 #ifdef PARTITION
 		if(up_entry){
 			entries=LSM.lop->find_run_se(LSM.disk[i],key,up_entry);
@@ -592,6 +586,8 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 #ifdef PARTITION
 			up_entry=NULL;
 #endif
+
+			rwlock_read_unlock(level_rw_lock);
 			continue;
 		}
 
@@ -600,6 +596,7 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 			if(find){
 				*found=find;
 				if(level) *level=i;
+				rwlock_read_unlock(level_rw_lock);
 				return CACHING;
 			}
 #ifdef PARTITION
@@ -610,9 +607,12 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 			if(level) *level=i;
 			if(run) *run=0;
 			*entry=entries;
+			//the rwlock will be release next round
 			return FOUND;
 		}
 		if(run) *run=0;
+
+		rwlock_read_unlock(level_rw_lock);
 		continue;
 	}
 	return NOTFOUND;
@@ -627,6 +627,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 	algo_req *lsm_req=NULL;
 	snode *target_node;
 	keyset *target_set;
+
 
 	if(list){//skiplist check for memtable and temp_table;
 		target_node=skiplist_find(list,req->key);
@@ -654,28 +655,12 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 		}
 	}
 
-	if(!res && table){//retry check or cache hit check
+	if(!res && table){
 		if(ISNOCPY(LSM.setup_values) && entry){
 			table=(keyset*)nocpy_pick(entry->pbn);
 		}
 		target_set=LSM.lop->find_keyset((char*)table,req->key);
-		char *src;
 		if(likely(target_set)){
-			if(entry && !entry->c_entry && cache_insertable(LSM.lsm_cache)){
-				if(idx!=LSM.LEVELN-1){
-					if(ISNOCPY(LSM.setup_values)){
-						src=nocpy_pick(entry->pbn);
-						entry->cache_nocpy_data_ptr=src;
-					}
-					else{
-						htable temp; temp.sets=table;
-						entry->cache_data=htable_copy(&temp);
-					}
-				}
-				cache_entry *c_entry=cache_insert(LSM.lsm_cache,entry,0);
-				entry->c_entry=c_entry;
-			}
-
 			lsm_req=lsm_get_req_factory(req,DATAR,0);
 	//		req->value->ppa=target_set->ppa>>1;
 			req->value->ppa=target_set->ppa;
@@ -720,7 +705,10 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 						}
 					}
 				}
+				rparams *temp_rparams=(rparams*)temp_req->params;
+				rwlock_read_unlock(temp_rparams->rw_lock);
 			}
+
 			entry->wait_idx=0;
 			free(entry->waitreq);
 			entry->waitreq=NULL;
@@ -736,6 +724,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 	}
 
 	if(lsm_req==NULL){
+		rwlock_read_unlock(((rparams*)req->params)->rw_lock);
 		return 0;
 	}
 	if(ppa==UINT_MAX){
@@ -746,8 +735,15 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 	}
 
 	if(likely(lsm_req)){
+
+		rwlock_read_unlock(((rparams*)req->params)->rw_lock);
 #ifdef DVALUE
 		if(lsm_data_cache_check(req,ppa)){
+			if(lsm_req){
+				free(lsm_req->params);
+				free(lsm_req);
+			}
+			free(req->params);
 			req->end_req(req);
 			return res;
 		}
@@ -774,28 +770,42 @@ uint32_t __lsm_get(request *const req){
 	int run;
 	int round;
 	int res;
-	int mark=req->mark;
 	htable mapinfo;
 	run_t *entry;
 	keyset *found=NULL;
 	algo_req *lsm_req=NULL;
 	lsm_params *params;
 	uint8_t result=0;
-	
+
+	/*
+	static uint32_t called_cnt=0;
+	printf("called :%d\n", ++called_cnt);
+	if(called_cnt==3){
+		printf("break!\n");
+	}*/
+
 	int *temp_data;
 	rparams *rp;
 
+	//printf("key:%.*s\n", KEYFORMAT(req->key));
+	if(KEYCONSTCOMP(req->key,"3388490000000000000000000000")==0){
+		printf("break!\n");
+	}
+
 	if(req->params==NULL){
-		/*memtable*/
-		res=__lsm_get_sub(req,NULL,NULL,LSM.memtable, 0);
-		if(unlikely(res))return res;
+		if(!ISTRANSACTION(LSM.setup_values)){
+			/*memtable*/
+			res=__lsm_get_sub(req,NULL,NULL,LSM.memtable, 0);
+			if(unlikely(res))return res;
 
-		pthread_mutex_lock(&LSM.templock);
-		res=__lsm_get_sub(req,NULL,NULL,LSM.temptable, 0);
-		pthread_mutex_unlock(&LSM.templock);
+			pthread_mutex_lock(&LSM.templock);
+			res=__lsm_get_sub(req,NULL,NULL,LSM.temptable, 0);
+			pthread_mutex_unlock(&LSM.templock);
 
 
-		if(unlikely(res)) return res;
+			if(unlikely(res)) return res;
+		}
+
 		rp=(rparams*)malloc(sizeof(rparams));
 		req->params=(void*)rp;
 		rp->entry=entry=NULL;
@@ -831,11 +841,7 @@ uint32_t __lsm_get(request *const req){
 		_entry=LSM.lop->find_run(LSM.disk[level],req->key);
 #endif
 */
-		pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
 		res=__lsm_get_sub(req,entry,mapinfo.sets,NULL, level);
-		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-
-
 		entry->from_req=NULL;
 		entry->isflying=0;
 		if(res)return res;
@@ -854,7 +860,10 @@ retry:
 		LSM.li->read(CONVPPA(rp->ppa),PAGESIZE,req->value,ASYNC,lsm_get_req_factory(req,DATAR,level));
 		return 1;
 	}
-	result=lsm_find_run(req->key,&entry, entry, &found,&level,&run);
+
+	
+
+	result=lsm_find_run(req->key,&entry, entry, &found,&level,&run, &rp->rw_lock);
 	if(temp_data[3]==1) temp_data[3]=0;
 	switch(result){
 		case CACHING:
@@ -874,25 +883,8 @@ retry:
 			temp_data[1]=run;
 
 			rp->entry=entry;
-
-			pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-			if(entry->c_entry){
-				res=ISNOCPY(LSM.setup_values)?__lsm_get_sub(req,NULL,(keyset*)entry->cache_nocpy_data_ptr,NULL,level):__lsm_get_sub(req,NULL,entry->cache_data->sets,NULL,level);
-				if(res){
-					bench_cache_hit(mark);
-					cache_update(LSM.lsm_cache,entry);	
-					pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-					res=FOUND;
-					return res;
-				}
-			}
-			else if(level==LSM.LEVELN-1){
-		//		entry->c_entry=cache_insert(LSM.lsm_cache,entry,0);
-			}
-
-			pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 			temp_data[2]=++round;
-			if(!(ISHWREAD(LSM.setup_values) && level==LSM.LEVELN-1) && entry->isflying==1){			
+			if(!(ISHWREAD(LSM.setup_values) && level==LSM.LEVELN-1) && entry->isflying==1){	
 				if(entry->wait_idx==0){
 					if(entry->waitreq){
 						abort();
@@ -947,7 +939,7 @@ htable *htable_assign(char *cpy_src, bool using_dma){
 		res->sets=(keyset*)temp->value;
 		res->origin=temp;
 	}
-	res->done=0;
+	//res->done=0;
 	return res;
 }
 
@@ -966,7 +958,7 @@ htable *htable_copy(htable *input){
 	memcpy(res->sets,input->sets,PAGESIZE);
 	res->t_b=0;
 	res->origin=NULL;
-	res->done=0;
+	//res->done=0;
 	return res;
 }
 htable *htable_dummy_assign(){
@@ -974,7 +966,7 @@ htable *htable_dummy_assign(){
 	res->sets=NULL;
 	res->nocpy_table=NULL;
 	res->t_b=0;
-	res->done=0;;
+	//res->done=0;;
 	res->origin=NULL;
 	return res;
 }
@@ -1203,4 +1195,11 @@ uint32_t lsm_argument_set(int argc, char **argv){
 			break;
 	}
 	return 1;
+}
+
+void *testing(KEYT a, ppa_t ppa){
+	if(a.len==0 || ppa==786432){
+		printf("loggin!\n");
+	}
+	return NULL;
 }

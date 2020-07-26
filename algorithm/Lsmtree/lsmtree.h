@@ -9,7 +9,7 @@
 #include "level.h"
 #include "page.h"
 #include "../../include/settings.h"
-#include "../../include/utils/rwlock.h"
+#include "../../include/rwlock.h"
 #include "../../interface/queue.h"
 #include "../../include/container.h"
 #include "../../include/settings.h"
@@ -91,6 +91,7 @@ typedef struct req_params{
 	int datas[4];
 	ppa_t ppa;
 	run_t *entry;
+	rwlock *rw_lock;
 }rparams;
 
 typedef struct lsm_params{
@@ -99,9 +100,9 @@ typedef struct lsm_params{
 	ppa_t ppa;
 	void *entry_ptr;
 	PTR test;
-	PTR* target;
 	value_set* value;
 	htable * htable_ptr;
+	char **target;
 	fdriver_lock_t *lock;
 }lsm_params;
 
@@ -194,7 +195,7 @@ typedef struct lsmtree{
 	uint8_t result_padding;
 	//level opertaion sets//
 	struct queue *re_q;
-	pthread_mutex_t *level_lock;
+	rwlock *level_lock;
 	pthread_mutex_t memlock;
 	pthread_mutex_t templock;
 	struct skiplist *memtable;
@@ -238,7 +239,7 @@ uint32_t lsm_proc_re_q();
 uint32_t lsm_remove(request *const);
 
 uint32_t __lsm_get(request *const);
-uint8_t lsm_find_run(KEYT key, run_t **,run_t *,struct keyset **, int *level, int *run);
+uint8_t lsm_find_run(KEYT key, run_t **,run_t *,struct keyset **, int *level, int *run, rwlock **);
 uint32_t __lsm_range_get(request *const);
 
 void* lsm_end_req(struct algo_req*const);
@@ -265,4 +266,5 @@ KEYT* lsm_simul_get(ppa_t ppa); //copy the value
 void lsm_simul_del(ppa_t ppa);
 float diff_get_sizefactor(uint32_t keynum_in_header);
 int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int idx);
+void *testing(KEYT a, ppa_t ppa);
 #endif

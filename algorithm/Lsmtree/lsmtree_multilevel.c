@@ -8,7 +8,6 @@
 #include "../../interface/interface.h"
 #include "../../bench/bench.h"
 #include "../../blockmanager/bb_checker.h"
-#include "./level_target/hash/hash_table.h"
 #include "compaction.h"
 #include "lsmtree.h"
 #include "page.h"

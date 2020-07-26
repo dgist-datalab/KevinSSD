@@ -4,12 +4,11 @@
 #include "skiplist.h"
 #include "nocpy.h"
 #include "variable.h"
-#include "../../include/utils/rwlock.h"
+#include "../../include/rwlock.h"
 #include "../../include/utils/kvssd.h"
 #include "../../interface/interface.h"
 #include "../../include/data_struct/list.h"
 #include "level.h"
-#include "lsmtree_scheduling.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -31,14 +30,12 @@ typedef struct temp_gc_h{
 	bool is_should_write;
 }temp_gc_h;
 
-MeasureTime read_datas, mv_datas;
-
 #ifdef KVSSD
 uint32_t gc_cnt=0;
 int gc_header(){
 	LMI.header_gc_cnt++;
 	gc_general_wait_init();
-	lsm_io_sched_flush();
+	//lsm_io_sched_flush();
 
 	blockmanager *bm=LSM.bm;
 	__gsegment *tseg=bm->pt_get_gc_target(bm,MAP_S);
@@ -187,7 +184,6 @@ gc_node *gc_data_write_new_page(uint32_t t_ppa, char *data, htable_t *table, uin
 		n_ppa=-1;
 	}
 	res->status=NOTISSUE;
-	res->invalidate=false;
 	res->nppa=n_ppa;
 	res->ppa=t_ppa;
 	return res;
@@ -205,14 +201,8 @@ int __gc_data(){
 	static bool flag=false;
 	if(!flag){
 		flag=true;
-		measure_init(&read_datas);
-		measure_init(&mv_datas);
 	}
-	MS(&read_datas);
-	/*
-	if(LSM.LEVELN!=1){
-		compaction_force();
-	}*/
+	
 	l_bucket *bucket=(l_bucket*)calloc(sizeof(l_bucket),1);
 	gc_general_wait_init();
 
@@ -252,6 +242,7 @@ int __gc_data(){
 	}
 
 	gc_general_waiting(); //wait for read req
+	printf("readed page! %d\n", i);
 	
 	i=0;
 	//int cnt=0;
@@ -273,6 +264,9 @@ int __gc_data(){
 			}
 			used_page=true;
 			lpa=LSM.lop->get_lpa_from_data(&((char*)tables[i]->sets)[PIECE*j],t_ppa,false);
+			if(lpa->len==0){
+				abort();
+			}
 
 			if(oob_len==NPCINPAGE && oob_len%NPCINPAGE==0){
 				temp_g=gc_data_write_new_page(t_ppa,NULL,tables[i],NPCINPAGE,lpa);
@@ -315,7 +309,6 @@ next_page:
 	
 	free(tables);
 
-	ME(&read_datas,"read_datas");
 	gc_data_header_update_add(bucket);
 	for_each_block(tseg,tblock,bidx){
 		lb_free((lsm_block*)tblock->private_data);
@@ -351,9 +344,10 @@ int gc_node_compare(const void *a, const void *b){
 }
 
 void gc_data_header_update_add(l_bucket *b){
-	MS(&mv_datas);
-	gc_data_header_update(b->gc_bucket[2],b->contents_num,b);
-	ME(&mv_datas,"total_mv");
+	if(ISTRANSACTION(LSM.setup_values)){
+		gc_data_transaction_header_update(b->gc_bucket[8], b->contents_num, b);
+	}
+	gc_data_header_update(b->gc_bucket[8],b->contents_num,b);
 }
 
 void* gc_data_end_req(struct algo_req*const req){
@@ -377,12 +371,11 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 	uint8_t result=0;
 	run_t *now=NULL;
 	keyset *found=NULL;
-
+	
 //retry:
-	result=lsm_find_run(g->lpa,&now,NULL,&found,&params->level,&params->run);
+	result=lsm_find_run(g->lpa,&now,NULL,&found,&params->level,&params->run, NULL);
 	if(result==FOUND){
 		if(skiplist_find(LSM.memtable,g->lpa)){
-			g->invalidate=true;
 			g->plength=0;
 			g->status=NOUPTDONE;
 			return CACHING;
@@ -393,12 +386,10 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 		case CACHING:
 			if(found){
 				if(found->ppa==g->ppa){
-					params->found=found;
 					g->status=DONE;
 					update_cache++;
 				}
 				else{
-					g->invalidate=true;
 					g->plength=0;
 					params->level++;
 					g->status=NOUPTDONE;
@@ -408,13 +399,7 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 				return CACHING;
 			}
 		case FOUND:
-			if(params->level==LSM.LEVELN-1){
-				//don't have to read meta data
-				g->status=NOUPTDONE;
-				nouptdone++;
-				return DONE;
-			}
-			else if(now->isflying==1){
+			if(now->isflying==1){
 				g->status=SAMERUN;
 				if(now->gc_wait_idx>req_size){
 					printf("over_qdepth!\n");
@@ -446,7 +431,7 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 			}
 			break;
 		case NOTFOUND:
-			result=lsm_find_run(g->lpa,&now,NULL,&found,&params->level,&params->run);
+			result=lsm_find_run(g->lpa,&now,NULL,&found,&params->level,&params->run, NULL);
 			LSM.lop->print_level_summary();
 			printf("lpa: %.*s ppa:%u\n",KEYFORMAT(g->lpa),g->ppa);
 			abort();
@@ -486,20 +471,8 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 		gc_params *p=(gc_params*)target->params;
 		find=ISNOCPY(LSM.setup_values)?LSM.lop->find_keyset((char*)data->nocpy_table,target->lpa): LSM.lop->find_keyset((char*)data->sets,target->lpa);
 		if(find && find->ppa==target->ppa){
-			p->found=find;
 			target->status=DONE;
 			done_cnt++;
-			/*
-			if(ent->c_entry){
-				if(ISNOCPY(LSM.setup_values)){
-					p->found2=LSM.lop->find_keyset((char*)ent->cache_nocpy_data_ptr,target->lpa);
-				}
-				else{
-					p->found2=LSM.lop->find_keyset((char*)ent->cache_data->sets,target->lpa);
-				}
-			}
-			else*/
-				p->found2=NULL;
 			if(!set_flag && i==-1){
 				set_flag=true;
 				original_target_processed=true;
@@ -514,7 +487,6 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 		}
 		else{
 			if(find){
-				target->invalidate=true;
 				target->plength=0;
 				target->status=NOUPTDONE;
 				if(i==-1){original_target_processed=true;
@@ -556,6 +528,7 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 			}
 			gc_node *target=g[i];
 			switch(target->status){
+				case NOTINLOG:
 				case NOTISSUE:
 					params=(gc_params*)malloc(sizeof(gc_params));
 					memset(params,0,sizeof(gc_params));
@@ -600,28 +573,20 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 	for(int i=0;i<size; i++){
 		gc_node *t=g[i];
 		gc_params *p=(gc_params*)t->params;
-		if(t->status==NOUPTDONE){
-		
-		}
-		else if(!p->found) 
-			abort();
-		else if(t->plength==0){
-			continue;
-		}
-		else{
-			if(t->plength!=0){
-				if(!skip_init_flag){
-					skip_init_flag=true;
-					LSM.gc_list=skiplist_init();
-				}
-				LSM.gc_compaction_flag=true;
-				KEYT temp_lpa;
-				kvssd_cpy_key(&temp_lpa,&t->lpa);
-				skiplist_insert_wP(LSM.gc_list,temp_lpa,t->nppa,false);
-				new_inserted++;
-			}
 
+		if(t->plength!=0){
+			if(!skip_init_flag){
+				skip_init_flag=true;
+				LSM.gc_list=skiplist_init();
+			}
+			LSM.gc_compaction_flag=true;
+			KEYT temp_lpa;
+			kvssd_cpy_key(&temp_lpa,&t->lpa);
+			skiplist_insert_wP(LSM.gc_list,temp_lpa,t->nppa,false);
+			new_inserted++;
 		}
+
+		
 		free(t->lpa.key);
 		free(t->value);
 		free(t);
@@ -639,6 +604,6 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 		}
 	}
 	list_free(gc_hlist);
-	printf("size :%d cache %d(U:N %u:%u), overlap:%d new %d\n",size,cache_cnt,update_cache,noupdate_cache,header_overlap_cnt,new_inserted);
+	//printf("size :%d cache %d(U:N %u:%u), overlap:%d new %d\n",size,cache_cnt,update_cache,noupdate_cache,header_overlap_cnt,new_inserted);
 }	
 #endif

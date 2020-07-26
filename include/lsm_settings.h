@@ -19,7 +19,7 @@
 //#define MULTILEVELREAD
 //#define CACHEREORDER
 //#define PREFIXCHECK		4
-#define PARTITION
+//#define PARTITION
 
 //#define EMULATOR
 

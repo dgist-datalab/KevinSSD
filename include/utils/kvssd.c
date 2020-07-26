@@ -15,8 +15,7 @@ void kvssd_cpy_key(KEYT *des, KEYT *key){
 	des->len=key->len;
 	memcpy(des->key,key->key,key->len);
 }
-void kvssd_free_key(KEYT *des){
+void kvssd_free_key_content(KEYT *des){
 	free(des->key);
-	free(des);
 }
 #endif

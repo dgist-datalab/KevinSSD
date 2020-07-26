@@ -48,6 +48,7 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark)
 		temp->type=*(uint8_t*)buf_parser(buf, &idx, sizeof(uint8_t));
 		temp->end_req=vectored_end_req;
 		temp->params=NULL;
+		temp->isAsync=ASYNC;
 		switch(temp->type){
 			case FS_TRANS_COMMIT:
 				temp->tid=*(uint32_t*)buf_parser(buf,&idx, sizeof(uint32_t));
@@ -65,6 +66,7 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark)
 		
 		temp->key.len=*(uint8_t*)buf_parser(buf, &idx, sizeof(uint8_t));
 		temp->key.key=buf_parser(buf, &idx, temp->key.len);
+
 		kvssd_cpy_key(&key, &temp->key);
 		temp->key=key;
 		temp->offset=*(uint32_t*)buf_parser(buf, &idx, sizeof(uint32_t));
@@ -154,12 +156,15 @@ void *vectored_main(void *__input){
 
 bool vectored_end_req (request * const req){
 	vectored_request *preq=req->parents;
+	static int return_cnt=0;
 	switch(req->type){
 		case FS_NOTFOUND_T:
 		case FS_GET_T:
 			bench_reap_data(req, mp.li);
+			kvssd_free_key_content(&req->key);	
 	//		memcpy(req->buf, req->value->value, 4096);
-			inf_free_valueset(req->value,FS_MALLOC_R);
+			if(req->value)
+				inf_free_valueset(req->value,FS_MALLOC_R);
 			break;
 		case FS_SET_T:
 			bench_reap_data(req, mp.li);

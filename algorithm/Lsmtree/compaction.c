@@ -3,7 +3,7 @@
 #include "page.h"
 #include "bloomfilter.h"
 #include "nocpy.h"
-#include "lsmtree_scheduling.h"
+//#include "lsmtree_scheduling.h"
 #include "lsmtree_transaction.h"
 #include "../../bench/bench.h"
 #include <pthread.h>
@@ -18,19 +18,19 @@ extern MeasureTime write_opt_time[10];
  extern lsp LSP;
 extern lsmtree LSM;
 static inline void lower_wait(){
-	lsm_io_sched_flush();	
+	//lsm_io_sched_flush();	
 	LSM.li->lower_flying_req_wait();
 }
-uint32_t level_change(level *from ,level *to,level *target, pthread_mutex_t *lock){
+uint32_t level_change(level *from ,level *to,level *target, rwlock *lock){
 	level **src_ptr=NULL, **des_ptr=NULL;
 	des_ptr=&LSM.disk[to->idx];
 	int from_idx=0;
 	if(from!=NULL){ 
 		from_idx=from->idx;
-		pthread_mutex_lock(&LSM.level_lock[from_idx]);
+		rwlock_write_lock(&LSM.level_lock[from_idx]);
 		src_ptr=&LSM.disk[from->idx];
 		*(src_ptr)=LSM.lop->init(from->m_num,from->idx,from->fpr,from->istier);
-		pthread_mutex_unlock(&LSM.level_lock[from_idx]);
+		rwlock_write_unlock(&LSM.level_lock[from_idx]);
 		LSM.lop->release(from);
 	}
 	
@@ -39,10 +39,10 @@ uint32_t level_change(level *from ,level *to,level *target, pthread_mutex_t *loc
 	LSM.lop->make_partition(target);
 #endif
 
-	pthread_mutex_lock(lock);
+	rwlock_write_lock(lock);
 	target->iscompactioning=to->iscompactioning;
 	(*des_ptr)=target;
-	pthread_mutex_unlock(lock);
+	rwlock_write_unlock(lock);
 	LSM.lop->release(to);
 #ifdef CACHEREORDER
 	LSM.lop->reorder_level(target);
@@ -105,14 +105,7 @@ bool level_sequencial(level *from, level *to,level *des, run_t *entry,leveling_n
 	return true;
 }
 
-static void *testing(KEYT test, ppa_t ppa){
-	if(ppa > 9000000){
-		printf("break!\n");
-	}
-	return NULL;
-}
-
-uint32_t leveling(level *from,level *to, leveling_node *l_node,pthread_mutex_t *lock){
+uint32_t leveling(level *from,level *to, leveling_node *l_node,rwlock *lock){
 	//printf("leveling start[%d->%d]\n",from?from->idx+1:0,to->idx+1);
 	level *target_origin=to;
 	level *target=lsm_level_resizing(to,from);
@@ -194,6 +187,7 @@ last:
 		printf("last level %d/%d (n:f)\n",target->n_num,target->m_num);
 	}
 	//LSM.li->lower_flying_req_wait();
+
 	return res;
 }
 
@@ -210,7 +204,7 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 
 		for(int j=0; target_s[j]!=NULL; j++){
 			if(!htable_read_preproc(target_s[j])){
-				compaction_htable_read(target_s[j],(PTR*)&target_s[j]->cpt_data);
+				compaction_htable_read(target_s[j],(char**)&target_s[j]->cpt_data->sets);
 			}
 			epc_check++;
 		}
@@ -255,7 +249,7 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 				continue;
 			}
 			if(!htable_read_preproc(temp)){
-				compaction_htable_read(temp,(PTR*)&temp->cpt_data);
+				compaction_htable_read(temp,(char**)&temp->cpt_data->sets);
 			}
 			epc_check++;
 		}
@@ -267,7 +261,7 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 		for(int i=0; data[i]!=NULL; i++){
 			run_t *temp=data[i];
 			if(!htable_read_preproc(temp)){
-				compaction_htable_read(temp,(PTR*)&temp->cpt_data);
+				compaction_htable_read(temp,(char**)&temp->cpt_data->sets);
 			}
 			epc_check++;
 		}

@@ -36,7 +36,11 @@ void temp_func(char* body, level *d, bool insert){
 	KEYT key;
 	ppa_t *ppa_ptr;
 	for_each_header_start(idx,key,ppa_ptr,bitmap,body)
-		if(KEYCONSTCOMP(key,"215155000000")==0){
+		if(*ppa_ptr==786432){
+			if(key.len==0){
+				printf("error!\n");
+				abort();
+			}
 			if(insert)
 				printf("insert into %d\n",d->idx);
 			else{
@@ -57,7 +61,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 		u_num=1;
 		u_data=(char**)malloc(sizeof(char*)*u_num);
 		u_data[0]=array_skip_cvt2_data(mem);
-//		temp_func(u_data[0],d,true);
+		//temp_func(u_data[0],d,true);
 	}
 	else{
 		for(int i=0; s[i]!=NULL; i++) u_num++;

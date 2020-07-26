@@ -136,8 +136,15 @@ uint32_t transaction_table_add_new(transaction_table *table, uint32_t tid, uint3
 	return 1;
 }
 
+static int non_full_comp;
+
 inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *target){
 	if(t_mem->size==0) return NULL;
+	static uint32_t num_limit=KEYBITMAP/sizeof(uint16_t)-2;
+	static uint32_t size_limit=PAGESIZE-KEYBITMAP;
+	if(!(t_mem->size > num_limit/10*9 || t_mem->all_length >size_limit / 10*9)){
+		printf("non_full_comp! %d\n", non_full_comp++);
+	}
 	value_set **data_sets=skiplist_make_valueset(t_mem, LSM.disk[0], &target->range.start, &target->range.end);
 	issue_data_write(data_sets, LSM.li);
 	free(data_sets);
@@ -172,8 +179,10 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 
 	static uint32_t num_limit=KEYBITMAP/sizeof(uint16_t)-2;
 	static uint32_t size_limit=PAGESIZE-KEYBITMAP;
+	static int full_comp_cnt=0;
 	
 	if(t_mem->size > num_limit/10*9 || t_mem->all_length >size_limit / 10*9){
+		printf("full comp! %d\n",full_comp_cnt++);
 		target->status=LOGGED;
 		if(transaction_table_add_new(table, target->tid/table->base, target->tid%table->base+1)==UINT_MAX){
 			printf("%s:%d full table!\n", __FILE__,__LINE__);
@@ -209,7 +218,7 @@ uint32_t transaction_table_find(transaction_table *table, uint32_t tid, KEYT key
 	fdriver_lock(&indexer_lock);
 	rb_find_int(transaction_indexer, tid * table->base, &res);
 	(*result)=(transaction_entry**)malloc(sizeof(transaction_entry*) * (table->now+1));
-	
+
 	uint32_t index=0;
 	for(; res!=transaction_indexer; res=rb_prev(res)){
 		transaction_entry *target=(transaction_entry*)res->item;
@@ -232,7 +241,11 @@ value_set* transaction_table_force_write(transaction_table *table, uint32_t tid,
 	skiplist *t_mem=target->ptr.memtable;
 	(*t)=target;
 
-	return trans_flush_skiplist(t_mem, target);
+	value_set *res=trans_flush_skiplist(t_mem, target);
+	if(res==NULL){
+		transaction_table_clear(table, target);
+	}
+	return res;
 }
 
 value_set* transaction_table_get_data(transaction_table *table){
@@ -288,9 +301,6 @@ uint32_t transaction_table_clear(transaction_table *table, transaction_entry *et
 	rb_delete(res, true);
 	fdriver_unlock(&indexer_lock);
 
-	etr->tid=0;
-	etr->status=EMPTY;
-	
 	switch(etr->helper_type){
 		case BFILTER:
 			bf_free(etr->read_helper.bf);
@@ -302,11 +312,19 @@ uint32_t transaction_table_clear(transaction_table *table, transaction_entry *et
 			break;
 	}
 
+	if(etr->status==CACHED){
+		skiplist_free(etr->ptr.memtable);
+	}
+
+
 	free(etr->range.start.key);
 	free(etr->range.end.key);
 
 	memset(etr, 0 ,sizeof(transaction_entry));
 	
+	etr->tid=0;
+	etr->status=EMPTY;
+
 	table->now--;
 
 	pthread_mutex_lock(&table->block);

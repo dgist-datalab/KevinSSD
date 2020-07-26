@@ -27,7 +27,6 @@ SRCS +=\
 	   lsmtree.c\
 	   compaction_io_module.c\
 	   compaction_assistant.c\
-	   pipeline_compaction2.c\
 	   hw_compaction.c\
 	   compaction.c\
 	   page.c\
@@ -35,8 +34,8 @@ SRCS +=\
 	   lops_default.c\
 	   cache.c\
 	   page_kv.c\
+	   page_kv_assistant.c\
 	   variable.c\
-	   lsmtree_scheduling.c\
 	   data_simul.c\
 	   lsmtree_params_settings.c\
 	   lsmtree_multilevel.c\
@@ -49,6 +48,7 @@ SRCS +=\
 	   lsmtree_iter.c\
 	   log_list.c\
 	   lsmtree_multi.c\
+	   pipeline_compaction2.c\
 
 
 OBJS :=\

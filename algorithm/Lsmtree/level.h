@@ -46,7 +46,7 @@ typedef struct htable{
 	uint8_t t_b;//0, MALLOC
 	//1, valueset from W
 	//2, valueset from R
-	volatile uint8_t done;
+	//char done;
 }htable;
 
 typedef struct htable_t{

@@ -8,12 +8,14 @@ extern master *_master;
 
 extern int KEYLENGTH;
 
+void bench_vectored_configure(){
+	_master->trans_configure.request_size=REQSIZE+KEYLENGTH*16-sizeof(ppa_t);
+	_master->trans_configure.request_num_per_command=(MAXBUFSIZE-TXNHEADERSIZE)/_master->trans_configure.request_size;
+}
 void bench_transaction_configure(uint32_t commit_term, uint32_t
 		transaction_size){
 	_master->trans_configure.commit_term=commit_term;
 	_master->trans_configure.transaction_size=transaction_size;
-	_master->trans_configure.request_size=REQSIZE+KEYLENGTH*16-sizeof(ppa_t);
-	_master->trans_configure.request_num_per_command=(MAXBUFSIZE-TXNHEADERSIZE)/_master->trans_configure.request_size;
 }
 
 char *transaction_begin_req(uint32_t tid){
@@ -40,32 +42,26 @@ char *transaction_commit_req(int *tid_list, uint32_t size){
 	return res;
 }
 
-char *get_transaction_bench(uint32_t *mark){
+char *get_vectored_bench(uint32_t *mark, bool istransaction){
 	static int idx=0, prev=-1;
 	static int tid_buf[16]={0,};
 	static int transaction_id=0;
 	static int now_transaction_req_cnt=0;
 	static uint64_t real_req_num=0;
 
-	
 	monitor *m=&_master->m[_master->n_num];
 	*mark=_master->n_num;
 
-	if(idx!=0 && idx%_master->trans_configure.commit_term == 0){
-		char *commit_res=transaction_commit_req(tid_buf, idx);
-		idx=0;
-		prev=-1;
-		return commit_res;
+	if(istransaction){
+		if(idx!=0 && idx%_master->trans_configure.commit_term == 0){
+			char *commit_res=transaction_commit_req(tid_buf, idx);
+			idx=0;
+			prev=-1;
+			return commit_res;
+		}
 	}
 
-
-	if(m->command_issue_num==0){ //start bench mark
-		bench_make_data();
-		real_req_num=0;
-	}
-
-
-	if(m->command_issue_num==m->command_num){
+	if(m->command_num!=0 && m->command_issue_num==m->command_num){
 		_master->n_num++;
 		free(m->tbody);
 		while(!bench_is_finish_n(_master->n_num)){}
@@ -73,16 +69,23 @@ char *get_transaction_bench(uint32_t *mark){
 		printf("\n");
 
 		if(_master->n_num==_master->m_num) return NULL;
-
-		return transaction_commit_req(tid_buf, idx);
+		if(istransaction){		
+			return transaction_commit_req(tid_buf, idx);
+		}
 	}
 
+	if(m->command_issue_num==0){ //start bench mark
+		bench_make_data();
+		real_req_num=0;
+	}
 
-	if(prev!=idx){
-		prev++;
-		m->command_issue_num++;
-		m->command_num++;
-		return transaction_begin_req(transaction_id);
+	if(istransaction){
+		if(prev!=idx){
+			prev++;
+			m->command_issue_num++;
+			m->command_num++;
+			return transaction_begin_req(transaction_id);
+		}
 	}
 
 #ifdef PROGRESS
@@ -95,14 +98,17 @@ char *get_transaction_bench(uint32_t *mark){
 
 	transaction_bench_value *res;
 	res=&m->tbody[real_req_num++];
+	if(!res->buf) return NULL;
 	*(uint32_t*)&res->buf[0]=transaction_id;
 
 	now_transaction_req_cnt++;
 
-	if(now_transaction_req_cnt  >= _master->trans_configure.transaction_size){
-		prev=idx;
-		tid_buf[idx++]=transaction_id++; //next start new transaction;
-		now_transaction_req_cnt=0;
+	if(istransaction){
+		if(now_transaction_req_cnt  >= _master->trans_configure.transaction_size){
+			prev=idx;
+			tid_buf[idx++]=transaction_id++; //next start new transaction;
+			now_transaction_req_cnt=0;
+		}
 	}
 
 	m->command_issue_num++;
@@ -110,7 +116,7 @@ char *get_transaction_bench(uint32_t *mark){
 	return res->buf;
 }
 
-void trans_set(uint32_t start, uint32_t end, monitor* m, bool isseq){
+void vectored_set(uint32_t start, uint32_t end, monitor* m, bool isseq){
 	uint32_t request_per_command=_master->trans_configure.request_num_per_command;
 	uint32_t number_of_command=(m->m_num)/request_per_command;
 	m->m_num=number_of_command*request_per_command;
@@ -153,7 +159,7 @@ void trans_set(uint32_t start, uint32_t end, monitor* m, bool isseq){
 	}
 }
 
-void trans_get(uint32_t start, uint32_t end, monitor* m, bool isseq){
+void vectored_get(uint32_t start, uint32_t end, monitor* m, bool isseq){
 	uint32_t request_per_command=_master->trans_configure.request_num_per_command;
 	uint32_t number_of_command=(m->m_num)/request_per_command;
 	m->m_num=number_of_command*request_per_command;
@@ -190,7 +196,7 @@ void trans_get(uint32_t start, uint32_t end, monitor* m, bool isseq){
 	}
 }
 
-void trans_rw(uint32_t start, uint32_t end, monitor* m, bool isseq){
+void vectored_rw(uint32_t start, uint32_t end, monitor* m, bool isseq){
 	uint32_t request_per_command=_master->trans_configure.request_num_per_command;
 	uint32_t number_of_command=(m->m_num)/request_per_command;
 	m->m_num=number_of_command*request_per_command;
@@ -200,6 +206,7 @@ void trans_rw(uint32_t start, uint32_t end, monitor* m, bool isseq){
 	int *key_buf=(int*)malloc(sizeof(int) * request_per_command);
 	m->command_num=number_of_command;
 	m->command_issue_num=0;
+
 
 	for(uint32_t i=0; i<number_of_command/2; i++){
 		uint32_t idx=0;
@@ -218,12 +225,13 @@ void trans_rw(uint32_t start, uint32_t end, monitor* m, bool isseq){
 			idx+=sizeof(uint8_t);
 			if(isseq){
 				key_buf[j]=start+i*request_per_command+j;
-				idx+=my_itoa(start+i*request_per_command+j, NULL, &buf[idx]);
+				idx+=my_itoa(key_buf[j], NULL, &buf[idx]);
 			}
 			else{
 				key_buf[j]=start+rand()%(end-start);
-				idx+=my_itoa(start+rand()%(end-start), NULL, &buf[idx]);
+				idx+=my_itoa(key_buf[j], NULL, &buf[idx]);
 			}
+
 			(*(uint32_t*)&buf[idx])=0;//offset
 			idx+=sizeof(uint32_t);
 			m->write_cnt++;
@@ -245,12 +253,10 @@ void trans_rw(uint32_t start, uint32_t end, monitor* m, bool isseq){
 			(*(uint8_t*)&buf[idx])=KEYLENGTH*16-sizeof(uint32_t);
 			idx+=sizeof(uint8_t);
 			if(isseq){
-				key_buf[j]=start+i*request_per_command+j;
-				idx+=my_itoa(start+i*request_per_command+j, NULL, &buf[idx]);
+				idx+=my_itoa(key_buf[j], NULL, &buf[idx]);
 			}
 			else{
-				key_buf[j]=start+rand()%(end-start);
-				idx+=my_itoa(start+rand()%(end-start), NULL, &buf[idx]);
+				idx+=my_itoa(key_buf[j], NULL, &buf[idx]);
 			}
 			(*(uint32_t*)&buf[idx])=0;//offset
 			idx+=sizeof(uint32_t);

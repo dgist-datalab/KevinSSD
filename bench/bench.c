@@ -100,7 +100,7 @@ void bench_make_data(){
 		return;
 	}
 	printf("%d X %d = %d, answer=%lu\n",_m->bech,_m->benchsetsize,_m->bech*_m->benchsetsize,_meta->number);
-	if(_meta->type < TRANSSET){
+	if(_meta->type < VECTOREDSET){
 		for(uint32_t i=0; i<_m->benchsetsize; i++){
 			_m->body[i]=(bench_value*)malloc(sizeof(bench_value)*_m->bech);
 		}
@@ -138,14 +138,14 @@ void bench_make_data(){
 		case FILLRAND:
 			fillrand(start,end,_m);
 			break;
-		case TRANSSET:
-			trans_set(start,end, _m, false);
+		case VECTOREDSET:
+			vectored_set(start,end, _m, false);
 			break;
-		case TRANSGET:
-			trans_get(start,end, _m, false);
+		case VECTOREDGET:
+			vectored_get(start,end, _m, false);
 			break;
-		case TRANSRW:
-			trans_rw(start,end, _m, false);
+		case VECTOREDRW:
+			vectored_rw(start,end, _m, false);
 			break;
 #ifndef KVSSD
 		case SEQLATENCY:
@@ -161,6 +161,7 @@ void bench_make_data(){
 	}
 	_d->read_cnt=_m->read_cnt;
 	_d->write_cnt=_m->write_cnt;
+	_m->m_num=_m->read_cnt+_m->write_cnt;
 	measure_init(&_m->benchTime);
 	MS(&_m->benchTime);
 }
@@ -1077,6 +1078,11 @@ char *bench_lower_type(int a){
 		case 8:return "GCDW";
 		case 9:return "GCMR_DGC";
 		case 10:return "GCMW_DGC";
+		case 11:return "LOGW";
+		case 12:return "LOR";
+		case 13:return "TABLEW";
+		case 14:return "TABLER";
+
 	}
 	return NULL;
 }

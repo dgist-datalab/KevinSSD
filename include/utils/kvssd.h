@@ -4,6 +4,6 @@
 
 char* kvssd_tostring(KEYT);
 void kvssd_cpy_key(KEYT *des,KEYT* src);
-void kvssd_free_key(KEYT *des);
+void kvssd_free_key_content(KEYT *des);
 
 #endif
