@@ -41,6 +41,7 @@ SRCS +=\
 	   lsmtree_multilevel.c\
 	   transaction_table.c\
 	   lsmtree_transaction.c\
+	   key_packing.c\
 
 #merge_compaction.c\
 	   run_array.c\

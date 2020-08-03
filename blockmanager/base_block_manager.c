@@ -14,6 +14,7 @@ struct blockmanager base_bm={
 	.is_gc_needed=base_is_gc_needed, 
 	.get_gc_target=base_get_gc_target,
 	.trim_segment=base_trim_segment,
+	.free_segment=base_free_segment,
 	.populate_bit=base_populate_bit,
 	.unpopulate_bit=base_unpopulate_bit,
 	.erase_bit=base_erase_bit,
@@ -64,7 +65,7 @@ uint32_t base_create (struct blockmanager* bm, lower_info *li){
 			__block *b=&p->base_block[block_idx];
 			b->block_num=seg_idx;
 			b->punit_num=j;
-			b->bitset=(uint8_t*)calloc(_PPB/8,1);
+			b->bitset=(uint8_t*)calloc(_PPB*L2PGAP/8,1);
 			block_idx++;
 		}
 	}
@@ -115,7 +116,10 @@ __segment* base_get_segment (struct blockmanager* bm, bool isreserve){
 		if(!isreserve){
 			mh_insert_append(p->base_channel[i].max_heap,(void*)b);
 		}
-		if(!b) abort();
+		if(!b) {
+			printf("lack of free block!!\n");
+			abort();
+		}
 		res->blocks[i]=b;
 		b->seg_idx=p->seg_map_idx;
 	}
@@ -150,11 +154,13 @@ bool base_is_gc_needed (struct blockmanager* bm){
 __gsegment* base_get_gc_target (struct blockmanager* bm){
 	bbm_pri *p=(bbm_pri*)bm->private_data;
 	__gsegment* res=(__gsegment*)malloc(sizeof(__gsegment));
+	res->invalidate_number=0;
 	for(int i=0; i<BPS; i++){
 		mh_construct(p->base_channel[i].max_heap);
 		__block *b=(__block*)mh_get_max(p->base_channel[i].max_heap);
 		if(!b) abort();
 		res->blocks[i]=b;
+		res->invalidate_number+=b->invalid_number;
 	}
 	res->now=res->max=0;
 	return res;
@@ -190,8 +196,8 @@ void base_trim_segment (struct blockmanager* bm, __gsegment* gs, struct lower_in
 int base_populate_bit (struct blockmanager* bm, uint32_t ppa){
 	int res=1;
 	bbm_pri *p=(bbm_pri*)bm->private_data;
-	uint32_t bn=GETBLOCKIDX(checker,ppa);
-	uint32_t pn=GETPAGEIDX(ppa);
+	uint32_t bn=GETBLOCKIDX(checker,ppa/L2PGAP);
+	uint32_t pn=GETPAGEIDX(ppa/L2PGAP) * L2PGAP + (ppa%L2PGAP);
 	uint32_t bt=pn/8;
 	uint32_t of=pn%8;
 
@@ -205,8 +211,8 @@ int base_populate_bit (struct blockmanager* bm, uint32_t ppa){
 int base_unpopulate_bit (struct blockmanager* bm, uint32_t ppa){
 	int res=1;
 	bbm_pri *p=(bbm_pri*)bm->private_data;
-	uint32_t bn=GETBLOCKIDX(checker,ppa);
-	uint32_t pn=GETPAGEIDX(ppa);
+	uint32_t bn=GETBLOCKIDX(checker,ppa/L2PGAP);
+	uint32_t pn=GETPAGEIDX(ppa/L2PGAP) * L2PGAP + (ppa%L2PGAP);
 	uint32_t bt=pn/8;
 	uint32_t of=pn%8;
 	__block *b=&p->base_block[bn];
@@ -248,8 +254,8 @@ int base_erase_bit (struct blockmanager* bm, uint32_t ppa){
 
 bool base_is_valid_page (struct blockmanager* bm, uint32_t ppa){
 	bbm_pri *p=(bbm_pri*)bm->private_data;
-	uint32_t bn=GETBLOCKIDX(checker,ppa);
-	uint32_t pn=GETPAGEIDX(ppa);
+	uint32_t bn=GETBLOCKIDX(checker,ppa/L2PGAP);
+	uint32_t pn=GETPAGEIDX(ppa/L2PGAP) * L2PGAP + (ppa%L2PGAP);
 	uint32_t bt=pn/8;
 	uint32_t of=pn%8;
 
@@ -292,6 +298,7 @@ int base_get_page_num(struct blockmanager* bm,__segment *s){
 	
 	s->used_page_num++;
 	if(page>_PPB) abort();
+	bm->assigned_page++;
 	return res;
 }
 
@@ -339,3 +346,6 @@ __block *base_pick_block(struct blockmanager *bm, uint32_t page_num){
 	return &p->base_block[GETBLOCKIDX(checker,page_num)];
 }
 
+void base_free_segment(struct blockmanager*, __segment*){
+
+}

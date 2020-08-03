@@ -29,6 +29,7 @@ extern KEYT key_min, key_max;
 
 volatile int memcpy_cnt;
 extern lsmtree LSM;
+extern pm d_m;
  extern lmi LMI;
  extern llp LLP;
  extern lsp LSP;
@@ -429,7 +430,7 @@ void compaction_gc_add(skiplist *list){
 }
 
 void compaction_check(KEYT key, bool force){
-	if(LSM.memtable->size<FLUSHNUM) return;
+	if(!lsm_should_flush(LSM.memtable, d_m.active)) return;
 	compR *req;
 	bool last;
 	uint32_t avg_cnt;

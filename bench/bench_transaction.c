@@ -50,7 +50,6 @@ char *get_vectored_bench(uint32_t *mark, bool istransaction){
 	static uint64_t real_req_num=0;
 
 	monitor *m=&_master->m[_master->n_num];
-	*mark=_master->n_num;
 
 	if(istransaction){
 		if(idx!=0 && idx%_master->trans_configure.commit_term == 0){
@@ -73,6 +72,8 @@ char *get_vectored_bench(uint32_t *mark, bool istransaction){
 			return transaction_commit_req(tid_buf, idx);
 		}
 	}
+
+	*mark=_master->n_num;
 
 	if(m->command_issue_num==0){ //start bench mark
 		bench_make_data();

@@ -14,7 +14,7 @@
 #include "lsmtree.h"
 #include "level.h"
 #include "page.h"
-
+#include "key_packing.h"
 
 extern MeasureTime write_opt_time[10];
 extern lsmtree LSM;
@@ -646,8 +646,8 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 #ifdef Lsmtree
 //static int make_value_cnt=0;
 value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEYT *end){
-	value_set **res=(value_set**)malloc(sizeof(value_set*)*(input->size+1));
-	memset(res,0,sizeof(value_set*)*(input->size+1));
+	value_set **res=(value_set**)malloc(sizeof(value_set*)*(input->size+2));
+	memset(res,0,sizeof(value_set*)*(input->size+2));
 	l_bucket b;
 	memset(&b,0,sizeof(b));
 	uint32_t idx=1;
@@ -670,7 +670,15 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 		total_size+=target->value->length;
 
 	}
-	int res_idx=0;
+
+	/*res_idx=0 : page for key*/
+	res[0]=inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
+	res[0]->ppa=LSM.lop->moveTo_fr_page(false);
+	footer *foot=(footer*)pm_get_oob(CONVPPA(res[0]->ppa), DATA, false);
+	foot->map[0]=0;
+	key_packing *kp=key_packing_init(res[0], NULL);
+	
+	int res_idx=1;
 	for(int i=0; i<b.idx[PAGESIZE/PIECE]; i++){//full page
 		target=b.bucket[PAGESIZE/PIECE][i];
 		res[res_idx]=target->value;
@@ -681,6 +689,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 		foot->map[0]=NPCINPAGE;
 
 		target->value=NULL;
+		key_packing_insert(kp, target->key);
 		res_idx++;
 	}
 	b.idx[PAGESIZE/PIECE]=0;
@@ -694,13 +703,14 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 	}
 
 #ifdef DVALUE
-	variable_value2Page(from,&b,&res,&res_idx,false);
+	variable_value2Page(from,&b,&res,&res_idx, kp, false);
 #endif
 
 	for(int i=0; i<=NPCINPAGE; i++){
 		if(b.bucket[i]) free(b.bucket[i]);
 	}
 	res[res_idx]=NULL;
+	key_packing_free(kp);
 	return res;
 }
 #endif

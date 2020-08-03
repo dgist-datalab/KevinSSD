@@ -267,4 +267,5 @@ void lsm_simul_del(ppa_t ppa);
 float diff_get_sizefactor(uint32_t keynum_in_header);
 int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int idx);
 void *testing(KEYT a, ppa_t ppa);
+bool lsm_should_flush(skiplist *mem, __segment *seg);
 #endif

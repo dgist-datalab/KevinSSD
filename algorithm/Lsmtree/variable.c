@@ -7,7 +7,7 @@
 #include <stdio.h>
 extern lsmtree LSM;
 extern MeasureTime write_opt_time[10];
-void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset, int* target_valueset_from, bool isgc){
+void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset, int* target_valueset_from, key_packing *kp, bool isgc){
 	int v_idx;
 	/*for normal data*/
 	value_set **v_des=NULL;
@@ -64,12 +64,14 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 				foot->map[target->nppa%NPCINPAGE]=target_length;
 
 				memcpy(&page[ptr],target->value,target_length*PIECE);
+				key_packing_insert(kp, target->lpa);
 			}else{
 				snode *target=src->bucket[target_length][src->idx[target_length]-1];
 				target->ppa=LSM.lop->get_page(target->value->length,target->key);
 
 				foot->map[target->ppa%NPCINPAGE]=target->value->length;
 				memcpy(&page[ptr],target->value->value,target_length*PIECE);
+				key_packing_insert(kp, target->key);
 			}
 			used_piece+=target_length;
 			src->idx[target_length]--;

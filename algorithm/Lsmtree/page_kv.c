@@ -150,8 +150,8 @@ int gc_header(){
 		i++;
 		continue;
 	}
-
 	free(tables);
+
 	for_each_page_in_seg(tseg,tpage,bidx,pidx){
 		if(ISNOCPY(LSM.setup_values)) nocpy_trim_delay_enq(tpage);
 		if(pidx==0){
@@ -195,6 +195,7 @@ int gc_data(){
 	__gc_data();
 	return 1;
 }
+
 int __gc_data(){
 	static int gc_d_cnt=0;
 	printf("%d gc_data!\n",gc_d_cnt++);
@@ -246,43 +247,59 @@ int __gc_data(){
 	
 	i=0;
 	//int cnt=0;
+
+	list *kp_list=list_init();
+	key_packing *kp=NULL;
 	for_each_page_in_seg_blocks(tseg,tblock,tpage,bidx,pidx){
 		uint32_t t_ppa;
-		KEYT *lpa=NULL;
+		KEYT lpa;
 		uint8_t oob_len;
 		gc_node *temp_g;
 		bool full_page=false;
 #ifdef DVALUE
 		bool used_page=false;
 		footer *foot=(footer*)bm->get_oob(bm,tpage);
+		if(foot->map[0]==0){
+			if(kp){
+				free(kp->data);
+				key_packing_free(kp);
+				kp=NULL;
+			}
+			kp=key_packing_init(NULL, (char*)tables[i]->sets);
+			list_insert(kp_list, (void*)kp);
+			continue;
+		}
+
 		for(int j=0;j<NPCINPAGE; j++){
 			t_ppa=tpage*NPCINPAGE+j;
-
 			oob_len=foot->map[j];
 			if(!oob_len){
 				continue;
 			}
 			used_page=true;
-			lpa=LSM.lop->get_lpa_from_data(&((char*)tables[i]->sets)[PIECE*j],t_ppa,false);
-			if(lpa->len==0){
+			//lpa=LSM.lop->get_lpa_from_data(&((char*)tables[i]->sets)[PIECE*j],t_ppa,false);
+			if(!kp){
+				printf("kp is null, it can't be!!\n");
+				abort();
+			}
+			lpa=key_packing_get_next(kp);
+			if(lpa.len==0){
 				abort();
 			}
 
 			if(oob_len==NPCINPAGE && oob_len%NPCINPAGE==0){
-				temp_g=gc_data_write_new_page(t_ppa,NULL,tables[i],NPCINPAGE,lpa);
+				temp_g=gc_data_write_new_page(t_ppa,NULL,tables[i],NPCINPAGE,&lpa);
 				full_page=true;
-				free(lpa);
 				goto make_bucket;
 			}
 			else{
-				temp_g=gc_data_write_new_page(t_ppa,&((char*)tables[i]->sets)[PIECE*j],NULL,oob_len,lpa);
+				temp_g=gc_data_write_new_page(t_ppa,&((char*)tables[i]->sets)[PIECE*j],NULL,oob_len,&lpa);
 				if(!bucket->gc_bucket[temp_g->plength])
 					bucket->gc_bucket[temp_g->plength]=(gc_node**)malloc(sizeof(gc_node*)*8*_PPS);
 				
 				bucket->gc_bucket[temp_g->plength][bucket->idx[temp_g->plength]++]=temp_g;
 				bucket->contents_num++;
 				j+=foot->map[j]-1;
-				free(lpa);
 			}
 		}
 		if(used_page)
@@ -565,9 +582,9 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 		gc_data_write(t->nppa,(htable_t*)t->value,GCDW);
 	}
 	b->idx[NPCINPAGE]=0;
-	variable_value2Page(NULL,b,NULL,&g_idx,true);
-	
 
+	variable_value2Page(NULL,b,NULL,&g_idx,NULL,true);
+	
 	bool skip_init_flag=false;
 	uint32_t new_inserted=0;
 	for(int i=0;i<size; i++){

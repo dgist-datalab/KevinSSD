@@ -1203,3 +1203,29 @@ void *testing(KEYT a, ppa_t ppa){
 	}
 	return NULL;
 }
+
+#define  MEM_NUM_LIMIT  (KEYBITMAP/sizeof(uint16_t)-2)
+#define  SIZE_LIMIT (PAGESIZE-KEYBITMAP)
+bool lsm_should_flush(skiplist *mem, __segment *seg){
+	static int full_comp_cnt=0;
+	uint32_t data_size=mem->data_size;
+	uint32_t needed_page=data_size/PAGESIZE+(data_size%PAGESIZE?1:0)+1;
+	uint32_t remain_page=_PPS-seg->used_page_num;
+	if(remain_page==_PPS){
+		goto check_mem;
+	}
+	else if(needed_page==remain_page){
+		return true;	
+	}
+	else if(needed_page>remain_page){
+		printf("align miss can't be!!!!\n");
+		abort();
+	}
+
+check_mem:
+	if((mem->size > MEM_NUM_LIMIT/10*9) || (mem->all_length > SIZE_LIMIT/10*9)){
+		printf("full comp! %d\n",full_comp_cnt++);
+		return true;
+	}
+	return false;
+}

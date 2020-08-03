@@ -6,7 +6,6 @@
 #include "map.h"
 #include "../../bench/bench.h"
 
-
 extern MeasureTime mt;
 struct algorithm page_ftl={
 	.argument_set=NULL,

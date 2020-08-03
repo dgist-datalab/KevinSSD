@@ -3,7 +3,7 @@ export CC=g++
 TARGET_INF=interface
 TARGET_LOWER=posix_memory
 TARGET_ALGO=Lsmtree
-TARGET_BM=partition
+TARGET_BM=sequential
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
 PPWD=$(pwd)

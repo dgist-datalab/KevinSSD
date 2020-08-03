@@ -26,6 +26,7 @@ typedef struct gc_node_params{
 
 	int data_status;
 }gc_params;
+
 typedef struct gc_node{
 	uint32_t ppa;
 	uint32_t nppa;

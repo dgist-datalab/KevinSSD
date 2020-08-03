@@ -7,11 +7,13 @@
 #include "skiplist.h"
 #include "compaction.h"
 #include "lsmtree.h"
+#include "page.h"
 
 #include <pthread.h>
 
 #define TABLE_ENTRY_SZ (sizeof(uint32_t)+sizeof(uint32_t)+sizeof(uint8_t))
 extern lsmtree LSM;
+extern pm d_m;
 Redblack transaction_indexer;
 fdriver_lock_t indexer_lock;
 inline bool commit_exist(){
@@ -177,12 +179,7 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 
 	(*t)=target;
 
-	static uint32_t num_limit=KEYBITMAP/sizeof(uint16_t)-2;
-	static uint32_t size_limit=PAGESIZE-KEYBITMAP;
-	static int full_comp_cnt=0;
-	
-	if(t_mem->size > num_limit/10*9 || t_mem->all_length >size_limit / 10*9){
-		printf("full comp! %d\n",full_comp_cnt++);
+	if(lsm_should_flush(t_mem, d_m.active)){
 		target->status=LOGGED;
 		if(transaction_table_add_new(table, target->tid/table->base, target->tid%table->base+1)==UINT_MAX){
 			printf("%s:%d full table!\n", __FILE__,__LINE__);
