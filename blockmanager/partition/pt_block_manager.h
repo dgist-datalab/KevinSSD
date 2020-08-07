@@ -26,4 +26,6 @@ int pbm_pt_remain_page(blockmanager* bm, __segment *active, int pt_num);
 void pbm_pt_trim_segment(blockmanager* bm, int pt_num, __gsegment *target, lower_info *li);
 bool pbm_pt_isgc_needed(struct blockmanager* bm, int pt_num);
 uint32_t pbm_reserve_to_free(struct blockmanager *bm, int ptnum,__segment *reserve);
+
+void pbm_free_segment(struct blockmanager *bm, __segment *seg);
 #endif

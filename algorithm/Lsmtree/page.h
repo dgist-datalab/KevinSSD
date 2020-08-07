@@ -3,6 +3,7 @@
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
 #include "../../interface/queue.h"
+#include "../../include/rwlock.h"
 #include "level.h"
 #include "skiplist.h"
 
@@ -25,6 +26,7 @@ typedef struct gc_node_params{
 	struct run *ent;
 
 	int data_status;
+	rwlock *target_level_lock;
 }gc_params;
 
 typedef struct gc_node{
@@ -104,4 +106,6 @@ void gc_data_header_update(struct gc_node **, int size,struct length_bucket *b);
 void gc_data_transaction_header_update(struct gc_node **, int size, struct length_bucket *b);
 
 int gc_data_write_using_bucket(struct length_bucket *b,int target_level,char order);
+
+bool block_active_full(bool isgc);
 #endif

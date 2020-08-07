@@ -292,6 +292,11 @@ Redblack rb_insert_int(	Redblack rb,uint32_t key,void *item)
 	z->left  =
 		z->right = rb;
 	setred(z);
+	/*
+	if(y->k.ikey==key){
+		printf("same key not allowed!\n");
+		abort();
+	}*/
 
 	if (y != rb && key < y->k.ikey) {
 #ifdef RB_LINK

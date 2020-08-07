@@ -37,6 +37,9 @@ char *transaction_commit_req(int *tid_list, uint32_t size){
 	for(uint32_t i=0; i<size; i++){
 		*(uint8_t*)&res[idx++]=FS_TRANS_COMMIT;
 		*(int32_t*)&res[idx]=tid_list[i];
+		if(tid_list[i]==1524){
+			printf("break!\n");
+		}
 		idx+=sizeof(uint32_t);
 	}
 	return res;
@@ -68,8 +71,14 @@ char *get_vectored_bench(uint32_t *mark, bool istransaction){
 		printf("\n");
 
 		if(_master->n_num==_master->m_num) return NULL;
-		if(istransaction){		
-			return transaction_commit_req(tid_buf, idx);
+		if(istransaction){
+			if(tid_buf[idx]!=transaction_id){
+				tid_buf[idx++]=transaction_id++;
+			}
+			char *commit_res=transaction_commit_req(tid_buf, idx);
+			idx=0;
+			prev=-1;
+			return commit_res;
 		}
 	}
 
@@ -127,7 +136,7 @@ void vectored_set(uint32_t start, uint32_t end, monitor* m, bool isseq){
 
 	m->command_num=number_of_command;
 	m->command_issue_num=0;
-	printf("total command : %u\n", m->command_num);
+	printf("total command : %lu\n", m->command_num);
 	for(uint32_t i=0; i<number_of_command; i++){
 		uint32_t idx=0;
 		m->tbody[i].buf=(char*)malloc(request_buf_size + TXNHEADERSIZE);

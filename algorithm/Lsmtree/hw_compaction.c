@@ -41,11 +41,7 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 	hp_num=upper?LSM.lop->get_number_runs(upper):1;
 	static int cnt=0;
 	cnt++;
-	/*
-	printf("dd :%d\n",cnt++);
-	if(cnt==1){
-		printf("break!\n");
-	}*/
+	
 	hp_array=(ppa_t*)malloc(sizeof(ppa_t)*hp_num);
 	if(upper){
 		if(upper->idx>=LSM.LEVELCACHING){

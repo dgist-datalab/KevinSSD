@@ -38,6 +38,8 @@ typedef struct comp_req_wrapper{
 	void *request;
 	uint32_t tag;
 	comp_req_type type;
+	bool issync;
+	fdriver_lock_t sync_lock;
 }comp_req_wrapper;
 
 struct compaction_processor{
@@ -77,7 +79,8 @@ void compaction_sub_pre();
 void compaction_sub_wait();
 void compaction_sub_post();
 
-void compaction_assign(compR* req, leveling_node *lnode);
+int compaction_assign(compR* req, leveling_node *lnode, bool issync);
+void compaction_assign_reinsert(skiplist *);
 
 void compaction_data_write(leveling_node* lnode);
 void htable_read_postproc(run_t *r);
@@ -114,17 +117,17 @@ void compaction_pause();
 void compaction_resume();
 
 
-inline void issue_data_write(value_set **data_sets, lower_info *li){
+inline void issue_data_write(value_set **data_sets, lower_info *li, uint8_t type){
 	for(int i=0; data_sets[i]!=NULL; i++){
 		algo_req *lsm_req=(algo_req*)malloc(sizeof(algo_req));
 		lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
-		params->lsm_type=DATAW;
+		params->lsm_type=type;
 		params->value=data_sets[i];
 		lsm_req->parents=NULL;
 		lsm_req->params=(void*)params;
 		lsm_req->end_req=lsm_end_req;
-		lsm_req->rapid=true;
-		lsm_req->type=DATAW;
+		lsm_req->rapid=(type==DATAW?true:false);
+		lsm_req->type=type;
 		if(params->value->dmatag==-1){
 			abort();
 		}

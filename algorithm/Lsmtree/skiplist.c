@@ -51,6 +51,7 @@ skiplist *skiplist_init(){
 #endif
 	point->header->value=NULL;
 	point->size=0;
+	point->data_size=0;
 	return point;
 }
 
@@ -670,21 +671,24 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 		total_size+=target->value->length;
 
 	}
-
-	/*res_idx=0 : page for key*/
-	res[0]=inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
-	res[0]->ppa=LSM.lop->moveTo_fr_page(false);
-	footer *foot=(footer*)pm_get_oob(CONVPPA(res[0]->ppa), DATA, false);
-	foot->map[0]=0;
-	key_packing *kp=key_packing_init(res[0], NULL);
 	
+	/*res_idx=0 : page for key*/
+	
+
+	key_packing *kp=NULL;
+	lsm_block_aligning(2,false);
+	res[0]=variable_get_kp(&kp, false);
+
 	int res_idx=1;
 	for(int i=0; i<b.idx[PAGESIZE/PIECE]; i++){//full page
 		target=b.bucket[PAGESIZE/PIECE][i];
+		if(block_active_full(false)){
+			res[res_idx]=variable_change_kp(&kp, 0, NULL, false);
+			res_idx++;
+		}
 		res[res_idx]=target->value;
 		res[res_idx]->ppa=LSM.lop->moveTo_fr_page(false);//real physical index
 		target->ppa=LSM.lop->get_page((PAGESIZE/PIECE),target->key);
-
 		footer *foot=(footer*)pm_get_oob(CONVPPA(target->ppa),DATA,false);
 		foot->map[0]=NPCINPAGE;
 
@@ -703,7 +707,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 	}
 
 #ifdef DVALUE
-	variable_value2Page(from,&b,&res,&res_idx, kp, false);
+	variable_value2Page(from,&b,&res,&res_idx, &kp, false);
 #endif
 
 	for(int i=0; i<=NPCINPAGE; i++){

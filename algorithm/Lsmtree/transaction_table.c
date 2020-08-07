@@ -13,6 +13,7 @@
 
 #define TABLE_ENTRY_SZ (sizeof(uint32_t)+sizeof(uint32_t)+sizeof(uint8_t))
 extern lsmtree LSM;
+extern lmi LMI;
 extern pm d_m;
 Redblack transaction_indexer;
 fdriver_lock_t indexer_lock;
@@ -128,7 +129,6 @@ uint32_t transaction_table_add_new(transaction_table *table, uint32_t tid, uint3
 	etr->ptr.memtable=skiplist_init();
 	etr->status=CACHED;
 	etr->tid=tid * table->base+offset;
-
 	etr->helper_type=BFILTER;
 	etr->read_helper.bf=bf_init(512, 0.1);
 
@@ -138,17 +138,16 @@ uint32_t transaction_table_add_new(transaction_table *table, uint32_t tid, uint3
 	return 1;
 }
 
-static int non_full_comp;
 
 inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *target){
 	if(t_mem->size==0) return NULL;
 	static uint32_t num_limit=KEYBITMAP/sizeof(uint16_t)-2;
 	static uint32_t size_limit=PAGESIZE-KEYBITMAP;
 	if(!(t_mem->size > num_limit/10*9 || t_mem->all_length >size_limit / 10*9)){
-		printf("non_full_comp! %d\n", non_full_comp++);
+		LMI.non_full_comp++;
 	}
 	value_set **data_sets=skiplist_make_valueset(t_mem, LSM.disk[0], &target->range.start, &target->range.end);
-	issue_data_write(data_sets, LSM.li);
+	issue_data_write(data_sets, LSM.li,DATAW);
 	free(data_sets);
 
 	htable *key_sets=LSM.lop->mem_cvt2table(t_mem,NULL, NULL);
@@ -282,6 +281,7 @@ transaction_entry *transaction_table_get_comp_target(transaction_table *table){
 	rb_traverse(target, transaction_indexer){
 		etr=(transaction_entry *)target->item;
 		if(etr->status==COMMIT || etr->status==CACHEDCOMMIT){
+			etr->status=COMPACTION;
 			fdriver_unlock(&indexer_lock);
 			return etr;
 		}
@@ -336,7 +336,9 @@ uint32_t transaction_table_clear_all(transaction_table *table, uint32_t tid){
 	Redblack res;
 
 	fdriver_lock(&indexer_lock);
-	rb_find_int(transaction_indexer, tid *table->base, &res);
+	if(!rb_find_int(transaction_indexer, tid *table->base, &res)){
+		printf("not found tid:%u\n",tid);
+	}
 	fdriver_unlock(&indexer_lock);
 	return transaction_table_clear(table, (transaction_entry*)res->item);
 }

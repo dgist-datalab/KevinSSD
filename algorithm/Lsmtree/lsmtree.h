@@ -170,6 +170,8 @@ typedef struct lsmtree_monitor_info{
 	uint32_t zero_compaction_cnt;
 	uint32_t __header_read_cnt;
 	uint32_t channel_overlap_cnt;
+	uint32_t full_comp_cnt;
+	uint32_t non_full_comp;
 #ifdef PREFIXCHECK
 	uint32_t pr_check_cnt;
 #endif
@@ -213,8 +215,10 @@ typedef struct lsmtree{
 
 	/*for gc*/
 	bool gc_started;
+	fdriver_lock_t gc_lock_list[2];
 	struct skiplist *gc_list;
-	bool gc_compaction_flag;
+	struct skiplist *gc_now_act_list;
+
 	blockmanager *bm;
 	struct lsm_block *active_block;
 	bool delayed_header_trim;
@@ -268,4 +272,5 @@ float diff_get_sizefactor(uint32_t keynum_in_header);
 int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int idx);
 void *testing(KEYT a, ppa_t ppa);
 bool lsm_should_flush(skiplist *mem, __segment *seg);
+bool lsm_block_aligning(uint32_t try_page_num, bool isgc);
 #endif

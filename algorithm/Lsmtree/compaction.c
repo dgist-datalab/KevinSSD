@@ -106,7 +106,6 @@ bool level_sequencial(level *from, level *to,level *des, run_t *entry,leveling_n
 }
 
 uint32_t leveling(level *from,level *to, leveling_node *l_node,rwlock *lock){
-	//printf("leveling start[%d->%d]\n",from?from->idx+1:0,to->idx+1);
 	level *target_origin=to;
 	level *target=lsm_level_resizing(to,from);
 
@@ -192,14 +191,15 @@ last:
 }
 
 uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* upper){
+
 	KEYT start=key_min;
 	KEYT end=key_max;
 	run_t **target_s=NULL;
 	run_t **data=NULL;
-	skiplist *skip=(lnode && lnode->mem)?lnode->mem:skiplist_init();
+	skiplist *skip=(lnode && lnode->mem)?lnode->mem:NULL;
 	compaction_sub_pre();
 
-	if(!upper && !ISTRANSACTION(LSM.setup_values)){
+	if((lnode && lnode->mem) || (!upper && !ISTRANSACTION(LSM.setup_values))){
 		LSM.lop->range_find_compaction(origin,start,end,&target_s);
 
 		for(int j=0; target_s[j]!=NULL; j++){

@@ -17,6 +17,7 @@ struct blockmanager pt_bm={
 	.is_gc_needed=base_is_gc_needed, 
 	.get_gc_target=NULL,
 	.trim_segment=NULL,
+	.free_segment=pbm_free_segment,
 	.populate_bit=base_populate_bit,
 	.unpopulate_bit=base_unpopulate_bit,
 	.erase_bit=base_erase_bit,
@@ -376,4 +377,8 @@ uint32_t pbm_reserve_to_free(struct blockmanager *bm, int pnum,__segment *reserv
 	free(reserve);
 	pinfo->now_assign[pnum]--;
 	return 1;
+}
+
+void pbm_free_segment(struct blockmanager *bm, __segment *seg){
+	free(seg);
 }

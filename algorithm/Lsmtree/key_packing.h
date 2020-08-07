@@ -11,6 +11,7 @@ typedef struct key_packing{
 
 key_packing *key_packing_init(value_set *, char *);
 uint32_t key_packing_insert(key_packing *, KEYT key);
+uint32_t key_packing_insert_try(key_packing *, KEYT key);
 KEYT key_packing_get_next(key_packing *);
 void key_packing_free(key_packing*);
 #endif

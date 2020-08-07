@@ -28,8 +28,8 @@ void gc_general_waiting(){
 void pm_init(){
 	blockmanager *bm=LSM.bm;
 	d_m.reserve=bm->pt_get_segment(bm,DATA_S,true);
+	d_m.active=bm->pt_get_segment(bm, DATA_S, false);
 	d_m.target=NULL;
-	d_m.active=NULL;
 
 	map_m.reserve=bm->pt_get_segment(bm,MAP_S,true);
 	map_m.target=NULL;
@@ -322,9 +322,6 @@ void erase_PPA(uint8_t type,uint32_t ppa){
 }
 
 void gc_data_write(uint64_t ppa,htable_t *value,uint8_t isdata){
-	if(isdata!=GCMW && isdata!=GCMW_DGC && isdata!=GCDW){
-		abort();
-	}
 	algo_req *areq=(algo_req*)malloc(sizeof(algo_req));
 	lsm_params *params=(lsm_params*)malloc(sizeof(lsm_params));
 
@@ -522,5 +519,13 @@ retry:
 		}
 	}
 	return true;
+}
+
+bool block_active_full(bool isgc){
+	if(isgc){
+		return d_m.reserve->used_page_num==_PPS;
+	}
+	else
+		return d_m.active->used_page_num==_PPS;
 }
 #endif

@@ -241,7 +241,7 @@ float bf_fpr_from_memory_monkey(int entry, uint32_t memory,uint32_t level, float
 	float ffpr;
 	uint32_t header_num,before;
 	uint32_t tt=pow(size_factor,4);
-	printf("##############%u %u %u\n",bf_bits(entry,normal_fpr)*tt,memory,tt);
+	printf("##############%lu %u %u\n",bf_bits(entry,normal_fpr)*tt,memory,tt);
 retry:
 	header_num=ceil(size_factor);
 	ffpr=normal_fpr;

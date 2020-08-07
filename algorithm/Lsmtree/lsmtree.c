@@ -143,6 +143,10 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 
 	LSM.lsm_cache=cache_init(LSP.cache_memory/PAGESIZE);
 
+	for(int i=0; i<2; i++){
+		fdriver_mutex_init(&LSM.gc_lock_list[i]);
+	}
+
 #ifdef EMULATOR
 	LSM.rb_ppa_key=rb_create();
 #endif
@@ -777,20 +781,8 @@ uint32_t __lsm_get(request *const req){
 	lsm_params *params;
 	uint8_t result=0;
 
-	/*
-	static uint32_t called_cnt=0;
-	printf("called :%d\n", ++called_cnt);
-	if(called_cnt==3){
-		printf("break!\n");
-	}*/
-
 	int *temp_data;
 	rparams *rp;
-
-	//printf("key:%.*s\n", KEYFORMAT(req->key));
-	if(KEYCONSTCOMP(req->key,"3388490000000000000000000000")==0){
-		printf("break!\n");
-	}
 
 	if(req->params==NULL){
 		if(!ISTRANSACTION(LSM.setup_values)){
@@ -805,6 +797,23 @@ uint32_t __lsm_get(request *const req){
 
 			if(unlikely(res)) return res;
 		}
+
+		/*gc list*/
+		if(LSM.gc_list){
+			fdriver_lock(&LSM.gc_lock_list[0]);
+			res=__lsm_get_sub(req,NULL,NULL,LSM.gc_list, 0);
+			fdriver_unlock(&LSM.gc_lock_list[0]);
+			if(unlikely(res))return res;
+		}
+		
+		if(LSM.gc_now_act_list){
+			fdriver_lock(&LSM.gc_lock_list[1]);
+			res=__lsm_get_sub(req,NULL,NULL,LSM.gc_now_act_list, 0);
+			fdriver_unlock(&LSM.gc_lock_list[1]);
+			if(unlikely(res))return res;
+		}
+
+		/*gc list*/
 
 		rp=(rparams*)malloc(sizeof(rparams));
 		req->params=(void*)rp;
@@ -1207,25 +1216,47 @@ void *testing(KEYT a, ppa_t ppa){
 #define  MEM_NUM_LIMIT  (KEYBITMAP/sizeof(uint16_t)-2)
 #define  SIZE_LIMIT (PAGESIZE-KEYBITMAP)
 bool lsm_should_flush(skiplist *mem, __segment *seg){
-	static int full_comp_cnt=0;
 	uint32_t data_size=mem->data_size;
 	uint32_t needed_page=data_size/PAGESIZE+(data_size%PAGESIZE?1:0)+1;
 	uint32_t remain_page=_PPS-seg->used_page_num;
-	if(remain_page==_PPS){
+	if(remain_page==0 ||remain_page==_PPS){
 		goto check_mem;
 	}
 	else if(needed_page==remain_page){
 		return true;	
 	}
 	else if(needed_page>remain_page){
-		printf("align miss can't be!!!!\n");
-		abort();
+		lsm_block_aligning(needed_page, false);
 	}
 
 check_mem:
 	if((mem->size > MEM_NUM_LIMIT/10*9) || (mem->all_length > SIZE_LIMIT/10*9)){
-		printf("full comp! %d\n",full_comp_cnt++);
+		LMI.full_comp_cnt++;
 		return true;
+	}
+	return false;
+}
+extern pm d_m;
+bool lsm_block_aligning(uint32_t try_page_num, bool isgc){
+	uint32_t target=0;
+	bool flag=false;
+	__segment *t_seg=NULL;
+	if(!isgc && try_page_num+d_m.active->used_page_num > _PPS){
+		target=_PPS-d_m.active->used_page_num;
+		t_seg=d_m.active;
+		flag=true;	
+	}
+	else if(isgc && try_page_num+d_m.reserve->used_page_num > _PPS){
+		target=_PPS-d_m.reserve->used_page_num;
+		t_seg=d_m.reserve;
+		flag=true;
+	}
+	if(!flag) return true;
+
+	for(uint32_t i=0; i<target; i++){
+		ppa_t pa=LSM.bm->get_page_num(LSM.bm, t_seg);
+		footer *foot=(footer*)pm_get_oob(pa, DATA, false);
+		foot->map[0]=NPCINPAGE+1;
 	}
 	return false;
 }

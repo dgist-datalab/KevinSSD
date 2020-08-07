@@ -17,7 +17,7 @@ void compaction_data_write(leveling_node* lnode){
 		lsm_io_sched_push(SCHED_FLUSH,(void*)data_sets);//make flush background job
 		return;
 	}*/
-	issue_data_write(data_sets, LSM.li);
+	issue_data_write(data_sets, LSM.li, DATAW);
 	//LSM.li->lower_flying_req_wait();
 	free(data_sets);
 }
@@ -30,10 +30,6 @@ ppa_t compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 #endif
 	
 	entry->pbn=ppa;
-	/*
-	if(target->idx==LSM.LEVELN-2){
-		printf("break!\n");
-	}*/
 	if(ISNOCPY(LSM.setup_values)){
 		nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
 		if(ISHWREAD(LSM.setup_values) && target->idx >= LSM.LEVELCACHING){

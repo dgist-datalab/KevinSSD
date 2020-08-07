@@ -157,7 +157,7 @@ void compaction_free(){
 }
 
 
-void compaction_assign(compR* req, leveling_node *lnode){
+int compaction_assign(compR* req, leveling_node *lnode, bool issync){
 	compP* proc=&compactor.processors[0];
 	uint32_t tag;
 	pthread_mutex_lock(&proc->tag_lock);
@@ -172,11 +172,22 @@ void compaction_assign(compR* req, leveling_node *lnode){
 	comp_req->tag=tag;
 	comp_req->type=req?NORMAL_REQ:COMMIT_REQ;
 	comp_req->request=(req? (void*)req: (void*)lnode);
+	comp_req->issync=issync;
+	if(issync){
+		fdriver_lock_init(&comp_req->sync_lock, 0);
+	}
 
 	pthread_mutex_lock(&proc->lock);
 	proc->q->push(comp_req);
 	pthread_cond_broadcast(&proc->cond);
 	pthread_mutex_unlock(&proc->lock);
+
+	if(issync){
+		fdriver_lock(&comp_req->sync_lock);
+		fdriver_destroy(&comp_req->sync_lock);
+		free(comp_req);
+	}
+	return 1;
 }
 
 bool compaction_force(){
@@ -348,6 +359,10 @@ void *compaction_main(void *input){
 			free(lnode.end.key);
 			skiplist_free(req->temptable);
 		}
+		else if(req->fromL==LSP.LEVELN){
+			compaction_gc_add(req->temptable);
+			goto end_req;
+		}
 
 cascade:
 		if(LSM.LEVELN!=1){
@@ -357,10 +372,7 @@ cascade:
 			gc_data();
 		}
 
-		if(LSM.gc_compaction_flag){
-			compaction_gc_add(LSM.gc_list);
-			LSM.gc_compaction_flag=false;
-		}	
+end_req:
 
 #ifdef WRITEWAIT
 		if(req && req->last){
@@ -375,7 +387,13 @@ cascade:
 		}
 
 		uint32_t tag=wrapper->tag;
-		free(wrapper);
+		if(wrapper->issync){
+			//wrapper is freed by wait thread
+			fdriver_unlock(&wrapper->sync_lock);
+		}
+		else{
+			free(wrapper);
+		}
 		pthread_mutex_lock(&_this->tag_lock);
 		_this->tagQ->push(tag);
 		pthread_cond_broadcast(&_this->tag_cond);
@@ -407,23 +425,38 @@ void compaction_gc_add(skiplist *list){
 	do{
 		lnode.start.key=NULL;
 		lnode.end.key=NULL;
+
+		fdriver_lock(&LSM.gc_lock_list[1]);
+		fdriver_lock(&LSM.gc_lock_list[0]);
 		temp=skiplist_cutting_header_se(list,&dummy,&lnode.start,&lnode.end);
-		lnode.mem=temp;
+		LSM.gc_now_act_list=temp;
 		if(temp==list){
 			last=true;
 			if(list->size==0){
 				isfreed=false;
 				break;
 			}
+			LSM.gc_list=NULL;
 		}
+		fdriver_unlock(&LSM.gc_lock_list[0]);
+		fdriver_unlock(&LSM.gc_lock_list[1]);
+
+		lnode.mem=temp;
+
 		compaction_selector(NULL,LSM.disk[0],&lnode,&LSM.level_lock[0]);
 		compaction_cascading(&is_gc_needed);
 		free(lnode.start.key);
 		free(lnode.end.key);
+
+		fdriver_lock(&LSM.gc_lock_list[1]);
 		skiplist_free(temp);
+		LSM.gc_now_act_list=NULL;
+		fdriver_unlock(&LSM.gc_lock_list[1]);
 	}while(!last);
-	if(!isfreed)
+
+	if(!isfreed){
 		skiplist_free(list);
+	}
 	for(int i=0; i<LREQ_TYPE_NUM; i++){
 		cumulative_type_cnt[i]+=LSM.li->req_type_cnt[i]-before_type_cnt[i];
 	}
@@ -451,13 +484,22 @@ void compaction_check(KEYT key, bool force){
 		req->fromL=-1;
 		req->last=last;
 		req->temptable=t;
-		compaction_assign(req, NULL);
+		compaction_assign(req, NULL, false);
 	}while(!last);
 
 #ifdef WRITEWAIT
 	//LSM.memtable=skiplist_init();
 	fdriver_lock(&compaction_flush_wait);
 #endif
+}
+
+
+void compaction_assign_reinsert(skiplist *gc_list){
+	compR *req=(compR*)malloc(sizeof(compR));
+	req->fromL=LSP.LEVELN;
+	req->last=true;
+	req->temptable=gc_list;
+	compaction_assign(req,NULL, true);
 }
 
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){

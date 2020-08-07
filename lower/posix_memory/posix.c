@@ -267,11 +267,13 @@ void copy_from_mem(uint32_t PPA, uint8_t type,char *value){
 	else{
 #endif
 		if(!seg_table[PPA].storage){
-			printf("%u not populated\n",PPA);
+			if(PPA%_PPS!=_PPS-1){
+				printf("%u not populated\n",PPA);
+			}
 		}
 		else{
+			memcpy(value,seg_table[PPA].storage,PAGESIZE);
 		}	
-		memcpy(value,seg_table[PPA].storage,PAGESIZE);
 #ifdef ONLYMAP
 	}
 #endif
@@ -279,6 +281,9 @@ void copy_from_mem(uint32_t PPA, uint8_t type,char *value){
 void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	uint8_t test_type;
 	uint32_t PPA=convert_ppa(_PPA);
+	if(_PPA==2687536){
+		printf("2687536 pushed!\n");
+	}
 	if(PPA>_NOP){
 		printf("address error!\n");
 		abort();
@@ -308,6 +313,10 @@ void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 void *posix_pull_data(uint32_t _PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	uint8_t test_type;
 	uint32_t PPA=convert_ppa(_PPA);
+
+	if(_PPA==49513){
+		printf("break! for debug\n");
+	}
 
 	if(req->type_lower!=1 && req->type_lower!=0){
 		req->type_lower=0;

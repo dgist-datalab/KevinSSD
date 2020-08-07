@@ -79,7 +79,7 @@ uint32_t transaction_set(request *const req){
 
 
 	req->value=NULL;
-
+	//	printf("req->seq :%u\n",req->seq);
 
 	if(!log){
 		req->end_req(req);
@@ -134,9 +134,11 @@ uint32_t transaction_commit(request *const req){
 	_tm.last_table=ppa;
 	fdriver_unlock(&_tm.table_lock);
 
+
 	leveling_node *lnode;
+
 	while((lnode=transaction_get_comp_target())){
-		compaction_assign(NULL,lnode);
+		compaction_assign(NULL,lnode,false);
 	}
 
 	return 1;
@@ -220,13 +222,6 @@ uint32_t __transaction_get(request *const req){
 	t_rparams *trp=NULL;
 	algo_req *tr_req=NULL;
 	uint32_t res=0;
-	bool debug_flag=false;
-
-	/*
-	if(KEYCONSTCOMP(req->key, "1100090000000000000000000000")==0){
-		printf("break!\n");
-	}*/
-
 	if(req->magic==1){
 		goto search_lsm;
 	}
@@ -401,14 +396,16 @@ retry:
 }
 
 leveling_node *transaction_get_comp_target(){
+	static int cnt=0;
+	if(cnt++==9185){
+		printf("break point!\n");
+	}
 	transaction_entry *etr=transaction_table_get_comp_target(_tm.ttb);
 	if(!etr) return NULL;
 
 	fdriver_lock(&_tm.table_lock);
 	leveling_node *res=(leveling_node*)malloc(sizeof(leveling_node));
 	run_t *new_entry=LSM.lop->make_run(etr->range.start, etr->range.end, etr->ptr.physical_pointer);
-
-	etr->status=COMPACTION;
 
 	res->start=new_entry->key;
 	res->end=new_entry->end;

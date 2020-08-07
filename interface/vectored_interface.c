@@ -25,7 +25,6 @@ void* inf_transaction_end_req(void *req);
 extern bool TXN_debug;
 extern char *TXN_debug_ptr;
 uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark){
-	static int debug_cnt=0;
 	uint32_t idx=0;
 	vec_request *txn=(vec_request*)malloc(sizeof(vec_request));
 	//idx+=sizeof(uint32_t);//length;
@@ -40,6 +39,7 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark)
 	txn->req_array=(request*)malloc(sizeof(request)*txn->size);
 	KEYT key;
 
+	static uint32_t seq=0;
 	for(uint32_t i=0; i<txn->size; i++){
 		request *temp=&txn->req_array[i];
 		temp->tid=txn->tid;
@@ -49,6 +49,7 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark)
 		temp->end_req=vectored_end_req;
 		temp->params=NULL;
 		temp->isAsync=ASYNC;
+		temp->seq=seq++;
 		switch(temp->type){
 			case FS_TRANS_COMMIT:
 				temp->tid=*(uint32_t*)buf_parser(buf,&idx, sizeof(uint32_t));
@@ -66,6 +67,10 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark)
 		
 		temp->key.len=*(uint8_t*)buf_parser(buf, &idx, sizeof(uint8_t));
 		temp->key.key=buf_parser(buf, &idx, temp->key.len);
+		if(temp->type==FS_SET_T){
+			*(uint8_t*)&temp->value->value[0]=temp->key.len;
+			memcpy(&temp->value->value[1],temp->key.key, temp->key.len);
+		}
 
 		kvssd_cpy_key(&key, &temp->key);
 		temp->key=key;
@@ -156,7 +161,6 @@ void *vectored_main(void *__input){
 
 bool vectored_end_req (request * const req){
 	vectored_request *preq=req->parents;
-	static int return_cnt=0;
 	switch(req->type){
 		case FS_NOTFOUND_T:
 		case FS_GET_T:
