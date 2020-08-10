@@ -23,6 +23,7 @@ endif
 
 SRCS +=\
 	   skiplist.c\
+	   skiplist_gc.c\
 	   bloomfilter.c\
 	   lsmtree.c\
 	   compaction_io_module.c\

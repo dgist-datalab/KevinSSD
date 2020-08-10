@@ -67,10 +67,11 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark)
 		
 		temp->key.len=*(uint8_t*)buf_parser(buf, &idx, sizeof(uint8_t));
 		temp->key.key=buf_parser(buf, &idx, temp->key.len);
+		/*
 		if(temp->type==FS_SET_T){
 			*(uint8_t*)&temp->value->value[0]=temp->key.len;
 			memcpy(&temp->value->value[1],temp->key.key, temp->key.len);
-		}
+		}*/
 
 		kvssd_cpy_key(&key, &temp->key);
 		temp->key=key;

@@ -33,6 +33,9 @@ ppa_t def_moveTo_fr_page(bool isgc){
 #else
 	res=LSM.active_block->now_ppa;
 #endif
+	if(res==1296256){
+		printf("1296256 LSM populated!\n");
+	}
 	return res;
 }
 

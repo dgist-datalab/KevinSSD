@@ -1,9 +1,9 @@
 #include "seq_block_manager.h"
-
+static uint32_t age=UINT_MAX;
 uint32_t seq_pt_create(struct blockmanager *bm, int pnum, int *epn, lower_info *li){
 	bm->li=li;
 	sbm_pri *p=(sbm_pri*)malloc(sizeof(sbm_pri));
-	p->seq_block=(__block*)calloc(sizeof(__block),_NOS*PUNIT);
+	p->seq_block=(__block*)calloc(sizeof(__block),_NOB);
 	p->logical_segment=(block_set*)calloc(sizeof(block_set), _NOS);
 
 	p->pnum=pnum;
@@ -17,7 +17,7 @@ uint32_t seq_pt_create(struct blockmanager *bm, int pnum, int *epn, lower_info *
 			p->logical_segment[i].blocks[j]=&p->seq_block[glob_block_idx];
 			glob_block_idx++;
 		}
-		p->logical_segment[i].total_invalid_number=UINT_MAX;
+		p->logical_segment[i].total_invalid_number=0;
 	}
 
 	p->max_heap_pt=(mh**)malloc(sizeof(mh*)*pnum);
@@ -28,6 +28,7 @@ uint32_t seq_pt_create(struct blockmanager *bm, int pnum, int *epn, lower_info *
 		mh_init(&p->max_heap_pt[i], epn[i], seq_mh_swap_hptr, seq_mh_assign_hptr, seq_get_cnt);
 		q_init(&p->free_logical_seg_q_pt[i], epn[i]);
 		for(int j=0; j<epn[i]; j++){
+			p->logical_segment[global_seg_idx].type=i;
 			q_enqueue((void*)&p->logical_segment[global_seg_idx++], p->free_logical_seg_q_pt[i]);
 		}
 	}
@@ -53,8 +54,21 @@ __segment* seq_pt_get_segment (struct blockmanager*bm, int pt_num, bool isreserv
 	sbm_pri *p=(sbm_pri*)bm->private_data;
 	
 	block_set *free_block_set=(block_set*)q_dequeue(p->free_logical_seg_q_pt[pt_num]);
+	if(!free_block_set){
+		printf("fuck!!\n");
+		abort();
+	}
 
-	mh_insert_append(p->max_heap_pt[pt_num], (void*)free_block_set);
+	if(pt_num==DATA_S){
+		free_block_set->total_invalid_number=age--;
+	}
+
+	if(pt_num==DATA_S && isreserve){
+
+	}
+	else{
+		mh_insert_append(p->max_heap_pt[pt_num], (void*)free_block_set);
+	}
 
 	memcpy(res->blocks, free_block_set->blocks, sizeof(__block*)*BPS);
 
@@ -62,6 +76,7 @@ __segment* seq_pt_get_segment (struct blockmanager*bm, int pt_num, bool isreserv
 	res->max=BPS;
 	res->invalid_blocks=0;
 	res->used_page_num=0;
+	
 	return res;
 }
 
@@ -72,6 +87,7 @@ __gsegment* seq_pt_get_gc_target (struct blockmanager* bm, int pt_num){
 
 	mh_construct(p->max_heap_pt[pt_num]);
 	block_set* target=(block_set*)mh_get_max(p->max_heap_pt[pt_num]);
+	res->invalidate_number=target->total_invalid_number;
 
 	memcpy(res->blocks, target->blocks, sizeof(__block*)*BPS);
 
@@ -117,6 +133,15 @@ bool seq_pt_isgc_needed(struct blockmanager* bm, int pt_num){
 }
 
 __segment* seq_change_pt_reserve(struct blockmanager *bm,int pt_num, __segment *reserve){
+	if(pt_num==DATA_S){
+		sbm_pri *p=(sbm_pri*)bm->private_data;
+		uint32_t segment_start_block_number=reserve->blocks[0]->block_num;
+		uint32_t segment_idx=segment_start_block_number/BPS;
+		block_set *bs=&p->logical_segment[segment_idx];
+		bs->total_invalid_number=age--;
+		
+		mh_insert_append(p->max_heap_pt[pt_num], (void*)bs);
+	}
 	return seq_pt_get_segment(bm, pt_num, true);
 }
 

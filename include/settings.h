@@ -32,7 +32,7 @@
 #define NPCINPAGE (PAGESIZE/PIECE)
 #define MINVALUE PIECE
 #define MINKEYLENGTH 16
-#define DEFKEYLENGTH 32
+#define DEFKEYLENGTH (16*2)
 #define DEFVALUESIZE (4096)
 
 #ifdef MLC
@@ -46,15 +46,23 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 8L
+#define GIGAUNIT 16L
 #define TOTALSIZE (GIGAUNIT*G)
 #define OP 70
 #define REALSIZE (512L*G)
 #define DEVSIZE (64L * G)
 #define PAGESIZE (8*K)
 #define _PPB (256)
-#define BPS (64)
-#define _PPS (_PPB*BPS)
+
+#ifdef AMF
+	#define NOC 2
+	#define BPS (64*NOC)
+	#define _PPS (_PPB*BPS)
+#else
+	#define BPS (64)
+	#define _PPS (_PPB*BPS)
+#endif
+
 #define PUNIT (64)
 
 #endif
@@ -78,7 +86,7 @@
 #define PARTNUM 3
 #define SHOWINGSEGS (SHOWINGSIZE/(_PPS*PAGESIZE))
 #define LOGPART_SEGS (2)
-#define MAPPART_SEGS (5)
+#define MAPPART_SEGS (GIGAUNIT/8*5)
 #define DATAPART_SEGS (_NOS-MAPPART_SEGS-LOGPART_SEGS)
 enum{
 	MAP_S,DATA_S, LOG_S
@@ -133,6 +141,10 @@ static inline char KEYTEST(KEYT a, KEYT b){
 	return memcmp(a.key,b.key,a.len)?0:1;
 }
 
+static inline char KEYFILTER(KEYT des, char *s, uint8_t len){
+	return memcmp(des.key, s, len);
+}
+
 static inline bool KEYVALCHECK(KEYT a){
 	if(a.len<=0)
 		return false;
@@ -147,9 +159,9 @@ static inline bool KEYVALCHECK(KEYT a){
 #define V_PTR char * const
 #define PTR char*
 #define ASYNC 1
-#define QSIZE (1)
+#define QSIZE (64)
 #define LOWQDEPTH (64)
-#define QDEPTH (1)
+#define QDEPTH (64)
 
 #define THPOOL
 #define NUM_THREAD 1

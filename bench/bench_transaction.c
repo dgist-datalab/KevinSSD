@@ -37,9 +37,6 @@ char *transaction_commit_req(int *tid_list, uint32_t size){
 	for(uint32_t i=0; i<size; i++){
 		*(uint8_t*)&res[idx++]=FS_TRANS_COMMIT;
 		*(int32_t*)&res[idx]=tid_list[i];
-		if(tid_list[i]==1524){
-			printf("break!\n");
-		}
 		idx+=sizeof(uint32_t);
 	}
 	return res;

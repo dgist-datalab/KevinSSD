@@ -170,6 +170,7 @@ void assign_req(request* req){
         MA(&infTime);
 #endif
 }
+
 bool inf_assign_try(request *req){
 	bool flag=false;
 	for(int i=0; i<1; i++){
@@ -187,7 +188,6 @@ uint64_t inter_cnt;
 bool force_write_start;
 int write_stop;
 static request *get_next_request(processor *pr){
-
 	void *_inf_req=NULL;
 	if(force_write_start || (write_stop && pr->req_q->size==QDEPTH) || sync_apps)
 		write_stop=false;
@@ -856,4 +856,13 @@ void inf_free_valueset(value_set *in, int type){
 		}
 	}
 	free(in);
+}
+
+
+bool inf_wait_background(){
+	if(mp.algo->wait_bg_jobs){
+		mp.algo->wait_bg_jobs();
+		return true;
+	}
+	return false;
 }

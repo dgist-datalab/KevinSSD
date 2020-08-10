@@ -241,9 +241,10 @@ uint32_t lsm_set(request *const);
 uint32_t lsm_multi_get(request *const, int num);
 uint32_t lsm_proc_re_q();
 uint32_t lsm_remove(request *const);
+uint32_t lsm_wait_bg_jobs();
 
 uint32_t __lsm_get(request *const);
-uint8_t lsm_find_run(KEYT key, run_t **,run_t *,struct keyset **, int *level, int *run, rwlock **);
+uint8_t lsm_find_run(KEYT key, run_t **,struct keyset **, int *level, int *run, rwlock **);
 uint32_t __lsm_range_get(request *const);
 
 void* lsm_end_req(struct algo_req*const);
@@ -273,4 +274,5 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 void *testing(KEYT a, ppa_t ppa);
 bool lsm_should_flush(skiplist *mem, __segment *seg);
 bool lsm_block_aligning(uint32_t try_page_num, bool isgc);
+bool lsm_debug_search(KEYT key);
 #endif

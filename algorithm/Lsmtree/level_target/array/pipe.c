@@ -48,6 +48,7 @@ void new_page_set(p_body *p, bool iswrite){
 	p->pidx++;
 }
 
+extern bool amf_debug_flag;
 KEYT pbody_get_next_key(p_body *p, uint32_t *ppa){
 	if((!p->now_page && p->pidx<p->max_page) || (p->pidx<p->max_page && p->kidx>p->max_key)){
 		new_page_set(p,false);
@@ -62,7 +63,10 @@ KEYT pbody_get_next_key(p_body *p, uint32_t *ppa){
 		res.len=-1;
 		return res;
 	}
-
+	if(amf_debug_flag){;
+	//	static int cnt=0; 
+	//	printf("amf debug cnt:%d\n",cnt++);
+	}
 	memcpy(ppa,&p->now_page[p->bitmap_ptr[p->kidx]],sizeof(uint32_t));
 	res.len=p->bitmap_ptr[p->kidx+1]-p->bitmap_ptr[p->kidx]-sizeof(uint32_t);
 	res.key=&p->now_page[p->bitmap_ptr[p->kidx]+sizeof(uint32_t)];

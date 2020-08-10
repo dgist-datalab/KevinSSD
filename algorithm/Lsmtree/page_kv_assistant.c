@@ -8,10 +8,10 @@ extern lsmtree LSM;
 uint8_t gc_data_issue_transaction(struct gc_node *g){
 	transaction_entry **entry_set;
 	t_rparams *trp=NULL;
-	uint8_t res;
+	uint8_t res=0;
 	if(!g->params){
 		trp=(t_rparams*)malloc(sizeof(t_rparams));
-		trp->max=transaction_table_find(_tm.ttb, UINT_MAX, g->lpa, &entry_set);
+		trp->max=transaction_table_gc_find(_tm.ttb, g->lpa, &entry_set);
 		trp->index=0;
 		trp->value=inf_get_valueset(NULL,FS_MALLOC_R,PAGESIZE);
 		g->params=trp;
@@ -58,10 +58,15 @@ uint8_t gc_data_issue_transaction(struct gc_node *g){
 void gc_data_transaction_header_update(struct gc_node **g, int size, struct length_bucket *b){
 	uint32_t done_cnt=0;
 	int passed;
+
 	while(done_cnt!=size){
 		done_cnt=0;
 		passed=0;
 		for(int i=0; i<size; i++){
+			/*
+			if(transaction_debug_search(g[i]->lpa)){
+				printf("break!\n");
+			}*/
 			switch(g[i]->status){
 				case DONE:
 				case NOUPTDONE:

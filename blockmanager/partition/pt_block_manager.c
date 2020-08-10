@@ -315,6 +315,7 @@ void pbm_pt_trim_segment(blockmanager* bm, int pnum, __gsegment *target, lower_i
 		printf("under assign!\n");
 		abort();
 	}
+	free(tseg);
 }
 
 int pbm_pt_remain_page(blockmanager* bm, __segment *active, int pt_num){

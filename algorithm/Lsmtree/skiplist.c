@@ -49,7 +49,7 @@ skiplist *skiplist_init(){
 	point->start=UINT_MAX;
 	point->end=0;
 #endif
-	point->header->value=NULL;
+	point->header->value.u_value=NULL;
 	point->size=0;
 	point->data_size=0;
 	return point;
@@ -170,7 +170,7 @@ snode *skiplist_strict_range_search(skiplist *list,KEYT key){
 	return NULL;
 }
 
-static int getLevel(){
+int getLevel(){
 	int level=1;
 	int temp=rand();
 	while(temp % PROB==1){
@@ -242,7 +242,7 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
 #ifdef Lsmtree
 		x->iscaching_entry=false;
 #endif
-		x->value=NULL;
+		x->value.u_value=NULL;
 		for(int i=1; i<=level; i++){
 			x->list[i]=update[i]->list[i];
 			update[i]->list[i]=x;
@@ -326,7 +326,7 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 		x->key=key;
 		x->ppa=ppa;
 		x->isvalid=deletef;
-		x->value=NULL;
+		x->value.u_value=NULL;
 		for(int i=1; i<=level; i++){
 			x->list[i]=update[i]->list[i];
 			update[i]->list[i]=x;
@@ -369,8 +369,8 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overla
 #endif
 	{
 		if(overlap)
-			overlap((void*)x->value);
-		x->value=(value_set*)value;
+			overlap((void*)x->value.u_value);
+		x->value.u_value=(value_set*)value;
 		t_r->run_data=(void*)x;
 		return x;
 	}
@@ -392,7 +392,7 @@ snode *skiplist_general_insert(skiplist *list,KEYT key,void* value,void (*overla
 
 		x->key=key;
 		x->ppa=UINT_MAX;
-		x->value=(value_set*)value;
+		x->value.u_value=(value_set*)value;
 		t_r->run_data=(void*)x;
 
 		for(int i=1; i<=level; i++){
@@ -520,7 +520,7 @@ snode *skiplist_insert_iter(skiplist *list,KEYT key,ppa_t ppa){
 		x->key=key;
 
 		x->ppa=ppa;
-		x->value=NULL;
+		x->value.u_value=NULL;
 		list->all_length+=key.len;
 #ifdef Lsmtree
 		x->iscaching_entry=false;
@@ -579,16 +579,16 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		if(testflag){
 			printf("%d overlap!\n",++cnt);
 		}*/
-		list->data_size-=(x->value->length*PIECE);
+		list->data_size-=(x->value.u_value->length*PIECE);
 		list->data_size+=(value->length*PIECE);
-		if(x->value)
-			inf_free_valueset(x->value,FS_MALLOC_W);
+		if(x->value.u_value)
+			inf_free_valueset(x->value.u_value,FS_MALLOC_W);
 #if defined(KVSSD)
 		free(key.key);
 #endif
 	//	old_req->end_req(old_req);
 
-		x->value=value;
+		x->value.u_value=value;
 		x->isvalid=deletef;
 		return x;
 	}
@@ -612,7 +612,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		x->isvalid=deletef;
 
 		x->ppa=UINT_MAX;
-		x->value=value;
+		x->value.u_value=value;
 
 #ifdef KVSSD
 		list->all_length+=KEYLEN(key);
@@ -663,12 +663,12 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 		}
 		idx++;
 
-		if(target->value==0) continue;
-		if(b.bucket[target->value->length]==NULL){
-			b.bucket[target->value->length]=(snode**)malloc(sizeof(snode*)*(input->size+1));
+		if(target->value.u_value==0) continue;
+		if(b.bucket[target->value.u_value->length]==NULL){
+			b.bucket[target->value.u_value->length]=(snode**)malloc(sizeof(snode*)*(input->size+1));
 		}
-		b.bucket[target->value->length][b.idx[target->value->length]++]=target;
-		total_size+=target->value->length;
+		b.bucket[target->value.u_value->length][b.idx[target->value.u_value->length]++]=target;
+		total_size+=target->value.u_value->length;
 
 	}
 	
@@ -686,13 +686,13 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 			res[res_idx]=variable_change_kp(&kp, 0, NULL, false);
 			res_idx++;
 		}
-		res[res_idx]=target->value;
+		res[res_idx]=target->value.u_value;
 		res[res_idx]->ppa=LSM.lop->moveTo_fr_page(false);//real physical index
 		target->ppa=LSM.lop->get_page((PAGESIZE/PIECE),target->key);
 		footer *foot=(footer*)pm_get_oob(CONVPPA(target->ppa),DATA,false);
 		foot->map[0]=NPCINPAGE;
 
-		target->value=NULL;
+		target->value.u_value=NULL;
 		key_packing_insert(kp, target->key);
 		res_idx++;
 	}
@@ -805,8 +805,8 @@ void skiplist_clear(skiplist *list){
 	snode *next=now->list[1];
 	while(now!=list->header){
 
-		if(now->value){
-			inf_free_valueset(now->value,FS_MALLOC_W);//not only length<PAGESIZE also length==PAGESIZE, just free req from inf
+		if(now->value.u_value){
+			inf_free_valueset(now->value.u_value,FS_MALLOC_W);//not only length<PAGESIZE also length==PAGESIZE, just free req from inf
 		}
 		free(now->key.key);
 		free(now->list);
@@ -832,7 +832,7 @@ skiplist *skiplist_copy(skiplist* src){
 	snode *now=src->header->list[1];
 	snode *n_node;
 	while(now!=src->header){
-		n_node=skiplist_insert(des,now->key,now->value,now->isvalid);
+		n_node=skiplist_insert(des,now->key,now->value.u_value,now->isvalid);
 		n_node->ppa=now->ppa;
 		now=now->list[1];
 	}
@@ -870,8 +870,8 @@ void skiplist_container_free(skiplist *list){
 	snode *next=now->list[1];
 	while(now!=list->header){
 		free(now->list);
-		if(now->value){
-			inf_free_valueset(now->value,FS_MALLOC_W);//not only length<PAGESIZE also length==PAGESIZE, just free req from inf
+		if(now->value.u_value){
+			inf_free_valueset(now->value.u_value,FS_MALLOC_W);//not only length<PAGESIZE also length==PAGESIZE, just free req from inf
 			free(now->key.key);
 		}
 #ifdef Lsmtree

@@ -32,6 +32,7 @@ typedef struct gc_node_params{
 typedef struct gc_node{
 	uint32_t ppa;
 	uint32_t nppa;
+	uint32_t time;
 	KEYT lpa;
 	PTR value;
 	uint8_t status;
@@ -101,8 +102,8 @@ void gc_data_write(uint64_t ppa,struct htable_t *value,uint8_t);
 int gc_header();
 int gc_data();
 void gc_nocpy_delay_erase(uint32_t );
-void gc_data_header_update_add(struct length_bucket *b);
-void gc_data_header_update(struct gc_node **, int size,struct length_bucket *b);
+void gc_data_header_update_add(struct gc_node**, int size);
+void gc_data_header_update(struct gc_node **, int size);
 void gc_data_transaction_header_update(struct gc_node **, int size, struct length_bucket *b);
 
 int gc_data_write_using_bucket(struct length_bucket *b,int target_level,char order);

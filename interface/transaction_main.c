@@ -31,6 +31,7 @@ int skiplist_hit;
 MeasureTime write_opt_time[11];
 extern master_processor mp;
 extern uint64_t cumulative_type_cnt[LREQ_TYPE_NUM];
+MeasureTime total_time;
 int main(int argc,char* argv[]){
 	char *temp_argv[10];
 	int temp_cnt=bench_set_params(argc,argv,temp_argv);
@@ -39,14 +40,19 @@ int main(int argc,char* argv[]){
 	bench_vectored_configure();
 	bench_transaction_configure(4, 2);
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
-	bench_add(VECTOREDSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)));
-	bench_add(VECTOREDRW,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL))*2);
+	bench_add(VECTOREDSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL))*2);
+	//bench_add(VECTOREDRW,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL))*2);
 
+	//measure_init(&total_time);
+	//measure_start(&total_time);
 	char *value;
 	uint32_t mark;
 	while((value=get_vectored_bench(&mark, true))){
 		inf_vector_make_req(value, bench_transaction_end_req, mark);
 	}
+	//inf_wait_background();
+
+	//measure_end(&total_time, "total time");
 
 	force_write_start=true;
 	

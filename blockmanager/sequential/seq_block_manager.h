@@ -8,6 +8,7 @@
 
 typedef struct block_set{
 	uint32_t total_invalid_number;
+	uint8_t type;
 	__block *blocks[BPS];
 	void *hptr;
 }block_set;
@@ -17,7 +18,8 @@ typedef struct seq_bm_private{
 	block_set *logical_segment;
 	queue *free_logical_segment_q;
 	mh *max_heap;
-
+	uint32_t assigned_block;
+	uint32_t free_block;
 	int pnum;
 	queue **free_logical_seg_q_pt;
 	mh **max_heap_pt;

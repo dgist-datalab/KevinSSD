@@ -281,9 +281,11 @@ void copy_from_mem(uint32_t PPA, uint8_t type,char *value){
 void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	uint8_t test_type;
 	uint32_t PPA=convert_ppa(_PPA);
-	if(_PPA==2687536){
-		printf("2687536 pushed!\n");
+
+	if(PPA==32768){
+		printf("pushed 32768----!!!\n");
 	}
+
 	if(PPA>_NOP){
 		printf("address error!\n");
 		abort();
@@ -313,10 +315,6 @@ void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 void *posix_pull_data(uint32_t _PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	uint8_t test_type;
 	uint32_t PPA=convert_ppa(_PPA);
-
-	if(_PPA==49513){
-		printf("break! for debug\n");
-	}
 
 	if(req->type_lower!=1 && req->type_lower!=0){
 		req->type_lower=0;
@@ -348,24 +346,20 @@ void *posix_pull_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 }
 
 void *posix_trim_block(uint32_t _PPA, bool async){
-	abort();
-
 	uint32_t PPA=convert_ppa(_PPA);
-	char *temp=(char *)malloc(my_posix.SOB);
-	memset(temp,0,my_posix.SOB);
-	pthread_mutex_lock(&fd_lock);
 	if(my_posix.SOP*PPA >= my_posix.TS || PPA%my_posix.PPS != 0){
 		printf("\ntrim error\n");
 		abort();
 	}
 	
 	my_posix.req_type_cnt[TRIM]++;
-	if(seg_table[PPA].storage){
-		free(seg_table[PPA/my_posix.PPS].storage);
-		seg_table[PPA/my_posix.PPS].storage = NULL;
+	for(uint32_t i=PPA; i<PPA+my_posix.PPS; i++){
+		free(seg_table[i].storage);
+		seg_table[i].storage=NULL;
+		if(i==49152){
+			printf("49152 trimeed!\n");
+		}
 	}
-	pthread_mutex_unlock(&fd_lock);
-	free(temp);
 	return NULL;
 }
 

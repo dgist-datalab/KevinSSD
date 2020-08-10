@@ -34,12 +34,19 @@ typedef struct footer{
 	uint8_t map[PAGESIZE/PIECE];
 }footer;
  
+
+typedef union snode_value{
+	value_set *u_value;
+	char *g_value;
+}s_value;
+
 #endif
 typedef struct snode{ //skiplist's node
 	ppa_t ppa;
 	KEYT key;
 	uint32_t level;
-	value_set* value;
+	uint32_t time;
+	s_value value;
 	bool isvalid;
 
 #ifdef HASH_KVSSD
@@ -95,12 +102,14 @@ snode *skiplist_insert_iter(skiplist *,KEYT lpa, ppa_t ppa);
 #ifdef Lsmtree
 skiplist *skiplist_merge(skiplist *src,skiplist *des);
 snode *skiplist_insert_wP(skiplist*,KEYT,ppa_t,bool);//with ppa;
+snode *skiplist_insert_wP_gc(skiplist*,KEYT,char *value, uint32_t *time,bool);//with ppa;
 snode *skiplist_insert_existIgnore(skiplist *, KEYT,ppa_t,bool isvalid); //insert skiplist, if key exists, input data be ignored
 value_set **skiplist_make_valueset(skiplist*,struct level *from, KEYT *start, KEYT *end);
 snode *skiplist_general_insert(skiplist*,KEYT,void *,void (*overlap)(void*));
 snode *skiplist_pop(skiplist *);
 skiplist *skiplist_cutting_header(skiplist *,uint32_t *avg);
 skiplist *skiplist_cutting_header_se(skiplist *,uint32_t *avg,KEYT *start, KEYT *end);
+value_set **skiplist_make_gc_valueset(skiplist *,gc_node **, int);
 #endif
 snode *skiplist_at(skiplist *,int idx);
 int skiplist_delete(skiplist*,KEYT); //delete by key, return 0:normal -1:empty -2:no key
@@ -111,6 +120,7 @@ sk_iter* skiplist_get_iterator(skiplist *list); //get read only iterator
 snode *skiplist_get_next(sk_iter* iter); //get next snode by iterator
 skiplist *skiplist_divide(skiplist *in, snode *target);//target is included in result
 
+int getLevel();
 #ifdef DVALUE
 int bucket_page_cnt(l_bucket *);
 #endif

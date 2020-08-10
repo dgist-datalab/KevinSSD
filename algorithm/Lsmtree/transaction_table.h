@@ -13,6 +13,7 @@ typedef enum transaction_status{
 
 typedef union transaction_pointer{
 	skiplist *memtable;
+	//char *pinning;
 	uint32_t physical_pointer;
 } t_ptr;
 
@@ -22,7 +23,7 @@ typedef struct transaction_entry_range{
 }t_range;
 
 enum helper_type{
-	NOHELPER,BFILTER, MAPCACHE
+	NOHELPER, BFILTER, MAPCACHE
 };
 
 typedef union transaction_read_helper{
@@ -41,8 +42,8 @@ typedef struct transaction_entry{
 
 typedef struct transaction_table{
 	transaction_entry *etr;
-	uint32_t now;
-	uint32_t full;
+	volatile uint32_t now;
+	volatile uint32_t full;
 	uint32_t base;
 	uint32_t cached_num;
 	pthread_cond_t block_cond;
@@ -54,6 +55,7 @@ uint32_t transaction_table_init(transaction_table **, uint32_t size, uint32_t ca
 uint32_t transaction_table_destroy(transaction_table *);
 uint32_t transaction_table_add_new(transaction_table *, uint32_t tid, uint32_t offset);
 uint32_t transaction_table_find(transaction_table *, uint32_t tid, KEYT key, transaction_entry***);
+uint32_t transaction_table_gc_find(transaction_table *, KEYT key, transaction_entry***);
 value_set* transaction_table_insert_cache(transaction_table *, uint32_t tid, request *const req, transaction_entry **);
 uint32_t transaction_table_update_last_entry(transaction_table *,uint32_t tid, TSTATUS);
 uint32_t transaction_table_update_all_entry(transaction_table *,uint32_t tid, TSTATUS);
@@ -61,6 +63,7 @@ uint32_t transaction_table_clear(transaction_table *, transaction_entry *etr);
 uint32_t transaction_table_clear_all(transaction_table *, uint32_t tid);
 bool transaction_table_checking_commitable(transaction_table *, uint32_t tid);
 
+void transaction_table_print(transaction_table *);
 
 value_set* transaction_table_force_write(transaction_table *, uint32_t tid, transaction_entry **etr);
 value_set* transaction_table_get_data(transaction_table *);

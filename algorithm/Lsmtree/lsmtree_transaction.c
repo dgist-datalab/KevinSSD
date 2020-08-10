@@ -44,9 +44,13 @@ uint32_t transaction_destroy(){
 }
 
 uint32_t transaction_start(request * const req){
+	//printf("req->tid: %u\n", req->tid);
+	fdriver_lock(&_tm.table_lock);
 	if(transaction_table_add_new(_tm.ttb, req->tid, 0)==UINT_MAX){
 		printf("%s:%d can't add table!\n", __FILE__, __LINE__);
+		abort();
 	}
+	fdriver_unlock(&_tm.table_lock);
 	req->end_req(req);
 	return 1;
 }
@@ -75,9 +79,10 @@ uint32_t __trans_write(char *data, value_set *value, ppa_t ppa, uint32_t type, r
 
 uint32_t transaction_set(request *const req){
 	transaction_entry *etr;
+
+	fdriver_lock(&_tm.table_lock);
 	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req, &etr);
-
-
+	fdriver_unlock(&_tm.table_lock);
 	req->value=NULL;
 	//	printf("req->seq :%u\n",req->seq);
 
@@ -89,8 +94,8 @@ uint32_t transaction_set(request *const req){
 	//LSM.lop->checking_each_key(log->value, testing);
 	ppa_t ppa=get_log_PPA(LOGW);
 	__trans_write(NULL, log, ppa, LOGW , NULL);
+	etr->status=LOGGED;
 	etr->ptr.physical_pointer=ppa;
-
 	req->end_req(req);
 	return 1;
 }
@@ -107,7 +112,9 @@ uint32_t transaction_commit(request *const req){
 	cparams->done_num=0;
 
 	transaction_entry *etr;
+	fdriver_lock(&_tm.table_lock);
 	value_set *log=transaction_table_force_write(_tm.ttb, req->tid, &etr);
+	fdriver_unlock(&_tm.table_lock);
 	ppa_t ppa;
 	if(log){
 	//	LSM.lop->checking_each_key(log->value, testing);
@@ -430,21 +437,30 @@ uint32_t gc_log(){
 		abort();
 	} 
 	
+	//printf("_PPS : %u\n", _PPS);
 	if(tseg->invalidate_number != _PPS ){
-		printf("%s:%d can't be\n", __FILE__, __LINE__);
-		abort();
+	//	printf("table print!!\n");
+	//	transaction_table_print(_tm.ttb);
+	//	printf("table print end\n\n");
 	}
-
-	bm->pt_trim_segment(bm, LOG_S, tseg, LSM.li);
-
 	uint32_t tpage=0;
 	int bidx=0;
 	int pidx=0;
-	for_each_page_in_seg(tseg,tpage,bidx,pidx){
-		nocpy_free_page(tpage);
-	}
+	/*
+	for_each_page_in_seg(tseg, tpage, bidx, pidx){
+		if(LSM.bm->is_valid_page(LSM.bm, tpage)){
+			printf("valid page number :%u\n", tpage);
+		}
+	}*/
 
-	free(tseg);
+	bm->pt_trim_segment(bm, LOG_S, tseg, LSM.li);
+
+	if(ISNOCPY(LSM.setup_values)){
+		tpage=bidx=pidx=0;
+		for_each_page_in_seg(tseg,tpage,bidx,pidx){
+			nocpy_free_page(tpage);
+		}
+	}
 	return 1;
 }
 
@@ -453,4 +469,37 @@ uint32_t transaction_clear(transaction_entry *etr){
 	uint32_t res=transaction_table_clear(_tm.ttb, etr);
 	fdriver_unlock(&_tm.table_lock);
 	return res;
+}
+
+bool transaction_debug_search(KEYT key){
+	char *test=(char*)malloc(PAGESIZE);
+	for(uint32_t i=0; i<_tm.ttb->full; i++){
+		transaction_entry *etr=&_tm.ttb->etr[i];
+		switch(etr->status){
+			case EMPTY:
+				continue;
+			case CACHED:
+				if(skiplist_find(etr->ptr.memtable,key)){
+					printf("find in transaction cache!!\n");
+					return true;
+				}
+				continue;
+			case COMMIT:
+			case COMPACTION:
+			case LOGGED:
+				if(lsm_test_read(etr->ptr.physical_pointer,test)){
+					return true;
+				}
+							
+				if(LSM.lop->find_keyset(test,key)){
+					printf("find in transaction log index:%u!!\n",i);
+					free(test);
+					return true;
+				}
+			default:
+				continue;
+		}
+	}
+	free(test);
+	return false;
 }

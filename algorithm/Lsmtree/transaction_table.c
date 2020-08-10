@@ -112,6 +112,7 @@ uint32_t transaction_table_add_new(transaction_table *table, uint32_t tid, uint3
 	transaction_entry *etr;
 	if(table->now >= table->full){
 		if(!commit_exist()){
+			transaction_table_print(table);
 			return UINT_MAX;
 		}
 	}
@@ -174,12 +175,10 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 		bf_set(target->read_helper.bf, req->key);
 	}
 	skiplist_insert(t_mem, req->key, req->value, true);
-
-
+	
 	(*t)=target;
 
 	if(lsm_should_flush(t_mem, d_m.active)){
-		target->status=LOGGED;
 		if(transaction_table_add_new(table, target->tid/table->base, target->tid%table->base+1)==UINT_MAX){
 			printf("%s:%d full table!\n", __FILE__,__LINE__);
 			abort();
@@ -228,6 +227,27 @@ uint32_t transaction_table_find(transaction_table *table, uint32_t tid, KEYT key
 	}
 	fdriver_unlock(&indexer_lock);
 
+	(*result)[index]=NULL;
+	return index;
+}
+
+uint32_t transaction_table_gc_find(transaction_table *table, KEYT key, transaction_entry*** result){
+	uint32_t index=0;
+	(*result)=(transaction_entry**)malloc(sizeof(transaction_entry*) * (table->now+1));
+	for(uint32_t i=0; i<table->full; i++){
+		transaction_entry *target=&table->etr[i];
+		if(target->status==EMPTY) continue;
+		if(KEYCMP(key, target->range.start) >=0 && KEYCMP(key, target->range.end)<=0){
+			if(target->helper_type==BFILTER && !bf_check(target->read_helper.bf, key)){
+				continue;
+			}
+			if(target->status==COMPACTION){
+				printf("%s:%d can't be\n",__FILE__,__LINE__);
+			}
+			(*result)[index]=target;
+			index++;
+		}
+	}
 	(*result)[index]=NULL;
 	return index;
 }
@@ -313,7 +333,6 @@ uint32_t transaction_table_clear(transaction_table *table, transaction_entry *et
 		skiplist_free(etr->ptr.memtable);
 	}
 
-
 	free(etr->range.start.key);
 	free(etr->range.end.key);
 
@@ -323,6 +342,11 @@ uint32_t transaction_table_clear(transaction_table *table, transaction_entry *et
 	etr->status=EMPTY;
 
 	table->now--;
+	if(table->now==UINT_MAX){
+		printf("wtf!!\n");
+		transaction_table_print(table);
+		abort();
+	}
 
 	pthread_mutex_lock(&table->block);
 	table->etr_q->push(etr);
@@ -338,6 +362,8 @@ uint32_t transaction_table_clear_all(transaction_table *table, uint32_t tid){
 	fdriver_lock(&indexer_lock);
 	if(!rb_find_int(transaction_indexer, tid *table->base, &res)){
 		printf("not found tid:%u\n",tid);
+		fdriver_unlock(&indexer_lock);
+		return 1;
 	}
 	fdriver_unlock(&indexer_lock);
 	return transaction_table_clear(table, (transaction_entry*)res->item);
@@ -363,3 +389,22 @@ bool transaction_table_checking_commitable(transaction_table *table, uint32_t ti
 	return flag;
 }
 
+char* statusToString(uint8_t a){
+	switch(a){
+		case 0: return "EMPTY";
+		case 1: return "CACHED";
+		case 2: return "LOGGED";
+		case 3: return "COMMIT";
+		case 4: return "CACHEDCOMMIT";
+		case 5: return "COMPACTION";
+	}
+	return NULL;
+}
+
+void transaction_table_print(transaction_table *table){
+	for(uint32_t i=0; i<table->full; i++){
+		printf("[%u] tid: %u status:%s %.*s ~ %.*s page:%u\n", i, table->etr[i].tid, 
+				statusToString(table->etr[i].status), KEYFORMAT(table->etr[i].range.start),
+				KEYFORMAT(table->etr[i].range.end), table->etr[i].ptr.physical_pointer);
+	}
+}

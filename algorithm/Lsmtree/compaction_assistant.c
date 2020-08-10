@@ -190,6 +190,18 @@ int compaction_assign(compR* req, leveling_node *lnode, bool issync){
 	return 1;
 }
 
+void compaction_wait_jobs(){
+	compP* proc=&compactor.processors[0];
+	while(1){
+		pthread_mutex_lock(&proc->tag_lock);
+		if(proc->tagQ->size()==CQSIZE){
+			pthread_mutex_unlock(&proc->tag_lock);
+			break;	
+		}
+		pthread_mutex_unlock(&proc->tag_lock);
+	}
+}
+
 bool compaction_force(){
 	for(int i=LSM.LEVELN-2; i>=0; i--){
 		if(LSM.disk[i]->n_num){
@@ -306,7 +318,7 @@ void *compaction_main(void *input){
 
 	bool is_gc_needed=false;
 	leveling_node *trans_node=NULL;
-	compR *req;
+	compR *req=NULL;
 	comp_req_wrapper *wrapper;
 	while(1){
 		pthread_mutex_lock(&_this->lock);
@@ -425,6 +437,7 @@ void compaction_gc_add(skiplist *list){
 	do{
 		lnode.start.key=NULL;
 		lnode.end.key=NULL;
+		lnode.entry=NULL;
 
 		fdriver_lock(&LSM.gc_lock_list[1]);
 		fdriver_lock(&LSM.gc_lock_list[0]);
@@ -627,10 +640,8 @@ uint32_t sequential_move_next_level(level *origin, level *target,KEYT start, KEY
 
 uint32_t compaction_empty_level(level **from, leveling_node *lnode, level **des){
 	if(!(*from)){
-		if(!ISTRANSACTION(LSM.setup_values)){
+		if(!ISTRANSACTION(LSM.setup_values) || !lnode->entry){
 			run_t *entry=LSM.lop->make_run(lnode->start,lnode->end,-1);
-			free(entry->key.key);
-			free(entry->end.key);
 #ifdef BLOOM
 			LSM.lop->mem_cvt2table(lnode->mem,entry,(*des)->filter);
 #else
@@ -652,7 +663,10 @@ uint32_t compaction_empty_level(level **from, leveling_node *lnode, level **des)
 			}
 			else{
 				compaction_htable_write_insert((*des),entry,false);
+				free(entry->key.key);
+				free(entry->end.key);
 			}
+
 			free(entry);
 		}
 		else{

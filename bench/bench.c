@@ -2,6 +2,7 @@
 #include "../include/types.h"
 #include "../include/settings.h"
 #include "../include/utils/kvssd.h"
+#include "../interface/interface.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -355,7 +356,7 @@ void bench_print(){
 		bench_li_print(&_master->li[i],_m);
 #endif
 		printf("\n----summary----\n");
-		if(_m->type==RANDRW || _m->type==SEQRW){
+		if(_m->type==RANDRW || _m->type==SEQRW || _m->type==VECTOREDRW){
 			uint64_t total_data=(PAGESIZE * _m->m_num/2)/1024;
 			double total_time2=_m->benchTime.adding.tv_sec+(double)_m->benchTime.adding.tv_usec/1000000;
 			double total_time1=_m->benchTime2.adding.tv_sec+(double)_m->benchTime2.adding.tv_usec/1000000;
@@ -552,7 +553,8 @@ void bench_reap_data(request *const req,lower_info *li){
 	if(_m->m_num==_m->r_num+1){
 		_data->bench=_m->benchTime;
 	}
-	if(_m->r_num+1==_m->m_num/2 && (_m->type==SEQRW || _m->type==RANDRW)){
+	if(_m->r_num+1==_m->m_num/2 && (_m->type==SEQRW || _m->type==RANDRW || _m->type==VECTOREDRW)){
+		inf_wait_background();
 		MA(&_m->benchTime);
 		_m->benchTime2=_m->benchTime;
 		measure_init(&_m->benchTime);
@@ -567,6 +569,7 @@ void bench_reap_data(request *const req,lower_info *li){
 		memcpy(&_master->li[idx],li,sizeof(lower_info));
 		li->refresh(li);
 #endif
+		inf_wait_background();
 		MA(&_m->benchTime);
 	}
 	if(_m->ondemand){

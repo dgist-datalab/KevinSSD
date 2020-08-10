@@ -56,6 +56,7 @@ level_ops a_ops={
 
 #ifdef PARTITION
 	.make_partition=array_make_partition,
+	.get_range_idx=array_get_range_idx,
 	.find_run_se=array_find_run_se,
 #endif
 	.get_run_idx=array_get_run_idx,
@@ -299,20 +300,15 @@ void array_make_partition(level *lev){
 }
 
 
-
-run_t *array_find_run_se(level *lev, KEYT lpa, run_t *up_ent){
+run_t *array_find_run_se(level *lev, KEYT lpa, uint32_t _start, uint32_t _end){
 	array_body *b=(array_body*)lev->level_data;
 	run_t *arrs=b->arrs;
 #ifdef PREFIXCHECK
 	pr_node *parrs=b->pr_arrs;
 #endif
 
-	array_body *bup=(array_body*)LSM.disk[lev->idx-1]->level_data;
-	if(!arrs || lev->n_num==0 || !bup) return NULL;
-	int up_idx=up_ent-bup->arrs;
-	
-	int start=bup->p_nodes[up_idx].start;
-	int end=bup->p_nodes[up_idx].end;
+	int start=_start;
+	int end=_end;
 	int mid=(start+end)/2, res;
 
 #ifdef PREFIXCHECK
@@ -345,6 +341,16 @@ run_t *array_find_run_se(level *lev, KEYT lpa, run_t *up_ent){
 		}   
 	}
 	return &arrs[mid];
+}
+
+void array_get_range_idx(level *lev, run_t *run, uint32_t *start, uint32_t *end){
+	array_body *bup=(array_body*)lev->level_data;
+	if(!arrs || lev->n_num==0 || !bup){
+		*start=0; *end=lev->n_num;
+	}
+	int run_idx=run-bup->arrs;
+	(*start)=bup->p_nodes[run_idx].start;
+	(*end)=bup->p_nodes[run_idx].end;
 }
 #endif
 

@@ -229,7 +229,8 @@ run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KE
 
 #ifdef PARTITION
 void array_make_partition(level *lev);
-run_t *array_find_run_se(level *lev, KEYT lpa, run_t *up);
+void array_get_range_idx(level *lev, run_t *run, uint32_t *, uint32_t *);
+run_t *array_find_run_se(level *lev, KEYT lpa, uint32_t start, uint32_t end);
 #endif
 
 #endif

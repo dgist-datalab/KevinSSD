@@ -45,17 +45,15 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 				break;
 			}
 			if(isgc){
-				gc_node *target=src->gc_bucket[target_length][src->idx[target_length]-1];
-				if(!target->plength){
-					src->idx[target_length]--;
-					continue;
-				}
+				//printf("test cnt %d\n",cnt++);
+				snode *target=src->bucket[target_length][src->idx[target_length]-1];
 
-				if(!key_packing_insert_try(*kp, target->lpa)){
+				if(!key_packing_insert_try(*kp, target->key)){
 					lsm_block_aligning(2, isgc);
 					value_set *temp=variable_change_kp(kp, remain, v_des[v_idx], isgc);
 					if(temp){
 						v_idx++;
+						v_des[v_idx]=temp;
 					}
 					
 					/*assign new active page*/
@@ -66,23 +64,24 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 					target_ppa=v_des[v_idx]->ppa;
 					foot=(footer*)pm_get_oob(CONVPPA(target_ppa),DATA,isgc);
 					remain=PAGESIZE;
+					ptr=0;
 
-					key_packing_insert(*kp, target->lpa);
+					key_packing_insert(*kp, target->key);
 					last_kp=(*kp);
 				}
 
-				target->nppa=LSM.lop->get_page(target->plength,target->lpa);
+				target->ppa=LSM.lop->get_page(target_length,target->key);
 //				printf("%d new_page %d\n",target->ppa,target->nppa);
-				foot->map[target->nppa%NPCINPAGE]=target_length;
+				foot->map[target->ppa%NPCINPAGE]=target_length;
 
-				memcpy(&page[ptr],target->value,target_length*PIECE);
+				memcpy(&page[ptr],target->value.g_value,target_length*PIECE);
 
 			}else{
 				snode *target=src->bucket[target_length][src->idx[target_length]-1];
-				target->ppa=LSM.lop->get_page(target->value->length,target->key);
+				target->ppa=LSM.lop->get_page(target->value.u_value->length,target->key);
 
-				foot->map[target->ppa%NPCINPAGE]=target->value->length;
-				memcpy(&page[ptr],target->value->value,target_length*PIECE);
+				foot->map[target->ppa%NPCINPAGE]=target->value.u_value->length;
+				memcpy(&page[ptr],target->value.u_value->value,target_length*PIECE);
 				key_packing_insert(*kp, target->key);
 			}
 			used_piece+=target_length;
@@ -182,7 +181,7 @@ void *variable_value2Page_hc(level *in, l_bucket *src, value_set ***target_value
 
 value_set *variable_get_kp(key_packing **origin, bool isgc){
 	value_set *res=inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
-	LSM.lop->moveTo_fr_page(false);
+	LSM.lop->moveTo_fr_page(isgc);
 	KEYT temp_key;
 	res->ppa=LSM.lop->get_page((PAGESIZE/PIECE),temp_key);
 	footer *foot=(footer*)pm_get_oob(CONVPPA(res->ppa), DATA, false);

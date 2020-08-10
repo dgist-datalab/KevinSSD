@@ -105,7 +105,15 @@ bool level_sequencial(level *from, level *to,level *des, run_t *entry,leveling_n
 	return true;
 }
 
+bool amf_debug_flag;
 uint32_t leveling(level *from,level *to, leveling_node *l_node,rwlock *lock){
+	if(to->idx==3){
+		static int cnt=0;
+		if(cnt++==5){
+			printf("break leveling! %d\n",cnt);
+			amf_debug_flag=true;
+		}
+	}
 	level *target_origin=to;
 	level *target=lsm_level_resizing(to,from);
 

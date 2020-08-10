@@ -2,10 +2,12 @@
 #include "lsmtree.h"
 #include "nocpy.h"
 #include "../../bench/bench.h"
+#include "lsmtree_transaction.h"
 #ifdef KVSSD
 extern KEYT key_min, key_max;
 #endif
 extern lsmtree LSM;
+extern lsp LSP;
 extern MeasureTime write_opt_time[10];
 extern volatile int epc_check;
 
@@ -28,7 +30,6 @@ ppa_t compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 #else
 	uint32_t ppa=getPPA(HEADER,0,true);//set ppa;
 #endif
-	
 	entry->pbn=ppa;
 	if(ISNOCPY(LSM.setup_values)){
 		nocpy_copy_from_change((char*)entry->cpt_data->sets,ppa);
@@ -106,8 +107,14 @@ void compaction_run_move_insert(level *target, run_t *entry){
 	}
 	epc_check++;
 	compaction_sub_wait();
-
+	uint32_t invalidate_target=entry->pbn;
+	if(target->idx<LSM.LEVELCACHING){
+		entry->level_caching_data=(char*)malloc(PAGESIZE);
+		memcpy(entry->level_caching_data, (char*)entry->cpt_data->sets, PAGESIZE);
+	}
 	compaction_htable_write_insert(target, entry, false);
+	
+	transaction_invalidate_PPA(LOG, invalidate_target);
 	free(entry);
 }
 

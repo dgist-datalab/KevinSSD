@@ -3,7 +3,7 @@ export CC=g++
 TARGET_INF=interface
 TARGET_LOWER=posix_memory
 TARGET_ALGO=Lsmtree
-TARGET_BM=partition
+TARGET_BM=sequential
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
 PPWD=$(pwd)
@@ -12,7 +12,7 @@ DEBUGFLAGS=\
 			-rdynamic\
 			-Wno-pointer-arith\
 			-g\
-#-fsanitize=address\
+-fsanitize=address\
 #	-DBUSE_DEBUG
 
 export COMMONFLAGS=\
@@ -25,7 +25,7 @@ export COMMONFLAGS=\
 			-D$(TARGET_BM)\
 			-Wno-unused-but-set-variable\
 			-DKVSSD\
-	-O2\
+#			-O3\
 #			-march=armv8-a+crypto\
 #			-DCHECKINGTIME\
 
@@ -42,7 +42,8 @@ export CFLAGS_LOWER=\
 			 -lpthread\
 			 -Wall\
 			 -D_FILE_OFFSET_BITS=64\
-#			 -DONLYMAP\
+			 -DLOWER_MEM_DEV\
+
 
 export priority="false"
 export ORIGINAL_PATH=$(PPWD)
@@ -118,6 +119,10 @@ DEBUGOBJ =\
 
 ifeq ($(TARGET_LOWER),bdbm_drv)
 	ARCH +=./object/libmemio.a
+endif
+
+ifeq ($(TARGET_LOWER),AMF)
+	ARCH +=./object/libAmfManager.a
 endif
 
 LIBS +=\

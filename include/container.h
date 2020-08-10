@@ -97,6 +97,7 @@ e:for application req*/
 
 struct algo_req{
 	uint32_t ppa;
+	uint32_t test_ppa;
 	request * parents;
 	MeasureTime latency_lower;
 	uint8_t type;
@@ -167,6 +168,7 @@ struct algorithm{
 	uint32_t (*range_query)(request *const);
 #endif
 
+	uint32_t (*wait_bg_jobs)();
 	uint32_t (*trans_begin)(request *const);
 	uint32_t (*trans_commit)(request *const);
 	lower_info* li;

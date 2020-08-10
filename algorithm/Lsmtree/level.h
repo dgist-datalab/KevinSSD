@@ -156,7 +156,8 @@ typedef struct level_ops{
 
 #ifdef PARTITION
 	void (*make_partition)(level *);
-	run_t *(*find_run_se)(level *lev, KEYT lpa, run_t *upper_run);
+	void (*get_range_idx)(level *lev, run_t *run, uint32_t *start, uint32_t *end);
+	run_t *(*find_run_se)(level *lev, KEYT lpa, uint32_t start, uint32_t end);
 #endif
 
 	/*run operation*/

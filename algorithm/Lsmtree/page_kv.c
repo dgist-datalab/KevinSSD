@@ -4,10 +4,12 @@
 #include "skiplist.h"
 #include "nocpy.h"
 #include "variable.h"
+#include "lsmtree_transaction.h"
 #include "../../include/rwlock.h"
 #include "../../include/utils/kvssd.h"
 #include "../../interface/interface.h"
 #include "../../include/data_struct/list.h"
+#include "../../include/sem_lock.h"
 #include "level.h"
 #include <string.h>
 #include <stdlib.h>
@@ -23,6 +25,7 @@ extern volatile int gc_target_get_cnt;
 extern volatile int gc_read_wait;
 extern pm d_m;
 extern pm map_m;
+extern my_tm _tm;
 list *gc_hlist;
 typedef struct temp_gc_h{
 	run_t *d;
@@ -159,11 +162,10 @@ int gc_header(){
 		}
 	}
 	int res=0;
-	bm->pt_trim_segment(bm,MAP_S,tseg,LSM.li);
 	if(tseg->blocks[0]->block_num == map_m.active->blocks[0]->block_num){
 		res=1;
 	}
-	free(tseg);
+	bm->pt_trim_segment(bm,MAP_S,tseg,LSM.li);
 	return res;
 }
 
@@ -192,6 +194,13 @@ int __gc_data();
 int gc_data(){
 
 	LMI.data_gc_cnt++;
+	if(ISTRANSACTION(LSM.setup_values)){
+		if(fdriver_try_lock(&_tm.table_lock)==-1){
+			fdriver_unlock(&_tm.table_lock);
+			compaction_wait_jobs();
+			fdriver_lock(&_tm.table_lock);
+		}
+	}
 	__gc_data();
 	return 1;
 }
@@ -202,7 +211,6 @@ int __gc_data(){
 		flag=true;
 	}
 	
-	l_bucket *bucket=(l_bucket*)calloc(sizeof(l_bucket),1);
 	gc_general_wait_init();
 
 	htable_t **tables=(htable_t**)calloc(sizeof(htable_t*),_PPS);
@@ -241,12 +249,14 @@ int __gc_data(){
 	}
 
 	gc_general_waiting(); //wait for read req
-
+	gc_node **gc_node_array=(gc_node**)malloc(sizeof(gc_node*)*i);
+	int node_idx=0;
 	i=0;
 	//int cnt=0;
 	//list *kp_list=list_init();
 	key_packing *kp=NULL;
 	uint32_t temp_kp_idx=0;
+	uint32_t time;
 	for_each_page_in_seg_blocks(tseg,tblock,tpage,bidx,pidx){
 		uint32_t t_ppa;
 		KEYT lpa;
@@ -285,7 +295,7 @@ int __gc_data(){
 				printf("kp is null, it can't be!! target page: %u\n", tpage);
 				abort();
 			}
-			lpa=key_packing_get_next(kp);
+			lpa=key_packing_get_next(kp, &time);
 
 			if(lpa.len==0){
 				abort();
@@ -293,18 +303,18 @@ int __gc_data(){
 
 			if(oob_len==NPCINPAGE && oob_len%NPCINPAGE==0){
 				temp_g=gc_data_write_new_page(t_ppa,NULL,tables[i],NPCINPAGE,&lpa);
+				temp_g->time=time;
+				gc_node_array[node_idx++]=temp_g;
 				full_page=true;
-				goto make_bucket;
 			}
 			else{
 				temp_g=gc_data_write_new_page(t_ppa,&((char*)tables[i]->sets)[PIECE*j],NULL,oob_len,&lpa);
-				if(!bucket->gc_bucket[temp_g->plength])
-					bucket->gc_bucket[temp_g->plength]=(gc_node**)malloc(sizeof(gc_node*)*8*_PPS);
-				
-				bucket->gc_bucket[temp_g->plength][bucket->idx[temp_g->plength]++]=temp_g;
-				bucket->contents_num++;
+				temp_g->time=time;
+				gc_node_array[node_idx++]=temp_g;
 				j+=foot->map[j]-1;
 			}
+	
+			if(full_page) break;
 		}
 		if(used_page)
 			goto next_page;
@@ -319,11 +329,6 @@ int __gc_data(){
 		lpa=LSM.lop->get_lpa_from_data((char*)tables[i]->sets,t_ppa,false);
 		temp_g=gc_data_write_new_page(t_ppa,NULL,tables[i],NPCINPAGE,lpa);
 #endif
-make_bucket:
-		if(!bucket->gc_bucket[temp_g->plength])
-			bucket->gc_bucket[temp_g->plength]=(gc_node**)malloc(sizeof(gc_node*)*_PPS);
-		bucket->gc_bucket[temp_g->plength][bucket->idx[temp_g->plength]++]=temp_g;
-		bucket->contents_num++;
 next_page:
 		if(!full_page){
 			free(tables[i]);	
@@ -338,7 +343,8 @@ next_page:
 
 	free(tables);
 
-	gc_data_header_update_add(bucket);
+	gc_data_header_update_add(gc_node_array, node_idx);
+
 	for_each_block(tseg,tblock,bidx){
 		lb_free((lsm_block*)tblock->private_data);
 		tblock->private_data=NULL;
@@ -348,11 +354,9 @@ next_page:
 	if(!ISGCOPT(LSM.setup_values))
 		change_reserve_to_active(DATA);
 
-	for(int i=0; i<NPCINPAGE+1; i++){
-		free(bucket->gc_bucket[i]);
-	}
-	free(bucket);
-	free(tseg);
+	free(gc_node_array);
+	//printf("gc_data_end %d\n",cnt++);
+//	free(tseg);
 	return 1;
 }
 
@@ -372,11 +376,12 @@ int gc_node_compare(const void *a, const void *b){
 #endif
 }
 
-void gc_data_header_update_add(l_bucket *b){
+void gc_data_header_update_add(gc_node **gc_node_array, int size){
+	/*
 	if(ISTRANSACTION(LSM.setup_values)){
 		gc_data_transaction_header_update(b->gc_bucket[8], b->contents_num, b);
-	}
-	gc_data_header_update(b->gc_bucket[8],b->contents_num,b);
+	}*/
+	gc_data_header_update(gc_node_array, size);
 }
 
 void* gc_data_end_req(struct algo_req*const req){
@@ -401,9 +406,8 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 	run_t *now=NULL;
 	keyset *found=NULL;
 
-
 //retry:
-	result=lsm_find_run(g->lpa,&now,NULL,&found,&params->level,&params->run, &params->target_level_lock);
+	result=lsm_find_run(g->lpa,&now,&found,&params->level,&params->run, &params->target_level_lock);
 	if(result==FOUND){
 		if(skiplist_find(LSM.memtable,g->lpa)){
 			g->plength=0;
@@ -429,6 +433,9 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 				return CACHING;
 			}
 		case FOUND:
+			if(LSM.LEVELN-LSM.LEVELCACHING==1){
+				return CACHING;
+			}
 			if(now->isflying==1){
 				g->status=SAMERUN;
 				if(now->gc_wait_idx>req_size){
@@ -464,9 +471,12 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 			}
 			break;
 		case NOTFOUND:
-			result=lsm_find_run(g->lpa,&now,NULL,&found,&params->level,&params->run, NULL);
+			result=lsm_find_run(g->lpa,&now,&found,&params->level,&params->run, NULL);
 			LSM.lop->print_level_summary();
 			printf("lpa: %.*s ppa:%u\n",KEYFORMAT(g->lpa),g->ppa);
+			if(!transaction_debug_search(g->lpa)){
+				printf("missing key!!!!!\n");
+			}
 			abort();
 			break;
 	}
@@ -548,7 +558,7 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 	return done_cnt;
 }
 
-void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
+void gc_data_header_update(struct gc_node **g, int size){
 	uint32_t done_cnt=0;
 	int result=0;
 	gc_params *params;
@@ -557,6 +567,10 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 	int cache_cnt=0;
 	update_cache=noupdate_cache=nouptdone=0;
 	header_overlap_cnt=0;
+
+	MeasureTime tt;
+	measure_init(&tt);
+	MS(&tt);
 	while(done_cnt!=size){
 		cnttt++;
 		passed=0;
@@ -566,7 +580,6 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 				continue;
 			}
 			gc_node *target=g[i];
-
 
 			switch(target->status){
 				case NOTINLOG:
@@ -591,67 +604,26 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 		}
 		if(passed==size) break;
 	}
+	ME(&tt, "mapping read");
 
 	gc_read_wait=0;
 
-
-	/*data write*/
-	int res_idx=0;
-	KEYT temp_key;
-	value_set **res=(value_set**)calloc(size+2, sizeof(value_set*));
-	res[0]=inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE);
-	LSM.lop->moveTo_fr_page(true);
-	res[0]->ppa=LSM.lop->get_page((PAGESIZE/PIECE),temp_key);
-	footer *foot=(footer*)pm_get_oob(CONVPPA(res[0]->ppa), DATA, false);
-	foot->map[0]=0;
-	key_packing *kp=key_packing_init(res[0], NULL);
-	res_idx++;
-
-	for(int i=0; i<b->idx[NPCINPAGE]; i++){
-		gc_node *t=b->gc_bucket[NPCINPAGE][i];
-		if(t->plength==0) continue;
-		res[res_idx]=inf_get_valueset(t->value,FS_MALLOC_W, PAGESIZE);
-		LSM.lop->moveTo_fr_page(true);
-		t->nppa=LSM.lop->get_page(NPCINPAGE,t->lpa);
-		res[res_idx]->ppa=t->nppa;
-		footer *foot=(footer*)pm_get_oob(CONVPPA(t->nppa),DATA,false);
-		foot->map[0]=NPCINPAGE;
-		key_packing_insert(kp, t->lpa);
-		res_idx++;
-//		gc_data_write(t->nppa,(htable_t*)t->value,GCDW);
-	}
-	b->idx[NPCINPAGE]=0;
-
-
-	variable_value2Page(NULL,b,&res,&res_idx,&kp,true);
-	res[res_idx]=NULL;
+	LSM.gc_list=skiplist_init();
+	value_set **res=skiplist_make_gc_valueset(LSM.gc_list, g, size);
 
 	issue_data_write(res, LSM.li, GCDW);
 	free(res);
 
-	bool skip_init_flag=false;
-	uint32_t new_inserted=0;
-	for(int i=0;i<size; i++){
+	for(int i=0; i<size; i++){
 		gc_node *t=g[i];
-		gc_params *p=(gc_params*)t->params;
-
-		if(t->plength!=0){
-			if(!skip_init_flag){
-				skip_init_flag=true;
-				LSM.gc_list=skiplist_init();
-			}
-			KEYT temp_lpa;
-			kvssd_cpy_key(&temp_lpa,&t->lpa);
-			skiplist_insert_wP(LSM.gc_list,temp_lpa,t->nppa,false);
-			new_inserted++;
-		}
-
 		free(t->lpa.key);
 		free(t->value);
 		free(t);
-		free(p);
 	}
-	
+
+	bool skip_init_flag=false;
+	uint32_t new_inserted=0;
+
 
 	li_node *ln, *lp;
 	if(gc_hlist->size!=0){
@@ -663,9 +635,11 @@ void gc_data_header_update(struct gc_node **g, int size, l_bucket *b){
 	}
 	list_free(gc_hlist);
 
+	MS(&tt);
 	if(skip_init_flag){
 		compaction_assign_reinsert(LSM.gc_list);	
 	}
+	ME(&tt, "compaction wait");
 	//printf("size :%d cache %d(U:N %u:%u), overlap:%d new %d\n",size,cache_cnt,update_cache,noupdate_cache,header_overlap_cnt,new_inserted);
 }	
 #endif

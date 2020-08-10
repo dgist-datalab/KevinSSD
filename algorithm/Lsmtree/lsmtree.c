@@ -37,6 +37,7 @@ struct algorithm algo_lsm={
 	.iter_all_key=NULL,
 	.iter_all_value=NULL,
 	.range_query=NULL,
+	.wait_bg_jobs=lsm_wait_bg_jobs,
 	.trans_begin=transaction_start,
 	.trans_commit=transaction_commit
 };
@@ -141,7 +142,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	if(ISNOCPY(LSM.setup_values))
 		nocpy_init();
 
-	LSM.lsm_cache=cache_init(LSP.cache_memory/PAGESIZE);
+	LSM.lsm_cache=cache_init(0);
 
 	for(int i=0; i<2; i++){
 		fdriver_mutex_init(&LSM.gc_lock_list[i]);
@@ -237,7 +238,9 @@ void* lsm_end_req(algo_req* const req){
 		case HEADERR:
 			if(!parents){ //end_req for compaction
 				target=*params->target;
-				if(!ISNOCPY(LSM.setup_values)) memcpy(target,params->value->value,PAGESIZE);
+				if(!ISNOCPY(LSM.setup_values)){
+					memcpy(target,params->value->value,PAGESIZE);
+				}
 				comp_target_get_cnt++;
 				//table->done=true;
 				if(epc_check==comp_target_get_cnt+memcpy_cnt){
@@ -482,6 +485,7 @@ void* lsm_hw_end_req(algo_req* const req){
 				((int*)req_temp_params)[3]=2;
 			}
 			while(1){
+				
 				if(inf_assign_try(parents)){
 					break;
 				}else{
@@ -554,10 +558,12 @@ void dummy_htable_read(uint32_t pbn,request *req){
 #endif
 }
 
-uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, int *level,int *run, rwlock **rw_lock){
+uint8_t lsm_find_run(KEYT key, run_t ** entry,keyset **found, int *level,int *run, rwlock **rw_lock){
 	run_t *entries=NULL;
 	if(*run) (*level)++;
-	
+#ifdef PARTITION
+	uint32_t start, end;
+#endif
 	for(int i=*level; i<LSM.LEVELN; i++){
 	#ifdef BLOOM
 		if(i>=LSM.LEVELCACHING && GETCOMPOPT(LSM.setup_values)==HW){	
@@ -636,7 +642,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 	if(list){//skiplist check for memtable and temp_table;
 		target_node=skiplist_find(list,req->key);
 		if(!target_node) return 0;
-		if(target_node->value){
+		if(target_node->value.u_value){
 			req->end_req(req);
 			return 2;
 		}
@@ -870,9 +876,7 @@ retry:
 		return 1;
 	}
 
-	
-
-	result=lsm_find_run(req->key,&entry, entry, &found,&level,&run, &rp->rw_lock);
+	result=lsm_find_run(req->key, &entry, &found,&level,&run, &rp->rw_lock);
 	if(temp_data[3]==1) temp_data[3]=0;
 	switch(result){
 		case CACHING:
@@ -1032,13 +1036,13 @@ uint32_t lsm_memory_size(){
 	snode *temp;
 	res+=skiplist_memory_size(LSM.memtable);
 	for_each_sk(temp,LSM.memtable){
-		if(temp->value) res+=PAGESIZE;
+		if(temp->value.u_value) res+=PAGESIZE;
 	}
 
 	res+=skiplist_memory_size(LSM.temptable);
 	if(LSM.temptable)
 		for_each_sk(temp,LSM.temptable){
-			if(temp->value) res+=PAGESIZE;
+			if(temp->value.u_value) res+=PAGESIZE;
 		}
 	res+=sizeof(lsmtree);
 	return res;
@@ -1098,7 +1102,7 @@ uint32_t lsm_test_read(ppa_t p, char *data){
 	fdriver_lock(params->lock);
 	memcpy(data,v->value,PAGESIZE);
 	inf_free_valueset(v,FS_MALLOC_R);
-	return 1;
+	return 0;
 }
 extern int VALUESIZE;
 uint32_t lsm_argument_set(int argc, char **argv){
@@ -1179,7 +1183,7 @@ uint32_t lsm_argument_set(int argc, char **argv){
 		LSM.LEVELCACHING=LSP.LEVELCACHING=0;
 	}
 	if(!value_size){
-		LSP.VALUESIZE=1024;
+		LSP.VALUESIZE=DEFVALUESIZE;
 	}
 	if(!memory_c_flag){
 		LSP.caching_size=0;
@@ -1259,4 +1263,9 @@ bool lsm_block_aligning(uint32_t try_page_num, bool isgc){
 		foot->map[0]=NPCINPAGE+1;
 	}
 	return false;
+}
+
+uint32_t lsm_wait_bg_jobs(){
+	compaction_wait_jobs();
+	return 1;
 }
