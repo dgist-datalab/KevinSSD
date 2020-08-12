@@ -71,7 +71,7 @@ snode * skiplist_insert_wP_gc(skiplist *list, KEYT key, char *value, uint32_t *t
 #ifdef Lsmtree
 		x->iscaching_entry=false;
 #endif
-		x->value.g_value=NULL;
+		x->value.g_value=value;
 		for(int i=1; i<=level; i++){
 			x->list[i]=update[i]->list[i];
 			update[i]->list[i]=x;
@@ -82,6 +82,7 @@ snode * skiplist_insert_wP_gc(skiplist *list, KEYT key, char *value, uint32_t *t
 		x->list[1]->back=x;
 
 		x->level=level;
+		x->time=*(time);
 		list->size++;
 	}
 	return x;
@@ -96,17 +97,31 @@ value_set **skiplist_make_gc_valueset(skiplist * skip,gc_node ** gc_node_array, 
 
 	for(int i=0; i<size; i++){
 		gc_node *t=gc_node_array[i];
-		if(t->plength==0) continue;
+		if(t->plength==0){
+			/*
+			if(t->validate_test){
+				printf("bitmap_cache not followed! %u\n", t->ppa);
+				abort();
+			}*/
+			continue;
+		}
 		uint8_t length=t->plength;
 		KEYT temp_lpa;
 		kvssd_cpy_key(&temp_lpa,&t->lpa);
 		uint32_t time=t->time;
 		snode *target=skiplist_insert_wP_gc(skip, temp_lpa, t->value, &t->time, false);
-		if(time!=t->time) continue;
+		if(time!=t->time){
+			continue;
+		}
 		if(b.bucket[length]==NULL){
 			b.bucket[length]=(snode**)malloc(sizeof(snode*)*(size+1));
 		}
 		b.bucket[length][b.idx[length]++]=target;
+	}
+
+	if(skip->size==0){
+		printf("%s:%d it may not be\n",__FILE__,__LINE__);
+		abort();
 	}
 
 	KEYT temp_key;
@@ -133,6 +148,10 @@ value_set **skiplist_make_gc_valueset(skiplist * skip,gc_node ** gc_node_array, 
 
 	variable_value2Page(NULL,&b,&res,&res_idx,&kp,true);
 	res[res_idx]=NULL;
-
+	
+	for(int i=0; i<=NPCINPAGE; i++){
+		if(b.bucket[i]) free(b.bucket[i]);
+	}
+//	key_packing_free(kp);
 	return res;
 }

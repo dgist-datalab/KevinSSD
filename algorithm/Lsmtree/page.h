@@ -38,6 +38,7 @@ typedef struct gc_node{
 	uint8_t status;
 	uint8_t found_src;
 	uint8_t plength;
+	bool validate_test;
 	void *target;
 	void *params;
 }gc_node;

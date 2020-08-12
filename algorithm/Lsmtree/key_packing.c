@@ -26,7 +26,7 @@ uint32_t key_packing_insert(key_packing * kp, KEYT key){
 	memcpy(&t[offset], key.key, key.len);
 	offset+=key.len;
 	*((uint32_t*)&t[offset])=cnt++;
-
+	offset+=sizeof(cnt);
 	if(offset>PAGESIZE){
 		printf("%s:%d buffer overflow!\n", __FILE__, __LINE__);
 		abort();

@@ -52,6 +52,7 @@ skiplist *skiplist_init(){
 	point->header->value.u_value=NULL;
 	point->size=0;
 	point->data_size=0;
+	point->isgc=false;
 	return point;
 }
 
@@ -805,7 +806,7 @@ void skiplist_clear(skiplist *list){
 	snode *next=now->list[1];
 	while(now!=list->header){
 
-		if(now->value.u_value){
+		if(!list->isgc && now->value.u_value){
 			inf_free_valueset(now->value.u_value,FS_MALLOC_W);//not only length<PAGESIZE also length==PAGESIZE, just free req from inf
 		}
 		free(now->key.key);

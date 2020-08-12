@@ -1,7 +1,9 @@
 #include "page.h"
 #include "nocpy.h"
 #include "../../include/sem_lock.h"
+#include "bitmap_cache.h"
 extern lsmtree LSM;
+extern llp LLP;
 extern algorithm algo_lsm;
 pm d_m;
 pm map_m;
@@ -29,6 +31,10 @@ void pm_init(){
 	blockmanager *bm=LSM.bm;
 	d_m.reserve=bm->pt_get_segment(bm,DATA_S,true);
 	d_m.active=bm->pt_get_segment(bm, DATA_S, false);
+
+	uint32_t start_ppn=LSM.bm->pick_page_num(LSM.bm, d_m.active);
+	uint32_t min_ppn=LSM.bm->pick_page_num(LSM.bm, d_m.reserve);
+	bc_init(_NOS/LLP.size_factor+1, start_ppn, min_ppn, min_ppn+DATAPART_SEGS*_PPS-1);
 	d_m.target=NULL;
 
 	map_m.reserve=bm->pt_get_segment(bm,MAP_S,true);
@@ -100,6 +106,7 @@ retry:
 		printf("fuck! no type getPPA");
 		abort();
 	}
+
 	if(type==HEADER && (GETCOMPOPT(LSM.setup_values)==HW || GETCOMPOPT(LSM.setup_values)==MIXEDCOMP )&& map_m.erased_q->size ){
 		void *t=q_dequeue(map_m.erased_q);
 		res=*(uint32_t*)t;
@@ -166,6 +173,7 @@ retry:
 				gc_data();
 				goto retry;
 			}
+			free(t->active);
 			t->active=bm->pt_get_segment(bm,DATA_S,false);
 		}
 	}else if(type==HEADER){
@@ -176,6 +184,7 @@ retry:
 				abort();
 				goto retry;
 			}
+			free(t->active);
 			t->active=bm->pt_get_segment(bm,DATA_S,false);
 		}
 	}
@@ -236,7 +245,7 @@ bool invalidate_PPA(uint8_t type,uint32_t ppa){
 			t_p=t_p/NPCINPAGE;
 			if(ppa==UINT_MAX) return true;
 			t=LSM.bm->pick_block(LSM.bm,t_p)->private_data;
-		//	invalidate_piece((lsm_block*)t,ppa);
+			//invalidate_piece((lsm_block*)t,ppa);
 #endif
 
 #ifdef EMULATOR
@@ -266,12 +275,14 @@ bool invalidate_PPA(uint8_t type,uint32_t ppa){
 
 bool validate_PPA(uint8_t type, uint32_t ppa){
 	uint32_t t_p=ppa;
+	if(ppa==1949768){
+		printf("break!\n");
+	}
 	switch(type){
 		case DATA:
 #ifdef DVALUE
 			t_p=t_p/NPCINPAGE;
 			validate_piece((lsm_block*)LSM.bm->pick_block(LSM.bm,t_p)->private_data,ppa);
-
 #endif
 	
 			break;
@@ -455,6 +466,7 @@ void change_reserve_to_active(uint8_t type){
 			pt_num=MAP_S;
 			break;
 	}
+	free(t->active);
 	t->active=t->reserve;
 	t->reserve=bm->change_pt_reserve(bm,pt_num,t->reserve);
 }	

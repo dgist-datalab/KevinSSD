@@ -13,7 +13,6 @@ typedef enum transaction_status{
 
 typedef union transaction_pointer{
 	skiplist *memtable;
-	//char *pinning;
 	uint32_t physical_pointer;
 } t_ptr;
 

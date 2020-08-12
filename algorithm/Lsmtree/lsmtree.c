@@ -12,6 +12,7 @@
 #include "page.h"
 #include "nocpy.h"
 #include "lsmtree_transaction.h"
+#include "bitmap_cache.h"
 #include<stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -57,7 +58,7 @@ lsp LSP;
 extern level_ops h_ops;
 extern level_ops a_ops;
 extern uint32_t all_kn_run,run_num;
-
+extern pm d_m;
 extern float get_sizefactor(uint32_t);
 
 uint32_t __lsm_get(request *const);

@@ -4,6 +4,7 @@
 #include "../../../../bench/bench.h"
 #include "../../compaction.h"
 #include "../../nocpy.h"
+#include "../../bitmap_cache.h"
 extern MeasureTime write_opt_time[10];
 p_body *rp;
 char **r_data;
@@ -81,6 +82,10 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 		//temp_func(o_data[i],d,true);
 	}
 
+	if(d->idx==LSM.LEVELN-1){
+		bc_reset();
+	}
+
 	r_data=(char**)calloc(sizeof(char*),(o_num+u_num+LSM.result_padding));
 	p_body *lp, *hp;
 	lp=pbody_init(o_data,o_num,NULL,false,NULL);
@@ -137,6 +142,9 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 		if(KEYCONSTCOMP(insert_key,"215155000000")==0){
 			printf("----real insert into %d\n",d->idx);
 		}*/
+		if(d->idx==LSM.LEVELN-1){
+			bc_set_validate(rppa);
+		}
 		if((pbody_insert_new_key(rp,insert_key,rppa,false)))
 		{
 			result_cnt++;
@@ -148,6 +156,9 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 			lp_key=pbody_get_next_key(lp,&lppa);
 			hp_key=pbody_get_next_key(hp,&hppa);
 		}
+	}
+	if(d->idx==LSM.LEVELN-1){
+		bc_set_validate(rppa);
 	}
 	if((pbody_insert_new_key(rp,insert_key,rppa,true)))
 		{

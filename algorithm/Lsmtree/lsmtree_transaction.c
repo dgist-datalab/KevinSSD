@@ -126,9 +126,7 @@ uint32_t transaction_commit(request *const req){
 	else{
 		//no data to commit
 		cparams->total_num=1;
-		transaction_table_clear(_tm.ttb, etr);
 	}
-
 	/*write table*/
 	fdriver_lock(&_tm.table_lock);
 
@@ -388,6 +386,7 @@ retry:
 			gc_log();
 			goto retry;
 		}
+		free(t->active);
 		t->active=bm->pt_get_segment(bm, LOG_S, false);
 	}
 
@@ -404,9 +403,6 @@ retry:
 
 leveling_node *transaction_get_comp_target(){
 	static int cnt=0;
-	if(cnt++==9185){
-		printf("break point!\n");
-	}
 	transaction_entry *etr=transaction_table_get_comp_target(_tm.ttb);
 	if(!etr) return NULL;
 

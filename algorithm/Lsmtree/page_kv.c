@@ -5,6 +5,7 @@
 #include "nocpy.h"
 #include "variable.h"
 #include "lsmtree_transaction.h"
+#include "bitmap_cache.h"
 #include "../../include/rwlock.h"
 #include "../../include/utils/kvssd.h"
 #include "../../interface/interface.h"
@@ -205,7 +206,13 @@ int gc_data(){
 	return 1;
 }
 
+extern _bc bc;
 int __gc_data(){
+	static int cnt=0;
+	printf("gc_data:%d\n", cnt++);
+	if(cnt==(231+1)){
+		printf("break!\n");
+	}
 	static bool flag=false;
 	if(!flag){
 		flag=true;
@@ -222,9 +229,15 @@ int __gc_data(){
 	int bidx=0;
 	int pidx=0;
 	int i=0;
-	//bool debug_flag=false;
+	bool bitmap_cache_check=false;
 	//printf("invalidate number:%d\n",tseg->invalidate_number);
 	for_each_page_in_seg_blocks(tseg,tblock,tpage,bidx,pidx){
+		if(!bitmap_cache_check){
+			if(tpage!=bc.start_block_ppn){
+				abort();
+			}
+			bitmap_cache_check=true;
+		}
 #ifdef DVALUE
 		bool page_read=false;
 		for(int j=0; j<NPCINPAGE; j++){
@@ -249,7 +262,7 @@ int __gc_data(){
 	}
 
 	gc_general_waiting(); //wait for read req
-	gc_node **gc_node_array=(gc_node**)malloc(sizeof(gc_node*)*i);
+	gc_node **gc_node_array=(gc_node**)malloc(sizeof(gc_node*)*i*2+1);
 	int node_idx=0;
 	i=0;
 	//int cnt=0;
@@ -430,10 +443,13 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 					noupdate_cache++;
 			//		goto retry;
 				}
+				g->validate_test=false;
 				return CACHING;
 			}
 		case FOUND:
-			if(LSM.LEVELN-LSM.LEVELCACHING==1){
+			if(params->level==LSM.LEVELN-1){
+				g->status=DONE;
+				rwlock_read_unlock(params->target_level_lock);
 				return CACHING;
 			}
 			if(now->isflying==1){
@@ -568,9 +584,6 @@ void gc_data_header_update(struct gc_node **g, int size){
 	update_cache=noupdate_cache=nouptdone=0;
 	header_overlap_cnt=0;
 
-	MeasureTime tt;
-	measure_init(&tt);
-	MS(&tt);
 	while(done_cnt!=size){
 		cnttt++;
 		passed=0;
@@ -580,6 +593,16 @@ void gc_data_header_update(struct gc_node **g, int size){
 				continue;
 			}
 			gc_node *target=g[i];
+			target->validate_test=true;
+
+			if(!bc_valid_query(target->ppa)){
+				done_cnt++;
+				target->plength=0;
+				target->status=DONE;
+				target->validate_test=false;
+				target->params=NULL;
+				continue;
+			}
 
 			switch(target->status){
 				case NOTINLOG:
@@ -604,7 +627,6 @@ void gc_data_header_update(struct gc_node **g, int size){
 		}
 		if(passed==size) break;
 	}
-	ME(&tt, "mapping read");
 
 	gc_read_wait=0;
 
@@ -616,12 +638,14 @@ void gc_data_header_update(struct gc_node **g, int size){
 
 	for(int i=0; i<size; i++){
 		gc_node *t=g[i];
+		free(t->params);
 		free(t->lpa.key);
 		free(t->value);
 		free(t);
 	}
 
-	bool skip_init_flag=false;
+	bool skip_init_flag=LSM.gc_list->size?true:false;
+	LSM.gc_list->isgc=true;
 	uint32_t new_inserted=0;
 
 
@@ -635,11 +659,10 @@ void gc_data_header_update(struct gc_node **g, int size){
 	}
 	list_free(gc_hlist);
 
-	MS(&tt);
+	bc_pop();
 	if(skip_init_flag){
 		compaction_assign_reinsert(LSM.gc_list);	
 	}
-	ME(&tt, "compaction wait");
 	//printf("size :%d cache %d(U:N %u:%u), overlap:%d new %d\n",size,cache_cnt,update_cache,noupdate_cache,header_overlap_cnt,new_inserted);
 }	
 #endif

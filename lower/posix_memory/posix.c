@@ -282,8 +282,8 @@ void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async
 	uint8_t test_type;
 	uint32_t PPA=convert_ppa(_PPA);
 
-	if(PPA==32768){
-		printf("pushed 32768----!!!\n");
+	if(PPA==49207){
+		printf("pushed 49207----!!!\n");
 	}
 
 	if(PPA>_NOP){

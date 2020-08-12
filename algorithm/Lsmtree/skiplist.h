@@ -83,6 +83,7 @@ typedef struct skiplist{
 #endif
 	uint32_t data_size;
 	snode *header;
+	bool isgc;
 }skiplist;
 
 //read only iterator. don't using iterater after delete iter's now node

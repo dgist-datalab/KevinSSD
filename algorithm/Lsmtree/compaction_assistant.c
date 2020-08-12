@@ -442,6 +442,7 @@ void compaction_gc_add(skiplist *list){
 		fdriver_lock(&LSM.gc_lock_list[1]);
 		fdriver_lock(&LSM.gc_lock_list[0]);
 		temp=skiplist_cutting_header_se(list,&dummy,&lnode.start,&lnode.end);
+		temp->isgc=true;
 		LSM.gc_now_act_list=temp;
 		if(temp==list){
 			last=true;
@@ -666,7 +667,6 @@ uint32_t compaction_empty_level(level **from, leveling_node *lnode, level **des)
 				free(entry->key.key);
 				free(entry->end.key);
 			}
-
 			free(entry);
 		}
 		else{

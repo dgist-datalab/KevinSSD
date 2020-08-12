@@ -211,3 +211,5 @@ value_set *variable_change_kp(key_packing **kp, uint32_t remain, value_set *org_
 		return variable_get_kp(kp, isgc);
 	}
 }
+
+

@@ -43,6 +43,7 @@ SRCS +=\
 	   transaction_table.c\
 	   lsmtree_transaction.c\
 	   key_packing.c\
+	   bitmap_cache.c\
 
 #merge_compaction.c\
 	   run_array.c\
