@@ -5,7 +5,6 @@
 #include "level.h"
 #include "skiplist.h"
 #include "bloomfilter.h"
-#include "cache.h"
 #include "level.h"
 #include "page.h"
 #include "../../include/settings.h"
@@ -211,7 +210,6 @@ typedef struct lsmtree{
 	ppa_t data_ppa; //for one data caching for read
 	value_set* data_value;
 #endif
-	struct cache* lsm_cache;
 
 	/*for gc*/
 	bool gc_started;
@@ -244,7 +242,7 @@ uint32_t lsm_remove(request *const);
 uint32_t lsm_wait_bg_jobs();
 
 uint32_t __lsm_get(request *const);
-uint8_t lsm_find_run(KEYT key, run_t **,struct keyset **, int *level, int *run, rwlock **);
+uint8_t lsm_find_run(KEYT key, run_t **,run_t *,struct keyset **, int *level, int *run, rwlock **);
 uint32_t __lsm_range_get(request *const);
 
 void* lsm_end_req(struct algo_req*const);

@@ -27,10 +27,10 @@ uint32_t level_change(level *from ,level *to,level *target, rwlock *lock){
 	int from_idx=0;
 	if(from!=NULL){ 
 		from_idx=from->idx;
-		rwlock_write_lock(&LSM.level_lock[from_idx]);
+	//	rwlock_write_lock(&LSM.level_lock[from_idx]);
 		src_ptr=&LSM.disk[from->idx];
 		*(src_ptr)=LSM.lop->init(from->m_num,from->idx,from->fpr,from->istier);
-		rwlock_write_unlock(&LSM.level_lock[from_idx]);
+	//	rwlock_write_unlock(&LSM.level_lock[from_idx]);
 		LSM.lop->release(from);
 	}
 	
@@ -39,10 +39,10 @@ uint32_t level_change(level *from ,level *to,level *target, rwlock *lock){
 	LSM.lop->make_partition(target);
 #endif
 
-	rwlock_write_lock(lock);
+//	rwlock_write_lock(lock);
 	target->iscompactioning=to->iscompactioning;
 	(*des_ptr)=target;
-	rwlock_write_unlock(lock);
+//	rwlock_write_unlock(lock);
 	LSM.lop->release(to);
 #ifdef CACHEREORDER
 	LSM.lop->reorder_level(target);
@@ -107,13 +107,6 @@ bool level_sequencial(level *from, level *to,level *des, run_t *entry,leveling_n
 
 bool amf_debug_flag;
 uint32_t leveling(level *from,level *to, leveling_node *l_node,rwlock *lock){
-	if(to->idx==3){
-		static int cnt=0;
-		if(cnt++==5){
-			printf("break leveling! %d\n",cnt);
-			amf_debug_flag=true;
-		}
-	}
 	level *target_origin=to;
 	level *target=lsm_level_resizing(to,from);
 

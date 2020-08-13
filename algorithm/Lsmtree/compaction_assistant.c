@@ -53,7 +53,17 @@ void compaction_selector(level *a, level *b,leveling_node *lnode, rwlock* rwlock
 
 	}
 	else{
+		int s_idx=a?a->idx:-1;
+		int d_idx=b->idx;
+		if(s_idx!=-1){	
+			rwlock_write_lock(&LSM.level_lock[s_idx]);
+		}
+		rwlock_write_lock(&LSM.level_lock[d_idx]);
 		leveling(a,b,lnode,rwlock);
+		rwlock_write_unlock(&LSM.level_lock[d_idx]);
+		if(s_idx!=-1){
+			rwlock_write_unlock(&LSM.level_lock[s_idx]);
+		}	
 	}
 }
 
@@ -285,7 +295,9 @@ void compaction_cascading(bool *_is_gc_needed){
 			if(is_gc_needed || unlikely(LSM.lop->full_check(LSM.disk[start_level]))){
 				des_level=(start_level==LSM.LEVELN?start_level:start_level+1);
 				if(des_level==LSM.LEVELN) break;
+
 				compaction_selector(LSM.disk[start_level],LSM.disk[des_level],NULL,&LSM.level_lock[des_level]);
+
 				LSM.disk[start_level]->iscompactioning=false;
 				start_level++;
 			}
@@ -349,6 +361,7 @@ void *compaction_main(void *input){
 
 
 		if(trans_node){
+			
 			compaction_selector(NULL, LSM.disk[0], trans_node, &LSM.level_lock[0]);
 			transaction_clear(trans_node->tetr);
 			if(trans_node->entry){
@@ -513,7 +526,7 @@ void compaction_assign_reinsert(skiplist *gc_list){
 	req->fromL=LSP.LEVELN;
 	req->last=true;
 	req->temptable=gc_list;
-	compaction_assign(req,NULL, true);
+	compaction_assign(req,NULL, false);
 }
 
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){

@@ -139,13 +139,13 @@ uint32_t transaction_commit(request *const req){
 	_tm.last_table=ppa;
 	fdriver_unlock(&_tm.table_lock);
 
-
 	leveling_node *lnode;
 
 	while((lnode=transaction_get_comp_target())){
 		compaction_assign(NULL,lnode,false);
 	}
 
+	//compaction_wait_jobs();
 	return 1;
 }
 

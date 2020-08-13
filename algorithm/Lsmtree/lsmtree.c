@@ -122,6 +122,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	printf("| bloomfileter : %fKB %fMB\n",(float)LSP.bf_memory/K,(float)LSP.bf_memory/M);
 	printf("| level cache :%luMB(%lu page)%.2f(%%)\n",LSP.pin_memory/M,LSP.pin_memory/PAGESIZE,(float)LSP.pin_memory/LSP.total_memory*100);
 	printf("| entry cache :%luMB(%lu page)%.2f(%%)\n",LSP.cache_memory/M,LSP.cache_memory/PAGESIZE,(float)LSP.cache_memory/LSP.total_memory*100);
+	printf("| level list size: %u MB\n",(LSP.HEADERNUM*(DEFKEYLENGTH+4+8))/1024/1024);
 	printf("| -------- algorithm_log END\n\n");
 
 	printf("\n ---------- %lu:%d (all_entry : total)\n\n",all_header_num,MAPPART_SEGS*_PPS);
@@ -143,7 +144,6 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	if(ISNOCPY(LSM.setup_values))
 		nocpy_init();
 
-	LSM.lsm_cache=cache_init(0);
 
 	for(int i=0; i<2; i++){
 		fdriver_mutex_init(&LSM.gc_lock_list[i]);
@@ -180,7 +180,6 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 #endif
 	fprintf(stderr,"normal check cnt:%d\n",LMI.check_cnt);
 
-	cache_free(LSM.lsm_cache);
 
 	free(LSM.level_lock);
 	if(ISNOCPY(LSM.setup_values))
@@ -559,12 +558,12 @@ void dummy_htable_read(uint32_t pbn,request *req){
 #endif
 }
 
-uint8_t lsm_find_run(KEYT key, run_t ** entry,keyset **found, int *level,int *run, rwlock **rw_lock){
+uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, int *level,int *run, rwlock **rw_lock){
 	run_t *entries=NULL;
-	if(*run) (*level)++;
 #ifdef PARTITION
-	uint32_t start, end;
+	rwlock *up_entry_lock=NULL;
 #endif
+	if(*run) (*level)++;
 	for(int i=*level; i<LSM.LEVELN; i++){
 	#ifdef BLOOM
 		if(i>=LSM.LEVELCACHING && GETCOMPOPT(LSM.setup_values)==HW){	
@@ -585,19 +584,20 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry,keyset **found, int *level,int *ru
 #ifdef PARTITION
 		if(up_entry){
 			entries=LSM.lop->find_run_se(LSM.disk[i],key,up_entry);
-		}else
+			if(up_entry_lock){
+				rwlock_read_unlock(up_entry_lock);
+			}
+		}else{
 #endif
-#ifdef FASTFINDRUN
-			entries=LSM.lop->fast_find_run(LSM.disk[i],key);
-#else
 			entries=LSM.lop->find_run(LSM.disk[i],key);
+	
+#ifdef PARTITION
+		}
 #endif
-
 		if(!entries){
 #ifdef PARTITION
 			up_entry=NULL;
 #endif
-
 			rwlock_read_unlock(level_rw_lock);
 			continue;
 		}
@@ -612,6 +612,7 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry,keyset **found, int *level,int *ru
 			}
 #ifdef PARTITION
 			up_entry=entries;
+			up_entry_lock=level_rw_lock;
 #endif
 		}
 		else{
@@ -622,6 +623,12 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry,keyset **found, int *level,int *ru
 			return FOUND;
 		}
 		if(run) *run=0;
+
+#ifdef PARTITION
+		if(entries){
+			continue;
+		}
+#endif
 
 		rwlock_read_unlock(level_rw_lock);
 		continue;
@@ -791,6 +798,10 @@ uint32_t __lsm_get(request *const req){
 	int *temp_data;
 	rparams *rp;
 
+
+	if(KEYCONSTCOMP(req->key, "7386630000000000000000000000")==0){
+		printf("break!\n");
+	}
 	if(req->params==NULL){
 		if(!ISTRANSACTION(LSM.setup_values)){
 			/*memtable*/
@@ -850,13 +861,6 @@ uint32_t __lsm_get(request *const req){
 		}
 
 		mapinfo.sets=ISNOCPY(LSM.setup_values)?(keyset*)nocpy_pick(rp->ppa):(keyset*)req->value->value;
-/*
-#ifdef FASTFINDRUN
-		_entry=LSM.lop->fast_find_run(LSM.disk[level],req->key);
-#else
-		_entry=LSM.lop->find_run(LSM.disk[level],req->key);
-#endif
-*/
 		res=__lsm_get_sub(req,entry,mapinfo.sets,NULL, level);
 		entry->from_req=NULL;
 		entry->isflying=0;
@@ -877,7 +881,7 @@ retry:
 		return 1;
 	}
 
-	result=lsm_find_run(req->key, &entry, &found,&level,&run, &rp->rw_lock);
+	result=lsm_find_run(req->key, &entry, entry, &found,&level,&run, &rp->rw_lock);
 	if(temp_data[3]==1) temp_data[3]=0;
 	switch(result){
 		case CACHING:
@@ -1235,7 +1239,7 @@ bool lsm_should_flush(skiplist *mem, __segment *seg){
 	}
 
 check_mem:
-	if((mem->size > MEM_NUM_LIMIT/10*9) || (mem->all_length > SIZE_LIMIT/10*9)){
+	if((mem->size >= MEM_NUM_LIMIT) || (mem->all_length >= SIZE_LIMIT)){
 		LMI.full_comp_cnt++;
 		return true;
 	}

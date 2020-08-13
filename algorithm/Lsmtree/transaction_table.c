@@ -258,6 +258,7 @@ value_set* transaction_table_force_write(transaction_table *table, uint32_t tid,
 	(*t)=target;
 
 	value_set *res=trans_flush_skiplist(t_mem, target);
+
 	if(res==NULL){
 		transaction_table_clear(table, target);
 	}

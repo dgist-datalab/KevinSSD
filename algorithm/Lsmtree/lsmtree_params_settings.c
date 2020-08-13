@@ -29,16 +29,14 @@ uint32_t calc_cache_page();
 uint64_t get_memory_per_run(lsmtree lsm,float size_factor);
 
 void lsm_setup_params(){
-	LSP.total_memory=TOTALSIZE/1024;
-//	LSP.total_memory=SHOWINGSIZE/1024;
+//	LSP.total_memory=TOTALSIZE/1024;
+	LSP.total_memory=SHOWINGSIZE/1024;
 	LSP.LEVELN=LSM.LEVELN;
 	LSP.KEYNUM=MAXKEYINMETASEG;
 	LSP.ONESEGMENT=LSP.KEYNUM*LSP.VALUESIZE;
-	printf("SHOWINGSIZE:%lu\n",SHOWINGSIZE);
+	printf("SHOWINGSIZE:%lu TOTAL _NOS:%u\n",SHOWINGSIZE, _NOS);
 	LSP.HEADERNUM=(SHOWINGSIZE/LSP.ONESEGMENT)+(SHOWINGSIZE%LSP.ONESEGMENT?1:0);
-	uint32_t TOTALHEADER=(TOTALSIZE/LSP.ONESEGMENT)+(TOTALSIZE%LSP.ONESEGMENT?1:0);
-	printf("level list size: %u\n",(TOTALHEADER*(DEFKEYLENGTH+4))/1024/1024);
-	LSP.total_memory-=(TOTALHEADER*(DEFKEYLENGTH+4));
+	LSP.total_memory-=(LSP.HEADERNUM*(DEFKEYLENGTH+4+8));
 	
 	LSP.bf_fprs=(float*)calloc(sizeof(float),LSM.LEVELN);
 	
@@ -83,7 +81,6 @@ float get_sizefactor(uint32_t keynum_in_header){
 	float res;
 
 	LSP.ONESEGMENT=keynum_in_header*LSP.VALUESIZE;
-	//LSP.HEADERNUM=SHOWINGSIZE/LSP.ONESEGMENT+(SHOWINGSIZE%LSP.ONESEGMENT?1:0);
 	res=_f?ceil(pow(10,log10(LSP.HEADERNUM)/(_f))):LSP.HEADERNUM/keynum_in_header;
 
 	int i=0;

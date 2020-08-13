@@ -7,7 +7,6 @@
 #include "page.h"
 #include "lsmtree.h"
 #include "bloomfilter.h"
-#include "cache.h"
 #include <pthread.h>
 
 typedef enum{
@@ -60,11 +59,6 @@ typedef struct run{
 	KEYT end;
 	ppa_t pbn;
 
-	//for caching
-	cache_entry *c_entry;
-	char *cache_nocpy_data_ptr;
-	htable *cache_data;
-	
 	htable *cpt_data;
 	void *run_data;
 	char *level_caching_data;
@@ -156,17 +150,14 @@ typedef struct level_ops{
 
 #ifdef PARTITION
 	void (*make_partition)(level *);
-	void (*get_range_idx)(level *lev, run_t *run, uint32_t *start, uint32_t *end);
-	run_t *(*find_run_se)(level *lev, KEYT lpa, uint32_t start, uint32_t end);
+	//void (*get_range_idx)(level *lev, run_t *run, uint32_t *start, uint32_t *end);
+	run_t *(*find_run_se)(level *lev, KEYT lpa, run_t *upper_run);
 #endif
 
 	/*run operation*/
 	run_t*(*get_run_idx)(level *, int idx);
 	run_t*(*make_run)(KEYT start, KEYT end, uint32_t pbn);
 	run_t*(*find_run)( level*,KEYT lpa);
-#ifdef FASTFINDRUN
-	run_t*(*fast_find_run)( level*,KEYT lpa);
-#endif
 	run_t**(*find_run_num)( level*,KEYT lpa, uint32_t num);
 	void (*release_run)( run_t *);
 	run_t* (*run_cpy)( run_t *);

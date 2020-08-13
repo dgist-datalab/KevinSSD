@@ -8,9 +8,6 @@
 #include "../../level.h"
 #include "../../lsmtree.h"
 #include "../../bloomfilter.h"
-#ifdef FASTFINDRUN
-typedef struct array_hash_list hash_list;
-#endif
 #define for_each_header_start(idx,key,ppa_ptr,bitmap,body)\
 	for(idx=1; bitmap[idx]!=UINT16_MAX && idx<=bitmap[0]; idx++){\
 		ppa_ptr=(ppa_t*)&body[bitmap[idx]];\
@@ -93,9 +90,6 @@ typedef struct array_body{
 	pt_node *p_nodes;
 #endif
 
-#ifdef FASTFINDRUN
-	struct btree bt;
-#endif
 }array_body;
 
 typedef struct array_iter{
@@ -229,8 +223,8 @@ run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KE
 
 #ifdef PARTITION
 void array_make_partition(level *lev);
-void array_get_range_idx(level *lev, run_t *run, uint32_t *, uint32_t *);
-run_t *array_find_run_se(level *lev, KEYT lpa, uint32_t start, uint32_t end);
+//void array_get_range_idx(level *lev, run_t *run, uint32_t *, uint32_t *);
+run_t *array_find_run_se(level *lev, KEYT lpa, run_t *up_ent);
 #endif
 
 #endif

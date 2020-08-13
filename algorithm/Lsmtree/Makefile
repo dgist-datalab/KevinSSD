@@ -33,7 +33,6 @@ SRCS +=\
 	   page.c\
 	   nocpy.c\
 	   lops_default.c\
-	   cache.c\
 	   page_kv.c\
 	   page_kv_assistant.c\
 	   variable.c\
@@ -44,6 +43,7 @@ SRCS +=\
 	   lsmtree_transaction.c\
 	   key_packing.c\
 	   bitmap_cache.c\
+#	   cache.c\
 
 #merge_compaction.c\
 	   run_array.c\

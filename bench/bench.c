@@ -1210,8 +1210,8 @@ int bench_set_params(int argc, char **argv, char **temp_argv){
 	if(!value_size){
 		VALUESIZE=(DEFVALUESIZE-1)/PIECE;
 	}
-	printf("key_length: %d - -1==rand\n",KEYLENGTH==-1?KEYLENGTH:KEYLENGTH*16);
-	printf("value_size: %d - -1==rand\n",VALUESIZE==-1?VALUESIZE:VALUESIZE*PIECE);
+	printf("key_length: %d - -1==rand\n",DEFKEYLENGTH);
+	printf("value_size: %d - -1==rand\n",DEFVALUESIZE);
 
 	optind=0;
 	seq_padding_opt=0;

@@ -56,7 +56,7 @@ level_ops a_ops={
 
 #ifdef PARTITION
 	.make_partition=array_make_partition,
-	.get_range_idx=array_get_range_idx,
+	//.get_range_idx=array_get_range_idx,
 	.find_run_se=array_find_run_se,
 #endif
 	.get_run_idx=array_get_run_idx,
@@ -65,9 +65,6 @@ level_ops a_ops={
 	.find_run=array_reorder_find_run,
 #else
 	.find_run=array_find_run,
-#endif
-#ifdef FASTFINDRUN
-	.fast_find_run=array_fast_find_run,
 #endif
 	.find_run_num=array_find_run_num,
 	.release_run=array_free_run,
@@ -134,9 +131,6 @@ level* array_init(int size, int idx, float fpr, bool istier){
 	}
 	level *res=(level*)calloc(sizeof(level),1);
 	array_body *b=(array_body*)calloc(sizeof(array_body),1);
-#ifdef FASTFINDRUN
-	btree_init(&b->bt,cmp_function,size);
-#endif
 	//b->skip=NULL;
 
 #if defined(PREFIXCHECK) && !defined(CACHEREORDER)
@@ -183,9 +177,6 @@ void array_free(level* lev){
 	free(b->pr_arrs);
 #endif
 
-#ifdef FASTFINDRUN
-	btree_free(&b->bt);
-#endif
 	array_body_free(b->arrs,lev->n_num);
 /*
 	if(lev->h){
@@ -300,15 +291,19 @@ void array_make_partition(level *lev){
 }
 
 
-run_t *array_find_run_se(level *lev, KEYT lpa, uint32_t _start, uint32_t _end){
+run_t *array_find_run_se(level *lev, KEYT lpa, run_t *up_ent){
 	array_body *b=(array_body*)lev->level_data;
 	run_t *arrs=b->arrs;
 #ifdef PREFIXCHECK
 	pr_node *parrs=b->pr_arrs;
 #endif
 
-	int start=_start;
-	int end=_end;
+	array_body *bup=(array_body*)LSM.disk[lev->idx-1]->level_data;
+	if(!arrs || lev->n_num==0 || !bup) return NULL;
+	int up_idx=up_ent-bup->arrs;
+	
+	int start=bup->p_nodes[up_idx].start;
+	int end=bup->p_nodes[up_idx].end;
 	int mid=(start+end)/2, res;
 
 #ifdef PREFIXCHECK
@@ -342,7 +337,7 @@ run_t *array_find_run_se(level *lev, KEYT lpa, uint32_t _start, uint32_t _end){
 	}
 	return &arrs[mid];
 }
-
+/*
 void array_get_range_idx(level *lev, run_t *run, uint32_t *start, uint32_t *end){
 	array_body *bup=(array_body*)lev->level_data;
 	if(!arrs || lev->n_num==0 || !bup){
@@ -351,7 +346,7 @@ void array_get_range_idx(level *lev, run_t *run, uint32_t *start, uint32_t *end)
 	int run_idx=run-bup->arrs;
 	(*start)=bup->p_nodes[run_idx].start;
 	(*end)=bup->p_nodes[run_idx].end;
-}
+}*/
 #endif
 
 run_t* array_insert(level *lev, run_t* r){
@@ -376,9 +371,6 @@ run_t* array_insert(level *lev, run_t* r){
 	memcpy(b->pr_arrs[lev->n_num].pr_key,r->key.key,PREFIXCHECK);
 #endif
 
-#ifdef FASTFINDRUN
-	btree_insert(&b->bt,(void*)&target->key,(void*)target);
-#endif
 
 	if(lev->idx>=LSM.LEVELCACHING && GETCOMPOPT(LSM.setup_values)!=HW && !target->c_entry && r->cpt_data && cache_insertable(LSM.lsm_cache)){
 		if(lev->idx>=LSM.LEVELCACHING && ISHWREAD(LSM.setup_values)){
@@ -474,12 +466,6 @@ run_t *array_find_run( level* lev,KEYT lpa){
 	return NULL;
 }
 
-#ifdef FASTFINDRUN
-run_t *array_fast_find_run( level* lev,KEYT lpa){
-	array_body *b=(array_body*)lev->level_data;
-	return (run_t*)btree_get(&b->bt, (void*)&lpa);
-}
-#endif
 
 run_t **array_find_run_num( level* lev,KEYT lpa, uint32_t num){
 	array_body *b=(array_body*)lev->level_data;
