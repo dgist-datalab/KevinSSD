@@ -20,11 +20,6 @@ typedef enum comp_req_type{
 	COMMIT_REQ, NORMAL_REQ
 }comp_req_type;
 
-struct compaction_req{
-	int fromL;
-	skiplist *temptable;
-	bool last;
-};
 
 typedef struct leveling_node{
 	skiplist *mem;
@@ -33,6 +28,14 @@ typedef struct leveling_node{
 	run_t *entry;
 	transaction_entry *tetr;
 }leveling_node;
+
+struct compaction_req{
+	int fromL;
+	skiplist *temptable;
+	leveling_node* lnode;
+	bool last;
+};
+
 
 typedef struct comp_req_wrapper{
 	void *request;
@@ -64,7 +67,7 @@ struct compaction_master{
 bool compaction_init();
 void *compaction_main(void *);
 uint32_t level_one_processing(level *, level *, run_t *, pthread_mutex_t *);
-//void compaction_lev_seq_processing(level *src, level *des, int headerSize);
+void compaction_lev_seq_processing(level *src, level *des, int headerSize);
 uint32_t leveling(level *,level*, leveling_node *,rwlock *);
 
 uint32_t multiple_leveling(int from, int to);

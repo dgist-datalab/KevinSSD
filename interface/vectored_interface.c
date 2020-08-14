@@ -4,14 +4,17 @@
 #include "../bench/bench.h"
 #include "../include/utils/cond_lock.h"
 #include "../include/utils/kvssd.h"
+#include "../include/utils/tag_q.h"
 
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
 
 extern master_processor mp;
+extern tag_manager *tm;
+static int32_t flying_cnt = QDEPTH;
+static pthread_mutex_t flying_cnt_lock=PTHREAD_MUTEX_INITIALIZER; 
 bool vectored_end_req (request * const req);
-extern cl_lock *inf_cond, *flying;
 /*request-length request-size tid*/
 /*type key-len key offset length value*/
 
@@ -80,11 +83,24 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark)
 	}
 
 	while(1){
+		pthread_mutex_lock(&flying_cnt_lock);
+		if(flying_cnt - (int32_t)txn->size < 0){
+			pthread_mutex_unlock(&flying_cnt_lock);
+			continue;
+		}
+		else{
+			flying_cnt-=txn->size;
+			if(flying_cnt<0){
+				printf("abort!!!\n");
+				abort();
+			}
+			pthread_mutex_unlock(&flying_cnt_lock);
+		}
+		
 		if(q_enqueue((void*)txn, mp.processors[0].req_q)){
 			break;
 		}
 	}
-	cl_release(inf_cond);
 	return 1;
 }
 
@@ -120,15 +136,14 @@ void *vectored_main(void *__input){
 	pthread_setname_np(pthread_self(),thread_name);
 	uint32_t type;
 	while(1){
-		cl_grap(inf_cond);
 		if(mp.stopflag)
 			break;
 		type=get_next_request(_this, &inf_req, &vec_req);
 		if(type==0){
-			cl_release(inf_cond);
 			continue;
 		}
-		else if(type==1){
+		else if(type==1){ //rtry
+			inf_req->tag_num=tag_manager_get_tag(tm);
 			inf_algorithm_caller(inf_req);	
 		}else{
 			uint32_t size=vec_req->size;
@@ -137,6 +152,7 @@ void *vectored_main(void *__input){
 				while(1){
 					request *temp_req=get_retry_request(_this);
 					if(temp_req){
+						temp_req->tag_num=tag_manager_get_tag(tm);
 						inf_algorithm_caller(temp_req);
 					}
 					else{
@@ -145,7 +161,6 @@ void *vectored_main(void *__input){
 				}
 	
 				request *req=&vec_req->req_array[i];
-				cl_grap(flying);
 				switch(req->type){
 					case FS_GET_T:
 					case FS_SET_T:
@@ -153,9 +168,11 @@ void *vectored_main(void *__input){
 						measure_start(&req->latency_checker);
 					break;
 				}
+				req->tag_num=tag_manager_get_tag(tm);
 				inf_algorithm_caller(req);
 			}
 		}
+
 	}
 	return NULL;
 }
@@ -178,10 +195,19 @@ bool vectored_end_req (request * const req){
 	
 	}
 	preq->done_cnt++;
+	uint32_t tag_num=req->tag_num;
 	if(preq->size==preq->done_cnt){
 		if(preq->end_req)
 			preq->end_req((void*)preq);	
 	}
-	cl_release(flying);
+	pthread_mutex_lock(&flying_cnt_lock);
+	flying_cnt++;
+	if(flying_cnt > QDEPTH){
+		printf("???\n");
+		abort();
+	}
+	pthread_mutex_unlock(&flying_cnt_lock);
+
+	tag_manager_free_tag(tm, tag_num);
 	return true;
 }

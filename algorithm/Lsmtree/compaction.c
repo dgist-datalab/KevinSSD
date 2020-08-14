@@ -3,7 +3,6 @@
 #include "page.h"
 #include "bloomfilter.h"
 #include "nocpy.h"
-//#include "lsmtree_scheduling.h"
 #include "lsmtree_transaction.h"
 #include "../../bench/bench.h"
 #include <pthread.h>
@@ -58,8 +57,8 @@ uint32_t level_change(level *from ,level *to,level *target, rwlock *lock){
 	return 1;
 }
 
-bool level_sequencial(level *from, level *to,level *des, run_t *entry,leveling_node *lnode){
-	/*
+bool level_sequential(level *from, level *to,level *des, run_t *entry,leveling_node *lnode){
+	
 	KEYT start=from?from->start:lnode->start;
 	KEYT end=from?from->end:lnode->end;
 	if(LSM.lop->chk_overlap(to,start,end)) return false;
@@ -74,34 +73,35 @@ bool level_sequencial(level *from, level *to,level *des, run_t *entry,leveling_n
 		compaction_lev_seq_processing(from,des,from->n_num);
 	}
 	else{
-		entry=LSM.lop->make_run(lnode->start,lnode->end,-1);
-		free(entry->key.key);
-		free(entry->end.key);
+		if(!lnode->mem && lnode->entry){
+			compaction_run_move_insert(des, lnode->entry);
+			lnode->entry=NULL;
+		}
+		else{
+			entry=LSM.lop->make_run(lnode->start,lnode->end,-1);
+			free(entry->key.key);
+			free(entry->end.key);
 
-		LSM.lop->mem_cvt2table(lnode->mem,entry);
-		if(des->idx<LSM.LEVELCACHING){
-			if(ISNOCPY(LSM.setup_values)){
-				entry->level_caching_data=(char*)entry->cpt_data->sets;
-				entry->cpt_data->sets=NULL;
-				htable_free(entry->cpt_data);
-			}
-			else{
+			LSM.lop->mem_cvt2table(lnode->mem,entry,NULL);
+			if(des->idx<LSM.LEVELCACHING){
+
 				entry->level_caching_data=(char*)malloc(PAGESIZE);
 				memcpy(entry->level_caching_data,entry->cpt_data->sets,PAGESIZE);
 				htable_free(entry->cpt_data);
+
+				LSM.lop->insert(des,entry);
+				LSM.lop->release_run(entry);
 			}
-			LSM.lop->insert(des,entry);
-			LSM.lop->release_run(entry);
+			else{
+				compaction_htable_write_insert(des,entry,false);
+			}
+			free(entry);
 		}
-		else{
-			compaction_htable_write_insert(des,entry,false);
-		}
-		free(entry);
 	}
 
 	if(!target_processed){
 		compaction_lev_seq_processing(to,des,to->n_num);
-	}*/
+	}
 	return true;
 }
 
@@ -124,7 +124,10 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,rwlock *lock){
 	uint32_t total_number=to->n_num+up_num+1;
 	LSM.result_padding=2;
 	page_check_available(HEADER,total_number+(GETCOMPOPT(LSM.setup_values)==HW?1:0)+LSM.result_padding);
-//	lower_wait();
+	
+	if(level_sequential(from, to, target, entry, l_node)){
+		goto last;
+	}
 
 	if(target->idx<LSM.LEVELCACHING){
 		if(to->n_num==0){
@@ -177,7 +180,6 @@ last:
 	uint32_t res=level_change(from,to,target,lock);
 	//printf("ending\n");
 	LSM.c_level=NULL;
-	//LSM.lop->print_level_summary();
 
 	if(ISNOCPY(LSM.setup_values)){
 		gc_nocpy_delay_erase(LSM.delayed_trim_ppa);
@@ -186,6 +188,7 @@ last:
 	if(target->idx==LSM.LEVELN-1 ){
 		printf("last level %d/%d (n:f)\n",target->n_num,target->m_num);
 	}
+	//LSM.lop->print_level_summary();
 	//LSM.li->lower_flying_req_wait();
 
 	return res;

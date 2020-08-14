@@ -96,7 +96,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	rp=pbody_init(r_data,o_num+u_num+LSM.result_padding,NULL,false,NULL);
 #endif
 
-	uint32_t lppa, hppa, rppa;
+	uint32_t lppa, hppa, rppa=0;
 	KEYT lp_key=pbody_get_next_key(lp,&lppa);
 	KEYT hp_key=pbody_get_next_key(hp,&hppa);
 	KEYT insert_key;

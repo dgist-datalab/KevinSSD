@@ -1,7 +1,7 @@
 export CC=g++
 
 TARGET_INF=interface
-TARGET_LOWER=AMF
+TARGET_LOWER=posix_memory
 TARGET_ALGO=Lsmtree
 TARGET_BM=sequential
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
@@ -25,7 +25,7 @@ export COMMONFLAGS=\
 			-D$(TARGET_BM)\
 			-Wno-unused-but-set-variable\
 			-DKVSSD\
-			-O3\
+		-O3\
 #			-march=armv8-a+crypto\
 #			-DCHECKINGTIME\
 
@@ -102,6 +102,7 @@ SRCS +=\
 	./include/utils/thpool.c\
 	./include/utils/kvssd.c\
 	./include/utils/sha256.c\
+	./include/utils/tag_q.c\
 	./blockmanager/base_block_manager.c\
 	./blockmanager/bb_checker.c\
 #	./interface/buse.c\

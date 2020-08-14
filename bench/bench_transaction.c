@@ -9,7 +9,7 @@ extern master *_master;
 extern int KEYLENGTH;
 
 void bench_vectored_configure(){
-	_master->trans_configure.request_size=REQSIZE+KEYLENGTH*16-sizeof(ppa_t);
+	_master->trans_configure.request_size=REQSIZE+KEYLENGTH;
 	_master->trans_configure.request_num_per_command=(MAXBUFSIZE-TXNHEADERSIZE)/_master->trans_configure.request_size;
 }
 void bench_transaction_configure(uint32_t commit_term, uint32_t
@@ -147,7 +147,7 @@ void vectored_set(uint32_t start, uint32_t end, monitor* m, bool isseq){
 			(*(uint8_t*)&buf[idx])=FS_SET_T;
 			idx+=sizeof(uint8_t);
 
-			(*(uint8_t*)&buf[idx])=KEYLENGTH*16-sizeof(uint32_t);
+			(*(uint8_t*)&buf[idx])=KEYLENGTH;
 			idx+=sizeof(uint8_t);
 			if(isseq){	
 				idx+=my_itoa(start+i*request_per_command+j, NULL, &buf[idx]);
@@ -188,7 +188,7 @@ void vectored_get(uint32_t start, uint32_t end, monitor* m, bool isseq){
 			(*(uint8_t*)&buf[idx])=FS_GET_T;
 			idx+=sizeof(uint8_t);
 
-			(*(uint8_t*)&buf[idx])=KEYLENGTH*16-sizeof(uint32_t);
+			(*(uint8_t*)&buf[idx])=KEYLENGTH;
 			idx+=sizeof(uint8_t);
 			if(isseq){	
 				idx+=my_itoa(start+i*request_per_command+j, NULL, &buf[idx]);
@@ -215,6 +215,7 @@ void vectored_rw(uint32_t start, uint32_t end, monitor* m, bool isseq){
 	m->command_issue_num=0;
 
 
+	printf("total command : %lu\n", m->command_num);
 	for(uint32_t i=0; i<number_of_command/2; i++){
 		uint32_t idx=0;
 		m->tbody[i].buf=(char*)malloc(request_buf_size + TXNHEADERSIZE);
@@ -228,7 +229,7 @@ void vectored_rw(uint32_t start, uint32_t end, monitor* m, bool isseq){
 			(*(uint8_t*)&buf[idx])=FS_SET_T;
 			idx+=sizeof(uint8_t);
 
-			(*(uint8_t*)&buf[idx])=KEYLENGTH*16-sizeof(uint32_t);
+			(*(uint8_t*)&buf[idx])=KEYLENGTH;
 			idx+=sizeof(uint8_t);
 			if(isseq){
 				key_buf[j]=start+i*request_per_command+j;
@@ -257,7 +258,7 @@ void vectored_rw(uint32_t start, uint32_t end, monitor* m, bool isseq){
 			(*(uint8_t*)&buf[idx])=FS_GET_T;
 			idx+=sizeof(uint8_t);
 
-			(*(uint8_t*)&buf[idx])=KEYLENGTH*16-sizeof(uint32_t);
+			(*(uint8_t*)&buf[idx])=KEYLENGTH;
 			idx+=sizeof(uint8_t);
 			if(isseq){
 				idx+=my_itoa(key_buf[j], NULL, &buf[idx]);

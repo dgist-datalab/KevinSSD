@@ -14,7 +14,7 @@ void nocpy_init(){
 		//page[i]=(keyset*)malloc(PAGESIZE);
 		page[i]=NULL;
 	}
-	printf("------------# of copy%d\n",(MAPPART_SEGS)*_PPS);
+	printf("------------# of copy%ld\n",(MAPPART_SEGS)*_PPS);
 	q_init(&delayed_trim_queue,((MAPPART_SEGS)*_PPS+1));
 }
 

@@ -71,6 +71,7 @@ htable *array_mem_cvt2table(skiplist*mem,run_t* input)
 		else if(input && idx==mem->size){
 			kvssd_cpy_key(&input->end,&temp->key);
 		}
+
 		memcpy(&ptr[data_start],&temp->ppa,sizeof(temp->ppa));
 		memcpy(&ptr[data_start+sizeof(temp->ppa)],temp->key.key,temp->key.len);
 

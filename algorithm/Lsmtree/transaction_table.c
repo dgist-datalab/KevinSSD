@@ -144,7 +144,7 @@ inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *targe
 	if(t_mem->size==0) return NULL;
 	static uint32_t num_limit=KEYBITMAP/sizeof(uint16_t)-2;
 	static uint32_t size_limit=PAGESIZE-KEYBITMAP;
-	if(!(t_mem->size > num_limit/10*9 || t_mem->all_length >size_limit / 10*9)){
+	if(!(t_mem->size >= num_limit || t_mem->all_length >=size_limit)){
 		LMI.non_full_comp++;
 	}
 	value_set **data_sets=skiplist_make_valueset(t_mem, LSM.disk[0], &target->range.start, &target->range.end);

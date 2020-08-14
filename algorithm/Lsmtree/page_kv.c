@@ -646,8 +646,6 @@ void gc_data_header_update(struct gc_node **g, int size){
 
 	bool skip_init_flag=LSM.gc_list->size?true:false;
 	LSM.gc_list->isgc=true;
-	uint32_t new_inserted=0;
-
 
 	li_node *ln, *lp;
 	if(gc_hlist->size!=0){

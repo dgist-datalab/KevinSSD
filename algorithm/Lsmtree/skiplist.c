@@ -522,7 +522,7 @@ snode *skiplist_insert_iter(skiplist *list,KEYT key,ppa_t ppa){
 
 		x->ppa=ppa;
 		x->value.u_value=NULL;
-		list->all_length+=key.len;
+		list->all_length+=key.len+sizeof(uint32_t);
 #ifdef Lsmtree
 		x->iscaching_entry=false;
 #endif
@@ -616,7 +616,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		x->value.u_value=value;
 
 #ifdef KVSSD
-		list->all_length+=KEYLEN(key);
+		list->all_length+=KEYLEN(key)+sizeof(uint32_t);
 #endif
 
 #ifdef Lsmtree
@@ -659,7 +659,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 		if(idx==1){
 			kvssd_cpy_key(start,&target->key);
 		}
-		else if (idx==input->size){
+		if (idx==input->size){
 			kvssd_cpy_key(end,&target->key);
 		}
 		idx++;
@@ -925,7 +925,7 @@ snode *skiplist_pop(skiplist *list){
 		while(list->level>1 && list->header->list[list->level]==list->header){
 			list->level--;
 		}
-		list->all_length-=KEYLEN(key);
+		list->all_length-=(KEYLEN(key)+sizeof(uint32_t));
 		list->size--;
 		return x;
 	}

@@ -204,29 +204,7 @@ void array_run_cpy_to(run_t *input, run_t *res,int idx){
 	kvssd_cpy_key(&res->end,&input->end);
 
 	res->pbn=input->pbn;
-	
-	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-	if(input->c_entry){
-		if(idx!=LSM.LEVELN-1){
-			if(ISNOCPY(LSM.setup_values)){
-				res->cache_nocpy_data_ptr=input->cache_nocpy_data_ptr;
-				input->cache_nocpy_data_ptr=NULL;
-			}
-			else{
-				res->cache_data=input->cache_data;
-				input->cache_data=NULL;
-			}
-		}
-		res->c_entry=input->c_entry;
-		res->c_entry->entry=res;
-		input->c_entry=NULL;
-	}else{
-		res->c_entry=NULL;
-		/*
-		if(ISNOCPY(LSM.setup_values)) res->cache_nocpy_data_ptr=NULL;
-		else res->cache_data=NULL;*/
-	}
-	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
+
 	if(input->level_caching_data){
 		res->level_caching_data=input->level_caching_data;
 		input->level_caching_data=NULL;
@@ -371,23 +349,6 @@ run_t* array_insert(level *lev, run_t* r){
 	memcpy(b->pr_arrs[lev->n_num].pr_key,r->key.key,PREFIXCHECK);
 #endif
 
-
-	if(lev->idx>=LSM.LEVELCACHING && GETCOMPOPT(LSM.setup_values)!=HW && !target->c_entry && r->cpt_data && cache_insertable(LSM.lsm_cache)){
-		if(lev->idx>=LSM.LEVELCACHING && ISHWREAD(LSM.setup_values)){
-
-		}
-		else{
-			if(lev->idx!=LSM.LEVELN-1){
-				if(ISNOCPY(LSM.setup_values))
-					target->cache_nocpy_data_ptr=nocpy_pick(r->pbn);
-				else{
-					target->cache_data=htable_copy(r->cpt_data);
-					r->cpt_data->sets=NULL;
-				}
-			}
-			target->c_entry=cache_insert(LSM.lsm_cache,target,0);
-		}
-	}
 
 	array_range_update(lev,NULL,target->key);
 	array_range_update(lev,NULL,target->end);
@@ -568,14 +529,6 @@ uint32_t array_unmatch_find( level *lev,KEYT s, KEYT e,  run_t ***rc){
 
 void array_free_run(run_t *e){
 	//static int cnt=0;
-	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-	if(e->c_entry){
-	
-		if(ISNOCPY(LSM.setup_values)) e->cache_nocpy_data_ptr=NULL;
-		else htable_free(e->cache_data);
-		cache_delete_entry_only(LSM.lsm_cache,e);
-	}
-	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
 	free(e->level_caching_data);
 	free(e->key.key);
 	free(e->end.key);
@@ -585,35 +538,6 @@ run_t * array_run_cpy( run_t *input){
 	kvssd_cpy_key(&res->key,&input->key);
 	kvssd_cpy_key(&res->end,&input->end);
 	res->pbn=input->pbn;
-
-	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-	if(input->c_entry){
-		/*
-		if(ISNOCPY(LSM.setup_values)){
-			res->cache_nocpy_data_ptr=input->cache_nocpy_data_ptr;
-			input->cache_nocpy_data_ptr=NULL;
-		}
-		else{
-			res->cache_data=input->cache_data;
-			input->cache_data=NULL;
-		}*/
-		res->c_entry=input->c_entry;
-		res->c_entry->entry=res;
-		input->c_entry=NULL;
-	}else{
-		res->c_entry=NULL;
-		/*
-		if(ISNOCPY(LSM.setup_values)) res->cache_nocpy_data_ptr=NULL;
-		else res->cache_data=NULL;*/
-	}
-	pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);
-	/*res->isflying=0;
-	res->run_data=NULL;
-	res->req=NULL;
-
-	res->cpt_data=NULL;
-	res->iscompactioning=false;
-	res->wait_idx=0;*/
 	return res;
 }
 
@@ -691,9 +615,9 @@ void array_print(level *lev){
 	for(int i=0; i<lev->n_num;i++){
 		run_t *rtemp=&arrs[i];
 #ifdef KVSSD
-		printf("[%d]%.*s~%.*s(%u)-ptr:%p cached:%s wait:%d iscomp:%d\n",i,KEYFORMAT(rtemp->key),KEYFORMAT(rtemp->end),rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx,rtemp->iscompactioning);
+		printf("[%d]%.*s~%.*s(%u)-ptr:%p cached:%s wait:%d iscomp:%d\n",i,KEYFORMAT(rtemp->key),KEYFORMAT(rtemp->end),rtemp->pbn,rtemp,"false",rtemp->wait_idx,rtemp->iscompactioning);
 #else
-		printf("[%d]%d~%d(%d)-ptr:%p cached:%s wait:%d\n",i,rtemp->key,rtemp->end,rtemp->pbn,rtemp,rtemp->c_entry?"true":"false",rtemp->wait_idx);,
+		printf("[%d]%d~%d(%d)-ptr:%p cached:%s wait:%d\n",i,rtemp->key,rtemp->end,rtemp->pbn,rtemp,"false",rtemp->wait_idx);,
 #endif
 	}
 }
@@ -769,7 +693,6 @@ run_t *array_make_run(KEYT start, KEYT end, uint32_t pbn){
 	kvssd_cpy_key(&res->end,&end);
 	res->pbn=pbn;
 	res->run_data=NULL;
-	res->c_entry=NULL;
 	res->wait_idx=0;
 	return res;
 }

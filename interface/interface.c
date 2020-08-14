@@ -13,6 +13,7 @@
 
 #include "../include/data_struct/redblack.h"
 #include "../include/utils/cond_lock.h"
+#include "../include/utils/tag_q.h"
 #include "buse.h"
 #include "layer_info.h"
 #include <stdio.h>
@@ -26,10 +27,10 @@ extern pthread_mutex_t rb_lock;
 extern MeasureTime write_opt_time[10];
 
 master_processor mp;
+tag_manager *tm;
 
 bool sync_apps;
 void *p_main(void*);
-cl_lock *flying,*inf_cond;
 
 #ifdef BUSE_MEASURE
 MeasureTime infTime;
@@ -132,6 +133,7 @@ void *qmanager_find_by_algo(KEYT key){
 #endif
 void assign_req(request* req){
 	bool flag=false;
+	req->tag_num=tag_manager_get_tag(tm);
 	while(!flag){
 		processor *t=&mp.processors[0];
 #ifdef interface_pq
@@ -163,7 +165,6 @@ void assign_req(request* req){
 		}
 #endif
 	}
-	cl_release(inf_cond);
 
 #ifdef BUSE_MEASURE
     if(req->type==FS_BUSE_R)
@@ -175,8 +176,8 @@ bool inf_assign_try(request *req){
 	bool flag=false;
 	for(int i=0; i<1; i++){
 		processor *t=&mp.processors[i];
+		tag_manager_free_tag(tm, req->tag_num);
 		while(q_enqueue((void*)req,t->retry_q)){
-			cl_release(inf_cond);
 			flag=true;
 			break;
 		}
@@ -209,7 +210,6 @@ send_req:
 uint32_t inf_algorithm_caller(request *const inf_req){
 	switch(inf_req->type){
 		case FS_GET_T:
-			//	printf("%d now %d max\n",inf_cond->cnt,inf_cond->now);
 			mp.algo->read(inf_req);
 			break;
 		case FS_SET_T:
@@ -281,11 +281,9 @@ void *p_main(void *__input){
 	sprintf(thread_name,"%s","inf_main_thread");
 	pthread_setname_np(pthread_self(),thread_name);
 	while(1){
-		cl_grap(inf_cond);
 		if(mp.stopflag)
 			break;
 		if(!(inf_req=get_next_request(_this))){
-			cl_release(inf_cond);
 			continue;
 		}
 		inf_algorithm_caller(inf_req);
@@ -355,8 +353,8 @@ void inf_init(int apps_flag, int total_num,int argc, char **argv){
     measure_init(&infTime);
     measure_init(&infendTime);
 #endif
-	flying=cl_init(QDEPTH,false);
-	inf_cond=cl_init(QDEPTH,true);
+
+	tm=tag_manager_init(QDEPTH);
 	mp.processors=(processor*)malloc(sizeof(processor)*1);
 	for(int i=0; i<1; i++){
 		processor *t=&mp.processors[i];
@@ -503,7 +501,6 @@ bool inf_make_req(const FSTYPE type, const KEYT key,char* value){
     }
 #endif
 	request *req=inf_get_req_instance(type,key,value,len,mark,false);
-	cl_grap(flying);
 #ifdef CDF
 	req->isstart=false;
 	measure_init(&req->latency_checker); //make_req
@@ -529,7 +526,6 @@ bool inf_make_req_special(const FSTYPE type, const KEYT key, char* value, int le
 	   if(flying->now==1){
 	   printf("[%d]will be sleep! type:%d\n",cnt++,type);
 	   }*/
-	cl_grap(flying);
 
 	//set sequential
 	req->seq=seq;
@@ -558,6 +554,9 @@ bool inf_end_req( request * const req){
 
 		free(original->value);
 		req->value=temp;
+
+		tag_manager_free_tag(tm, req->tag_num);
+
 		assign_req(req);
 		return 1;
 	}
@@ -615,8 +614,8 @@ bool inf_end_req( request * const req){
 			break;
 	}
 
+	tag_manager_free_tag(tm, req->tag_num);
 	free(req);
-	cl_release(flying);
 	return true;
 }
 void inf_free(){
@@ -624,17 +623,10 @@ void inf_free(){
 	bench_free();
 	mp.li->stop();
 	mp.stopflag=true;
-	int *temp;
-	cl_free(flying);
 	printf("result of ms:\n");
 	printf("---\n");
 	for(int i=0; i<1; i++){
 		processor *t=&mp.processors[i];
-		//		pthread_mutex_unlock(&inf_lock);
-		while(pthread_tryjoin_np(t->t_id,(void**)&temp)){
-			cl_release(inf_cond);
-		}
-		//pthread_detach(t->t_id);
 		q_free(t->req_q);
 #ifdef interface_pq
 		q_free(t->req_rq);
@@ -660,7 +652,6 @@ void inf_print_debug(){
 
 bool inf_make_multi_req(char type, KEYT key,KEYT *keys,uint32_t iter_id,char **values,uint32_t lengths,bool (*added_end)(struct request *const)){
 	request *req=inf_get_req_instance(type,key,NULL,PAGESIZE,0,false);
-	cl_grap(flying);
 	switch(type){
 		case FS_ITER_CRT_T:
 		case FS_ITER_NXT_T:
@@ -713,7 +704,6 @@ bool inf_make_req_apps(char type, char *keys, uint8_t key_len,char *value,int le
 	request *req=inf_get_req_instance(type,t_key,value,len,0,false);
 	req->seq=seq;
 	
-	cl_grap(flying);
 #ifdef CDF
 	req->isstart=false;
 	measure_init(&req->latency_checker);//make_req_apps
@@ -729,7 +719,6 @@ bool inf_make_range_query_apps(char type, char *keys, uint8_t key_len,int seq, i
 	request *req=inf_get_req_instance(type,t_key,NULL,length,0,false);
 	req->seq=seq;
 	
-	cl_grap(flying);
 //	printf("seq:%d\n",req->seq);
 #ifdef CDF
 	req->isstart=false;

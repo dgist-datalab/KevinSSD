@@ -57,8 +57,7 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 		}
 		else{
 			run_t **datas;
-			int cache_added_size=LSM.lop->get_number_runs(upper);
-			cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
+			//int cache_added_size=LSM.lop->get_number_runs(upper);
 			LSM.lop->cache_comp_formatting(upper,&datas,ISNOCPY(LSM.setup_values));
 			for(int i=0; datas[i]!=NULL; i++){
 				run_t *now=datas[i];

@@ -5,6 +5,7 @@
 #include "bloomfilter.h"
 #include "nocpy.h"
 #include "lsmtree_transaction.h"
+#include "lru_cache.h"
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -373,16 +374,16 @@ void *compaction_main(void *input){
 			goto cascade;
 		}
 
-		leveling_node lnode;
+		leveling_node *lnode;
 		if(req->fromL==-1){
-			static int compaction_cnt=0;
-			printf("normal! %d\n", compaction_cnt++);
-			lnode.mem=req->temptable;
-			compaction_data_write(&lnode);
-			compaction_selector(NULL,LSM.disk[0],&lnode,&LSM.level_lock[0]);
-			free(lnode.start.key);
-			free(lnode.end.key);
+			//lnode.mem=req->temptable;
+			//compaction_data_write(&lnode);
+			lnode=req->lnode;
+			compaction_selector(NULL,LSM.disk[0],lnode,&LSM.level_lock[0]);
+			free(lnode->start.key);
+			free(lnode->end.key);
 			skiplist_free(req->temptable);
+			free(lnode);
 		}
 		else if(req->fromL==LSP.LEVELN){
 			compaction_gc_add(req->temptable);
@@ -400,11 +401,11 @@ cascade:
 end_req:
 
 #ifdef WRITEWAIT
-		if(req && req->last){
+	//	if(req && req->last){
 			//lsm_io_sched_flush();	
-			LSM.li->lower_flying_req_wait();
-			fdriver_unlock(&compaction_flush_wait);
-		}
+	//		LSM.li->lower_flying_req_wait();
+	//		fdriver_unlock(&compaction_flush_wait);
+	//	}
 #endif
 
 		if(req){
@@ -492,31 +493,21 @@ void compaction_gc_add(skiplist *list){
 void compaction_check(KEYT key, bool force){
 	if(!lsm_should_flush(LSM.memtable, d_m.active)) return;
 	compR *req;
-	bool last;
-	uint32_t avg_cnt;
-	skiplist *t=NULL, *t2=NULL;
-	do{
-		last=0;
-		if(t2!=NULL){
-			t=t2;
-		}else{
-			t=skiplist_cutting_header(LSM.memtable,&avg_cnt);
-			LLP.keynum_in_header=(LLP.keynum_in_header*LLP.keynum_in_header_cnt+avg_cnt)/(LLP.keynum_in_header_cnt+1);
-		}
-		t2=skiplist_cutting_header(LSM.memtable,&avg_cnt);
-		LLP.keynum_in_header=(LLP.keynum_in_header*LLP.keynum_in_header_cnt+avg_cnt)/(LLP.keynum_in_header_cnt+1);
+	leveling_node *lnode=(leveling_node *)malloc(sizeof(leveling_node));
+	
+	req=(compR*)malloc(sizeof(compR));
+	req->fromL=-1;
+	req->temptable=LSM.memtable;
+	req->lnode=lnode;
+	req->lnode->mem=LSM.memtable;
+	compaction_data_write(lnode);
 
-		if(t2==LSM.memtable) last=1;
-		req=(compR*)malloc(sizeof(compR));
-		req->fromL=-1;
-		req->last=last;
-		req->temptable=t;
-		compaction_assign(req, NULL, false);
-	}while(!last);
+	LSM.memtable=skiplist_init();
+
+	compaction_assign(req, NULL, false);
 
 #ifdef WRITEWAIT
-	//LSM.memtable=skiplist_init();
-	fdriver_lock(&compaction_flush_wait);
+	//fdriver_lock(&compaction_flush_wait);
 #endif
 }
 
@@ -555,8 +546,6 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 	if(src->idx<LSM.LEVELCACHING){
 		run_t **datas;
 		if(des->idx<LSM.LEVELCACHING){
-			int cache_added_size=LSM.lop->get_number_runs(src);
-			cache_size_update(LSM.lsm_cache,LSM.lsm_cache->m_size+cache_added_size);
 			LSM.lop->cache_comp_formatting(src,&datas,true);
 		}
 		else{
@@ -595,24 +584,17 @@ bool htable_read_preproc(run_t *r){
 		memcpy_cnt++;
 		return true;
 	}
-	/*
-	pthread_mutex_lock(&LSM.lsm_cache->cache_lock);
-	if(r->c_entry){
-		cache_entry_lock(LSM.lsm_cache,r->c_entry);
+	
+	const char *cache_data=lru_get(r->pbn);
+	if(cache_data){
 		memcpy_cnt++;
-
-		if(!ISNOCPY(LSM.setup_values)){
-			r->cpt_data=htable_copy(r->cache_data);
-			r->cpt_data->done=true;
-		}//when the data is cached, the data will be loaded from memory in merger logic
-		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);		
+		r->cpt_data=htable_assign(cache_data, 0);
 		res=true;
 	}
 	else{
-		pthread_mutex_unlock(&LSM.lsm_cache->cache_lock);*/
 		r->cpt_data=htable_assign(NULL,!ISNOCPY(LSM.setup_values));
 		r->cpt_data->iscached=0;
-//	}
+	}
 
 	if(!r->iscompactioning) r->iscompactioning=COMP;
 	return res;

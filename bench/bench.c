@@ -140,13 +140,13 @@ void bench_make_data(){
 			fillrand(start,end,_m);
 			break;
 		case VECTOREDSET:
-			vectored_set(start,end, _m, false);
+			vectored_set(start,end, _m, true);
 			break;
 		case VECTOREDGET:
 			vectored_get(start,end, _m, false);
 			break;
 		case VECTOREDRW:
-			vectored_rw(start,end, _m, false);
+			vectored_rw(start,end, _m, true);
 			break;
 #ifndef KVSSD
 		case SEQLATENCY:
@@ -279,7 +279,7 @@ extern bool force_write_start;
 bool bench_is_finish_n(volatile int n){
 
 	if(_master->m[n].command_num){
-		if(_master->m[n].command_num <= _master->m[n].command_return_num){
+		if(_master->m[n].command_num <= _master->m[n].command_return_num+2){
 			if(_master->m[n].r_num==_master->m[n].m_num){
 				return true;
 			}
@@ -617,9 +617,9 @@ int my_itoa(uint32_t key, char **_target, char *buf){
 		t_key/=10;
 		standard*=10;
 	}
-	int result=KEYLENGTH==-1?rand()%16+1:KEYLENGTH;
-	result*=16;
-	result-=sizeof(ppa_t);
+	int result=KEYLENGTH;
+	//result*=16;
+	//result-=sizeof(ppa_t);
 	char *target;
 
 	if(_target){
@@ -632,26 +632,24 @@ int my_itoa(uint32_t key, char **_target, char *buf){
 
 	t_key=key;
 
-	/*
-	for(int i=cnt-1+4; i>=4; i--){
-		target[i]=t_key%10+'0';
+	for(int i=0; i<result-cnt; i++){
+		target[i]='0';
+	}
+	for(int i=0; i<cnt; i++){
+		target[result-1-i]=t_key%10+'0';
 		t_key/=10;
 	}
-	for(int i=cnt+4;i<result; i++){
-		target[i]='0';
-	}*/
-	
-
+/*
 	for(int i=cnt-1; i>=0; i--){
 		target[i]=t_key%10+'0';
 		t_key/=10;
 	}
 	for(int i=cnt; i<result; i++){
 		target[i]='0';
-	}
+	}*/
 
 	//printf("origin:%d\n",key);
-	//printf("%d %s(%d)\n",result,target,strlen(target));
+	//printf("%d %.*s(%d)\n",result, result, buf, result);
 	return result;
 }
 /*
@@ -1205,7 +1203,7 @@ int bench_set_params(int argc, char **argv, char **temp_argv){
 		LOCALITY=50; TARGETRATIO=0.5;
 	}
 	if(!key_length){
-		KEYLENGTH=DEFKEYLENGTH/16;
+		KEYLENGTH=DEFKEYLENGTH;
 	}
 	if(!value_size){
 		VALUESIZE=(DEFVALUESIZE-1)/PIECE;

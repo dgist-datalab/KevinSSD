@@ -402,7 +402,6 @@ retry:
 }
 
 leveling_node *transaction_get_comp_target(){
-	static int cnt=0;
 	transaction_entry *etr=transaction_table_get_comp_target(_tm.ttb);
 	if(!etr) return NULL;
 

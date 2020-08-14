@@ -12,6 +12,7 @@
 #include <list>
 #include <cstddef>
 #include <stdexcept>
+#include <stdint.h>
 
 namespace cache {
 
@@ -23,7 +24,11 @@ public:
 
 	lru_cache(size_t max_size) :
 		_max_size(max_size) {
+			free_kv_pair=NULL;
 	}
+
+	lru_cache(size_t max_size, void (*free_kv)(key_t *, value_t *)) :
+		_max_size(max_size), free_kv_pair(free_kv){}
 	
 	const std::pair<key_t, value_t> put(const key_t& key, const value_t& value) {
 		auto it = _cache_items_map.find(key);
@@ -35,16 +40,11 @@ public:
 		_cache_items_map[key] = _cache_items_list.begin();
 		
 		if (_cache_items_map.size() > _max_size) {
-			auto last = _cache_items_list.end();
-			last--;
-			std::pair<key_t, value_t> res=*last;
-			_cache_items_map.erase(last->first);
-			_cache_items_list.pop_back();
-			return res;
+			return remove_last_item();
 		}
-		return std::pair<key_t, value_t> (UINT_MAX,0);
+		return std::pair<key_t, value_t> (-1,NULL);
 	}
-	
+
 	const value_t get(const key_t& key) {
 		auto it = _cache_items_map.find(key);
 		if (it == _cache_items_map.end()) {
@@ -59,7 +59,15 @@ public:
 	bool exists(const key_t& key) const {
 		return _cache_items_map.find(key) != _cache_items_map.end();
 	}
-	
+
+
+	void resize(size_t size){
+		while(_cache_items_map.size()>size){
+			remove_last_item();
+		}
+		_max_size=size;
+	}
+
 	size_t size() const {
 		return _cache_items_map.size();
 	}
@@ -68,6 +76,19 @@ private:
 	std::list<key_value_pair_t> _cache_items_list;
 	std::unordered_map<key_t, list_iterator_t> _cache_items_map;
 	size_t _max_size;
+	void (*free_kv_pair)(key_t* , value_t *);
+
+	const std::pair<key_t, value_t> remove_last_item(){
+		auto last = _cache_items_list.end();
+		last--;
+		std::pair<key_t, value_t> res=*last;
+		if(free_kv_pair){
+			free_kv_pair(&last->first, &last->second);
+		}
+		_cache_items_map.erase(last->first);
+		_cache_items_list.pop_back();
+		return res;
+	}
 };
 
 } // namespace cache

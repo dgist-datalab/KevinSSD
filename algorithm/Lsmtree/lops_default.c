@@ -104,8 +104,6 @@ run_t *def_make_run(KEYT start, KEYT end, uint32_t pbn){
 	res->end=end;
 	res->pbn=pbn;
 	res->run_data=NULL;
-	res->c_entry=NULL;
-	
 	res->wait_idx=0;
 	return res;
 }

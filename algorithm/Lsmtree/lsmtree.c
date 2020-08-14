@@ -13,6 +13,7 @@
 #include "nocpy.h"
 #include "lsmtree_transaction.h"
 #include "bitmap_cache.h"
+#include "lru_cache.h"
 #include<stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -125,12 +126,13 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	printf("| level list size: %u MB\n",(LSP.HEADERNUM*(DEFKEYLENGTH+4+8))/1024/1024);
 	printf("| -------- algorithm_log END\n\n");
 
-	printf("\n ---------- %lu:%d (all_entry : total)\n\n",all_header_num,MAPPART_SEGS*_PPS);
+	printf("\n ---------- %lu:%ld (all_entry : total)\n\n",all_header_num,MAPPART_SEGS*_PPS);
 
-	fprintf(stderr,"SHOWINGSIZE(GB) :%lu HEADERSEG:%d DATASEG:%ld\n",SHOWINGSIZE/G,MAPPART_SEGS,DATAPART_SEGS);
+	fprintf(stderr,"SHOWINGSIZE(GB) :%lu HEADERSEG:%ld DATASEG:%ld\n",SHOWINGSIZE/G,MAPPART_SEGS,DATAPART_SEGS);
 	fprintf(stderr,"LEVELN:%d (LEVELCACHING(%d)\n",LSM.LEVELN,LSM.LEVELCACHING);
 
 	compaction_init();
+	lru_init(LSP.cache_memory/PAGESIZE);
 	if(ISTRANSACTION(LSM.setup_values)){
 		transaction_init(0);
 	}
@@ -182,6 +184,9 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 
 
 	free(LSM.level_lock);
+
+	lru_free();
+
 	if(ISNOCPY(LSM.setup_values))
 		nocpy_free();
 
@@ -319,7 +324,7 @@ void* lsm_end_req(algo_req* const req){
 				parents->type_ftl=((int*)req_temp_params)[2];
 #endif
 			}
-			parents->type_lower=req->type_lower;
+			parents->type_lower=0;//req->type_lower;
 #ifdef MULTILEVELREAD
 			free(((mreq_params*)req_temp_params)->target_ppas);
 #endif
@@ -616,6 +621,17 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 #endif
 		}
 		else{
+			const char *cache_data=lru_get(entries[0].pbn);
+			if(cache_data){
+				keyset *find=LSM.lop->find_keyset(const_cast<char*>(cache_data), key);
+				if(find){
+					*found=find;
+					if(level) *level=i;
+					rwlock_read_unlock(level_rw_lock);
+					return CACHING;
+				}
+			}
+
 			if(level) *level=i;
 			if(run) *run=0;
 			*entry=entries;
@@ -690,6 +706,9 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 			request *temp_req;
 			keyset *new_target_set;
 			algo_req *new_lsm_req;
+
+			lru_insert(entry->pbn, (char*)table);
+
 			for(int i=0; i<entry->wait_idx; i++){
 				temp_req=(request*)entry->waitreq[i];
 				new_target_set=LSM.lop->find_keyset((char*)table,temp_req->key);
@@ -797,11 +816,12 @@ uint32_t __lsm_get(request *const req){
 
 	int *temp_data;
 	rparams *rp;
-
-
-	if(KEYCONSTCOMP(req->key, "7386630000000000000000000000")==0){
+	/*
+	if(KEYCONSTCOMP(req->key, "0000000000000000000000000000000000000513")==0){
 		printf("break!\n");
-	}
+	}*/
+	//printf("%.*s\n", KEYFORMAT(req->key));
+
 	if(req->params==NULL){
 		if(!ISTRANSACTION(LSM.setup_values)){
 			/*memtable*/
@@ -941,7 +961,7 @@ uint32_t lsm_remove(request *const req){
 	return lsm_set(req);
 }
 
-htable *htable_assign(char *cpy_src, bool using_dma){
+htable *htable_assign(const char *cpy_src, bool using_dma){
 	htable *res=(htable*)malloc(sizeof(htable));
 	res->nocpy_table=NULL;
 	if(!using_dma){
@@ -950,9 +970,9 @@ htable *htable_assign(char *cpy_src, bool using_dma){
 		res->origin=NULL;
 		if(cpy_src) memcpy(res->sets,cpy_src,PAGESIZE);
 	}else{
-		value_set *temp;
-		if(cpy_src) temp=inf_get_valueset(cpy_src,FS_MALLOC_W,PAGESIZE);
-		else temp=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
+		value_set *temp=inf_get_valueset(NULL,FS_MALLOC_W,PAGESIZE);
+		if(cpy_src)
+			memcpy(temp->value,cpy_src, PAGESIZE);
 		res->t_b=FS_MALLOC_W;
 		res->sets=(keyset*)temp->value;
 		res->origin=temp;
@@ -1071,7 +1091,7 @@ level *lsm_level_resizing(level *target, level *src){
 				total_header+=round(t);
 				t*=LLP.size_factor;
 			}
-			printf("change %.5lf->%.5lf (%u:%d)\n",before,LLP.size_factor,total_header,(MAPPART_SEGS-1)*_PPS);
+			printf("change %.5lf->%.5lf (%u:%ld)\n",before,LLP.size_factor,total_header,(MAPPART_SEGS-1)*_PPS);
 		}
 	}
 	

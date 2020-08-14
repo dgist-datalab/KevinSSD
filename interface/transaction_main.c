@@ -38,16 +38,16 @@ int main(int argc,char* argv[]){
 	inf_init(0,0,temp_cnt,temp_argv);
 	bench_init();
 	bench_vectored_configure();
-	bench_transaction_configure(4, 2);
+	//bench_transaction_configure(4, 2);
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
-	bench_add(VECTOREDSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL))*2);
-	//bench_add(VECTOREDRW,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL))*2);
+	//bench_add(VECTOREDSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)));
+	bench_add(VECTOREDRW,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL))*2);
 
 	//measure_init(&total_time);
 	//measure_start(&total_time);
 	char *value;
 	uint32_t mark;
-	while((value=get_vectored_bench(&mark, true))){
+	while((value=get_vectored_bench(&mark, false))){
 		inf_vector_make_req(value, bench_transaction_end_req, mark);
 	}
 	//inf_wait_background();

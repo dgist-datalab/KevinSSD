@@ -46,7 +46,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 44L
+#define GIGAUNIT 8L
 #define OP 70
 #define SHOWINGSIZE (GIGAUNIT * G)
 #define TOTALSIZE (SHOWINGSIZE + (SHOWINGSIZE/100*(100-OP)))
@@ -159,9 +159,9 @@ static inline bool KEYVALCHECK(KEYT a){
 #define V_PTR char * const
 #define PTR char*
 #define ASYNC 1
-#define QSIZE (64)
-#define LOWQDEPTH (64)
-#define QDEPTH (64)
+#define QSIZE (1024)
+#define LOWQDEPTH (1024)
+#define QDEPTH (1024)
 
 #define THPOOL
 #define NUM_THREAD 1

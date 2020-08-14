@@ -47,6 +47,7 @@ typedef struct vectored_request{
 struct request {
 	FSTYPE type;
 	KEYT key;
+	uint32_t tag_num;
 	uint32_t offset;
 	uint32_t tid;
 	uint32_t length;

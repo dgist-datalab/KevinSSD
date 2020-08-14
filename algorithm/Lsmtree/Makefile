@@ -43,7 +43,7 @@ SRCS +=\
 	   lsmtree_transaction.c\
 	   key_packing.c\
 	   bitmap_cache.c\
-#	   cache.c\
+	   lru_cache.c\
 
 #merge_compaction.c\
 	   run_array.c\
