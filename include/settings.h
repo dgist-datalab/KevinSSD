@@ -141,8 +141,8 @@ static inline char KEYTEST(KEYT a, KEYT b){
 	return memcmp(a.key,b.key,a.len)?0:1;
 }
 
-static inline char KEYFILTER(KEYT des, char *s, uint8_t len){
-	return memcmp(des.key, s, len);
+static inline bool KEYFILTER(KEYT des, char *s, uint8_t len){
+	return memcmp(des.key, s, len)==0;
 }
 
 static inline bool KEYVALCHECK(KEYT a){

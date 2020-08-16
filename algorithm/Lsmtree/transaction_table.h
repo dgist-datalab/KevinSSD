@@ -60,6 +60,8 @@ uint32_t transaction_table_update_last_entry(transaction_table *,uint32_t tid, T
 uint32_t transaction_table_update_all_entry(transaction_table *,uint32_t tid, TSTATUS);
 uint32_t transaction_table_clear(transaction_table *, transaction_entry *etr);
 uint32_t transaction_table_clear_all(transaction_table *, uint32_t tid);
+uint32_t transaction_table_iterator_targets(transaction_table *, KEYT key, uint32_t tid, transaction_entry ***etr);
+
 bool transaction_table_checking_commitable(transaction_table *, uint32_t tid);
 
 void transaction_table_print(transaction_table *);

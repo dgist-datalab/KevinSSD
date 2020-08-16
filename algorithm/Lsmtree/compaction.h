@@ -10,6 +10,7 @@
 typedef struct compaction_processor compP;
 typedef struct compaction_master compM;
 typedef struct compaction_req compR;
+typedef struct transaction_entry transaction_entry;
 
 struct Entry;
 struct level;

@@ -44,6 +44,8 @@ SRCS +=\
 	   key_packing.c\
 	   bitmap_cache.c\
 	   lru_cache.c\
+	   level_op_iterator.c\
+	   lsmtree_iterator.c\
 
 #merge_compaction.c\
 	   run_array.c\

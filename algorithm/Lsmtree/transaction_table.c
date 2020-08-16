@@ -169,6 +169,15 @@ inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *targe
 
 value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid, request *const req, transaction_entry **t){
 	transaction_entry *target=find_last_entry(tid*table->base);
+	if(!target){
+		printf("new transaction added in set!\n");
+		if(transaction_table_add_new(table, tid, 0)==UINT_MAX){
+			printf("%s:%d full table!\n", __FILE__,__LINE__);
+			abort();
+			return NULL;		
+		}
+		target=find_last_entry(tid*table->base);
+	}
 	skiplist *t_mem=target->ptr.memtable;
 
 	if(target->helper_type==BFILTER){
@@ -408,4 +417,51 @@ void transaction_table_print(transaction_table *table){
 				statusToString(table->etr[i].status), KEYFORMAT(table->etr[i].range.start),
 				KEYFORMAT(table->etr[i].range.end), table->etr[i].ptr.physical_pointer);
 	}
+}
+
+
+uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, uint32_t tid, transaction_entry ***etr){
+	uint32_t i=0;
+	Redblack target;
+	fdriver_lock(&indexer_lock);
+	
+	transaction_entry **res=(transaction_entry **)malloc(sizeof(transaction_entry*) * table->now);
+	rb_traverse(target, transaction_indexer){
+		transaction_entry *etr=(transaction_entry*)target->item;
+		snode *s;
+		if(etr->tid < (tid+1)*table->base){
+			switch(etr->status){
+				case EMPTY:break;
+				case CACHED:
+					if(KEYCMP(key,etr->ptr.memtable->header->list[1]->key)>=0){
+						for_each_sk(s,etr->ptr.memtable){
+							if(s->list[1] == etr->ptr.memtable->header){
+								break;
+							}
+						}
+						if(KEYCMP(key, s->key)<=0){
+							res[i++]=etr;
+						}
+					}
+					break;
+				case CACHEDCOMMIT:
+				case LOGGED:
+				case COMMIT:
+					if(KEYCMP(key, etr->range.start) >=0 && KEYCMP(key, etr->range.end)<=0){
+						res[i++]=etr;
+					}
+					break;
+				case COMPACTION:
+					printf("%s:%d not allowed compaction in iterator\n", __FILE__,__LINE__);
+					abort();
+					break;
+			}
+		}
+		else{
+			break;
+		}
+	}
+	fdriver_unlock(&indexer_lock);
+	(*etr)=res;
+	return i;
 }

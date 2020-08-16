@@ -38,7 +38,7 @@ struct algorithm algo_lsm={
 	.iter_release=NULL,
 	.iter_all_key=NULL,
 	.iter_all_value=NULL,
-	.range_query=NULL,
+	.range_query=lsm_range_get,
 	.wait_bg_jobs=lsm_wait_bg_jobs,
 	.trans_begin=transaction_start,
 	.trans_commit=transaction_commit
@@ -401,7 +401,6 @@ uint32_t lsm_proc_re_q(){
 				case FS_RANGEGET_T:
 					printf("need to be implementation!\n");
 					abort();
-					//res_type=__lsm_range_get(tmp_req);
 					break;
 			}
 			if(res_type==0){

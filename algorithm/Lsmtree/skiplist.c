@@ -865,6 +865,24 @@ void skiplist_free(skiplist *list){
 	return;
 }
 
+
+void skiplist_free_iter(skiplist *list){
+	if(list==NULL) return;
+	snode *now=list->header->list[1];
+	snode *next=now->list[1];
+	while(now!=list->header){
+		free(now);
+		now=next;
+		next=now->list[1];
+	}
+	list->size=0;
+
+	free(list->header->list);
+	free(list->header);
+	free(list);
+	return;
+}
+
 void skiplist_container_free(skiplist *list){
 	if(list==NULL) return;
 	snode *now=list->header->list[1];

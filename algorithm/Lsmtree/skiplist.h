@@ -111,6 +111,7 @@ snode *skiplist_pop(skiplist *);
 skiplist *skiplist_cutting_header(skiplist *,uint32_t *avg);
 skiplist *skiplist_cutting_header_se(skiplist *,uint32_t *avg,KEYT *start, KEYT *end);
 value_set **skiplist_make_gc_valueset(skiplist *,gc_node **, int);
+void skiplist_free_iter(skiplist *list);  //free skiplist
 #endif
 snode *skiplist_at(skiplist *,int idx);
 int skiplist_delete(skiplist*,KEYT); //delete by key, return 0:normal -1:empty -2:no key

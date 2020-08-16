@@ -115,7 +115,7 @@ typedef struct level_ops{
 	void (*tier_align)( level*);
 	void (*move_heap)( level* des,  level *src);
 	bool (*chk_overlap)( level *des, KEYT star, KEYT end);
-	uint32_t (*range_find)( level *l,KEYT start, KEYT end,  run_t ***r);
+	uint32_t (*range_find)( level *l,KEYT start, KEYT end,  run_t ***r, uint32_t max_num);
 	uint32_t (*range_find_compaction)( level *l,KEYT start, KEYT end,  run_t ***r);
 	uint32_t (*unmatch_find)( level *,KEYT start, KEYT end, run_t ***r);
 	run_t* (*next_run)(level *,KEYT key);

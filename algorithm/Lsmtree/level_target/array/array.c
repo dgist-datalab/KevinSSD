@@ -454,15 +454,15 @@ run_t **array_find_run_num( level* lev,KEYT lpa, uint32_t num){
 	return res;
 }
 
-uint32_t array_range_find( level *lev ,KEYT s, KEYT e,  run_t ***rc){
+uint32_t array_range_find( level *lev ,KEYT s, KEYT e,  run_t ***rc, uint32_t max_num){
 	array_body *b=(array_body*)lev->level_data;
 	run_t *arrs=b->arrs;
 	int res=0;
 	run_t *ptr;
-	run_t **r=(run_t**)malloc(sizeof(run_t*)*(lev->n_num+1));
+	run_t **r=(run_t**)malloc(sizeof(run_t*)*(max_num+1));
 	int target_idx=array_binary_search(arrs,lev->n_num,s);
 	if(target_idx==-1) target_idx=0;
-	for(int i=target_idx;i<lev->n_num; i++){
+	for(int i=target_idx;i<max_num; i++){
 		ptr=(run_t*)&arrs[i];
 #ifdef KVSSD
 		if(!(KEYCMP(ptr->end,s)<0 || KEYCMP(ptr->key,e)>0))

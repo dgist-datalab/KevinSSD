@@ -128,7 +128,7 @@ run_t *array_fast_find_run( level*,KEYT);
 
 run_t **array_find_run_num( level*,KEYT, uint32_t);
 
-uint32_t array_range_find( level *,KEYT, KEYT,  run_t ***);
+uint32_t array_range_find( level *,KEYT, KEYT,  run_t ***, uint32_t max_num);
 uint32_t array_range_find_compaction( level *,KEYT, KEYT,  run_t ***);
 uint32_t array_unmatch_find( level *,KEYT, KEYT,  run_t ***);
 //bool array_fchk(level *in);
