@@ -1,6 +1,7 @@
 #include "level_op_iterator.h"
 #include "lsmtree.h"
 #include "../../include/utils/kvssd.h"
+#include "lru_cache.h"
 
 extern lsmtree LSM;
 
@@ -10,6 +11,7 @@ meta_iterator *meta_iter_init(char *data, KEYT prefix, bool include){
 	res->data=data;
 	res->len_map=(uint16_t*)data;
 	res->max_idx=res->len_map[0];
+	res->sk_node=NULL;
 
 	/*binary search*/
 	uint16_t *bitmap=(uint16_t*)data;
@@ -39,20 +41,65 @@ meta_iterator *meta_iter_init(char *data, KEYT prefix, bool include){
 	return res;
 }
 
+meta_iterator *meta_iter_skip_init(skiplist *skip, KEYT prefix, bool include){	
+	meta_iterator *res=(meta_iterator*)malloc(sizeof(meta_iterator));
+	res->data=NULL;
+	res->sk_node=NULL;
+	res->header=skip->header;
+	bool check=false;
+	for_each_sk(res->sk_node, skip){
+		if(KEYFILTER(res->sk_node->key, prefix.key, prefix.len)){
+			if(!check){
+				check=true;
+				if(KEYCMP(prefix, res->sk_node->key)==0){
+					if(!include) continue;
+				}
+			}
+			break;
+		}	
+	}
+	res->max_idx=0;
+	res->idx=0;
+	res->prefix=prefix;
+	res->include=include;
+	return res;
+}
+
 bool meta_iter_pick_key_addr_pair(meta_iterator *mi, ka_pair *ka){
 	if(mi->idx > mi->max_idx) return false;
-	ka->ppa=*(ppa_t*)&mi->data[mi->len_map[mi->idx]];
-	ka->key.key=&mi->data[mi->len_map[mi->idx]+sizeof(ppa_t)];
-	ka->key.len=mi->len_map[mi->idx+1]-mi->len_map[mi->idx]-sizeof(ppa_t);
-	if(!KEYFILTER(ka->key, mi->prefix.key, mi->prefix.len)){
-		return false;
+	if(mi->sk_node){
+		if(mi->sk_node==mi->header){
+			mi->idx++;
+			return false;
+		}
+		ka->key=mi->sk_node->key;
+		ka->data=mi->sk_node->value.u_value->value;
+		ka->ppa=UINT32_MAX;
+		if(!KEYFILTER(ka->key, mi->prefix.key, mi->prefix.len)){
+			mi->idx++;
+			return false;	
+		}
+	}
+	else{
+		ka->ppa=*(ppa_t*)&mi->data[mi->len_map[mi->idx]];
+		ka->key.key=&mi->data[mi->len_map[mi->idx]+sizeof(ppa_t)];
+		ka->key.len=mi->len_map[mi->idx+1]-mi->len_map[mi->idx]-sizeof(ppa_t);
+
+		if(!KEYFILTER(ka->key, mi->prefix.key, mi->prefix.len)){
+			return false;
+		}
 	}
 	return true;
 }
 
 
 void meta_iter_move_next(meta_iterator *mi){
-	mi->idx++;
+	if(mi->sk_node){
+		mi->sk_node=mi->sk_node->list[1];
+	}
+	else{
+		mi->idx++;
+	}
 }
 
 void meta_iter_free(meta_iterator *mi){
@@ -74,8 +121,13 @@ level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_
 	free(end.key);
 
 	for(uint32_t i=0; target_run[i]!=0; i++){res->max_idx++;}
-	
-	res->m_iter=(meta_iterator**)malloc(sizeof(meta_iterator*) * res->max_idx);
+
+	if(res->max_idx){
+		res->m_iter=(meta_iterator**)malloc(sizeof(meta_iterator*) * res->max_idx);
+	}
+	else{
+		res->m_iter=NULL;
+	}
 	uint32_t *ppa_list=NULL;
 	if(lev->idx<LSM.LEVELCACHING){
 		*should_read=false;
@@ -87,10 +139,18 @@ level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_
 	for(uint32_t i=0; i<res->max_idx; i++){
 		run_t *t=target_run[i];
 		if(lev->idx<LSM.LEVELCACHING){
-			res->m_iter[i]=meta_iter_init(t->level_caching_data, key, include);
+			char *data=(char*)malloc(PAGESIZE);
+			memcpy(data,t->level_caching_data, PAGESIZE);
+			res->m_iter[i]=meta_iter_init(data, key, include);
 		}
 		else{
 			ppa_list[i]=t->pbn;
+			res->m_iter[i]=NULL;
+			const char *data=lru_get(ppa_list[i]);
+			if(data){
+				ppa_list[i]=UINT_MAX-1;
+				res->m_iter[i]=meta_iter_init(const_cast<char*>(data), key, include);
+			}
 		}
 	}
 
@@ -111,13 +171,9 @@ level_op_iterator *level_op_iterator_transact_init(transaction_entry *etr, KEYT 
 
 	res->m_iter=(meta_iterator**)malloc(sizeof(meta_iterator*)*res->max_idx);
 
-	htable *t;
 	switch(etr->status){
 		case CACHED:
-			t=LSM.lop->mem_cvt2table(etr->ptr.memtable, NULL, NULL);
-			res->m_iter[0]=meta_iter_init((char*)t->sets, prefix, include);
-			t->sets=NULL;
-			htable_free(t);
+			res->m_iter[0]=meta_iter_skip_init(etr->ptr.memtable, prefix, include);
 			*should_read=false;
 			break;
 		case CACHEDCOMMIT:
@@ -139,9 +195,10 @@ void level_op_iterator_set_iterator(level_op_iterator *loi, uint32_t idx, char *
 
 bool level_op_iterator_pick_key_addr_pair(level_op_iterator *loi, ka_pair* ka){
 retry:
+	if(!loi->m_iter || !loi->m_iter[loi->idx]) return false;
 	if(!meta_iter_pick_key_addr_pair(loi->m_iter[loi->idx],ka)){
 		loi->idx++;
-		if(loi->idx>loi->max_idx) return false;
+		if(loi->idx>=loi->max_idx) return false;
 		goto retry;
 	}
 	return true;

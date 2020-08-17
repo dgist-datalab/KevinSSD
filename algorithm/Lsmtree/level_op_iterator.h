@@ -10,11 +10,13 @@
 typedef struct key_addr_pair{
 	KEYT key;
 	ppa_t ppa;
+	char *data;
 }ka_pair;
 
 typedef struct meta_iterator{
 	char *data;
-	skiplist *skip;
+	snode *sk_node;
+	snode *header;
 	bool include;
 	uint16_t idx;
 	uint16_t max_idx;
@@ -32,6 +34,8 @@ typedef struct level_op_iterator{
 }level_op_iterator;
 
 meta_iterator *meta_iter_init(char *data, KEYT prefix, bool include);
+meta_iterator *meta_iter_skip_init(skiplist *, KEYT prefix, bool include);
+
 bool meta_iter_pick_key_addr_pair(meta_iterator *, ka_pair *);
 void meta_iter_move_next(meta_iterator *);
 void meta_iter_free(meta_iterator *);

@@ -101,7 +101,7 @@ void bench_make_data(){
 		return;
 	}
 	printf("%d X %d = %d, answer=%lu\n",_m->bech,_m->benchsetsize,_m->bech*_m->benchsetsize,_meta->number);
-	if(_meta->type < VECTOREDSET){
+	if(_meta->type < VECTOREDRSET){
 		for(uint32_t i=0; i<_m->benchsetsize; i++){
 			_m->body[i]=(bench_value*)malloc(sizeof(bench_value)*_m->bech);
 		}
@@ -139,14 +139,23 @@ void bench_make_data(){
 		case FILLRAND:
 			fillrand(start,end,_m);
 			break;
-		case VECTOREDSET:
+		case VECTOREDUNIQRSET:
+			vectored_unique_rset(start,end, _m);
+			break;
+		case VECTOREDSSET:
 			vectored_set(start,end, _m, true);
 			break;
-		case VECTOREDGET:
+		case VECTOREDRSET:
+			vectored_set(start,end, _m, false);
+			break;
+		case VECTOREDRGET:
 			vectored_get(start,end, _m, false);
 			break;
+		case VECTOREDSGET:
+			vectored_get(start,end, _m, true);
+			break;
 		case VECTOREDRW:
-			vectored_rw(start,end, _m, true);
+			vectored_rw(start,end, _m, false);
 			break;
 #ifndef KVSSD
 		case SEQLATENCY:
@@ -503,6 +512,7 @@ void bench_reap_data(request *const req,lower_info *li){
 		return;
 	}
 	int idx=req->mark;
+	if(idx==-1){return;}
 	monitor *_m=&_master->m[idx];
 	bench_data *_data=&_master->datas[idx];
 
@@ -652,6 +662,52 @@ int my_itoa(uint32_t key, char **_target, char *buf){
 	//printf("%d %.*s(%d)\n",result, result, buf, result);
 	return result;
 }
+
+int my_itoa_len(uint32_t key, int length, char **_target, char *buf){
+	int cnt=1;
+	int standard=10;
+	int t_key=key;
+	while(t_key/10){
+		cnt++;
+		t_key/=10;
+		standard*=10;
+	}
+	int result=length;
+	//result*=16;
+	//result-=sizeof(ppa_t);
+	char *target;
+
+	if(_target){
+		*_target=(char*)malloc(result);
+		target=*_target;
+	}
+	else{
+		target=buf;
+	}
+
+	t_key=key;
+
+	for(int i=0; i<result-cnt; i++){
+		target[i]='0';
+	}
+	for(int i=0; i<cnt; i++){
+		target[result-1-i]=t_key%10+'0';
+		t_key/=10;
+	}
+/*
+	for(int i=cnt-1; i>=0; i--){
+		target[i]=t_key%10+'0';
+		t_key/=10;
+	}
+	for(int i=cnt; i<result; i++){
+		target[i]='0';
+	}*/
+
+	//printf("origin:%d\n",key);
+	//printf("%d %.*s(%d)\n",result, result, buf, result);
+	return result;
+}
+
 /*
 int my_itoa(uint32_t key, char **_target){
 	int cnt=1;

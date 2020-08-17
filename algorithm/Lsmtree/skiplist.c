@@ -871,6 +871,7 @@ void skiplist_free_iter(skiplist *list){
 	snode *now=list->header->list[1];
 	snode *next=now->list[1];
 	while(now!=list->header){
+		free(now->list);
 		free(now);
 		now=next;
 		next=now->list[1];

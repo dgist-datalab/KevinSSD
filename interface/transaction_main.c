@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <unistd.h>
 #include <limits.h>
 #include <getopt.h>
@@ -32,27 +33,39 @@ MeasureTime write_opt_time[11];
 extern master_processor mp;
 extern uint64_t cumulative_type_cnt[LREQ_TYPE_NUM];
 MeasureTime total_time;
+void log_print(int sig){
+//	while(!bench_is_finish()){}
+	inf_free();
+	exit(1);
+}
+
 int main(int argc,char* argv[]){
+
+	struct sigaction sa;
+	sa.sa_handler = log_print;
+	sigaction(SIGINT, &sa, NULL);
+	printf("signal add!\n");
+
 	char *temp_argv[10];
 	int temp_cnt=bench_set_params(argc,argv,temp_argv);
 	inf_init(0,0,temp_cnt,temp_argv);
 	bench_init();
 	bench_vectored_configure();
-	//bench_transaction_configure(4, 2);
+	bench_transaction_configure(4, 2);
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
-	//bench_add(VECTOREDSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)));
-	bench_add(VECTOREDRW,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL))*2);
+	bench_add(VECTOREDUNIQRSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)));
+	//bench_add(VECTOREDRW,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL))*2);
 
-	//measure_init(&total_time);
-	//measure_start(&total_time);
 	char *value;
 	uint32_t mark;
-	while((value=get_vectored_bench(&mark, false))){
+	while((value=get_vectored_bench(&mark, true))){
 		inf_vector_make_req(value, bench_transaction_end_req, mark);
 	}
-	//inf_wait_background();
 
-	//measure_end(&total_time, "total time");
+	inf_vector_make_req(get_vectored_one_command(FS_RANGEGET_T, 3000, 0), bench_transaction_end_req, -1);
+
+	while(1){
+	}
 
 	force_write_start=true;
 	
@@ -63,7 +76,5 @@ int main(int argc,char* argv[]){
 #endif
 	}
 
-	inf_free();
-	bench_custom_print(write_opt_time,11);
 	return 0;
 }

@@ -112,7 +112,7 @@ uint32_t transaction_table_add_new(transaction_table *table, uint32_t tid, uint3
 	transaction_entry *etr;
 	if(table->now >= table->full){
 		if(!commit_exist()){
-			transaction_table_print(table);
+			transaction_table_print(table, true);
 			return UINT_MAX;
 		}
 	}
@@ -354,7 +354,7 @@ uint32_t transaction_table_clear(transaction_table *table, transaction_entry *et
 	table->now--;
 	if(table->now==UINT_MAX){
 		printf("wtf!!\n");
-		transaction_table_print(table);
+		transaction_table_print(table, true);
 		abort();
 	}
 
@@ -411,8 +411,9 @@ char* statusToString(uint8_t a){
 	return NULL;
 }
 
-void transaction_table_print(transaction_table *table){
+void transaction_table_print(transaction_table *table, bool full){
 	for(uint32_t i=0; i<table->full; i++){
+		if(!full && table->etr[i].status==EMPTY) continue;
 		printf("[%u] tid: %u status:%s %.*s ~ %.*s page:%u\n", i, table->etr[i].tid, 
 				statusToString(table->etr[i].status), KEYFORMAT(table->etr[i].range.start),
 				KEYFORMAT(table->etr[i].range.end), table->etr[i].ptr.physical_pointer);
@@ -433,13 +434,13 @@ uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, 
 			switch(etr->status){
 				case EMPTY:break;
 				case CACHED:
-					if(KEYCMP(key,etr->ptr.memtable->header->list[1]->key)>=0){
+					if(KEYFILTERCMP(etr->ptr.memtable->header->list[1]->key, key.key, key.len)<=0){
 						for_each_sk(s,etr->ptr.memtable){
 							if(s->list[1] == etr->ptr.memtable->header){
 								break;
 							}
 						}
-						if(KEYCMP(key, s->key)<=0){
+						if(KEYFILTERCMP(s->key, key.key, key.len)>=0){
 							res[i++]=etr;
 						}
 					}
@@ -447,7 +448,7 @@ uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, 
 				case CACHEDCOMMIT:
 				case LOGGED:
 				case COMMIT:
-					if(KEYCMP(key, etr->range.start) >=0 && KEYCMP(key, etr->range.end)<=0){
+					if(KEYFILTERCMP(etr->range.start, key.key, key.len) <=0 && KEYFILTERCMP(etr->range.end, key.key, key.len)>=0){
 						res[i++]=etr;
 					}
 					break;

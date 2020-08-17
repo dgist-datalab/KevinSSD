@@ -200,6 +200,7 @@ void array_header_next_key_pick(level *, keyset_iter *, keyset *res);
 
 KEYT *array_get_lpa_from_data(char *data,ppa_t simul_ppa,bool isheader);
 int array_binary_search(run_t *body,uint32_t max_t, KEYT lpa);
+int array_binary_search_filter(run_t *body,uint32_t max_t, KEYT lpa, int32_t *first);
 //int array_lowerbound_search(run_t *body,uint32_t max_t, KEYT lpa);
 int array_bound_search(run_t *body,uint32_t max_t, KEYT lpa,bool islower);
 

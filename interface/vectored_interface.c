@@ -27,7 +27,7 @@ inline char *buf_parser(char *buf, uint32_t* idx, uint32_t length){
 void* inf_transaction_end_req(void *req);
 extern bool TXN_debug;
 extern char *TXN_debug_ptr;
-uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark){
+uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), int mark){
 	uint32_t idx=0;
 	vec_request *txn=(vec_request*)malloc(sizeof(vec_request));
 	//idx+=sizeof(uint32_t);//length;
@@ -79,7 +79,6 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark)
 		kvssd_cpy_key(&key, &temp->key);
 		temp->key=key;
 		temp->offset=*(uint32_t*)buf_parser(buf, &idx, sizeof(uint32_t));
-		
 	}
 
 	while(1){

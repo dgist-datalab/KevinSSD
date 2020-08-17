@@ -64,7 +64,7 @@ uint32_t transaction_table_iterator_targets(transaction_table *, KEYT key, uint3
 
 bool transaction_table_checking_commitable(transaction_table *, uint32_t tid);
 
-void transaction_table_print(transaction_table *);
+void transaction_table_print(transaction_table *, bool full);
 
 value_set* transaction_table_force_write(transaction_table *, uint32_t tid, transaction_entry **etr);
 value_set* transaction_table_get_data(transaction_table *);

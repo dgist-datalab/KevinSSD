@@ -460,25 +460,35 @@ uint32_t array_range_find( level *lev ,KEYT s, KEYT e,  run_t ***rc, uint32_t ma
 	int res=0;
 	run_t *ptr;
 	run_t **r=(run_t**)malloc(sizeof(run_t*)*(max_num+1));
-	int target_idx=array_binary_search(arrs,lev->n_num,s);
+	if(lev->n_num==0){
+		r[res]=NULL;
+		*rc=r;
+		return res;
+	}
+	int first=0;
+	int target_idx=array_binary_search_filter(arrs,lev->n_num,s, &first);
 	if(target_idx==-1) target_idx=0;
-	for(int i=target_idx;i<max_num; i++){
+	
+	for(int i=target_idx; i<=first; i++){
+		ptr=(run_t*)&arrs[i];
+		r[res++]=ptr;
+	}
+
+	for(int i=first+1;i<max_num; i++){
 		ptr=(run_t*)&arrs[i];
 #ifdef KVSSD
-		if(!(KEYCMP(ptr->end,s)<0 || KEYCMP(ptr->key,e)>0))
+		if(KEYFILTER(ptr->key, s.key, s.len))
 #else
 		if(!(ptr->end<s || ptr->key>e))
 #endif
 		{
 			r[res++]=ptr;
 		}
-#ifdef KVSSD
-		else if(KEYCMP(e,ptr->key)<0)
-#else
-		else if(e< ptr->key)
-#endif
-		{
+		else if(KEYFILTERCMP(ptr->key, e.key, e.len) >= 0){
 			break;
+		}
+		else{
+			r[res++]=ptr;
 		}
 	}
 	r[res]=NULL;
@@ -657,6 +667,35 @@ int array_binary_search(run_t *body,uint32_t max_t, KEYT lpa){
 		res2=KEYCMP(body[mid].end,lpa);
 		if(res1<=0 && res2>=0)
 			return mid;
+		if(res1>0) end=mid-1;
+		else if(res2<0) start=mid+1;
+	}
+	return -1;
+}
+
+int array_binary_search_filter(run_t *body, uint32_t max_t, KEYT lpa, int32_t *first){
+	int start=0;
+	int end=max_t-1;
+	int mid;
+
+	int res1, res2; //1:compare with start, 2:compare with end
+	while(start==end ||start<end){
+		mid=(start+end)/2;
+		res1=KEYFILTERCMP(body[mid].key,lpa.key, lpa.len);
+		res2=KEYFILTERCMP(body[mid].end,lpa.key, lpa.len);
+		if(res1<=0 && res2>=0){
+			*first=mid;
+			for(int i=mid-1; i>=0; i--){
+				if(KEYFILTER(body[i].key, lpa.key, lpa.len)){
+					mid--;
+					continue;	
+				}
+				else{
+					break;
+				}
+			}
+			return mid;
+		}
 		if(res1>0) end=mid-1;
 		else if(res2<0) start=mid+1;
 	}

@@ -32,6 +32,16 @@ void lru_resize(uint32_t target_size){
 	max_size=target_size;
 }
 
+void lru_decrease(uint32_t decreasing){
+	max_size-=decreasing;
+	my_cache->resize(max_size);
+}
+
+void lru_increase(uint32_t increasing){
+	max_size+=increasing;
+	my_cache->resize(max_size);
+}
+
 void lru_free(){
 	my_cache->resize(0);
 	delete my_cache;
