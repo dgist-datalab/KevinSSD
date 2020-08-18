@@ -5,6 +5,7 @@
 #include "../include/utils/cond_lock.h"
 #include "../include/utils/kvssd.h"
 #include "../include/utils/tag_q.h"
+#include "../include/utils/data_checker.h"
 
 #include <pthread.h>
 #include <stdlib.h>
@@ -59,17 +60,24 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), int mark){
 			case FS_TRANS_BEGIN:
 			case FS_TRANS_ABORT:
 				continue;
+			case FS_RMW_T:
 			case FS_GET_T:
 				temp->magic=0;
 				temp->value=inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 				break;
 			case FS_SET_T:
 				temp->value=inf_get_valueset(NULL, FS_MALLOC_W, 4096);
+
 				break;
 		}
 		
 		temp->key.len=*(uint8_t*)buf_parser(buf, &idx, sizeof(uint8_t));
 		temp->key.key=buf_parser(buf, &idx, temp->key.len);
+#ifdef CHECKINGDATA
+		if(temp->type){
+			__checking_data_make_key( temp->key,temp->value->value);
+		}
+#endif
 		/*
 		if(temp->type==FS_SET_T){
 			*(uint8_t*)&temp->value->value[0]=temp->key.len;
@@ -182,10 +190,14 @@ bool vectored_end_req (request * const req){
 		case FS_NOTFOUND_T:
 		case FS_GET_T:
 			bench_reap_data(req, mp.li);
+#ifdef CHECKINGDATA
+			__checking_data_check_key(req->key, req->value->value);
+#endif
 			kvssd_free_key_content(&req->key);	
 	//		memcpy(req->buf, req->value->value, 4096);
 			if(req->value)
 				inf_free_valueset(req->value,FS_MALLOC_R);
+
 			break;
 		case FS_SET_T:
 			bench_reap_data(req, mp.li);

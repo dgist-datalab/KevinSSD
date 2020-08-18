@@ -110,8 +110,13 @@ void compaction_run_move_insert(level *target, run_t *entry){
 	if(target->idx<LSM.LEVELCACHING){
 		entry->level_caching_data=(char*)malloc(PAGESIZE);
 		memcpy(entry->level_caching_data, (char*)entry->cpt_data->sets, PAGESIZE);
+		LSM.lop->insert(target,entry);
+		LSM.lop->release_run(entry);
 	}
-	compaction_htable_write_insert(target, entry, false);
+	else{
+		compaction_htable_write_insert(target, entry, false);
+	}
+
 	if(ISTRANSACTION(LSM.setup_values)){
 		transaction_invalidate_PPA(LOG, invalidate_target);
 	}

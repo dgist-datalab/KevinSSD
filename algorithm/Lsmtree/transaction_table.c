@@ -36,6 +36,10 @@ inline transaction_entry *find_last_entry(uint32_t tid){
 	fdriver_lock(&indexer_lock);
 	rb_find_int(transaction_indexer, tid, &res);
 	transaction_entry * data = (transaction_entry*)res->item;
+	if(!data){
+		fdriver_unlock(&indexer_lock);
+		return NULL;
+	}
 	while(data->status!=CACHED){
 		res=res->next;
 		data=(transaction_entry*)res->item;
@@ -166,11 +170,15 @@ inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *targe
 	return res;
 }
 
-
+bool delete_debug=false;
 value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid, request *const req, transaction_entry **t){
+	if(!delete_debug && tid==3001){
+		printf("break!\n");
+		delete_debug=true;
+	}
 	transaction_entry *target=find_last_entry(tid*table->base);
 	if(!target){
-		printf("new transaction added in set!\n");
+		//printf("new transaction added in set!\n");
 		if(transaction_table_add_new(table, tid, 0)==UINT_MAX){
 			printf("%s:%d full table!\n", __FILE__,__LINE__);
 			abort();
@@ -183,7 +191,12 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 	if(target->helper_type==BFILTER){
 		bf_set(target->read_helper.bf, req->key);
 	}
-	skiplist_insert(t_mem, req->key, req->value, true);
+	if(req->type==FS_DELETE_T){
+		skiplist_insert(t_mem, req->key, NULL, false);
+	}
+	else{
+		skiplist_insert(t_mem, req->key, req->value, true);
+	}
 	
 	(*t)=target;
 

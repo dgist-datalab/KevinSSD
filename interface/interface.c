@@ -14,6 +14,7 @@
 #include "../include/data_struct/redblack.h"
 #include "../include/utils/cond_lock.h"
 #include "../include/utils/tag_q.h"
+#include "../include/utils/data_checker.h"
 #include "buse.h"
 #include "layer_info.h"
 #include <stdio.h>
@@ -228,26 +229,8 @@ uint32_t inf_algorithm_caller(request *const inf_req){
 			mp.algo->write(inf_req);
 			break;
 #ifdef KVSSD
-		case FS_ITER_CRT_T:
-			mp.algo->iter_create(inf_req);
-			break;
-		case FS_ITER_NXT_T:
-			mp.algo->iter_next(inf_req);
-			break;
-		case FS_ITER_NXT_VALUE_T:
-			mp.algo->iter_next_with_value(inf_req);
-			break;
-		case FS_ITER_ALL_T:
-			mp.algo->iter_all_key(inf_req);
-			break;
-		case FS_ITER_ALL_VALUE_T:
-			mp.algo->iter_all_value(inf_req);
-			break;
 		case FS_RANGEGET_T:
 			mp.algo->range_query(inf_req);
-			break;
-		case FS_ITER_RLS_T:
-			mp.algo->iter_release(inf_req);
 			break;
 #endif
 		case FS_TRANS_BEGIN:
@@ -382,6 +365,10 @@ void inf_init(int apps_flag, int total_num,int argc, char **argv){
 	
 	layer_info_mapping(&mp, argc, argv);
 
+#ifdef CHECKINGDATA
+	__checking_data_init();
+#endif
+	
 /*
 	mp.li->create(mp.li,mp.bm);
 #ifdef partition
@@ -644,6 +631,10 @@ void inf_free(){
 #endif
 	mp.algo->destroy(mp.li,mp.algo);
 	mp.li->destroy(mp.li);
+
+#ifdef CHECKINGDATA
+	__checking_data_free();
+#endif
 }
 
 void inf_print_debug(){

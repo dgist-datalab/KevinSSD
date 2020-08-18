@@ -160,12 +160,7 @@ struct algorithm{
 	uint32_t (*write)(request *const);
 	uint32_t (*remove)(request *const);
 #ifdef KVSSD
-	uint32_t (*iter_create)(request *const);
-	uint32_t (*iter_next)(request *const);
-	uint32_t (*iter_next_with_value)(request *const);
-	uint32_t (*iter_release)(request *const);
-	uint32_t (*iter_all_key)(request *const);
-	uint32_t (*iter_all_value)(request *const);
+	uint32_t (*partial_update)(request *const);
 	uint32_t (*range_query)(request *const);
 #endif
 

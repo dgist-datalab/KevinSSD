@@ -25,6 +25,7 @@ export COMMONFLAGS=\
 			-D$(TARGET_BM)\
 			-Wno-unused-but-set-variable\
 			-DKVSSD\
+			-DCHECKINGDATA\
 #		-O3\
 #			-march=armv8-a+crypto\
 #			-DCHECKINGTIME\
@@ -90,6 +91,7 @@ SRCS +=\
 	./include/utils/debug_tools.c\
 	./include/utils/dl_sync.c\
 	./include/utils/cond_lock.c\
+	./include/utils/data_checker.c\
 	./include/data_struct/hash_kv.c\
 	./include/data_struct/list.c\
 	./include/data_struct/redblack.c\

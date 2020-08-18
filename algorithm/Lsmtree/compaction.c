@@ -107,6 +107,11 @@ bool level_sequential(level *from, level *to,level *des, run_t *entry,leveling_n
 
 bool amf_debug_flag;
 uint32_t leveling(level *from,level *to, leveling_node *l_node,rwlock *lock){
+	static int cnt=0;
+	if(cnt++>=9628){
+		//printf("break!\n");
+	}
+	//printf("target cnt:%d\n", cnt++);
 	level *target_origin=to;
 	level *target=lsm_level_resizing(to,from);
 

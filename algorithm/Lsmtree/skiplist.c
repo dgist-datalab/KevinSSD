@@ -580,8 +580,9 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		if(testflag){
 			printf("%d overlap!\n",++cnt);
 		}*/
-		list->data_size-=(x->value.u_value->length*PIECE);
-		list->data_size+=(value->length*PIECE);
+		
+		list->data_size-=x->value.u_value?(x->value.u_value->length*PIECE):0;
+		list->data_size+=value?(value->length*PIECE):0;
 		if(x->value.u_value)
 			inf_free_valueset(x->value.u_value,FS_MALLOC_W);
 #if defined(KVSSD)
@@ -640,7 +641,8 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 
 		x->level=level;
 		list->size++;
-		list->data_size+=(value->length*PIECE);
+		if(value)
+			list->data_size+=(value->length*PIECE);
 	}
 	return x;
 }
@@ -655,6 +657,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 	uint32_t idx=1;
 	snode *target;
 	int total_size=0;
+	bool full_delete=true;
 	for_each_sk(target,input){
 		if(idx==1){
 			kvssd_cpy_key(start,&target->key);
@@ -665,6 +668,8 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 		idx++;
 
 		if(target->value.u_value==0) continue;
+
+		if(full_delete) full_delete=false;
 		if(b.bucket[target->value.u_value->length]==NULL){
 			b.bucket[target->value.u_value->length]=(snode**)malloc(sizeof(snode*)*(input->size+1));
 		}
@@ -673,9 +678,12 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 
 	}
 	
-	/*res_idx=0 : page for key*/
-	
+	if(full_delete){
+		res[0]=NULL;
+		return res;
+	}
 
+	/*res_idx=0 : page for key*/
 	key_packing *kp=NULL;
 	lsm_block_aligning(2,false);
 	res[0]=variable_get_kp(&kp, false);

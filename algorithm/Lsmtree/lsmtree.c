@@ -31,13 +31,8 @@ struct algorithm algo_lsm={
 	.destroy=lsm_destroy,
 	.read=lsm_get,
 	.write=lsm_set,
-	.remove=lsm_remove,
-	.iter_create=NULL,
-	.iter_next=NULL,
-	.iter_next_with_value=NULL,
-	.iter_release=NULL,
-	.iter_all_key=NULL,
-	.iter_all_value=NULL,
+	.remove=lsm_set,
+	.partial_update=lsm_partial_update,
 	.range_query=lsm_range_get,
 	.wait_bg_jobs=lsm_wait_bg_jobs,
 	.trans_begin=transaction_start,
@@ -329,6 +324,7 @@ void* lsm_end_req(algo_req* const req){
 			free(((mreq_params*)req_temp_params)->target_ppas);
 #endif
 			free(rp);
+
 			break;
 		case DATAW:
 			inf_free_valueset(params->value,FS_MALLOC_W);
@@ -336,8 +332,16 @@ void* lsm_end_req(algo_req* const req){
 		default:
 			break;
 	}
-	if(parents)
+
+	if(params->lsm_type==DATAR && parents->type==FS_RMW_T){
+		parents->magic=3;
+		inf_assign_try(parents);
+	}
+	else if(parents){
 		parents->end_req(parents);
+	}
+
+
 	if(havetofree){
 		if(params->lsm_type!=TESTREAD){
 			free(params);
@@ -771,8 +775,9 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 	}
 
 	if(likely(lsm_req)){
-
 		rwlock_read_unlock(((rparams*)req->params)->rw_lock);
+
+		req->magic=3;
 #ifdef DVALUE
 		if(lsm_data_cache_check(req,ppa)){
 			if(lsm_req){
@@ -907,6 +912,7 @@ retry:
 			if(found){
 				lsm_req=lsm_get_req_factory(req,DATAR,level);
 				req->value->ppa=found->ppa;
+				req->magic=3;
 				LSM.li->read(CONVPPA(found->ppa),PAGESIZE,req->value,ASYNC,lsm_req);
 			}
 			else{
@@ -1293,3 +1299,26 @@ uint32_t lsm_wait_bg_jobs(){
 	compaction_wait_jobs();
 	return 1;
 }
+
+uint32_t lsm_partial_update(request *const req){
+	switch (req->magic){
+		case 0:
+			req->buf=(char*)malloc(PAGESIZE);
+			memcpy(req->buf,req->value->value,PAGESIZE);
+			break;
+		case 1:
+		case 2:			
+			if(ISTRANSACTION(LSM.setup_values)){
+				transaction_get(req);
+			}
+			else{
+				__lsm_get(req);
+			}
+			break;
+		case 3:
+			transaction_set(req);
+			break;
+	}
+	return 1;
+}
+

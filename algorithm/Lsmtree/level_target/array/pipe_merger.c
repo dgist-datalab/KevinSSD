@@ -51,6 +51,7 @@ void temp_func(char* body, level *d, bool insert){
 	for_each_header_end
 }
 
+extern bool delete_debug;
 void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	cutter_start=true;
 	int o_num=0; int u_num=0;
@@ -102,6 +103,9 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	KEYT insert_key;
 	int next_pop=0;
 	int result_cnt=0;
+	if(delete_debug){
+	//	printf("bbb\n");
+	}
 	while(!(lp_key.len==UINT8_MAX && hp_key.len==UINT8_MAX)){
 		if(lp_key.len==UINT8_MAX){
 			insert_key=hp_key;
@@ -133,7 +137,9 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 				rppa=hppa;
 			}
 			else{
-				invalidate_PPA(DATA,lppa);
+				if(lppa!=UINT32_MAX){
+					invalidate_PPA(DATA,lppa);
+				}
 				rppa=hppa;
 				insert_key=hp_key;
 			}
@@ -279,6 +285,7 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 				insert_key=hp_key;
 			}
 		}
+
 		if((res_data=pbody_insert_new_key(p_rp,insert_key,p_rppa,false)))
 		{
 			/*

@@ -38,6 +38,8 @@ typedef struct temp_gc_h{
 uint32_t gc_cnt=0;
 int gc_header(){
 	LMI.header_gc_cnt++;
+	//printf("gc_header %u\n", LMI.header_gc_cnt);
+//	bool gc_header_debug=(LMI.header_gc_cnt==8);
 	gc_general_wait_init();
 	//lsm_io_sched_flush();
 

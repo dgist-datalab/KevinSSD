@@ -434,9 +434,10 @@ uint32_t gc_log(){
 	
 	//printf("_PPS : %u\n", _PPS);
 	if(tseg->invalidate_number != _PPS ){
-	//	printf("table print!!\n");
-	//	transaction_table_print(_tm.ttb);
-	//	printf("table print end\n\n");
+		printf("table print!!\n");
+		transaction_table_print(_tm.ttb, false);
+		printf("table print end\n\n");
+		abort();
 	}
 	uint32_t tpage=0;
 	int bidx=0;

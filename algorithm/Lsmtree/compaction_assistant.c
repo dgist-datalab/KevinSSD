@@ -585,6 +585,10 @@ bool htable_read_preproc(run_t *r){
 		return true;
 	}
 	
+	if(r->pbn==1310720){
+		printf("read target break!\n");
+	}
+
 	const char *cache_data=lru_get(r->pbn);
 	if(cache_data){
 		memcpy_cnt++;

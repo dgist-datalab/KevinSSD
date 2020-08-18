@@ -62,7 +62,12 @@ int main(int argc,char* argv[]){
 		inf_vector_make_req(value, bench_transaction_end_req, mark);
 	}
 
-	inf_vector_make_req(get_vectored_one_command(FS_RANGEGET_T, 3000, 0), bench_transaction_end_req, -1);
+	for(uint32_t i=1; i<=SHOWINGFULL; i++){
+		inf_vector_make_req(get_vectored_one_command(FS_DELETE_T, 3000+i/512, rand()%SHOWINGFULL), bench_transaction_end_req, -1);
+		if(i%512==0){
+			inf_vector_make_req(get_vectored_one_command(FS_TRANS_COMMIT, 3000+i/512-1, UINT32_MAX), bench_transaction_end_req, -1);
+		}
+	}
 
 	while(1){
 	}
