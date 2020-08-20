@@ -90,9 +90,6 @@ void bc_pop(){
 
 bool bc_valid_query(uint32_t _ppa){
 	uint32_t bc_num;
-	if(_ppa==30932976){
-		printf("break!\n");
-	}
 	if(set_bc_num(_ppa, &bc_num)){
 		_ppa%=(_PPS*NPCINPAGE);
 		if(bc_num>bc.max){

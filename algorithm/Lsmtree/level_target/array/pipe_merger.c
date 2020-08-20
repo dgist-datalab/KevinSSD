@@ -37,7 +37,7 @@ void temp_func(char* body, level *d, bool insert){
 	KEYT key;
 	ppa_t *ppa_ptr;
 	for_each_header_start(idx,key,ppa_ptr,bitmap,body)
-		if(KEYCONSTCOMP(key, "7386630000000000000000000000")==0){
+		if(KEYCONSTCOMP(key, "0000000000000000000000000000000000738663")==0){
 			if(key.len==0){
 				printf("error!\n");
 				abort();

@@ -1,4 +1,11 @@
-export CC=g++
+#override export CC=clang++-11
+#override export CXX=clang++-11
+#override export AR=llvm-ar-11
+
+override export CC=g++-9
+override export CXX=g++-9
+override export AR=gcc-ar
+override export NM=gcc-nm
 
 TARGET_INF=interface
 TARGET_LOWER=posix_memory
@@ -25,10 +32,10 @@ export COMMONFLAGS=\
 			-D$(TARGET_BM)\
 			-Wno-unused-but-set-variable\
 			-DKVSSD\
-			-DCHECKINGDATA\
-#		-O3\
+#		-DCHECKINGDATA\
+#			-O3 -march=native -mtune=native -flto=20 \
 #			-march=armv8-a+crypto\
-#			-DCHECKINGTIME\
+			-DCHECKINGTIME\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 
@@ -131,8 +138,7 @@ endif
 LIBS +=\
 		-lpthread\
 		-lm\
-#-laio\
-	#	-ljemalloc\
+		-ljemalloc $(CFLAGS)
 
 all: driver
 

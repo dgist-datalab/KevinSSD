@@ -77,6 +77,9 @@ char *get_vectored_bench(uint32_t *mark, bool istransaction){
 			prev=-1;
 			return commit_res;
 		}
+		else{
+			m=&_master->m[_master->n_num];			
+		}
 	}
 
 	*mark=_master->n_num;

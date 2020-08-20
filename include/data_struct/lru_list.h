@@ -4,24 +4,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef struct __node{
-	void *DATA;
-	struct __node *next;
-	struct __node *prev;
-} NODE;
+typedef struct lru_node{
+	void *data;
+	struct lru_node *next;
+	struct lru_node *prev;
+} lru_node;
 
 typedef struct __lru{
 	int size;
-	NODE *head;
-	NODE *tail;
+	lru_node *head;
+	lru_node *tail;
+	void (*free_data)(void *);
 } LRU;
 
 //lru
-void lru_init(LRU**);
+void lru_init(LRU**, void(*)(void*));
 void lru_free(LRU*);
-NODE* lru_push(LRU*, void*);
+lru_node* lru_push(LRU*, void*);
 void* lru_pop(LRU*);
-void lru_update(LRU*, NODE*);
-void lru_delete(LRU*, NODE*);
-
+void lru_update(LRU*, lru_node*);
+void lru_delete(LRU*, lru_node*);
 #endif

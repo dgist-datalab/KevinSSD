@@ -119,9 +119,6 @@ retry:
 	}
 
 //	printf("%d\n",res);
-	if(res==1310720){
-		printf("1310720 validate!\n");
-	}
 	validate_PPA(type,res);
 	return res;
 }
@@ -155,9 +152,6 @@ uint32_t getRPPA(uint8_t type,KEYT lpa, bool b,__gsegment *issame_bl){
 		res=bm->get_page_num(bm,t->active);
 	}
 	validate_PPA(type,res);
-	if(res==1310720){
-		printf("1310720 validate!\n");
-	}
 	return res;
 }
 
@@ -267,9 +261,6 @@ bool invalidate_PPA(uint8_t type,uint32_t ppa){
 
 	int res=LSM.bm->unpopulate_bit(LSM.bm,t_p);
 	if(type==HEADER){
-		if(res==1310720){
-			printf("1310720 invalidate!\n");
-		}
 		if(!res){
 		//	LSM.lop->all_print();
 		//printf("target_ppa:%u\n",ppa);

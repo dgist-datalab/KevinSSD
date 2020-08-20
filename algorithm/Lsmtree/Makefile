@@ -43,9 +43,9 @@ SRCS +=\
 	   lsmtree_transaction.c\
 	   key_packing.c\
 	   bitmap_cache.c\
-	   lru_cache.c\
 	   level_op_iterator.c\
 	   lsmtree_iterator.c\
+	   lsmtree_lru_manager.c\
 
 #merge_compaction.c\
 	   run_array.c\
@@ -54,6 +54,7 @@ SRCS +=\
 	   log_list.c\
 	   lsmtree_multi.c\
 	   pipeline_compaction2.c\
+	   lru_cache.c\
 
 
 OBJS :=\

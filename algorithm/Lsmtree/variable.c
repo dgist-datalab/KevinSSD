@@ -7,6 +7,7 @@
 #include <stdio.h>
 extern lsmtree LSM;
 extern MeasureTime write_opt_time[10];
+extern KEYT debug_key;
 void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset, int* target_valueset_from, key_packing **kp, bool isgc){
 	int v_idx;
 	value_set **v_des=NULL;
@@ -75,6 +76,9 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 				foot->map[target->ppa%NPCINPAGE]=target_length;
 
 				memcpy(&page[ptr],target->value.g_value,target_length*PIECE);
+				if(KEYCMP(target->key, debug_key)==0){
+					printf("debug key in %s:%d value:%d ppa:%u\n", __FILE__, __LINE__,page[ptr],target->ppa);	
+				}
 
 			}else{
 				snode *target=src->bucket[target_length][src->idx[target_length]-1];
@@ -82,7 +86,11 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 
 				foot->map[target->ppa%NPCINPAGE]=target->value.u_value->length;
 				memcpy(&page[ptr],target->value.u_value->value,target_length*PIECE);
+				if(KEYCMP(target->key, debug_key)==0){
+					printf("debug key in %s:%d value:%d ppa:%u\n", __FILE__, __LINE__,page[ptr], target->ppa);	
+				}
 				key_packing_insert(*kp, target->key);
+
 			}
 			used_piece+=target_length;
 			src->idx[target_length]--;

@@ -1,3 +1,4 @@
+#if 0
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
@@ -325,3 +326,4 @@ __slab_move_to_back(kmem_cache_t cp, kmem_slab_t slab) {
     }
     cp->slabs_back = slab;
 }
+#endif

@@ -4,7 +4,6 @@
 #include "lsmtree_transaction.h"
 #include "transaction_table.h"
 #include "../../include/utils/kvssd.h"
-#include "lru_cache.h"
 #include <stdlib.h>
 
 extern lsmtree LSM;

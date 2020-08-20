@@ -12,6 +12,7 @@
 
 extern lsmtree LSM;
 extern lmi LMI;
+extern KEYT debug_key;
 my_tm _tm;
 
 typedef struct transaction_write_params{
@@ -78,8 +79,10 @@ uint32_t __trans_write(char *data, value_set *value, ppa_t ppa, uint32_t type, r
 }
 
 uint32_t transaction_set(request *const req){
+	if(KEYCMP(req->key, debug_key)==0){
+		printf("debug key inserted!! value:%d\n",req->value->value[0]);
+	}
 	transaction_entry *etr;
-
 	fdriver_lock(&_tm.table_lock);
 	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req, &etr);
 	fdriver_unlock(&_tm.table_lock);
@@ -227,6 +230,9 @@ uint32_t __transaction_get(request *const req){
 	t_rparams *trp=NULL;
 	algo_req *tr_req=NULL;
 	uint32_t res=0;
+	if(KEYCMP(req->key, debug_key)==0){
+		printf("debug key inserted!! in read!\n");
+	}
 	if(req->magic==1){
 		goto search_lsm;
 	}
@@ -258,6 +264,7 @@ uint32_t __transaction_get(request *const req){
 			tr_req->params=(void*)trp;
 			tr_req->type=DATAR;
 			tr_req->parents=req;
+			req->value->ppa=target->ppa;
 			LSM.li->read(target->ppa/NPCINPAGE, PAGESIZE, trp->value, ASYNC, tr_req);
 			free(entry_set);
 			return 1;
@@ -271,6 +278,7 @@ uint32_t __transaction_get(request *const req){
 		case 0: //CACHED, CACHEDCOMMIT
 			free(entry_set);
 			free(req->params);
+			return 1;
 		case 1: //COMMMIT, LOGGED
 			req->magic=2;
 			return res;
@@ -297,7 +305,7 @@ inline uint32_t transaction_get_postproc(request *const req, uint32_t res_type){
 		req->type=FS_NOTFOUND_T;
 		printf("notfound key: %.*s\n",KEYFORMAT(req->key));
 		req->end_req(req);
-		abort();
+		//abort();
 	}
 	return res_type;
 }
@@ -326,6 +334,7 @@ void* transaction_end_req(algo_req * const trans_req){
 	t_cparams *cparams=NULL;
 	request *parents=trans_req->parents;
 	bool free_struct=true;
+	uint32_t start_offset;
 	switch(trans_req->type){
 		case TABLEW:
 		case LOGW:
@@ -353,6 +362,10 @@ void* transaction_end_req(algo_req * const trans_req){
 			break;
 		case DATAR:
 			rparams=(t_rparams*)trans_req->params;
+			start_offset=parents->value->ppa%NPCINPAGE;
+			if(start_offset){
+				memmove(parents->value->value, &parents->value->value[start_offset*PIECE], 4096);
+			}
 			parents->end_req(parents);
 			break;
 	}
@@ -395,7 +408,9 @@ retry:
 	if(res==UINT_MAX){
 		abort();
 	}
-
+	if(res==0){
+		printf("break!\n");
+	}
 	bm->set_oob(bm, (char*)&type, sizeof(type), res);
 	bm->populate_bit(bm,res);
 	return res;
@@ -434,10 +449,10 @@ uint32_t gc_log(){
 	
 	//printf("_PPS : %u\n", _PPS);
 	if(tseg->invalidate_number != _PPS ){
-		printf("table print!!\n");
-		transaction_table_print(_tm.ttb, false);
-		printf("table print end\n\n");
-		abort();
+		//printf("table print!!\n");
+		//transaction_table_print(_tm.ttb, false);
+		//printf("table print end\n\n");
+		//abort();
 	}
 	uint32_t tpage=0;
 	int bidx=0;

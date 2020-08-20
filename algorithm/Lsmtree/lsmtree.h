@@ -7,6 +7,7 @@
 #include "bloomfilter.h"
 #include "level.h"
 #include "page.h"
+#include "lsmtree_lru_manager.h"
 #include "../../include/settings.h"
 #include "../../include/rwlock.h"
 #include "../../interface/queue.h"
@@ -171,6 +172,8 @@ typedef struct lsmtree_monitor_info{
 	uint32_t channel_overlap_cnt;
 	uint32_t full_comp_cnt;
 	uint32_t non_full_comp;
+	uint32_t gc_comp_read_cnt;
+	uint32_t gc_comp_write_cnt;
 #ifdef PREFIXCHECK
 	uint32_t pr_check_cnt;
 #endif
@@ -205,6 +208,7 @@ typedef struct lsmtree{
 	level *c_level;
 	level_ops *lop;
 	lower_info* li;
+	struct lsm_lru *llru;
 #ifdef DVALUE
 	pthread_mutex_t data_lock;
 	ppa_t data_ppa; //for one data caching for read
@@ -251,7 +255,7 @@ bool lsm_kv_validcheck(uint8_t *, int idx);
 void lsm_kv_validset(uint8_t *,int idx);
 
 htable *htable_copy(htable *);
-htable *htable_assign(const char*,bool);
+htable *htable_assign(char*,bool);
 htable *htable_dummy_assign();
 void htable_free(htable*);
 void htable_print(htable*,ppa_t);

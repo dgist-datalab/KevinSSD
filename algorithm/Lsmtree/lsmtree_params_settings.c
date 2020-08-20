@@ -29,14 +29,14 @@ uint32_t calc_cache_page();
 uint64_t get_memory_per_run(lsmtree lsm,float size_factor);
 
 void lsm_setup_params(){
-//	LSP.total_memory=TOTALSIZE/1024;
+	//LSP.total_memory=TOTALSIZE/1024;
 	LSP.total_memory=SHOWINGSIZE/1024;
 	LSP.LEVELN=LSM.LEVELN;
 	LSP.KEYNUM=MAXKEYINMETASEG;
 	LSP.ONESEGMENT=LSP.KEYNUM*LSP.VALUESIZE;
 	printf("SHOWINGSIZE:%lu TOTAL _NOS:%ld\n",SHOWINGSIZE, _NOS);
 	LSP.HEADERNUM=(SHOWINGSIZE/LSP.ONESEGMENT)+(SHOWINGSIZE%LSP.ONESEGMENT?1:0);
-	LSP.total_memory-=(LSP.HEADERNUM*(DEFKEYLENGTH+4+8));
+	LSP.total_memory-=(LSP.HEADERNUM*(DEFKEYLENGTH+4)+LSP.HEADERNUM/10*4);
 	
 	LSP.bf_fprs=(float*)calloc(sizeof(float),LSM.LEVELN);
 	

@@ -224,7 +224,6 @@ int seq_unpopulate_bit (struct blockmanager* bm, uint32_t ppa){
 	if(seg->type!=DATA_S){
 		seg->total_invalid_number++;
 	}
-	
 	return res;
 }
 

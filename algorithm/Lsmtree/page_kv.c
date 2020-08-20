@@ -204,17 +204,15 @@ int gc_data(){
 			fdriver_lock(&_tm.table_lock);
 		}
 	}
+	compaction_wait_jobs();
 	__gc_data();
 	return 1;
 }
 
 extern _bc bc;
 int __gc_data(){
-	static int cnt=0;
-	printf("gc_data:%d\n", cnt++);
-	if(cnt==(231+1)){
-		printf("break!\n");
-	}
+	//static int cnt=0;
+	//printf("gc_cnt:%u\n",cnt++);
 	static bool flag=false;
 	if(!flag){
 		flag=true;
@@ -420,13 +418,15 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 	uint8_t result=0;
 	run_t *now=NULL;
 	keyset *found=NULL;
-
+	//static int cnt=0;
+	//printf("test cnt:%d\n",cnt++);
 //retry:
 	result=lsm_find_run(g->lpa,&now,NULL,&found,&params->level,&params->run, &params->target_level_lock);
 	if(result==FOUND){
 		if(skiplist_find(LSM.memtable,g->lpa)){
 			g->plength=0;
 			g->status=NOUPTDONE;
+			rwlock_read_unlock(params->target_level_lock);
 			return CACHING;
 		}
 	}

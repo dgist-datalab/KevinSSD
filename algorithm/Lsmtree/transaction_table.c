@@ -239,7 +239,8 @@ uint32_t transaction_table_find(transaction_table *table, uint32_t tid, KEYT key
 	uint32_t index=0;
 	for(; res!=transaction_indexer; res=rb_prev(res)){
 		transaction_entry *target=(transaction_entry*)res->item;
-		if(KEYCMP(key, target->range.start) >=0 && KEYCMP(key, target->range.end)<=0){
+	
+		if(target->status==CACHED || (KEYCMP(key, target->range.start) >=0 && KEYCMP(key, target->range.end)<=0)){
 			if(target->helper_type==BFILTER && !bf_check(target->read_helper.bf, key)){
 				continue;
 			}

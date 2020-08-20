@@ -8,11 +8,12 @@
 #ifndef _LRUCACHE_HPP_INCLUDED_
 #define	_LRUCACHE_HPP_INCLUDED_
 
-#include <unordered_map>
+#include <map>
 #include <list>
 #include <cstddef>
 #include <stdexcept>
 #include <stdint.h>
+#include "../utils.h"
 
 namespace cache {
 
@@ -25,6 +26,7 @@ public:
 	lru_cache(size_t max_size) :
 		_max_size(max_size) {
 			free_kv_pair=NULL;
+			measure_init(&my_time);
 	}
 
 	lru_cache(size_t max_size, void (*free_kv)(key_t *, value_t *)) :
@@ -71,14 +73,18 @@ public:
 	size_t size() const {
 		return _cache_items_map.size();
 	}
-	
+	~lru_cache(){
+		printf("my_time:");
+		measure_adding_print(&my_time);
+	}
 private:
 	std::list<key_value_pair_t> _cache_items_list;
-	std::unordered_map<key_t, list_iterator_t> _cache_items_map;
+	std::map<key_t, list_iterator_t> _cache_items_map;
 	size_t _max_size;
 	void (*free_kv_pair)(key_t* , value_t *);
 
 	const std::pair<key_t, value_t> remove_last_item(){
+		MS(&my_time);
 		auto last = _cache_items_list.end();
 		last--;
 		std::pair<key_t, value_t> res=*last;
@@ -87,8 +93,10 @@ private:
 		}
 		_cache_items_map.erase(last->first);
 		_cache_items_list.pop_back();
+		MA(&my_time);
 		return res;
 	}
+	MeasureTime my_time;
 };
 
 } // namespace cache

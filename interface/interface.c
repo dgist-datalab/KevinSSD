@@ -817,6 +817,7 @@ value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
 	else{
 		memset(res->value,0,length);
 	}
+	res->ppa=UINT32_MAX;
 	return res;
 }
 

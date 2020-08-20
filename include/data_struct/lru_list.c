@@ -1,9 +1,10 @@
 #include "lru_list.h"
 
-void lru_init(LRU** lru){
+void lru_init(LRU** lru, void (*data_free)(void*)){
 	*lru = (LRU*)malloc(sizeof(LRU));
 	(*lru)->size=0;
 	(*lru)->head = (*lru)->tail = NULL;
+	(*lru)->free_data=data_free;
 }
 
 void lru_free(LRU* lru){
@@ -11,9 +12,9 @@ void lru_free(LRU* lru){
 	free(lru);
 }
 
-NODE* lru_push(LRU* lru, void* table_ptr){
-	NODE *now = (NODE*)malloc(sizeof(NODE));
-	now->DATA = table_ptr;
+lru_node* lru_push(LRU* lru, void* table_ptr){
+	lru_node *now = (lru_node*)malloc(sizeof(lru_node));
+	now->data = table_ptr;
 	now->next = now->prev = NULL;
 	if(lru->size == 0){
 		lru->head = lru->tail = now;
@@ -31,8 +32,8 @@ void* lru_pop(LRU* lru){
 	if(!lru->head || lru->size == 0){
 		return NULL;
 	}
-	NODE *now = lru->tail;
-	void *re = now->DATA;
+	lru_node *now = lru->tail;
+	void *re = now->data;
 	lru->tail = now->prev;
 	if(lru->tail != NULL){
 		lru->tail->next = NULL;
@@ -41,11 +42,14 @@ void* lru_pop(LRU* lru){
 		lru->head = NULL;
 	}
 	lru->size--;
+	if(lru->free_data){
+		lru->free_data(re);
+	}
 	free(now);
 	return re;
 }
 
-void lru_update(LRU* lru, NODE* now){
+void lru_update(LRU* lru, lru_node* now){
 	if(now == NULL){
 		return ;
 	}
@@ -66,7 +70,7 @@ void lru_update(LRU* lru, NODE* now){
 	lru->head = now;
 }
 
-void lru_delete(LRU* lru, NODE* now){
+void lru_delete(LRU* lru, lru_node* now){
 	if(now == NULL){
 		return ;
 	}
@@ -88,5 +92,8 @@ void lru_delete(LRU* lru, NODE* now){
 		now->next->prev = now->prev;
 	}	
 	lru->size--;
+	if(lru->free_data){
+		lru->free_data(now->data);
+	}
 	free(now);
 }

@@ -5,7 +5,6 @@
 #include "bloomfilter.h"
 #include "nocpy.h"
 #include "lsmtree_transaction.h"
-#include "lru_cache.h"
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -443,9 +442,10 @@ void compaction_gc_add(skiplist *list){
 	uint32_t dummy;
 	leveling_node lnode;
 	bool is_gc_needed=false;
-	for(int i=0; i<LREQ_TYPE_NUM; i++){
-		before_type_cnt[i]=LSM.li->req_type_cnt[i];
-	}
+
+	uint32_t before_map_read=LSM.li->req_type_cnt[MAPPINGR];
+	uint32_t before_map_write=LSM.li->req_type_cnt[MAPPINGW];
+
 	bool last=false;
 	bool isfreed=true;
 	do{
@@ -485,9 +485,9 @@ void compaction_gc_add(skiplist *list){
 	if(!isfreed){
 		skiplist_free(list);
 	}
-	for(int i=0; i<LREQ_TYPE_NUM; i++){
-		cumulative_type_cnt[i]+=LSM.li->req_type_cnt[i]-before_type_cnt[i];
-	}
+
+	LMI.gc_comp_read_cnt+=(LSM.li->req_type_cnt[MAPPINGR]-before_map_read);
+	LMI.gc_comp_write_cnt+=(LSM.li->req_type_cnt[MAPPINGW]-before_map_write);
 }
 
 void compaction_check(KEYT key, bool force){
@@ -503,7 +503,6 @@ void compaction_check(KEYT key, bool force){
 	compaction_data_write(lnode);
 
 	LSM.memtable=skiplist_init();
-
 	compaction_assign(req, NULL, false);
 
 #ifdef WRITEWAIT
@@ -517,7 +516,8 @@ void compaction_assign_reinsert(skiplist *gc_list){
 	req->fromL=LSP.LEVELN;
 	req->last=true;
 	req->temptable=gc_list;
-	compaction_assign(req,NULL, false);
+
+	compaction_assign(req,NULL, true);
 }
 
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
@@ -585,17 +585,15 @@ bool htable_read_preproc(run_t *r){
 		return true;
 	}
 	
-	if(r->pbn==1310720){
-		printf("read target break!\n");
-	}
-
-	const char *cache_data=lru_get(r->pbn);
+	char *cache_data=lsm_lru_pick(LSM.llru, r);
 	if(cache_data){
 		memcpy_cnt++;
 		r->cpt_data=htable_assign(cache_data, 0);
+		lsm_lru_pick_release(LSM.llru, r);
 		res=true;
 	}
 	else{
+		lsm_lru_pick_release(LSM.llru, r);
 		r->cpt_data=htable_assign(NULL,!ISNOCPY(LSM.setup_values));
 		r->cpt_data->iscached=0;
 	}

@@ -7,19 +7,21 @@
 #include "../../include/slab.h"
 #include "../../interface/interface.h"
 #include "../../bench/bench.h"
+#include "lsmtree_lru_manager.h"
 #include "compaction.h"
 #include "lsmtree.h"
 #include "page.h"
 #include "nocpy.h"
 #include "lsmtree_transaction.h"
 #include "bitmap_cache.h"
-#include "lru_cache.h"
+//#include "lru_cache.h"
 #include<stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 extern MeasureTime write_opt_time[10];
+MeasureTime test_time;
 
 #ifdef KVSSD
 KEYT key_max, key_min;
@@ -62,6 +64,7 @@ uint32_t __lsm_get(request *const);
 uint32_t lsm_create(lower_info *li,blockmanager *bm, algorithm *lsm){
 	LSM.bm=bm;
 	__lsm_create_normal(li,lsm);
+	measure_init(&test_time);
 	LSM.result_padding=2;
 	return 1;
 }
@@ -103,12 +106,12 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	LSM.disk=(level**)malloc(sizeof(level*)*LSM.LEVELN);
 	printf("|-----LSMTREE params ---------\n");
 	for(int i=0; i<LSM.LEVELN; i++){//for lsmtree -1 level	
-		LSM.disk[i]=LSM.lop->init(ceil(m_num*LLP.size_factor),i,LSP.bf_fprs[i],false);
+		LSM.disk[i]=LSM.lop->init(ceil(m_num*(i==LSM.LEVELN-1?LLP.last_size_factor:LLP.size_factor)),i,LSP.bf_fprs[i],false);
 		printf("| [%d] fpr:%.12lf noe:%d iscached:%c\n",i,LSP.bf_fprs[i],LSM.disk[i]->m_num,i<LSM.LEVELCACHING?'y':'n');
 		all_header_num+=LSM.disk[i]->m_num;
 		m_num*=LLP.size_factor;
 	}   
-	
+	printf("| all header num:%lu\n", all_header_num);
 	printf("| level:%d sizefactor:%lf last:%lf\n",LSM.LEVELN,LLP.size_factor,LLP.last_size_factor);
 	printf("| all level size:%lu(MB), %lf(GB)",all_header_num*LSP.ONESEGMENT/M,(double)all_header_num*LSP.ONESEGMENT/G);
 	printf(" target size: %lf(GB)\n",(double)SHOWINGSIZE/G);
@@ -127,7 +130,8 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	fprintf(stderr,"LEVELN:%d (LEVELCACHING(%d)\n",LSM.LEVELN,LSM.LEVELCACHING);
 
 	compaction_init();
-	lru_init(LSP.cache_memory/PAGESIZE);
+	LSM.llru=lsm_lru_init(LSP.cache_memory/PAGESIZE);
+	//LSM.llru=lsm_lru_init(0);
 	if(ISTRANSACTION(LSM.setup_values)){
 		transaction_init(0);
 	}
@@ -176,11 +180,13 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	fprintf(stderr,"pr_check cnt:%d\n",LMI.pr_check_cnt);
 #endif
 	fprintf(stderr,"normal check cnt:%d\n",LMI.check_cnt);
+	fprintf(stderr,"gc_compaction_read:%d\n",LMI.gc_comp_read_cnt);
+	fprintf(stderr,"gc_compaction_write:%d\n",LMI.gc_comp_write_cnt);
 
 
 	free(LSM.level_lock);
 
-	lru_free();
+	lsm_lru_free(LSM.llru);
 
 	if(ISNOCPY(LSM.setup_values))
 		nocpy_free();
@@ -227,6 +233,7 @@ void* lsm_end_req(algo_req* const req){
 	void *req_temp_params=NULL;
 	PTR target=NULL;
 	rparams* rp;
+	uint16_t start_offset;
 	//htable mapinfo;
 	switch(params->lsm_type){
 		case TESTREAD:
@@ -304,9 +311,17 @@ void* lsm_end_req(algo_req* const req){
 			break;
 		case DATAR:
 #ifdef DVALUE
-			lsm_data_cache_insert(parents->value->ppa,parents->value);
-			parents->value=NULL;
+			//lsm_data_cache_insert(parents->value->ppa,parents->value);
+			//parents->value=NULL;
 #endif
+			if(parents->value->ppa==UINT32_MAX){
+				printf("%s:%d data ppa error\n", __FILE__,__LINE__);
+				abort();
+			}
+			start_offset=parents->value->ppa%NPCINPAGE;
+			if(parents->value->ppa%NPCINPAGE){
+				memmove(parents->value->value, &parents->value->value[start_offset*PIECE], 4096);
+			}
 			rp=(rparams*)parents->params;
 			req_temp_params=(void*)rp->datas;
 			if(req_temp_params){
@@ -391,7 +406,6 @@ uint32_t lsm_set(request * const req){
 }
 
 int nor;
-MeasureTime lsm_mt;
 uint32_t lsm_proc_re_q(){
 	void *re_q;
 	int res_type=0;
@@ -438,7 +452,6 @@ uint32_t lsm_get(request *const req){
 	uint32_t res_type=0;
 	if(!level_show){
 		level_show=true;
-		measure_init(&lsm_mt);
 	}
 	lsm_proc_re_q();
 
@@ -507,8 +520,9 @@ void* lsm_hw_end_req(algo_req* const req){
 		case DATAR:
 			if(req->type!=DATAR) abort();
 #ifdef DVALUE
+			/*
 			lsm_data_cache_insert(parents->value->ppa,parents->value);
-			parents->value=NULL;
+			parents->value=NULL;*/
 #endif
 			rp=(rparams*)parents->params;
 			req_temp_params=(void*)rp->datas;
@@ -587,7 +601,6 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 		if(rw_lock){
 			(*rw_lock)=level_rw_lock;
 		}
-
 		rwlock_read_lock(level_rw_lock);
 #ifdef PARTITION
 		if(up_entry){
@@ -624,15 +637,20 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 #endif
 		}
 		else{
-			const char *cache_data=lru_get(entries[0].pbn);
+			char *cache_data=lsm_lru_pick(LSM.llru, &entries[0]);
 			if(cache_data){
-				keyset *find=LSM.lop->find_keyset(const_cast<char*>(cache_data), key);
+				//MS(&test_time);
+				keyset *find=LSM.lop->find_keyset(cache_data, key);
+				lsm_lru_pick_release(LSM.llru, &entries[0]);
+				//MT(&test_time);
 				if(find){
 					*found=find;
 					if(level) *level=i;
 					rwlock_read_unlock(level_rw_lock);
 					return CACHING;
 				}
+			}else{
+				lsm_lru_pick_release(LSM.llru, &entries[0]);
 			}
 
 			if(level) *level=i;
@@ -670,6 +688,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 		target_node=skiplist_find(list,req->key);
 		if(!target_node) return 0;
 		if(target_node->value.u_value){
+			memcpy(req->value->value, target_node->value.u_value->value, 4096);
 			req->end_req(req);
 			return 2;
 		}
@@ -710,7 +729,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 			keyset *new_target_set;
 			algo_req *new_lsm_req;
 
-			lru_insert(entry->pbn, (char*)table);
+			lsm_lru_insert(LSM.llru, entry, (char*)table);
 
 			for(int i=0; i<entry->wait_idx; i++){
 				temp_req=(request*)entry->waitreq[i];
@@ -723,12 +742,13 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 //					temp_req->value->ppa=new_target_set->ppa>>1;
 					temp_req->value->ppa=new_target_set->ppa;
 #ifdef DVALUE
+					/*
 					if(lsm_data_cache_check(temp_req,temp_req->value->ppa)){
 						temp_req->end_req(temp_req);
 					}
-					else{
+					else{*/
 						LSM.li->read(temp_req->value->ppa/NPCINPAGE,PAGESIZE,temp_req->value,ASYNC,new_lsm_req);
-					}
+					//}
 #else
 					LSM.li->read(temp_req->value->ppa,PAGESIZE,temp_req->value,ASYNC,new_lsm_req);
 #endif
@@ -779,6 +799,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 
 		req->magic=3;
 #ifdef DVALUE
+		/*
 		if(lsm_data_cache_check(req,ppa)){
 			if(lsm_req){
 				free(lsm_req->params);
@@ -787,7 +808,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 			free(req->params);
 			req->end_req(req);
 			return res;
-		}
+		}*/
 		req->value->ppa=ppa;
 		if(!ISHWREAD(LSM.setup_values) || lsm_req->type==DATAR){
 			LSM.li->read(ppa/(NPCINPAGE),PAGESIZE,req->value,ASYNC,lsm_req);
@@ -966,7 +987,7 @@ uint32_t lsm_remove(request *const req){
 	return lsm_set(req);
 }
 
-htable *htable_assign(const char *cpy_src, bool using_dma){
+htable *htable_assign(char *cpy_src, bool using_dma){
 	htable *res=(htable*)malloc(sizeof(htable));
 	res->nocpy_table=NULL;
 	if(!using_dma){

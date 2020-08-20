@@ -2,6 +2,7 @@
 #include "../../level.h"
 #include "../../bloomfilter.h"
 #include "../../lsmtree.h"
+#include "../../lsmtree_lru_manager.h"
 #include "../../../../interface/interface.h"
 #include "../../../../include/utils/kvssd.h"
 #include "../../nocpy.h"
@@ -539,6 +540,7 @@ uint32_t array_unmatch_find( level *lev,KEYT s, KEYT e,  run_t ***rc){
 
 void array_free_run(run_t *e){
 	//static int cnt=0;
+	lsm_lru_delete(LSM.llru, e);
 	free(e->level_caching_data);
 	free(e->key.key);
 	free(e->end.key);
@@ -728,6 +730,7 @@ int array_bound_search(run_t *body, uint32_t max_t, KEYT lpa, bool islower){
 
 run_t *array_make_run(KEYT start, KEYT end, uint32_t pbn){
 	run_t * res=(run_t*)calloc(sizeof(run_t),1);
+	res->lru_cache_node=NULL;
 	kvssd_cpy_key(&res->key,&start);
 	kvssd_cpy_key(&res->end,&end);
 	res->pbn=pbn;

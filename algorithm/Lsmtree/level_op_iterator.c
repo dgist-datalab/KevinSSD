@@ -1,7 +1,6 @@
 #include "level_op_iterator.h"
 #include "lsmtree.h"
 #include "../../include/utils/kvssd.h"
-#include "lru_cache.h"
 
 extern lsmtree LSM;
 
@@ -146,11 +145,12 @@ level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_
 		else{
 			ppa_list[i]=t->pbn;
 			res->m_iter[i]=NULL;
-			const char *data=lru_get(ppa_list[i]);
+			char *data=lsm_lru_pick(LSM.llru, t);
 			if(data){
 				ppa_list[i]=UINT_MAX-1;
-				res->m_iter[i]=meta_iter_init(const_cast<char*>(data), key, include);
+				res->m_iter[i]=meta_iter_init(data, key, include);
 			}
+			lsm_lru_pick_release(LSM.llru, t);
 		}
 	}
 

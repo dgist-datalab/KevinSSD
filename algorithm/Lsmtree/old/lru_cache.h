@@ -2,6 +2,7 @@
 #define __LSM_LRU_CACHE_H__
 #include "../../include/data_struct/lrucache.hpp"
 
+
 void lru_init(uint32_t max_cache);
 void lru_insert(uint32_t pbn, char *data);
 void lru_decrease(uint32_t decreasing);

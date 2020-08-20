@@ -5,6 +5,7 @@
 #include "variable.h"
 
 extern lsmtree LSM;
+extern KEYT debug_key;
 snode * skiplist_insert_wP_gc(skiplist *list, KEYT key, char *value, uint32_t *time, bool deletef){
 #if !(defined(KVSSD) )
 	if(key>RANGE){
@@ -14,6 +15,10 @@ snode * skiplist_insert_wP_gc(skiplist *list, KEYT key, char *value, uint32_t *t
 #endif
 	snode *update[MAX_L+1];
 	snode *x=list->header;
+
+	if(KEYCMP(key, debug_key)==0){
+		printf("debug key in gc value:%d\n", value[0]);
+	}
 
 	for(int i=list->level; i>=1; i--){
 #if defined(KVSSD) 

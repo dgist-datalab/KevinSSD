@@ -79,8 +79,6 @@ bool level_sequential(level *from, level *to,level *des, run_t *entry,leveling_n
 		}
 		else{
 			entry=LSM.lop->make_run(lnode->start,lnode->end,-1);
-			free(entry->key.key);
-			free(entry->end.key);
 
 			LSM.lop->mem_cvt2table(lnode->mem,entry,NULL);
 			if(des->idx<LSM.LEVELCACHING){
@@ -92,7 +90,7 @@ bool level_sequential(level *from, level *to,level *des, run_t *entry,leveling_n
 				LSM.lop->insert(des,entry);
 				LSM.lop->release_run(entry);
 			}
-			else{
+			else{	
 				compaction_htable_write_insert(des,entry,false);
 			}
 			free(entry);
@@ -108,8 +106,14 @@ bool level_sequential(level *from, level *to,level *des, run_t *entry,leveling_n
 bool amf_debug_flag;
 uint32_t leveling(level *from,level *to, leveling_node *l_node,rwlock *lock){
 	static int cnt=0;
-	if(cnt++>=9628){
-		//printf("break!\n");
+	cnt++;
+	if(from && from->n_num>from->m_num){
+		printf("level exceed max run! %d\n", cnt);
+		abort();
+	}
+	if(to && to->n_num>to->m_num){
+		printf("level exceed max run! %d\n", cnt);
+		abort();
 	}
 	//printf("target cnt:%d\n", cnt++);
 	level *target_origin=to;
@@ -297,6 +301,6 @@ skip:
 	compaction_sub_post();
 	if(!lnode) skiplist_free(skip);
 	else if(lnode && !lnode->mem) skiplist_free(skip);
-//	LSM.lop->print_level_summary();
+	//LSM.lop->print_level_summary();
 	return 1;
 }

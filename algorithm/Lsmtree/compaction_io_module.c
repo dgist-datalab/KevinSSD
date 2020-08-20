@@ -3,7 +3,6 @@
 #include "nocpy.h"
 #include "../../bench/bench.h"
 #include "lsmtree_transaction.h"
-#include "lru_cache.h"
 #ifdef KVSSD
 extern KEYT key_min, key_max;
 #endif
@@ -43,10 +42,11 @@ ppa_t compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 			entry->cpt_data->sets=NULL;
 		}
 	}
-	LSM.lop->insert(target,entry);
+	run_t *cache_target=LSM.lop->insert(target,entry);
 	if(isbg){
 		abort();
 	}else{
+		lsm_lru_insert(LSM.llru, cache_target,(char*) entry->cpt_data->sets);
 		compaction_htable_write(entry->pbn,entry->cpt_data,entry->key);
 	}
 	LSM.lop->release_run(entry);
@@ -71,8 +71,6 @@ uint32_t compaction_htable_write(ppa_t ppa,htable *input, KEYT lpa){
 	areq->type=HEADERW;
 	params->ppa=ppa;
 	
-	lru_insert(ppa, params->value->value);
-
 	LSM.li->write(ppa,PAGESIZE,params->value,ASYNC,areq);
 	//printf("%u\n",ppa);
 	return ppa;
@@ -110,6 +108,8 @@ void compaction_run_move_insert(level *target, run_t *entry){
 	if(target->idx<LSM.LEVELCACHING){
 		entry->level_caching_data=(char*)malloc(PAGESIZE);
 		memcpy(entry->level_caching_data, (char*)entry->cpt_data->sets, PAGESIZE);
+		entry->pbn=UINT32_MAX;
+		htable_free(entry->cpt_data);
 		LSM.lop->insert(target,entry);
 		LSM.lop->release_run(entry);
 	}

@@ -63,6 +63,7 @@ typedef struct run{
 	void *run_data;
 	char *level_caching_data;
 	char iscompactioning;
+	void *lru_cache_node;
 
 	volatile char isflying;
 	void *from_req;

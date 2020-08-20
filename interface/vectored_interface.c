@@ -74,7 +74,7 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), int mark){
 		temp->key.len=*(uint8_t*)buf_parser(buf, &idx, sizeof(uint8_t));
 		temp->key.key=buf_parser(buf, &idx, temp->key.len);
 #ifdef CHECKINGDATA
-		if(temp->type){
+		if(temp->type==FS_SET_T){
 			__checking_data_make_key( temp->key,temp->value->value);
 		}
 #endif
