@@ -80,7 +80,7 @@ uint32_t __trans_write(char *data, value_set *value, ppa_t ppa, uint32_t type, r
 
 uint32_t transaction_set(request *const req){
 	if(KEYCMP(req->key, debug_key)==0){
-		printf("debug key inserted!! value:%d\n",req->value->value[0]);
+		printf("target key inserted value:%d\n", req->value->value[0]);
 	}
 	transaction_entry *etr;
 	fdriver_lock(&_tm.table_lock);
@@ -230,9 +230,6 @@ uint32_t __transaction_get(request *const req){
 	t_rparams *trp=NULL;
 	algo_req *tr_req=NULL;
 	uint32_t res=0;
-	if(KEYCMP(req->key, debug_key)==0){
-		printf("debug key inserted!! in read!\n");
-	}
 	if(req->magic==1){
 		goto search_lsm;
 	}

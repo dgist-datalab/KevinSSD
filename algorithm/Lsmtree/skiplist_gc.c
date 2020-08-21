@@ -16,10 +16,6 @@ snode * skiplist_insert_wP_gc(skiplist *list, KEYT key, char *value, uint32_t *t
 	snode *update[MAX_L+1];
 	snode *x=list->header;
 
-	if(KEYCMP(key, debug_key)==0){
-		printf("debug key in gc value:%d\n", value[0]);
-	}
-
 	for(int i=list->level; i>=1; i--){
 #if defined(KVSSD) 
 		while(KEYCMP(x->list[i]->key,key)<0)

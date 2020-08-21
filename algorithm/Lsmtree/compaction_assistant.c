@@ -49,6 +49,7 @@ void compaction_sub_pre(){
 }
 
 void compaction_selector(level *a, level *b,leveling_node *lnode, rwlock* rwlock){
+	fdriver_lock(&LSM.iterator_lock);
 	if(b->istier){
 
 	}
@@ -65,6 +66,7 @@ void compaction_selector(level *a, level *b,leveling_node *lnode, rwlock* rwlock
 			rwlock_write_unlock(&LSM.level_lock[s_idx]);
 		}	
 	}
+	fdriver_unlock(&LSM.iterator_lock);
 }
 
 void compaction_sub_wait(){

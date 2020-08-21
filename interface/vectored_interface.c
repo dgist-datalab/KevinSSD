@@ -28,7 +28,7 @@ inline char *buf_parser(char *buf, uint32_t* idx, uint32_t length){
 void* inf_transaction_end_req(void *req);
 extern bool TXN_debug;
 extern char *TXN_debug_ptr;
-uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), int mark){
+uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark){
 	uint32_t idx=0;
 	vec_request *txn=(vec_request*)malloc(sizeof(vec_request));
 	//idx+=sizeof(uint32_t);//length;
@@ -65,10 +65,18 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), int mark){
 				temp->magic=0;
 				temp->value=inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 				break;
-			case FS_SET_T:
-				temp->value=inf_get_valueset(NULL, FS_MALLOC_W, 4096);
-
+			case FS_RANGEGET_T:
+				temp->buf=(char*)malloc(2*M);
+				temp->length=(2*M)/4/K-2;
 				break;
+			case FS_SET_T:
+				temp->value=inf_get_valueset(NULL, FS_MALLOC_W, DEFVALUESIZE);
+				break;
+			default:
+				printf("error type!\n");
+				abort();
+				break;
+
 		}
 		
 		temp->key.len=*(uint8_t*)buf_parser(buf, &idx, sizeof(uint8_t));
@@ -184,6 +192,20 @@ void *vectored_main(void *__input){
 	return NULL;
 }
 
+#ifdef CHECKINGDATA
+void range_get_data_checker(uint32_t len, char *buf){
+	uint32_t idx=0;
+	KEYT temp;
+	for(uint32_t i=0; i<len; i++){
+		temp.len=*(uint8_t*)&buf[idx++];
+		temp.key=&buf[idx];
+		idx+=temp.len;
+		__checking_data_check_key(temp,&buf[idx]);
+		idx+=4096;
+	}
+}
+#endif
+
 bool vectored_end_req (request * const req){
 	vectored_request *preq=req->parents;
 	switch(req->type){
@@ -197,13 +219,19 @@ bool vectored_end_req (request * const req){
 	//		memcpy(req->buf, req->value->value, 4096);
 			if(req->value)
 				inf_free_valueset(req->value,FS_MALLOC_R);
-
+			else{
+				printf("deleted data!!\n");
+			}
+			break;
+		case FS_RANGEGET_T:
+#ifdef CHECKINGDATA
+			range_get_data_checker(req->length, req->buf);
+#endif
 			break;
 		case FS_SET_T:
 			bench_reap_data(req, mp.li);
 			if(req->value) inf_free_valueset(req->value, FS_MALLOC_W);
 			break;
-	
 	}
 	preq->done_cnt++;
 	uint32_t tag_num=req->tag_num;

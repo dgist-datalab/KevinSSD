@@ -153,6 +153,8 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 #ifdef EMULATOR
 	LSM.rb_ppa_key=rb_create();
 #endif
+
+	fdriver_mutex_init(&LSM.iterator_lock);
 	return 0;
 }
 
@@ -320,7 +322,7 @@ void* lsm_end_req(algo_req* const req){
 			}
 			start_offset=parents->value->ppa%NPCINPAGE;
 			if(parents->value->ppa%NPCINPAGE){
-				memmove(parents->value->value, &parents->value->value[start_offset*PIECE], 4096);
+				memmove(parents->value->value, &parents->value->value[start_offset*PIECE], DEFVALUESIZE);
 			}
 			rp=(rparams*)parents->params;
 			req_temp_params=(void*)rp->datas;
@@ -688,7 +690,13 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 		target_node=skiplist_find(list,req->key);
 		if(!target_node) return 0;
 		if(target_node->value.u_value){
-			memcpy(req->value->value, target_node->value.u_value->value, 4096);
+			memcpy(req->value->value, target_node->value.u_value->value, DEFVALUESIZE);
+			req->end_req(req);
+			return 2;
+		}
+		else if(!target_node->isvalid){
+			inf_free_valueset(req->value, FS_MALLOC_R);
+			req->value=NULL;
 			req->end_req(req);
 			return 2;
 		}

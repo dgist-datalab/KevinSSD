@@ -428,9 +428,15 @@ char* statusToString(uint8_t a){
 void transaction_table_print(transaction_table *table, bool full){
 	for(uint32_t i=0; i<table->full; i++){
 		if(!full && table->etr[i].status==EMPTY) continue;
+		if(table->etr[i].status==LOGGED){
 		printf("[%u] tid: %u status:%s %.*s ~ %.*s page:%u\n", i, table->etr[i].tid, 
 				statusToString(table->etr[i].status), KEYFORMAT(table->etr[i].range.start),
 				KEYFORMAT(table->etr[i].range.end), table->etr[i].ptr.physical_pointer);
+		}
+		else if (table->etr[i].status==CACHED){
+			printf("[%u] tid: %u status:%s %.*s ~ \n", i, table->etr[i].tid, 
+				statusToString(table->etr[i].status), KEYFORMAT(table->etr[i].ptr.memtable->header->list[1]->key));	
+		}
 	}
 }
 

@@ -157,6 +157,9 @@ void bench_make_data(){
 		case VECTOREDRW:
 			vectored_rw(start,end, _m, false);
 			break;
+		case VECTOREDMIXED:
+			vectored_rw(start,end, _m, false);
+			break;
 #ifndef KVSSD
 		case SEQLATENCY:
 			seq_latency(start,end,50,_m);

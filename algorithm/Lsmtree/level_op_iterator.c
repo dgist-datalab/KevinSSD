@@ -189,6 +189,16 @@ level_op_iterator *level_op_iterator_transact_init(transaction_entry *etr, KEYT 
 	return res;
 }
 
+level_op_iterator *level_op_iterator_skiplist_init(skiplist *skip, KEYT prefix, bool include){
+	level_op_iterator *res=(level_op_iterator*)malloc(sizeof(level_op_iterator));
+	res->max_idx=1;
+	res->idx=0;
+
+	res->m_iter=(meta_iterator**)malloc(sizeof(meta_iterator*)*res->max_idx);
+	res->m_iter[0]=meta_iter_skip_init(skip, prefix, include);
+	return res;
+}
+
 void level_op_iterator_set_iterator(level_op_iterator *loi, uint32_t idx, char *data, KEYT prefix, bool include){
 	loi->m_iter[idx]=meta_iter_init(data, prefix, include);
 }

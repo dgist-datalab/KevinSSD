@@ -33,7 +33,7 @@ MeasureTime write_opt_time[11];
 extern master_processor mp;
 extern uint64_t cumulative_type_cnt[LREQ_TYPE_NUM];
 MeasureTime total_time;
-KEYT debug_key={40,"0000000000000000000000000000000001531961"};
+KEYT debug_key={40,"0000000000000000000000000000000000000009"};
 void log_print(int sig){
 //	while(!bench_is_finish()){}
 	inf_free();
@@ -52,27 +52,29 @@ int main(int argc,char* argv[]){
 	inf_init(0,0,temp_cnt,temp_argv);
 	bench_init();
 	bench_vectored_configure();
-	//bench_transaction_configure(4, 2);
+	bench_transaction_configure(4, 2);
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
-	bench_add(VECTOREDRSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)));
-	bench_add(VECTOREDRW,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL))*2);
+	bench_add(VECTOREDUNIQRSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)));
+	bench_add(VECTOREDMIXED,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL))/2);
 
 	char *value;
 	uint32_t mark;
-	while((value=get_vectored_bench(&mark, false))){
+	while((value=get_vectored_bench(&mark, true))){
 		inf_vector_make_req(value, bench_transaction_end_req, mark);
 	}
-/*
+
+	//inf_vector_make_req(get_vectored_one_command(FS_RANGEGET_T, 3000, 0), bench_transaction_end_req, -1);
+	/*
 	for(uint32_t i=1; i<=SHOWINGFULL; i++){
 		inf_vector_make_req(get_vectored_one_command(FS_DELETE_T, 3000+i/512, rand()%SHOWINGFULL), bench_transaction_end_req, -1);
 		if(i%512==0){
 			inf_vector_make_req(get_vectored_one_command(FS_TRANS_COMMIT, 3000+i/512-1, UINT32_MAX), bench_transaction_end_req, -1);
 		}
 	}
+	*/
+	//while(1){
+	//}
 
-	while(1){
-	}
-*/
 	force_write_start=true;
 	
 	printf("bench finish\n");

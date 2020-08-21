@@ -58,7 +58,6 @@ struct request {
 	volatile int num; /*length of requests*/
 	volatile int cpl; /*number of completed requests*/
 #endif
-	int not_found_cnt;
 	value_set *value;
 	//value_set **multi_value;
 	char **app_result;

@@ -143,7 +143,7 @@ char *get_vectored_one_command(uint8_t type, uint32_t tid, uint32_t key){
 		make_vector(&idx, res, (char*)&tid, sizeof(tid));
 		return res;
 	}
-	uint8_t keylen=KEYLENGTH;
+	uint8_t keylen=KEYLENGTH-1;
 	make_vector(&idx, res, (char*)&keylen, sizeof(keylen));
 	idx+=my_itoa_len(key, keylen, NULL, &res[idx]);
 	uint32_t offset=0;
@@ -272,6 +272,44 @@ void vectored_get(uint32_t start, uint32_t end, monitor* m, bool isseq){
 
 		for(uint32_t j=0; j<request_per_command; j++){
 			(*(uint8_t*)&buf[idx])=FS_GET_T;
+			idx+=sizeof(uint8_t);
+
+			(*(uint8_t*)&buf[idx])=KEYLENGTH;
+			idx+=sizeof(uint8_t);
+			if(isseq){	
+				idx+=my_itoa(start+i*request_per_command+j, NULL, &buf[idx]);
+			}
+			else{
+				idx+=my_itoa(start+rand()%(end-start), NULL, &buf[idx]);
+			}
+			(*(uint32_t*)&buf[idx])=0; //offset
+			idx+=sizeof(uint32_t);
+			m->read_cnt++;
+		}
+	}
+}
+
+void vectored_mixed(uint32_t start, uint32_t end, monitor* m, bool isseq){
+	uint32_t request_per_command=_master->trans_configure.request_num_per_command;
+	uint32_t number_of_command=(m->m_num)/request_per_command;
+	m->m_num=number_of_command*request_per_command;
+	m->tbody=(transaction_bench_value*)malloc(number_of_command * sizeof(transaction_bench_value));
+
+	uint32_t request_buf_size=_master->trans_configure.request_size * request_per_command;
+	m->command_num=number_of_command;
+	m->command_issue_num=0;
+	for(uint32_t i=0; i<number_of_command; i++){
+		uint32_t idx=0;
+		m->tbody[i].buf=(char*)malloc(request_buf_size + TXNHEADERSIZE);
+		char *buf=m->tbody[i].buf;
+
+		idx+=sizeof(uint32_t);//tid
+		(*(uint32_t*)&buf[idx])=request_per_command;
+		idx+=sizeof(uint32_t);
+
+		for(uint32_t j=0; j<request_per_command; j++){
+
+			(*(uint8_t*)&buf[idx])=((rand()%10)<7)?FS_GET_T:FS_SET_T;
 			idx+=sizeof(uint8_t);
 
 			(*(uint8_t*)&buf[idx])=KEYLENGTH;
