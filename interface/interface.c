@@ -222,15 +222,13 @@ uint32_t inf_algorithm_caller(request *const inf_req){
 		case FS_RMW_T:
 			mp.algo->read(inf_req);
 			break;
-		case FS_BUSE_R:
-			mp.algo->read(inf_req);
-			break;
-		case FS_BUSE_W:
-			mp.algo->write(inf_req);
-			break;
+
 #ifdef KVSSD
 		case FS_RANGEGET_T:
 			mp.algo->range_query(inf_req);
+			break;
+		case FS_KEYRANGE_T:
+			mp.algo->key_range_query(inf_req);
 			break;
 #endif
 		case FS_TRANS_BEGIN:
@@ -449,13 +447,7 @@ static request *inf_get_req_instance(const FSTYPE type, KEYT key, char *_value, 
 				req->multi_value[i]=inf_get_valueset(NULL,FS_GET_T,PAGESIZE);
 			}*/
 			break;
-        case FS_BUSE_R:
-            req->value=inf_get_valueset(_value,FS_BUSE_R,len);
-            break;
-        case FS_BUSE_W:
-            req->value=inf_get_valueset(_value,FS_BUSE_W,len);
-            break;
-		default:
+        default:
 			break;
 	}
 
@@ -529,10 +521,6 @@ bool inf_make_req_special(const FSTYPE type, const KEYT key, char* value, int le
 //int range_getcnt=0;
 //static int end_req_num=0;
 bool inf_end_req( request * const req){
-#ifdef BUSE_MEASURE
-    if(req->type==FS_BUSE_R)
-        MS(&infendTime);
-#endif
 	if(req->type==FS_RMW_T){
 		req->type=FS_SET_T;
 		value_set *original=req->value;
@@ -785,17 +773,6 @@ bool inf_iter_req_apps(char type, char *prefix, uint8_t key_len,char **value, in
 
 value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
 	value_set *res=(value_set*)malloc(sizeof(value_set));
-	//check dma alloc type
-    if(type==FS_BUSE_R || type==FS_BUSE_W){
-        res->dmatag=0;
-        res->length=length;
-        if(length==PAGESIZE)
-            res->value=in_v;
-        else{
-            res->value=(char*)malloc(PAGESIZE);
-        }
-        return res;
-    }
 #ifdef DVALUE
 	length=(length/PIECE+(length%PIECE?1:0))*PIECE;
 #endif
@@ -822,13 +799,7 @@ value_set *inf_get_valueset(PTR in_v, int type, uint32_t length){
 }
 
 void inf_free_valueset(value_set *in, int type){
-    if(type==FS_BUSE_R || type==FS_BUSE_W){
-        if(in->length!=PAGESIZE)
-            free(in->value);
-        free(in);
-        return;
-    }
-	if(!in->from_app){
+    if(!in->from_app){
 		if(in->dmatag==-1){
 			free(in->value);
 		}

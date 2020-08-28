@@ -143,7 +143,7 @@ char *get_vectored_one_command(uint8_t type, uint32_t tid, uint32_t key){
 		make_vector(&idx, res, (char*)&tid, sizeof(tid));
 		return res;
 	}
-	uint8_t keylen=KEYLENGTH-1;
+	uint8_t keylen=DEFKEYLENGTH;
 	make_vector(&idx, res, (char*)&keylen, sizeof(keylen));
 	idx+=my_itoa_len(key, keylen, NULL, &res[idx]);
 	uint32_t offset=0;

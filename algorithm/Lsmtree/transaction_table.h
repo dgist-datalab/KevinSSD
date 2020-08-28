@@ -3,7 +3,11 @@
 
 #include "../../include/sem_lock.h"
 #include "lsmtree_transaction.h"
+#include "../../include/data_struct/list.h"
 #include "../../interface/interface.h"
+#include "../../include/utils.h"
+#include "memory_log.h"
+#include "write_buffer_manager.h"
 #include "bloomfilter.h"
 #include <queue>
 
@@ -36,6 +40,7 @@ typedef struct transaction_entry{
 	t_ptr ptr;
 	t_range range;
 	uint8_t helper_type;
+	li_node *wbm_node;
 	transaction_read_helper read_helper;
 }transaction_entry;
 
@@ -43,8 +48,8 @@ typedef struct transaction_table{
 	transaction_entry *etr;
 	volatile uint32_t now;
 	volatile uint32_t full;
+	struct write_buffer_manager *wbm;
 	uint32_t base;
-	uint32_t cached_num;
 	pthread_cond_t block_cond;
 	pthread_mutex_t block;
 	std::queue<transaction_entry *> *etr_q; 
@@ -70,4 +75,6 @@ value_set* transaction_table_force_write(transaction_table *, uint32_t tid, tran
 value_set* transaction_table_get_data(transaction_table *);
 
 transaction_entry *transaction_table_get_comp_target(transaction_table *);
+transaction_entry *get_etr_by_tid(uint32_t inter_tid);
+transaction_entry *get_transaction_entry(transaction_table *table, uint32_t inter_tid);
 #endif

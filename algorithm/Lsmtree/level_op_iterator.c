@@ -5,7 +5,7 @@
 extern lsmtree LSM;
 
 
-meta_iterator *meta_iter_init(char *data, KEYT prefix, bool include){
+meta_iterator *meta_iter_init(char *data, KEYT key, bool include){
 	meta_iterator *res=(meta_iterator*)malloc(sizeof(meta_iterator));
 	res->data=data;
 	res->len_map=(uint16_t*)data;
@@ -22,7 +22,7 @@ meta_iterator *meta_iter_init(char *data, KEYT prefix, bool include){
 		temp.key=&data[bitmap[mid]+sizeof(ppa_t)];
 		temp.len=bitmap[mid+1]-bitmap[mid]-sizeof(ppa_t);
 		
-		t_res=KEYCMP(temp, prefix);
+		t_res=KEYCMP(temp, key);
 		if(res==0){
 			res->idx=include?mid:mid+1;
 		}
@@ -35,18 +35,27 @@ meta_iterator *meta_iter_init(char *data, KEYT prefix, bool include){
 	}
 	else res->idx=mid;
 
-	res->prefix=prefix;
+	res->key=key;
+
+	res->m_prefix=key;
+	res->m_prefix.len=PREFIXNUM;
+
 	res->include=include;
 	return res;
 }
 
-meta_iterator *meta_iter_skip_init(skiplist *skip, KEYT prefix, bool include){	
+meta_iterator *meta_iter_skip_init(skiplist *skip, KEYT key, bool include){	
 	meta_iterator *res=(meta_iterator*)malloc(sizeof(meta_iterator));
 	res->data=NULL;
 	res->sk_node=NULL;
 	res->header=skip->header;
+	res->key=key; 
+	res->m_prefix=key;
+	res->m_prefix.len=PREFIXNUM;
+
+	KEYT prefix=res->m_prefix;
 	bool check=false;
-	for_each_sk(res->sk_node, skip){
+	for_each_sk_from(res->sk_node, skiplist_find_lowerbound(skip, key), skip){
 		if(KEYFILTER(res->sk_node->key, prefix.key, prefix.len)){
 			if(!check){
 				check=true;
@@ -59,7 +68,7 @@ meta_iterator *meta_iter_skip_init(skiplist *skip, KEYT prefix, bool include){
 	}
 	res->max_idx=0;
 	res->idx=0;
-	res->prefix=prefix;
+
 	res->include=include;
 	return res;
 }
@@ -74,7 +83,7 @@ bool meta_iter_pick_key_addr_pair(meta_iterator *mi, ka_pair *ka){
 		ka->key=mi->sk_node->key;
 		ka->data=mi->sk_node->value.u_value->value;
 		ka->ppa=UINT32_MAX;
-		if(!KEYFILTER(ka->key, mi->prefix.key, mi->prefix.len)){
+		if(!KEYFILTER(ka->key, mi->m_prefix.key, mi->m_prefix.len)){
 			mi->idx++;
 			return false;	
 		}
@@ -84,7 +93,7 @@ bool meta_iter_pick_key_addr_pair(meta_iterator *mi, ka_pair *ka){
 		ka->key.key=&mi->data[mi->len_map[mi->idx]+sizeof(ppa_t)];
 		ka->key.len=mi->len_map[mi->idx+1]-mi->len_map[mi->idx]-sizeof(ppa_t);
 
-		if(!KEYFILTER(ka->key, mi->prefix.key, mi->prefix.len)){
+		if(!KEYFILTER(ka->key, mi->m_prefix.key, mi->m_prefix.len)){
 			return false;
 		}
 	}
@@ -115,7 +124,9 @@ level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_
 	
 	KEYT end;
 	kvssd_cpy_key(&end, &key);
+	end.len=PREFIXNUM;
 	end.key[end.len-1]++;
+
 	LSM.lop->range_find(lev, key, end, &target_run, max_meta);
 	free(end.key);
 
@@ -130,7 +141,7 @@ level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_
 	uint32_t *ppa_list=NULL;
 	if(lev->idx<LSM.LEVELCACHING){
 		*should_read=false;
-	}else{
+		}else{
 		ppa_list=(uint32_t*)malloc(sizeof(uint32_t)*(res->max_idx+1));
 		*should_read=true;
 	}
@@ -164,7 +175,7 @@ level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_
 }
 
 
-level_op_iterator *level_op_iterator_transact_init(transaction_entry *etr, KEYT prefix, uint32_t *ppa, bool include, bool *should_read){
+level_op_iterator *level_op_iterator_transact_init(transaction_entry *etr, KEYT key, uint32_t *ppa, bool include, bool *should_read){
 	level_op_iterator *res=(level_op_iterator*)malloc(sizeof(level_op_iterator));
 	res->max_idx=1;
 	res->idx=0;
@@ -173,7 +184,7 @@ level_op_iterator *level_op_iterator_transact_init(transaction_entry *etr, KEYT 
 
 	switch(etr->status){
 		case CACHED:
-			res->m_iter[0]=meta_iter_skip_init(etr->ptr.memtable, prefix, include);
+			res->m_iter[0]=meta_iter_skip_init(etr->ptr.memtable, key, include);
 			*should_read=false;
 			break;
 		case CACHEDCOMMIT:

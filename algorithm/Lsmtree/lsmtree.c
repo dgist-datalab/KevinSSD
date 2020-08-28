@@ -36,6 +36,7 @@ struct algorithm algo_lsm={
 	.remove=lsm_set,
 	.partial_update=lsm_partial_update,
 	.range_query=lsm_range_get,
+	.key_range_query=lsm_range_get,
 	.wait_bg_jobs=lsm_wait_bg_jobs,
 	.trans_begin=transaction_start,
 	.trans_commit=transaction_commit
@@ -1276,8 +1277,8 @@ void *testing(KEYT a, ppa_t ppa){
 	return NULL;
 }
 
-#define  MEM_NUM_LIMIT  (KEYBITMAP/sizeof(uint16_t)-2)
-#define  SIZE_LIMIT (PAGESIZE-KEYBITMAP)
+
+
 bool lsm_should_flush(skiplist *mem, __segment *seg){
 	uint32_t data_size=mem->data_size;
 	uint32_t needed_page=data_size/PAGESIZE+(data_size%PAGESIZE?1:0)+1;
@@ -1293,7 +1294,7 @@ bool lsm_should_flush(skiplist *mem, __segment *seg){
 	}
 
 check_mem:
-	if((mem->size >= MEM_NUM_LIMIT) || (mem->all_length >= SIZE_LIMIT)){
+	if(METAFLUSHCHECK(*mem)){
 		LMI.full_comp_cnt++;
 		return true;
 	}

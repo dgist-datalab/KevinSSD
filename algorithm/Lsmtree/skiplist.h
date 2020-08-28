@@ -4,6 +4,7 @@
 #include "../../include/container.h"
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
+#include "../../include/utils/kvssd.h"
 #ifdef demand
 #include "../../include/demand_settings.h"
 #endif
@@ -77,11 +78,11 @@ typedef struct length_bucket{
 
 typedef struct skiplist{
 	uint8_t level;
-	uint64_t size;
+	uint64_t size;//number of pairs
 #if defined(KVSSD)
-	uint32_t all_length;
+	uint32_t all_length; //key bytes
 #endif
-	uint32_t data_size;
+	uint32_t data_size; //data bytes
 	snode *header;
 	bool isgc;
 }skiplist;
@@ -101,6 +102,33 @@ snode *skiplist_strict_range_search(skiplist *,KEYT);
 snode *skiplist_insert(skiplist*,KEYT,value_set *,bool); //insert skiplist, return inserted snode
 snode *skiplist_insert_iter(skiplist *,KEYT lpa, ppa_t ppa);
 #ifdef Lsmtree
+
+static inline bool skiplist_data_to_bucket(skiplist *input, l_bucket *b, KEYT *start, KEYT *end,bool set_range){
+	bool data_is_empty=true;
+	uint32_t idx=1;
+	snode *target;
+	for_each_sk(target,input){
+		if(set_range){
+			if(idx==1){
+				kvssd_cpy_key(start,&target->key);
+			}
+			if (idx==input->size){
+				kvssd_cpy_key(end,&target->key);
+			}
+		}
+		idx++;
+
+		if(target->value.u_value==0) continue;
+
+		if(data_is_empty) data_is_empty=false;
+		if(b->bucket[target->value.u_value->length]==NULL){
+			b->bucket[target->value.u_value->length]=(snode**)malloc(sizeof(snode*)*(input->size+1));
+		}
+		b->bucket[target->value.u_value->length][b->idx[target->value.u_value->length]++]=target;
+	}
+	return data_is_empty;
+}
+
 skiplist *skiplist_merge(skiplist *src,skiplist *des);
 snode *skiplist_insert_wP(skiplist*,KEYT,ppa_t,bool);//with ppa;
 snode *skiplist_insert_wP_gc(skiplist*,KEYT,char *value, uint32_t *time,bool);//with ppa;

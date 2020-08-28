@@ -54,8 +54,9 @@ int main(int argc,char* argv[]){
 	bench_vectored_configure();
 	bench_transaction_configure(4, 2);
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
-	bench_add(VECTOREDUNIQRSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)));
-	bench_add(VECTOREDMIXED,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL))/2);
+	//bench_add(VECTOREDUNIQRSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)));
+	bench_add(VECTOREDRSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)));
+	//bench_add(VECTOREDMIXED,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL))/2);
 
 	char *value;
 	uint32_t mark;
@@ -63,7 +64,7 @@ int main(int argc,char* argv[]){
 		inf_vector_make_req(value, bench_transaction_end_req, mark);
 	}
 
-	//inf_vector_make_req(get_vectored_one_command(FS_RANGEGET_T, 3000, 0), bench_transaction_end_req, -1);
+	inf_vector_make_req(get_vectored_one_command(FS_KEYRANGE_T, 3000, 2330), bench_transaction_end_req, -1);
 	/*
 	for(uint32_t i=1; i<=SHOWINGFULL; i++){
 		inf_vector_make_req(get_vectored_one_command(FS_DELETE_T, 3000+i/512, rand()%SHOWINGFULL), bench_transaction_end_req, -1);
@@ -72,8 +73,9 @@ int main(int argc,char* argv[]){
 		}
 	}
 	*/
-	//while(1){
-	//}
+	while(1){
+
+	}
 
 	force_write_start=true;
 	

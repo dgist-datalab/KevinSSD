@@ -59,8 +59,10 @@ void copy_key_value_to_buf(char *buf, KEYT key, char *data){
 	*(uint8_t*)&buf[offset++]=key.len;
 	memcpy(&buf[offset], key.key, key.len);
 	offset+=key.len;
-	memcpy(&buf[offset], data, 4096);
-	offset+=4096;
+	if(data){
+		memcpy(&buf[offset], data, 4096);
+		offset+=4096;
+	}
 }
 
 void *lsm_range_end_req(algo_req *const al_req){
@@ -111,35 +113,9 @@ void *lsm_range_end_req(algo_req *const al_req){
 	return NULL;
 }
 
-uint32_t __lsm_range_get(request *const req){ //after range_get
-	range_get_params *rgparams=(range_get_params*)req->params;
-	li_node *temp;
-	level_op_iterator **loi=rgparams->loi;
-	for_each_list_node(rgparams->algo_params_list, temp){
-		algo_lsm_range_params *al_params=(algo_lsm_range_params*)temp->data;
-		level_op_iterator_set_iterator(loi[al_params->lev], al_params->idx, al_params->copied_data, req->key, req->offset);
-		free(al_params);
-	}
-	list_free(rgparams->algo_params_list);
-
-	rgparams->read_target_num=rgparams->read_num=0;
-
-	skiplist *temp_list=skiplist_init();
-	snode *tt;
-	for(int32_t i=rgparams->total_loi_num-1; i>=0; i--){
-		ka_pair t;
-		while(level_op_iterator_pick_key_addr_pair(loi[i],&t)){
-			tt=skiplist_insert_iter(temp_list, t.key, t.ppa);
-			if(t.ppa==UINT32_MAX){
-				tt->value.g_value=t.data;
-			}
-			level_op_iterator_move_next(loi[i]);
-		}
-	}
-
+inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgparams, skiplist *temp_list){
 	snode *t_node;
 	uint32_t offset=0;
-
 	rgparams->read_target_num=temp_list->size>req->length?req->length:temp_list->size;
 	req->length=rgparams->read_target_num;
 	uint32_t i=0;
@@ -192,9 +168,76 @@ next_round:
 		i++;
 		if(break_flag) break;
 	}
+	return 1;
+}
+
+inline static uint32_t __lsm_range_key(request *const req, range_get_params *rgparams, skiplist *temp_list){
+	snode *t_node;
+	uint32_t offset=0;
+	bool break_flag=false;
+	rgparams->read_target_num=temp_list->size>req->length?req->length:temp_list->size;
+	req->length=rgparams->read_target_num;
+	uint32_t i=0;
+	uint32_t iter_num=0;
+	for_each_sk(t_node, temp_list){
+		if(i+1==req->length){
+			break_flag=true;
+		}
+		printf("%d iter key :%.*s\n", iter_num++,KEYFORMAT(t_node->key));
+		copy_key_value_to_buf(&req->buf[offset], t_node->key, NULL);
+		offset+=t_node->key.len+1;
+		i++;
+		if(break_flag) break;
+	}
+
+	req->end_req(req);
+	for(int32_t i=rgparams->total_loi_num-1; i>=0; i--){
+		level_op_iterator_free(rgparams->loi[i]);
+	}
+	free(rgparams->loi);
+	free(rgparams);
+	return 1;
+}
+
+uint32_t __lsm_range_get(request *const req){ //after range_get
+	range_get_params *rgparams=(range_get_params*)req->params;
+	li_node *temp;
+	level_op_iterator **loi=rgparams->loi;
+	for_each_list_node(rgparams->algo_params_list, temp){
+		algo_lsm_range_params *al_params=(algo_lsm_range_params*)temp->data;
+		level_op_iterator_set_iterator(loi[al_params->lev], al_params->idx, al_params->copied_data, req->key, req->offset);
+		free(al_params);
+	}
+	list_free(rgparams->algo_params_list);
+
+	rgparams->read_target_num=rgparams->read_num=0;
+
+	skiplist *temp_list=skiplist_init();
+	snode *tt;
+	for(int32_t i=rgparams->total_loi_num-1; i>=0; i--){
+		ka_pair t;
+		while(level_op_iterator_pick_key_addr_pair(loi[i],&t)){
+			tt=skiplist_insert_iter(temp_list, t.key, t.ppa);
+			if(t.ppa==UINT32_MAX){
+				tt->value.g_value=t.data;
+			}
+			level_op_iterator_move_next(loi[i]);
+		}
+	}
+
+	uint32_t res=0;
+	if(req->type==FS_RANGEGET_T){
+		res=__lsm_range_KV(req, rgparams, temp_list);
+	}
+	else if(req->type==FS_KEYRANGE_T){
+		res=__lsm_range_key(req, rgparams, temp_list);
+	}else{
+		printf("unknown req->type %s:%d\n", __FILE__, __LINE__);
+		abort();
+	}
 
 	skiplist_free_iter(temp_list);
-	return 1;
+	return res;
 }
 
 uint32_t lsm_range_get(request *const req){

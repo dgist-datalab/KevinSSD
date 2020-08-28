@@ -648,6 +648,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 }
 
 #ifdef Lsmtree
+
 //static int make_value_cnt=0;
 value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEYT *end){
 	value_set **res=(value_set**)malloc(sizeof(value_set*)*(input->size+2));
@@ -656,27 +657,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 	memset(&b,0,sizeof(b));
 	uint32_t idx=1;
 	snode *target;
-	int total_size=0;
-	bool full_delete=true;
-	for_each_sk(target,input){
-		if(idx==1){
-			kvssd_cpy_key(start,&target->key);
-		}
-		if (idx==input->size){
-			kvssd_cpy_key(end,&target->key);
-		}
-		idx++;
-
-		if(target->value.u_value==0) continue;
-
-		if(full_delete) full_delete=false;
-		if(b.bucket[target->value.u_value->length]==NULL){
-			b.bucket[target->value.u_value->length]=(snode**)malloc(sizeof(snode*)*(input->size+1));
-		}
-		b.bucket[target->value.u_value->length][b.idx[target->value.u_value->length]++]=target;
-		total_size+=target->value.u_value->length;
-
-	}
+	bool full_delete=skiplist_data_to_bucket(input, &b, start, end, true);
 	
 	if(full_delete){
 		res[0]=NULL;
@@ -687,7 +668,9 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 	key_packing *kp=NULL;
 	lsm_block_aligning(2,false);
 	res[0]=variable_get_kp(&kp, false);
-
+	int res_idx=1;
+	full_page_setting(&res_idx, res, kp, &b);
+/*
 	int res_idx=1;
 	for(int i=0; i<b.idx[PAGESIZE/PIECE]; i++){//full page
 		target=b.bucket[PAGESIZE/PIECE][i];
@@ -706,7 +689,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 		res_idx++;
 	}
 	b.idx[PAGESIZE/PIECE]=0;
-	
+*/	
 	for(int i=1; i<PAGESIZE/PIECE+1; i++){
 		if(b.idx[i]!=0)
 			break;

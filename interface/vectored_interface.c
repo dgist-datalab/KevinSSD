@@ -65,6 +65,7 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark)
 				temp->magic=0;
 				temp->value=inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 				break;
+			case FS_KEYRANGE_T:
 			case FS_RANGEGET_T:
 				temp->buf=(char*)malloc(2*M);
 				temp->length=(2*M)/4/K-2;
@@ -223,7 +224,11 @@ bool vectored_end_req (request * const req){
 				printf("deleted data!!\n");
 			}
 			break;
+		case FS_KEYRANGE_T:
+			free(req->buf);
+			break;
 		case FS_RANGEGET_T:
+			free(req->buf);
 #ifdef CHECKINGDATA
 			range_get_data_checker(req->length, req->buf);
 #endif
@@ -233,12 +238,14 @@ bool vectored_end_req (request * const req){
 			if(req->value) inf_free_valueset(req->value, FS_MALLOC_W);
 			break;
 	}
+
 	preq->done_cnt++;
 	uint32_t tag_num=req->tag_num;
 	if(preq->size==preq->done_cnt){
 		if(preq->end_req)
 			preq->end_req((void*)preq);	
 	}
+	
 	pthread_mutex_lock(&flying_cnt_lock);
 	flying_cnt++;
 	if(flying_cnt > QDEPTH){
@@ -246,7 +253,6 @@ bool vectored_end_req (request * const req){
 		abort();
 	}
 	pthread_mutex_unlock(&flying_cnt_lock);
-
 	tag_manager_free_tag(tm, tag_num);
 	return true;
 }

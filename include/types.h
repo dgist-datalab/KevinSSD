@@ -17,8 +17,7 @@
 #define FS_ITER_ALL_VALUE_T 14
 #define FS_ITER_RLS_T 15
 #define FS_RANGEGET_T 16
-#define FS_BUSE_R 17
-#define FS_BUSE_W 18
+#define FS_KEYRANGE_T 17
 #define FS_TRANS_ABORT 19
 
 #define LREQ_TYPE_NUM 15

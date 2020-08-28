@@ -2,6 +2,8 @@
 #define __H_UTIL__
 
 #include "../bench/measurement.h"
+#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+#define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 
 #ifndef NPRINTOPTION
 #define MT(t) measure_stamp((t))

@@ -46,6 +46,8 @@ SRCS +=\
 	   level_op_iterator.c\
 	   lsmtree_iterator.c\
 	   lsmtree_lru_manager.c\
+	   memory_log.c\
+	   write_buffer_manager.c\
 
 #merge_compaction.c\
 	   run_array.c\

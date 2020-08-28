@@ -15,6 +15,7 @@
 extern lsmtree LSM;
 extern lmi LMI;
 extern pm d_m;
+extern my_tm _tm;
 Redblack transaction_indexer;
 fdriver_lock_t indexer_lock;
 inline bool commit_exist(){
@@ -57,16 +58,35 @@ inline uint32_t number_of_indexer(Redblack r){
 	return num;
 }
 
-uint32_t transaction_table_init(transaction_table **_table, uint32_t size, uint32_t cached_entry_num){
+bool transaction_entry_buffered_write(transaction_entry *etr, li_node *node){
+	//node for new entry
+	skiplist *t_mem=etr->ptr.memtable;
+	htable *key_sets=LSM.lop->mem_cvt2table(t_mem, NULL, NULL);
+	transaction_log_write_entry(etr, (char*)key_sets->sets);
+	htable_free(key_sets);
+	skiplist_free(t_mem);
+	
+	uint32_t tid=etr->tid/_tm.ttb->base;
+	uint32_t offset=etr->tid%_tm.ttb->base;
+	etr->wbm_node=NULL;
+
+	etr=get_transaction_entry(_tm.ttb, tid*_tm.ttb->base+offset+1);
+	etr->wbm_node=node;
+	node->data=(void*)etr;
+	return false;
+}
+
+uint32_t transaction_table_init(transaction_table **_table, uint32_t size, uint32_t max_kp_num){
 	uint32_t table_entry_num=size/TABLE_ENTRY_SZ;
 	(*_table)=(transaction_table *)malloc(sizeof(transaction_table));
 	transaction_table *table=(*_table);
 	table->etr=(transaction_entry*)calloc(table_entry_num,sizeof(transaction_entry));
 	table->full=table_entry_num;
-	table->cached_num=cached_entry_num;
 	table->base=table_entry_num;
 	table->now=0;
-	
+
+	table->wbm=write_buffer_init(max_kp_num, transaction_entry_buffered_write);
+
 	pthread_mutex_init(&table->block,NULL);
 	pthread_cond_init(&table->block_cond, NULL);
 
@@ -106,21 +126,17 @@ uint32_t transaction_table_destroy(transaction_table * table){
 				break;
 		}
 	}
+
+	write_buffer_free(table->wbm);
+
 	free(table->etr);
 	free(table);
 
 	return 1;
 }
 
-uint32_t transaction_table_add_new(transaction_table *table, uint32_t tid, uint32_t offset){
+transaction_entry *get_transaction_entry(transaction_table *table, uint32_t inter_tid){
 	transaction_entry *etr;
-	if(table->now >= table->full){
-		if(!commit_exist()){
-			transaction_table_print(table, true);
-			return UINT_MAX;
-		}
-	}
-	
 	pthread_mutex_lock(&table->block);
 	while(table->etr_q->empty()){
 		pthread_cond_wait(&table->block_cond, &table->block);
@@ -133,22 +149,35 @@ uint32_t transaction_table_add_new(transaction_table *table, uint32_t tid, uint3
 
 	etr->ptr.memtable=skiplist_init();
 	etr->status=CACHED;
-	etr->tid=tid * table->base+offset;
+	etr->tid=inter_tid;
 	etr->helper_type=BFILTER;
 	etr->read_helper.bf=bf_init(512, 0.1);
 
 	fdriver_lock(&indexer_lock);
 	rb_insert_int(transaction_indexer, etr->tid, (void*)etr);
 	fdriver_unlock(&indexer_lock);
+
+	return etr;
+}
+
+uint32_t transaction_table_add_new(transaction_table *table, uint32_t tid, uint32_t offset){
+	transaction_entry *etr;
+	if(table->now >= table->full){
+		if(!commit_exist()){
+			transaction_table_print(table, true);
+			return UINT_MAX;
+		}
+	}
+	
+	etr=get_transaction_entry(table, tid*table->base+offset);
+	etr->wbm_node=write_buffer_insert_trans_etr(table->wbm, etr);
 	return 1;
 }
 
 
 inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *target){
 	if(t_mem->size==0) return NULL;
-	static uint32_t num_limit=KEYBITMAP/sizeof(uint16_t)-2;
-	static uint32_t size_limit=PAGESIZE-KEYBITMAP;
-	if(!(t_mem->size >= num_limit || t_mem->all_length >=size_limit)){
+	if(!METAFLUSHCHECK(*t_mem)){
 		LMI.non_full_comp++;
 	}
 	value_set **data_sets=skiplist_make_valueset(t_mem, LSM.disk[0], &target->range.start, &target->range.end);
@@ -186,11 +215,20 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 		}
 		target=find_last_entry(tid*table->base);
 	}
-	skiplist *t_mem=target->ptr.memtable;
-
 	if(target->helper_type==BFILTER){
 		bf_set(target->read_helper.bf, req->key);
 	}
+
+	if(table->wbm){
+		write_buffer_insert_KV(table->wbm, target, req->key, req->value, req->type==FS_DELETE_T);
+		return NULL;
+	}
+	else{
+		abort();
+	}
+
+	skiplist *t_mem=target->ptr.memtable;
+
 	if(req->type==FS_DELETE_T){
 		skiplist_insert(t_mem, req->key, NULL, false);
 	}
@@ -283,6 +321,7 @@ value_set* transaction_table_force_write(transaction_table *table, uint32_t tid,
 	value_set *res=trans_flush_skiplist(t_mem, target);
 
 	if(res==NULL){
+		if(table->wbm) write_buffer_delete_node(table->wbm, target->wbm_node);
 		transaction_table_clear(table, target);
 	}
 	return res;
@@ -445,6 +484,9 @@ uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, 
 	uint32_t i=0;
 	Redblack target;
 	fdriver_lock(&indexer_lock);
+
+	KEYT prefix=key;
+	prefix.len=PREFIXNUM;
 	
 	transaction_entry **res=(transaction_entry **)malloc(sizeof(transaction_entry*) * table->now);
 	rb_traverse(target, transaction_indexer){
@@ -454,15 +496,10 @@ uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, 
 			switch(etr->status){
 				case EMPTY:break;
 				case CACHED:
-					if(KEYFILTERCMP(etr->ptr.memtable->header->list[1]->key, key.key, key.len)<=0){
-						for_each_sk(s,etr->ptr.memtable){
-							if(s->list[1] == etr->ptr.memtable->header){
-								break;
-							}
-						}
-						if(KEYFILTERCMP(s->key, key.key, key.len)>=0){
-							res[i++]=etr;
-						}
+					s=skiplist_find_lowerbound(etr->ptr.memtable, key);
+					if(s==etr->ptr.memtable->header) break;
+					if((KEYFILTERCMP(s->key, prefix.key, prefix.len)==0) || (s->list[1]!=etr->ptr.memtable->header && KEYFILTER(s->list[1]->key, prefix.key, prefix.len)==0)){
+						res[i++]=etr;
 					}
 					break;
 				case CACHEDCOMMIT:
@@ -485,4 +522,15 @@ uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, 
 	fdriver_unlock(&indexer_lock);
 	(*etr)=res;
 	return i;
+}
+
+transaction_entry *get_etr_by_tid(uint32_t inter_tid){
+	Redblack res;
+	transaction_entry *etr=NULL;
+
+	fdriver_lock(&indexer_lock);
+	rb_find_int(transaction_indexer, inter_tid, &res);
+	etr=(transaction_entry*)res->item;
+	fdriver_unlock(&indexer_lock);
+	return etr;
 }

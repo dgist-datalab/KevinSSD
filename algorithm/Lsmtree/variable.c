@@ -214,4 +214,28 @@ value_set *variable_change_kp(key_packing **kp, uint32_t remain, value_set *org_
 	}
 }
 
+void full_page_setting(int *_res_idx, value_set **res, key_packing *kp, l_bucket* b){
+	int res_idx=*_res_idx;
+	uint32_t max=b->idx[PAGESIZE/PIECE];
+	snode *target;
+	for(int i=0; i<max; i++){
+		target=b->bucket[PAGESIZE/PIECE][i];
+		if(block_active_full(false)){
+			res[res_idx]=variable_change_kp(&kp, 0, NULL, false);
+			res_idx++;
+		}
+		res[res_idx]=target->value.u_value;
+		res[res_idx]->ppa=LSM.lop->moveTo_fr_page(false);//real physical index
+		target->ppa=LSM.lop->get_page((PAGESIZE/PIECE),target->key);
+		footer *foot=(footer*)pm_get_oob(CONVPPA(target->ppa),DATA,false);
+		foot->map[0]=NPCINPAGE;
+
+		target->value.u_value=NULL;
+		key_packing_insert(kp, target->key);
+		res_idx++;
+	}
+	b->idx[PAGESIZE/PIECE]=0;
+
+	*_res_idx=res_idx;
+}
 

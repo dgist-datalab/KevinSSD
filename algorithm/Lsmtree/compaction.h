@@ -74,6 +74,8 @@ uint32_t leveling(level *,level*, leveling_node *,rwlock *);
 uint32_t multiple_leveling(int from, int to);
 
 void compaction_check(KEYT key,bool force);
+void compaction_send_creq_by_skip(skiplist *skip, bool sync);
+
 void compaction_gc_add(skiplist *list);
 void compaction_free();
 bool compaction_force();

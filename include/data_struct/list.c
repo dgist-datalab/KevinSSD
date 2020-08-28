@@ -17,18 +17,18 @@ inline li_node *new_li_node(void *data){
 }
 
 
-void list_insert(list *li, void *data){
+li_node* list_insert(list *li, void *data){
 	li_node *t=new_li_node(data);
 	li->size++;
 	if(!li->head){
 		li->head=li->tail=t;
-		return;
+		return t;
 	}
 	
 	t->prv=li->tail;
 	li->tail->nxt=t;
 	li->tail=t;
-	return;
+	return t;
 }
 
 void list_delete_node(list *li, li_node* t){

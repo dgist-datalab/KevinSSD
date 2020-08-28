@@ -22,7 +22,8 @@ typedef struct meta_iterator{
 	uint16_t max_idx;
 	uint16_t *len_map;
 	snode *now;
-	KEYT prefix;
+	KEYT key;
+	KEYT m_prefix;
 }meta_iterator;
 
 typedef struct level_op_iterator{

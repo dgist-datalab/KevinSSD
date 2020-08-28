@@ -6,6 +6,7 @@
 #include "page.h"
 #include "transaction_table.h"
 #include "compaction.h"
+#include "../../include/sem_lock.h"
 
 struct transaction_entry;
 
@@ -14,8 +15,9 @@ typedef struct transaction_manager{
 	pm t_pm;
 	struct transaction_table *ttb;
 	ppa_t last_table;
+	struct memory_log *mem_log;
+	skiplist *committed_KP;
 }my_tm;
-
 
 typedef struct transaction_read_params{
 	transaction_entry **entry_set;
@@ -37,5 +39,8 @@ uint32_t transaction_clear(struct transaction_entry *etr);
 uint32_t processing_read(void *req, transaction_entry **entry_set, t_rparams *trp, uint8_t type);
 bool transaction_invalidate_PPA(uint8_t type, uint32_t ppa);
 bool transaction_debug_search(KEYT key);
-struct leveling_node *transaction_get_comp_target();
+struct leveling_node *transaction_get_comp_target(skiplist *skip);
+
+void transaction_evicted_write_entry(uint32_t inter_tid, char *data);
+void transaction_log_write_entry(transaction_entry *etr, char *data);
 #endif

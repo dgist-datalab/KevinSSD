@@ -492,6 +492,19 @@ void compaction_gc_add(skiplist *list){
 	LMI.gc_comp_write_cnt+=(LSM.li->req_type_cnt[MAPPINGW]-before_map_write);
 }
 
+void compaction_send_creq_by_skip(skiplist *skip, bool sync){
+	compR *req;
+	leveling_node *lnode=(leveling_node *)malloc(sizeof(leveling_node));
+	
+	req=(compR*)malloc(sizeof(compR));
+	req->fromL=-1;
+	req->temptable=skip;
+	req->lnode=lnode;
+	req->lnode->mem=skip;
+	
+	compaction_assign(req, NULL, sync);
+}
+
 void compaction_check(KEYT key, bool force){
 	if(!lsm_should_flush(LSM.memtable, d_m.active)) return;
 	compR *req;
