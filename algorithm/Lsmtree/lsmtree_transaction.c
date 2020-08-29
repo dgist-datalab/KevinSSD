@@ -41,10 +41,10 @@ uint32_t transaction_init(uint32_t cached_size){
 	transaction_table_init(&_tm.ttb, PAGESIZE, target_KP_buffer);
 	cached_entry_num-=(target_KP_buffer*4096)/PAGESIZE;
 	if(((int)cached_entry_num)<=0){
-		printf("memory calculated miss! %s:%d\n", __FILE__, __LINE__);
-		abort();
+		printf("[error!!!!!-----------------------------]memory calculated miss! %s:%d\n", __FILE__, __LINE__);
 	}
-	_tm.mem_log=memory_log_init(cached_entry_num, transaction_evicted_write_entry);
+	//_tm.mem_log=memory_log_init(cached_entry_num, transaction_evicted_write_entry);
+	_tm.mem_log=memory_log_init(128, transaction_evicted_write_entry);
 	_tm.committed_KP=skiplist_init();
 
 	fdriver_mutex_init(&_tm.table_lock);
@@ -148,6 +148,7 @@ typedef struct commit_log_read{
 void *insert_KP_to_skip(KEYT, ppa_t);
 
 uint32_t transaction_commit(request *const req){
+	printf("commit called!\n");
 	if(!transaction_table_checking_commitable(_tm.ttb, req->tid)){
 		transaction_table_clear_all(_tm.ttb, req->tid);
 		req->end_req(req);
@@ -661,12 +662,12 @@ bool transaction_debug_search(KEYT key){
 
 void transaction_evicted_write_entry(uint32_t inter_tid, char *data){
 	transaction_entry *etr=get_etr_by_tid(inter_tid);
-	transaction_log_write_entry(etr, data);
-}
-
-void transaction_log_write_entry(transaction_entry *etr, char *data){
 	ppa_t ppa=get_log_PPA(LOGW);
 	value_set *value=inf_get_valueset(data, FS_MALLOC_W, PAGESIZE);
 	__trans_write(NULL, value, ppa, LOGW, NULL, false);
 	etr->ptr.physical_pointer=ppa;
+}
+
+void transaction_log_write_entry(transaction_entry *etr, char *data){
+	etr->ptr.physical_pointer=memory_log_insert(_tm.mem_log, etr->tid, -1, data);
 }

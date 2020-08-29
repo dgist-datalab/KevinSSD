@@ -104,6 +104,11 @@ snode *skiplist_insert_iter(skiplist *,KEYT lpa, ppa_t ppa);
 #ifdef Lsmtree
 
 static inline bool skiplist_data_to_bucket(skiplist *input, l_bucket *b, KEYT *start, KEYT *end,bool set_range){
+	static int cnt=0;
+	if(cnt++==5){	
+		printf("break!\n");
+	}
+	//printf("%d debug_cnt\n",cnt++);
 	bool data_is_empty=true;
 	uint32_t idx=1;
 	snode *target;
@@ -122,9 +127,10 @@ static inline bool skiplist_data_to_bucket(skiplist *input, l_bucket *b, KEYT *s
 
 		if(data_is_empty) data_is_empty=false;
 		if(b->bucket[target->value.u_value->length]==NULL){
-			b->bucket[target->value.u_value->length]=(snode**)malloc(sizeof(snode*)*(input->size+1));
+			b->bucket[target->value.u_value->length]=(snode**)malloc(sizeof(snode*)*(512));
 		}
 		b->bucket[target->value.u_value->length][b->idx[target->value.u_value->length]++]=target;
+		input->data_size-=target->value.u_value->length*PIECE;
 	}
 	return data_is_empty;
 }

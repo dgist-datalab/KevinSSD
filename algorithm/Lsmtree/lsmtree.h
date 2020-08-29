@@ -21,8 +21,8 @@
 #include "../../interface/interface.h"
 //#define ONESEGMENT (DEFKEYINHEADER*DEFVALUESIZE)
 #define		META_NUM_LIMIT  (KEYBITMAP/sizeof(uint16_t)-2)
-#define		META_SIZE_LIMIT (PAGESIZE-KEYBITMAP)
-#define		METAFLUSHCHECK(skip) ((skip).size >= META_NUM_LIMIT || (skip).all_length>META_SIZE_LIMIT)
+#define		META_SIZE_LIMIT (PAGESIZE-KEYBITMAP-128)
+#define		METAFLUSHCHECK(skip) ((skip).size >= META_NUM_LIMIT || (skip).all_length>=META_SIZE_LIMIT)
 
 #ifdef DVALUE
 	#define CONVPPA(_ppa) _ppa/NPCINPAGE

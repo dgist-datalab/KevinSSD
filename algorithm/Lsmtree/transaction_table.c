@@ -69,6 +69,7 @@ bool transaction_entry_buffered_write(transaction_entry *etr, li_node *node){
 	uint32_t tid=etr->tid/_tm.ttb->base;
 	uint32_t offset=etr->tid%_tm.ttb->base;
 	etr->wbm_node=NULL;
+	etr->status=LOGGED;
 
 	etr=get_transaction_entry(_tm.ttb, tid*_tm.ttb->base+offset+1);
 	etr->wbm_node=node;
@@ -201,10 +202,7 @@ inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *targe
 
 bool delete_debug=false;
 value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid, request *const req, transaction_entry **t){
-	if(!delete_debug && tid==3001){
-		printf("break!\n");
-		delete_debug=true;
-	}
+
 	transaction_entry *target=find_last_entry(tid*table->base);
 	if(!target){
 		//printf("new transaction added in set!\n");

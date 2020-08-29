@@ -617,7 +617,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		x->value.u_value=value;
 
 #ifdef KVSSD
-		list->all_length+=KEYLEN(key)+sizeof(uint32_t);
+		list->all_length+=KEYLEN(key);
 #endif
 
 #ifdef Lsmtree

@@ -131,10 +131,12 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	fprintf(stderr,"LEVELN:%d (LEVELCACHING(%d)\n",LSM.LEVELN,LSM.LEVELCACHING);
 
 	compaction_init();
-	LSM.llru=lsm_lru_init(LSP.cache_memory/PAGESIZE);
-	//LSM.llru=lsm_lru_init(0);
+	//LSM.llru=lsm_lru_init(LSP.cache_memory/PAGESIZE);
+	LSM.llru=lsm_lru_init(0);
 	if(ISTRANSACTION(LSM.setup_values)){
-		transaction_init(0);
+		printf("now debugging plz fix this option!!!!!!!!!!!!!!!!!!!!!!!!!!\n ");
+		//transaction_init(LSP.cache_memory);
+		transaction_init(LSP.cache_memory+M);
 	}
 	q_init(&LSM.re_q,RQSIZE);
 

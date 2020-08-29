@@ -83,8 +83,9 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 
 				foot->map[target->ppa%NPCINPAGE]=target->value.u_value->length;
 				memcpy(&page[ptr],target->value.u_value->value,target_length*PIECE);
+				inf_free_valueset(target->value.u_value, FS_MALLOC_W);
+				target->value.u_value=NULL;
 				key_packing_insert(*kp, target->key);
-
 			}
 			used_piece+=target_length;
 			src->idx[target_length]--;
@@ -235,7 +236,6 @@ void full_page_setting(int *_res_idx, value_set **res, key_packing *kp, l_bucket
 		res_idx++;
 	}
 	b->idx[PAGESIZE/PIECE]=0;
-
 	*_res_idx=res_idx;
 }
 
