@@ -28,15 +28,20 @@ memory_log *memory_log_init(uint32_t max, void (*log_write)(uint32_t tid, char *
 }
 
 uint32_t memory_log_insert(memory_log *ml, uint32_t tid, uint32_t KP_size, char *data){
-	if(!ml->max){return UINT32_MAX;}
+	if(!ml->max){
+		return UINT32_MAX;
+	}
 	uint32_t res=UINT32_MAX;
 	memory_node *mn;
+//	printf("memlog insert : %u, remain: %u\n", tid, ml->max-ml->now);
+
 	fdriver_lock(&ml->lock);
 	if(ml->now>=ml->max){
 		mn=(memory_node*)lru_pop(ml->lru);
 		ml->log_write(mn->tid, mn->data);
 		ml->mem_node_q->push(mn);
 		ml->now--;
+		if((int32_t)ml->now<0){abort();}
 	}
 		
 	if(!ml->mem_node_q->size()){
@@ -52,6 +57,8 @@ uint32_t memory_log_insert(memory_log *ml, uint32_t tid, uint32_t KP_size, char 
 	mn->tid=tid;
 	memcpy(mn->data, data, PAGESIZE);
 	mn->l_node=lru_push(ml->lru,(void*)mn);
+
+	ml->now++;
 
 	fdriver_unlock(&ml->lock);
 	return SETMEMPPA(res);
@@ -119,6 +126,7 @@ void memory_log_delete(memory_log *ml, uint32_t log_ppa){
 	lru_delete(ml->lru, mn->l_node);
 	ml->mem_node_q->push(mn);
 	ml->now--;
+	if((int32_t)ml->now<0){abort();}
 	fdriver_unlock(&ml->lock);
 }
 
@@ -127,4 +135,9 @@ void memory_log_free(memory_log *ml){
 	free(ml->mem_body);
 	delete ml->mem_node_q;
 	free(ml);
+}
+
+bool memory_log_usable(memory_log* ml){
+	if(!ml || ml->max==0) return false;
+	return true;
 }

@@ -22,8 +22,16 @@ li_node* write_buffer_insert_trans_etr(WBM *wbm, transaction_entry *etr){
 
 void write_buffer_delete_node(WBM* wbm, li_node* node){
 	transaction_entry *etr=(transaction_entry*)node->data;
-	wbm->now_kv_pair-=etr->ptr.memtable->size;
-	wbm->total_value_size-=etr->ptr.memtable->data_size;
+
+	if(etr->status==CACHED){
+		wbm->now_kv_pair-=etr->ptr.memtable->size;
+		wbm->total_value_size-=etr->ptr.memtable->data_size;
+	}
+
+	if(etr->status==NONFULLCOMPACTION){
+		wbm->now_kv_pair-=etr->ptr.memtable->size;
+	}
+
 	list_delete_node(wbm->open_transaction_list, node);
 }
 
@@ -62,8 +70,7 @@ void write_buffer_insert_KV(WBM *wbm, transaction_entry *in_etr, KEYT key, value
 	if(check_write_buffer_flush(target_size) || (wbm->now_kv_pair==wbm->max_kv_pair) || METAFLUSHCHECK(*in_etr->ptr.memtable)){
 		value_set **res=(value_set**)malloc(sizeof(value_set*) * (target_size+2+1));
 		
-
-		print_write_buffer_list(wbm->open_transaction_list);
+	//	print_write_buffer_list(wbm->open_transaction_list);
 
 		/*buffer initialize*/
 		li_node *node, *nxt;
@@ -118,7 +125,8 @@ void write_buffer_insert_KV(WBM *wbm, transaction_entry *in_etr, KEYT key, value
 	}
 
 	if(!isflushed && METAFLUSHCHECK(*in_etr->ptr.memtable)){
-		printf("tid %u: flush called!\n",in_etr->tid);
+		printf("tid %u: flush called! can't be %s:%d\n",in_etr->tid,__FILE__, __LINE__);
+		abort();
 		if(wbm->write_transaction_entry(in_etr, in_etr->wbm_node)){
 			list_delete_node(wbm->open_transaction_list, in_etr->wbm_node);	
 		}

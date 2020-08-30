@@ -3,6 +3,7 @@
 #include "../../include/lsm_settings.h"
 #include "../../interface/queue.h"
 #include "../../include/rwlock.h"
+#include "../../include/data_struct/list.h"
 #include "transaction_table.h"
 #include "skiplist.h"
 #include <pthread.h>
@@ -28,6 +29,7 @@ typedef struct leveling_node{
 	KEYT end;
 	run_t *entry;
 	transaction_entry *tetr;
+	list *committed_list;
 }leveling_node;
 
 struct compaction_req{
@@ -74,7 +76,7 @@ uint32_t leveling(level *,level*, leveling_node *,rwlock *);
 uint32_t multiple_leveling(int from, int to);
 
 void compaction_check(KEYT key,bool force);
-void compaction_send_creq_by_skip(skiplist *skip, bool sync);
+void compaction_send_creq_by_skip(skiplist *skip, list *, bool sync);
 
 void compaction_gc_add(skiplist *list);
 void compaction_free();

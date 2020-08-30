@@ -12,7 +12,7 @@
 #include <queue>
 
 typedef enum transaction_status{
-	EMPTY, CACHED, LOGGED, COMMIT, CACHEDCOMMIT, COMPACTION
+	EMPTY, CACHED, LOGGED, COMMIT, CACHEDCOMMIT, COMPACTION, NONFULLCOMPACTION
 }TSTATUS;
 
 typedef union transaction_pointer{

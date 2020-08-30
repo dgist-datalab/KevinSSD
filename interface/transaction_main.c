@@ -64,7 +64,7 @@ int main(int argc,char* argv[]){
 		inf_vector_make_req(value, bench_transaction_end_req, mark);
 	}
 
-	inf_vector_make_req(get_vectored_one_command(FS_KEYRANGE_T, 3000, 2330), bench_transaction_end_req, -1);
+	//inf_vector_make_req(get_vectored_one_command(FS_KEYRANGE_T, 3000, 2330), bench_transaction_end_req, -1);
 	/*
 	for(uint32_t i=1; i<=SHOWINGFULL; i++){
 		inf_vector_make_req(get_vectored_one_command(FS_DELETE_T, 3000+i/512, rand()%SHOWINGFULL), bench_transaction_end_req, -1);
@@ -73,9 +73,9 @@ int main(int argc,char* argv[]){
 		}
 	}
 	*/
-	while(1){
-
-	}
+	//while(1){
+//
+//	}
 
 	force_write_start=true;
 	

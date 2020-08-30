@@ -96,6 +96,7 @@ typedef struct{
 skiplist *skiplist_init(); //return initialized skiplist*
 skiplist *skiplist_copy(skiplist* input);
 snode *skiplist_find(skiplist*,KEYT); //find snode having key in skiplist, return NULL:no snode
+snode *skiplist_get_end(skiplist *);
 snode *skiplist_find_lowerbound(skiplist *,KEYT );
 snode *skiplist_range_search(skiplist *,KEYT);
 snode *skiplist_strict_range_search(skiplist *,KEYT);

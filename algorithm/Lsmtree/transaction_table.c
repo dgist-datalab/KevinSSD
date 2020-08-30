@@ -110,9 +110,9 @@ uint32_t transaction_table_destroy(transaction_table * table){
 	for(uint32_t i=0; i<table->full; i++){
 		transaction_entry *etr=&table->etr[i];
 		switch(etr->status){
+			case NONFULLCOMPACTION:
 			case COMPACTION:
 				printf("can't be compaction status\n");
-				abort();
 				break;
 			case CACHED:
 				skiplist_free(etr->ptr.memtable);
@@ -181,6 +181,13 @@ inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *targe
 	if(!METAFLUSHCHECK(*t_mem)){
 		LMI.non_full_comp++;
 	}
+
+	if(_tm.ttb->wbm && target->wbm_node){
+		target->status=NONFULLCOMPACTION;
+		write_buffer_delete_node(_tm.ttb->wbm, target->wbm_node);
+		target->wbm_node=NULL;
+	}
+
 	value_set **data_sets=skiplist_make_valueset(t_mem, LSM.disk[0], &target->range.start, &target->range.end);
 	issue_data_write(data_sets, LSM.li,DATAW);
 	free(data_sets);
@@ -259,7 +266,12 @@ uint32_t transaction_table_update_all_entry(transaction_table *table,uint32_t ti
 	rb_find_int(transaction_indexer, tid * table->base, &res);
 	while(res->k.ikey/table->base==tid){
 		transaction_entry *data=(transaction_entry*)res->item;
-		data->status=status;
+		if(status==COMMIT && data->status==CACHED){
+			data->status=CACHEDCOMMIT;
+		}
+		else{
+			data->status=status;
+		}
 		res=res->next;
 	}
 	fdriver_unlock(&indexer_lock);
@@ -361,8 +373,13 @@ transaction_entry *transaction_table_get_comp_target(transaction_table *table){
 	fdriver_lock(&indexer_lock);
 	rb_traverse(target, transaction_indexer){
 		etr=(transaction_entry *)target->item;
-		if(etr->status==COMMIT || etr->status==CACHEDCOMMIT){
+		if(etr->status==COMMIT){
 			etr->status=COMPACTION;
+			fdriver_unlock(&indexer_lock);
+			return etr;
+		}
+		else if(etr->status==CACHEDCOMMIT){
+			etr->status=NONFULLCOMPACTION;
 			fdriver_unlock(&indexer_lock);
 			return etr;
 		}
@@ -390,8 +407,18 @@ uint32_t transaction_table_clear(transaction_table *table, transaction_entry *et
 			break;
 	}
 
+	if(table->wbm && etr->wbm_node){
+		write_buffer_delete_node(table->wbm, etr->wbm_node);
+		etr->wbm_node=NULL;
+	}
+
 	if(etr->status==CACHED){
 		skiplist_free(etr->ptr.memtable);
+	}
+	else{
+		if(ISMEMPPA(etr->ptr.physical_pointer)){
+			memory_log_delete(_tm.mem_log, etr->ptr.physical_pointer);
+		}
 	}
 
 	free(etr->range.start.key);
@@ -507,6 +534,7 @@ uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, 
 						res[i++]=etr;
 					}
 					break;
+				case NONFULLCOMPACTION:
 				case COMPACTION:
 					printf("%s:%d not allowed compaction in iterator\n", __FILE__,__LINE__);
 					abort();

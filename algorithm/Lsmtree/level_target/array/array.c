@@ -729,7 +729,7 @@ int array_bound_search(run_t *body, uint32_t max_t, KEYT lpa, bool islower){
 }
 
 run_t *array_make_run(KEYT start, KEYT end, uint32_t pbn){
-	run_t * res=(run_t*)calloc(sizeof(run_t),1);
+	run_t * res=(run_t*)calloc(1,sizeof(run_t));
 	res->lru_cache_node=NULL;
 	kvssd_cpy_key(&res->key,&start);
 	kvssd_cpy_key(&res->end,&end);

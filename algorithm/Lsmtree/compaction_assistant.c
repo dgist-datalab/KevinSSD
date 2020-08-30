@@ -383,6 +383,16 @@ void *compaction_main(void *input){
 			compaction_selector(NULL,LSM.disk[0],lnode,&LSM.level_lock[0]);
 			free(lnode->start.key);
 			free(lnode->end.key);
+
+			if(lnode->committed_list){
+				li_node *li;
+				for_each_list_node(lnode->committed_list, li){
+					transaction_entry *etr=(transaction_entry*)li->data;
+					transaction_clear(etr);	
+				}
+				list_free(lnode->committed_list);
+			}
+
 			skiplist_free(req->temptable);
 			free(lnode);
 		}
@@ -492,7 +502,7 @@ void compaction_gc_add(skiplist *list){
 	LMI.gc_comp_write_cnt+=(LSM.li->req_type_cnt[MAPPINGW]-before_map_write);
 }
 
-void compaction_send_creq_by_skip(skiplist *skip, bool sync){
+void compaction_send_creq_by_skip(skiplist *skip, list *committed_list, bool sync){
 	compR *req;
 	leveling_node *lnode=(leveling_node *)malloc(sizeof(leveling_node));
 	
@@ -501,6 +511,11 @@ void compaction_send_creq_by_skip(skiplist *skip, bool sync){
 	req->temptable=skip;
 	req->lnode=lnode;
 	req->lnode->mem=skip;
+	req->lnode->committed_list=committed_list;
+	req->lnode->entry=NULL;
+
+	kvssd_cpy_key(&req->lnode->start, &skip->header->list[1]->key);
+	kvssd_cpy_key(&req->lnode->end, &((skiplist_get_end(skip))->key));
 	
 	compaction_assign(req, NULL, sync);
 }
@@ -517,6 +532,7 @@ void compaction_check(KEYT key, bool force){
 	req->lnode->mem=LSM.memtable;
 	compaction_data_write(lnode);
 
+	req->lnode->committed_list=NULL;
 	LSM.memtable=skiplist_init();
 	compaction_assign(req, NULL, false);
 

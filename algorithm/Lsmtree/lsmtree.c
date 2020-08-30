@@ -806,7 +806,9 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 	}
 
 	if(likely(lsm_req)){
-		rwlock_read_unlock(((rparams*)req->params)->rw_lock);
+		if(req->params){
+			rwlock_read_unlock(((rparams*)req->params)->rw_lock);
+		}
 
 		req->magic=3;
 #ifdef DVALUE

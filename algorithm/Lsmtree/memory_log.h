@@ -31,6 +31,7 @@ typedef struct memory_log{
 }memory_log;
 
 memory_log *memory_log_init(uint32_t max, void(*)(uint32_t inter_tid, char *data));
+bool memory_log_usable(memory_log*);
 uint32_t memory_log_insert(memory_log *, uint32_t inter_tid, uint32_t KP_size, char *data);
 void memory_log_update(memory_log *, uint32_t log_ppa, char *data);
 void memory_log_set_mru(memory_log *, uint32_t log_ppa);

@@ -78,6 +78,35 @@ snode *skiplist_find(skiplist *list, KEYT key){
 	return NULL;
 }
 
+
+snode *skiplist_get_end(skiplist *list){
+	if(!list || !list->size) return NULL;
+	snode *x=list->header;
+	for(int i=list->level; i>=1; i--){
+		if(i==1 && x->list[i]==list->header){
+			break;
+		}
+		x=x->list[i];
+	}
+	while(x->list[1]!=list->header){
+		x=x->list[1];
+	}
+	/*
+	printf("please remove test code!!!\n");
+	snode *test;
+	for_each_sk(test, list){
+		if(test->list[1]==list->header)
+			break;
+	}
+
+	if(test!=x){
+		printf("test failed in skiplist_get_end\n");
+		abort();
+	}*/
+
+	return x;
+}
+
 snode *skiplist_find_lowerbound(skiplist *list, KEYT key){
 	if(!list) return NULL;
 	if(list->size==0) return NULL;

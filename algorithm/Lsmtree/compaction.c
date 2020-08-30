@@ -78,8 +78,8 @@ bool level_sequential(level *from, level *to,level *des, run_t *entry,leveling_n
 			lnode->entry=NULL;
 		}
 		else{
-			entry=LSM.lop->make_run(lnode->start,lnode->end,-1);
-
+	//		entry=LSM.lop->make_run(lnode->start,lnode->end,-1);
+			entry=(run_t*)calloc(1,sizeof(run_t));
 			LSM.lop->mem_cvt2table(lnode->mem,entry,NULL);
 			if(des->idx<LSM.LEVELCACHING){
 
@@ -92,6 +92,7 @@ bool level_sequential(level *from, level *to,level *des, run_t *entry,leveling_n
 			}
 			else{	
 				compaction_htable_write_insert(des,entry,false);
+				LSM.lop->release_run(entry);
 			}
 			free(entry);
 		}

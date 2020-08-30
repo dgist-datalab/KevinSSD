@@ -7,6 +7,7 @@
 #include "transaction_table.h"
 #include "compaction.h"
 #include "../../include/sem_lock.h"
+#include "../../include/data_struct/list.h"
 
 struct transaction_entry;
 
@@ -16,7 +17,8 @@ typedef struct transaction_manager{
 	struct transaction_table *ttb;
 	ppa_t last_table;
 	struct memory_log *mem_log;
-	skiplist *committed_KP;
+	skiplist *commit_KP;
+	list *commit_etr;
 }my_tm;
 
 typedef struct transaction_read_params{
