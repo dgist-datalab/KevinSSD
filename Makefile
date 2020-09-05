@@ -103,6 +103,7 @@ SRCS +=\
 	./include/utils/dl_sync.c\
 	./include/utils/cond_lock.c\
 	./include/utils/data_checker.c\
+	./include/utils/crc32.c\
 	./include/data_struct/hash_kv.c\
 	./include/data_struct/list.c\
 	./include/data_struct/redblack.c\

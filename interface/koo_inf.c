@@ -5,6 +5,14 @@
 #include "vectored_interface.h"
 #include "../include/utils/kvssd.h"
 #include "../bench/bench.h"
+#ifdef CHECKINGDATA
+#include <map>
+#include <string>
+#include "../include/utils/crc32.h"
+using namespace std;
+map<string, uint32_t> chk_data;
+
+#endif
 
 #define MAX_REQ_IN_TXN (2*(M/4096))
 
@@ -17,6 +25,57 @@ extern master_processor mp;
 
 int chrfd;
 
+static inline char *translation_buffer(char *buf, uint32_t *idx, uint32_t size, uint32_t limit);
+
+#ifdef CHECKINGDATA
+string convertToString(char *a ,int size){
+	int i; 
+    string s = ""; 
+    for (i = 0; i < size; i++) { 
+        s = s + a[i]; 
+    } 
+    return s; 
+}
+
+void map_crc_insert(KEYT key, char *value){
+	string a=convertToString(key.key, key.len);
+	chk_data.insert(pair<string, uint32_t>(a, crc32(value, LPAGESIZE)));
+}
+
+bool map_crc_check(KEYT key, char *value){
+	string a=convertToString(key.key, key.len);
+	uint32_t t=chk_data.find(a)->second;
+	uint32_t data=crc32(value, LPAGESIZE);
+	if(t!=data){
+		printf("%.*s data check failed %s:%d\n", KEYFORMAT(key), __FILE__, __LINE__);
+		abort();
+		return false;
+	}
+	return true;
+}
+
+void map_crc_range_delete(KEYT key, uint32_t size){
+	KEYT copied_key;
+	kvssd_cpy_key(&copied_key, &key);
+	for(uint32_t i=0; i<size; i++){
+		(*(uint64_t*)&copied_key.key[copied_key.len-sizeof(uint64_t)])++;
+		map_crc_insert(copied_key, null_value);
+	}
+	kvssd_free_key_content(&copied_key);
+}
+
+void map_crc_iter_check(uint32_t len, char *buf){
+	uint32_t idx=0;
+	KEYT key;
+	while(1){
+		key.len=*(uint8_t*)translation_buffer(buf, &idx, sizeof(uint16_t), len);
+		key.key=translation_buffer(buf, &idx, key.len, len);
+		char *value=translation_buffer(buf, &idx, LPAGESIZE, len);
+		map_crc_check(key, value);
+		if(idx >=len) break;
+	}
+}
+#endif
 
 static inline FSTYPE koo_to_req(uint8_t t){
 	switch(t){
@@ -74,7 +133,6 @@ static inline char *translation_buffer(char *buf, uint32_t *idx, uint32_t size, 
 	}
 	return res;
 }
-
 static inline void key_parser(request *req, char *buf, uint32_t *idx, uint32_t limit){
 	KEYT key;
 	key.len=*(uint8_t*)translation_buffer(buf, idx, sizeof(uint16_t), limit);
@@ -165,11 +223,17 @@ vec_request *get_vectored_request(){
 				temp->offset=*(uint16_t*)translation_buffer(req_buf, &idx, sizeof(uint16_t), limit);
 				temp->length=*(uint16_t*)translation_buffer(req_buf, &idx, sizeof(uint16_t), limit);
 				temp->value=inf_get_valueset(translation_buffer(req_buf, &idx, LPAGESIZE, limit), FS_MALLOC_W, LPAGESIZE);
+#ifdef CHECKINGDATA
+				map_crc_insert(temp->key, temp->value->value);
+#endif
 				break;
 			case FS_MGET_T:
 				make_mget_req(res, temp, res->size);
 				goto out;
 			case FS_DELETE_T:
+#ifdef CHECKINGDATA
+				map_crc_insert(temp->key, null_value);
+#endif
 				break;
 			case FS_RANGEDEL_T:
 				temp->offset=*(uint16_t*)translation_buffer(req_buf, &idx, sizeof(uint16_t), limit);
@@ -178,6 +242,9 @@ vec_request *get_vectored_request(){
 				temp->offset=*(uint16_t*)translation_buffer(req_buf, &idx, sizeof(uint16_t), limit);
 				temp->length=*(uint16_t*)translation_buffer(req_buf, &idx, sizeof(uint16_t), limit);
 				temp->buf=req_buf;
+#ifdef CHECKINGDATA
+				map_crc_range_delete(temp->key, temp->length);
+#endif
 				break;
 			case FS_RMW_T:
 				temp->value=inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
@@ -224,6 +291,9 @@ bool cheeze_end_req(request *const req){
 				memcpy(&preq->buf[req->seq*LPAGESIZE], req->value->value,LPAGESIZE);
 				inf_free_valueset(req->value,FS_MALLOC_R);
 			}
+#ifdef CHECKINGDATA
+			map_crc_check(req->key, req->value->value);
+#endif
 			preq->buf_len+=LPAGESIZE;
 			break;
 		case FS_SET_T:
@@ -235,12 +305,18 @@ bool cheeze_end_req(request *const req){
 		case FS_RMW_T:
 			req->type=FS_SET_T;
 			memcpy(&req->value->value[req->offset], req->buf, req->length);
+#ifdef CHECKINGDATA
+			map_crc_insert(req->key, req->value->value);
+#endif
 			inf_assign_try(req);
 			return true;
 		case FS_TRANS_COMMIT:
 			preq->buf_len=0;
 			break;
 		case FS_RANGEDEL_T:
+#ifdef CHECKINGDATA
+			map_crc_iter_check(req->buf_len, req->buf);
+#endif
 			break;
 		case FS_RANGEGET_T:
 			preq->buf_len=req->buf_len;
