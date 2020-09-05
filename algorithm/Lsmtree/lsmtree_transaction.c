@@ -108,13 +108,14 @@ uint32_t __trans_write(char *data, value_set *value, ppa_t ppa, uint32_t type, r
 }
 
 uint32_t transaction_set(request *const req){
+	/*
 	if(KEYCMP(req->key, debug_key)==0){
 		printf("target key inserted value:%d\n", req->value->value[0]);
-	}
+	}*/
 
 	transaction_entry *etr;
 	fdriver_lock(&_tm.table_lock);
-	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req, &etr);
+	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, req->type==FS_DELETE_T, &etr);
 	fdriver_unlock(&_tm.table_lock);
 	req->value=NULL;
 	//	printf("req->seq :%u\n",req->seq);
@@ -139,6 +140,47 @@ uint32_t transaction_set(request *const req){
 	req->end_req(req);
 	return 1;
 }
+
+
+uint32_t transaction_range_delete(request *const req){
+	transaction_entry *etr;
+
+	KEYT key;
+	KEYT copied_key;
+	kvssd_cpy_key(&copied_key, &req->key);
+	for(uint32_t i=0; i<req->offset; i++){
+		if(i==0){
+			key=req->key;
+		}else{
+			kvssd_cpy_key(&key, &copied_key);
+			*(uint64_t*)&key.key[key.len-sizeof(uint64_t)]+=i;
+		}
+
+
+		fdriver_lock(&_tm.table_lock);
+		value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, true, &etr);
+		fdriver_unlock(&_tm.table_lock);
+		if(!log){
+			continue;
+		}
+
+		if(memory_log_usable(_tm.mem_log)){
+			etr->ptr.physical_pointer=memory_log_insert(_tm.mem_log, etr->tid, -1, log->value);
+			inf_free_valueset(log, FS_MALLOC_W);
+			continue;
+		}
+		abort();
+		ppa_t ppa=get_log_PPA(LOGW);
+		__trans_write(NULL, log, ppa, LOGW , NULL, false);
+		etr->status=LOGGED;
+		etr->ptr.physical_pointer=ppa;
+	}
+
+	kvssd_free_key_content(&copied_key);
+	req->end_req(req);
+	return 1;
+}
+
 
 typedef struct commit_log_read{
 	volatile bool isdone;
@@ -470,7 +512,15 @@ search_lsm:
 inline uint32_t transaction_get_postproc(request *const req, uint32_t res_type){
 	if(res_type==0){
 		free(req->params);
-		req->type=FS_NOTFOUND_T;
+		switch (req->type){
+			case FS_GET_T:
+				req->type=FS_NOTFOUND_T;
+				break;
+			case FS_MGET_T:
+				req->type=FS_MGET_NOTFOUND_T;
+				break;
+		}
+	
 		printf("notfound key: %.*s\n",KEYFORMAT(req->key));
 		req->end_req(req);
 		//abort();

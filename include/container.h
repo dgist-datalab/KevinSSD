@@ -39,8 +39,10 @@ typedef struct vectored_request{
 	uint32_t done_cnt;
 	uint32_t tid;
 	char* buf;
+	uint32_t buf_len;
 	request *req_array;
 	uint32_t mark;
+	void *origin_req;
 	void* (*end_req)(void*);
 } vec_request;
 
@@ -51,6 +53,7 @@ struct request {
 	uint32_t offset;
 	uint32_t tid;
 	uint32_t length;
+	uint32_t buf_len;
 	char *buf;
 	//uint64_t ppa;/*it can be the iter_idx*/
 	uint32_t seq;
@@ -159,6 +162,7 @@ struct algorithm{
 	uint32_t (*write)(request *const);
 	uint32_t (*remove)(request *const);
 #ifdef KVSSD
+	uint32_t (*range_delete)(request *const);
 	uint32_t (*partial_update)(request *const);
 	uint32_t (*range_query)(request *const);
 	uint32_t (*key_range_query)(request *const);

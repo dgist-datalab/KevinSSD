@@ -2,8 +2,11 @@
 #override export CXX=clang++-11
 #override export AR=llvm-ar-11
 
-override export CC=g++-9
-override export CXX=g++-9
+#override export CC=g++-9
+#override export CXX=g++-9
+
+override export CC=g++
+override export CXX=g++
 override export AR=gcc-ar
 override export NM=gcc-nm
 
@@ -92,6 +95,7 @@ SRCS +=\
 	./interface/queue.c\
 	./interface/interface.c\
 	./interface/vectored_interface.c\
+	./interface/koo_inf.c\
 	./include/FS.c\
 	./include/slab.c\
 	./include/rwlock.c\
@@ -140,7 +144,7 @@ LIBS +=\
 		-lm\
 		-ljemalloc $(CFLAGS)
 
-all: driver
+all: koo_kv_driver
 
 DEBUG: debug_driver
 
@@ -150,6 +154,10 @@ debug_driver: ./interface/main.c libdriver_d.a
 	$(CC) $(CFLAGS) -DDEBUG -o $@ $^ $(LIBS)
 
 driver: ./interface/transaction_main.c libdriver.a
+	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
+
+
+koo_kv_driver: ./interface/mainfiles/koo_kv_main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 bd_testcase: ./interface/mainfiles/testcase.c libdriver.a

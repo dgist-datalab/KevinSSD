@@ -33,6 +33,7 @@ uint32_t transaction_init(uint32_t cached_size);
 uint32_t transaction_start(request *const req);
 uint32_t transaction_commit(request *const req);
 uint32_t transaction_set(request *const req);
+uint32_t transaction_range_delete(request *const req);
 uint32_t transaction_get(request *const req);
 uint32_t transaction_abort(request *const req);
 uint32_t transaction_destroy();

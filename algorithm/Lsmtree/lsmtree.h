@@ -246,6 +246,7 @@ void lsm_setup_params();
 void lsm_destroy(lower_info*, algorithm*);
 uint32_t lsm_get(request *const);
 uint32_t lsm_set(request *const);
+uint32_t lsm_range_delete(request *const);
 uint32_t lsm_multi_get(request *const, int num);
 uint32_t lsm_proc_re_q();
 uint32_t lsm_remove(request *const);

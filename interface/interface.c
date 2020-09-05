@@ -210,6 +210,7 @@ send_req:
 
 uint32_t inf_algorithm_caller(request *const inf_req){
 	switch(inf_req->type){
+		case FS_MGET_T:
 		case FS_GET_T:
 			mp.algo->read(inf_req);
 			break;
@@ -229,6 +230,9 @@ uint32_t inf_algorithm_caller(request *const inf_req){
 			break;
 		case FS_KEYRANGE_T:
 			mp.algo->key_range_query(inf_req);
+			break;
+		case FS_RANGEDEL_T:
+			mp.algo->range_delete(inf_req);
 			break;
 #endif
 		case FS_TRANS_BEGIN:

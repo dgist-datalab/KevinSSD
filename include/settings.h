@@ -14,6 +14,17 @@
 		free(a)\
 	}while(0)
 */
+
+#ifdef DEBUG
+#define DPRINTF(fmt, ...) \
+	do{\
+		printf(fmt, __VA_ARGS__); \
+	}while(0)
+#else
+#define DPRINTF(fmt, ...)\
+	do{}while(0)
+#endif
+
 #define PROGRESS
 #define LOWER_FILE_NAME "./data/simulator.data"
 #define interface_vector
@@ -34,6 +45,7 @@
 #define MINKEYLENGTH 16
 #define DEFKEYLENGTH (40)
 #define DEFVALUESIZE (4096)
+#define LPAGESIZE (4096)
 
 #ifdef MLC
 

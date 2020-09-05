@@ -97,7 +97,12 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark)
 		temp->key=key;
 		temp->offset=*(uint32_t*)buf_parser(buf, &idx, sizeof(uint32_t));
 	}
+	
+	assign_vectored_req(txn);
+	return 1;
+}
 
+void assign_vectored_req(vec_request *txn){
 	while(1){
 		pthread_mutex_lock(&flying_cnt_lock);
 		if(flying_cnt - (int32_t)txn->size < 0){
@@ -112,12 +117,24 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark)
 			}
 			pthread_mutex_unlock(&flying_cnt_lock);
 		}
-		
+
 		if(q_enqueue((void*)txn, mp.processors[0].req_q)){
 			break;
 		}
 	}
-	return 1;
+}
+
+void release_each_req(request *req){
+	uint32_t tag_num=req->tag_num;
+	pthread_mutex_lock(&flying_cnt_lock);
+	flying_cnt++;
+	if(flying_cnt > QDEPTH){
+		printf("???\n");
+		abort();
+	}
+	pthread_mutex_unlock(&flying_cnt_lock);
+
+	tag_manager_free_tag(tm, tag_num);
 }
 
 
@@ -198,7 +215,7 @@ void range_get_data_checker(uint32_t len, char *buf){
 	uint32_t idx=0;
 	KEYT temp;
 	for(uint32_t i=0; i<len; i++){
-		temp.len=*(uint8_t*)&buf[idx++];
+		temp.len=*(uint16_t*)&buf[idx++];
 		temp.key=&buf[idx];
 		idx+=temp.len;
 		__checking_data_check_key(temp,&buf[idx]);
@@ -239,6 +256,7 @@ bool vectored_end_req (request * const req){
 			break;
 	}
 
+	release_each_req(req);
 	preq->done_cnt++;
 	uint32_t tag_num=req->tag_num;
 	if(preq->size==preq->done_cnt){

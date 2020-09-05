@@ -56,7 +56,7 @@ void __iterator_issue_read(ppa_t ppa, uint32_t i, uint32_t j, request *req){
 
 void copy_key_value_to_buf(char *buf, KEYT key, char *data){
 	uint32_t offset=0;
-	*(uint8_t*)&buf[offset++]=key.len;
+	*(uint16_t*)&buf[offset++]=key.len;
 	memcpy(&buf[offset], key.key, key.len);
 	offset+=key.len;
 	if(data){
@@ -76,7 +76,7 @@ void *lsm_range_end_req(algo_req *const al_req){
 			inf_free_valueset(al_params->value ,FS_MALLOC_R);
 			break;
 		case DATAR:
-			printf("%d iter key :%.*s\n", iter_num++,KEYFORMAT(al_params->key));
+	//		printf("%d iter key :%.*s\n", iter_num++,KEYFORMAT(al_params->key));
 			if(al_params->value->ppa%NPCINPAGE){
 				copy_key_value_to_buf(&req->buf[al_params->offset], al_params->key, &al_params->value->value[4096]);	
 			}
@@ -129,13 +129,15 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 		if(t_node->ppa==UINT32_MAX){
 			//copy value
 			copy_key_value_to_buf(&req->buf[offset], t_node->key, t_node->value.g_value);
-			printf("target %d iter key :%.*s\n", iter_num++,KEYFORMAT(t_node->key));
+	//		printf("target %d iter key :%.*s\n", iter_num++,KEYFORMAT(t_node->key));
 
 			pthread_mutex_lock(&cnt_lock);
 			rgparams->read_num++;
 			if(rgparams->read_num==rgparams->read_target_num){
 				pthread_mutex_unlock(&cnt_lock);
 				fdriver_unlock(&LSM.iterator_lock);
+	
+				req->buf_len=offset;
 
 				req->end_req(req);
 				for(int32_t i=rgparams->total_loi_num-1; i>=0; i--){
@@ -162,9 +164,10 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 		kvssd_cpy_key(&al_params->key,&t_node->key);
 		al_params->offset=offset;
 		al_params->value->ppa=al_req->ppa;
+		req->buf_len=offset;
 		LSM.li->read(al_req->ppa/NPCINPAGE, PAGESIZE, al_params->value, ASYNC, al_req);	
 next_round:
-		offset+=t_node->key.len+1+4096;
+		offset+=t_node->key.len+2+4096;
 		i++;
 		if(break_flag) break;
 	}

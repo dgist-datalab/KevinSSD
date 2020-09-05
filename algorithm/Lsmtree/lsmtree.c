@@ -34,6 +34,7 @@ struct algorithm algo_lsm={
 	.read=lsm_get,
 	.write=lsm_set,
 	.remove=lsm_set,
+	.range_delete=lsm_range_delete,
 	.partial_update=lsm_partial_update,
 	.range_query=lsm_range_get,
 	.key_range_query=lsm_range_get,
@@ -428,10 +429,16 @@ uint32_t lsm_proc_re_q(){
 			}
 			if(res_type==0){
 				free(tmp_req->params);
-				tmp_req->type=FS_NOTFOUND_T;
+				switch (tmp_req->type){
+					case FS_GET_T:
+						tmp_req->type=FS_NOTFOUND_T;
+						break;
+					case FS_MGET_T:
+						tmp_req->type=FS_MGET_NOTFOUND_T;
+						break;
+				}
 				tmp_req->type_ftl=((int*)tmp_req->params)[2];
 				tmp_req->end_req(tmp_req);
-				//tmp_req->type=tmp_req->type==FS_GET_T?FS_NOTFOUND_T:tmp_req->type;
 				if(nor==0){	
 #ifdef KVSSD
 				printf("not found seq: %d, key:%.*s\n",nor++,KEYFORMAT(tmp_req->key));
@@ -483,7 +490,16 @@ uint32_t lsm_get(request *const req){
 	
 	//	LSM.lop->all_print();
 		req->type_ftl=((int*)req->params)[2];
-		req->type=req->type==FS_GET_T?FS_NOTFOUND_T:req->type;
+
+		switch (req->type){
+			case FS_GET_T:
+				req->type=FS_NOTFOUND_T;
+				break;
+			case FS_MGET_T:
+				req->type=FS_MGET_NOTFOUND_T;
+				break;
+		}
+
 		free(req->params);
 		req->end_req(req);
 	//sleep(1);
@@ -872,7 +888,7 @@ uint32_t __lsm_get(request *const req){
 
 
 			if(unlikely(res)) return res;
-		}
+		 }
 
 		/*gc list*/
 		if(LSM.gc_list){
@@ -998,6 +1014,28 @@ retry:
 #endif
 uint32_t lsm_remove(request *const req){
 	return lsm_set(req);
+}
+
+uint32_t lsm_range_delete(request *const req){
+	if(ISTRANSACTION(LSM.setup_values)){
+		return transaction_range_delete(req);
+	}
+	KEYT key;
+	KEYT copied_key;
+	kvssd_cpy_key(&copied_key, &req->key);
+	for(uint32_t i=0; i<req->offset ;i++){
+		if(i==0){
+			key=req->key;
+		}else{
+			kvssd_cpy_key(&key, &copied_key);
+			*(uint64_t*)&key.key[key.len-sizeof(uint64_t)]+=i;
+		}
+		compaction_check(key, false);
+		skiplist_insert(LSM.memtable, key, NULL, false);
+	}
+	kvssd_free_key_content(&copied_key);
+	req->end_req(req);
+	return 1;
 }
 
 htable *htable_assign(char *cpy_src, bool using_dma){

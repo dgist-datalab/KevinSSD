@@ -60,7 +60,7 @@ uint32_t transaction_table_destroy(transaction_table *);
 uint32_t transaction_table_add_new(transaction_table *, uint32_t tid, uint32_t offset);
 uint32_t transaction_table_find(transaction_table *, uint32_t tid, KEYT key, transaction_entry***);
 uint32_t transaction_table_gc_find(transaction_table *, KEYT key, transaction_entry***);
-value_set* transaction_table_insert_cache(transaction_table *, uint32_t tid, request *const req, transaction_entry **);
+value_set* transaction_table_insert_cache(transaction_table *, uint32_t tid, KEYT key, value_set *value, bool isdelete, transaction_entry **);
 uint32_t transaction_table_update_last_entry(transaction_table *,uint32_t tid, TSTATUS);
 uint32_t transaction_table_update_all_entry(transaction_table *,uint32_t tid, TSTATUS);
 uint32_t transaction_table_clear(transaction_table *, transaction_entry *etr);

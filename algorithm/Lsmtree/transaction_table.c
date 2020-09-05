@@ -208,7 +208,7 @@ inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *targe
 }
 
 bool delete_debug=false;
-value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid, request *const req, transaction_entry **t){
+value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid, KEYT key, value_set *value, bool isdelete,  transaction_entry **t){
 
 	transaction_entry *target=find_last_entry(tid*table->base);
 	if(!target){
@@ -220,12 +220,13 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 		}
 		target=find_last_entry(tid*table->base);
 	}
+
 	if(target->helper_type==BFILTER){
-		bf_set(target->read_helper.bf, req->key);
+		bf_set(target->read_helper.bf, key);
 	}
 
 	if(table->wbm){
-		write_buffer_insert_KV(table->wbm, target, req->key, req->value, req->type==FS_DELETE_T);
+		write_buffer_insert_KV(table->wbm, target, key, value, isdelete);
 		return NULL;
 	}
 	else{
@@ -234,12 +235,8 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 
 	skiplist *t_mem=target->ptr.memtable;
 
-	if(req->type==FS_DELETE_T){
-		skiplist_insert(t_mem, req->key, NULL, false);
-	}
-	else{
-		skiplist_insert(t_mem, req->key, req->value, true);
-	}
+	skiplist_insert(t_mem, key, value, isdelete);
+	
 	
 	(*t)=target;
 

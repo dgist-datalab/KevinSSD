@@ -19,6 +19,9 @@
 #define FS_RANGEGET_T 16
 #define FS_KEYRANGE_T 17
 #define FS_TRANS_ABORT 19
+#define FS_RANGEDEL_T 20
+#define FS_MGET_NOTFOUND_T 21
+#define FS_MGET_T 22
 
 #define LREQ_TYPE_NUM 15
 #define TRIM 0
