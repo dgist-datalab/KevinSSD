@@ -52,7 +52,7 @@ int main(int argc,char* argv[]){
 	inf_init(0,0,temp_cnt,temp_argv);
 	bench_init();
 	bench_vectored_configure();
-	bench_transaction_configure(4, 2);
+	bench_transaction_configure(2, 1);
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
 	//bench_add(VECTOREDUNIQRSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)));
 	bench_add(VECTOREDRW,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)));
@@ -60,11 +60,12 @@ int main(int argc,char* argv[]){
 
 	char *value;
 	uint32_t mark;
+	uint32_t i=0; 
 	while((value=get_vectored_bench(&mark, true))){
 		inf_vector_make_req(value, bench_transaction_end_req, mark);
+		inf_vector_make_req(get_vectored_one_command(FS_RANGEGET_T, 3000, 10*i++), bench_transaction_end_req, -1);
 	}
 
-	//inf_vector_make_req(get_vectored_one_command(FS_KEYRANGE_T, 3000, 2330), bench_transaction_end_req, -1);
 	/*
 	for(uint32_t i=1; i<=SHOWINGFULL; i++){
 		inf_vector_make_req(get_vectored_one_command(FS_DELETE_T, 3000+i/512, rand()%SHOWINGFULL), bench_transaction_end_req, -1);

@@ -215,9 +215,11 @@ void range_get_data_checker(uint32_t len, char *buf){
 	uint32_t idx=0;
 	KEYT temp;
 	for(uint32_t i=0; i<len; i++){
-		temp.len=*(uint16_t*)&buf[idx++];
+		temp.len=*(uint16_t*)&buf[idx];
+		idx+=sizeof(uint16_t);
 		temp.key=&buf[idx];
 		idx+=temp.len;
+		idx+=sizeof(uint16_t);
 		__checking_data_check_key(temp,&buf[idx]);
 		idx+=4096;
 	}
@@ -245,10 +247,10 @@ bool vectored_end_req (request * const req){
 			free(req->buf);
 			break;
 		case FS_RANGEGET_T:
-			free(req->buf);
 #ifdef CHECKINGDATA
 			range_get_data_checker(req->length, req->buf);
 #endif
+			free(req->buf);
 			break;
 		case FS_SET_T:
 			bench_reap_data(req, mp.li);
@@ -263,15 +265,6 @@ bool vectored_end_req (request * const req){
 		if(preq->end_req)
 			preq->end_req((void*)preq);	
 	}
-	
-	pthread_mutex_lock(&flying_cnt_lock);
-	flying_cnt++;
-	if(flying_cnt > QDEPTH){
-		printf("???\n");
-		abort();
-	}
-	pthread_mutex_unlock(&flying_cnt_lock);
-	tag_manager_free_tag(tm, tag_num);
 	return true;
 }
 

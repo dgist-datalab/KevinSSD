@@ -56,12 +56,15 @@ void __iterator_issue_read(ppa_t ppa, uint32_t i, uint32_t j, request *req){
 
 void copy_key_value_to_buf(char *buf, KEYT key, char *data){
 	uint32_t offset=0;
-	*(uint16_t*)&buf[offset++]=key.len;
+	*(uint16_t*)&buf[offset]=key.len;
+	offset+=2;
 	memcpy(&buf[offset], key.key, key.len);
 	offset+=key.len;
 	if(data){
-		memcpy(&buf[offset], data, 4096);
-		offset+=4096;
+		*(uint16_t*)&buf[offset]=LPAGESIZE;
+		offset+=2;
+		memcpy(&buf[offset], data, LPAGESIZE);
+		offset+=LPAGESIZE;
 	}
 }
 
@@ -76,7 +79,7 @@ void *lsm_range_end_req(algo_req *const al_req){
 			inf_free_valueset(al_params->value ,FS_MALLOC_R);
 			break;
 		case DATAR:
-	//		printf("%d iter key :%.*s\n", iter_num++,KEYFORMAT(al_params->key));
+			printf("%d iter key :%.*s\n", iter_num++,KEYFORMAT(al_params->key));
 			if(al_params->value->ppa%NPCINPAGE){
 				copy_key_value_to_buf(&req->buf[al_params->offset], al_params->key, &al_params->value->value[4096]);	
 			}
@@ -129,7 +132,7 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 		if(t_node->ppa==UINT32_MAX){
 			//copy value
 			copy_key_value_to_buf(&req->buf[offset], t_node->key, t_node->value.g_value);
-	//		printf("target %d iter key :%.*s\n", iter_num++,KEYFORMAT(t_node->key));
+			printf("target %d iter key :%.*s\n", iter_num++,KEYFORMAT(t_node->key));
 
 			pthread_mutex_lock(&cnt_lock);
 			rgparams->read_num++;
@@ -167,7 +170,7 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 		req->buf_len=offset;
 		LSM.li->read(al_req->ppa/NPCINPAGE, PAGESIZE, al_params->value, ASYNC, al_req);	
 next_round:
-		offset+=t_node->key.len+2+4096;
+		offset+=t_node->key.len+2+2+4096;
 		i++;
 		if(break_flag) break;
 	}
@@ -192,6 +195,7 @@ inline static uint32_t __lsm_range_key(request *const req, range_get_params *rgp
 		i++;
 		if(break_flag) break;
 	}
+	fdriver_unlock(&LSM.iterator_lock);
 
 	req->end_req(req);
 	for(int32_t i=rgparams->total_loi_num-1; i>=0; i--){
@@ -219,6 +223,7 @@ uint32_t __lsm_range_get(request *const req){ //after range_get
 	snode *tt;
 	for(int32_t i=rgparams->total_loi_num-1; i>=0; i--){
 		ka_pair t;
+		if(!loi[i]) continue;
 		while(level_op_iterator_pick_key_addr_pair(loi[i],&t)){
 			tt=skiplist_insert_iter(temp_list, t.key, t.ppa);
 			if(t.ppa==UINT32_MAX){
@@ -278,16 +283,27 @@ uint32_t lsm_range_get(request *const req){
 
 	uint32_t ppa;
 	bool should_read;
+	bool nothing_flag=true;
+	bool noread=true;
 	if(ISTRANSACTION(LSM.setup_values)){
 		for(uint32_t i=0; i<target_trans_entry_num; i++){
 			params->loi[target_trans_entry_num-1-i]=level_op_iterator_transact_init(trans_sets[i], req->key, &ppa, req->offset, &should_read);
 			if(should_read){
 				__iterator_issue_read(ppa, target_trans_entry_num-1-i, 0, req);
+				noread=false;
+			}
+
+			if(params->loi[target_trans_entry_num-1-i]){
+				nothing_flag=false;
 			}
 		}
 		free(trans_sets);
 	}else{
 		params->loi[0]=level_op_iterator_skiplist_init(LSM.memtable, req->key, req->offset);
+
+		if(params->loi[0]){
+			nothing_flag=false;
+		}
 	}
 
 	uint32_t *ppa_list;
@@ -299,7 +315,27 @@ uint32_t lsm_range_get(request *const req){
 				__iterator_issue_read(ppa_list[j], i+target_trans_entry_num, j, req);
 			}
 			free(ppa_list);
+			noread=false;
+		}
+
+		if(params->loi[i+target_trans_entry_num]){
+			nothing_flag=false;
 		}
 	}
+
+	if(nothing_flag){
+		req->length=0;
+		fdriver_unlock(&LSM.iterator_lock);
+		for(int32_t i=params->total_loi_num-1; i>=0; i--){
+			level_op_iterator_free(params->loi[i]);
+		}
+		free(params->loi);
+		free(params);
+		req->end_req(req);
+	}
+	else if(noread){
+		return __lsm_range_get(req);
+	}
+
 	return 1;
 }

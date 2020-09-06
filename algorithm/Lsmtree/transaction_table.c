@@ -476,12 +476,13 @@ bool transaction_table_checking_commitable(transaction_table *table, uint32_t ti
 
 char* statusToString(uint8_t a){
 	switch(a){
-		case 0: return "EMPTY";
-		case 1: return "CACHED";
-		case 2: return "LOGGED";
-		case 3: return "COMMIT";
-		case 4: return "CACHEDCOMMIT";
-		case 5: return "COMPACTION";
+		case EMPTY: return "EMPTY";
+		case CACHED: return "CACHED";
+		case LOGGED: return "LOGGED";
+		case COMMIT: return "COMMIT";
+		case CACHEDCOMMIT: return "CACHEDCOMMIT";
+		case COMPACTION: return "COMPACTION";
+		case NONFULLCOMPACTION: return "NONFULL COMPACTION";
 	}
 	return NULL;
 }
@@ -489,14 +490,31 @@ char* statusToString(uint8_t a){
 void transaction_table_print(transaction_table *table, bool full){
 	for(uint32_t i=0; i<table->full; i++){
 		if(!full && table->etr[i].status==EMPTY) continue;
-		if(table->etr[i].status==LOGGED){
-		printf("[%u] tid: %u status:%s %.*s ~ %.*s page:%u\n", i, table->etr[i].tid, 
-				statusToString(table->etr[i].status), KEYFORMAT(table->etr[i].range.start),
-				KEYFORMAT(table->etr[i].range.end), table->etr[i].ptr.physical_pointer);
-		}
-		else if (table->etr[i].status==CACHED){
-			printf("[%u] tid: %u status:%s %.*s ~ \n", i, table->etr[i].tid, 
-				statusToString(table->etr[i].status), KEYFORMAT(table->etr[i].ptr.memtable->header->list[1]->key));	
+		switch(table->etr[i].status){
+			case EMPTY:
+				printf("[%u] tid: %u status:%s\n", i, table->etr[i].tid,
+						statusToString(table->etr[i].status));
+				break;
+			case LOGGED:
+			case COMMIT:
+			case COMPACTION:
+			case CACHEDCOMMIT:
+			case NONFULLCOMPACTION:
+				printf("[%u] tid: %u status:%s %.*s ~ %.*s page:%u\n", i, table->etr[i].tid, 
+						statusToString(table->etr[i].status), KEYFORMAT(table->etr[i].range.start),
+						KEYFORMAT(table->etr[i].range.end), table->etr[i].ptr.physical_pointer);
+
+				break;
+			case CACHED:
+				if(!table->etr[i].ptr.memtable->size){
+					printf("[%u] tid: %u status:%s size:%lu\n", i, table->etr[i].tid, 
+							statusToString(table->etr[i].status), table->etr[i].ptr.memtable->size);			
+				}
+				else{
+					printf("[%u] tid: %u status:%s %.*s ~ size:%lu\n", i, table->etr[i].tid, 
+							statusToString(table->etr[i].status), KEYFORMAT(table->etr[i].ptr.memtable->header->list[1]->key), table->etr[i].ptr.memtable->size);	
+				}
+				break;
 		}
 	}
 }
@@ -518,6 +536,7 @@ uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, 
 			switch(etr->status){
 				case EMPTY:break;
 				case CACHED:
+					if(!etr->ptr.memtable->size) break;
 					s=skiplist_find_lowerbound(etr->ptr.memtable, key);
 					if(s==etr->ptr.memtable->header) break;
 					if((KEYFILTERCMP(s->key, prefix.key, prefix.len)==0) || (s->list[1]!=etr->ptr.memtable->header && KEYFILTER(s->list[1]->key, prefix.key, prefix.len)==0)){
@@ -533,8 +552,17 @@ uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, 
 					break;
 				case NONFULLCOMPACTION:
 				case COMPACTION:
-					printf("%s:%d not allowed compaction in iterator\n", __FILE__,__LINE__);
-					abort();
+					if(!_tm.commit_KP->size){
+						printf("maybe compaction is running! %s:%d\n", __FILE__, __LINE__);
+						abort();
+						break;
+					}
+					transaction_table_print(table,false);
+					s=skiplist_find_lowerbound(_tm.commit_KP, key);
+					if(s==_tm.commit_KP->header) break;
+					if((KEYFILTERCMP(s->key, prefix.key, prefix.len)==0) || (s->list[1]!=_tm.commit_KP->header && KEYFILTER(s->list[1]->key, prefix.key, prefix.len)==0)){
+						res[i++]=etr;
+					}
 					break;
 			}
 		}

@@ -135,9 +135,11 @@ static inline char *translation_buffer(char *buf, uint32_t *idx, uint32_t size, 
 }
 static inline void key_parser(request *req, char *buf, uint32_t *idx, uint32_t limit){
 	KEYT key;
-	key.len=*(uint8_t*)translation_buffer(buf, idx, sizeof(uint16_t), limit);
+	uint16_t key_len=*(uint16_t*)translation_buffer(buf, idx, sizeof(uint16_t), limit);
+	key.len=key_len;
 	key.key=translation_buffer(buf,idx,req->key.len, limit);
 	kvssd_cpy_key(&req->key, &key);
+	(*idx)+=key.len;
 }
 
 static inline const char* type_to_str(FSTYPE t){
@@ -165,13 +167,22 @@ static inline void make_mget_req(vec_request *res, request *req, uint32_t size){
 		temp->end_req=cheeze_end_req;
 		temp->isAsync=ASYNC;
 		temp->seq=i;
-		temp->type==FS_MGET_T;
+		temp->type=FS_MGET_T;
 		kvssd_cpy_key(&temp->key, &copied_key);
 		*(uint64_t*)&temp->key.key[temp->key.len-sizeof(uint64_t)]+=i;
 		temp->value=inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 	}
 
 	kvssd_free_key_content(&copied_key);
+}
+
+void print_buf(char *buf, uint32_t len){
+	for(uint32_t i=1; i<=len; i++){
+		printf("%d ",buf[i-1]);
+		if(i%10==0){
+			printf("\n");
+		}
+	}
 }
 
 vec_request *get_vectored_request(){
@@ -200,6 +211,8 @@ vec_request *get_vectored_request(){
 	res->end_req=NULL;
 	res->mark=0;
 	res->buf=req_buf;
+
+	//print_buf(res->buf, 100);
 
 	for(uint32_t i=0; i<res->size; i++){
 		request *temp=&res->req_array[i];
@@ -259,7 +272,7 @@ vec_request *get_vectored_request(){
 				break;
 		}
 
-		DPRINTF("REQ-TYPE:%s INFO(%d:%d) key:%.*s\n", type_to_str(temp->type), creq->id, i, temp->key.len, temp->key.key);
+		DPRINTF("TID: %u REQ-TYPE:%s INFO(%d:%d) key:%.*s (keylen:%d)\n",temp->tid, type_to_str(temp->type), creq->id, i, temp->key.len, temp->key.key, temp->key.len);
 	}
 
 out:
@@ -271,13 +284,13 @@ bool cheeze_end_req(request *const req){
 	switch(req->type){
 		case FS_NOTFOUND_T:
 			bench_reap_data(req, mp.li);
-			DPRINTF("%u not found!\n",req->key);
+			DPRINTF("%.*s not found!\n",KEYFORMAT(req->key));
 			preq->buf_len=0;
 			inf_free_valueset(req->value,FS_MALLOC_R);
 			break;
 		case FS_MGET_NOTFOUND_T:
 			bench_reap_data(req, mp.li);
-			DPRINTF("%u mget not found!\n",req->key);
+			DPRINTF("%.*s mget not found!\n",KEYFORMAT(req->key));
 			if(req->value){
 				memcpy(&preq->buf[req->seq*LPAGESIZE], null_value, LPAGESIZE);
 				inf_free_valueset(req->value,FS_MALLOC_R);
@@ -287,13 +300,14 @@ bool cheeze_end_req(request *const req){
 		case FS_MGET_T:
 		case FS_GET_T:
 			bench_reap_data(req, mp.li);
+#ifdef CHECKINGDATA
+			map_crc_check(req->key, req->value->value);
+#endif
 			if(req->value){
 				memcpy(&preq->buf[req->seq*LPAGESIZE], req->value->value,LPAGESIZE);
 				inf_free_valueset(req->value,FS_MALLOC_R);
 			}
-#ifdef CHECKINGDATA
-			map_crc_check(req->key, req->value->value);
-#endif
+
 			preq->buf_len+=LPAGESIZE;
 			break;
 		case FS_SET_T:
@@ -355,8 +369,8 @@ void *ack_to_dev(void* a){
 		creq->ubuf=vec->buf;
 		creq->ubuf_len=vec->buf_len;
 		r=write(chrfd, creq, sizeof(cheeze_req));
+		DPRINTF("[DONE] REQ INFO(%d) \n", creq->id);
 
-		DPRINTF("[DONE] REQ INFO(%d) LBA: %u ~ %u\n", creq->id, creq->pos, creq->pos+creq->len/LPAGESIZE-1);
 		if(r<0){
 			printf("write error!! %s:%d\n",__FILE__, __LINE__);
 			break;

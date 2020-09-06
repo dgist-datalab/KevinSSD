@@ -155,7 +155,7 @@ void bench_make_data(){
 			vectored_get(start,end, _m, true);
 			break;
 		case VECTOREDRW:
-			vectored_rw(start,end, _m, false);
+			vectored_rw(start,end, _m, true);
 			break;
 		case VECTOREDMIXED:
 			vectored_rw(start,end, _m, false);

@@ -81,8 +81,13 @@ bool meta_iter_pick_key_addr_pair(meta_iterator *mi, ka_pair *ka){
 			return false;
 		}
 		ka->key=mi->sk_node->key;
-		ka->data=mi->sk_node->value.u_value->value;
-		ka->ppa=UINT32_MAX;
+		if(mi->sk_node->value.u_value){
+			ka->data=mi->sk_node->value.u_value->value;
+			ka->ppa=UINT32_MAX;
+		}
+		else{
+			ka->ppa=mi->sk_node->ppa;
+		}
 		if(!KEYFILTER(ka->key, mi->m_prefix.key, mi->m_prefix.len)){
 			mi->idx++;
 			return false;	
@@ -132,6 +137,13 @@ level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_
 
 	for(uint32_t i=0; target_run[i]!=0; i++){res->max_idx++;}
 
+	if(res->max_idx==0){
+		free(target_run);
+		*should_read=false;
+		free(res);
+		return NULL;
+	}
+
 	if(res->max_idx){
 		res->m_iter=(meta_iterator**)malloc(sizeof(meta_iterator*) * res->max_idx);
 	}
@@ -141,7 +153,8 @@ level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_
 	uint32_t *ppa_list=NULL;
 	if(lev->idx<LSM.LEVELCACHING){
 		*should_read=false;
-		}else{
+	}
+	else{
 		ppa_list=(uint32_t*)malloc(sizeof(uint32_t)*(res->max_idx+1));
 		*should_read=true;
 	}
@@ -174,7 +187,7 @@ level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_
 	return res;
 }
 
-
+extern my_tm _tm;
 level_op_iterator *level_op_iterator_transact_init(transaction_entry *etr, KEYT key, uint32_t *ppa, bool include, bool *should_read){
 	level_op_iterator *res=(level_op_iterator*)malloc(sizeof(level_op_iterator));
 	res->max_idx=1;
@@ -193,6 +206,11 @@ level_op_iterator *level_op_iterator_transact_init(transaction_entry *etr, KEYT 
 			*ppa=etr->ptr.physical_pointer;
 			*should_read=true;
 			break;
+		case NONFULLCOMPACTION:
+		case COMPACTION:
+			res->m_iter[0]=meta_iter_skip_init(_tm.commit_KP, key, include);
+			*should_read=false;
+			break;
 		default:
 			printf("%s:%d not allowed status\n", __FILE__,__LINE__);
 			break;
@@ -201,6 +219,7 @@ level_op_iterator *level_op_iterator_transact_init(transaction_entry *etr, KEYT 
 }
 
 level_op_iterator *level_op_iterator_skiplist_init(skiplist *skip, KEYT prefix, bool include){
+	if(!skip->size) return NULL;
 	level_op_iterator *res=(level_op_iterator*)malloc(sizeof(level_op_iterator));
 	res->max_idx=1;
 	res->idx=0;
@@ -226,6 +245,7 @@ retry:
 }
 
 void level_op_iterator_free(level_op_iterator *loi){
+	if(!loi) return;
 	for(uint32_t i=0; i<loi->max_idx; i++){
 		meta_iter_free(loi->m_iter[i]);
 	}
