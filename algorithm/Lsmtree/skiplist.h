@@ -85,6 +85,7 @@ typedef struct skiplist{
 	uint32_t data_size; //data bytes
 	snode *header;
 	bool isgc;
+	uint32_t unflushed_pairs;
 }skiplist;
 
 //read only iterator. don't using iterater after delete iter's now node
@@ -104,7 +105,7 @@ snode *skiplist_insert(skiplist*,KEYT,value_set *,bool); //insert skiplist, retu
 snode *skiplist_insert_iter(skiplist *,KEYT lpa, ppa_t ppa);
 #ifdef Lsmtree
 
-static inline bool skiplist_data_to_bucket(skiplist *input, l_bucket *b, KEYT *start, KEYT *end,bool set_range){
+static inline bool skiplist_data_to_bucket(skiplist *input, l_bucket *b, KEYT *start, KEYT *end,bool set_range, uint32_t *number){
 	static int cnt=0;
 	if(cnt++==5){	
 		printf("break!\n");
@@ -125,7 +126,9 @@ static inline bool skiplist_data_to_bucket(skiplist *input, l_bucket *b, KEYT *s
 		idx++;
 
 		if(target->value.u_value==0) continue;
-
+	
+		if(number)
+			(*number)++;
 		if(data_is_empty) data_is_empty=false;
 		if(b->bucket[target->value.u_value->length]==NULL){
 			b->bucket[target->value.u_value->length]=(snode**)malloc(sizeof(snode*)*(512));

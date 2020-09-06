@@ -2,6 +2,7 @@
 #define __WRITE_BUFFER_H__
 
 #include "../../include/data_struct/list.h"
+#include "../../include/sem_lock.h"
 #include "transaction_table.h"
 
 
@@ -9,6 +10,7 @@ typedef struct write_buffer_manager{
 	uint32_t max_kv_pair;
 	uint32_t now_kv_pair;
 	uint32_t total_value_size;
+	fdriver_lock_t wbm_lock;
 	list *open_transaction_list;
 	bool (*write_transaction_entry)(struct transaction_entry *etr, li_node *);
 }WBM;

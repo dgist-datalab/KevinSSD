@@ -211,8 +211,9 @@ int gc_data(){
 
 extern _bc bc;
 int __gc_data(){
-	//static int cnt=0;
-	//printf("gc_cnt:%u\n",cnt++);
+	/*
+	static int cnt=0;
+	printf("gc_cnt:%u\n",cnt++);*/
 	static bool flag=false;
 	if(!flag){
 		flag=true;

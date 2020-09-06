@@ -321,7 +321,7 @@ uint32_t transaction_commit(request *const req){
 		list_delete_node(temp_list, now);
 	}
 	
-	compaction_wait_jobs();
+	//compaction_wait_jobs();
 
 	list_free(temp_list);
 
@@ -447,7 +447,7 @@ uint32_t __transaction_get(request *const req){
 	}
 
 	if(!req->params){ //first round
-		transaction_table_print(_tm.ttb, false);
+		//transaction_table_print(_tm.ttb, false);
 		trp=(t_rparams*)malloc(sizeof(t_rparams));
 		trp->max=transaction_table_find(_tm.ttb, req->tid, req->key, &entry_set);
 		/*

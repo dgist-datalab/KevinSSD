@@ -21,6 +21,10 @@ uint32_t key_packing_insert_try(key_packing * kp, KEYT key){
 uint32_t key_packing_insert(key_packing * kp, KEYT key){
 	uint32_t offset=kp->offset;
 	char *t=kp->data;
+	if(offset + 1 + key.len + sizeof(cnt) >PAGESIZE){
+		printf("%s:%d buffer overflow!\n", __FILE__, __LINE__);
+		abort();
+	}
 	*((uint8_t*)&t[offset])=key.len;
 	offset++;
 	memcpy(&t[offset], key.key, key.len);

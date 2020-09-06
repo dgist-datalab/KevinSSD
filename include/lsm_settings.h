@@ -40,7 +40,7 @@
 /*lsmtree flash thread*/
 #define KEYSETSIZE 8
 #define CTHREAD 1
-#define CQSIZE 1
+#define CQSIZE 1024
 #define FTHREAD 1
 #define FQSIZE 2
 #define RQSIZE 1024

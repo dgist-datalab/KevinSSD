@@ -53,6 +53,7 @@ skiplist *skiplist_init(){
 	point->size=0;
 	point->data_size=0;
 	point->isgc=false;
+	point->unflushed_pairs=0;
 	return point;
 }
 
@@ -686,7 +687,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 	memset(&b,0,sizeof(b));
 	uint32_t idx=1;
 	snode *target;
-	bool full_delete=skiplist_data_to_bucket(input, &b, start, end, true);
+	bool full_delete=skiplist_data_to_bucket(input, &b, start, end, true, NULL);
 	
 	if(full_delete){
 		res[0]=NULL;

@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+static void print_write_buffer_list(list *li);
 
 WBM* write_buffer_init(uint32_t max_kv_pair, bool (*wt)(transaction_entry*, li_node*)){
 	WBM *res=(WBM*)malloc(sizeof(WBM));
@@ -13,6 +14,7 @@ WBM* write_buffer_init(uint32_t max_kv_pair, bool (*wt)(transaction_entry*, li_n
 	res->now_kv_pair=res->total_value_size=0;
 	res->open_transaction_list=list_init();
 	res->write_transaction_entry=wt;
+	fdriver_mutex_init(&res->wbm_lock);
 	return res;
 }
 
@@ -22,17 +24,28 @@ li_node* write_buffer_insert_trans_etr(WBM *wbm, transaction_entry *etr){
 
 void write_buffer_delete_node(WBM* wbm, li_node* node){
 	transaction_entry *etr=(transaction_entry*)node->data;
+	fdriver_lock(&wbm->wbm_lock);
 
 	if(etr->status==CACHED){
-		wbm->now_kv_pair-=etr->ptr.memtable->size;
-		wbm->total_value_size-=etr->ptr.memtable->data_size;
+		if(etr->ptr.memtable->unflushed_pairs){
+			wbm->now_kv_pair-=etr->ptr.memtable->unflushed_pairs;
+			wbm->total_value_size-=etr->ptr.memtable->data_size;
+		}
 	}
 
 	if(etr->status==NONFULLCOMPACTION){
-		wbm->now_kv_pair-=etr->ptr.memtable->size;
+		if(etr->ptr.memtable->unflushed_pairs){
+			wbm->now_kv_pair-=etr->ptr.memtable->unflushed_pairs;
+		}
 	}
-
+	if(wbm->now_kv_pair > wbm->max_kv_pair){
+		print_write_buffer_list(wbm->open_transaction_list);
+		printf("wbm->now_kv_pair:%u\n", wbm->now_kv_pair);
+		printf("wtf!!!\n");
+		abort();
+	}
 	list_delete_node(wbm->open_transaction_list, node);
+	fdriver_unlock(&wbm->wbm_lock);
 }
 
 extern pm d_m;
@@ -49,7 +62,7 @@ static void print_write_buffer_list(list *li){
 	for_each_list_node(li, node){
 		transaction_entry *etr=(transaction_entry*)node->data;
 		skiplist *skip=etr->ptr.memtable;
-		printf("%u skip -> NOK: %lu, key_byte:%u, data_byte: %u \n", etr->tid, skip->size, skip->all_length, skip->data_size);
+		printf("%u skip -> NOK: %lu, key_byte:%u, data_byte:%u unflushed:%d\n", etr->tid, skip->size, skip->all_length, skip->data_size, skip->unflushed_pairs);
 		total_nok+=skip->size;
 		total_key_byte+=skip->all_length;
 		total_data_byte+=skip->data_size;
@@ -59,9 +72,11 @@ static void print_write_buffer_list(list *li){
 }
 
 void write_buffer_insert_KV(WBM *wbm, transaction_entry *in_etr, KEYT key, value_set *value, bool isdelete){
+	fdriver_lock(&wbm->wbm_lock);
 	wbm->now_kv_pair++;
 	uint32_t before_insert=in_etr->ptr.memtable->data_size, after_insert;
 	skiplist_insert(in_etr->ptr.memtable, key, value, isdelete);
+	in_etr->ptr.memtable->unflushed_pairs++;
 	after_insert=in_etr->ptr.memtable->data_size;
 	wbm->total_value_size+=(after_insert-before_insert);
 
@@ -73,18 +88,29 @@ void write_buffer_insert_KV(WBM *wbm, transaction_entry *in_etr, KEYT key, value
 	//	print_write_buffer_list(wbm->open_transaction_list);
 
 		/*buffer initialize*/
+
 		li_node *node, *nxt;
 		snode *s;
 		l_bucket b={0,};
+		uint32_t total_key_pair_num=0, before=0, remain;
 		for_each_list_node(wbm->open_transaction_list, node){
 			transaction_entry *etr=(transaction_entry*)node->data;
 			skiplist *skip=etr->ptr.memtable;
-			skiplist_data_to_bucket(skip, &b, NULL, NULL, false);
+			skiplist_data_to_bucket(skip, &b, NULL, NULL, false, &total_key_pair_num);
+			skip->unflushed_pairs=0;
 		}
 		
 		target_size+=3;
 		if(target_size*2 < b.idx[8]){
 			printf("cannot over the target_size %s:%d\n", __FILE__, __LINE__);
+			abort();
+		}
+/*
+		print_write_buffer_list(wbm->open_transaction_list);
+		printf("total_key_pair_num :%u %u\n", total_key_pair_num, wbm->now_kv_pair);
+*/
+		if(total_key_pair_num * (DEFKEYLENGTH+1+4) > PAGESIZE){
+			printf("the key packing overflow!\n");
 			abort();
 		}
 
@@ -119,7 +145,10 @@ void write_buffer_insert_KV(WBM *wbm, transaction_entry *in_etr, KEYT key, value
 				}
 			}
 		}
-
+/*
+		print_write_buffer_list(wbm->open_transaction_list);
+		printf("end!\n");
+*/
 		wbm->now_kv_pair=0;
 		wbm->total_value_size=0;
 	}
@@ -132,6 +161,7 @@ void write_buffer_insert_KV(WBM *wbm, transaction_entry *in_etr, KEYT key, value
 		}
 		printf("\n");
 	}
+	fdriver_unlock(&wbm->wbm_lock);
 }
 
 void write_buffer_free(WBM* wbm){
