@@ -153,7 +153,10 @@ uint32_t transaction_range_delete(request *const req){
 			key=req->key;
 		}else{
 			kvssd_cpy_key(&key, &copied_key);
-			*(uint64_t*)&key.key[key.len-sizeof(uint64_t)]+=i;
+			uint64_t temp=*(uint64_t*)&key.key[key.len-sizeof(uint64_t)];
+			temp=Swap8Bytes(temp);
+			temp+=i;
+			*(uint64_t*)&key.key[key.len-sizeof(uint64_t)]=Swap8Bytes(temp);
 		}
 
 
@@ -444,6 +447,7 @@ uint32_t __transaction_get(request *const req){
 	}
 
 	if(!req->params){ //first round
+		transaction_table_print(_tm.ttb, false);
 		trp=(t_rparams*)malloc(sizeof(t_rparams));
 		trp->max=transaction_table_find(_tm.ttb, req->tid, req->key, &entry_set);
 		/*
@@ -636,9 +640,6 @@ retry:
 
 	if(res==UINT_MAX){
 		abort();
-	}
-	if(res==0){
-		printf("break!\n");
 	}
 	bm->set_oob(bm, (char*)&type, sizeof(type), res);
 	bm->populate_bit(bm,res);

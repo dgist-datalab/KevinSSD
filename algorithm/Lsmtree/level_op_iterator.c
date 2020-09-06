@@ -1,5 +1,6 @@
 #include "level_op_iterator.h"
 #include "lsmtree.h"
+#include "write_buffer_manager.h"
 #include "../../include/utils/kvssd.h"
 
 extern lsmtree LSM;
@@ -195,6 +196,7 @@ level_op_iterator *level_op_iterator_transact_init(transaction_entry *etr, KEYT 
 
 	res->m_iter=(meta_iterator**)malloc(sizeof(meta_iterator*)*res->max_idx);
 
+	char *data, *cached_data;
 	switch(etr->status){
 		case CACHED:
 			res->m_iter[0]=meta_iter_skip_init(etr->ptr.memtable, key, include);
@@ -203,8 +205,17 @@ level_op_iterator *level_op_iterator_transact_init(transaction_entry *etr, KEYT 
 		case CACHEDCOMMIT:
 		case LOGGED:
 		case COMMIT:
-			*ppa=etr->ptr.physical_pointer;
-			*should_read=true;
+			if(ISMEMPPA((etr->ptr.physical_pointer))){
+				data=(char*)malloc(PAGESIZE);
+				cached_data=memory_log_get(_tm.mem_log, etr->ptr.physical_pointer);
+				memcpy(data, cached_data, PAGESIZE);
+				level_op_iterator_set_iterator(res, 0, data, key, include);
+				*should_read=false;
+			}
+			else{
+				*ppa=etr->ptr.physical_pointer;
+				*should_read=true;
+			}
 			break;
 		case NONFULLCOMPACTION:
 		case COMPACTION:

@@ -1028,7 +1028,10 @@ uint32_t lsm_range_delete(request *const req){
 			key=req->key;
 		}else{
 			kvssd_cpy_key(&key, &copied_key);
-			*(uint64_t*)&key.key[key.len-sizeof(uint64_t)]+=i;
+			uint64_t temp=*(uint64_t*)&key.key[key.len-sizeof(uint64_t)];
+			temp=Swap8Bytes(temp);
+			temp+=i;
+			*(uint64_t*)&key.key[key.len-sizeof(uint64_t)]=Swap8Bytes(temp);
 		}
 		compaction_check(key, false);
 		skiplist_insert(LSM.memtable, key, NULL, false);

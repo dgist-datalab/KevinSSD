@@ -61,7 +61,10 @@ inline uint32_t number_of_indexer(Redblack r){
 bool transaction_entry_buffered_write(transaction_entry *etr, li_node *node){
 	//node for new entry
 	skiplist *t_mem=etr->ptr.memtable;
-	htable *key_sets=LSM.lop->mem_cvt2table(t_mem, NULL, NULL);
+	
+	run_t temp_run;
+
+	htable *key_sets=LSM.lop->mem_cvt2table(t_mem, &temp_run, NULL);
 	transaction_log_write_entry(etr, (char*)key_sets->sets);
 	htable_free(key_sets);
 	skiplist_free(t_mem);
@@ -70,6 +73,9 @@ bool transaction_entry_buffered_write(transaction_entry *etr, li_node *node){
 	uint32_t offset=etr->tid%_tm.ttb->base;
 	etr->wbm_node=NULL;
 	etr->status=LOGGED;
+
+	etr->range.start=temp_run.key;
+	etr->range.end=temp_run.end;
 
 	etr=get_transaction_entry(_tm.ttb, tid*_tm.ttb->base+offset+1);
 	etr->wbm_node=node;

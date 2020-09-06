@@ -5,6 +5,7 @@
 #include "vectored_interface.h"
 #include "../include/utils/kvssd.h"
 #include "../bench/bench.h"
+#include "../include/settings.h"
 #ifdef CHECKINGDATA
 #include <map>
 #include <string>
@@ -20,6 +21,7 @@ char *null_value;
 queue *ack_queue;
 void *ack_to_dev(void*);
 bool cheeze_end_req(request *const req);
+void print_buf(char *buf, uint32_t len);
 pthread_t t_id;
 extern master_processor mp;
 
@@ -39,7 +41,13 @@ string convertToString(char *a ,int size){
 
 void map_crc_insert(KEYT key, char *value){
 	string a=convertToString(key.key, key.len);
-	chk_data.insert(pair<string, uint32_t>(a, crc32(value, LPAGESIZE)));
+	map<string, uint32_t>::iterator it=chk_data.find(a);
+	if(it!=chk_data.end()){
+		it->second=crc32(value,LPAGESIZE);
+	}
+	else{
+		chk_data.insert(pair<string, uint32_t>(a, crc32(value, LPAGESIZE)));
+	}
 }
 
 bool map_crc_check(KEYT key, char *value){
@@ -169,7 +177,12 @@ static inline void make_mget_req(vec_request *res, request *req, uint32_t size){
 		temp->seq=i;
 		temp->type=FS_MGET_T;
 		kvssd_cpy_key(&temp->key, &copied_key);
-		*(uint64_t*)&temp->key.key[temp->key.len-sizeof(uint64_t)]+=i;
+
+		uint64_t temp_k=*(uint64_t*)&temp->key.key[temp->key.len-sizeof(uint64_t)];
+		temp_k=Swap8Bytes(temp_k);
+		temp_k+=i;
+		*(uint64_t*)&temp->key.key[temp->key.len-sizeof(uint64_t)]=Swap8Bytes(temp_k);
+
 		temp->value=inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 	}
 
@@ -272,7 +285,23 @@ vec_request *get_vectored_request(){
 				break;
 		}
 
-		DPRINTF("TID: %u REQ-TYPE:%s INFO(%d:%d) key:%.*s (keylen:%d)\n",temp->tid, type_to_str(temp->type), creq->id, i, temp->key.len, temp->key.key, temp->key.len);
+		DPRINTF("TID: %u REQ-TYPE:%s INFO(seq-%d:%d, ret_buf:%px) (keylen:%d) ",temp->tid, type_to_str(temp->type), creq->id, i, creq->ret_buf, temp->key.len);
+		bool print_value=false;
+		for(uint32_t i=1; i<=(30<temp->key.len?30:temp->key.len) ;i++){
+			DPRINTF("%d ",temp->key.key[i-1]);
+			if(i==1 && temp->key.key[i-1]=='m'){
+				print_value=true;
+			}
+			if(i%10==0){
+				DPRINTF("end:%d\n",0);
+			}
+		}
+		DPRINTF("end:%d\n",0);
+		/*
+		if(print_value && temp->type==FS_SET_T){
+			printf("meta set value print\n");
+			//print_buf(temp->value->value, 4096);
+		}*/
 	}
 
 out:
@@ -299,6 +328,10 @@ bool cheeze_end_req(request *const req){
 			break;
 		case FS_MGET_T:
 		case FS_GET_T:
+			/*
+			printf("get all value print\n");
+			print_buf(req->value->value, 4096);
+			*/
 			bench_reap_data(req, mp.li);
 #ifdef CHECKINGDATA
 			map_crc_check(req->key, req->value->value);
@@ -325,7 +358,8 @@ bool cheeze_end_req(request *const req){
 			inf_assign_try(req);
 			return true;
 		case FS_TRANS_COMMIT:
-			preq->buf_len=0;
+			*(uint8_t*)&preq->buf[0]=1;
+			preq->buf_len=1;
 			break;
 		case FS_RANGEDEL_T:
 #ifdef CHECKINGDATA
@@ -367,9 +401,12 @@ void *ack_to_dev(void* a){
 
 		cheeze_req *creq=(cheeze_req*)vec->origin_req;
 		creq->ubuf=vec->buf;
-		creq->ubuf_len=vec->buf_len;
+		creq->ubuf_len=(creq->ubuf_len==0?vec->buf_len:creq->ubuf_len);
+		if(vec->req_array[0].type==FS_NOTFOUND_T){
+			creq->ubuf_len=0;
+		}
 		r=write(chrfd, creq, sizeof(cheeze_req));
-		DPRINTF("[DONE] REQ INFO(%d) \n", creq->id);
+		DPRINTF("[DONE] REQ INFO(%d) ret_buf:%p ubuf:%p ubuf_len:%d\n", creq->id, creq->ret_buf, creq->ubuf, creq->ubuf_len);
 
 		if(r<0){
 			printf("write error!! %s:%d\n",__FILE__, __LINE__);

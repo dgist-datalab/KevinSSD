@@ -15,7 +15,7 @@
 #define BLOOM
 #endif
 
-#define PREFIXNUM	(DEFKEYLENGTH-1)
+#define PREFIXNUM	(9)
 
 //#define SIMDSEARCHER
 //#define MULTILEVELREAD

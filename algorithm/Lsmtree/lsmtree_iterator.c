@@ -167,7 +167,7 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 		kvssd_cpy_key(&al_params->key,&t_node->key);
 		al_params->offset=offset;
 		al_params->value->ppa=al_req->ppa;
-		req->buf_len=offset;
+		req->buf_len=offset+t_node->key.len+2+2+4096;
 		LSM.li->read(al_req->ppa/NPCINPAGE, PAGESIZE, al_params->value, ASYNC, al_req);	
 next_round:
 		offset+=t_node->key.len+2+2+4096;
@@ -217,6 +217,7 @@ uint32_t __lsm_range_get(request *const req){ //after range_get
 	}
 	list_free(rgparams->algo_params_list);
 
+
 	rgparams->read_target_num=rgparams->read_num=0;
 
 	skiplist *temp_list=skiplist_init();
@@ -232,6 +233,8 @@ uint32_t __lsm_range_get(request *const req){ //after range_get
 			level_op_iterator_move_next(loi[i]);
 		}
 	}
+
+	req->length=req->length > temp_list->size? temp_list->size :req->length;
 
 	uint32_t res=0;
 	if(req->type==FS_RANGEGET_T){
@@ -253,6 +256,8 @@ uint32_t lsm_range_get(request *const req){
 	if(req->params){
 		return __lsm_range_get(req);
 	}
+
+	req->length=req->length > (2*M)/4352 ? (2*M)/4352:req->length;
 
 	fdriver_lock(&LSM.iterator_lock);
 
