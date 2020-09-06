@@ -168,7 +168,7 @@ static inline void make_mget_req(vec_request *res, request *req, uint32_t size){
 	KEYT copied_key;
 	kvssd_cpy_key(&copied_key, &req->key);
 
-	for(uint32_t i=1; i<size; i++){
+	for(uint32_t i=0; i<size; i++){
 		request *temp=&res->req_array[i];
 		temp->tid=res->tid;
 		temp->parents=res;
@@ -263,14 +263,15 @@ vec_request *get_vectored_request(){
 				break;
 			case FS_RANGEDEL_T:
 				temp->offset=*(uint16_t*)translation_buffer(req_buf, &idx, sizeof(uint16_t), limit);
+#ifdef CHECKINGDATA
+				map_crc_range_delete(temp->key, temp->length);
+#endif
 				break;
 			case FS_RANGEGET_T:
 				temp->offset=*(uint16_t*)translation_buffer(req_buf, &idx, sizeof(uint16_t), limit);
 				temp->length=*(uint16_t*)translation_buffer(req_buf, &idx, sizeof(uint16_t), limit);
 				temp->buf=req_buf;
-#ifdef CHECKINGDATA
-				map_crc_range_delete(temp->key, temp->length);
-#endif
+
 				break;
 			case FS_RMW_T:
 				temp->value=inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
@@ -406,7 +407,8 @@ void *ack_to_dev(void* a){
 			creq->ubuf_len=0;
 		}
 		r=write(chrfd, creq, sizeof(cheeze_req));
-		DPRINTF("[DONE] REQ INFO(%d) ret_buf:%p ubuf:%p ubuf_len:%d\n", creq->id, creq->ret_buf, creq->ubuf, creq->ubuf_len);
+	//	DPRINTF("[DONE] REQ INFO(%d) ret_buf:%p ubuf:%p ubuf_len:%d\n", creq->id, creq->ret_buf, creq->ubuf, creq->ubuf_len);
+		printf("[DONE] REQ INFO(%d) ret_buf:%p ubuf:%p ubuf_len:%d\n", creq->id, creq->ret_buf, creq->ubuf, creq->ubuf_len);
 
 		if(r<0){
 			printf("write error!! %s:%d\n",__FILE__, __LINE__);

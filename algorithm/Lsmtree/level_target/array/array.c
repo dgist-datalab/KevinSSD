@@ -478,7 +478,7 @@ uint32_t array_range_find( level *lev ,KEYT s, KEYT e,  run_t ***rc, uint32_t ma
 	for(int i=first+1;i<max_num; i++){
 		ptr=(run_t*)&arrs[i];
 #ifdef KVSSD
-		if(KEYFILTER(ptr->key, s.key, s.len))
+		if(KEYCMP(ptr->key, s))
 #else
 		if(!(ptr->end<s || ptr->key>e))
 #endif
@@ -683,12 +683,14 @@ int array_binary_search_filter(run_t *body, uint32_t max_t, KEYT lpa, int32_t *f
 	int res1, res2; //1:compare with start, 2:compare with end
 	while(start==end ||start<end){
 		mid=(start+end)/2;
-		res1=KEYFILTERCMP(body[mid].key,lpa.key, lpa.len);
-		res2=KEYFILTERCMP(body[mid].end,lpa.key, lpa.len);
+		printf("run %.*s(%u) ~ %.*s(%u)\n", KEYFORMAT(body[mid].key), body[mid].key.len, KEYFORMAT(body[mid].end), body[mid].end.len);
+		res1=KEYCMP(body[mid].key,lpa);
+		res2=KEYCMP(body[mid].end,lpa);
+
 		if(res1<=0 && res2>=0){
 			*first=mid;
 			for(int i=mid-1; i>=0; i--){
-				if(KEYFILTER(body[i].key, lpa.key, lpa.len)){
+				if(KEYCMP(body[i].key, lpa)){
 					mid--;
 					continue;	
 				}

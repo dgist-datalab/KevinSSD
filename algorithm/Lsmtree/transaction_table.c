@@ -335,6 +335,7 @@ value_set* transaction_table_force_write(transaction_table *table, uint32_t tid,
 
 	if(res==NULL){
 		if(table->wbm) write_buffer_delete_node(table->wbm, target->wbm_node);
+		target->wbm_node=NULL;
 		transaction_table_clear(table, target);
 	}
 	return res;
@@ -552,7 +553,8 @@ uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, 
 				case CACHEDCOMMIT:
 				case LOGGED:
 				case COMMIT:
-					if(KEYFILTERCMP(etr->range.start, key.key, key.len) <=0 && KEYFILTERCMP(etr->range.end, key.key, key.len)>=0){
+					printf("ttable %.*s(%u) ~ %.*s(%u) key:%.*s(%u)\n", KEYFORMAT(etr->range.start), etr->range.start.len, KEYFORMAT(etr->range.end), etr->range.end.len, KEYFORMAT(key), key.len);
+					if(KEYCMP(etr->range.start, key) <=0 && KEYCMP(etr->range.end, key)>=0){
 						res[i++]=etr;
 					}
 					break;
@@ -566,6 +568,14 @@ uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, 
 					transaction_table_print(table,false);
 					s=skiplist_find_lowerbound(_tm.commit_KP, key);
 					if(s==_tm.commit_KP->header) break;
+					printf("comp_skip: %.*s(%u) ~ key:%.*s(%u)", KEYFORMAT(s->key), s->key.len, KEYFORMAT(prefix), prefix.len);
+					if(s->list[1]!=_tm.commit_KP->header){
+					
+						printf(" && comp_skip2: %.*s(%u) ~ key:%.*s(%u) org-key:%.*s(%u)\n", KEYFORMAT(s->list[1]->key), s->list[1]->key.len, KEYFORMAT(prefix), prefix.len, KEYFORMAT(key), key.len);
+					}
+					else{
+						printf("\n");
+					}
 					if((KEYFILTERCMP(s->key, prefix.key, prefix.len)==0) || (s->list[1]!=_tm.commit_KP->header && KEYFILTER(s->list[1]->key, prefix.key, prefix.len)==0)){
 						res[i++]=etr;
 					}

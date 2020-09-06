@@ -79,7 +79,7 @@ void *lsm_range_end_req(algo_req *const al_req){
 			inf_free_valueset(al_params->value ,FS_MALLOC_R);
 			break;
 		case DATAR:
-			printf("%d iter key :%.*s\n", iter_num++,KEYFORMAT(al_params->key));
+			//printf("%d iter key :%.*s\n", iter_num++,KEYFORMAT(al_params->key));
 			if(al_params->value->ppa%NPCINPAGE){
 				copy_key_value_to_buf(&req->buf[al_params->offset], al_params->key, &al_params->value->value[4096]);	
 			}
@@ -132,7 +132,7 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 		if(t_node->ppa==UINT32_MAX){
 			//copy value
 			copy_key_value_to_buf(&req->buf[offset], t_node->key, t_node->value.g_value);
-			printf("target %d iter key :%.*s\n", iter_num++,KEYFORMAT(t_node->key));
+		//	printf("target %d iter key :%.*s\n", iter_num++,KEYFORMAT(t_node->key));
 
 			pthread_mutex_lock(&cnt_lock);
 			rgparams->read_num++;
@@ -189,7 +189,7 @@ inline static uint32_t __lsm_range_key(request *const req, range_get_params *rgp
 		if(i+1==req->length){
 			break_flag=true;
 		}
-		printf("%d iter key :%.*s\n", iter_num++,KEYFORMAT(t_node->key));
+		//printf("%d iter key :%.*s\n", iter_num++,KEYFORMAT(t_node->key));
 		copy_key_value_to_buf(&req->buf[offset], t_node->key, NULL);
 		offset+=t_node->key.len+1;
 		i++;
@@ -257,6 +257,10 @@ uint32_t lsm_range_get(request *const req){
 		return __lsm_range_get(req);
 	}
 
+	static uint32_t cnt=0;
+	if(cnt++==3){
+		printf("break!\n");
+	}
 	req->length=req->length > (2*M)/4352 ? (2*M)/4352:req->length;
 
 	fdriver_lock(&LSM.iterator_lock);
@@ -329,6 +333,7 @@ uint32_t lsm_range_get(request *const req){
 	}
 
 	if(nothing_flag){
+		printf("lsm_range_get: no data!\n");
 		req->length=0;
 		fdriver_unlock(&LSM.iterator_lock);
 		for(int32_t i=params->total_loi_num-1; i>=0; i--){
@@ -339,8 +344,10 @@ uint32_t lsm_range_get(request *const req){
 		req->end_req(req);
 	}
 	else if(noread){
+		printf("lsm_range_get: no read!\n");
 		return __lsm_range_get(req);
 	}
 
+	printf("read issues!\n");
 	return 1;
 }

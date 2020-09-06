@@ -195,6 +195,7 @@ void *vectored_main(void *__input){
 	
 				request *req=&vec_req->req_array[i];
 				switch(req->type){
+					case FS_MGET_T:
 					case FS_GET_T:
 					case FS_SET_T:
 						measure_init(&req->latency_checker);
