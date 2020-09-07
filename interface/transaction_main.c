@@ -63,9 +63,9 @@ int main(int argc,char* argv[]){
 	uint32_t i=0; 
 	while((value=get_vectored_bench(&mark, true))){
 		inf_vector_make_req(value, bench_transaction_end_req, mark);
-		if(++i%1024==0){
+	/*	if(++i%1024==0){
 			inf_vector_make_req(get_vectored_one_command(FS_RANGEGET_T, 3000, i), bench_transaction_end_req, -1);
-		}
+		}*/
 	}
 
 	/*

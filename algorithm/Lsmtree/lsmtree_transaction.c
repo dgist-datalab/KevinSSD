@@ -244,7 +244,6 @@ uint32_t transaction_commit(request *const req){
 
 	if(memory_log_usable(_tm.mem_log)){
 		ppa=_tm.last_table;
-		_tm.last_table=memory_log_insert(_tm.mem_log, UINT32_MAX, -1, table_data->value);
 		if(ppa!=UINT32_MAX){
 			if(ISMEMPPA(ppa)){
 				memory_log_delete(_tm.mem_log, ppa);	
@@ -253,6 +252,7 @@ uint32_t transaction_commit(request *const req){
 				transaction_invalidate_PPA(LOG, ppa);	
 			}
 		}
+		_tm.last_table=memory_log_insert(_tm.mem_log, UINT32_MAX, -1, table_data->value);
 		inf_free_valueset(table_data, FS_MALLOC_W);
 	}
 	else{
@@ -714,6 +714,7 @@ uint32_t gc_log(){
 }
 
 uint32_t transaction_clear(transaction_entry *etr){
+	//printf("clear called!\n");
 	fdriver_lock(&_tm.table_lock);
 	uint32_t res=transaction_table_clear(_tm.ttb, etr);
 	fdriver_unlock(&_tm.table_lock);
@@ -759,10 +760,12 @@ void transaction_evicted_write_entry(uint32_t inter_tid, char *data){
 	__trans_write(NULL, value, ppa, LOGW, NULL, false);
 
 	if(inter_tid==UINT32_MAX){
+	//	printf("table ppa update %d->%d\n", _tm.last_table, ppa);
 		_tm.last_table=ppa;
 	}
 	else{
 		transaction_entry *etr=get_etr_by_tid(inter_tid);
+	//	printf("tid: %d ppa update %d->%d\n",etr->tid, etr->ptr.physical_pointer, ppa);
 		etr->ptr.physical_pointer=ppa;
 	}
 }

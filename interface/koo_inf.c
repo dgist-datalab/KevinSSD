@@ -54,9 +54,15 @@ bool map_crc_check(KEYT key, char *value){
 	string a=convertToString(key.key, key.len);
 	uint32_t t=chk_data.find(a)->second;
 	uint32_t data=crc32(value, LPAGESIZE);
+
 	if(t!=data){
+
+		uint64_t temp=(*(uint64_t*)&key.key[1]);
+		temp=Swap8Bytes(temp);
+		printf("key: %c%lu%*.s",key.key[0], temp, key.len-9, &key.key[9]);
+
 		printf("%.*s data check failed %s:%d\n", KEYFORMAT(key), __FILE__, __LINE__);
-		abort();
+	//	abort();
 		return false;
 	}
 	return true;

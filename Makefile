@@ -35,11 +35,11 @@ export COMMONFLAGS=\
 			-D$(TARGET_BM)\
 			-Wno-unused-but-set-variable\
 			-DKVSSD\
+		-DDEBUG\
 		-DCHECKINGDATA\
-#		-DDEBUG\
-#			-O3 -march=native -mtune=native -flto=20 \
 #			-march=armv8-a+crypto\
 			-DCHECKINGTIME\
+			-O3 -march=native -mtune=native -flto=20 \
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 

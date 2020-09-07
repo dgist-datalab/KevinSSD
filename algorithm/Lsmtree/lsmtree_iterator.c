@@ -106,6 +106,7 @@ void *lsm_range_end_req(algo_req *const al_req){
 				printf("error double retry %s:%d\n", __FILE__, __LINE__);
 				abort();
 			}
+			//printf("retry!!!!\n");
 			rgparams->read_done=true;
 			inf_assign_try(req);
 		}
@@ -199,7 +200,7 @@ inline static uint32_t __lsm_range_key(request *const req, range_get_params *rgp
 		if(i+1==req->length){
 			break_flag=true;
 		}
-		printf("%d iter key :%.*s\n", iter_num++,KEYFORMAT(t_node->key));
+		//printf("%d iter key :%.*s\n", iter_num++,KEYFORMAT(t_node->key));
 		copy_key_value_to_buf(&req->buf[offset], t_node->key, NULL);
 		offset+=t_node->key.len+1;
 		i++;
@@ -247,6 +248,18 @@ uint32_t __lsm_range_get(request *const req){ //after range_get
 	req->length=req->length > temp_list->size? temp_list->size :req->length;
 
 	uint32_t res=0;
+	if(!req->length){
+		//printf("lsm_range_get: no data to read!\n");
+		req->length=0;
+		fdriver_unlock(&LSM.iterator_lock);
+		for(int32_t i=rgparams->total_loi_num-1; i>=0; i--){
+			level_op_iterator_free(rgparams->loi[i]);
+		}
+		free(rgparams->loi);
+		free(rgparams);
+		req->end_req(req);
+		return res;
+	}
 	if(req->type==FS_RANGEGET_T){
 		res=__lsm_range_KV(req, rgparams, temp_list);
 	}
@@ -268,12 +281,6 @@ uint32_t lsm_range_get(request *const req){
 		return __lsm_range_get(req);
 	}
 
-	/*
-	static int cnt=0;
-	if(cnt++==13){
-		printf("range cnt:%d\n",cnt++);
-	}*/
-
 	req->length=req->length > (2*M)/4352 ? (2*M)/4352:req->length;
 
 	fdriver_lock(&LSM.iterator_lock);
@@ -284,14 +291,14 @@ uint32_t lsm_range_get(request *const req){
 	params->read_done=false;
 	params->algo_params_list=list_init();
 	req->params=params;
-
+/*
 	if(ISTRANSACTION(LSM.setup_values)){
 		transaction_table_print(_tm.ttb, false);
 	}
 	LSM.lop->print_level_summary();
+*/
 
-
-	printf("target iteration key --- %.*s\n", KEYFORMAT(req->key));
+	//printf("target iteration key --- %.*s\n", KEYFORMAT(req->key));
 	uint32_t target_trans_entry_num=0;
 	transaction_entry **trans_sets=NULL;
 	if(ISTRANSACTION(LSM.setup_values)){
@@ -363,7 +370,7 @@ uint32_t lsm_range_get(request *const req){
 	}
 
 	if(nothing_flag){
-		printf("lsm_range_get: no data!\n");
+	//	printf("lsm_range_get: no data!\n");
 		req->length=0;
 		fdriver_unlock(&LSM.iterator_lock);
 		for(int32_t i=params->total_loi_num-1; i>=0; i--){
@@ -375,7 +382,7 @@ uint32_t lsm_range_get(request *const req){
 		req->end_req(req);
 	}
 	else if(noread){
-		printf("lsm_range_get: no read!\n");
+	//	printf("lsm_range_get: no read!\n");
 		free(_rt);
 		return __lsm_range_get(req);
 	}
@@ -397,7 +404,7 @@ uint32_t lsm_range_get(request *const req){
 			free(_rt->ppa_list);
 		}
 		free(_rt);
-		printf("read issues!\n");
+	//	printf("read issues!\n");
 	}
 
 	return 1;

@@ -423,6 +423,9 @@ uint32_t transaction_table_clear(transaction_table *table, transaction_entry *et
 		if(ISMEMPPA(etr->ptr.physical_pointer)){
 			memory_log_delete(_tm.mem_log, etr->ptr.physical_pointer);
 		}
+		else{
+			transaction_invalidate_PPA(LOG, etr->ptr.physical_pointer);	
+		}
 	}
 
 	free(etr->range.start.key);
@@ -553,7 +556,7 @@ uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, 
 				case CACHEDCOMMIT:
 				case LOGGED:
 				case COMMIT:
-					printf("ttable %.*s(%u) ~ %.*s(%u) key:%.*s(%u)\n", KEYFORMAT(etr->range.start), etr->range.start.len, KEYFORMAT(etr->range.end), etr->range.end.len, KEYFORMAT(key), key.len);
+					//printf("ttable %.*s(%u) ~ %.*s(%u) key:%.*s(%u)\n", KEYFORMAT(etr->range.start), etr->range.start.len, KEYFORMAT(etr->range.end), etr->range.end.len, KEYFORMAT(key), key.len);
 					if(KEYCMP(etr->range.start, key) <=0 && KEYCMP(etr->range.end, key)>=0){
 						res[i++]=etr;
 					}

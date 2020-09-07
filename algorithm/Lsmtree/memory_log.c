@@ -58,6 +58,9 @@ uint32_t memory_log_insert(memory_log *ml, uint32_t tid, uint32_t KP_size, char 
 	memcpy(mn->data, data, PAGESIZE);
 	mn->l_node=lru_push(ml->lru,(void*)mn);
 
+	uint32_t testppa=SETMEMPPA(res);
+	//printf("tid %u assigned to %u\n", tid, testppa);
+
 	ml->now++;
 
 	fdriver_unlock(&ml->lock);
