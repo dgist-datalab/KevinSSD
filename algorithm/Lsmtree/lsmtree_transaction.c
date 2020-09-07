@@ -33,8 +33,8 @@ uint32_t gc_log();
 uint32_t transaction_init(uint32_t cached_size){
 	uint32_t cached_entry_num=cached_size/PAGESIZE;
 
-	uint32_t max_KP_buffer_num=MAX((7*K)/(DEFKEYLENGTH+4), META_NUM_LIMIT);
-	uint32_t target_KP_buffer=(max_KP_buffer_num*4096 < cached_entry_num ? //size
+	uint32_t max_KP_buffer_num=(7*K)/(DEFKEYLENGTH+4);
+	uint32_t target_KP_buffer=(max_KP_buffer_num*4096/PAGESIZE < cached_entry_num ? //size
 			max_KP_buffer_num : cached_entry_num*(PAGESIZE/4096)); //kp num
 
 
@@ -44,8 +44,10 @@ uint32_t transaction_init(uint32_t cached_size){
 		printf("[WRANINIG!!]memory calculated miss!, memory log will be 0 %s:%d\n", __FILE__, __LINE__);
 		cached_entry_num=0;
 	}
-	//_tm.mem_log=memory_log_init(cached_entry_num, transaction_evicted_write_entry);
-	_tm.mem_log=memory_log_init(2, transaction_evicted_write_entry);
+	uint32_t memory_log_size=cached_entry_num < _tm.ttb->base ? cached_entry_num : _tm.ttb->base ;
+	memory_log_size=cached_entry_num==0?2:memory_log_size;
+	_tm.mem_log=memory_log_init(memory_log_size, transaction_evicted_write_entry);
+	//_tm.mem_log=memory_log_init(2, transaction_evicted_write_entry);
 	_tm.commit_KP=skiplist_init();
 	_tm.commit_etr=list_init();
 
@@ -54,7 +56,9 @@ uint32_t transaction_init(uint32_t cached_size){
 	_tm.t_pm.active=NULL;
 	_tm.t_pm.reserve=NULL;
 	_tm.last_table=UINT_MAX;
-	return 1;
+	printf("\t|TRANSACTION WBM size :%u pages\n", target_KP_buffer);
+	printf("\t|TRANSACTION memor_log size :%u pages\n", memory_log_size);
+	return (cached_entry_num-memory_log_size-2) >  cached_size ? 0 : (cached_entry_num-memory_log_size-2);
 }
 
 uint32_t transaction_destroy(){

@@ -43,7 +43,7 @@
 #define NPCINPAGE (PAGESIZE/PIECE)
 #define MINVALUE PIECE
 #define MINKEYLENGTH 16
-#define DEFKEYLENGTH (40)
+#define DEFKEYLENGTH (32)
 #define DEFVALUESIZE (4096)
 #define LPAGESIZE (4096)
 
@@ -58,7 +58,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 8L
+#define GIGAUNIT 128L
 #define OP 70
 #define SHOWINGSIZE (GIGAUNIT * G)
 #define TOTALSIZE (SHOWINGSIZE + (SHOWINGSIZE/100*(100-OP)))

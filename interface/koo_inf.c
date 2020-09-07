@@ -363,6 +363,7 @@ bool cheeze_end_req(request *const req){
 			break;
 		case FS_RMW_T:
 			req->type=FS_SET_T;
+			DPRINTF("RMW return:%u\n",0);
 			memcpy(&req->value->value[req->offset], req->buf, req->length);
 #ifdef CHECKINGDATA
 			map_crc_insert(req->key, req->value->value);
@@ -423,13 +424,17 @@ void *ack_to_dev(void* a){
 		}
 		r=write(chrfd, creq, sizeof(cheeze_req));
 	//	DPRINTF("[DONE] REQ INFO(%d) ret_buf:%p ubuf:%p ubuf_len:%d\n", creq->id, creq->ret_buf, creq->ubuf, creq->ubuf_len);
+		/*
 		if(vec->req_array[0].type==FS_RANGEGET_T){
-			printf("[DONE] REQ INFO(%d) ret_buf:%p ubuf:%p ubuf_len:%d more?:%d\n", creq->id, creq->ret_buf, creq->ubuf, creq->ubuf_len,vec->eof);
+			printf("[DONE] REQ INFO(%d) type:%s ret_buf:%p ubuf:%p ubuf_len:%d more?:%d\n", creq->id, type_to_str(vec->req_array[0].type), creq->ret_buf, creq->ubuf, creq->ubuf_len,vec->eof);
+		}
+		else if(vec->req_array[0].type==FS_MGET_T){
+			printf("[DONE] REQ INFO(%d) type:%s ret_buf:%p ubuf:%p ubuf_len:%d size?:%d\n", creq->id, type_to_str(vec->req_array[0].type), creq->ret_buf, creq->ubuf, creq->ubuf_len, vec->size);
 		}
 		else{
-			printf("[DONE] REQ INFO(%d) ret_buf:%p ubuf:%p ubuf_len:%d\n", creq->id, creq->ret_buf, creq->ubuf, creq->ubuf_len);
+			printf("[DONE] REQ INFO(%d) type:%s ret_buf:%p ubuf:%p ubuf_len:%d\n", creq->id, type_to_str(vec->req_array[0].type), creq->ret_buf, creq->ubuf, creq->ubuf_len);
 		}
-
+*/
 		if(r<0){
 			printf("write error!! %s:%d\n",__FILE__, __LINE__);
 			break;

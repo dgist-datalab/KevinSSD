@@ -7,6 +7,8 @@
 #include "../../include/sem_lock.h"
 #include <stdlib.h>
 
+#define ITERREADVALUE 152
+
 extern lsmtree LSM;
 extern my_tm _tm;
 
@@ -66,10 +68,13 @@ void copy_key_value_to_buf(char *buf, KEYT key, char *data){
 	memcpy(&buf[offset], key.key, key.len);
 	offset+=key.len;
 	if(data){
-		*(uint16_t*)&buf[offset]=LPAGESIZE;
+		*(uint16_t*)&buf[offset]=ITERREADVALUE;
 		offset+=2;
-		memcpy(&buf[offset], data, LPAGESIZE);
-		offset+=LPAGESIZE;
+		if(offset>(2*M)){
+			printf("buffer over flow!!!! %s:%d\n", __FILE__, __LINE__);
+		}
+		memcpy(&buf[offset], data, ITERREADVALUE);
+		offset+=ITERREADVALUE;
 	}
 }
 
@@ -202,11 +207,11 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 		kvssd_cpy_key(&al_params->key,&t_node->key);
 		al_params->offset=offset;
 		al_params->value->ppa=al_req->ppa;
-		req->buf_len=offset+t_node->key.len+2+2+4096;
+		req->buf_len=offset+t_node->key.len+2+2+ITERREADVALUE;
 		LSM.li->read(al_req->ppa/NPCINPAGE, PAGESIZE, al_params->value, ASYNC, al_req);	
 next_round:
 		pre_offset=offset;
-		offset+=t_node->key.len+2+2+4096;
+		offset+=t_node->key.len+2+2+ITERREADVALUE;
 		i++;
 		if(break_flag) break;
 	}
@@ -307,6 +312,7 @@ uint32_t __lsm_range_get(request *const req){ //after range_get
 	return res;
 }
 
+
 uint32_t lsm_range_get(request *const req){
 	//req->magic is include flag
 	compaction_wait_jobs();
@@ -314,7 +320,7 @@ uint32_t lsm_range_get(request *const req){
 		return __lsm_range_get(req);
 	}
 
-	req->length=req->length > (2*M)/4352 ? (2*M)/4352:req->length;
+	req->length=req->length > (2*M)/(256+2+2+ITERREADVALUE) ? (2*M)/(256+2+2+ITERREADVALUE):req->length;
 
 	fdriver_lock(&LSM.iterator_lock);
 
