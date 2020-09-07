@@ -376,10 +376,12 @@ uint32_t data_input_write;
 
 
 uint32_t lsm_set(request * const req){
+	if(req->type==FS_DELETE_T){
+		printf("break!\n");
+	}
 	if(ISTRANSACTION(LSM.setup_values)){
 		return transaction_set(req);
 	}
-
 
 	static bool force = 0 ;
 
@@ -714,8 +716,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 			return 2;
 		}
 		else if(!target_node->isvalid){
-			inf_free_valueset(req->value, FS_MALLOC_R);
-			req->value=NULL;
+			memset(req->value->value, 0, LPAGESIZE);
 			req->end_req(req);
 			return 2;
 		}

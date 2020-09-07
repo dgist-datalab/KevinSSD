@@ -71,11 +71,11 @@ static void print_write_buffer_list(list *li){
 	printf("SUMMARY : [NOK: %u], [KEYBYTE: %u], [DATABYTE:%u]\n\n", total_nok, total_key_byte, total_data_byte);
 }
 
-void write_buffer_insert_KV(WBM *wbm, transaction_entry *in_etr, KEYT key, value_set *value, bool isdelete){
+void write_buffer_insert_KV(WBM *wbm, transaction_entry *in_etr, KEYT key, value_set *value, bool valid){
 	fdriver_lock(&wbm->wbm_lock);
 	wbm->now_kv_pair++;
 	uint32_t before_insert=in_etr->ptr.memtable->data_size, after_insert;
-	skiplist_insert(in_etr->ptr.memtable, key, value, isdelete);
+	skiplist_insert(in_etr->ptr.memtable, key, value, valid);
 	in_etr->ptr.memtable->unflushed_pairs++;
 	after_insert=in_etr->ptr.memtable->data_size;
 	wbm->total_value_size+=(after_insert-before_insert);

@@ -214,9 +214,11 @@ inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *targe
 }
 
 bool delete_debug=false;
-value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid, KEYT key, value_set *value, bool isdelete,  transaction_entry **t){
-
+value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid, KEYT key, value_set *value, bool valid,  transaction_entry **t){
 	transaction_entry *target=find_last_entry(tid*table->base);
+	if(!valid){
+		printf("break!\n");
+	}
 	if(!target){
 		//printf("new transaction added in set!\n");
 		if(transaction_table_add_new(table, tid, 0)==UINT_MAX){
@@ -232,7 +234,7 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 	}
 
 	if(table->wbm){
-		write_buffer_insert_KV(table->wbm, target, key, value, isdelete);
+		write_buffer_insert_KV(table->wbm, target, key, value, valid);
 		return NULL;
 	}
 	else{
@@ -241,7 +243,7 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 
 	skiplist *t_mem=target->ptr.memtable;
 
-	skiplist_insert(t_mem, key, value, isdelete);
+	skiplist_insert(t_mem, key, value, valid);
 	
 	
 	(*t)=target;
@@ -538,6 +540,8 @@ uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, 
 	KEYT prefix=key;
 	prefix.len=PREFIXNUM;
 	
+	bool include_compaction_KP=false;
+
 	transaction_entry **res=(transaction_entry **)malloc(sizeof(transaction_entry*) * table->now);
 	rb_traverse(target, transaction_indexer){
 		transaction_entry *etr=(transaction_entry*)target->item;
@@ -563,6 +567,12 @@ uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, 
 					break;
 				case NONFULLCOMPACTION:
 				case COMPACTION:
+					if(!include_compaction_KP){
+						include_compaction_KP=true;
+					}
+					else{
+						break;
+					}
 					if(!_tm.commit_KP->size){
 						printf("maybe compaction is running! %s:%d\n", __FILE__, __LINE__);
 						abort();

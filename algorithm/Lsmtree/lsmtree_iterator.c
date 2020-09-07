@@ -129,10 +129,11 @@ void *lsm_range_end_req(algo_req *const al_req){
 
 inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgparams, skiplist *temp_list){
 	snode *t_node;
-	uint32_t offset=0;
+	uint32_t offset=0, pre_offset=0;
 	rgparams->read_target_num=temp_list->size>req->length?req->length:temp_list->size;
 	req->length=rgparams->read_target_num;
 	uint32_t i=0;
+	int32_t j;
 	bool break_flag=false;
 	algo_req *al_req;
 	algo_lsm_range_params *al_params;
@@ -154,8 +155,31 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 				req->buf_len=offset;
 
 				req->end_req(req);
-				for(int32_t i=rgparams->total_loi_num-1; i>=0; i--){
-					level_op_iterator_free(rgparams->loi[i]);
+				for(j=rgparams->total_loi_num-1; j>=0; j--){
+					level_op_iterator_free(rgparams->loi[j]);
+				}
+				free(rgparams->loi);
+				free(rgparams);
+				break;
+			}
+			else{
+				pthread_mutex_unlock(&cnt_lock);
+			}
+			goto next_round;
+		}
+		else if(t_node->ppa==TOMBSTONE){
+
+			pthread_mutex_lock(&cnt_lock);
+			req->length=rgparams->read_target_num=rgparams->read_target_num-1;
+			if(rgparams->read_num==rgparams->read_target_num){
+				pthread_mutex_unlock(&cnt_lock);
+				fdriver_unlock(&LSM.iterator_lock);
+	
+				req->buf_len=pre_offset;
+
+				req->end_req(req);
+				for(j=rgparams->total_loi_num-1; j>=0; j--){
+					level_op_iterator_free(rgparams->loi[j]);
 				}
 				free(rgparams->loi);
 				free(rgparams);
@@ -181,6 +205,7 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 		req->buf_len=offset+t_node->key.len+2+2+4096;
 		LSM.li->read(al_req->ppa/NPCINPAGE, PAGESIZE, al_params->value, ASYNC, al_req);	
 next_round:
+		pre_offset=offset;
 		offset+=t_node->key.len+2+2+4096;
 		i++;
 		if(break_flag) break;

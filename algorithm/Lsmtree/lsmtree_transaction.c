@@ -115,7 +115,7 @@ uint32_t transaction_set(request *const req){
 
 	transaction_entry *etr;
 	fdriver_lock(&_tm.table_lock);
-	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, req->type==FS_DELETE_T, &etr);
+	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, req->type !=FS_DELETE_T, &etr);
 	fdriver_unlock(&_tm.table_lock);
 	req->value=NULL;
 	//	printf("req->seq :%u\n",req->seq);
@@ -161,7 +161,7 @@ uint32_t transaction_range_delete(request *const req){
 
 
 		fdriver_lock(&_tm.table_lock);
-		value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, true, &etr);
+		value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, false, &etr);
 		fdriver_unlock(&_tm.table_lock);
 		if(!log){
 			continue;
@@ -475,7 +475,13 @@ uint32_t __transaction_get(request *const req){
 		keyset *sets=ISNOCPY(LSM.setup_values) ? (keyset*)nocpy_pick(trp->ppa)
 			: (keyset*)trp->value->value;
 		keyset *target=LSM.lop->find_keyset((char*)sets, req->key);
-		if(target){			
+		if(target){	
+			if(target->ppa==TOMBSTONE){
+				free(entry_set);
+				memset(req->value->value, 0, LPAGESIZE);
+				req->end_req(req);
+				return 1;
+			}
 			/*issue data*/
 			tr_req=(algo_req*)malloc(sizeof(algo_req));
 			tr_req->end_req=transaction_end_req;

@@ -324,8 +324,9 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 			printf("%.*s ppa:%u",KEYFORMAT(key),ppa);
 			abort();
 		}
-
-		invalidate_PPA(DATA,x->ppa);
+		if(x->ppa!=TOMBSTONE){
+			invalidate_PPA(DATA,x->ppa);
+		}
 	
 		x->ppa=ppa;
 		x->isvalid=deletef;
@@ -643,7 +644,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		x->key=key;
 		x->isvalid=deletef;
 
-		x->ppa=UINT_MAX;
+		x->ppa=deletef?UINT32_MAX:TOMBSTONE;
 		x->value.u_value=value;
 
 #ifdef KVSSD
