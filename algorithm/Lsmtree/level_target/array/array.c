@@ -461,31 +461,37 @@ uint32_t array_range_find( level *lev ,KEYT s, KEYT e,  run_t ***rc, uint32_t ma
 	int res=0;
 	run_t *ptr;
 	run_t **r=(run_t**)malloc(sizeof(run_t*)*(max_num+1));
+
 	if(lev->n_num==0){
 		r[res]=NULL;
 		*rc=r;
 		return res;
 	}
+
+
 	int first=0;
 	int target_idx=array_binary_search_filter(arrs,lev->n_num,s, &first);
 	if(target_idx==-1) target_idx=0;
 	
+
 	for(int i=target_idx; i<=first; i++){
 		ptr=(run_t*)&arrs[i];
 		r[res++]=ptr;
 	}
 
-	for(int i=first+1;i<max_num; i++){
+	uint32_t max=first+max_num > lev->n_num? lev->n_num:first+max_num;
+
+	for(int i=first+1;i<max; i++){
 		ptr=(run_t*)&arrs[i];
 #ifdef KVSSD
-		if(KEYCMP(ptr->key, s))
+		if(KEYCMP(ptr->key, e) <0)
 #else
 		if(!(ptr->end<s || ptr->key>e))
 #endif
 		{
 			r[res++]=ptr;
 		}
-		else if(KEYFILTERCMP(ptr->key, e.key, e.len) >= 0){
+		else if(KEYFILTERCMP(ptr->key, e.key, e.len) > 0){
 			break;
 		}
 		else{
@@ -683,14 +689,14 @@ int array_binary_search_filter(run_t *body, uint32_t max_t, KEYT lpa, int32_t *f
 	int res1, res2; //1:compare with start, 2:compare with end
 	while(start==end ||start<end){
 		mid=(start+end)/2;
-		printf("run %.*s(%u) ~ %.*s(%u)\n", KEYFORMAT(body[mid].key), body[mid].key.len, KEYFORMAT(body[mid].end), body[mid].end.len);
+	//	printf("run %.*s(%u) ~ %.*s(%u)\n", KEYFORMAT(body[mid].key), body[mid].key.len, KEYFORMAT(body[mid].end), body[mid].end.len);
 		res1=KEYCMP(body[mid].key,lpa);
 		res2=KEYCMP(body[mid].end,lpa);
 
 		if(res1<=0 && res2>=0){
 			*first=mid;
 			for(int i=mid-1; i>=0; i--){
-				if(KEYCMP(body[i].key, lpa)){
+				if(KEYCMP(body[i].key, lpa) > 0){
 					mid--;
 					continue;	
 				}

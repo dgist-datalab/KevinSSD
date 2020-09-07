@@ -18,6 +18,7 @@ typedef struct lsm_range_get_params{
 	uint32_t total_loi_num;
 	uint32_t read_target_num;
 	uint32_t read_num;
+	bool read_done;
 	list *algo_params_list;
 }range_get_params;
 
@@ -30,6 +31,11 @@ typedef struct algo_lsm_range_params{
 	value_set *value;
 }algo_lsm_range_params;
 
+typedef struct algo_lsm_preread_struct{
+	uint32_t read_target_num;
+	ppa_t transaction_ppa;
+	ppa_t *ppa_list;
+}algo_lsm_preread_struct;
 
 void *lsm_range_end_req(algo_req *const al_req);
 
@@ -49,7 +55,6 @@ void __iterator_issue_read(ppa_t ppa, uint32_t i, uint32_t j, request *req){
 	al_params->value=inf_get_valueset(NULL, FS_MALLOC_R,PAGESIZE);
 
 	list_insert(params->algo_params_list, (void*)al_params);
-	params->read_target_num++;
 
 	LSM.li->read(al_req->ppa, PAGESIZE, al_params->value, ASYNC, al_req);
 }
@@ -79,7 +84,7 @@ void *lsm_range_end_req(algo_req *const al_req){
 			inf_free_valueset(al_params->value ,FS_MALLOC_R);
 			break;
 		case DATAR:
-			//printf("%d iter key :%.*s\n", iter_num++,KEYFORMAT(al_params->key));
+	//		printf("%d iter key :%.*s\n", iter_num++,KEYFORMAT(al_params->key));
 			if(al_params->value->ppa%NPCINPAGE){
 				copy_key_value_to_buf(&req->buf[al_params->offset], al_params->key, &al_params->value->value[4096]);	
 			}
@@ -97,6 +102,11 @@ void *lsm_range_end_req(algo_req *const al_req){
 	if(rgparams->read_num == rgparams->read_target_num){
 		pthread_mutex_unlock(&cnt_lock);
 		if(al_req->type==HEADERR){
+			if(rgparams->read_done){
+				printf("error double retry %s:%d\n", __FILE__, __LINE__);
+				abort();
+			}
+			rgparams->read_done=true;
 			inf_assign_try(req);
 		}
 		else{
@@ -132,7 +142,7 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 		if(t_node->ppa==UINT32_MAX){
 			//copy value
 			copy_key_value_to_buf(&req->buf[offset], t_node->key, t_node->value.g_value);
-		//	printf("target %d iter key :%.*s\n", iter_num++,KEYFORMAT(t_node->key));
+			//printf("target %d iter key :%.*s\n", iter_num++,KEYFORMAT(t_node->key));
 
 			pthread_mutex_lock(&cnt_lock);
 			rgparams->read_num++;
@@ -189,7 +199,7 @@ inline static uint32_t __lsm_range_key(request *const req, range_get_params *rgp
 		if(i+1==req->length){
 			break_flag=true;
 		}
-		//printf("%d iter key :%.*s\n", iter_num++,KEYFORMAT(t_node->key));
+		printf("%d iter key :%.*s\n", iter_num++,KEYFORMAT(t_node->key));
 		copy_key_value_to_buf(&req->buf[offset], t_node->key, NULL);
 		offset+=t_node->key.len+1;
 		i++;
@@ -253,14 +263,17 @@ uint32_t __lsm_range_get(request *const req){ //after range_get
 
 uint32_t lsm_range_get(request *const req){
 	//req->magic is include flag
+	compaction_wait_jobs();
 	if(req->params){
 		return __lsm_range_get(req);
 	}
 
-	static uint32_t cnt=0;
-	if(cnt++==3){
-		printf("break!\n");
-	}
+	/*
+	static int cnt=0;
+	if(cnt++==13){
+		printf("range cnt:%d\n",cnt++);
+	}*/
+
 	req->length=req->length > (2*M)/4352 ? (2*M)/4352:req->length;
 
 	fdriver_lock(&LSM.iterator_lock);
@@ -268,6 +281,7 @@ uint32_t lsm_range_get(request *const req){
 	range_get_params *params=(range_get_params*)malloc(sizeof(range_get_params));
 	params->read_target_num=0;
 	params->read_num=0;
+	params->read_done=false;
 	params->algo_params_list=list_init();
 	req->params=params;
 
@@ -277,6 +291,7 @@ uint32_t lsm_range_get(request *const req){
 	LSM.lop->print_level_summary();
 
 
+	printf("target iteration key --- %.*s\n", KEYFORMAT(req->key));
 	uint32_t target_trans_entry_num=0;
 	transaction_entry **trans_sets=NULL;
 	if(ISTRANSACTION(LSM.setup_values)){
@@ -290,6 +305,9 @@ uint32_t lsm_range_get(request *const req){
 	params->loi=(level_op_iterator**)malloc(sizeof(level_op_iterator*)*(LSM.LEVELN+target_trans_entry_num));
 	params->total_loi_num=LSM.LEVELN+target_trans_entry_num;
 
+
+	algo_lsm_preread_struct *_rt=(algo_lsm_preread_struct*)calloc( (LSM.LEVELN + target_trans_entry_num), sizeof(algo_lsm_preread_struct));
+
 	uint32_t ppa;
 	bool should_read;
 	bool nothing_flag=true;
@@ -297,14 +315,18 @@ uint32_t lsm_range_get(request *const req){
 	if(ISTRANSACTION(LSM.setup_values)){
 		for(uint32_t i=0; i<target_trans_entry_num; i++){
 			params->loi[target_trans_entry_num-1-i]=level_op_iterator_transact_init(trans_sets[i], req->key, &ppa, req->offset, &should_read);
-			if(should_read){
-				__iterator_issue_read(ppa, target_trans_entry_num-1-i, 0, req);
-				noread=false;
-			}
-
 			if(params->loi[target_trans_entry_num-1-i]){
 				nothing_flag=false;
 			}
+
+			if(should_read){
+	//			__iterator_issue_read(ppa, target_trans_entry_num-1-i, 0, req);
+				noread=false;
+				params->read_target_num++;
+			}
+
+			_rt[target_trans_entry_num-1-i].read_target_num=should_read?1:0;
+			_rt[target_trans_entry_num-1-i].transaction_ppa=ppa;
 		}
 		free(trans_sets);
 	}else{
@@ -315,17 +337,25 @@ uint32_t lsm_range_get(request *const req){
 		}
 	}
 
-	uint32_t *ppa_list;
+	uint32_t *ppa_list=NULL, read_num=0;
+	uint32_t meta_read_target=req->length;
 	for(int32_t i=LSM.LEVELN-1; i>=0; i--){
-		params->loi[i+target_trans_entry_num]=level_op_iterator_init(LSM.disk[i], req->key, &ppa_list, req->length/(PAGESIZE-1024/DEFKEYLENGTH), req->offset, &should_read);
+		read_num=0;
+		params->loi[i+target_trans_entry_num]=level_op_iterator_init(LSM.disk[i], req->key, &ppa_list, &read_num, meta_read_target, req->offset, &should_read);
+
 		if(should_read){
+			/*
 			for(uint32_t j=0; ppa_list[j]!=UINT_MAX; j++){
 				if(j==UINT_MAX-1) continue;
 				__iterator_issue_read(ppa_list[j], i+target_trans_entry_num, j, req);
 			}
-			free(ppa_list);
+			free(ppa_list);*/
 			noread=false;
 		}
+
+		_rt[target_trans_entry_num+i].read_target_num=should_read?read_num:0;
+		_rt[target_trans_entry_num+i].ppa_list=ppa_list;
+		params->read_target_num+=read_num;
 
 		if(params->loi[i+target_trans_entry_num]){
 			nothing_flag=false;
@@ -341,13 +371,34 @@ uint32_t lsm_range_get(request *const req){
 		}
 		free(params->loi);
 		free(params);
+		free(_rt);
 		req->end_req(req);
 	}
 	else if(noread){
 		printf("lsm_range_get: no read!\n");
+		free(_rt);
 		return __lsm_range_get(req);
 	}
+	else{
+		for(uint32_t i=0; i<LSM.LEVELN + target_trans_entry_num; i++){
+			algo_lsm_preread_struct *trt=&_rt[i];
+			for(uint32_t j=0; j<trt->read_target_num; j++){
+				if(trt->ppa_list){
+					if(trt->ppa_list[j]==UINT_MAX-1) continue;
+					__iterator_issue_read(trt->ppa_list[j], i, j, req);
+				}
+				else{
+					__iterator_issue_read(trt->transaction_ppa, i, 0, req);
+				}
+			}
+		}
 
-	printf("read issues!\n");
+		for(uint32_t i=0; i<LSM.LEVELN + target_trans_entry_num; i++){
+			free(_rt->ppa_list);
+		}
+		free(_rt);
+		printf("read issues!\n");
+	}
+
 	return 1;
 }

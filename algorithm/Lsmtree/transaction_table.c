@@ -565,9 +565,10 @@ uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, 
 						abort();
 						break;
 					}
-					transaction_table_print(table,false);
+	//				transaction_table_print(table,false);
 					s=skiplist_find_lowerbound(_tm.commit_KP, key);
 					if(s==_tm.commit_KP->header) break;
+					/*
 					printf("comp_skip: %.*s(%u) ~ key:%.*s(%u)", KEYFORMAT(s->key), s->key.len, KEYFORMAT(prefix), prefix.len);
 					if(s->list[1]!=_tm.commit_KP->header){
 					
@@ -575,7 +576,7 @@ uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, 
 					}
 					else{
 						printf("\n");
-					}
+					}*/
 					if((KEYFILTERCMP(s->key, prefix.key, prefix.len)==0) || (s->list[1]!=_tm.commit_KP->header && KEYFILTER(s->list[1]->key, prefix.key, prefix.len)==0)){
 						res[i++]=etr;
 					}

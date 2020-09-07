@@ -41,7 +41,7 @@ bool meta_iter_pick_key_addr_pair(meta_iterator *, ka_pair *);
 void meta_iter_move_next(meta_iterator *);
 void meta_iter_free(meta_iterator *);
 
-level_op_iterator *level_op_iterator_init(level *lev, KEYT prefix, uint32_t **read_ppa_list, uint32_t max_meta,bool include, bool *should_read);
+level_op_iterator *level_op_iterator_init(level *lev, KEYT prefix, uint32_t **read_ppa_list,uint32_t *read_num, uint32_t max_meta,bool include, bool *should_read);
 
 level_op_iterator *level_op_iterator_transact_init(transaction_entry *, KEYT prefix, uint32_t *ppa, bool include, bool *should_read);
 

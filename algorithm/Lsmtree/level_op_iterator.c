@@ -121,7 +121,7 @@ void meta_iter_free(meta_iterator *mi){
 	free(mi);
 }
 
-level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_ppa_list, uint32_t _max_meta, bool include, bool *should_read){
+level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_ppa_list, uint32_t *read_num, uint32_t _max_meta, bool include, bool *should_read){
 	level_op_iterator *res=(level_op_iterator*)malloc(sizeof(level_op_iterator));
 	res->max_idx=res->idx=0;
 
@@ -160,6 +160,8 @@ level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_
 		*should_read=true;
 	}
 	
+	(*read_num)=0;
+
 	for(uint32_t i=0; i<res->max_idx; i++){
 		run_t *t=target_run[i];
 		if(lev->idx<LSM.LEVELCACHING){
@@ -170,10 +172,13 @@ level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_
 		else{
 			ppa_list[i]=t->pbn;
 			res->m_iter[i]=NULL;
+			(*read_num)++;
+
 			char *data=lsm_lru_pick(LSM.llru, t);
 			if(data){
 				ppa_list[i]=UINT_MAX-1;
 				res->m_iter[i]=meta_iter_init(data, key, include);
+				(*read_num)--;
 			}
 			lsm_lru_pick_release(LSM.llru, t);
 		}

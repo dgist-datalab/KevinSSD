@@ -54,16 +54,16 @@ int main(int argc,char* argv[]){
 	bench_vectored_configure();
 	bench_transaction_configure(4, 2);
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
-	bench_add(VECTOREDUNIQRSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)));
+	bench_add(VECTOREDSSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)));
 	//bench_add(VECTOREDRW,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)));
-	bench_add(VECTOREDMIXED,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL))/2);
+	//bench_add(VECTOREDMIXED,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL))/2);
 
 	char *value;
 	uint32_t mark;
 	uint32_t i=0; 
 	while((value=get_vectored_bench(&mark, true))){
 		inf_vector_make_req(value, bench_transaction_end_req, mark);
-		if(++i%10==0){
+		if(++i%1024==0){
 			inf_vector_make_req(get_vectored_one_command(FS_RANGEGET_T, 3000, i), bench_transaction_end_req, -1);
 		}
 	}

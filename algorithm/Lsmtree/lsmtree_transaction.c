@@ -303,15 +303,21 @@ uint32_t transaction_commit(request *const req){
 		while(!temp_cml->isdone){}
 
 		uint32_t number_of_kp=*(uint16_t*)(temp_cml->data);
+		/*
+
+			I'm not sure this code is unnecessary
+
 		if(_tm.commit_KP->size && METAFLUSHTRYCHECK(*_tm.commit_KP, number_of_kp)){
 			skiplist *committing_skip=_tm.commit_KP;
 			list *committing_etr=_tm.commit_etr;
-			
+		
+			printf("before_insert compaction target num :%u\n", committing_skip->size);
+
 			_tm.commit_KP=skiplist_init();
 			_tm.commit_etr=list_init();
 
 			compaction_send_creq_by_skip(committing_skip, committing_etr, false);		
-		}
+		}*/
 
 		list_insert(_tm.commit_etr, temp_cml->etr);
 
@@ -339,6 +345,8 @@ void *insert_KP_to_skip(KEYT _key, ppa_t ppa){
 	if(METAFLUSHCHECK(*_tm.commit_KP)){
 		skiplist *committing_skip=_tm.commit_KP;
 		list *committing_etr=_tm.commit_etr;
+
+	//	printf("insert_kp compaction target num :%u\n", committing_skip->size);
 
 		_tm.commit_KP=skiplist_init();
 		_tm.commit_etr=list_init();
