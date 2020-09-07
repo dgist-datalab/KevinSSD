@@ -42,6 +42,7 @@ typedef struct vectored_request{
 	uint32_t buf_len;
 	request *req_array;
 	uint32_t mark;
+	uint16_t eof;
 	void *origin_req;
 	void* (*end_req)(void*);
 } vec_request;

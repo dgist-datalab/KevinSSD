@@ -230,6 +230,7 @@ vec_request *get_vectored_request(){
 	res->end_req=NULL;
 	res->mark=0;
 	res->buf=req_buf;
+	res->eof=0;
 
 	//print_buf(res->buf, 100);
 
@@ -392,6 +393,10 @@ bool cheeze_end_req(request *const req){
 			free(preq);
 		}
 		else{
+			if(req->type==FS_RANGEGET_T){
+				(*(uint16_t*)&preq->buf[preq->buf_len])=preq->eof;
+				preq->buf_len+=sizeof(uint16_t);
+			}
 			while(!q_enqueue((void*)preq, ack_queue)){}
 		}
 	}

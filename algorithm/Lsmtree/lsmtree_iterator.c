@@ -245,7 +245,15 @@ uint32_t __lsm_range_get(request *const req){ //after range_get
 		}
 	}
 
+	if(req->length < temp_list->size){
+		req->parents->eof=1;
+	}
+	else{
+		req->parents->eof=0;
+	}
+
 	req->length=req->length > temp_list->size? temp_list->size :req->length;
+	
 
 	uint32_t res=0;
 	if(!req->length){

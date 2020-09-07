@@ -60,7 +60,7 @@ meta_iterator *meta_iter_skip_init(skiplist *skip, KEYT key, bool include){
 		if(KEYFILTER(res->sk_node->key, prefix.key, prefix.len)){
 			if(!check){
 				check=true;
-				if(KEYCMP(prefix, res->sk_node->key)==0){
+				if(KEYCMP(key, res->sk_node->key)==0){
 					if(!include) continue;
 				}
 			}
