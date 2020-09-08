@@ -11,7 +11,6 @@
 
 #include <pthread.h>
 
-#define TABLE_ENTRY_SZ (sizeof(uint32_t)+sizeof(uint32_t)+sizeof(uint8_t))
 extern lsmtree LSM;
 extern lmi LMI;
 extern pm d_m;
@@ -67,6 +66,9 @@ bool transaction_entry_buffered_write(transaction_entry *etr, li_node *node){
 	htable *key_sets=LSM.lop->mem_cvt2table(t_mem, &temp_run, NULL);
 	transaction_log_write_entry(etr, (char*)key_sets->sets);
 	htable_free(key_sets);
+
+	etr->kv_pair_num=t_mem->size;
+
 	skiplist_free(t_mem);
 	
 	uint32_t tid=etr->tid/_tm.ttb->base;
@@ -146,6 +148,8 @@ transaction_entry *get_transaction_entry(transaction_table *table, uint32_t inte
 	transaction_entry *etr;
 	pthread_mutex_lock(&table->block);
 	while(table->etr_q->empty()){
+		transaction_table_print(table, true);
+		printf("committed KP size :%lu\n", _tm.commit_KP->size);
 		pthread_cond_wait(&table->block_cond, &table->block);
 	}	
 	etr=table->etr_q->front();
@@ -157,8 +161,9 @@ transaction_entry *get_transaction_entry(transaction_table *table, uint32_t inte
 	etr->ptr.memtable=skiplist_init();
 	etr->status=CACHED;
 	etr->tid=inter_tid;
-	etr->helper_type=BFILTER;
-	etr->read_helper.bf=bf_init(512, 0.1);
+	etr->helper_type=NOHELPER;
+	etr->read_helper.bf=NULL;
+	//etr->read_helper.bf=bf_init(512, 0.1);
 
 	fdriver_lock(&indexer_lock);
 	rb_insert_int(transaction_indexer, etr->tid, (void*)etr);
@@ -512,9 +517,9 @@ void transaction_table_print(transaction_table *table, bool full){
 			case COMPACTION:
 			case CACHEDCOMMIT:
 			case NONFULLCOMPACTION:
-				printf("[%u] tid: %u status:%s %.*s ~ %.*s page:%u\n", i, table->etr[i].tid, 
+				printf("[%u] tid: %u status:%s %.*s ~ %.*s page:%u kv_num:%u\n", i, table->etr[i].tid, 
 						statusToString(table->etr[i].status), KEYFORMAT(table->etr[i].range.start),
-						KEYFORMAT(table->etr[i].range.end), table->etr[i].ptr.physical_pointer);
+						KEYFORMAT(table->etr[i].range.end), table->etr[i].ptr.physical_pointer,table->etr[i].kv_pair_num);
 
 				break;
 			case CACHED:

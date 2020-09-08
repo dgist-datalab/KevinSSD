@@ -10,7 +10,7 @@
 #include "write_buffer_manager.h"
 #include "bloomfilter.h"
 #include <queue>
-
+#define TABLE_ENTRY_SZ (sizeof(uint32_t)+sizeof(uint32_t)+sizeof(uint8_t))
 typedef enum transaction_status{
 	EMPTY, CACHED, LOGGED, COMMIT, CACHEDCOMMIT, COMPACTION, NONFULLCOMPACTION
 }TSTATUS;
@@ -42,6 +42,7 @@ typedef struct transaction_entry{
 	uint8_t helper_type;
 	li_node *wbm_node;
 	transaction_read_helper read_helper;
+	uint32_t kv_pair_num;
 }transaction_entry;
 
 typedef struct transaction_table{
