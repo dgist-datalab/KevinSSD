@@ -91,7 +91,8 @@ uint32_t transaction_table_init(transaction_table **_table, uint32_t size, uint3
 	transaction_table *table=(*_table);
 	table->etr=(transaction_entry*)calloc(table_entry_num,sizeof(transaction_entry));
 	table->full=table_entry_num;
-	table->base=table_entry_num;
+//	table->base=table_entry_num;
+	table->base=20;
 	table->now=0;
 
 	table->wbm=write_buffer_init(max_kp_num, transaction_entry_buffered_write);
