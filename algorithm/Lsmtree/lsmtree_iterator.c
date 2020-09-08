@@ -5,6 +5,7 @@
 #include "transaction_table.h"
 #include "../../include/utils/kvssd.h"
 #include "../../include/sem_lock.h"
+#include "../../interface/koo_inf.h"
 #include <stdlib.h>
 
 #define ITERREADVALUE 152
@@ -14,6 +15,7 @@ extern my_tm _tm;
 
 static int iter_num=0;
 static pthread_mutex_t cnt_lock=PTHREAD_MUTEX_INITIALIZER;
+bool iterator_debug=false;
 
 typedef struct lsm_range_get_params{
 	level_op_iterator **loi;
@@ -78,6 +80,23 @@ void copy_key_value_to_buf(char *buf, KEYT key, char *data){
 	}
 }
 
+void print_buffer(char *buf, uint32_t len){
+	uint32_t offset=0;
+	uint16_t value_len=0;
+	while(1){
+		KEYT temp;
+		temp.len=*(uint16_t*)&buf[offset];
+		if(temp.len==1 || temp.len==0 || offset >= len) break;
+		offset+=2;
+		temp.key=&buf[offset];
+		offset+=temp.len;
+		value_len=*(uint16_t*)&buf[offset];
+		offset+=2;
+		offset+=value_len;
+		print_key(temp, true);
+	}
+}
+
 void *lsm_range_end_req(algo_req *const al_req){
 	request *req=al_req->parents;
 	range_get_params *rgparams=(range_get_params*)req->params;
@@ -131,6 +150,8 @@ void *lsm_range_end_req(algo_req *const al_req){
 	free(al_req);
 	return NULL;
 }
+
+extern char *debug_koo_key;
 
 inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgparams, skiplist *temp_list){
 	snode *t_node;
@@ -295,6 +316,7 @@ uint32_t __lsm_range_get(request *const req){ //after range_get
 		}
 		free(rgparams->loi);
 		free(rgparams);
+		skiplist_free_iter(temp_list);
 		req->end_req(req);
 		return res;
 	}

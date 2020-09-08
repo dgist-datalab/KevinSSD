@@ -6,6 +6,7 @@
 #include "../../include/lsm_settings.h"
 #include "../../include/slab.h"
 #include "../../interface/interface.h"
+#include "../../interface/koo_inf.h"
 #include "../../bench/bench.h"
 #include "lsmtree_lru_manager.h"
 #include "compaction.h"
@@ -699,6 +700,7 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 	return NOTFOUND;
 }
 #ifndef MULTILEVELREAD
+extern char *debug_koo_key;
 int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int idx){
 	int res=0;
 	if(!entry && !table && !list && idx != LSM.LEVELN-1){
@@ -708,7 +710,6 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 	algo_req *lsm_req=NULL;
 	snode *target_node;
 	keyset *target_set;
-
 
 	if(list){//skiplist check for memtable and temp_table;
 		target_node=skiplist_find(list,req->key);

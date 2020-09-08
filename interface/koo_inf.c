@@ -15,6 +15,8 @@ map<string, uint32_t> chk_data;
 
 #endif
 
+char* debug_koo_key="look.1.gz";
+
 #define MAX_REQ_IN_TXN (2*(M/4096))
 
 char *null_value;
@@ -24,6 +26,34 @@ bool cheeze_end_req(request *const req);
 void print_buf(char *buf, uint32_t len);
 pthread_t t_id;
 extern master_processor mp;
+
+void print_key(KEYT key, bool data_print){
+	if(key.len==0 || (!data_print && key.key[0]=='d')){
+		printf("\n");
+		return;
+	}
+	uint64_t block_num=(*(uint64_t*)&key.key[1]);
+	block_num=Swap8Bytes(block_num);
+	uint32_t offset=1+sizeof(uint64_t);
+	uint32_t remain=key.len-offset;
+	DPRINTF("key: %c%lu%.*s(keylen:%u)\n",key.key[0],block_num,remain,&key.key[offset], remain);
+
+	KEYT temp;
+	temp.key=&key.key[offset];
+	temp.len=remain;
+	if(KEYCONSTCOMP(temp, "man1")==0){
+		DPRINTF("\t\t\033[1;31mFind target key: %c%lu%.*s\n\033[0m;",key.key[0],block_num,remain,&key.key[offset]);
+		sleep(3);
+	}
+}
+
+bool checking_filename(KEYT key, char *s){
+	if(key.len < 9) return false;
+	KEYT temp;
+	temp.key=&key.key[9];
+	temp.len=key.len-9-1;
+	return KEYCONSTCOMP(temp, s)==0;
+}
 
 int chrfd;
 
@@ -292,23 +322,15 @@ vec_request *get_vectored_request(){
 				abort();
 				break;
 		}
+#ifdef DEBUG
 		if(temp->type==FS_RANGEGET_T){
 			DPRINTF("TID: %u REQ-TYPE:%s (%s) INFO(seq-%d:%d, ret_buf:%px) (keylen:%d) ",temp->tid, type_to_str(temp->type), temp->offset?"from":"next",creq->id, i, creq->ret_buf, temp->key.len);
 		}
-		else{
-			DPRINTF("TID: %u REQ-TYPE:%s INFO(seq-%d:%d, ret_buf:%px) (keylen:%d) ",temp->tid, type_to_str(temp->type), creq->id, i, creq->ret_buf, temp->key.len);
+		else if(temp->type==FS_SET_T){
+				DPRINTF("TID: %u REQ-TYPE:%s INFO(seq-%d:%d, ret_buf:%px) (keylen:%d) ",temp->tid, type_to_str(temp->type), creq->id, i, creq->ret_buf, temp->key.len);
+				print_key(temp->key, true);
 		}
-		bool print_value=false;
-		for(uint32_t i=1; i<=(30<temp->key.len?30:temp->key.len) ;i++){
-			DPRINTF("%d ",temp->key.key[i-1]);
-			if(i==1 && temp->key.key[i-1]=='m'){
-				print_value=true;
-			}
-			if(i%10==0){
-				DPRINTF("end:%d\n",0);
-			}
-		}
-		DPRINTF("end:%d\n",0);
+#endif
 		/*
 		if(print_value && temp->type==FS_SET_T){
 			printf("meta set value print\n");
@@ -325,13 +347,19 @@ bool cheeze_end_req(request *const req){
 	switch(req->type){
 		case FS_NOTFOUND_T:
 			bench_reap_data(req, mp.li);
-			DPRINTF("%.*s not found!\n",KEYFORMAT(req->key));
+#ifdef DEBUG
+			DPRINTF("\t\t%.*s not found! ",KEYFORMAT(req->key));
+			print_key(req->key, true);
+#endif
 			preq->buf_len=0;
 			inf_free_valueset(req->value,FS_MALLOC_R);
 			break;
 		case FS_MGET_NOTFOUND_T:
 			bench_reap_data(req, mp.li);
-			DPRINTF("%.*s mget not found!\n",KEYFORMAT(req->key));
+#ifdef DEBUG
+			DPRINTF("\t\t%dmget not found! ", 0);
+			print_key(req->key, true);
+#endif
 			if(req->value){
 				memcpy(&preq->buf[req->seq*LPAGESIZE], null_value, LPAGESIZE);
 				inf_free_valueset(req->value,FS_MALLOC_R);
@@ -423,18 +451,18 @@ void *ack_to_dev(void* a){
 			creq->ubuf_len=0;
 		}
 		r=write(chrfd, creq, sizeof(cheeze_req));
+#ifdef DEBUG	
 	//	DPRINTF("[DONE] REQ INFO(%d) ret_buf:%p ubuf:%p ubuf_len:%d\n", creq->id, creq->ret_buf, creq->ubuf, creq->ubuf_len);
-		/*
 		if(vec->req_array[0].type==FS_RANGEGET_T){
 			printf("[DONE] REQ INFO(%d) type:%s ret_buf:%p ubuf:%p ubuf_len:%d more?:%d\n", creq->id, type_to_str(vec->req_array[0].type), creq->ret_buf, creq->ubuf, creq->ubuf_len,vec->eof);
 		}
 		else if(vec->req_array[0].type==FS_MGET_T){
-			printf("[DONE] REQ INFO(%d) type:%s ret_buf:%p ubuf:%p ubuf_len:%d size?:%d\n", creq->id, type_to_str(vec->req_array[0].type), creq->ret_buf, creq->ubuf, creq->ubuf_len, vec->size);
+	//		printf("[DONE] REQ INFO(%d) type:%s ret_buf:%p ubuf:%p ubuf_len:%d size?:%d\n", creq->id, type_to_str(vec->req_array[0].type), creq->ret_buf, creq->ubuf, creq->ubuf_len, vec->size);
 		}
 		else{
-			printf("[DONE] REQ INFO(%d) type:%s ret_buf:%p ubuf:%p ubuf_len:%d\n", creq->id, type_to_str(vec->req_array[0].type), creq->ret_buf, creq->ubuf, creq->ubuf_len);
+	//		printf("[DONE] REQ INFO(%d) type:%s ret_buf:%p ubuf:%p ubuf_len:%d\n", creq->id, type_to_str(vec->req_array[0].type), creq->ret_buf, creq->ubuf, creq->ubuf_len);
 		}
-*/
+#endif
 		if(r<0){
 			printf("write error!! %s:%d\n",__FILE__, __LINE__);
 			break;

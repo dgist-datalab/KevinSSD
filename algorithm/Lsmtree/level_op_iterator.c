@@ -2,6 +2,9 @@
 #include "lsmtree.h"
 #include "write_buffer_manager.h"
 #include "../../include/utils/kvssd.h"
+#include "../../interface/koo_inf.h"
+
+extern char *debug_koo_key;
 
 extern lsmtree LSM;
 
@@ -74,6 +77,7 @@ meta_iterator *meta_iter_skip_init(skiplist *skip, KEYT key, bool include){
 	return res;
 }
 
+extern bool iterator_debug;
 bool meta_iter_pick_key_addr_pair(meta_iterator *mi, ka_pair *ka){
 	if(mi->idx > mi->max_idx) return false;
 	if(mi->sk_node){
@@ -100,6 +104,7 @@ bool meta_iter_pick_key_addr_pair(meta_iterator *mi, ka_pair *ka){
 		ka->key.len=mi->len_map[mi->idx+1]-mi->len_map[mi->idx]-sizeof(ppa_t);
 
 		if(!KEYFILTER(ka->key, mi->m_prefix.key, mi->m_prefix.len)){
+			print_key(ka->key, true);
 			return false;
 		}
 	}

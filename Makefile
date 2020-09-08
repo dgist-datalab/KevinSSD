@@ -28,7 +28,7 @@ DEBUGFLAGS=\
 export COMMONFLAGS=\
 			-Wno-write-strings\
 			-Wno-sign-compare\
-			-Wno-unused-function\
+		-Wno-unused-function\
 			-DLARGEFILE64_SOURCE\
 			-D_GNU_SOURCE\
 			-DSLC\

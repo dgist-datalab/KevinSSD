@@ -47,5 +47,8 @@ typedef cheeze_req_user cheeze_req;
 
 void init_koo();
 void free_koo();
+void print_key(KEYT , bool);
+bool checking_filename(KEYT key, char *s);
 vec_request *get_vectored_request();
+
 #endif
