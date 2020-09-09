@@ -49,6 +49,8 @@ void init_koo();
 void free_koo();
 void print_key(KEYT , bool);
 bool checking_filename(KEYT key, char *s);
+void map_crc_insert(KEYT key, char *value);
+
 vec_request *get_vectored_request();
 
 #endif

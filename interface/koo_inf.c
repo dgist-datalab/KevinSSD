@@ -36,7 +36,7 @@ void print_key(KEYT key, bool data_print){
 	block_num=Swap8Bytes(block_num);
 	uint32_t offset=1+sizeof(uint64_t);
 	uint32_t remain=key.len-offset;
-	DPRINTF("key: %c%lu%.*s(keylen:%u)\n",key.key[0],block_num,remain,&key.key[offset], remain);
+	DPRINTF("key: %c %lu %.*s(keylen:%u)\n",key.key[0],block_num,remain,&key.key[offset], remain);
 
 	KEYT temp;
 	temp.key=&key.key[offset];
@@ -73,6 +73,10 @@ void map_crc_insert(KEYT key, char *value){
 	string a=convertToString(key.key, key.len);
 	map<string, uint32_t>::iterator it=chk_data.find(a);
 	if(it!=chk_data.end()){
+		if(key.key[0]=='d'){
+			printf("data update????\n");
+			sleep(1);
+		}
 		it->second=crc32(value,LPAGESIZE);
 	}
 	else{
@@ -82,15 +86,17 @@ void map_crc_insert(KEYT key, char *value){
 
 bool map_crc_check(KEYT key, char *value){
 	string a=convertToString(key.key, key.len);
-	uint32_t t=chk_data.find(a)->second;
+	map<string, uint32_t>::iterator it=chk_data.find(a);
+	if(it==chk_data.end()){
+		printf("not populated key!!\n");
+		return true;
+	}
+
+	uint32_t t=it->second;
 	uint32_t data=crc32(value, LPAGESIZE);
 
 	if(t!=data){
-
-		uint64_t temp=(*(uint64_t*)&key.key[1]);
-		temp=Swap8Bytes(temp);
-		printf("key: %c%lu%*.s",key.key[0], temp, key.len-9, &key.key[9]);
-
+		print_key(key, true);
 		printf("%.*s data check failed %s:%d\n", KEYFORMAT(key), __FILE__, __LINE__);
 	//	abort();
 		return false;
@@ -287,7 +293,7 @@ vec_request *get_vectored_request(){
 				temp->length=*(uint16_t*)translation_buffer(req_buf, &idx, sizeof(uint16_t), limit);
 				temp->value=inf_get_valueset(translation_buffer(req_buf, &idx, LPAGESIZE, limit), FS_MALLOC_W, LPAGESIZE);
 #ifdef CHECKINGDATA
-				map_crc_insert(temp->key, temp->value->value);
+	//			map_crc_insert(temp->key, temp->value->value);
 #endif
 				break;
 			case FS_MGET_T:
@@ -295,7 +301,7 @@ vec_request *get_vectored_request(){
 				goto out;
 			case FS_DELETE_T:
 #ifdef CHECKINGDATA
-				map_crc_insert(temp->key, null_value);
+	//			map_crc_insert(temp->key, null_value);
 #endif
 				break;
 			case FS_RANGEDEL_T:
@@ -326,9 +332,11 @@ vec_request *get_vectored_request(){
 		if(temp->type==FS_RANGEGET_T){
 			DPRINTF("TID: %u REQ-TYPE:%s (%s) INFO(seq-%d:%d, ret_buf:%px) (keylen:%d) ",temp->tid, type_to_str(temp->type), temp->offset?"from":"next",creq->id, i, creq->ret_buf, temp->key.len);
 		}
-		else if(temp->type==FS_SET_T){
-				DPRINTF("TID: %u REQ-TYPE:%s INFO(seq-%d:%d, ret_buf:%px) (keylen:%d) ",temp->tid, type_to_str(temp->type), creq->id, i, creq->ret_buf, temp->key.len);
-				print_key(temp->key, true);
+		else{
+			if(temp->type!=FS_SET_T && temp->type!=FS_TRANS_COMMIT){
+				DPRINTF("TID: %uREQ-TYPE:%s INFO(seq-%d:%d, ret_buf:%px) (keylen:%d) \n",temp->tid, type_to_str(temp->type), creq->id, i, creq->ret_buf, temp->key.len);
+			//	print_key(temp->key, true);
+			}
 		}
 #endif
 		/*
@@ -348,8 +356,18 @@ bool cheeze_end_req(request *const req){
 		case FS_NOTFOUND_T:
 			bench_reap_data(req, mp.li);
 #ifdef DEBUG
-			DPRINTF("\t\t%.*s not found! ",KEYFORMAT(req->key));
+			DPRINTF("\t\t%d-not found!",0);
 			print_key(req->key, true);
+#ifdef CHECKINGDATA
+			if(map_crc_check(req->key, null_value)){
+				printf("\t\tdeleted key!! or not inserted key\n");
+			}
+			else{
+				printf("\t\tPinK really can't find it\n");
+				abort();
+			}
+#endif
+
 #endif
 			preq->buf_len=0;
 			inf_free_valueset(req->value,FS_MALLOC_R);
@@ -357,8 +375,19 @@ bool cheeze_end_req(request *const req){
 		case FS_MGET_NOTFOUND_T:
 			bench_reap_data(req, mp.li);
 #ifdef DEBUG
-			DPRINTF("\t\t%dmget not found! ", 0);
+			DPRINTF("\t\t%d-not mget found!",0);
 			print_key(req->key, true);
+
+#ifdef CHECKINGDATA
+			if(map_crc_check(req->key, null_value)){
+				printf("\t\tdeleted key!! or not inserted key\n");
+			}
+			else{
+				printf("\t\tPinK really can't find it\n");
+				abort();
+			}
+#endif
+			preq->eof=1;
 #endif
 			if(req->value){
 				memcpy(&preq->buf[req->seq*LPAGESIZE], null_value, LPAGESIZE);
@@ -374,7 +403,10 @@ bool cheeze_end_req(request *const req){
 			*/
 			bench_reap_data(req, mp.li);
 #ifdef CHECKINGDATA
-			map_crc_check(req->key, req->value->value);
+			if(!map_crc_check(req->key, req->value->value)){
+				printf("data missed!\n");
+				abort();
+			}
 #endif
 			if(req->value){
 				memcpy(&preq->buf[req->seq*LPAGESIZE], req->value->value,LPAGESIZE);
@@ -420,6 +452,7 @@ bool cheeze_end_req(request *const req){
 	if(preq->size==preq->done_cnt){
 		cheeze_req *creq=(cheeze_req*)preq->origin_req;
 		if(!creq->ret_buf){
+	//		DPRINTF("[DONE] REQ INFO(%d) type:%s ret_buf:%p ubuf:%p ubuf_len:%d\n", creq->id, type_to_str(preq->req_array[0].type), creq->ret_buf, creq->ubuf, creq->ubuf_len);
 			free(preq->buf);
 			free(preq->origin_req);
 			free(preq->req_array);
@@ -457,10 +490,10 @@ void *ack_to_dev(void* a){
 			printf("[DONE] REQ INFO(%d) type:%s ret_buf:%p ubuf:%p ubuf_len:%d more?:%d\n", creq->id, type_to_str(vec->req_array[0].type), creq->ret_buf, creq->ubuf, creq->ubuf_len,vec->eof);
 		}
 		else if(vec->req_array[0].type==FS_MGET_T){
-	//		printf("[DONE] REQ INFO(%d) type:%s ret_buf:%p ubuf:%p ubuf_len:%d size?:%d\n", creq->id, type_to_str(vec->req_array[0].type), creq->ret_buf, creq->ubuf, creq->ubuf_len, vec->size);
+			printf("[DONE] REQ INFO(%d) type:%s ret_buf:%p ubuf:%p ubuf_len:%d size?:%d suc?:%d\n", creq->id, type_to_str(vec->req_array[0].type), creq->ret_buf, creq->ubuf, creq->ubuf_len, vec->size, !vec->eof);
 		}
-		else{
-	//		printf("[DONE] REQ INFO(%d) type:%s ret_buf:%p ubuf:%p ubuf_len:%d\n", creq->id, type_to_str(vec->req_array[0].type), creq->ret_buf, creq->ubuf, creq->ubuf_len);
+		else if(vec->req_array[0].type!=FS_TRANS_COMMIT){
+			printf("[DONE] REQ INFO(%d) type:%s ret_buf:%p ubuf:%p ubuf_len:%d\n", creq->id, type_to_str(vec->req_array[0].type), creq->ret_buf, creq->ubuf, creq->ubuf_len);
 		}
 #endif
 		if(r<0){

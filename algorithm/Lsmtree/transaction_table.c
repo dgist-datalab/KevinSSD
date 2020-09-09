@@ -80,8 +80,14 @@ bool transaction_entry_buffered_write(transaction_entry *etr, li_node *node){
 	etr->range.end=temp_run.end;
 
 	etr=get_transaction_entry(_tm.ttb, tid*_tm.ttb->base+offset+1);
+	//printf("tid-offset : %u-%u\n",tid, offset+1);
+	if(offset+1 > _tm.ttb->base || (uint64_t)tid*_tm.ttb->base > UINT32_MAX){
+		printf("over size of table! %s:%d\n", __FILE__, __LINE__);
+		abort();
+	}
 	etr->wbm_node=node;
 	node->data=(void*)etr;
+
 	return false;
 }
 
@@ -92,7 +98,7 @@ uint32_t transaction_table_init(transaction_table **_table, uint32_t size, uint3
 	table->etr=(transaction_entry*)calloc(table_entry_num,sizeof(transaction_entry));
 	table->full=table_entry_num;
 //	table->base=table_entry_num;
-	table->base=20;
+	table->base=32;
 	table->now=0;
 
 	table->wbm=write_buffer_init(max_kp_num, transaction_entry_buffered_write);
@@ -145,12 +151,15 @@ uint32_t transaction_table_destroy(transaction_table * table){
 	return 1;
 }
 
+extern compM compactor;
+
 transaction_entry *get_transaction_entry(transaction_table *table, uint32_t inter_tid){
 	transaction_entry *etr;
 	pthread_mutex_lock(&table->block);
 	while(table->etr_q->empty()){
 		transaction_table_print(table, true);
 		printf("committed KP size :%lu\n", _tm.commit_KP->size);
+		printf("compaction jobs: %u\n", CQSIZE - compactor.processors[0].tagQ->size());
 		pthread_cond_wait(&table->block_cond, &table->block);
 	}	
 	etr=table->etr_q->front();
@@ -339,6 +348,7 @@ value_set* transaction_table_force_write(transaction_table *table, uint32_t tid,
 	skiplist *t_mem=target->ptr.memtable;
 	(*t)=target;
 
+	target->kv_pair_num=t_mem->size;
 	value_set *res=trans_flush_skiplist(t_mem, target);
 
 	if(res==NULL){

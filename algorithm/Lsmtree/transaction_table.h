@@ -11,6 +11,7 @@
 #include "bloomfilter.h"
 #include <queue>
 #define TABLE_ENTRY_SZ (sizeof(uint32_t)+sizeof(uint32_t)+sizeof(uint8_t))
+
 typedef enum transaction_status{
 	EMPTY, CACHED, LOGGED, COMMIT, CACHEDCOMMIT, COMPACTION, NONFULLCOMPACTION
 }TSTATUS;

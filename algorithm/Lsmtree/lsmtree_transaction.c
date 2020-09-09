@@ -3,6 +3,7 @@
 #include "lsmtree.h"
 #include "nocpy.h"
 #include "../../interface/interface.h"
+#include "../../interface/koo_inf.h"
 #include "nocpy.h"
 #include "level.h"
 #include <stdlib.h>
@@ -29,6 +30,18 @@ void* transaction_end_req(algo_req * const);
 inline uint32_t __transaction_get(request *const);
 ppa_t get_log_PPA(uint32_t type);
 uint32_t gc_log();
+
+void checking_table_nonfull(){
+	for(uint32_t i=0; i<_tm.ttb->full; i++){
+		if(_tm.ttb->etr[i].status!=EMPTY){
+			if(_tm.ttb->etr[i].status==NONFULLCOMPACTION){
+				transaction_table_print(_tm.ttb, false);
+				printf("??????\n");
+				abort();
+			}	
+		}
+	}
+}
 
 uint32_t transaction_init(uint32_t cached_size){
 	uint32_t cached_entry_num=cached_size/PAGESIZE;
@@ -123,8 +136,14 @@ uint32_t transaction_set(request *const req){
 
 	transaction_entry *etr;
 	fdriver_lock(&_tm.table_lock);
+#ifdef CHECKINGDATA
+	map_crc_insert(req->key, req->value->value);
+#endif
 	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, req->type !=FS_DELETE_T, &etr);
 	fdriver_unlock(&_tm.table_lock);
+
+
+
 	req->value=NULL;
 	//	printf("req->seq :%u\n",req->seq);
 
@@ -247,7 +266,14 @@ uint32_t transaction_commit(request *const req){
 	}
 	/*write table*/
 	fdriver_lock(&_tm.table_lock);
+
+	//transaction_table_print(_tm.ttb, false);
 	transaction_table_update_all_entry(_tm.ttb, req->tid, COMMIT);
+
+
+	//transaction_table_print(_tm.ttb, false);
+	//checking_table_nonfull();
+
 	value_set *table_data=transaction_table_get_data(_tm.ttb);
 
 	if(memory_log_usable(_tm.mem_log)){
@@ -338,6 +364,8 @@ uint32_t transaction_commit(request *const req){
 	//compaction_wait_jobs();
 
 	list_free(temp_list);
+
+	//checking_table_nonfull();
 
 	if(memory_log_usable(_tm.mem_log)){
 		req->end_req(req);
@@ -547,7 +575,7 @@ inline uint32_t transaction_get_postproc(request *const req, uint32_t res_type){
 				break;
 		}
 	
-		printf("notfound key: %.*s\n",KEYFORMAT(req->key));
+		//printf("notfound key: %.*s\n",KEYFORMAT(req->key));
 		req->end_req(req);
 		//abort();
 	}
@@ -732,6 +760,7 @@ uint32_t transaction_clear(transaction_entry *etr){
 	fdriver_lock(&_tm.table_lock);
 	uint32_t res=transaction_table_clear(_tm.ttb, etr);
 	fdriver_unlock(&_tm.table_lock);
+	//checking_table_nonfull();
 	return res;
 }
 
@@ -769,16 +798,21 @@ bool transaction_debug_search(KEYT key){
 }
 
 void transaction_evicted_write_entry(uint32_t inter_tid, char *data){
-	ppa_t ppa=inter_tid==UINT32_MAX?get_log_PPA(TABLEW) : get_log_PPA(LOGW);
-	value_set *value=inf_get_valueset(data, FS_MALLOC_W, PAGESIZE);
-	__trans_write(NULL, value, ppa, LOGW, NULL, false);
+
 
 	if(inter_tid==UINT32_MAX){
 	//	printf("table ppa update %d->%d\n", _tm.last_table, ppa);
+		ppa_t ppa=inter_tid==UINT32_MAX?get_log_PPA(TABLEW) : get_log_PPA(LOGW);
+		value_set *value=inf_get_valueset(data, FS_MALLOC_W, PAGESIZE);
+		__trans_write(NULL, value, ppa, LOGW, NULL, false);
 		_tm.last_table=ppa;
 	}
 	else{
 		transaction_entry *etr=get_etr_by_tid(inter_tid);
+		if(!etr) return;
+		ppa_t ppa=inter_tid==UINT32_MAX?get_log_PPA(TABLEW) : get_log_PPA(LOGW);
+		value_set *value=inf_get_valueset(data, FS_MALLOC_W, PAGESIZE);
+		__trans_write(NULL, value, ppa, LOGW, NULL, false);
 	//	printf("tid: %d ppa update %d->%d\n",etr->tid, etr->ptr.physical_pointer, ppa);
 		etr->ptr.physical_pointer=ppa;
 	}
