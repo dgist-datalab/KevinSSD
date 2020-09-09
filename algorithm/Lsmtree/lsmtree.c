@@ -384,9 +384,6 @@ uint32_t data_input_write;
 
 
 uint32_t lsm_set(request * const req){
-	if(req->type==FS_DELETE_T){
-		printf("break!\n");
-	}
 	if(ISTRANSACTION(LSM.setup_values)){
 		return transaction_set(req);
 	}

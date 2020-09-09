@@ -137,7 +137,9 @@ uint32_t transaction_set(request *const req){
 	transaction_entry *etr;
 	fdriver_lock(&_tm.table_lock);
 #ifdef CHECKINGDATA
-	map_crc_insert(req->key, req->value->value, req->value->length);
+	if(req->type!=FS_DELETE_T){
+		map_crc_insert(req->key, req->value->value, req->value->length);
+	}
 #endif
 	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, req->type !=FS_DELETE_T, &etr);
 	fdriver_unlock(&_tm.table_lock);
@@ -378,7 +380,7 @@ uint32_t transaction_commit(request *const req){
 void *insert_KP_to_skip(KEYT _key, ppa_t ppa){
 	KEYT temp_key;
 	kvssd_cpy_key(&temp_key, &_key);
-	skiplist_insert_existIgnore(_tm.commit_KP, temp_key, ppa, true);
+	skiplist_insert_existIgnore(_tm.commit_KP, temp_key, ppa, !(ppa==TOMBSTONE));
 	if(METAFLUSHCHECK(*_tm.commit_KP)){
 		skiplist *committing_skip=_tm.commit_KP;
 		list *committing_etr=_tm.commit_etr;

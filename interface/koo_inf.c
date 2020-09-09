@@ -6,6 +6,7 @@
 #include "../include/utils/kvssd.h"
 #include "../bench/bench.h"
 #include "../include/settings.h"
+#include "../include/sem_lock.h"
 #ifdef CHECKINGDATA
 #include <map>
 #include <string>
@@ -26,6 +27,7 @@ bool cheeze_end_req(request *const req);
 void print_buf(char *buf, uint32_t len);
 pthread_t t_id;
 extern master_processor mp;
+fdriver_lock_t  crc_lock;
 
 void print_key(KEYT key, bool data_print){
 	if(key.len==0 || (!data_print && key.key[0]=='d')){
@@ -70,6 +72,7 @@ string convertToString(char *a ,int size){
 }
 
 void map_crc_insert(KEYT key, char *value, uint32_t length){
+	fdriver_lock(&crc_lock);
 	string a=convertToString(key.key, key.len);
 	map<string, uint32_t>::iterator it=chk_data.find(a);
 	if(it!=chk_data.end()){
@@ -82,13 +85,17 @@ void map_crc_insert(KEYT key, char *value, uint32_t length){
 	else{
 		chk_data.insert(pair<string, uint32_t>(a, crc32(value, LPAGESIZE)));
 	}
+	fdriver_unlock(&crc_lock);
 }
 
 bool map_crc_check(KEYT key, char *value, uint32_t length){
+	fdriver_lock(&crc_lock);
 	string a=convertToString(key.key, key.len);
 	map<string, uint32_t>::iterator it=chk_data.find(a);
 	if(it==chk_data.end()){
 		printf("not populated key!!\n");
+		print_key(key, true);
+		fdriver_unlock(&crc_lock);
 		return true;
 	}
 
@@ -96,11 +103,13 @@ bool map_crc_check(KEYT key, char *value, uint32_t length){
 	uint32_t data=crc32(value, length);
 
 	if(t!=data){
+		printf("data check failed");
 		print_key(key, true);
-		printf("%.*s data check failed %s:%d\n", KEYFORMAT(key), __FILE__, __LINE__);
 	//	abort();
+		fdriver_unlock(&crc_lock);
 		return false;
 	}
+	fdriver_unlock(&crc_lock);
 	return true;
 }
 
@@ -174,6 +183,7 @@ void init_koo(){
 #endif
 
 #ifdef CHECKINGDATA
+	fdriver_mutex_init(&crc_lock);
 	printf("Data checking mode on!\n");
 #endif
 
@@ -360,12 +370,13 @@ vec_request *get_vectored_request(){
 #ifdef DEBUG
 		if(temp->type==FS_RANGEGET_T){
 			DPRINTF("TID: %u REQ-TYPE:%s (%s) INFO(seq-%d:%d, ret_buf:%px) (keylen:%d) ",temp->tid, type_to_str(temp->type), temp->offset?"from":"next",creq->id, i, creq->ret_buf, temp->key.len);
+			print_key(temp->key, true);
 		}
 		else{
-			if(temp->type!=FS_SET_T && temp->type!=FS_TRANS_COMMIT){
-				DPRINTF("TID: %uREQ-TYPE:%s INFO(seq-%d:%d, ret_buf:%px) (keylen:%d) \n",temp->tid, type_to_str(temp->type), creq->id, i, creq->ret_buf, temp->key.len);
-			//	print_key(temp->key, true);
-			}
+	//		if(temp->type!=FS_SET_T && temp->type!=FS_TRANS_COMMIT){
+				DPRINTF("TID: %uREQ-TYPE:%s INFO(seq-%d:%d, ret_buf:%px) (keylen:%d)",temp->tid, type_to_str(temp->type), creq->id, i, creq->ret_buf, temp->key.len);
+				print_key(temp->key, true);
+	//		}
 		}
 #endif
 		/*
