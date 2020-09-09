@@ -9,6 +9,7 @@
 uint32_t *keymap;
 static uint32_t my_seed;
 static fdriver_lock_t data_check_lock;
+static uint32_t max_size;
 uint32_t test_key=9;
 
 int str2int(const char* str, int len)
@@ -23,7 +24,8 @@ int str2int(const char* str, int len)
 }
 
 void __checking_data_init(){
-	keymap=(uint32_t *)malloc(sizeof(uint32_t)*SHOWINGSIZE);
+	max_size=SHOWINGSIZE/DEFVALUESIZE+1;
+	keymap=(uint32_t *)malloc(sizeof(uint32_t)*max_size);
 	fdriver_mutex_init(&data_check_lock);
 }
 
@@ -39,15 +41,19 @@ void __checking_data_make(uint32_t key, char *data){
 	fdriver_unlock(&data_check_lock);
 }
 
-void __checking_data_make_key(KEYT _key, char *data){
+void __checking_data_make_key(KEYT _key, char *data, uint32_t length){
 	uint32_t key=str2int(_key.key, _key.len);
+	if(key>max_size){
+		printf("it is over max_size %d(%d)\n", key, max_size);
+		abort();
+	}
 	fdriver_lock(&data_check_lock);
 	keymap[key]=my_seed;
 	if(key==test_key){
 		printf("target populate - seed:%u\n debuging code\n",keymap[key]);
 	}
 	RandomSequenceOfUnique rng(my_seed, my_seed);
-	for(uint32_t i=0; i<1024; i++){
+	for(uint32_t i=0; i<length/sizeof(uint32_t); i++){
 		uint32_t t=rng.next();
 		memcpy(&data[i*sizeof(uint32_t)], &t, sizeof(uint32_t));
 		if(key==test_key && i<10){
@@ -61,7 +67,7 @@ void __checking_data_make_key(KEYT _key, char *data){
 	fdriver_unlock(&data_check_lock);
 }
 
-bool __checking_data_check_key(KEYT _key, char *data){
+bool __checking_data_check_key(KEYT _key, char *data, uint32_t length){
 	uint32_t key=str2int(_key.key, _key.len);
 	fdriver_lock(&data_check_lock);
 	uint32_t test_seed=keymap[key];
@@ -70,7 +76,7 @@ bool __checking_data_check_key(KEYT _key, char *data){
 	if(key==test_key){
 		printf("target check - seed: %u debugin code\n", keymap[key]);
 	}
-	for(uint32_t i=0; i<1024; i++){
+	for(uint32_t i=0; i<length/sizeof(uint32_t); i++){
 		memcpy(&t, &data[i*sizeof(uint32_t)], sizeof(uint32_t));
 		uint32_t tt=rng.next();
 		if(key==test_key && i<10){

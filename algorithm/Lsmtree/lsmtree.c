@@ -8,6 +8,7 @@
 #include "../../interface/interface.h"
 #include "../../interface/koo_inf.h"
 #include "../../bench/bench.h"
+#include "variable.h"
 #include "lsmtree_lru_manager.h"
 #include "compaction.h"
 #include "lsmtree.h"
@@ -244,6 +245,7 @@ void* lsm_end_req(algo_req* const req){
 	PTR target=NULL;
 	rparams* rp;
 	uint16_t start_offset;
+	uint16_t value_len;
 	//htable mapinfo;
 	switch(params->lsm_type){
 		case TESTREAD:
@@ -328,9 +330,11 @@ void* lsm_end_req(algo_req* const req){
 				printf("%s:%d data ppa error\n", __FILE__,__LINE__);
 				abort();
 			}
+			value_len=variable_get_value_len(parents->value->ppa);
+			parents->value->length=value_len;	
 			start_offset=parents->value->ppa%NPCINPAGE;
 			if(parents->value->ppa%NPCINPAGE){
-				memmove(parents->value->value, &parents->value->value[start_offset*PIECE], DEFVALUESIZE);
+				memmove(parents->value->value, &parents->value->value[start_offset*PIECE], value_len);
 			}
 			rp=(rparams*)parents->params;
 			req_temp_params=(void*)rp->datas;
@@ -715,7 +719,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 		target_node=skiplist_find(list,req->key);
 		if(!target_node) return 0;
 		if(target_node->value.u_value){
-			memcpy(req->value->value, target_node->value.u_value->value, DEFVALUESIZE);
+			memcpy(req->value->value, target_node->value.u_value->value, target_node->value.u_value->length);
 			req->end_req(req);
 			return 2;
 		}

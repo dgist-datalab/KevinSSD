@@ -81,7 +81,7 @@ bool transaction_entry_buffered_write(transaction_entry *etr, li_node *node){
 
 	etr=get_transaction_entry(_tm.ttb, tid*_tm.ttb->base+offset+1);
 	//printf("tid-offset : %u-%u\n",tid, offset+1);
-	if(offset+1 > _tm.ttb->base || (uint64_t)tid*_tm.ttb->base > UINT32_MAX){
+	if(offset+1 >= _tm.ttb->base || (uint64_t)tid*_tm.ttb->base >= UINT32_MAX){
 		printf("over size of table! %s:%d\n", __FILE__, __LINE__);
 		abort();
 	}

@@ -2,7 +2,7 @@
 #include "../include/settings.h"
 extern master *_master;
 
-#define MAXBUFSIZE (4*K)
+#define MAXBUFSIZE (16*K)
 #define REQSIZE (sizeof(uint8_t)+sizeof(uint8_t)+sizeof(uint32_t)) //except length of key
 #define TXNHEADERSIZE (sizeof(uint32_t)+sizeof(uint32_t))
 

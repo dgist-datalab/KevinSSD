@@ -71,7 +71,7 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark)
 				temp->length=(2*M)/4/K-2;
 				break;
 			case FS_SET_T:
-				temp->value=inf_get_valueset(NULL, FS_MALLOC_W, DEFVALUESIZE);
+				temp->value=inf_get_valueset(NULL, FS_MALLOC_W, rand()%2?DEFVALUESIZE:512);
 				break;
 			default:
 				printf("error type!\n");
@@ -84,7 +84,7 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark)
 		temp->key.key=buf_parser(buf, &idx, temp->key.len);
 #ifdef CHECKINGDATA
 		if(temp->type==FS_SET_T){
-			__checking_data_make_key( temp->key,temp->value->value);
+			__checking_data_make_key( temp->key,temp->value->value, temp->value->length);
 		}
 #endif
 		/*
@@ -220,8 +220,9 @@ void range_get_data_checker(uint32_t len, char *buf){
 		idx+=sizeof(uint16_t);
 		temp.key=&buf[idx];
 		idx+=temp.len;
+		uint16_t len=*(uint16_t*)&buf[idx];
 		idx+=sizeof(uint16_t);
-		__checking_data_check_key(temp,&buf[idx]);
+		__checking_data_check_key(temp,&buf[idx],len);
 		idx+=4096;
 	}
 }
@@ -234,7 +235,7 @@ bool vectored_end_req (request * const req){
 		case FS_GET_T:
 			bench_reap_data(req, mp.li);
 #ifdef CHECKINGDATA
-			__checking_data_check_key(req->key, req->value->value);
+			__checking_data_check_key(req->key, req->value->value, req->value->length);
 #endif
 			kvssd_free_key_content(&req->key);	
 	//		memcpy(req->buf, req->value->value, 4096);

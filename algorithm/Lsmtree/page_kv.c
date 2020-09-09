@@ -263,7 +263,7 @@ int __gc_data(){
 	}
 
 	gc_general_waiting(); //wait for read req
-	gc_node **gc_node_array=(gc_node**)malloc(sizeof(gc_node*)*i*2+1);
+	gc_node **gc_node_array=(gc_node**)malloc(sizeof(gc_node*)*i*(PAGESIZE/DEFVALUESIZE * 2 )+1);
 	int node_idx=0;
 	i=0;
 	//int cnt=0;

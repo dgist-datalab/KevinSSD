@@ -58,9 +58,9 @@ uint32_t transaction_init(uint32_t cached_size){
 		printf("[WRANINIG!!]memory calculated miss!, memory log will be 0 %s:%d\n", __FILE__, __LINE__);
 		cached_entry_num=0;
 	}
-	uint32_t memory_log_size=cached_entry_num < _tm.ttb->base ? cached_entry_num : _tm.ttb->base ;
-	memory_log_size=cached_entry_num==0?2:memory_log_size;
-	_tm.mem_log=memory_log_init(memory_log_size, transaction_evicted_write_entry);
+	uint32_t memory_log_num=cached_entry_num < _tm.ttb->base+16 ? cached_entry_num : _tm.ttb->base+16;
+	memory_log_num=cached_entry_num==0?2:memory_log_num;
+	_tm.mem_log=memory_log_init(memory_log_num, transaction_evicted_write_entry);
 	//_tm.mem_log=memory_log_init(2, transaction_evicted_write_entry);
 	_tm.commit_KP=skiplist_init();
 	_tm.commit_etr=list_init();
@@ -72,10 +72,10 @@ uint32_t transaction_init(uint32_t cached_size){
 	_tm.last_table=UINT_MAX;
 
 	uint32_t table_size=(PAGESIZE/TABLE_ENTRY_SZ) * (2*DEFKEYLENGTH + TABLE_ENTRY_SZ);
-	printf("\t|TRANSACTION WBM size :%u pages\n", target_KP_buffer);
-	printf("\t|TRANSACTION memor_log size :%u pages\n", memory_log_size);
+	printf("\t|TRANSACTION WBM size :%u pages\n", (target_KP_buffer*4096)/PAGESIZE);
+	printf("\t|TRANSACTION memor_log size :%u pages\n", memory_log_num);
 	printf("\t|TRANSACTION table memory size :%u pages\n", table_size/PAGESIZE);
-	return (cached_entry_num-memory_log_size-2-table_size/PAGESIZE) >  cached_size ? 0 : (cached_entry_num-memory_log_size-2-table_size/PAGESIZE);
+	return (cached_entry_num-memory_log_num-2-table_size/PAGESIZE) >  cached_size ? 0 : (cached_entry_num-memory_log_num-2-table_size/PAGESIZE);
 }
 
 uint32_t transaction_destroy(){
@@ -137,7 +137,7 @@ uint32_t transaction_set(request *const req){
 	transaction_entry *etr;
 	fdriver_lock(&_tm.table_lock);
 #ifdef CHECKINGDATA
-	map_crc_insert(req->key, req->value->value);
+	//map_crc_insert(req->key, req->value->value);
 #endif
 	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, req->type !=FS_DELETE_T, &etr);
 	fdriver_unlock(&_tm.table_lock);
@@ -364,6 +364,7 @@ uint32_t transaction_commit(request *const req){
 	//compaction_wait_jobs();
 
 	list_free(temp_list);
+	//transaction_table_print(_tm.ttb, false);
 
 	//checking_table_nonfull();
 
@@ -714,11 +715,16 @@ leveling_node *transaction_get_comp_target(skiplist *skip){
 }
 
 bool transaction_invalidate_PPA(uint8_t type, uint32_t ppa){
-	LSM.bm->unpopulate_bit(LSM.bm, ppa);
+	//printf("invalidated %u ppa\n", ppa);
+	if(!LSM.bm->unpopulate_bit(LSM.bm, ppa)){
+	//	printf("double invalidated :%u \n", ppa);
+	//	abort();
+	}
 	return true;
 }
 
 uint32_t gc_log(){
+	compaction_wait_jobs();
 	LMI.log_gc_cnt++;
 	blockmanager *bm=LSM.bm;
 	__gsegment *tseg=bm->pt_get_gc_target(bm, LOG_S);
@@ -726,11 +732,12 @@ uint32_t gc_log(){
 		printf("log full!\n");
 		abort();
 	} 
+	//printf("gc log(%u)! %u ~ %u\n",tseg->invalidate_number, tseg->blocks[0]->block_num * _PPB, tseg->blocks[BPS-1]->block_num* _PPB+ _PPB-1);
 	
 	//printf("_PPS : %u\n", _PPS);
-	if(tseg->invalidate_number != _PPS ){
-		//printf("table print!!\n");
-		//transaction_table_print(_tm.ttb, false);
+	if(tseg->invalidate_number <_PPS ){
+		//printf("not full invalidataion %d\n",tseg->invalidate_number);
+		transaction_table_print(_tm.ttb, false);
 		//printf("table print end\n\n");
 		//abort();
 	}
@@ -743,6 +750,7 @@ uint32_t gc_log(){
 			printf("valid page number :%u\n", tpage);
 		}
 	}*/
+
 
 	bm->pt_trim_segment(bm, LOG_S, tseg, LSM.li);
 
@@ -759,6 +767,7 @@ uint32_t transaction_clear(transaction_entry *etr){
 	//printf("clear called!\n");
 	fdriver_lock(&_tm.table_lock);
 	uint32_t res=transaction_table_clear(_tm.ttb, etr);
+	//transaction_table_print(_tm.ttb, false);
 	fdriver_unlock(&_tm.table_lock);
 	//checking_table_nonfull();
 	return res;

@@ -416,13 +416,13 @@ void *pm_get_oob(uint32_t _ppa, int type, bool isgc){
 		abort();
 	blockmanager *bm=LSM.bm;
 	void *res=bm->get_oob(bm,ppa);
-
+/*
 	if(!isgc){
 		if(((footer*)res)->map[0]){
 			printf("ppa:%u,%u %p\n",_ppa,ppa,res);
 			abort();
 		}
-	}
+	}*/
 	return res;
 }
 

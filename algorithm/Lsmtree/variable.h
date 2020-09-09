@@ -13,4 +13,5 @@ void full_page_setting(int *res_idx, value_set **res, key_packing *kp, l_bucket*
 
 value_set *variable_get_kp(key_packing **origin, bool isgc);
 value_set *variable_change_kp(key_packing **, uint32_t remain, value_set *, bool isgc);
+uint16_t variable_get_value_len(ppa_t ppa);
 #endif

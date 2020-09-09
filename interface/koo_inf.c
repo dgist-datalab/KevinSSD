@@ -192,6 +192,14 @@ static inline void key_parser(request *req, char *buf, uint32_t *idx, uint32_t l
 	(*idx)+=key.len;
 }
 
+static inline void error_check(request *req){
+	if(req->key.len){
+		if(!(req->key.key[0]=='d' || req->key.key[0]=='m')){
+			printf("key error %s:%d\n",__FILE__, __LINE__);
+		}
+	}
+}
+
 static inline const char* type_to_str(FSTYPE t){
 	switch(t){
 		case FS_GET_T: return "FS_GET_T";
@@ -328,6 +336,9 @@ vec_request *get_vectored_request(){
 				abort();
 				break;
 		}
+
+		error_check(temp);
+
 #ifdef DEBUG
 		if(temp->type==FS_RANGEGET_T){
 			DPRINTF("TID: %u REQ-TYPE:%s (%s) INFO(seq-%d:%d, ret_buf:%px) (keylen:%d) ",temp->tid, type_to_str(temp->type), temp->offset?"from":"next",creq->id, i, creq->ret_buf, temp->key.len);

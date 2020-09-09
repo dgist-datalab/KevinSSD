@@ -239,3 +239,6 @@ void full_page_setting(int *_res_idx, value_set **res, key_packing *kp, l_bucket
 	*_res_idx=res_idx;
 }
 
+uint16_t variable_get_value_len(ppa_t ppa){
+	return (uint16_t)(((footer*)pm_get_oob(CONVPPA(ppa), DATA, false))->map[ppa%NPCINPAGE]*PIECE);
+}

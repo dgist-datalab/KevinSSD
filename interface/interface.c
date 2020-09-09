@@ -368,7 +368,7 @@ void inf_init(int apps_flag, int total_num,int argc, char **argv){
 	layer_info_mapping(&mp, argc, argv);
 
 #ifdef CHECKINGDATA 
-//	__checking_data_init();
+	__checking_data_init();
 #endif
 	
 /*
