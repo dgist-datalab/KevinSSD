@@ -69,7 +69,7 @@ string convertToString(char *a ,int size){
     return s; 
 }
 
-void map_crc_insert(KEYT key, char *value){
+void map_crc_insert(KEYT key, char *value, uint32_t length){
 	string a=convertToString(key.key, key.len);
 	map<string, uint32_t>::iterator it=chk_data.find(a);
 	if(it!=chk_data.end()){
@@ -77,14 +77,14 @@ void map_crc_insert(KEYT key, char *value){
 			printf("data update????\n");
 			sleep(1);
 		}
-		it->second=crc32(value,LPAGESIZE);
+		it->second=crc32(value,length);
 	}
 	else{
 		chk_data.insert(pair<string, uint32_t>(a, crc32(value, LPAGESIZE)));
 	}
 }
 
-bool map_crc_check(KEYT key, char *value){
+bool map_crc_check(KEYT key, char *value, uint32_t length){
 	string a=convertToString(key.key, key.len);
 	map<string, uint32_t>::iterator it=chk_data.find(a);
 	if(it==chk_data.end()){
@@ -93,7 +93,7 @@ bool map_crc_check(KEYT key, char *value){
 	}
 
 	uint32_t t=it->second;
-	uint32_t data=crc32(value, LPAGESIZE);
+	uint32_t data=crc32(value, length);
 
 	if(t!=data){
 		print_key(key, true);
@@ -109,7 +109,7 @@ void map_crc_range_delete(KEYT key, uint32_t size){
 	kvssd_cpy_key(&copied_key, &key);
 	for(uint32_t i=0; i<size; i++){
 		(*(uint64_t*)&copied_key.key[copied_key.len-sizeof(uint64_t)])++;
-		map_crc_insert(copied_key, null_value);
+		map_crc_insert(copied_key, null_value, LPAGESIZE);
 	}
 	kvssd_free_key_content(&copied_key);
 }
@@ -117,11 +117,13 @@ void map_crc_range_delete(KEYT key, uint32_t size){
 void map_crc_iter_check(uint32_t len, char *buf){
 	uint32_t idx=0;
 	KEYT key;
+	printf("not implemented!!\n");
+	abort();
 	while(1){
 		key.len=*(uint8_t*)translation_buffer(buf, &idx, sizeof(uint16_t), len);
 		key.key=translation_buffer(buf, &idx, key.len, len);
 		char *value=translation_buffer(buf, &idx, LPAGESIZE, len);
-		map_crc_check(key, value);
+		//map_crc_check(key, value);
 		if(idx >=len) break;
 	}
 }
@@ -167,6 +169,13 @@ void init_koo(){
 		abort();
 		return;
 	}
+#ifdef DEBUG
+	printf("Debugging mode on!\n");
+#endif
+
+#ifdef CHECKINGDATA
+	printf("Data checking mode on!\n");
+#endif
 
 	null_value=(char*)malloc(PAGESIZE);
 	memset(null_value,0,PAGESIZE);
@@ -197,6 +206,10 @@ static inline void error_check(request *req){
 		if(!(req->key.key[0]=='d' || req->key.key[0]=='m')){
 			printf("key error %s:%d\n",__FILE__, __LINE__);
 		}
+	}
+	else if(req->type!=FS_TRANS_COMMIT){
+		printf("not commit but no key %s:%d\n", __FILE__, __LINE__);
+		abort();
 	}
 }
 
@@ -299,7 +312,12 @@ vec_request *get_vectored_request(){
 			case FS_SET_T:
 				temp->offset=*(uint16_t*)translation_buffer(req_buf, &idx, sizeof(uint16_t), limit);
 				temp->length=*(uint16_t*)translation_buffer(req_buf, &idx, sizeof(uint16_t), limit);
-				temp->value=inf_get_valueset(translation_buffer(req_buf, &idx, LPAGESIZE, limit), FS_MALLOC_W, LPAGESIZE);
+				if(temp->key.key[0]=='d'){
+					temp->value=inf_get_valueset(translation_buffer(req_buf, &idx, LPAGESIZE, limit), FS_MALLOC_W, LPAGESIZE);
+				}
+				else{
+					temp->value=inf_get_valueset(translation_buffer(req_buf, &idx, LPAGESIZE, limit), FS_MALLOC_W, 512);			
+				}
 #ifdef CHECKINGDATA
 	//			map_crc_insert(temp->key, temp->value->value);
 #endif
@@ -370,12 +388,13 @@ bool cheeze_end_req(request *const req){
 			DPRINTF("\t\t%d-not found!",0);
 			print_key(req->key, true);
 #ifdef CHECKINGDATA
-			if(map_crc_check(req->key, null_value)){
+			if(map_crc_check(req->key, null_value, LPAGESIZE)){
 				printf("\t\tdeleted key!! or not inserted key\n");
+				abort();
 			}
 			else{
-				printf("\t\tPinK really can't find it\n");
-				abort();
+			//	printf("\t\tPinK really can't find it\n");
+			//	abort();
 			}
 #endif
 
@@ -390,12 +409,13 @@ bool cheeze_end_req(request *const req){
 			print_key(req->key, true);
 
 #ifdef CHECKINGDATA
-			if(map_crc_check(req->key, null_value)){
+			if(map_crc_check(req->key, null_value, LPAGESIZE)){
 				printf("\t\tdeleted key!! or not inserted key\n");
+				abort();
 			}
 			else{
-				printf("\t\tPinK really can't find it\n");
-				abort();
+			//	printf("\t\tPinK really can't find it\n");
+			//	abort();
 			}
 #endif
 			preq->eof=1;
@@ -414,13 +434,13 @@ bool cheeze_end_req(request *const req){
 			*/
 			bench_reap_data(req, mp.li);
 #ifdef CHECKINGDATA
-			if(!map_crc_check(req->key, req->value->value)){
+			if(!map_crc_check(req->key, req->value->value, req->value->length)){
 				printf("data missed!\n");
-				abort();
+				//abort();
 			}
 #endif
 			if(req->value){
-				memcpy(&preq->buf[req->seq*LPAGESIZE], req->value->value,LPAGESIZE);
+				memcpy(&preq->buf[req->seq*LPAGESIZE], req->value->value,req->value->length);
 				inf_free_valueset(req->value,FS_MALLOC_R);
 			}
 
@@ -437,7 +457,7 @@ bool cheeze_end_req(request *const req){
 			DPRINTF("RMW return:%u\n",0);
 			memcpy(&req->value->value[req->offset], req->buf, req->length);
 #ifdef CHECKINGDATA
-			map_crc_insert(req->key, req->value->value);
+			map_crc_insert(req->key, req->value->value, req->value->length);
 #endif
 			inf_assign_try(req);
 			return true;

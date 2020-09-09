@@ -6,6 +6,7 @@
 #include<sys/types.h>
 #include"skiplist.h"
 #include"../../interface/interface.h"
+#include"../../interface/koo_inf.h"
 #include "../../include/utils/kvssd.h"
 #include "../../include/slab.h"
 #include "../../bench/bench.h"
@@ -321,7 +322,8 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 	{
 		//delete exists ppa; input ppa
 		if(ppa==x->ppa){
-			printf("%.*s ppa:%u",KEYFORMAT(key),ppa);
+			printf("ppa:%u",KEYFORMAT(key),ppa);
+			print_key(key, true);
 			abort();
 		}
 		if(x->ppa!=TOMBSTONE){

@@ -137,7 +137,7 @@ uint32_t transaction_set(request *const req){
 	transaction_entry *etr;
 	fdriver_lock(&_tm.table_lock);
 #ifdef CHECKINGDATA
-	//map_crc_insert(req->key, req->value->value);
+	map_crc_insert(req->key, req->value->value, req->value->length);
 #endif
 	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, req->type !=FS_DELETE_T, &etr);
 	fdriver_unlock(&_tm.table_lock);
