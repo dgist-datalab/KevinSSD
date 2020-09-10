@@ -42,8 +42,8 @@ uint32_t transaction_clear(struct transaction_entry *etr);
 uint32_t processing_read(void *req, transaction_entry **entry_set, t_rparams *trp, uint8_t type);
 bool transaction_invalidate_PPA(uint8_t type, uint32_t ppa);
 bool transaction_debug_search(KEYT key);
-struct leveling_node *transaction_get_comp_target(skiplist *skip);
+struct leveling_node *transaction_get_comp_target(skiplist *skip, uint32_t tid);
 
-void transaction_evicted_write_entry(uint32_t inter_tid, char *data);
+void transaction_evicted_write_entry(transaction_entry *etr, char *data);
 void transaction_log_write_entry(transaction_entry *etr, char *data);
 #endif

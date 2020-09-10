@@ -31,6 +31,11 @@ li_node* list_insert(list *li, void *data){
 	return t;
 }
 
+
+void *list_last_entry(list* li){
+	return li->tail->data;
+}
+
 void list_delete_node(list *li, li_node* t){
 	if(t==li->head){
 		li->head=li->head->nxt;

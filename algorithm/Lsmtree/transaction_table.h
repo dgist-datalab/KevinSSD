@@ -42,6 +42,7 @@ typedef struct transaction_entry{
 	t_range range;
 	uint8_t helper_type;
 	li_node *wbm_node;
+	li_node *rb_li_node;
 	transaction_read_helper read_helper;
 	uint32_t kv_pair_num;
 }transaction_entry;
@@ -51,7 +52,6 @@ typedef struct transaction_table{
 	volatile uint32_t now;
 	volatile uint32_t full;
 	struct write_buffer_manager *wbm;
-	uint32_t base;
 	pthread_cond_t block_cond;
 	pthread_mutex_t block;
 	std::queue<transaction_entry *> *etr_q; 
@@ -65,7 +65,7 @@ uint32_t transaction_table_gc_find(transaction_table *, KEYT key, transaction_en
 value_set* transaction_table_insert_cache(transaction_table *, uint32_t tid, KEYT key, value_set *value, bool isdelete, transaction_entry **);
 uint32_t transaction_table_update_last_entry(transaction_table *,uint32_t tid, TSTATUS);
 uint32_t transaction_table_update_all_entry(transaction_table *,uint32_t tid, TSTATUS);
-uint32_t transaction_table_clear(transaction_table *, transaction_entry *etr);
+uint32_t transaction_table_clear(transaction_table *, transaction_entry *etr, void *li);
 uint32_t transaction_table_clear_all(transaction_table *, uint32_t tid);
 uint32_t transaction_table_iterator_targets(transaction_table *, KEYT key, uint32_t tid, transaction_entry ***etr);
 
@@ -76,7 +76,7 @@ void transaction_table_print(transaction_table *, bool full);
 value_set* transaction_table_force_write(transaction_table *, uint32_t tid, transaction_entry **etr);
 value_set* transaction_table_get_data(transaction_table *);
 
-transaction_entry *transaction_table_get_comp_target(transaction_table *);
+transaction_entry *transaction_table_get_comp_target(transaction_table *, uint32_t tid);
 transaction_entry *get_etr_by_tid(uint32_t inter_tid);
 transaction_entry *get_transaction_entry(transaction_table *table, uint32_t inter_tid);
 #endif

@@ -4,6 +4,7 @@
 #include "nocpy.h"
 #include "../../interface/interface.h"
 #include "../../interface/koo_inf.h"
+#include "variable.h"
 #include "nocpy.h"
 #include "level.h"
 #include <stdlib.h>
@@ -58,7 +59,7 @@ uint32_t transaction_init(uint32_t cached_size){
 		printf("[WRANINIG!!]memory calculated miss!, memory log will be 0 %s:%d\n", __FILE__, __LINE__);
 		cached_entry_num=0;
 	}
-	uint32_t memory_log_num=cached_entry_num < _tm.ttb->base+16 ? cached_entry_num : _tm.ttb->base+16;
+	uint32_t memory_log_num=cached_entry_num < _tm.ttb->full ? cached_entry_num : _tm.ttb->full;
 	memory_log_num=cached_entry_num==0?2:memory_log_num;
 	_tm.mem_log=memory_log_init(memory_log_num, transaction_evicted_write_entry);
 	//_tm.mem_log=memory_log_init(2, transaction_evicted_write_entry);
@@ -138,7 +139,7 @@ uint32_t transaction_set(request *const req){
 	fdriver_lock(&_tm.table_lock);
 #ifdef CHECKINGDATA
 	if(req->type!=FS_DELETE_T){
-		map_crc_insert(req->key, req->value->value, req->value->length);
+		//map_crc_insert(req->key, req->value->value, req->value->length);
 	}
 #endif
 	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, req->type !=FS_DELETE_T, &etr);
@@ -155,7 +156,7 @@ uint32_t transaction_set(request *const req){
 	}
 
 	if(memory_log_usable(_tm.mem_log)){
-		etr->ptr.physical_pointer=memory_log_insert(_tm.mem_log, etr->tid, -1, log->value);
+		etr->ptr.physical_pointer=memory_log_insert(_tm.mem_log, etr, -1, log->value);
 		inf_free_valueset(log, FS_MALLOC_W);
 		req->end_req(req);
 		return 1;
@@ -197,7 +198,7 @@ uint32_t transaction_range_delete(request *const req){
 		}
 
 		if(memory_log_usable(_tm.mem_log)){
-			etr->ptr.physical_pointer=memory_log_insert(_tm.mem_log, etr->tid, -1, log->value);
+			etr->ptr.physical_pointer=memory_log_insert(_tm.mem_log, etr, -1, log->value);
 			inf_free_valueset(log, FS_MALLOC_W);
 			continue;
 		}
@@ -247,7 +248,7 @@ uint32_t transaction_commit(request *const req){
 
 	if(log){
 		if(memory_log_usable(_tm.mem_log)){
-			etr->ptr.physical_pointer=memory_log_insert(_tm.mem_log, etr->tid, -1, log->value);
+			etr->ptr.physical_pointer=memory_log_insert(_tm.mem_log, etr, -1, log->value);
 			inf_free_valueset(log, FS_MALLOC_W);		
 		}
 		else{
@@ -270,6 +271,7 @@ uint32_t transaction_commit(request *const req){
 	fdriver_lock(&_tm.table_lock);
 
 	//transaction_table_print(_tm.ttb, false);
+
 	transaction_table_update_all_entry(_tm.ttb, req->tid, COMMIT);
 
 
@@ -288,7 +290,7 @@ uint32_t transaction_commit(request *const req){
 				transaction_invalidate_PPA(LOG, ppa);	
 			}
 		}
-		_tm.last_table=memory_log_insert(_tm.mem_log, UINT32_MAX, -1, table_data->value);
+		_tm.last_table=memory_log_insert(_tm.mem_log, (transaction_entry*)&_tm.last_table, -1, table_data->value);
 		inf_free_valueset(table_data, FS_MALLOC_W);
 	}
 	else{
@@ -302,7 +304,7 @@ uint32_t transaction_commit(request *const req){
 
 	if(!_tm.mem_log){
 		leveling_node *lnode;
-		while((lnode=transaction_get_comp_target(_tm.commit_KP))){
+		while((lnode=transaction_get_comp_target(_tm.commit_KP, req->tid))){
 			compaction_assign(NULL,lnode,false);
 		}
 		return 1;
@@ -311,7 +313,7 @@ uint32_t transaction_commit(request *const req){
 	list* temp_list=list_init();
 	cml *temp_cml;
 	char *cached_data;
-	while((etr=transaction_table_get_comp_target(_tm.ttb))){
+	while((etr=transaction_table_get_comp_target(_tm.ttb, req->tid))){
 		temp_cml=(cml*)malloc(sizeof(cml));
 		temp_cml->isdone=false;
 		temp_cml->etr=etr;
@@ -337,7 +339,6 @@ uint32_t transaction_commit(request *const req){
 	for_each_list_node_safe(temp_list, now, nxt){
 		temp_cml=(cml*)now->data;
 		while(!temp_cml->isdone){}
-
 		uint32_t number_of_kp=*(uint16_t*)(temp_cml->data);
 		/*
 
@@ -611,6 +612,7 @@ void* transaction_end_req(algo_req * const trans_req){
 	request *parents=trans_req->parents;
 	bool free_struct=true;
 	uint32_t start_offset;
+	uint16_t value_len;
 	switch(trans_req->type){
 		case TABLEW:
 		case LOGW:
@@ -649,8 +651,10 @@ void* transaction_end_req(algo_req * const trans_req){
 		case DATAR:
 			rparams=(t_rparams*)trans_req->params;
 			start_offset=parents->value->ppa%NPCINPAGE;
+			value_len=variable_get_value_len(parents->value->ppa);
+			parents->value->length=value_len;
 			if(start_offset){
-				memmove(parents->value->value, &parents->value->value[start_offset*PIECE], 4096);
+				memmove(parents->value->value, &parents->value->value[start_offset*PIECE], value_len);
 			}
 			parents->end_req(parents);
 			break;
@@ -699,8 +703,8 @@ retry:
 	return res;
 }
 
-leveling_node *transaction_get_comp_target(skiplist *skip){
-	transaction_entry *etr=transaction_table_get_comp_target(_tm.ttb);
+leveling_node *transaction_get_comp_target(skiplist *skip, uint32_t tid){
+	transaction_entry *etr=transaction_table_get_comp_target(_tm.ttb, tid);
 	if(!etr) return NULL;
 
 	fdriver_lock(&_tm.table_lock);
@@ -768,7 +772,7 @@ uint32_t gc_log(){
 uint32_t transaction_clear(transaction_entry *etr){
 	//printf("clear called!\n");
 	fdriver_lock(&_tm.table_lock);
-	uint32_t res=transaction_table_clear(_tm.ttb, etr);
+	uint32_t res=transaction_table_clear(_tm.ttb, etr, NULL);
 	//transaction_table_print(_tm.ttb, false);
 	fdriver_unlock(&_tm.table_lock);
 	//checking_table_nonfull();
@@ -808,20 +812,17 @@ bool transaction_debug_search(KEYT key){
 	return false;
 }
 
-void transaction_evicted_write_entry(uint32_t inter_tid, char *data){
-
-
-	if(inter_tid==UINT32_MAX){
+void transaction_evicted_write_entry(transaction_entry* etr, char *data){
+	if((void*)etr==(void*)&_tm.last_table){
 	//	printf("table ppa update %d->%d\n", _tm.last_table, ppa);
-		ppa_t ppa=inter_tid==UINT32_MAX?get_log_PPA(TABLEW) : get_log_PPA(LOGW);
+		ppa_t ppa=get_log_PPA(TABLEW);
 		value_set *value=inf_get_valueset(data, FS_MALLOC_W, PAGESIZE);
 		__trans_write(NULL, value, ppa, LOGW, NULL, false);
 		_tm.last_table=ppa;
 	}
 	else{
-		transaction_entry *etr=get_etr_by_tid(inter_tid);
 		if(!etr) return;
-		ppa_t ppa=inter_tid==UINT32_MAX?get_log_PPA(TABLEW) : get_log_PPA(LOGW);
+		ppa_t ppa=get_log_PPA(LOGW);
 		value_set *value=inf_get_valueset(data, FS_MALLOC_W, PAGESIZE);
 		__trans_write(NULL, value, ppa, LOGW, NULL, false);
 	//	printf("tid: %d ppa update %d->%d\n",etr->tid, etr->ptr.physical_pointer, ppa);
@@ -831,7 +832,7 @@ void transaction_evicted_write_entry(uint32_t inter_tid, char *data){
 
 void transaction_log_write_entry(transaction_entry *etr, char *data){
 	if(memory_log_usable(_tm.mem_log))
-		etr->ptr.physical_pointer=memory_log_insert(_tm.mem_log, etr->tid, -1, data);
+		etr->ptr.physical_pointer=memory_log_insert(_tm.mem_log, etr, -1, data);
 	else{
 		ppa_t ppa=get_log_PPA(TABLEW);
 		__trans_write(NULL, inf_get_valueset(data, FS_MALLOC_W, PAGESIZE), ppa, LOGW , NULL, false);

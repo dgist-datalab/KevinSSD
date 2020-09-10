@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-memory_log *memory_log_init(uint32_t max, void (*log_write)(uint32_t tid, char *data)){
+memory_log *memory_log_init(uint32_t max, void (*log_write)(transaction_entry *etr, char *data)){
 	memory_log *res=(memory_log *)malloc(sizeof(memory_log));
 
 	lru_init(&res->lru, NULL);
@@ -27,7 +27,7 @@ memory_log *memory_log_init(uint32_t max, void (*log_write)(uint32_t tid, char *
 	return res;
 }
 
-uint32_t memory_log_insert(memory_log *ml, uint32_t tid, uint32_t KP_size, char *data){
+uint32_t memory_log_insert(memory_log *ml, transaction_entry *etr, uint32_t KP_size, char *data){
 	if(!ml->max){
 		return UINT32_MAX;
 	}
@@ -38,7 +38,7 @@ uint32_t memory_log_insert(memory_log *ml, uint32_t tid, uint32_t KP_size, char 
 	fdriver_lock(&ml->lock);
 	if(ml->now>=ml->max){
 		mn=(memory_node*)lru_pop(ml->lru);
-		ml->log_write(mn->tid, mn->data);
+		ml->log_write(mn->etr, mn->data);
 		ml->mem_node_q->push(mn);
 		ml->now--;
 		if((int32_t)ml->now<0){abort();}
@@ -54,7 +54,7 @@ uint32_t memory_log_insert(memory_log *ml, uint32_t tid, uint32_t KP_size, char 
 	ml->mem_node_q->pop();
 
 	mn->KP_size=KP_size;
-	mn->tid=tid;
+	mn->etr=etr;
 	memcpy(mn->data, data, PAGESIZE);
 	mn->l_node=lru_push(ml->lru,(void*)mn);
 

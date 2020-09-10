@@ -15,6 +15,7 @@ typedef struct list{
 
 list* list_init();
 li_node *list_insert(list *, void *data);
+void *list_last_entry(list*);
 void list_delete_node(list *, li_node*);
 void list_free(list *li);
 

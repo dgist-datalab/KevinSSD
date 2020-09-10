@@ -3,6 +3,7 @@
 #include "../../include/data_struct/redblack.h"
 #include "../../include/utils/kvssd.h"
 #include "../../include/sem_lock.h"
+#include "../../include/data_struct/list.h"
 
 #include "skiplist.h"
 #include "compaction.h"
@@ -18,43 +19,36 @@ extern my_tm _tm;
 Redblack transaction_indexer;
 fdriver_lock_t indexer_lock;
 inline bool commit_exist(){
-	fdriver_lock(&indexer_lock);
 	Redblack target;
+	li_node *ln;
+	fdriver_lock(&indexer_lock);
 	rb_traverse(target, transaction_indexer){
-		transaction_entry *etr=(transaction_entry*)target->item;
-		if(etr->status==COMMIT){
-			fdriver_unlock(&indexer_lock);
-			return true;
+		list *temp_list=(list*)target->item;
+		for_each_list_node(temp_list, ln){
+			transaction_entry *etr=(transaction_entry*)ln->data;
+			if(etr->status==COMMIT){
+				fdriver_unlock(&indexer_lock);
+				return true;
+			}
 		}
 	}
 	fdriver_unlock(&indexer_lock);
 	return false;
 }
+
 inline transaction_entry *find_last_entry(uint32_t tid){
 	Redblack res;
+	transaction_entry *data;
 
 	fdriver_lock(&indexer_lock);
 	rb_find_int(transaction_indexer, tid, &res);
-	transaction_entry * data = (transaction_entry*)res->item;
-	if(!data){
-		fdriver_unlock(&indexer_lock);
-		return NULL;
+	if(!res){
+		printf("not found entry in indexer! %s:%d\n", __FILE__,__LINE__);
+		abort();
 	}
-	while(data->status!=CACHED){
-		res=res->next;
-		data=(transaction_entry*)res->item;
-	}
+	data=(transaction_entry*)list_last_entry((list*)res->item);
 	fdriver_unlock(&indexer_lock);
 	return data;
-}
-
-inline uint32_t number_of_indexer(Redblack r){
-	uint32_t num=0;
-	Redblack target;
-	rb_traverse(target, transaction_indexer){
-		num++;
-	}
-	return num;
 }
 
 bool transaction_entry_buffered_write(transaction_entry *etr, li_node *node){
@@ -71,20 +65,20 @@ bool transaction_entry_buffered_write(transaction_entry *etr, li_node *node){
 
 	skiplist_free(t_mem);
 	
-	uint32_t tid=etr->tid/_tm.ttb->base;
-	uint32_t offset=etr->tid%_tm.ttb->base;
+	uint32_t tid=etr->tid;
 	etr->wbm_node=NULL;
 	etr->status=LOGGED;
 
 	etr->range.start=temp_run.key;
 	etr->range.end=temp_run.end;
 
-	etr=get_transaction_entry(_tm.ttb, tid*_tm.ttb->base+offset+1);
+	etr=get_transaction_entry(_tm.ttb, tid);
 	//printf("tid-offset : %u-%u\n",tid, offset+1);
+	/*
 	if(offset+1 >= _tm.ttb->base || (uint64_t)tid*_tm.ttb->base >= UINT32_MAX){
 		printf("over size of table! %s:%d\n", __FILE__, __LINE__);
 		abort();
-	}
+	}*/
 	etr->wbm_node=node;
 	node->data=(void*)etr;
 
@@ -98,7 +92,7 @@ uint32_t transaction_table_init(transaction_table **_table, uint32_t size, uint3
 	table->etr=(transaction_entry*)calloc(table_entry_num,sizeof(transaction_entry));
 	table->full=table_entry_num;
 //	table->base=table_entry_num;
-	table->base=32;
+	//table->base=32;
 	table->now=0;
 
 	table->wbm=write_buffer_init(max_kp_num, transaction_entry_buffered_write);
@@ -120,6 +114,10 @@ uint32_t transaction_table_init(transaction_table **_table, uint32_t size, uint3
 
 uint32_t transaction_table_destroy(transaction_table * table){
 	delete table->etr_q;
+	Redblack target;
+	rb_traverse(target, transaction_indexer){
+		list_free((list*)target->item);
+	}
 	rb_clear(transaction_indexer, 0, 0, 1);
 
 	for(uint32_t i=0; i<table->full; i++){
@@ -161,7 +159,7 @@ transaction_entry *get_transaction_entry(transaction_table *table, uint32_t inte
 		printf("committed KP size :%lu\n", _tm.commit_KP->size);
 		printf("compaction jobs: %u\n", CQSIZE - compactor.processors[0].tagQ->size());
 		pthread_cond_wait(&table->block_cond, &table->block);
-	}	
+	}
 	etr=table->etr_q->front();
 	table->etr_q->pop();
 	pthread_mutex_unlock(&table->block);
@@ -175,10 +173,21 @@ transaction_entry *get_transaction_entry(transaction_table *table, uint32_t inte
 	etr->read_helper.bf=NULL;
 	//etr->read_helper.bf=bf_init(512, 0.1);
 
+	Redblack res=NULL;
 	fdriver_lock(&indexer_lock);
-	rb_insert_int(transaction_indexer, etr->tid, (void*)etr);
+	rb_find_int(transaction_indexer, etr->tid, &res);
+	list *temp_list;
+	if(res==transaction_indexer){
+		temp_list=list_init();
+		etr->rb_li_node=list_insert(temp_list, (void*)etr);
+		rb_insert_int(transaction_indexer, etr->tid, (void*)temp_list);
+	}
+	else{
+		temp_list=(list*)res->item;
+		etr->rb_li_node=list_insert(temp_list, (void*)etr);
+	}
 	fdriver_unlock(&indexer_lock);
-
+	
 	return etr;
 }
 
@@ -191,7 +200,8 @@ uint32_t transaction_table_add_new(transaction_table *table, uint32_t tid, uint3
 		}
 	}
 	
-	etr=get_transaction_entry(table, tid*table->base+offset);
+	//etr=get_transaction_entry(table, tid*table->base+offset);
+	etr=get_transaction_entry(table, tid);
 	etr->wbm_node=write_buffer_insert_trans_etr(table->wbm, etr);
 	return 1;
 }
@@ -230,7 +240,7 @@ inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *targe
 
 bool delete_debug=false;
 value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid, KEYT key, value_set *value, bool valid,  transaction_entry **t){
-	transaction_entry *target=find_last_entry(tid*table->base);
+	transaction_entry *target=find_last_entry(tid);
 	if(!valid){
 		printf("break!\n");
 	}
@@ -241,7 +251,7 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 			abort();
 			return NULL;		
 		}
-		target=find_last_entry(tid*table->base);
+		target=find_last_entry(tid);
 	}
 
 	if(target->helper_type==BFILTER){
@@ -264,7 +274,7 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 	(*t)=target;
 
 	if(lsm_should_flush(t_mem, d_m.active)){
-		if(transaction_table_add_new(table, target->tid/table->base, target->tid%table->base+1)==UINT_MAX){
+		if(transaction_table_add_new(table, target->tid, 0)==UINT_MAX){
 			printf("%s:%d full table!\n", __FILE__,__LINE__);
 			abort();
 			return NULL;
@@ -275,17 +285,32 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 }
 
 uint32_t transaction_table_update_last_entry(transaction_table *table,uint32_t tid, TSTATUS status){
-	transaction_entry *target=find_last_entry(tid *table->base);
+	transaction_entry *target=find_last_entry(tid);
 	target->status=status;
 	return 1;
 }
 
 uint32_t transaction_table_update_all_entry(transaction_table *table,uint32_t tid, TSTATUS status){
 	Redblack res;
+	list *li; li_node *ln;
+	///transaction_table_print(table,false);
 	fdriver_lock(&indexer_lock);
-	rb_find_int(transaction_indexer, tid * table->base, &res);
+	rb_find_int(transaction_indexer, tid, &res);
+	li=(list*)res->item;
+	for_each_list_node(li, ln){
+		transaction_entry *data=(transaction_entry*)ln->data;
+		//printf("etr print %p\n", data);
+		if(status==COMMIT && data->status==CACHED){
+			data->status=CACHEDCOMMIT;
+		}
+		else{
+			data->status=status;
+		}
+	}
+	/*
 	while(res->k.ikey/table->base==tid){
 		transaction_entry *data=(transaction_entry*)res->item;
+		printf("etr print %p\n", data);
 		if(status==COMMIT && data->status==CACHED){
 			data->status=CACHEDCOMMIT;
 		}
@@ -293,27 +318,30 @@ uint32_t transaction_table_update_all_entry(transaction_table *table,uint32_t ti
 			data->status=status;
 		}
 		res=res->next;
-	}
+	}*/
 	fdriver_unlock(&indexer_lock);
 	return 1;
 }
 
 uint32_t transaction_table_find(transaction_table *table, uint32_t tid, KEYT key, transaction_entry*** result){
 	Redblack res;
+	list *li; li_node *ln;
 	fdriver_lock(&indexer_lock);
-	rb_find_int(transaction_indexer, tid * table->base, &res);
+	rb_find_int(transaction_indexer, tid, &res);
 	(*result)=(transaction_entry**)malloc(sizeof(transaction_entry*) * (table->now+1));
 
 	uint32_t index=0;
 	for(; res!=transaction_indexer; res=rb_prev(res)){
-		transaction_entry *target=(transaction_entry*)res->item;
-	
-		if(target->status==CACHED || (KEYCMP(key, target->range.start) >=0 && KEYCMP(key, target->range.end)<=0)){
-			if(target->helper_type==BFILTER && !bf_check(target->read_helper.bf, key)){
-				continue;
+		li=(list*)res->item;
+		for_each_list_node(li, ln){
+			transaction_entry *target=(transaction_entry*)ln->data;
+			if(target->status==CACHED || (KEYCMP(key, target->range.start) >=0 && KEYCMP(key, target->range.end)<=0)){
+				if(target->helper_type==BFILTER && !bf_check(target->read_helper.bf, key)){
+					continue;
+				}
+				(*result)[index]=target;
+				index++;
 			}
-			(*result)[index]=target;
-			index++;
 		}
 	}
 	fdriver_unlock(&indexer_lock);
@@ -344,7 +372,7 @@ uint32_t transaction_table_gc_find(transaction_table *table, KEYT key, transacti
 }
 
 value_set* transaction_table_force_write(transaction_table *table, uint32_t tid, transaction_entry **t){
-	transaction_entry *target=find_last_entry(tid * table->base);
+	transaction_entry *target=find_last_entry(tid);
 	skiplist *t_mem=target->ptr.memtable;
 	(*t)=target;
 
@@ -354,32 +382,36 @@ value_set* transaction_table_force_write(transaction_table *table, uint32_t tid,
 	if(res==NULL){
 		if(table->wbm) write_buffer_delete_node(table->wbm, target->wbm_node);
 		target->wbm_node=NULL;
-		transaction_table_clear(table, target);
+		transaction_table_clear(table, target, NULL);
 	}
 	return res;
 }
 
 value_set* transaction_table_get_data(transaction_table *table){
 	Redblack target;
+	list *li; li_node *ln;
 	transaction_entry *etr;
 	char page[PAGESIZE];
 	uint32_t idx=0;
 	uint32_t transaction_entry_number=0;
 	fdriver_lock(&indexer_lock);
 	rb_traverse(target, transaction_indexer){
-		transaction_entry_number++;
-		etr=(transaction_entry *)target->item;
-		memcpy(&page[idx], &etr->tid, sizeof(uint32_t));
-		idx+=sizeof(uint32_t);
+		li=(list*)target->item;
+		for_each_list_node(li, ln){
+			transaction_entry_number++;
+			etr=(transaction_entry *)ln->data;
+			memcpy(&page[idx], &etr->tid, sizeof(uint32_t));
+			idx+=sizeof(uint32_t);
 
-		memcpy(&page[idx], &etr->status, sizeof(uint8_t));
-		idx+=sizeof(uint8_t);
+			memcpy(&page[idx], &etr->status, sizeof(uint8_t));
+			idx+=sizeof(uint8_t);
 
-		memcpy(&page[idx], &etr->ptr.physical_pointer, sizeof(uint32_t));
-		idx+=sizeof(uint32_t);
-		if(idx>=PAGESIZE){
-			printf("%s:%d over size!\n", __FILE__, __LINE__);
-			abort();
+			memcpy(&page[idx], &etr->ptr.physical_pointer, sizeof(uint32_t));
+			idx+=sizeof(uint32_t);
+			if(idx>=PAGESIZE){
+				printf("%s:%d over size!\n", __FILE__, __LINE__);
+				abort();
+			}
 		}
 	}
 	fdriver_unlock(&indexer_lock);
@@ -388,13 +420,16 @@ value_set* transaction_table_get_data(transaction_table *table){
 }
 
 
-transaction_entry *transaction_table_get_comp_target(transaction_table *table){
+transaction_entry *transaction_table_get_comp_target(transaction_table *table, uint32_t tid){
 	Redblack target;
+	list *li=NULL; li_node *ln;
 	transaction_entry *etr;
 	
 	fdriver_lock(&indexer_lock);
-	rb_traverse(target, transaction_indexer){
-		etr=(transaction_entry *)target->item;
+	rb_find_int(transaction_indexer, tid, &target);
+	li=(list*)target->item;
+	for_each_list_node(li, ln){
+		etr=(transaction_entry *)ln->data;
 		if(etr->status==COMMIT){
 			etr->status=COMPACTION;
 			fdriver_unlock(&indexer_lock);
@@ -410,12 +445,18 @@ transaction_entry *transaction_table_get_comp_target(transaction_table *table){
 	return NULL;
 }
 
-uint32_t transaction_table_clear(transaction_table *table, transaction_entry *etr){
+uint32_t transaction_table_clear(transaction_table *table, transaction_entry *etr, void *target_li){
 	Redblack res;
 
+	list *li;
 	fdriver_lock(&indexer_lock);
 	rb_find_int(transaction_indexer, etr->tid, &res);
-	rb_delete(res, true);
+	li=(list*)res->item;
+	list_delete_node(li, etr->rb_li_node);
+	etr->rb_li_node=NULL;
+	if(!li->size){
+		rb_delete(res, true);
+	}
 	fdriver_unlock(&indexer_lock);
 
 	switch(etr->helper_type){
@@ -473,31 +514,43 @@ uint32_t transaction_table_clear_all(transaction_table *table, uint32_t tid){
 	Redblack res;
 
 	fdriver_lock(&indexer_lock);
-	if(!rb_find_int(transaction_indexer, tid *table->base, &res)){
+	if(!rb_find_int(transaction_indexer, tid, &res)){
 		printf("not found tid:%u\n",tid);
 		fdriver_unlock(&indexer_lock);
 		return 1;
 	}
 	fdriver_unlock(&indexer_lock);
-	return transaction_table_clear(table, (transaction_entry*)res->item);
+
+	list *li; li_node *ln, *lp;
+	li=(list*)res->item;
+	for_each_list_node_safe(li, ln, lp){
+		transaction_table_clear(table, (transaction_entry*)ln->data, (void*)ln);
+	}
+	return 1;
 }
 
 bool transaction_table_checking_commitable(transaction_table *table, uint32_t tid){
 	Redblack res;
+	list *li; li_node *ln;
 
 	bool flag=false;
 
 	fdriver_lock(&indexer_lock);
-	rb_find_int(transaction_indexer, tid * table->base, &res);
+	rb_find_int(transaction_indexer, tid, &res);
 	for(; res!=transaction_indexer; res=rb_next(res)){
-		transaction_entry *target=(transaction_entry*)res->item;
-		if(target->tid/table->base!=tid)
-			break;
-		if(target->status==LOGGED || (target->status==CACHED &&
-					target->ptr.memtable->size!=0)){
-			flag=true;
+		li=(list*)res->item;
+		for_each_list_node(li,ln){
+			transaction_entry *target=(transaction_entry*)ln->data;
+			if(target->tid!=tid){
+				goto out;
+			}
+			if(target->status==LOGGED || (target->status==CACHED &&
+						target->ptr.memtable->size!=0)){
+				flag=true;
+			}
 		}
 	}
+out:
 	fdriver_unlock(&indexer_lock);
 	return flag;
 }
@@ -528,18 +581,18 @@ void transaction_table_print(transaction_table *table, bool full){
 			case COMPACTION:
 			case CACHEDCOMMIT:
 			case NONFULLCOMPACTION:
-				printf("[%u] tid: %u status:%s %.*s ~ %.*s page:%u kv_num:%u\n", i, table->etr[i].tid, 
+				printf("[%u] tid: %u %p status:%s %.*s ~ %.*s page:%u kv_num:%u\n", i, table->etr[i].tid, &table->etr[i],
 						statusToString(table->etr[i].status), KEYFORMAT(table->etr[i].range.start),
 						KEYFORMAT(table->etr[i].range.end), table->etr[i].ptr.physical_pointer,table->etr[i].kv_pair_num);
 
 				break;
 			case CACHED:
 				if(!table->etr[i].ptr.memtable->size){
-					printf("[%u] tid: %u status:%s size:%lu\n", i, table->etr[i].tid, 
+					printf("[%u] tid: %u %p status:%s size:%lu\n", i, table->etr[i].tid, &table->etr[i],
 							statusToString(table->etr[i].status), table->etr[i].ptr.memtable->size);			
 				}
 				else{
-					printf("[%u] tid: %u status:%s %.*s ~ size:%lu\n", i, table->etr[i].tid, 
+					printf("[%u] tid: %u %p status:%s %.*s ~ size:%lu\n", i, table->etr[i].tid, &table->etr[i],
 							statusToString(table->etr[i].status), KEYFORMAT(table->etr[i].ptr.memtable->header->list[1]->key), table->etr[i].ptr.memtable->size);	
 				}
 				break;
@@ -559,61 +612,60 @@ uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, 
 	bool include_compaction_KP=false;
 
 	transaction_entry **res=(transaction_entry **)malloc(sizeof(transaction_entry*) * table->now);
+	list *li; li_node* ln;
 	rb_traverse(target, transaction_indexer){
-		transaction_entry *etr=(transaction_entry*)target->item;
-		snode *s;
-		if(etr->tid < (tid+1)*table->base){
+		li=(list*)target->item;
+		for_each_list_node(li, ln){
+			transaction_entry *etr=(transaction_entry*)ln->data;
+			snode *s;
 			switch(etr->status){
 				case EMPTY:break;
 				case CACHED:
-					if(!etr->ptr.memtable->size) break;
-					s=skiplist_find_lowerbound(etr->ptr.memtable, key);
-					if(s==etr->ptr.memtable->header) break;
-					if((KEYFILTERCMP(s->key, prefix.key, prefix.len)==0) || (s->list[1]!=etr->ptr.memtable->header && KEYFILTER(s->list[1]->key, prefix.key, prefix.len)==0)){
-						res[i++]=etr;
-					}
-					break;
+						   if(!etr->ptr.memtable->size) break;
+						   s=skiplist_find_lowerbound(etr->ptr.memtable, key);
+						   if(s==etr->ptr.memtable->header) break;
+						   if((KEYFILTERCMP(s->key, prefix.key, prefix.len)==0) || (s->list[1]!=etr->ptr.memtable->header && KEYFILTER(s->list[1]->key, prefix.key, prefix.len)==0)){
+							   res[i++]=etr;
+						   }
+						   break;
 				case CACHEDCOMMIT:
 				case LOGGED:
 				case COMMIT:
-					//printf("ttable %.*s(%u) ~ %.*s(%u) key:%.*s(%u)\n", KEYFORMAT(etr->range.start), etr->range.start.len, KEYFORMAT(etr->range.end), etr->range.end.len, KEYFORMAT(key), key.len);
-					if(KEYCMP(etr->range.start, key) <=0 && KEYCMP(etr->range.end, key)>=0){
-						res[i++]=etr;
-					}
-					break;
+						   //printf("ttable %.*s(%u) ~ %.*s(%u) key:%.*s(%u)\n", KEYFORMAT(etr->range.start), etr->range.start.len, KEYFORMAT(etr->range.end), etr->range.end.len, KEYFORMAT(key), key.len);
+						   if(KEYCMP(etr->range.start, key) <=0 && KEYCMP(etr->range.end, key)>=0){
+							   res[i++]=etr;
+						   }
+						   break;
 				case NONFULLCOMPACTION:
 				case COMPACTION:
-					if(!include_compaction_KP){
-						include_compaction_KP=true;
-					}
-					else{
-						break;
-					}
-					if(!_tm.commit_KP->size){
-						printf("maybe compaction is running! %s:%d\n", __FILE__, __LINE__);
-						abort();
-						break;
-					}
-	//				transaction_table_print(table,false);
-					s=skiplist_find_lowerbound(_tm.commit_KP, key);
-					if(s==_tm.commit_KP->header) break;
-					/*
-					printf("comp_skip: %.*s(%u) ~ key:%.*s(%u)", KEYFORMAT(s->key), s->key.len, KEYFORMAT(prefix), prefix.len);
-					if(s->list[1]!=_tm.commit_KP->header){
-					
-						printf(" && comp_skip2: %.*s(%u) ~ key:%.*s(%u) org-key:%.*s(%u)\n", KEYFORMAT(s->list[1]->key), s->list[1]->key.len, KEYFORMAT(prefix), prefix.len, KEYFORMAT(key), key.len);
-					}
-					else{
-						printf("\n");
-					}*/
-					if((KEYFILTERCMP(s->key, prefix.key, prefix.len)==0) || (s->list[1]!=_tm.commit_KP->header && KEYFILTER(s->list[1]->key, prefix.key, prefix.len)==0)){
-						res[i++]=etr;
-					}
-					break;
+						   if(!include_compaction_KP){
+							   include_compaction_KP=true;
+						   }
+						   else{
+							   break;
+						   }
+						   if(!_tm.commit_KP->size){
+							   printf("maybe compaction is running! %s:%d\n", __FILE__, __LINE__);
+							   abort();
+							   break;
+						   }
+						   //				transaction_table_print(table,false);
+						   s=skiplist_find_lowerbound(_tm.commit_KP, key);
+						   if(s==_tm.commit_KP->header) break;
+						   /*
+							  printf("comp_skip: %.*s(%u) ~ key:%.*s(%u)", KEYFORMAT(s->key), s->key.len, KEYFORMAT(prefix), prefix.len);
+							  if(s->list[1]!=_tm.commit_KP->header){
+
+							  printf(" && comp_skip2: %.*s(%u) ~ key:%.*s(%u) org-key:%.*s(%u)\n", KEYFORMAT(s->list[1]->key), s->list[1]->key.len, KEYFORMAT(prefix), prefix.len, KEYFORMAT(key), key.len);
+							  }
+							  else{
+							  printf("\n");
+							  }*/
+						   if((KEYFILTERCMP(s->key, prefix.key, prefix.len)==0) || (s->list[1]!=_tm.commit_KP->header && KEYFILTER(s->list[1]->key, prefix.key, prefix.len)==0)){
+							   res[i++]=etr;
+						   }
+						   break;
 			}
-		}
-		else{
-			break;
 		}
 	}
 	fdriver_unlock(&indexer_lock);
