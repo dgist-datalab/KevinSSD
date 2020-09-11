@@ -231,7 +231,7 @@ static inline const char* type_to_str(FSTYPE t){
 		case FS_DELETE_T: return "FS_DELETE_T";
 		case FS_RANGEDEL_T: return "FS_RANGEDEL_T";
 		case FS_RANGEGET_T: return "FS_RANGEGET_T";
-		case FS_RMW_T: return "FS_DELETE_T";
+		case FS_RMW_T: return "FS_RMW_T";
 		case FS_TRANS_COMMIT: return "FS_TRANS_COMMIT";
 		case FS_MGET_T: return "FS_MGET_T";
 	}
@@ -466,7 +466,6 @@ bool cheeze_end_req(request *const req){
 			break;
 		case FS_RMW_T:
 			req->type=FS_SET_T;
-			DPRINTF("RMW return:%u\n",0);
 			memcpy(&req->value->value[req->offset], req->buf, req->length);
 #ifdef CHECKINGDATA
 			map_crc_insert(req->key, req->value->value, req->value->length);

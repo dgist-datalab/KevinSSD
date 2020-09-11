@@ -198,6 +198,7 @@ void *vectored_main(void *__input){
 					case FS_MGET_T:
 					case FS_GET_T:
 					case FS_SET_T:
+					case FS_RMW_T:
 						measure_init(&req->latency_checker);
 						measure_start(&req->latency_checker);
 					break;

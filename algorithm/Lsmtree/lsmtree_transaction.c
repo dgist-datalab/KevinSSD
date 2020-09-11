@@ -190,9 +190,8 @@ uint32_t transaction_range_delete(request *const req){
 			*(uint64_t*)&key.key[key.len-sizeof(uint64_t)]=Swap8Bytes(temp);
 		}
 
-
 		fdriver_lock(&_tm.table_lock);
-		value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, false, &etr);
+		value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, key, NULL, false, &etr);
 		fdriver_unlock(&_tm.table_lock);
 		if(!log){
 			continue;
