@@ -11,9 +11,10 @@
 #define ITERREADVALUE 152
 
 extern lsmtree LSM;
+extern lmi LMI;
 extern my_tm _tm;
 
-static int iter_num=0;
+//static int iter_num=0;
 static pthread_mutex_t cnt_lock=PTHREAD_MUTEX_INITIALIZER;
 bool iterator_debug=false;
 
@@ -246,7 +247,7 @@ inline static uint32_t __lsm_range_key(request *const req, range_get_params *rgp
 	rgparams->read_target_num=temp_list->size>req->length?req->length:temp_list->size;
 	req->length=rgparams->read_target_num;
 	uint32_t i=0;
-	uint32_t iter_num=0;
+	//uint32_t iter_num=0;
 	for_each_sk(t_node, temp_list){
 		if(i+1==req->length){
 			break_flag=true;
@@ -453,9 +454,11 @@ uint32_t lsm_range_get(request *const req){
 			for(uint32_t j=0; j<trt->read_target_num; j++){
 				if(trt->ppa_list){
 					if(trt->ppa_list[j]==UINT_MAX-1) continue;
+					LMI.iteration_map_read_cnt++;
 					__iterator_issue_read(trt->ppa_list[j], i, j, req);
 				}
 				else{
+					LMI.iteration_map_read_cnt++;
 					__iterator_issue_read(trt->transaction_ppa, i, 0, req);
 				}
 			}

@@ -90,9 +90,8 @@ void write_buffer_insert_KV(WBM *wbm, transaction_entry *in_etr, KEYT key, value
 		/*buffer initialize*/
 
 		li_node *node, *nxt;
-		snode *s;
 		l_bucket b={0,};
-		uint32_t total_key_pair_num=0, before=0, remain;
+		uint32_t total_key_pair_num=0;
 		for_each_list_node(wbm->open_transaction_list, node){
 			transaction_entry *etr=(transaction_entry*)node->data;
 			skiplist *skip=etr->ptr.memtable;

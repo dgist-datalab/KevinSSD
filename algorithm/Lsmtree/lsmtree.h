@@ -179,6 +179,8 @@ typedef struct lsmtree_monitor_info{
 	uint32_t non_full_comp;
 	uint32_t gc_comp_read_cnt;
 	uint32_t gc_comp_write_cnt;
+	uint32_t lru_hit_cnt;
+	uint32_t iteration_map_read_cnt;
 #ifdef PREFIXCHECK
 	uint32_t pr_check_cnt;
 #endif

@@ -13,6 +13,7 @@ typedef struct lsm_lru{
 	LRU *lru;
 	int32_t now;
 	int32_t max;
+	int32_t origin_max;
 	fdriver_lock_t lock;
 }lsm_lru;
 
@@ -23,6 +24,7 @@ char* lsm_lru_get(lsm_lru *, struct run *);
 char *lsm_lru_pick(lsm_lru *, struct run *);
 void lsm_lru_pick_release(lsm_lru *, struct run *);
 
+void lsm_lru_resize(lsm_lru *, int32_t target_size);
 void lsm_lru_delete(lsm_lru *,struct run *ent);
 void lsm_lru_free(lsm_lru *);
 #endif

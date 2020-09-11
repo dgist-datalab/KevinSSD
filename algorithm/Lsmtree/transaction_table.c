@@ -42,11 +42,11 @@ inline transaction_entry *find_last_entry(uint32_t tid){
 
 	fdriver_lock(&indexer_lock);
 	rb_find_int(transaction_indexer, tid, &res);
-	if(!res){
-		printf("not found entry in indexer! %s:%d\n", __FILE__,__LINE__);
-		abort();
+	if(res==transaction_indexer){
+		data=NULL;
+	}else{
+		data=(transaction_entry*)list_last_entry((list*)res->item);
 	}
-	data=(transaction_entry*)list_last_entry((list*)res->item);
 	fdriver_unlock(&indexer_lock);
 	return data;
 }
@@ -157,7 +157,7 @@ transaction_entry *get_transaction_entry(transaction_table *table, uint32_t inte
 	while(table->etr_q->empty()){
 		transaction_table_print(table, true);
 		printf("committed KP size :%lu\n", _tm.commit_KP->size);
-		printf("compaction jobs: %u\n", CQSIZE - compactor.processors[0].tagQ->size());
+		printf("compaction jobs: %lu\n", CQSIZE - compactor.processors[0].tagQ->size());
 		pthread_cond_wait(&table->block_cond, &table->block);
 	}
 	etr=table->etr_q->front();
@@ -241,9 +241,6 @@ inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *targe
 bool delete_debug=false;
 value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid, KEYT key, value_set *value, bool valid,  transaction_entry **t){
 	transaction_entry *target=find_last_entry(tid);
-	if(!valid){
-		printf("break!\n");
-	}
 	if(!target){
 		//printf("new transaction added in set!\n");
 		if(transaction_table_add_new(table, tid, 0)==UINT_MAX){

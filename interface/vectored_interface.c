@@ -262,7 +262,6 @@ bool vectored_end_req (request * const req){
 
 	release_each_req(req);
 	preq->done_cnt++;
-	uint32_t tag_num=req->tag_num;
 	if(preq->size==preq->done_cnt){
 		if(preq->end_req)
 			preq->end_req((void*)preq);	

@@ -4,6 +4,7 @@
 #include "bloomfilter.h"
 #include "nocpy.h"
 #include "lsmtree_transaction.h"
+#include "lsmtree_lru_manager.h"
 #include "../../bench/bench.h"
 #include <pthread.h>
 extern volatile int epc_check;
@@ -41,19 +42,18 @@ uint32_t level_change(level *from ,level *to,level *target, rwlock *lock){
 //	rwlock_write_lock(lock);
 	target->iscompactioning=to->iscompactioning;
 	(*des_ptr)=target;
+
 //	rwlock_write_unlock(lock);
 	LSM.lop->release(to);
 #ifdef CACHEREORDER
 	LSM.lop->reorder_level(target);
 #endif
 
-
 /*
 	uint32_t level_cache_size=0;
 	for(int i=0; i<LSM.LEVELCACHING; i++){
 		level_cache_size+=LSM.disk[i]->n_num;
 	}*/
-	//cache_size_update(LSM.lsm_cache,LSM.lsm_cache->max_size-level_cache_size);
 	return 1;
 }
 
@@ -123,6 +123,12 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,rwlock *lock){
 	LSM.c_level=target;
 	run_t *entry=NULL;
 
+	if(to->idx==LSM.LEVELN-2){
+		int32_t target_num=to->m_num;
+		target_num-=(to->n_num+LSM.disk[to->idx-1]->n_num);
+		lsm_lru_resize(LSM.llru, LSM.llru->origin_max+target_num);
+	}
+
 	uint32_t up_num=0;
 	if(from){
 		up_num=LSM.lop->get_number_runs(from);
@@ -187,6 +193,10 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,rwlock *lock){
 	
 last:
 	if(entry) free(entry);
+
+	if(to->idx==LSM.LEVELN-2){
+		lsm_lru_resize(LSM.llru, LSM.llru->origin_max+(target->m_num-target->n_num));
+	}
 	uint32_t res=level_change(from,to,target,lock);
 	//printf("ending\n");
 	LSM.c_level=NULL;

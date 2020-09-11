@@ -59,7 +59,8 @@ uint32_t transaction_init(uint32_t cached_size){
 		printf("[WRANINIG!!]memory calculated miss!, memory log will be 0 %s:%d\n", __FILE__, __LINE__);
 		cached_entry_num=0;
 	}
-	uint32_t memory_log_num=cached_entry_num < _tm.ttb->full ? cached_entry_num : _tm.ttb->full;
+	//uint32_t memory_log_num=cached_entry_num < _tm.ttb->full ? cached_entry_num : _tm.ttb->full;
+	uint32_t memory_log_num=128;
 	memory_log_num=cached_entry_num==0?2:memory_log_num;
 	_tm.mem_log=memory_log_init(memory_log_num, transaction_evicted_write_entry);
 	//_tm.mem_log=memory_log_init(2, transaction_evicted_write_entry);
@@ -139,7 +140,7 @@ uint32_t transaction_set(request *const req){
 	fdriver_lock(&_tm.table_lock);
 #ifdef CHECKINGDATA
 	if(req->type!=FS_DELETE_T){
-		//map_crc_insert(req->key, req->value->value, req->value->length);
+		map_crc_insert(req->key, req->value->value, req->value->length);
 	}
 #endif
 	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, req->type !=FS_DELETE_T, &etr);
@@ -339,7 +340,7 @@ uint32_t transaction_commit(request *const req){
 	for_each_list_node_safe(temp_list, now, nxt){
 		temp_cml=(cml*)now->data;
 		while(!temp_cml->isdone){}
-		uint32_t number_of_kp=*(uint16_t*)(temp_cml->data);
+		//uint32_t number_of_kp=*(uint16_t*)(temp_cml->data);
 		/*
 
 			I'm not sure this code is unnecessary

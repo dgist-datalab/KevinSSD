@@ -141,7 +141,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 		LSM.llru=lsm_lru_init(remain_memory);
 	}
 	else{
-		printf("LRU size :%u pages\n",LSP.cache_memory/PAGESIZE);
+		printf("LRU size :%lu pages\n",LSP.cache_memory/PAGESIZE);
 		LSM.llru=lsm_lru_init(LSP.cache_memory/PAGESIZE);
 	}
 	q_init(&LSM.re_q,RQSIZE);
@@ -169,6 +169,23 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 
 
 void lsm_destroy(lower_info *li, algorithm *lsm){
+	fprintf(stdout,"========================================================\n");
+	fprintf(stdout,"data gc: %d\n",LMI.data_gc_cnt);
+	fprintf(stdout,"header gc: %d\n",LMI.header_gc_cnt);
+	fprintf(stdout,"compaction_cnt:%d\n",LMI.compaction_cnt);
+	fprintf(stdout,"last_compaction_cnt:%d\n",LMI.last_compaction_cnt);
+	fprintf(stdout,"zero compaction_cnt:%d\n",LMI.zero_compaction_cnt);
+	fprintf(stdout,"channel overlap cnt:%d\n",LMI.channel_overlap_cnt);
+	fprintf(stdout,"lru_hit_cnt:%d\n",LMI.lru_hit_cnt);
+	fprintf(stdout,"iteration_map_read_cnt:%d\n",LMI.iteration_map_read_cnt);
+	fprintf(stdout,"pr_check cnt:%d\n",LMI.pr_check_cnt);
+	fprintf(stdout,"normal check cnt:%d\n",LMI.check_cnt);
+	fprintf(stdout,"gc_compaction_read:%d\n",LMI.gc_comp_read_cnt);
+	fprintf(stdout,"gc_compaction_write:%d\n",LMI.gc_comp_write_cnt);
+	fprintf(stdout,"gc_compaction_write:%d\n",LMI.gc_comp_write_cnt);
+	fprintf(stdout,"LSM lru num:%d %d (m n)\n",LSM.llru->max, LSM.llru->now);
+	fprintf(stdout,"========================================================\n");
+
 	compaction_free();
 	free(LLP.size_factor_change);
 	printf("last summary-----\n");
@@ -181,18 +198,6 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	if(LSM.temptable)
 		skiplist_free(LSM.temptable);
 	
-	fprintf(stderr,"data gc: %d\n",LMI.data_gc_cnt);
-	fprintf(stderr,"header gc: %d\n",LMI.header_gc_cnt);
-	fprintf(stderr,"compaction_cnt:%d\n",LMI.compaction_cnt);
-	fprintf(stderr,"last_compaction_cnt:%d\n",LMI.last_compaction_cnt);
-	fprintf(stderr,"zero compaction_cnt:%d\n",LMI.zero_compaction_cnt);
-	fprintf(stderr,"channel overlap cnt:%d\n",LMI.channel_overlap_cnt);
-#ifdef PREFIXCHECK
-	fprintf(stderr,"pr_check cnt:%d\n",LMI.pr_check_cnt);
-#endif
-	fprintf(stderr,"normal check cnt:%d\n",LMI.check_cnt);
-	fprintf(stderr,"gc_compaction_read:%d\n",LMI.gc_comp_read_cnt);
-	fprintf(stderr,"gc_compaction_write:%d\n",LMI.gc_comp_write_cnt);
 
 
 	free(LSM.level_lock);
@@ -667,10 +672,9 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 		else{
 			char *cache_data=lsm_lru_pick(LSM.llru, &entries[0]);
 			if(cache_data){
-				//MS(&test_time);
+				LMI.lru_hit_cnt++;
 				keyset *find=LSM.lop->find_keyset(cache_data, key);
 				lsm_lru_pick_release(LSM.llru, &entries[0]);
-				//MT(&test_time);
 				if(find){
 					*found=find;
 					if(level) *level=i;
@@ -876,10 +880,6 @@ uint32_t __lsm_get(request *const req){
 
 	int *temp_data;
 	rparams *rp;
-	/*
-	if(KEYCONSTCOMP(req->key, "0000000000000000000000000000000000000513")==0){
-		printf("break!\n");
-	}*/
 	//printf("%.*s\n", KEYFORMAT(req->key));
 
 	if(req->params==NULL){

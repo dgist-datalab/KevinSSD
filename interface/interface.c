@@ -621,6 +621,11 @@ void inf_free(){
     printf("infendTime : ");
     measure_adding_print(&infendTime);
 #endif
+
+	for(int i=0; i<LREQ_TYPE_NUM;i++){
+		fprintf(stderr,"%s %lu\n",bench_lower_type(i),mp.li->req_type_cnt[i]);
+	}
+
 	mp.algo->destroy(mp.li,mp.algo);
 	mp.li->destroy(mp.li);
 

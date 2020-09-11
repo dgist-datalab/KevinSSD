@@ -7,6 +7,7 @@
 extern char *debug_koo_key;
 
 extern lsmtree LSM;
+extern lmi LMI;
 
 
 meta_iterator *meta_iter_init(char *data, KEYT key, bool include){
@@ -181,6 +182,7 @@ level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_
 
 			char *data=lsm_lru_pick(LSM.llru, t);
 			if(data){
+				LMI.lru_hit_cnt++;
 				ppa_list[i]=UINT_MAX-1;
 				res->m_iter[i]=meta_iter_init(data, key, include);
 				(*read_num)--;

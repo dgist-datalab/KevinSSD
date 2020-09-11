@@ -16,6 +16,8 @@ map<string, uint32_t> chk_data;
 
 #endif
 
+
+uint32_t iteration_cnt;
 char* debug_koo_key="look.1.gz";
 
 #define MAX_REQ_IN_TXN (2*(M/4096))
@@ -37,15 +39,14 @@ void print_key(KEYT key, bool data_print){
 	uint64_t block_num=(*(uint64_t*)&key.key[1]);
 	block_num=Swap8Bytes(block_num);
 	uint32_t offset=1+sizeof(uint64_t);
-	uint32_t remain=key.len-offset;
-	DPRINTF("key: %c %lu %.*s(keylen:%u)\n",key.key[0],block_num,remain,&key.key[offset], remain);
-
-	KEYT temp;
-	temp.key=&key.key[offset];
-	temp.len=remain;
-	if(KEYCONSTCOMP(temp, "man1")==0){
-		DPRINTF("\t\t\033[1;31mFind target key: %c%lu%.*s\n\033[0m;",key.key[0],block_num,remain,&key.key[offset]);
-		sleep(3);
+	if(key.key[0]=='m'){
+		uint32_t remain=key.len-offset;
+		DPRINTF("key: %c %lu %.*s(keylen:%u)\n",key.key[0],block_num,remain,&key.key[offset], remain);
+	}
+	else{
+		uint64_t block_num2=*(uint64_t*)&key.key[offset];
+		block_num2=Swap8Bytes(block_num2);
+		DPRINTF("key: %c %lu bn:%lu, %d\n",key.key[0],block_num, block_num2, key.key[offset]);
 	}
 }
 
@@ -350,7 +351,7 @@ vec_request *get_vectored_request(){
 				temp->offset=*(uint16_t*)translation_buffer(req_buf, &idx, sizeof(uint16_t), limit);
 				temp->length=*(uint16_t*)translation_buffer(req_buf, &idx, sizeof(uint16_t), limit);
 				temp->buf=req_buf;
-
+				iteration_cnt++;
 				break;
 			case FS_RMW_T:
 				temp->value=inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
@@ -552,5 +553,5 @@ void *ack_to_dev(void* a){
 
 
 void free_koo(){
-
+	printf("\t\titeration number:%u\n", iteration_cnt);
 }

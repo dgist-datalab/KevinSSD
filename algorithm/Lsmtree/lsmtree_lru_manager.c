@@ -15,6 +15,7 @@ lsm_lru* lsm_lru_init(uint32_t max){
 	fdriver_mutex_init(&res->lock);
 	res->now=0;
 	res->max=max;
+	res->origin_max=max;
 	return res;
 }
 
@@ -80,6 +81,17 @@ void lsm_lru_delete(lsm_lru *llru, run_t *ent){
 	fdriver_lock(&llru->lock);
 	if(ent->lru_cache_node){
 		lru_delete(llru->lru, (lru_node*)ent->lru_cache_node);
+		llru->now--;
+	}
+	fdriver_unlock(&llru->lock);
+}
+
+void lsm_lru_resize(lsm_lru *llru, int32_t target_size){
+	if(!llru->max)return;
+	fdriver_lock(&llru->lock);
+	llru->max=target_size;
+	while(llru->now>=llru->max){
+		lru_pop(llru->lru);
 		llru->now--;
 	}
 	fdriver_unlock(&llru->lock);

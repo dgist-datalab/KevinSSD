@@ -519,7 +519,7 @@ void bench_reap_data(request *const req,lower_info *li){
 	monitor *_m=&_master->m[idx];
 	bench_data *_data=&_master->datas[idx];
 
-	if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T){
+	if(req->type==FS_GET_T || req->type==FS_NOTFOUND_T || req->type==FS_MGET_T){
 		bench_update_typetime(_data, req->type_ftl, req->type_lower,req->latency_checker.micro_time);
 	}
 	
@@ -549,7 +549,7 @@ void bench_reap_data(request *const req,lower_info *li){
 	}
 #endif
 	if(_m->empty){
-		if(req->type==FS_GET_T || req->type==FS_RANGEGET_T){
+		if(req->type==FS_GET_T || req->type==FS_RANGEGET_T || req->type==FS_MGET_T){
 			_m->read_cnt++;
 			_data->read_cnt++;
 		}

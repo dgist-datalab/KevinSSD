@@ -322,7 +322,7 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 	{
 		//delete exists ppa; input ppa
 		if(ppa!=TOMBSTONE && ppa==x->ppa){
-			printf("ppa:%u",KEYFORMAT(key),ppa);
+			printf("ppa:%u",ppa);
 			print_key(key, true);
 			abort();
 		}
@@ -688,8 +688,6 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 	memset(res,0,sizeof(value_set*)*(input->size+2));
 	l_bucket b;
 	memset(&b,0,sizeof(b));
-	uint32_t idx=1;
-	snode *target;
 	bool full_delete=skiplist_data_to_bucket(input, &b, start, end, true, NULL);
 	
 	if(full_delete){
