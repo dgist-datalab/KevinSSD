@@ -96,7 +96,7 @@ SRCS +=\
 	./interface/queue.c\
 	./interface/interface.c\
 	./interface/vectored_interface.c\
-	./interface/koo_inf.c\
+	./interface/koo_hg_inf.c\
 	./include/FS.c\
 	./include/slab.c\
 	./include/rwlock.c\

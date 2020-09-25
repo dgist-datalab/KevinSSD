@@ -35,6 +35,7 @@ typedef struct value_set{
 }value_set;
 
 typedef struct vectored_request{
+	int tag_id;
 	uint32_t size;
 	uint32_t done_cnt;
 	uint32_t tid;

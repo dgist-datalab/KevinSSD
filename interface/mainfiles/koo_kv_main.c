@@ -10,7 +10,7 @@
 #include "../../bench/bench.h"
 #include "../interface.h"
 #include "../vectored_interface.h"
-#include "../koo_inf.h"
+#include "../koo_hg_inf.h"
 
 void log_print(int sig){
 	free_koo();
@@ -38,7 +38,7 @@ int main(int argc,char* argv[]){
 
 	inf_init(1,0,argc,argv);
 
-	init_koo();
+	init_koo(0);
 
 	pthread_create(&thr, NULL, thread_test, NULL);
 	pthread_join(thr, NULL);
