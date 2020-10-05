@@ -18,7 +18,7 @@ map<string, uint32_t> chk_data;
 
 #define TOTAL_SIZE (3ULL *1024L *1024L *1024L)
 
-static uint64_t PHYS_ADDR=0x800000000;
+static uint64_t PHYS_ADDR=0x3800000000;
 static void *page_addr;
 static uint8_t *send_event_addr; // CHEEZE_QUEUE_SIZE ==> 16B
 static uint8_t *recv_event_addr; // 16B
@@ -33,7 +33,7 @@ static inline char *get_buf_addr(char **pdata_addr, int id) {
 }
 
 static void shm_meta_init(void *ppage_addr) {
-    memset(ppage_addr, 0, (1ULL * 1024 * 1024 * 1024));
+    //memset(ppage_addr, 0, (1ULL * 1024 * 1024 * 1024));
     send_event_addr = (uint8_t*)(ppage_addr + SEND_OFF); // CHEEZE_QUEUE_SIZE ==> 16B
     recv_event_addr =(uint8_t*)(ppage_addr + RECV_OFF); // 16B
     seq_addr = (uint64_t*)(ppage_addr + SEQ_OFF); // 8KB
@@ -420,6 +420,9 @@ static inline vec_request *get_vreq2creq(cheeze_req *creq, int tag_id){
 #endif
 	}
 
+	if(!creq->ret_buf){
+		res->origin_req=NULL;
+	}
 out:
 	return res;
 }
@@ -561,13 +564,14 @@ bool cheeze_end_req(request *const req){
 	preq->done_cnt++;
 
 	if(preq->size==preq->done_cnt){
-		cheeze_req *creq=(cheeze_req*)preq->origin_req;
-		if(creq->ret_buf){
+		if(preq->origin_req){
+			cheeze_req *creq=(cheeze_req*)preq->origin_req;
 			if(req->type==FS_RANGEGET_T){
 				(*(uint16_t*)&preq->buf[preq->buf_len])=preq->eof;
 				preq->buf_len+=sizeof(uint16_t);
 			}
 			creq->ubuf_len=preq->buf_len;
+			DPRINTF("tag:%d [%s] buf_len:%u\n",preq->tag_id, type_to_str(req->type), creq->ubuf_len);
 			recv_event_addr[preq->tag_id]=1;
 		}
 

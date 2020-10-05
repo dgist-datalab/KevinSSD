@@ -619,7 +619,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		if(x->value.u_value)
 			inf_free_valueset(x->value.u_value,FS_MALLOC_W);
 #if defined(KVSSD)
-		printf("tttt\n");
+		//printf("tttt\n");
 		free(key.key);
 #endif
 	//	old_req->end_req(old_req);
