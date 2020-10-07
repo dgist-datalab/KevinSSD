@@ -11,8 +11,8 @@ override export AR=gcc-ar
 override export NM=gcc-nm
 
 TARGET_INF=interface
-#TARGET_LOWER=posix_memory
-TARGET_LOWER=AMF
+TARGET_LOWER=posix_memory
+#TARGET_LOWER=AMF
 TARGET_ALGO=Lsmtree
 TARGET_BM=sequential
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
@@ -147,7 +147,7 @@ LIBS +=\
 		-lm\
 		-ljemalloc $(CFLAGS)
 
-all: koo_kv_driver
+all: driver
 
 DEBUG: debug_driver
 

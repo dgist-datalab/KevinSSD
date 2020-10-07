@@ -190,6 +190,7 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	free(LLP.size_factor_change);
 	printf("last summary-----\n");
 	LSM.lop->print_level_summary();
+	LSM.lop->all_print();
 	for(int i=0; i<LSM.LEVELN; i++){
 		LSM.lop->release(LSM.disk[i]);
 	}
@@ -198,8 +199,6 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	if(LSM.temptable)
 		skiplist_free(LSM.temptable);
 	
-
-
 	free(LSM.level_lock);
 
 	lsm_lru_free(LSM.llru);
