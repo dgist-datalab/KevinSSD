@@ -137,6 +137,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	if(ISTRANSACTION(LSM.setup_values)){
 		//transaction_init(LSP.cache_memory);
 		uint32_t remain_memory=transaction_init(LSP.cache_memory);
+		remain_memory=!remain_memory?1:remain_memory;
 		printf("\t|LRU size :%u pages\n",remain_memory);
 		LSM.llru=lsm_lru_init(remain_memory);
 	}
