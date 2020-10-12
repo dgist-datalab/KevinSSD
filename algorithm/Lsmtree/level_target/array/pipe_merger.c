@@ -151,7 +151,11 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 		if(d->idx==LSM.LEVELN-1){
 			bc_set_validate(rppa);
 		}
-		if((pbody_insert_new_key(rp,insert_key,rppa,false)))
+
+		if(d->idx==LSM.LEVELN-1 && rppa==TOMBSTONE){
+			//printf("ignore key\n");
+		}
+		else if((pbody_insert_new_key(rp,insert_key,rppa,false)))
 		{
 			result_cnt++;
 		}

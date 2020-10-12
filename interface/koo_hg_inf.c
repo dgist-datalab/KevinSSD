@@ -16,6 +16,8 @@ map<string, uint32_t> chk_data;
 
 #endif
 
+#define barrier() __asm__ __volatile__("": : :"memory")
+
 #define TOTAL_SIZE (3ULL *1024L *1024L *1024L)
 
 static uint64_t PHYS_ADDR=0x3800000000;
@@ -448,8 +450,10 @@ vec_request *get_vectored_request(){
                 if (seq_addr[id] == seq) {
                     ureq = ureq_addr + id;
                     res=get_vreq2creq(ureq, id);
+		    barrier();
                     *send = 0;
                     if(!ureq->ret_buf){
+		    	barrier();
                         *recv = 1;
                     }
                     seq++;
@@ -572,6 +576,8 @@ bool cheeze_end_req(request *const req){
 			}
 			creq->ubuf_len=preq->buf_len;
 			DPRINTF("tag:%d [%s] buf_len:%u\n",preq->tag_id, type_to_str(req->type), creq->ubuf_len);
+
+		    	barrier();
 			recv_event_addr[preq->tag_id]=1;
 		}
 
