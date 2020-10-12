@@ -23,7 +23,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 extern MeasureTime write_opt_time[10];
-MeasureTime test_time;
+MeasureTime write_opt_time2[10];
 
 #ifdef KVSSD
 KEYT key_max, key_min;
@@ -68,8 +68,8 @@ uint32_t __lsm_get(request *const);
 uint32_t lsm_create(lower_info *li,blockmanager *bm, algorithm *lsm){
 	LSM.bm=bm;
 	__lsm_create_normal(li,lsm);
-	measure_init(&test_time);
 	LSM.result_padding=2;
+	bench_custom_init(write_opt_time2,10);
 	return 1;
 }
 
@@ -186,6 +186,9 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	fprintf(stdout,"gc_compaction_write:%d\n",LMI.gc_comp_write_cnt);
 	fprintf(stdout,"LSM lru num:%d %d (m n)\n",LSM.llru->max, LSM.llru->now);
 	fprintf(stdout,"========================================================\n");
+
+
+	bench_custom_print(write_opt_time2,10);
 
 	compaction_free();
 	free(LLP.size_factor_change);

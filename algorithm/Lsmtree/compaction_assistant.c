@@ -34,7 +34,7 @@ extern pm d_m;
  extern llp LLP;
  extern lsp LSP;
 extern volatile int comp_target_get_cnt;
-extern MeasureTime write_opt_time[10];
+extern MeasureTime write_opt_time2[10];
 volatile int epc_check=0;
 compM compactor;
 fdriver_lock_t compaction_wait;
@@ -49,6 +49,8 @@ void compaction_sub_pre(){
 }
 
 void compaction_selector(level *a, level *b,leveling_node *lnode, rwlock* rwlock){
+
+	bench_custom_start(write_opt_time2, 8);
 	fdriver_lock(&LSM.iterator_lock);
 	if(b->istier){
 
@@ -67,6 +69,7 @@ void compaction_selector(level *a, level *b,leveling_node *lnode, rwlock* rwlock
 		}	
 	}
 	fdriver_unlock(&LSM.iterator_lock);
+	bench_custom_A(write_opt_time2, 8);
 }
 
 void compaction_sub_wait(){

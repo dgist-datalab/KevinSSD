@@ -4,6 +4,7 @@
 #include "nocpy.h"
 #include "../../interface/interface.h"
 #include "../../interface/koo_inf.h"
+#include "../../bench/bench.h"
 #include "variable.h"
 #include "nocpy.h"
 #include "level.h"
@@ -15,6 +16,7 @@
 extern lsmtree LSM;
 extern lmi LMI;
 extern KEYT debug_key;
+extern MeasureTime write_opt_time2[10];
 my_tm _tm;
 
 typedef struct transaction_write_params{
@@ -138,6 +140,7 @@ uint32_t transaction_set(request *const req){
 
 	transaction_entry *etr;
 	fdriver_lock(&_tm.table_lock);
+	bench_custom_start(write_opt_time2, 0);
 #ifdef CHECKINGDATA
 	if(req->type!=FS_DELETE_T){
 		map_crc_insert(req->key, req->value->value, req->value->length);
@@ -145,6 +148,7 @@ uint32_t transaction_set(request *const req){
 #endif
 	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, req->type !=FS_DELETE_T, &etr);
 	fdriver_unlock(&_tm.table_lock);
+	bench_custom_A(write_opt_time2, 0);
 
 
 
@@ -157,6 +161,7 @@ uint32_t transaction_set(request *const req){
 	}
 
 	if(memory_log_usable(_tm.mem_log)){
+
 		etr->ptr.physical_pointer=memory_log_insert(_tm.mem_log, etr, -1, log->value);
 		inf_free_valueset(log, FS_MALLOC_W);
 		req->end_req(req);
@@ -226,11 +231,13 @@ void *insert_KP_to_skip(KEYT, ppa_t);
 
 uint32_t transaction_commit(request *const req){
 	//printf("commit called! %d(%d)\n",req->tid, req->tid*_tm.ttb->base);
+	//
 	if(!transaction_table_checking_commitable(_tm.ttb, req->tid)){
 		transaction_table_clear_all(_tm.ttb, req->tid);
 		req->end_req(req);
 		return 0;
 	}
+
 
 	ppa_t ppa;
 	t_cparams *cparams=NULL;
@@ -267,6 +274,8 @@ uint32_t transaction_commit(request *const req){
 			cparams->total_num=1;
 		}
 	}
+
+
 	/*write table*/
 	fdriver_lock(&_tm.table_lock);
 
@@ -310,6 +319,7 @@ uint32_t transaction_commit(request *const req){
 		return 1;
 	}
 
+
 	list* temp_list=list_init();
 	cml *temp_cml;
 	char *cached_data;
@@ -335,6 +345,9 @@ uint32_t transaction_commit(request *const req){
 		list_insert(temp_list, (void*)temp_cml);
 	}
 
+
+
+	bench_custom_start(write_opt_time2, 5);
 	li_node *now, *nxt;
 	for_each_list_node_safe(temp_list, now, nxt){
 		temp_cml=(cml*)now->data;
@@ -374,6 +387,8 @@ uint32_t transaction_commit(request *const req){
 	if(memory_log_usable(_tm.mem_log)){
 		req->end_req(req);
 	}
+
+	bench_custom_A(write_opt_time2, 5);
 	return 1;
 }
 
@@ -381,7 +396,10 @@ uint32_t transaction_commit(request *const req){
 void *insert_KP_to_skip(KEYT _key, ppa_t ppa){
 	KEYT temp_key;
 	kvssd_cpy_key(&temp_key, &_key);
+
+	bench_custom_start(write_opt_time2, 6);
 	skiplist_insert_existIgnore(_tm.commit_KP, temp_key, ppa, !(ppa==TOMBSTONE));
+	bench_custom_A(write_opt_time2, 6);
 	if(METAFLUSHCHECK(*_tm.commit_KP)){
 		skiplist *committing_skip=_tm.commit_KP;
 		list *committing_etr=_tm.commit_etr;
@@ -390,7 +408,9 @@ void *insert_KP_to_skip(KEYT _key, ppa_t ppa){
 
 		_tm.commit_KP=skiplist_init();
 		_tm.commit_etr=list_init();
+		bench_custom_start(write_opt_time2, 7);
 		compaction_send_creq_by_skip(committing_skip, committing_etr, false);
+		bench_custom_A(write_opt_time2, 7);
 	}
 	return NULL;
 }
