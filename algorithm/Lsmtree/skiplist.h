@@ -108,7 +108,7 @@ snode *skiplist_insert_iter(skiplist *,KEYT lpa, ppa_t ppa);
 static inline bool skiplist_data_to_bucket(skiplist *input, l_bucket *b, KEYT *start, KEYT *end,bool set_range, uint32_t *number){
 	static int cnt=0;
 	if(cnt++==5){	
-		printf("break!\n");
+		//printf("break!\n");
 	}
 	//printf("%d debug_cnt\n",cnt++);
 	bool data_is_empty=true;

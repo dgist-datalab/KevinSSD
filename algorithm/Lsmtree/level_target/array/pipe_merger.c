@@ -138,9 +138,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 				rppa=hppa;
 			}
 			else{
-				if(lppa!=UINT32_MAX){
-					invalidate_PPA(DATA,lppa);
-				}
+				invalidate_PPA(DATA,lppa);
 				rppa=hppa;
 				insert_key=hp_key;
 			}

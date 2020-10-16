@@ -349,7 +349,7 @@ void inf_init(int apps_flag, int total_num,int argc, char **argv){
 
 
 		q_init(&t->req_q,QSIZE);
-		q_init(&t->retry_q,1);
+		q_init(&t->retry_q, 16);
 
 #ifdef interface_vector
 		pthread_create(&t->t_id,NULL,&vectored_main, NULL);

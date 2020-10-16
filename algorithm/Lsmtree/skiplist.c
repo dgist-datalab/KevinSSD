@@ -324,6 +324,7 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 		if(ppa!=TOMBSTONE && ppa==x->ppa){
 			printf("ppa:%u",ppa);
 			print_key(key, true);
+			printf("\n");
 			abort();
 		}
 		if(x->ppa!=TOMBSTONE){

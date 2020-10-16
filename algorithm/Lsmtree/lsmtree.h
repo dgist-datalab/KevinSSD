@@ -286,6 +286,7 @@ void *testing(KEYT a, ppa_t ppa);
 bool lsm_should_flush(skiplist *mem, __segment *seg);
 bool lsm_block_aligning(uint32_t try_page_num, bool isgc);
 bool lsm_debug_search(KEYT key);
+bool lsm_rwlock_is_clean();
 
 uint32_t lsm_partial_update(request * const);
 

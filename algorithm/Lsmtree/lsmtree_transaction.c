@@ -19,6 +19,7 @@ extern KEYT debug_key;
 extern MeasureTime write_opt_time2[10];
 my_tm _tm;
 
+bool range_delete_flag;
 typedef struct transaction_write_params{
 	value_set *value;
 	fdriver_lock_t *lock;
@@ -138,6 +139,11 @@ uint32_t transaction_set(request *const req){
 		printf("target key inserted value:%d\n", req->value->value[0]);
 	}*/
 
+	if(req->key.len > 30){
+		printf("??????\n");
+		abort();
+	}
+
 	transaction_entry *etr;
 	fdriver_lock(&_tm.table_lock);
 	bench_custom_start(write_opt_time2, 0);
@@ -177,10 +183,10 @@ uint32_t transaction_set(request *const req){
 	return 1;
 }
 
-
 uint32_t transaction_range_delete(request *const req){
+	//printf("range delete tid: %u\n", req->tid);
 	transaction_entry *etr;
-
+	range_delete_flag=true;
 	KEYT key;
 	KEYT copied_key;
 	kvssd_cpy_key(&copied_key, &req->key);
@@ -204,6 +210,7 @@ uint32_t transaction_range_delete(request *const req){
 
 		if(memory_log_usable(_tm.mem_log)){
 			etr->ptr.physical_pointer=memory_log_insert(_tm.mem_log, etr, -1, log->value);
+			//LSM.lop->header_print(log->value);
 			inf_free_valueset(log, FS_MALLOC_W);
 			continue;
 		}
@@ -231,13 +238,21 @@ void *insert_KP_to_skip(KEYT, ppa_t);
 
 uint32_t transaction_commit(request *const req){
 	//printf("commit called! %d(%d)\n",req->tid, req->tid*_tm.ttb->base);
-	//
+	//printf("---------- commit tid: %u\n", req->tid);
+	
 	if(!transaction_table_checking_commitable(_tm.ttb, req->tid)){
 		transaction_table_clear_all(_tm.ttb, req->tid);
 		req->end_req(req);
 		return 0;
 	}
 
+	if(!lsm_rwlock_is_clean()){
+		if(!inf_assign_try(req)){
+			printf("Plz more retry_q ... to many commit before read done!!\n");
+			abort();
+		}
+		return 0;
+	}
 
 	ppa_t ppa;
 	t_cparams *cparams=NULL;
@@ -256,6 +271,10 @@ uint32_t transaction_commit(request *const req){
 	if(log){
 		if(memory_log_usable(_tm.mem_log)){
 			etr->ptr.physical_pointer=memory_log_insert(_tm.mem_log, etr, -1, log->value);
+			if(range_delete_flag){
+//				LSM.lop->header_print(log->value);
+				range_delete_flag=false;
+			}
 			inf_free_valueset(log, FS_MALLOC_W);		
 		}
 		else{
@@ -481,6 +500,8 @@ uint32_t processing_read(void * req, transaction_entry **entry_set, t_rparams *t
 						LSM.li->read(target->ppa/NPCINPAGE, PAGESIZE, trp->value, ASYNC, tr_req);
 						return 0;
 					}
+					else
+						 break;
 				}
 				else{
 					trp->entry_set=entry_set;

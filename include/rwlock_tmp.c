@@ -8,15 +8,10 @@ void rwlock_init(rwlock *rw){
 }
 
 void rwlock_read_lock(rwlock* rw){
-retry:
 	pthread_mutex_lock(&rw->cnt_lock);
 	rw->readcnt++;
 	if(rw->readcnt==1){
-		if(fdriver_try_lock(&rw->lock)==-1){
-			rw->readcnt--;
-			pthread_mutex_unlock(&rw->cnt_lock);
-			goto retry;
-		}
+		fdriver_lock(&rw->lock);
 		if(rw->writecnt){
 			printf("it can't be!!\n");
 			abort();	
@@ -38,19 +33,13 @@ void rwlock_read_unlock(rwlock *rw){
 }
 
 void rwlock_write_lock(rwlock *rw){
-retry:
 	pthread_mutex_lock(&rw->cnt_lock);
-	if(fdriver_try_lock(&rw->lock)==-1){
-		pthread_mutex_unlock(&rw->cnt_lock);
-		goto retry;
+	fdriver_lock(&rw->lock);
+	if(rw->readcnt){
+		printf("it can't be!!\n");
+		abort();
 	}
-	else{
-		if(rw->readcnt){
-			printf("it can't be!!\n");
-			abort();
-		}
-		rw->writecnt++;
-	}
+	rw->writecnt++;
 	pthread_mutex_unlock(&rw->cnt_lock);
 }
 

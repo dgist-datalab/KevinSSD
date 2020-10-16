@@ -377,6 +377,13 @@ uint32_t transaction_table_gc_find(transaction_table *table, KEYT key, transacti
 	return index;
 }
 
+static void *test_test(KEYT a, ppa_t ppa){
+	if(a.len>30){
+		printf("break!\n");
+		abort();
+	}
+}
+
 value_set* transaction_table_force_write(transaction_table *table, uint32_t tid, transaction_entry **t){
 	transaction_entry *target=find_last_entry(tid);
 	skiplist *t_mem=target->ptr.memtable;
@@ -384,6 +391,10 @@ value_set* transaction_table_force_write(transaction_table *table, uint32_t tid,
 
 	target->kv_pair_num=t_mem->size;
 	value_set *res=trans_flush_skiplist(t_mem, target);
+
+//	if(res && res->value){
+//		LSM.lop->checking_each_key(res->value, test_test);
+//	}
 
 	if(res==NULL){
 		if(table->wbm) write_buffer_delete_node(table->wbm, target->wbm_node);

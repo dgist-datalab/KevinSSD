@@ -22,8 +22,8 @@ map<string, uint32_t> chk_data;
 
 static uint64_t PHYS_ADDR=0x3800000000;
 static void *page_addr;
-static uint8_t *send_event_addr; // CHEEZE_QUEUE_SIZE ==> 16B
-static uint8_t *recv_event_addr; // 16B
+static volatile uint8_t *send_event_addr; // CHEEZE_QUEUE_SIZE ==> 16B
+static volatile uint8_t *recv_event_addr; // 16B
 static uint64_t *seq_addr; // 8KB
 struct cheeze_req_user *ureq_addr; // sizeof(req) * 1024
 static char *data_addr[2]; // page_addr[1]: 1GB, page_addr[2]: 1GB
@@ -439,7 +439,7 @@ vec_request *get_vectored_request(){
 
     cheeze_req *ureq;
     vec_request *res=NULL;
-    uint8_t *send, *recv;
+    volatile uint8_t *send, *recv;
     int id;
     while(1){
         for (int i = 0; i < CHEEZE_QUEUE_SIZE; i++) {
@@ -575,7 +575,7 @@ bool cheeze_end_req(request *const req){
 				preq->buf_len+=sizeof(uint16_t);
 			}
 			creq->ubuf_len=preq->buf_len;
-			DPRINTF("tag:%d [%s] buf_len:%u\n",preq->tag_id, type_to_str(req->type), creq->ubuf_len);
+	//		DPRINTF("tag:%d [%s] buf_len:%u\n",preq->tag_id, type_to_str(req->type), creq->ubuf_len);
 
 		    	barrier();
 			recv_event_addr[preq->tag_id]=1;

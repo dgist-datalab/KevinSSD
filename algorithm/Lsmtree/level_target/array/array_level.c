@@ -259,6 +259,10 @@ void array_checking_each_key(char *data,void*(*test)(KEYT a, ppa_t pa)){
 	int idx;
 	uint16_t *bitmap=(uint16_t *)data;
 	for_each_header_start(idx,key,ppa_ptr,bitmap,data)
+		if(key.len > 50){
+			array_header_print(data);
+			abort();
+		}
 		test(key,*ppa_ptr);
 	for_each_header_end
 }

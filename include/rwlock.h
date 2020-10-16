@@ -11,6 +11,7 @@ typedef struct{
 	fdriver_lock_t lock;
 	pthread_mutex_t cnt_lock;
 	int readcnt;
+	int writecnt;
 }rwlock;
 
 void rwlock_init(rwlock *);

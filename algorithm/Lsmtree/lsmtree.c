@@ -667,6 +667,7 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 				rwlock_read_unlock(level_rw_lock);
 				return CACHING;
 			}
+			//rwlock_read_unlock(level_rw_lock);
 #ifdef PARTITION
 			up_entry=entries;
 			up_entry_lock=level_rw_lock;
@@ -701,8 +702,8 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 			continue;
 		}
 #endif
-
 		rwlock_read_unlock(level_rw_lock);
+
 		continue;
 	}
 	return NOTFOUND;
@@ -711,6 +712,7 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 extern char *debug_koo_key;
 int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int idx){
 	int res=0;
+	
 	if(!entry && !table && !list && idx != LSM.LEVELN-1){
 		return 0;
 	}
@@ -883,6 +885,7 @@ uint32_t __lsm_get(request *const req){
 
 	int *temp_data;
 	rparams *rp;
+	//print_key(req->key, true);
 	//printf("%.*s\n", KEYFORMAT(req->key));
 
 	if(req->params==NULL){
@@ -1406,3 +1409,12 @@ uint32_t lsm_partial_update(request *const req){
 	return 1;
 }
 
+
+bool lsm_rwlock_is_clean(){
+	int tt=0;
+	for(int i=0; i<LSM.LEVELN; i++){
+		sem_getvalue(&LSM.level_lock[i].lock, &tt);
+		if(tt==0) return false;
+	}
+	return true;
+}

@@ -237,6 +237,7 @@ lsm_block* getRBlock(uint8_t type){
 }
 
 bool invalidate_PPA(uint8_t type,uint32_t ppa){
+	if(ppa==TOMBSTONE) return true;
 	uint32_t t_p=ppa;
 	void *t;
 	switch(type){
