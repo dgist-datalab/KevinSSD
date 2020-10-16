@@ -41,9 +41,13 @@ level_ops a_ops={
 	.keyset_iter_nxt=array_key_iter_nxt,
 
 	.mem_cvt2table=array_mem_cvt2table,
-
+#ifdef THREADCOMPACTION
+	.merger=array_thread_pipe_merger,
+	.cutter=array_thread_pipe_cutter,
+#else
 	.merger=array_pipe_merger,
 	.cutter=array_pipe_cutter,
+#endif
 	.partial_merger_cutter=array_pipe_p_merger_cutter,
 	.normal_merger=array_normal_merger,
 //	.normal_cutter=array_multi_cutter,
@@ -620,15 +624,15 @@ run_t * array_iter_nxt( lev_iter* in){
 
 void array_print(level *lev){
 	array_body *b=(array_body*)lev->level_data;
+	/*
 	if(lev->idx<LSM.LEVELCACHING){
-		/*
 		if(!b->skip || b->skip->size==0){
 			printf("[caching data] empty\n");	
-		}else{*/
+		}else{
 			//printf("[caching data] # of entry:%lu -> run:%d\n",b->skip->size,array_get_numbers_run(lev));
 //		}
 		return;
-	}
+	}*/
 	run_t *arrs=b->arrs;
 	for(int i=0; i<lev->n_num;i++){
 		run_t *rtemp=&arrs[i];

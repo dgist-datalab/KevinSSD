@@ -33,7 +33,11 @@ uint32_t level_change(level *from ,level *to,level *target, rwlock *lock){
 	//	rwlock_write_unlock(&LSM.level_lock[from_idx]);
 		LSM.lop->release(from);
 	}
-	
+	/*
+	if(from){
+		LSM.lop->print(target);
+		exit(1);
+	}*/
 
 #ifdef PARTITION
 	LSM.lop->make_partition(target);
@@ -48,6 +52,7 @@ uint32_t level_change(level *from ,level *to,level *target, rwlock *lock){
 #ifdef CACHEREORDER
 	LSM.lop->reorder_level(target);
 #endif
+
 
 /*
 	uint32_t level_cache_size=0;
@@ -197,6 +202,7 @@ last:
 	if(to->idx==LSM.LEVELN-2){
 		lsm_lru_resize(LSM.llru, LSM.llru->origin_max+(target->m_num-target->n_num));
 	}
+
 	uint32_t res=level_change(from,to,target,lock);
 	//printf("ending\n");
 	LSM.c_level=NULL;
@@ -208,6 +214,8 @@ last:
 	if(target->idx==LSM.LEVELN-1 ){
 		printf("last level %d/%d (n:f)\n",target->n_num,target->m_num);
 	}
+	
+
 	//LSM.lop->print_level_summary();
 	//LSM.li->lower_flying_req_wait();
 

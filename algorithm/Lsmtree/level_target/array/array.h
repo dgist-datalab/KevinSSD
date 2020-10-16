@@ -222,6 +222,10 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*);
 run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end);
 
+void array_thread_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*);
+run_t *array_thread_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end);
+
+run_t *array_pipe_make_run(char *data,uint32_t level_idx);
 #ifdef PARTITION
 void array_make_partition(level *lev);
 //void array_get_range_idx(level *lev, run_t *run, uint32_t *, uint32_t *);

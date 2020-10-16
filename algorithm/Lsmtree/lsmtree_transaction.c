@@ -88,7 +88,6 @@ uint32_t transaction_destroy(){
 }
 
 uint32_t transaction_start(request * const req){
-	//printf("req->tid: %u\n", req->tid);
 	fdriver_lock(&_tm.table_lock);
 	if(transaction_table_add_new(_tm.ttb, req->tid, 0)==UINT_MAX){
 		printf("%s:%d can't add table!\n", __FILE__, __LINE__);
@@ -230,7 +229,6 @@ typedef struct commit_log_read{
 void *insert_KP_to_skip(KEYT, ppa_t);
 
 uint32_t transaction_commit(request *const req){
-	//printf("commit called! %d(%d)\n",req->tid, req->tid*_tm.ttb->base);
 	//
 	if(!transaction_table_checking_commitable(_tm.ttb, req->tid)){
 		transaction_table_clear_all(_tm.ttb, req->tid);
@@ -481,6 +479,8 @@ uint32_t processing_read(void * req, transaction_entry **entry_set, t_rparams *t
 						LSM.li->read(target->ppa/NPCINPAGE, PAGESIZE, trp->value, ASYNC, tr_req);
 						return 0;
 					}
+					else
+						break;
 				}
 				else{
 					trp->entry_set=entry_set;
@@ -599,9 +599,9 @@ inline uint32_t transaction_get_postproc(request *const req, uint32_t res_type){
 				break;
 		}
 	
-		//printf("notfound key: %.*s\n",KEYFORMAT(req->key));
+		printf("notfound key: %.*s\n",KEYFORMAT(req->key));
 		req->end_req(req);
-		//abort();
+		abort();
 	}
 	return res_type;
 }

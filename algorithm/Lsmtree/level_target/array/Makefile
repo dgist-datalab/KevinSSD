@@ -4,6 +4,7 @@ SRCS +=\
 	   pipe_merger.c\
 	   array_level.c\
 	   array_reorder.c\
+	   thread_pipe_merger.c\
 
 OBJS :=\
 	$(patsubst %.c,%.o,$(SRCS))\

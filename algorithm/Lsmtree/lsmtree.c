@@ -392,6 +392,7 @@ uint32_t data_input_write;
 
 
 uint32_t lsm_set(request * const req){
+//	printf("key :%.*s\n", KEYFORMAT(req->key));
 	if(ISTRANSACTION(LSM.setup_values)){
 		return transaction_set(req);
 	}
@@ -660,6 +661,9 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 		}
 
 		if(i<LSM.LEVELCACHING){
+			if(i==2 && KEYCONSTCOMP(key, "00000000000009373698")==0){
+				LSM.lop->header_print(entries->level_caching_data);
+			}
 			keyset *find=LSM.lop->find_keyset(entries->level_caching_data,key);
 			if(find){
 				*found=find;
@@ -883,6 +887,9 @@ uint32_t __lsm_get(request *const req){
 
 	int *temp_data;
 	rparams *rp;
+	if(KEYCONSTCOMP(req->key,"00000000000009373698")==0){
+		printf("break!\n");
+	}
 	//printf("%.*s\n", KEYFORMAT(req->key));
 
 	if(req->params==NULL){

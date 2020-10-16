@@ -2,13 +2,15 @@
 #include "pipe.h"
 #include "../../../../include/settings.h"
 #include "../../../../bench/bench.h"
+#include "../../../../include/utils/thpool.h"
 #include "../../compaction.h"
 #include "../../nocpy.h"
 #include "../../bitmap_cache.h"
+#include "mapping_utils.h"
 extern MeasureTime write_opt_time2[10];
 p_body *rp;
 char **r_data;
-bool cutter_start;
+static bool cutter_start;
 #ifdef BLOOM
 float t_fpr;
 #endif
@@ -51,7 +53,6 @@ void temp_func(char* body, level *d, bool insert){
 	for_each_header_end
 }
 
-extern bool delete_debug;
 void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	bench_custom_start(write_opt_time2, 9);
 	cutter_start=true;
@@ -84,9 +85,11 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 		//temp_func(o_data[i],d,true);
 	}
 
+
 	if(d->idx==LSM.LEVELN-1){
 		bc_reset();
 	}
+
 
 	r_data=(char**)calloc(sizeof(char*),(o_num+u_num+LSM.result_padding));
 	p_body *lp, *hp;
@@ -104,9 +107,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	KEYT insert_key;
 	int next_pop=0;
 	int result_cnt=0;
-	if(delete_debug){
-	//	printf("bbb\n");
-	}
+
 	while(!(lp_key.len==UINT8_MAX && hp_key.len==UINT8_MAX)){
 		if(lp_key.len==UINT8_MAX){
 			insert_key=hp_key;
@@ -156,8 +157,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 		if(d->idx==LSM.LEVELN-1 && rppa==TOMBSTONE){
 			//printf("ignore key\n");
 		}
-		else if((pbody_insert_new_key(rp,insert_key,rppa,false)))
-		{
+		else if((pbody_insert_new_key(rp,insert_key,rppa,false))){
 			result_cnt++;
 		}
 		
@@ -171,10 +171,9 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	if(d->idx==LSM.LEVELN-1){
 		bc_set_validate(rppa);
 	}
-	if((pbody_insert_new_key(rp,insert_key,rppa,true)))
-		{
+	if((pbody_insert_new_key(rp,insert_key,rppa,true))){
 			result_cnt++;
-		}	
+	}	
 
 	if(mem) free(u_data[0]);
 	free(o_data);
@@ -183,6 +182,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	pbody_clear(hp);
 	bench_custom_A(write_opt_time2, 9);
 }
+
 run_t *array_pipe_make_run(char *data,uint32_t level_idx)
 {
 	KEYT start,end;

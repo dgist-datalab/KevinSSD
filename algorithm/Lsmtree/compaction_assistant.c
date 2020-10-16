@@ -553,7 +553,7 @@ void compaction_assign_reinsert(skiplist *gc_list){
 
 	compaction_assign(req,NULL, true);
 }
-
+extern bool header_debug_flag;
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
 	
 	compaction_sub_wait();
@@ -565,6 +565,9 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 
 	while((target=LSM.lop->cutter(top,des,&key,&end))){
 		if(des->idx<LSM.LEVELCACHING){
+			if(header_debug_flag){
+				LSM.lop->checking_each_key(target->level_caching_data, key_find_test);			
+			}
 			LSM.lop->insert(des,target);
 			LSM.lop->release_run(target);
 		}
