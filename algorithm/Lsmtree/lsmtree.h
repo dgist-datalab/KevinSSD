@@ -206,6 +206,7 @@ typedef struct lsmtree{
 	uint8_t result_padding;
 	//level opertaion sets//
 	struct queue *re_q;
+	pthread_mutex_t level_rw_global_lock;
 	rwlock *level_lock;
 	pthread_mutex_t memlock;
 	pthread_mutex_t templock;

@@ -57,6 +57,9 @@ typedef struct transaction_table{
 	std::queue<transaction_entry *> *etr_q; 
 }transaction_table;
 
+
+transaction_entry *find_last_entry(uint32_t tid);
+
 uint32_t transaction_table_init(transaction_table **, uint32_t size, uint32_t cached_entry_num);
 uint32_t transaction_table_destroy(transaction_table *);
 uint32_t transaction_table_add_new(transaction_table *, uint32_t tid, uint32_t offset);
@@ -70,6 +73,7 @@ uint32_t transaction_table_clear_all(transaction_table *, uint32_t tid);
 uint32_t transaction_table_iterator_targets(transaction_table *, KEYT key, uint32_t tid, transaction_entry ***etr);
 
 bool transaction_table_checking_commitable(transaction_table *, uint32_t tid);
+void transaction_table_sanity_check();
 
 void transaction_table_print(transaction_table *, bool full);
 
@@ -79,4 +83,5 @@ value_set* transaction_table_get_data(transaction_table *);
 transaction_entry *transaction_table_get_comp_target(transaction_table *, uint32_t tid);
 transaction_entry *get_etr_by_tid(uint32_t inter_tid);
 transaction_entry *get_transaction_entry(transaction_table *table, uint32_t inter_tid);
+
 #endif

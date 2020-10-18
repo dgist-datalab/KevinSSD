@@ -19,4 +19,5 @@ void rwlock_read_lock(rwlock*);
 void rwlock_read_unlock(rwlock*);
 void rwlock_write_lock(rwlock*);
 void rwlock_write_unlock(rwlock*);
+void rwlock_write_double_lock(rwlock*, rwlock*);
 #endif

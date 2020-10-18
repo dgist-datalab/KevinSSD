@@ -42,6 +42,7 @@ fdriver_lock_t compaction_flush_wait;
 uint64_t before_type_cnt[LREQ_TYPE_NUM];
 uint64_t after_type_cnt[LREQ_TYPE_NUM];
 uint64_t cumulative_type_cnt[LREQ_TYPE_NUM];
+extern uint32_t debug_target_tid;
 
 void compaction_sub_pre(){
 	fdriver_lock(&compaction_wait);
@@ -59,9 +60,14 @@ void compaction_selector(level *a, level *b,leveling_node *lnode, rwlock* rwlock
 		int s_idx=a?a->idx:-1;
 		int d_idx=b->idx;
 		if(s_idx!=-1){	
-			rwlock_write_lock(&LSM.level_lock[s_idx]);
+	//		rwlock_write_lock(&LSM.level_lock[s_idx]);
+			rwlock_write_double_lock(&LSM.level_lock[s_idx], &LSM.level_lock[d_idx]);
 		}
-		rwlock_write_lock(&LSM.level_lock[d_idx]);
+		else{
+			rwlock_write_lock(&LSM.level_lock[d_idx]);
+		}
+
+
 		leveling(a,b,lnode,rwlock);
 		rwlock_write_unlock(&LSM.level_lock[d_idx]);
 		if(s_idx!=-1){
@@ -215,6 +221,16 @@ void compaction_wait_jobs(){
 		}
 		pthread_mutex_unlock(&proc->tag_lock);
 	}
+}
+
+ 
+int compaction_wait_job_number(){
+	compP* proc=&compactor.processors[0];
+	int res=0;
+	pthread_mutex_lock(&proc->tag_lock);
+	res=CQSIZE-proc->tagQ->size();
+	pthread_mutex_unlock(&proc->tag_lock);
+	return res;
 }
 
 bool compaction_force(){

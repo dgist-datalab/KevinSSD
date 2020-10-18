@@ -92,6 +92,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 
 	pthread_mutex_init(&LSM.memlock,NULL);
 	pthread_mutex_init(&LSM.templock,NULL);
+	pthread_mutex_init(&LSM.level_rw_global_lock,NULL);
 
 #ifdef DVALUE
 	pthread_mutex_init(&LSM.data_lock,NULL);

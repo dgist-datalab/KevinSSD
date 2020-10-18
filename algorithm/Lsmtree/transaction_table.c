@@ -38,7 +38,7 @@ inline bool commit_exist(){
 	return false;
 }
 
-inline transaction_entry *find_last_entry(uint32_t tid){
+transaction_entry *find_last_entry(uint32_t tid){
 	Redblack res;
 	transaction_entry *data;
 
@@ -389,6 +389,8 @@ value_set* transaction_table_force_write(transaction_table *table, uint32_t tid,
 	skiplist *t_mem=target->ptr.memtable;
 	(*t)=target;
 
+	//printf("tid:%u mum KP:%u\n", tid, t_mem->size);
+
 	target->kv_pair_num=t_mem->size;
 	value_set *res=trans_flush_skiplist(t_mem, target);
 
@@ -465,6 +467,23 @@ transaction_entry *transaction_table_get_comp_target(transaction_table *table, u
 uint32_t transaction_table_clear(transaction_table *table, transaction_entry *etr, void *target_li){
 	Redblack res;
 
+	if(table->wbm && etr->wbm_node){
+		write_buffer_delete_node(table->wbm, etr->wbm_node);
+		etr->wbm_node=NULL;
+	}
+
+	if(etr->status==CACHED){
+		skiplist_free(etr->ptr.memtable);
+	}
+	else{
+		if(ISMEMPPA(etr->ptr.physical_pointer)){
+			memory_log_delete(_tm.mem_log, etr->ptr.physical_pointer);
+		}
+		else{
+			transaction_invalidate_PPA(LOG, etr->ptr.physical_pointer);	
+		}
+	}
+
 	list *li;
 	fdriver_lock(&indexer_lock);
 	rb_find_int(transaction_indexer, etr->tid, &res);
@@ -485,23 +504,6 @@ uint32_t transaction_table_clear(transaction_table *table, transaction_entry *et
 			break;
 		case NOHELPER:
 			break;
-	}
-
-	if(table->wbm && etr->wbm_node){
-		write_buffer_delete_node(table->wbm, etr->wbm_node);
-		etr->wbm_node=NULL;
-	}
-
-	if(etr->status==CACHED){
-		skiplist_free(etr->ptr.memtable);
-	}
-	else{
-		if(ISMEMPPA(etr->ptr.physical_pointer)){
-			memory_log_delete(_tm.mem_log, etr->ptr.physical_pointer);
-		}
-		else{
-			transaction_invalidate_PPA(LOG, etr->ptr.physical_pointer);	
-		}
 	}
 
 	free(etr->range.start.key);

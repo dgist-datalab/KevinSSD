@@ -12,11 +12,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include "transaction_table.h"
 
 extern lsmtree LSM;
 extern lmi LMI;
 extern KEYT debug_key;
 extern MeasureTime write_opt_time2[10];
+
+//uint32_t debug_target_tid;
 my_tm _tm;
 
 bool range_delete_flag;
@@ -34,6 +37,8 @@ void* transaction_end_req(algo_req * const);
 inline uint32_t __transaction_get(request *const);
 ppa_t get_log_PPA(uint32_t type);
 uint32_t gc_log();
+
+static int temp_tid;
 
 void checking_table_nonfull(){
 	for(uint32_t i=0; i<_tm.ttb->full; i++){
@@ -134,15 +139,18 @@ uint32_t __trans_write(char *data, value_set *value, ppa_t ppa, uint32_t type, r
 }
 
 uint32_t transaction_set(request *const req){
+	static uint32_t prev_tid=0;
+	if(prev_tid==req->tid){
+	
+	}
+	else{
+		//printf("aaaaa set tid: %u\n", req->tid);
+	}
+	prev_tid=req->tid;
 	/*
 	if(KEYCMP(req->key, debug_key)==0){
 		printf("target key inserted value:%d\n", req->value->value[0]);
 	}*/
-
-	if(req->key.len > 30){
-		printf("??????\n");
-		abort();
-	}
 
 	transaction_entry *etr;
 	fdriver_lock(&_tm.table_lock);
@@ -184,7 +192,7 @@ uint32_t transaction_set(request *const req){
 }
 
 uint32_t transaction_range_delete(request *const req){
-	//printf("range delete tid: %u\n", req->tid);
+	//printf(":::::::::::range delete tid: %u\n", req->tid);
 	transaction_entry *etr;
 	range_delete_flag=true;
 	KEYT key;
@@ -237,9 +245,12 @@ typedef struct commit_log_read{
 void *insert_KP_to_skip(KEYT, ppa_t);
 
 uint32_t transaction_commit(request *const req){
+	if(req->tid==temp_tid){
+		printf("break!\n");
+	}
 	//printf("commit called! %d(%d)\n",req->tid, req->tid*_tm.ttb->base);
 	//printf("---------- commit tid: %u\n", req->tid);
-	
+
 	if(!transaction_table_checking_commitable(_tm.ttb, req->tid)){
 		transaction_table_clear_all(_tm.ttb, req->tid);
 		req->end_req(req);
@@ -251,8 +262,30 @@ uint32_t transaction_commit(request *const req){
 			printf("Plz more retry_q ... to many commit before read done!!\n");
 			abort();
 		}
+		//printf("retry tid:%u\n", req->tid);
 		return 0;
 	}
+
+/*
+	static uint32_t transaction_tid=0;
+	if(transaction_tid==0){
+
+	}
+	else if(transaction_tid > req->tid){
+	//	transaction_table_sanity_check();
+		printf("------------------transaction_tid: %u, now tid:%u\n", transaction_tid, req->tid);
+		if(debug_target_tid==0)
+			debug_target_tid=req->tid;
+	}
+	else if(transaction_tid==req->tid){
+		printf("transaction_tid: %u, now tid:%u\n", transaction_tid, req->tid);
+		abort();
+	}
+	printf("transaction_tid: %u, now tid:%u\n", transaction_tid, req->tid);
+	transaction_tid=req->tid;
+	*/
+
+	//printf("log_now before: %u\n", _tm.mem_log->now);
 
 	ppa_t ppa;
 	t_cparams *cparams=NULL;
@@ -387,7 +420,8 @@ uint32_t transaction_commit(request *const req){
 
 			compaction_send_creq_by_skip(committing_skip, committing_etr, false);		
 		}*/
-
+		
+	//	printf("temp_cml->etr:%u\n", temp_cml->etr->tid);
 		list_insert(_tm.commit_etr, temp_cml->etr);
 
 		LSM.lop->checking_each_key(temp_cml->data, insert_KP_to_skip);
@@ -396,8 +430,25 @@ uint32_t transaction_commit(request *const req){
 		list_delete_node(temp_list, now);
 	}
 	
-	//compaction_wait_jobs();
+	if(memory_log_isfull(_tm.mem_log)){
+		if(!compaction_wait_job_number()){
+			skiplist *committing_skip=_tm.commit_KP;
+			list *committing_etr=_tm.commit_etr;
 
+			//	printf("insert_kp compaction target num :%u\n", committing_skip->size);
+
+			_tm.commit_KP=skiplist_init();
+			_tm.commit_etr=list_init();
+			bench_custom_start(write_opt_time2, 7);
+			compaction_send_creq_by_skip(committing_skip, committing_etr, false);
+			bench_custom_A(write_opt_time2, 7);
+		}
+	//	printf("wait! now %u\n", _tm.mem_log->now);
+		compaction_wait_jobs();
+	//	printf("wait done! now %u\n", _tm.mem_log->now);
+	}
+
+	//printf("log_now after: %u\n", _tm.mem_log->now);
 	list_free(temp_list);
 	//transaction_table_print(_tm.ttb, false);
 
@@ -811,7 +862,6 @@ uint32_t gc_log(){
 }
 
 uint32_t transaction_clear(transaction_entry *etr){
-	//printf("clear called!\n");
 	fdriver_lock(&_tm.table_lock);
 	uint32_t res=transaction_table_clear(_tm.ttb, etr, NULL);
 	//transaction_table_print(_tm.ttb, false);
@@ -854,19 +904,33 @@ bool transaction_debug_search(KEYT key){
 }
 
 void transaction_evicted_write_entry(transaction_entry* etr, char *data){
+	printf("called??\n");
+	abort();
 	if((void*)etr==(void*)&_tm.last_table){
-	//	printf("table ppa update %d->%d\n", _tm.last_table, ppa);
 		ppa_t ppa=get_log_PPA(TABLEW);
 		value_set *value=inf_get_valueset(data, FS_MALLOC_W, PAGESIZE);
-		__trans_write(NULL, value, ppa, LOGW, NULL, false);
+		__trans_write(NULL, value, ppa, LOGW, NULL, true);
+	//	printf("table ppa update %d->%d\n", _tm.last_table, ppa);
 		_tm.last_table=ppa;
 	}
 	else{
 		if(!etr) return;
+		/*
+		if(!find_last_entry(etr->tid)){
+			return;
+		}*/
 		ppa_t ppa=get_log_PPA(LOGW);
 		value_set *value=inf_get_valueset(data, FS_MALLOC_W, PAGESIZE);
-		__trans_write(NULL, value, ppa, LOGW, NULL, false);
+		__trans_write(NULL, value, ppa, LOGW, NULL, true);
 	//	printf("tid: %d ppa update %d->%d\n",etr->tid, etr->ptr.physical_pointer, ppa);
+		if(temp_tid==0){
+			temp_tid=etr->tid;
+		}
+/*
+		if(!find_last_entry(etr->tid)){
+			printf("no data in table!\n");
+			abort();
+		}*/
 		etr->ptr.physical_pointer=ppa;
 	}
 }

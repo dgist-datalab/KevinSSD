@@ -45,5 +45,7 @@ void memory_log_release(memory_log *, uint32_t log_ppa);
 void memory_log_delete(memory_log *, uint32_t log_ppa);
 void memory_log_free(memory_log*);
 
+bool memory_log_isfull(memory_log *ml);
+
 #endif
 

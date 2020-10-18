@@ -144,3 +144,8 @@ bool memory_log_usable(memory_log* ml){
 	if(!ml || ml->max==0) return false;
 	return true;
 }
+
+bool memory_log_isfull(memory_log *ml){
+	if(ml->now>=ml->max-10) return true;
+	return false;
+}

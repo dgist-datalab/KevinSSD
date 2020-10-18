@@ -60,3 +60,34 @@ void rwlock_write_unlock(rwlock *rw){
 	rw->writecnt--;
 	pthread_mutex_unlock(&rw->cnt_lock);
 }
+
+static inline bool rwlock_try_write_lock(rwlock *rw){
+	pthread_mutex_lock(&rw->cnt_lock);
+	if(fdriver_try_lock(&rw->lock)==-1){
+		pthread_mutex_unlock(&rw->cnt_lock);
+		return false;
+	}
+	else{
+		if(rw->readcnt){
+			printf("it can't be!!\n");
+			abort();
+		}
+		rw->writecnt++;
+		pthread_mutex_unlock(&rw->cnt_lock);
+		return true;
+	}
+}
+
+void rwlock_write_double_lock(rwlock *a, rwlock *b){
+retry:
+	if(rwlock_try_write_lock(a)){
+		if(rwlock_try_write_lock(b)){
+			return;
+		}
+		else{
+			rwlock_write_unlock(a);
+			goto retry;
+		}
+	}
+	goto retry;
+}

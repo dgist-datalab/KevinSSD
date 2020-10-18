@@ -124,6 +124,7 @@ uint32_t partial_leveling(struct level *,struct level *,leveling_node *,struct l
 void compaction_pause();
 void compaction_resume();
 void compaction_wait_jobs();
+int compaction_wait_job_number();
 
 
 inline void issue_data_write(value_set **data_sets, lower_info *li, uint8_t type){
