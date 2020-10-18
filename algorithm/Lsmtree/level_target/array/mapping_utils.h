@@ -60,7 +60,6 @@ static inline int __find_idx_boundary(char *data, KEYT lpa, KEYT lpa2){
 static inline char *__split_data(char *data, KEYT key, KEYT key2, bool debug){
 	KEYT tt=__extract_end_key(data);
 	if(KEYCMP(__extract_end_key(data), key2) < 0){
-		//printf("key2 %.*s > %.*s\n", KEYFORMAT(key2), KEYFORMAT(tt));
 		return NULL;
 	}
 	char *res=(char *)calloc(PAGESIZE,1);
@@ -71,27 +70,6 @@ static inline char *__split_data(char *data, KEYT key, KEYT key2, bool debug){
 	memset(bitmap, -1, KEYBITMAP/sizeof(uint16_t));
 	uint16_t data_start=KEYBITMAP;
 	uint16_t idx=0;
-
-	if(debug){
-		if(boundary<((uint16_t*)data)[0]){
-			printf("now_end %.*s, next_start %.*s boundary:%.*s boundary+1:%.*s\n",
-					KEYFORMAT(key), KEYFORMAT(key2),
-					KEYFORMAT(__key_at(boundary, data, (uint16_t*)data)),
-					KEYFORMAT(__key_at(boundary+1, data, (uint16_t*)data))
-				  );
-		}
-		else{
-			printf("now_end %.*s, next_start %.*s boundary:%.*s\n",
-					KEYFORMAT(key), KEYFORMAT(key2),
-					KEYFORMAT(__key_at(boundary, data, (uint16_t*)data)));
-		}
-
-		printf("org-----\n");
-		array_header_print(data);
-		printf("-----------------------\n");
-
-	}
-
 
 	uint16_t *org_bitmap=(uint16_t*)data;
 	KEYT temp;
@@ -107,21 +85,10 @@ static inline char *__split_data(char *data, KEYT key, KEYT key2, bool debug){
 	}
 	bitmap[idx+1]=data_start;
 	bitmap[0]=idx;
-	if(debug){
-	printf("split after-----\n");
-	array_header_print(res);
-	printf("-----------------------\n");
-	}
 
 	KEYT boundary_key=__key_at(boundary, data, org_bitmap);
 	org_bitmap[0]=boundary;
 	org_bitmap[boundary+1]=org_bitmap[boundary]+boundary_key.len+sizeof(ppa_t);
-	if(debug){
-	printf("split before-----\n");
-	array_header_print(data);
-	printf("------------------\n");
-	printf("boundary :%u\n", boundary);
-	}
 	return res;
 }
 

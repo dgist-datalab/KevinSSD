@@ -111,7 +111,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	LSM.disk=(level**)malloc(sizeof(level*)*LSM.LEVELN);
 	printf("|-----LSMTREE params ---------\n");
 	for(int i=0; i<LSM.LEVELN; i++){//for lsmtree -1 level	
-		LSM.disk[i]=LSM.lop->init(ceil(m_num*(i==LSM.LEVELN-1?LLP.last_size_factor:LLP.size_factor)),i,LSP.bf_fprs[i],false);
+		LSM.disk[i]=LSM.lop->init(ceil(m_num*(i==LSM.LEVELN-1?LLP.last_size_factor:LLP.size_factor) + m_num),i,LSP.bf_fprs[i],false);
 		printf("| [%d] fpr:%.12lf noe:%d iscached:%c\n",i,LSP.bf_fprs[i],LSM.disk[i]->m_num,i<LSM.LEVELCACHING?'y':'n');
 		all_header_num+=LSM.disk[i]->m_num;
 		m_num*=LLP.size_factor;
@@ -662,9 +662,6 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 		}
 
 		if(i<LSM.LEVELCACHING){
-			if(i==2 && KEYCONSTCOMP(key, "00000000000009373698")==0){
-				LSM.lop->header_print(entries->level_caching_data);
-			}
 			keyset *find=LSM.lop->find_keyset(entries->level_caching_data,key);
 			if(find){
 				*found=find;

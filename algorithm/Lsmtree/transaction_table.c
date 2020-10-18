@@ -492,6 +492,7 @@ uint32_t transaction_table_clear(transaction_table *table, transaction_entry *et
 	etr->rb_li_node=NULL;
 	if(!li->size){
 		rb_delete(res, true);
+		list_free(li);
 	}
 	fdriver_unlock(&indexer_lock);
 

@@ -22,7 +22,7 @@
 //#define MULTILEVELREAD
 //#define CACHEREORDER
 #define PREFIXCHECK		4
-//#define PARTITION
+#define PARTITION
 
 //#define EMULATOR
 
@@ -41,13 +41,13 @@
 /*lsmtree flash thread*/
 #define KEYSETSIZE 8
 #define CTHREAD 1
-#define CQSIZE 4
+#define CQSIZE 1
 #define FTHREAD 1
 #define FQSIZE 2
 #define RQSIZE 1024
 #define WRITEWAIT
 #define MAXKEYSIZE 255
-#define THREADCOMPACTION 1
+#define THREADCOMPACTION 8
 
 /*compaction*/
 #define MAXITER 16

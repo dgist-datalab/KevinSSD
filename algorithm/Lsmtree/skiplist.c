@@ -330,7 +330,7 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 		if(x->ppa!=TOMBSTONE){
 			invalidate_PPA(DATA,x->ppa);
 		}
-	
+		free(key.key);
 		x->ppa=ppa;
 		x->isvalid=deletef;
 		return x;
