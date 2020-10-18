@@ -152,26 +152,28 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 			bc_set_validate(rppa);
 		}
 
-		if(d->idx==LSM.LEVELN-1 && rppa==TOMBSTONE){
-			//printf("ignore key\n");
-		}
-		else if((pbody_insert_new_key(rp,insert_key,rppa,false))){
-			result_cnt++;
-		}
-		
 		if(next_pop<0) lp_key=pbody_get_next_key(lp,&lppa);
 		else if(next_pop>0) hp_key=pbody_get_next_key(hp,&hppa);
 		else{
 			lp_key=pbody_get_next_key(lp,&lppa);
 			hp_key=pbody_get_next_key(hp,&hppa);
 		}
+
+		if(d->idx==LSM.LEVELN-1 && rppa==TOMBSTONE){
+			//printf("ignore key\n");
+		}
+		else if((pbody_insert_new_key(rp,insert_key,rppa,false))){
+			result_cnt++;
+		}
 	}
 	if(d->idx==LSM.LEVELN-1){
 		bc_set_validate(rppa);
 	}
+
+	
 	if((pbody_insert_new_key(rp,insert_key,rppa,true))){
 			result_cnt++;
-	}	
+	}
 
 	if(mem) free(u_data[0]);
 	free(o_data);

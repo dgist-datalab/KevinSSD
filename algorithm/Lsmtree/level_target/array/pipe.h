@@ -24,6 +24,9 @@ typedef struct pipe_body{
 	uint32_t max_key;
 	uint32_t kidx;
 	bool read_from_run;
+
+	KEYT prev_check;
+	ppa_t prev_ppa;
 }p_body;
 
 p_body *pbody_init(char** data, uint32_t list_size, pl_run *pl_datas, bool read_from_run,BF *filter);

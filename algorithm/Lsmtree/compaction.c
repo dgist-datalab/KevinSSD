@@ -202,7 +202,6 @@ last:
 	if(to->idx==LSM.LEVELN-2){
 		lsm_lru_resize(LSM.llru, LSM.llru->origin_max+(target->m_num-target->n_num));
 	}
-
 	uint32_t res=level_change(from,to,target,lock);
 	//printf("ending\n");
 	LSM.c_level=NULL;

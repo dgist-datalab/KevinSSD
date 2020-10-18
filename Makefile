@@ -36,9 +36,9 @@ export COMMONFLAGS=\
 			-D$(TARGET_BM)\
 			-Wno-unused-but-set-variable\
 			-DKVSSD\
+#-O3 -march=native -mtune=native -flto=20 \
 #-DDEBUG\
 #			-march=armv8-a+crypto\
--O3 -march=native -mtune=native -flto=20 \
 			-DCHECKINGTIME\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\

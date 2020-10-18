@@ -47,7 +47,7 @@
 #define RQSIZE 1024
 #define WRITEWAIT
 #define MAXKEYSIZE 255
-#define THREADCOMPACTION 4
+#define THREADCOMPACTION 1
 
 /*compaction*/
 #define MAXITER 16

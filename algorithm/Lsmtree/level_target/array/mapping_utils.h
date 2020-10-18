@@ -51,7 +51,7 @@ static inline int __find_idx_boundary(char *data, KEYT lpa, KEYT lpa2){
 	
 	if(res<0) return mid;
 
-	if(KEYCMP(__key_at(mid, body, bitmap), lpa2) > 0){
+	if(KEYCMP(__key_at(mid, body, bitmap), lpa2) >= 0){
 		return mid-1;
 	}
 	return mid;
@@ -89,7 +89,9 @@ static inline char *__split_data(char *data, KEYT key, KEYT key2, bool debug){
 		printf("org-----\n");
 		array_header_print(data);
 		printf("-----------------------\n");
+
 	}
+
 
 	uint16_t *org_bitmap=(uint16_t*)data;
 	KEYT temp;

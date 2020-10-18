@@ -17,6 +17,7 @@ p_body *pbody_init(char **data,uint32_t size, pl_run *pl_datas, bool read_from_r
 		res->filter=filter;
 	}
 #endif
+	res->prev_check.len=0;
 	return res;
 }
 
@@ -77,8 +78,23 @@ KEYT pbody_get_next_key(p_body *p, uint32_t *ppa){
 bool test_flag;
 char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush)
 {
+	if(!flush){
+		if(!p->prev_check.len){
+			p->prev_check=key;
+			p->prev_ppa=ppa;
+		}
+		else{
+			static int cnt=0;
+			if(KEYCMP(p->prev_check, key) >=0){
+				printf("order is failed! %d\n", cnt++);
+				abort();
+			}
+			p->prev_check=key;
+			p->prev_ppa=ppa;
+		}
+	}
+
 	char *res=NULL;
-	static int key_cnt=0;
 	if((flush && p->kidx>1) || !p->now_page || p->kidx>=(PAGESIZE-1024)/sizeof(uint16_t)-2 || p->length+(key.len+sizeof(uint32_t))>PAGESIZE){
 		if(p->now_page){
 			p->bitmap_ptr[0]=p->kidx-1;
@@ -90,7 +106,6 @@ char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush)
 			return res;
 		}
 		new_page_set(p,true);
-		key_cnt=0;
 	}
 
 	char *target_idx=&p->now_page[p->length];
