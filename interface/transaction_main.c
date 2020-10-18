@@ -52,10 +52,10 @@ int main(int argc,char* argv[]){
 	inf_init(0,0,temp_cnt,temp_argv);
 	bench_init();
 	bench_vectored_configure();
-	bench_transaction_configure(4, 2);
+	bench_transaction_configure(2, 1);
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
 	//bench_add(VECTOREDSSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)));
-	bench_add(VECTOREDRW,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)));
+	bench_add(VECTOREDRW,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL))/10);
 	//bench_add(VECTOREDMIXED,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/1,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL))/2);
 
 	char *value;

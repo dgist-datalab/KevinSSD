@@ -291,4 +291,12 @@ bool lsm_rwlock_is_clean();
 
 uint32_t lsm_partial_update(request * const);
 
+
+static void *key_find_test(KEYT a, ppa_t ppa){
+	if(KEYCONSTCOMP(a,"00000000000009373698")==0){
+		printf("it is exist!\n");
+	}
+	return NULL;
+}
+
 #endif
