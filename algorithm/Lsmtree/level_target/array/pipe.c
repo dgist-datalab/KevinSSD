@@ -138,6 +138,14 @@ char *pbody_get_data(p_body *p, bool init)
 	}
 }
 
+
+p_body *pbody_move_dummy_init(char **data, uint32_t data_num){
+	p_body *res=(p_body*)calloc(sizeof(p_body),1);
+	res->pidx=data_num;
+	res->data_ptr=data;
+	return res;
+}
+
 char *pbody_clear(p_body *p){
 	free(p);
 	return NULL;

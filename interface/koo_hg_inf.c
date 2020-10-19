@@ -58,6 +58,45 @@ void print_buf(char *buf, uint32_t len);
 extern master_processor mp;
 fdriver_lock_t  crc_lock;
 
+void key_interpreter(KEYT key, char *buf){
+	uint64_t block_num=(*(uint64_t*)&key.key[1]);
+	block_num=Swap8Bytes(block_num);
+	uint32_t offset=1+sizeof(uint64_t);
+
+	if(key.key[0]=='m'){
+		uint32_t remain=key.len-offset;
+		sprintf(buf, "%c %lu %.*s",key.key[0], block_num,remain, &key.key[offset]);
+	}
+	else{
+		uint64_t block_num2=*(uint64_t*)&key.key[offset];
+		block_num2=Swap8Bytes(block_num2);
+		sprintf(buf, "%c %lu %lu",key.key[0], block_num, block_num2);
+	}
+}
+
+#ifdef TRACECOLLECT
+int trace_fd;
+void write_req_trace(request *req){
+	//tid type keylen key offset length
+	if(req->type==FS_TRANS_COMMIT){
+		dprintf(trace_fd, "%d %d\n",req->tid, req->type);
+	}
+	else{
+		char buf[100]={0,};
+		key_interpreter(req->key, buf);
+		dprintf(trace_fd, "%d %d %d %s %d %d\n",req->tid, req->type, req->key.len, buf,
+			req->offset, req->length);
+	}
+}
+
+void write_req_trace_temp(uint32_t tid, uint32_t type, KEYT key, uint32_t size){
+	char buf[100]={0,};
+	key_interpreter(key, buf);
+	dprintf(trace_fd, "%d %d %d %s %d\n",tid, type, key.len, buf, size);
+
+}
+#endif
+
 void print_key(KEYT key, bool data_print){
 	if(key.len==0 || (!data_print && key.key[0]=='d')){
 		printf("\n");
@@ -235,6 +274,14 @@ void init_koo(uint64_t phy_addr){
 	printf("Data checking mode on!\n");
 #endif
 
+#ifdef TRACECOLLECT
+	trace_fd=open(TRACECOLLECT, O_RDWR|O_CREAT|O_TRUNC, 0666);
+	if(trace_fd==-1){
+		perror("file open error!");
+		exit(1);
+	}
+#endif
+
 	null_value=(char*)malloc(PAGESIZE);
 	memset(null_value,0,PAGESIZE);
 }
@@ -375,6 +422,9 @@ static inline vec_request *get_vreq2creq(cheeze_req *creq, int tag_id){
 				break;
 			case FS_MGET_T:
 				make_mget_req(res, temp, res->size);
+#ifdef TRACECOLLECT
+				write_req_trace_temp(temp->tid, temp->type, temp->key, res->size);
+#endif
 				goto out;
 			case FS_DELETE_T:
 #ifdef CHECKINGDATA
@@ -407,6 +457,11 @@ static inline vec_request *get_vreq2creq(cheeze_req *creq, int tag_id){
 		}
 
 		error_check(temp);
+
+#ifdef TRACECOLLECT 
+		write_req_trace(temp);
+#endif
+
 
 #ifdef DEBUG
 		if(temp->type==FS_RANGEGET_T){

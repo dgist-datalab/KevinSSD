@@ -23,7 +23,7 @@ DEBUGFLAGS=\
 			-rdynamic\
 			-Wno-pointer-arith\
 			-g\
-#-fsanitize=address\
+-fsanitize=address\
 #	-DBUSE_DEBUG
 
 export COMMONFLAGS=\
@@ -36,8 +36,9 @@ export COMMONFLAGS=\
 			-D$(TARGET_BM)\
 			-Wno-unused-but-set-variable\
 			-DKVSSD\
+			-DKOO\
 			-DCHECKINGTIME\
-	-O3 -march=native -mtune=native -flto=20 \
+#	-O3 -march=native -mtune=native -flto=20 \
 #-DDEBUG\
 #			-march=armv8-a+crypto\
 
@@ -146,7 +147,7 @@ LIBS +=\
 		-lm\
 		-ljemalloc $(CFLAGS)
 
-all: driver
+all: koo_kv_driver
 
 DEBUG: debug_driver
 
@@ -158,6 +159,8 @@ debug_driver: ./interface/main.c libdriver_d.a
 driver: ./interface/transaction_main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
+trace_driver: ./interface/mainfiles/trace_replay_main.c libdriver.a
+	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 koo_kv_driver: ./interface/mainfiles/koo_kv_main.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
@@ -166,12 +169,6 @@ bd_testcase: ./interface/mainfiles/testcase.c libdriver.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 kv_driver: ./interface/mainfiles/NET_main.c libdriver.a libfdsock.a
-	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
-
-tc_driver: ./interface/mainfiles/trace_collect_main.c libdriver.a libfdsock.a
-	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
-
-tr_driver: ./interface/mainfiles/Ytest_main.c libdriver.a libfdsock.a
 	$(CC) $(CFLAGS) -o $@ $^ $(ARCH) $(LIBS)
 
 range_driver: ./interface/range_test_main.c libdriver.a

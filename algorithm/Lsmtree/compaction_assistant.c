@@ -578,7 +578,10 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 
 	KEYT key,end;
 	run_t* target=NULL;
-
+	/*
+	if(des->idx!=0){
+		printf("compaction result(target_max:%d): %d+%d =",des->m_num, LSM.disk[des->idx-1]->n_num, LSM.disk[des->idx]->n_num);
+	}*/
 	while((target=LSM.lop->cutter(top,des,&key,&end))){
 		if(des->idx<LSM.LEVELCACHING){
 			if(header_debug_flag){
@@ -592,6 +595,10 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 		}
 		free(target);
 	}
+	/*
+	if(des->idx!=0){
+		printf("%d\n", des->n_num);
+	}*/
 	//LSM.li->lower_flying_req_wait();
 }
 

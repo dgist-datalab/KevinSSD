@@ -48,6 +48,7 @@ typedef struct thread_params{
 	char **result_data;
 	p_body *rp;
 	uint32_t idx;
+	bool isdummy;
 	struct level *d;
 }tp;
 
@@ -61,10 +62,34 @@ static tp *init_thread_params(uint32_t num, char *target, level *d, uint32_t idx
 	res->result_num=0;
 	res->d=d;
 	res->idx=idx;
+	res->isdummy=false;
+	return res;
+}
+
+static tp *init_dummy_thread_params(uint32_t num, char *target, level *d, uint32_t idx){
+	tp *res=(tp*)malloc(sizeof(tp));
+	res->u_data=(char**)malloc(sizeof(char*)*1);
+	res->u_data[0]=target;
+	res->o_data=NULL;
+	res->o_num=0;
+
+	res->result_data=(char**)malloc(sizeof(char*)*num);
+	for(uint32_t i=0; i<num; i++){
+		res->result_data[i]=(char*)malloc(PAGESIZE);
+		memcpy(res->result_data[i], target, PAGESIZE);
+	}
+	res->rp=pbody_move_dummy_init(res->result_data, num);
+	res->result_num=num;
+
+	res->result_return_num=0;
+	res->d=d;
+	res->idx=idx;
+	res->isdummy=true;
 	return res;
 }
 
 void tp_print(tp *t){
+	if(!t->isdummy){
 	printf("[%d] %.*s ~ %.*s(1) && %.*s ~ %.*s (%d)\n",t->idx,
 			KEYFORMAT(__extract_start_key(t->u_data[0])),
 			KEYFORMAT(__extract_end_key(t->u_data[0])),
@@ -72,11 +97,13 @@ void tp_print(tp *t){
 			KEYFORMAT(__extract_end_key(t->o_data[t->o_num-1])),		
 			t->o_num
 			);
+	}
 }
 
 void tp_check_sanity(tp **_t, int num){
 	KEYT pe,ns;
 	for(int i=0; i<num-1; i++){
+		if(_t[i]->isdummy || _t[i+1]->isdummy) continue;
 		tp *t=_t[i];
 		pe=__extract_end_key(t->o_data[t->o_num-1]);
 		t=_t[i+1];
@@ -201,12 +228,13 @@ run_t* array_thread_pipe_cutter(struct skiplist *mem, struct level *d, KEYT *_st
 	if(!ismulti_thread) return array_pipe_cutter(mem, d, _start,_end);
 	char *data;
 retry:
-	
+	static int KP_cnt=0;
 	thread_params *tp=tpp[params_idx];
 	p_body *rp=tp->rp;
 	if(cutter_start){
 		cutter_start=false;
 		data=pbody_get_data(rp, true);
+		KP_cnt=0;
 	}
 	else{
 		data=pbody_get_data(rp, false);
@@ -234,6 +262,7 @@ retry:
 	}
 	//array_header_print(data);
 	//printf("head %d %dprint, %d %d\n", cnt++, rp->pidx,params_max, params_idx);
+	//printf("[%d]KP num:%u move:%d\n",KP_cnt++, __get_KP_pair_num(data), tp->isdummy?1:0);
 	return array_pipe_make_run(data,d->idx);
 }
 
@@ -288,6 +317,15 @@ void array_thread_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct
 	char *splited_data=NULL;
 	uint32_t j=0, real_bound;
 	KEYT now_end_key, next_start_key;
+/*
+	printf("upper level!\n");
+	array_print(LSM.disk[d->idx-1]);
+	printf("lower level!\n");
+	array_print(LSM.disk[d->idx]);
+
+	static int cnt=0;
+	printf("mg cnt:%d\n", cnt++);
+*/
 	for(uint32_t i=0; i<u_num; i++){
 		if(i==u_num-1){
 			end_boundary=o_num-prev_consume_num-1;
@@ -306,8 +344,8 @@ make_params:
 			real_bound=prev_consume_num+end_boundary;
 			num=(issplit_start?1:0);
 			if(num==0){
-				printf("cant it be?\n");
-				abort();
+				tpp[tp_num]=init_dummy_thread_params(1, u_data[i], d, i);
+				goto next_round;
 			}
 		}
 		else{
@@ -348,6 +386,7 @@ make_params:
 
 		tpp[tp_num]->o_num=t_data_num;
 		thpool_add_work(pool, __pipe_merger, (void*)tpp[tp_num]);
+next_round:
 		tp_num++;
 	}
 

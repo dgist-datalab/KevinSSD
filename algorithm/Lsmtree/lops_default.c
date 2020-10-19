@@ -76,7 +76,7 @@ bool def_fchk( level *input){
 	if(input->idx<LSM.LEVELCACHING){
 		int a=LSM.lop->get_number_runs(input);
 		int b=input->idx==0?input->m_num-2:
-			input->m_num/(LLP.size_factor)*(LLP.size_factor-1);
+			input->m_num*90/100;
 		if(a>=b){
 			return true;
 		}
@@ -87,12 +87,16 @@ bool def_fchk( level *input){
 
 	}
 	else{
+		if(input->n_num>=input->m_num*90/100){
+			return true;
+		}
+		/*
 		if(input->n_num>=((input->m_num/(LLP.size_factor)*(LLP.size_factor-1)))){
 			return true;
 		}
-		else if(input->m_num>=100 && input->n_num>=(((input->m_num/(LLP.size_factor)*(LLP.size_factor-1)))*95/100)){
+		else if(input->m_num>=100 && input->n_num>=(((input->m_num/(LLP.size_factor)*(LLP.size_factor-1)))*90/100)){
 			return true;
-		}
+		}*/
 	}
 	return false;
 

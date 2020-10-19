@@ -27,6 +27,10 @@ static inline KEYT __extract_end_key(char *data){
 	return __key_at(*((uint16_t*)data), data, (uint16_t*)data);
 }
 
+static inline uint16_t __get_KP_pair_num(char *data){
+	return *(uint16_t*)data;
+}
+
 static inline int __find_idx_boundary(char *data, KEYT lpa, KEYT lpa2){
 	char *body=data;
 	uint16_t *bitmap=(uint16_t*)body;

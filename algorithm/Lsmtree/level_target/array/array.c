@@ -6,6 +6,10 @@
 #include "../../../../interface/interface.h"
 #include "../../../../include/utils/kvssd.h"
 #include "../../nocpy.h"
+#include "mapping_utils.h"
+#ifdef KOO
+#include "../../../../interface/koo_hg_inf.h"
+#endif
 extern KEYT key_max, key_min;
 extern lsmtree LSM;
 extern lmi LMI;
@@ -633,11 +637,21 @@ void array_print(level *lev){
 //		}
 		return;
 	}*/
+#ifdef KOO
+	char buf[100]={0,};
+	char buf2[100]={0,};
+#endif
 	run_t *arrs=b->arrs;
 	for(int i=0; i<lev->n_num;i++){
 		run_t *rtemp=&arrs[i];
 #ifdef KVSSD
-		printf("[%d]%.*s~%.*s(%u)-ptr:%p cached:%s wait:%d iscomp:%d\n",i,KEYFORMAT(rtemp->key),KEYFORMAT(rtemp->end),rtemp->pbn,rtemp,"false",rtemp->wait_idx,rtemp->iscompactioning);
+	#ifdef KOO
+		key_interpreter(rtemp->key, buf);
+		key_interpreter(rtemp->end, buf2);
+		printf("[%d]%s~%s(%u)-ptr:%p cached:%s wait:%d iscomp:%d\n",i, buf, buf2, rtemp->pbn,rtemp,"false",rtemp->wait_idx,rtemp->iscompactioning);
+	#else
+		printf("[%d]%.*s~%.*s(%u), num:%u -ptr:%p cached:%s wait:%d iscomp:%d\n",i,KEYFORMAT(rtemp->key),KEYFORMAT(rtemp->end),rtemp->pbn, rtemp,"false",rtemp->wait_idx,rtemp->iscompactioning);
+	#endif
 #else
 		printf("[%d]%d~%d(%d)-ptr:%p cached:%s wait:%d\n",i,rtemp->key,rtemp->end,rtemp->pbn,rtemp,"false",rtemp->wait_idx);,
 #endif

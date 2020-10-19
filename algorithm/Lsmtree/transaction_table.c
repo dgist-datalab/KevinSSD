@@ -382,6 +382,7 @@ static void *test_test(KEYT a, ppa_t ppa){
 		printf("break!\n");
 		abort();
 	}
+	return NULL;
 }
 
 value_set* transaction_table_force_write(transaction_table *table, uint32_t tid, transaction_entry **t){

@@ -99,6 +99,10 @@ void seq_pt_trim_segment(struct blockmanager* bm, int pt_num, __gsegment *gs, lo
 	sbm_pri *p=(sbm_pri*)bm->private_data;
 	uint32_t segment_startblock_number=gs->blocks[0]->block_num;
 
+	if(pt_num==DATA_S){
+		printf("TRIMMED %u~%u\n", segment_startblock_number*_PPB, segment_startblock_number*_PPB+_PPS-1);
+	}
+
 	for(int i=0; i<BPS; i++){
 		__block *b=gs->blocks[i];
 		b->invalid_number=0;

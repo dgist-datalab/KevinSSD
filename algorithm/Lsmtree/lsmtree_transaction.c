@@ -3,6 +3,7 @@
 #include "lsmtree.h"
 #include "nocpy.h"
 #include "../../interface/interface.h"
+#include "../../interface/koo_hg_inf.h"
 #include "../../interface/koo_inf.h"
 #include "../../bench/bench.h"
 #include "variable.h"
@@ -163,8 +164,6 @@ uint32_t transaction_set(request *const req){
 	fdriver_unlock(&_tm.table_lock);
 	bench_custom_A(write_opt_time2, 0);
 
-
-
 	req->value=NULL;
 	//	printf("req->seq :%u\n",req->seq);
 
@@ -227,7 +226,6 @@ uint32_t transaction_range_delete(request *const req){
 		etr->status=LOGGED;
 		etr->ptr.physical_pointer=ppa;
 	}
-
 	kvssd_free_key_content(&copied_key);
 	req->end_req(req);
 	return 1;
@@ -436,16 +434,11 @@ uint32_t transaction_commit(request *const req){
 			compaction_send_creq_by_skip(committing_skip, committing_etr, false);
 			bench_custom_A(write_opt_time2, 7);
 		}
-	//	printf("wait! now %u\n", _tm.mem_log->now);
+
 		compaction_wait_jobs();
-	//	printf("wait done! now %u\n", _tm.mem_log->now);
 	}
 
-	//printf("log_now after: %u\n", _tm.mem_log->now);
 	list_free(temp_list);
-	//transaction_table_print(_tm.ttb, false);
-
-	//checking_table_nonfull();
 
 	if(memory_log_usable(_tm.mem_log)){
 		req->end_req(req);
@@ -652,8 +645,11 @@ search_lsm:
 	return __lsm_get(req);
 }
 
+#ifdef TRACECOLLECT
+extern int trace_fd;
+#endif
 
-inline uint32_t transaction_get_postproc(request *const req, uint32_t res_type){
+uint32_t transaction_get_postproc(request *const req, uint32_t res_type){
 	if(res_type==0){
 		free(req->params);
 		switch (req->type){
@@ -664,10 +660,16 @@ inline uint32_t transaction_get_postproc(request *const req, uint32_t res_type){
 				req->type=FS_MGET_NOTFOUND_T;
 				break;
 		}
-	
+#ifdef KOO
+		char buf[50]={0,};
+		key_interpreter(req->key, buf);
+		printf("notfound key: %s\n", buf);
+		fsync(trace_fd);
+#else
 		printf("notfound key: %.*s\n",KEYFORMAT(req->key));
+#endif
 		req->end_req(req);
-		abort();
+		//abort();
 	}
 	return res_type;
 }
@@ -898,8 +900,9 @@ bool transaction_debug_search(KEYT key){
 }
 
 void transaction_evicted_write_entry(transaction_entry* etr, char *data){
-	printf("called??\n");
-	abort();
+	//printf("called??\n");
+	//transaction_table_print(_tm.ttb, true);
+	//abort();
 	if((void*)etr==(void*)&_tm.last_table){
 		ppa_t ppa=get_log_PPA(TABLEW);
 		value_set *value=inf_get_valueset(data, FS_MALLOC_W, PAGESIZE);

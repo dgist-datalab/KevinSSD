@@ -239,7 +239,9 @@ inline bool check_populate_type(uint8_t type){
 	}
 }
 #endif
-
+#ifdef TRACECOLLECT
+extern int trace_fd;
+#endif
 void copy_to_mem(uint32_t PPA, uint8_t type, char *value){
 #ifdef ONLYMAP
 	if(!check_populate_type(type)){
@@ -251,6 +253,9 @@ void copy_to_mem(uint32_t PPA, uint8_t type, char *value){
 			seg_table[PPA].storage = (PTR)malloc(PAGESIZE);
 		}
 		else{
+#ifdef TRACECOLLECT
+			fsync(trace_fd);
+#endif		
 			abort();
 		}	
 		memcpy(seg_table[PPA].storage,value,PAGESIZE);
@@ -269,6 +274,7 @@ void copy_from_mem(uint32_t PPA, uint8_t type,char *value){
 		if(!seg_table[PPA].storage){
 			if(PPA%_PPS!=_PPS-1){
 				printf("%u not populated\n",PPA);
+				abort();
 			}
 		}
 		else{
@@ -356,10 +362,6 @@ void *posix_trim_block(uint32_t _PPA, bool async){
 	for(uint32_t i=PPA; i<PPA+my_posix.PPS; i++){
 		free(seg_table[i].storage);
 		seg_table[i].storage=NULL;
-		/*
-		if(i==32764){
-			printf("32764 trimeed!\n");
-		}*/
 	}
 	return NULL;
 }

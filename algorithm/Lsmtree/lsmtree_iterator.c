@@ -111,10 +111,12 @@ void *lsm_range_end_req(algo_req *const al_req){
 		case DATAR:
 	//		printf("%d iter key :%.*s\n", iter_num++,KEYFORMAT(al_params->key));
 			if(al_params->value->ppa%NPCINPAGE){
-				copy_key_value_to_buf(&req->buf[al_params->offset], al_params->key, &al_params->value->value[4096]);	
+				if(req->buf)
+					copy_key_value_to_buf(&req->buf[al_params->offset], al_params->key, &al_params->value->value[4096]);	
 			}
 			else{
-				copy_key_value_to_buf(&req->buf[al_params->offset], al_params->key, al_params->value->value);	
+				if(req->buf)
+					copy_key_value_to_buf(&req->buf[al_params->offset], al_params->key, al_params->value->value);	
 			}
 			inf_free_valueset(al_params->value, FS_MALLOC_R);
 			free(al_params->key.key);
@@ -170,7 +172,8 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 		}
 		if(t_node->ppa==UINT32_MAX){
 			//copy value
-			copy_key_value_to_buf(&req->buf[offset], t_node->key, t_node->value.g_value);
+			if(req->buf)
+				copy_key_value_to_buf(&req->buf[offset], t_node->key, t_node->value.g_value);
 			//printf("target %d iter key :%.*s\n", iter_num++,KEYFORMAT(t_node->key));
 
 			pthread_mutex_lock(&cnt_lock);
@@ -253,7 +256,8 @@ inline static uint32_t __lsm_range_key(request *const req, range_get_params *rgp
 			break_flag=true;
 		}
 		//printf("%d iter key :%.*s\n", iter_num++,KEYFORMAT(t_node->key));
-		copy_key_value_to_buf(&req->buf[offset], t_node->key, NULL);
+		if(req->buf)
+			copy_key_value_to_buf(&req->buf[offset], t_node->key, NULL);
 		offset+=t_node->key.len+1;
 		i++;
 		if(break_flag) break;

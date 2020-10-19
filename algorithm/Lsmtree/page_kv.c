@@ -211,9 +211,9 @@ int gc_data(){
 
 extern _bc bc;
 int __gc_data(){
-	/*
+	
 	static int cnt=0;
-	printf("gc_cnt:%u\n",cnt++);*/
+	printf("gc_cnt:%u\n",cnt++);
 	static bool flag=false;
 	if(!flag){
 		flag=true;
@@ -587,9 +587,11 @@ void gc_data_header_update(struct gc_node **g, int size){
 	update_cache=noupdate_cache=nouptdone=0;
 	header_overlap_cnt=0;
 
+	uint32_t plength_zero_cnt=0;
 	while(done_cnt!=size){
 		cnttt++;
 		passed=0;
+
 		for(int i=0; i<size; i++){
 			if(g[i]->status==DONE || g[i]->status==NOUPTDONE){
 				passed++;
@@ -601,6 +603,7 @@ void gc_data_header_update(struct gc_node **g, int size){
 			if(!bc_valid_query(target->ppa)){
 				done_cnt++;
 				target->plength=0;
+				plength_zero_cnt++;
 				target->status=DONE;
 				target->validate_test=false;
 				target->params=NULL;
@@ -616,12 +619,18 @@ void gc_data_header_update(struct gc_node **g, int size){
 				case RETRY:
 					result=gc_data_issue_header(target,(gc_params*)target->params,size);
 					if(result==CACHING || result==DONE){
+						if(target->plength==0){
+							plength_zero_cnt++;
+						}
 						cache_cnt++;
 						done_cnt++;
 					}
 					break;
 				case READDONE:
 					done_cnt+=gc_data_each_header_check(target,size);
+					if(target->plength==0){
+						plength_zero_cnt++;
+					}
 					break;
 			}
 			if(done_cnt>size){
@@ -631,13 +640,25 @@ void gc_data_header_update(struct gc_node **g, int size){
 		if(passed==size) break;
 	}
 
+	if(!plength_zero_cnt){
+		printf("no data to remove!!!!!\n");
+		abort();
+	}
+
 	gc_read_wait=0;
 
 	LSM.gc_list=skiplist_init();
 	value_set **res=skiplist_make_gc_valueset(LSM.gc_list, g, size);
-
-	issue_data_write(res, LSM.li, GCDW);
-	free(res);
+	bool skip_init_flag=LSM.gc_list->size?true:false;
+	if(!res){
+		skiplist_free(LSM.gc_list);
+		LSM.gc_list=NULL;
+	}
+	else{
+		issue_data_write(res, LSM.li, GCDW);
+		free(res);
+		LSM.gc_list->isgc=skip_init_flag;
+	}
 
 	for(int i=0; i<size; i++){
 		gc_node *t=g[i];
@@ -647,8 +668,6 @@ void gc_data_header_update(struct gc_node **g, int size){
 		free(t);
 	}
 
-	bool skip_init_flag=LSM.gc_list->size?true:false;
-	LSM.gc_list->isgc=true;
 
 	li_node *ln, *lp;
 	if(gc_hlist->size!=0){

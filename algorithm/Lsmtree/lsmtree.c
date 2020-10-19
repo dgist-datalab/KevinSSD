@@ -110,8 +110,10 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	uint64_t all_header_num=0;
 	LSM.disk=(level**)malloc(sizeof(level*)*LSM.LEVELN);
 	printf("|-----LSMTREE params ---------\n");
-	for(int i=0; i<LSM.LEVELN; i++){//for lsmtree -1 level	
-		LSM.disk[i]=LSM.lop->init(ceil(m_num*(i==LSM.LEVELN-1?LLP.last_size_factor:LLP.size_factor) + m_num),i,LSP.bf_fprs[i],false);
+	for(int i=0; i<LSM.LEVELN; i++){//for lsmtree -1 level
+		double max_header_num=m_num*(i==LSM.LEVELN-1?LLP.last_size_factor:LLP.size_factor);
+		max_header_num+=max_header_num/10;
+		LSM.disk[i]=LSM.lop->init(ceil(max_header_num),i,LSP.bf_fprs[i],false);
 		printf("| [%d] fpr:%.12lf noe:%d iscached:%c\n",i,LSP.bf_fprs[i],LSM.disk[i]->m_num,i<LSM.LEVELCACHING?'y':'n');
 		all_header_num+=LSM.disk[i]->m_num;
 		m_num*=LLP.size_factor;

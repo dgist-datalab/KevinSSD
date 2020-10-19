@@ -16,6 +16,8 @@
 #define BLOOM
 #endif
 
+
+
 #define PREFIXNUM	(9)
 
 //#define SIMDSEARCHER

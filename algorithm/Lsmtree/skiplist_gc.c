@@ -99,6 +99,7 @@ value_set **skiplist_make_gc_valueset(skiplist * skip,gc_node ** gc_node_array, 
 	for(int i=0; i<size; i++){
 		gc_node *t=gc_node_array[i];
 		if(t->plength==0){
+	//		printf("length is 0, it is removed!\n");
 			/*
 			if(t->validate_test){
 				printf("bitmap_cache not followed! %u\n", t->ppa);
@@ -121,8 +122,9 @@ value_set **skiplist_make_gc_valueset(skiplist * skip,gc_node ** gc_node_array, 
 	}
 
 	if(skip->size==0){
-		printf("%s:%d it may not be\n",__FILE__,__LINE__);
-		abort();
+		printf("%s:%d it no data to mapping move!\n",__FILE__,__LINE__);
+		free(res);
+		return NULL;
 	}
 
 	KEYT temp_key;
