@@ -17,7 +17,7 @@ bool ismulti_thread;
 #ifdef BLOOM
 extern float t_fpr;
 #endif
-
+extern _bc bc;
 bool header_debug_flag;
 static void temp_func(char* body, level *d, bool merger){
 	int idx;
@@ -186,7 +186,7 @@ void __pipe_merger(void *argument, int id){
 			}
 		}
 
-		if(d->idx==LSM.LEVELN-1){
+		if(d->idx==LSM.LEVELN-1 && !bc.full_caching){
 			bc_set_validate(rppa);
 		}
 	
@@ -205,7 +205,7 @@ void __pipe_merger(void *argument, int id){
 			result_cnt++;
 		}
 	}
-	if(d->idx==LSM.LEVELN-1){
+	if(d->idx==LSM.LEVELN-1 && !bc.full_caching){
 		bc_set_validate(rppa);
 	}
 	
@@ -295,7 +295,7 @@ void array_thread_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct
 		if(!u_data[i]) abort();
 	}
 
-	if(d->idx==LSM.LEVELN-1){
+	if(d->idx==LSM.LEVELN-1 && !bc.full_caching){
 		bc_reset();
 	}
 

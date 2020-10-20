@@ -646,3 +646,18 @@ bool cheeze_end_req(request *const req){
 void free_koo(){
 	printf("\t\titeration number:%u\n", iteration_cnt);
 }
+
+bool key_const_compare(KEYT key,char keytype, int blocknum, int blocknum2, const char *filename){
+	if(key.key[0]!=keytype) return false;
+	uint64_t key_blocknum=*(uint64_t*)&key.key[1];
+	key_blocknum=Swap8Bytes(key_blocknum);
+	if(blocknum!=key_blocknum) return false;
+	if(keytype=='m'){
+		return strncmp(&key.key[1+sizeof(uint64_t)], filename, key.len-1-sizeof(uint64_t));
+	}
+	else{
+		uint64_t key_block_num2=*(uint64_t*)&key.key[1+sizeof(uint64_t)];
+		key_block_num2=Swap8Bytes(key_block_num2);
+		return blocknum2==key_block_num2;
+	}
+}

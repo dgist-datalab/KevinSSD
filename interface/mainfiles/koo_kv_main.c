@@ -39,10 +39,16 @@ int main(int argc,char* argv[]){
 	inf_init(1,0,argc,argv);
 
 	init_koo(0);
-
+/*---------------------*
 	pthread_create(&thr, NULL, thread_test, NULL);
 	pthread_join(thr, NULL);
-
+*------------thread main*/
+/*-----------no thread*/
+	vec_request *req=NULL;
+	while((req=get_vectored_request())){
+		assign_vectored_req(req);
+	}
+/*--------------------*/
 	free_koo();
 	inf_free();
 	return 0;

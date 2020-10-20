@@ -1,5 +1,7 @@
 #include "seq_block_manager.h"
+#ifdef AGEDGC
 static uint32_t age=UINT_MAX;
+#endif
 uint32_t seq_pt_create(struct blockmanager *bm, int pnum, int *epn, lower_info *li){
 	bm->li=li;
 	sbm_pri *p=(sbm_pri*)malloc(sizeof(sbm_pri));
@@ -60,7 +62,11 @@ __segment* seq_pt_get_segment (struct blockmanager*bm, int pt_num, bool isreserv
 	}
 
 	if(pt_num==DATA_S){
+#ifdef AGEDGC
 		free_block_set->total_invalid_number=age--;
+#else
+		free_block_set->total_invalid_number=0;
+#endif
 	}
 
 	if(pt_num==DATA_S && isreserve){
@@ -142,7 +148,11 @@ __segment* seq_change_pt_reserve(struct blockmanager *bm,int pt_num, __segment *
 		uint32_t segment_start_block_number=reserve->blocks[0]->block_num;
 		uint32_t segment_idx=segment_start_block_number/BPS;
 		block_set *bs=&p->logical_segment[segment_idx];
+#ifdef AGEDGC
 		bs->total_invalid_number=age--;
+#else
+		bs->total_invalid_number=0;
+#endif
 		
 		mh_insert_append(p->max_heap_pt[pt_num], (void*)bs);
 	}

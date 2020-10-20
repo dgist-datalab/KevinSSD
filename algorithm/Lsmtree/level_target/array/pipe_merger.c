@@ -7,6 +7,7 @@
 #include "../../nocpy.h"
 #include "../../bitmap_cache.h"
 #include "mapping_utils.h"
+#include "../../../../interface/koo_hg_inf.h"
 extern MeasureTime write_opt_time2[10];
 p_body *rp;
 char **r_data;
@@ -14,6 +15,7 @@ static bool cutter_start;
 #ifdef BLOOM
 float t_fpr;
 #endif
+extern _bc bc;
 extern lsmtree LSM;
 char *array_skip_cvt2_data(skiplist *mem){
 	char *res=(char*)malloc(PAGESIZE);
@@ -39,7 +41,10 @@ void temp_func(char* body, level *d, bool insert){
 	KEYT key;
 	ppa_t *ppa_ptr;
 	for_each_header_start(idx,key,ppa_ptr,bitmap,body)
-		if(KEYCONSTCOMP(key, "0000000000000000000000000000000000738663")==0){
+		if(*ppa_ptr/NPCINPAGE==512141){
+			char buf[100];
+			key_interpreter(key, buf);
+			printf("KEY-(%s), ppa:%u ",buf,*ppa_ptr);
 			if(key.len==0){
 				printf("error!\n");
 				abort();
@@ -49,6 +54,20 @@ void temp_func(char* body, level *d, bool insert){
 			else{
 				printf("cutter %d\n",d->idx);
 			}
+		}
+		else if(key_const_compare(key, 'd', 36928, 1, NULL) || key_const_compare(key, 'd', 36928, 2, NULL)){
+				char buf[100];
+				key_interpreter(key, buf);			
+				printf("maybe update KEY-(%s), ppa:%u ",buf,*ppa_ptr);
+				if(key.len==0){
+					printf("error!\n");
+					abort();
+				}
+				if(insert)
+					printf("insert into %d\n",d->idx);
+				else{
+					printf("cutter %d\n",d->idx);
+				}
 		}
 	for_each_header_end
 }
@@ -86,7 +105,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	}
 
 
-	if(d->idx==LSM.LEVELN-1){
+	if(d->idx==LSM.LEVELN-1 && !bc.full_caching){
 		bc_reset();
 	}
 
@@ -148,7 +167,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 		if(KEYCONSTCOMP(insert_key,"215155000000")==0){
 			printf("----real insert into %d\n",d->idx);
 		}*/
-		if(d->idx==LSM.LEVELN-1){
+		if(d->idx==LSM.LEVELN-1 && !bc.full_caching){
 			bc_set_validate(rppa);
 		}
 
@@ -166,7 +185,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 			result_cnt++;
 		}
 	}
-	if(d->idx==LSM.LEVELN-1){
+	if(d->idx==LSM.LEVELN-1 && bc.full_caching){
 		bc_set_validate(rppa);
 	}
 

@@ -210,6 +210,7 @@ int gc_data(){
 }
 
 extern _bc bc;
+extern uint32_t debugging_ppa;
 int __gc_data(){
 	
 	static int cnt=0;
@@ -223,6 +224,7 @@ int __gc_data(){
 
 	htable_t **tables=(htable_t**)calloc(sizeof(htable_t*),_PPS);
 
+	bc_range_print();
 	blockmanager *bm=LSM.bm;
 	__gsegment *tseg=bm->pt_get_gc_target(bm,DATA_S);
 	__block *tblock=NULL;
@@ -231,11 +233,14 @@ int __gc_data(){
 	int pidx=0;
 	int i=0;
 	bool bitmap_cache_check=false;
+	uint32_t start_page;
 	//printf("invalidate number:%d\n",tseg->invalidate_number);
 	for_each_page_in_seg_blocks(tseg,tblock,tpage,bidx,pidx){
 		if(!bitmap_cache_check){
+			start_page=tpage;
 			if(tpage!=bc.start_block_ppn){
-				abort();
+				printf("different block with bitmap_cache :%u\n", tpage);
+				//abort();
 			}
 			bitmap_cache_check=true;
 		}
@@ -243,16 +248,11 @@ int __gc_data(){
 		bool page_read=false;
 		for(int j=0; j<NPCINPAGE; j++){
 			uint32_t npc=tpage*NPCINPAGE+j;
-			/*
-			if(is_invalid_piece((lsm_block*)tblock->private_data,npc)){
-				continue;
-			}
-			else{*/
-				page_read=true;
-				tables[i]=(htable_t*)malloc(sizeof(htable_t));
-				gc_data_read(npc,tables[i],GCDR,NULL);
-				break;
-			//}
+			//if(!bc_valid_query(npc)) continue;
+			page_read=true;
+			tables[i]=(htable_t*)malloc(sizeof(htable_t));
+			gc_data_read(npc,tables[i],GCDR,NULL);
+			break;
 		}
 		if(!page_read) continue;
 #else
@@ -300,17 +300,21 @@ int __gc_data(){
 	
 		for(int j=0;j<NPCINPAGE; j++){
 			t_ppa=tpage*NPCINPAGE+j;
+			if(t_ppa/NPCINPAGE==debugging_ppa){
+				printf("break!\n");
+			}
 			oob_len=foot->map[j];
 			if(!oob_len){
 				continue;
 			}
+
 			used_page=true;
 			if(!kp){
 				printf("kp is null, it can't be!! target page: %u\n", tpage);
 				abort();
 			}
 			lpa=key_packing_get_next(kp, &time);
-
+			if(!bc_valid_query(t_ppa)) continue;
 			if(lpa.len==0){
 				abort();
 			}
@@ -365,6 +369,8 @@ next_page:
 	}
 
 	bm->pt_trim_segment(bm,DATA_S,tseg,LSM.li);
+	bc_clear_block(start_page);
+
 	if(!ISGCOPT(LSM.setup_values))
 		change_reserve_to_active(DATA);
 
@@ -600,7 +606,13 @@ void gc_data_header_update(struct gc_node **g, int size){
 			gc_node *target=g[i];
 			target->validate_test=true;
 
+			if(target->ppa/NPCINPAGE==debugging_ppa){
+				printf("break2\n");
+			}
+
 			if(!bc_valid_query(target->ppa)){
+				printf("it should be filtered in before logic!\n");
+				abort();
 				done_cnt++;
 				target->plength=0;
 				plength_zero_cnt++;
@@ -642,7 +654,7 @@ void gc_data_header_update(struct gc_node **g, int size){
 
 	if(!plength_zero_cnt){
 		printf("no data to remove!!!!!\n");
-		abort();
+	//	abort();
 	}
 
 	gc_read_wait=0;

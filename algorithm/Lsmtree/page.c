@@ -7,6 +7,7 @@ extern llp LLP;
 extern algorithm algo_lsm;
 pm d_m;
 pm map_m;
+extern _bc bc;
 extern volatile int gc_target_get_cnt;
 //block* getRBLOCK(uint8_t type);
 volatile int gc_read_wait;
@@ -34,7 +35,8 @@ void pm_init(){
 
 	uint32_t start_ppn=LSM.bm->pick_page_num(LSM.bm, d_m.active);
 	uint32_t min_ppn=LSM.bm->pick_page_num(LSM.bm, d_m.reserve);
-	bc_init(_NOS/LLP.size_factor+1, start_ppn, min_ppn, min_ppn+DATAPART_SEGS*_PPS-1);
+//	bc_init(_NOS/LLP.size_factor+1, start_ppn, min_ppn, min_ppn+DATAPART_SEGS*_PPS-1);
+	bc_init(DATAPART_SEGS, min_ppn, min_ppn, min_ppn+DATAPART_SEGS*_PPS-1);
 	d_m.target=NULL;
 
 	map_m.reserve=bm->pt_get_segment(bm,MAP_S,true);
@@ -271,6 +273,11 @@ bool invalidate_PPA(uint8_t type,uint32_t ppa){
 			return false;
 		}
 	}
+	else{
+		if(bc.full_caching){
+			bc_set_invalidate(ppa);
+		}
+	}
 	return true;
 }
 
@@ -298,6 +305,11 @@ bool validate_PPA(uint8_t type, uint32_t ppa){
 		if(!res){
 			abort();
 			return false;
+		}
+	}
+	else{
+		if(bc.full_caching){
+			bc_set_validate(ppa);
 		}
 	}
 	return true;

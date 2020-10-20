@@ -59,6 +59,7 @@ lsp LSP;
 
 extern level_ops h_ops;
 extern level_ops a_ops;
+extern _bc bc;
 extern uint32_t all_kn_run,run_num;
 extern pm d_m;
 extern float get_sizefactor(uint32_t);
@@ -112,7 +113,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	printf("|-----LSMTREE params ---------\n");
 	for(int i=0; i<LSM.LEVELN; i++){//for lsmtree -1 level
 		double max_header_num=m_num*(i==LSM.LEVELN-1?LLP.last_size_factor:LLP.size_factor);
-		max_header_num+=max_header_num/10;
+		//max_header_num+=max_header_num/10;
 		LSM.disk[i]=LSM.lop->init(ceil(max_header_num),i,LSP.bf_fprs[i],false);
 		printf("| [%d] fpr:%.12lf noe:%d iscached:%c\n",i,LSP.bf_fprs[i],LSM.disk[i]->m_num,i<LSM.LEVELCACHING?'y':'n');
 		all_header_num+=LSM.disk[i]->m_num;
@@ -136,13 +137,21 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	fprintf(stderr,"SHOWINGSIZE(GB) :%lu HEADERSEG:%ld DATASEG:%ld\n",SHOWINGSIZE/G,MAPPART_SEGS,DATAPART_SEGS);
 	fprintf(stderr,"LEVELN:%d (LEVELCACHING(%d)\n",LSM.LEVELN,LSM.LEVELCACHING);
 
+	pm_init();
 	compaction_init();
 	if(ISTRANSACTION(LSM.setup_values)){
-		//transaction_init(LSP.cache_memory);
 		uint32_t remain_memory=transaction_init(LSP.cache_memory);
-		remain_memory=!remain_memory?1:remain_memory;
-		printf("\t|LRU size :%u pages\n",remain_memory);
-		LSM.llru=lsm_lru_init(remain_memory);
+		if(!bc.full_caching){
+			remain_memory=!remain_memory?1:remain_memory;
+			printf("\t|bitmap_caching memroy:%u\n",bc_used_memory(bc.max)/PAGESIZE);
+			printf("\t|LRU size :%u pages\n",remain_memory);
+			LSM.llru=lsm_lru_init(remain_memory);
+		}
+		else{
+			printf("\t|bitmap_caching memroy:%u\n",bc_used_memory(bc.max)/PAGESIZE);
+			printf("\t|LRU size :%u pages\n",1);
+			LSM.llru=lsm_lru_init(1);
+		}
 	}
 	else{
 		printf("LRU size :%lu pages\n",LSP.cache_memory/PAGESIZE);
@@ -154,7 +163,6 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 
 	LSM.li=li;
 	algo_lsm.li=li;
-	pm_init();
 	if(ISNOCPY(LSM.setup_values))
 		nocpy_init();
 
