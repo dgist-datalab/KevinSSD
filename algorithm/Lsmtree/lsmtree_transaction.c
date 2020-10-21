@@ -420,7 +420,7 @@ uint32_t transaction_commit(request *const req){
 		free(temp_cml);
 		list_delete_node(temp_list, now);
 	}
-	
+
 	if(memory_log_isfull(_tm.mem_log)){
 		if(!compaction_wait_job_number()){
 			skiplist *committing_skip=_tm.commit_KP;
@@ -434,7 +434,7 @@ uint32_t transaction_commit(request *const req){
 			compaction_send_creq_by_skip(committing_skip, committing_etr, false);
 			bench_custom_A(write_opt_time2, 7);
 		}
-
+		
 		compaction_wait_jobs();
 	}
 

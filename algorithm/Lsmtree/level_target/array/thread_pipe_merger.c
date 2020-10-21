@@ -19,6 +19,7 @@ extern float t_fpr;
 #endif
 extern _bc bc;
 bool header_debug_flag;
+bool isclear;
 static void temp_func(char* body, level *d, bool merger){
 	int idx;
 	uint16_t *bitmap=(uint16_t*)body;
@@ -48,6 +49,7 @@ typedef struct thread_params{
 	char **result_data;
 	p_body *rp;
 	uint32_t idx;
+	bool isdone;
 	bool isdummy;
 	struct level *d;
 }tp;
@@ -63,6 +65,7 @@ static tp *init_thread_params(uint32_t num, char *target, level *d, uint32_t idx
 	res->d=d;
 	res->idx=idx;
 	res->isdummy=false;
+	res->isdone=false;
 	return res;
 }
 
@@ -85,6 +88,7 @@ static tp *init_dummy_thread_params(uint32_t num, char *target, level *d, uint32
 	res->d=d;
 	res->idx=idx;
 	res->isdummy=true;
+	res->isdone=true;
 	return res;
 }
 
@@ -215,6 +219,7 @@ void __pipe_merger(void *argument, int id){
 	params->result_num=result_cnt;
 	params->result_data=tp_r_data;
 	params->rp=rp;
+	params->isdone=true;
 }
 
 thread_params **tpp;
@@ -228,6 +233,9 @@ run_t* array_thread_pipe_cutter(struct skiplist *mem, struct level *d, KEYT *_st
 retry:
 	static int KP_cnt=0;
 	thread_params *tp=tpp[params_idx];
+	if(!tp->isdone){
+		thpool_wait(pool);
+	}
 	p_body *rp=tp->rp;
 	if(cutter_start){
 		cutter_start=false;
@@ -253,6 +261,9 @@ retry:
 		splited_data_set.clear();
 		free(tpp);
 		ismulti_thread=false;
+		if(!isclear){
+			bc_clear_ignore_flag();
+		}
 		return NULL;
 	}
 	else{
@@ -267,7 +278,7 @@ retry:
 void array_thread_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	if(mem) return array_pipe_merger(mem, s, o, d);
 	ismulti_thread=true;
-
+	isclear=false;
 	static bool is_thread_init=false;
 	if(!is_thread_init){
 		is_thread_init=true;
@@ -400,13 +411,16 @@ next_round:
 //	exit(1);
 	params_max=tp_num;
 
-	thpool_wait(pool);
+	//thpool_wait(pool);
 
 	bench_custom_A(write_opt_time2, 9);
 	free(o_data);
 	free(u_data);
 	if(d->idx==LSM.LEVELN-1){
-		bc_clear_ignore_flag();
+		if(!thpool_num_threads_working(pool)){
+			bc_clear_ignore_flag();
+			isclear=true;
+		}
 	}
 }
 

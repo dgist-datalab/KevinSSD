@@ -869,11 +869,6 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 		}*/
 		req->value->ppa=ppa;
 		if(!ISHWREAD(LSM.setup_values) || lsm_req->type==DATAR){
-			if(ppa/NPCINPAGE==debugging_ppa){
-				char buf[100]={0,};
-				key_interpreter(req->key, buf);
-				printf("read %s at ppa:%u\n", buf, ppa/NPCINPAGE);
-			}
 			LSM.li->read(ppa/(NPCINPAGE),PAGESIZE,req->value,ASYNC,lsm_req);
 		}
 		else{

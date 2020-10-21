@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 extern lsmtree LSM;
-extern MeasureTime write_opt_time[10];
+extern MeasureTime write_opt_time2[15];
 extern KEYT debug_key;
 extern uint32_t debugging_ppa;
 //extern bool debug_target;
@@ -81,6 +81,7 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 				memcpy(&page[ptr],target->value.g_value,target_length*PIECE);
 
 			}else{
+				bench_custom_start(write_opt_time2, 2);
 				snode *target=src->bucket[target_length][src->idx[target_length]-1];
 				target->ppa=LSM.lop->get_page(target->value.u_value->length,target->key);
 
@@ -89,6 +90,7 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 				inf_free_valueset(target->value.u_value, FS_MALLOC_W);
 				target->value.u_value=NULL;
 				key_packing_insert(*kp, target->key);
+				bench_custom_A(write_opt_time2, 2);
 			}
 			used_piece+=target_length;
 			src->idx[target_length]--;

@@ -115,12 +115,14 @@ void write_buffer_insert_KV(WBM *wbm, transaction_entry *in_etr, KEYT key, value
 		}
 
 		/*merging data*/
+		bench_custom_start(write_opt_time2,1);
 		key_packing *kp=NULL;
 		lsm_block_aligning(2,false);
 		res[0]=variable_get_kp(&kp,false);
 		int res_idx=1;
 		full_page_setting(&res_idx, res, kp, &b);
 		variable_value2Page(NULL, &b, &res, &res_idx, &kp, false);
+		bench_custom_A(write_opt_time2,1);
 
 		for(int i=0; i<=NPCINPAGE; i++){
 			if(b.bucket[i]) free(b.bucket[i]);

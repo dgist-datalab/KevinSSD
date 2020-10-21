@@ -131,9 +131,9 @@ void bc_set_validate(uint32_t _ppa){
 			abort();
 		}
 		_ppa%=(_PPS*NPCINPAGE);
-		pthread_mutex_lock(&bc.lock);
+	//	pthread_mutex_lock(&bc.lock);
 		bc_set_bitmap(bc.main_buf[bc_num], _ppa/8, _ppa%8);
-		pthread_mutex_unlock(&bc.lock);
+	//	pthread_mutex_unlock(&bc.lock);
 		return;
 	}
 	else{
@@ -149,9 +149,9 @@ void bc_set_invalidate(uint32_t _ppa){
 			abort();
 		}
 		_ppa%=(_PPS*NPCINPAGE);
-		pthread_mutex_lock(&bc.lock);
+	//	pthread_mutex_lock(&bc.lock);
 		bc_unset_bitmap(bc.main_buf[bc_num], _ppa/8, _ppa%8);
-		pthread_mutex_unlock(&bc.lock);
+	//	pthread_mutex_unlock(&bc.lock);
 		return;
 	}
 	else{
