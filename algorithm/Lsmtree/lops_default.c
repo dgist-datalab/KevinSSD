@@ -1,6 +1,7 @@
 #include "level.h"
 #include "page.h"
 #include "lsmtree.h"
+#include "../../interface/koo_hg_inf.h"
 #include <stdio.h>
 
 extern lsmtree LSM;
@@ -35,7 +36,7 @@ ppa_t def_moveTo_fr_page(bool isgc){
 #endif
 	return res;
 }
-
+extern uint32_t debugging_ppa;
 ppa_t def_get_page(uint8_t plength, KEYT simul_key){
 	ppa_t res=0;
 	if(LSM.active_block->idx_of_ppa>=NPCINPAGE){
@@ -58,7 +59,7 @@ ppa_t def_get_page(uint8_t plength, KEYT simul_key){
 	lsm_simul_put(res,simul_key);
 #endif
 	validate_PPA(DATA,res);
-
+	
 	return res;
 }
 

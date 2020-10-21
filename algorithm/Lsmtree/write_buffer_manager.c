@@ -3,9 +3,10 @@
 #include "key_packing.h"
 #include "variable.h"
 #include "compaction.h"
+#include "../../bench/bench.h"
 #include <stdlib.h>
 #include <stdio.h>
-
+extern MeasureTime write_opt_time2[15];
 static void print_write_buffer_list(list *li);
 
 WBM* write_buffer_init(uint32_t max_kv_pair, bool (*wt)(transaction_entry*, li_node*)){
@@ -128,7 +129,9 @@ void write_buffer_insert_KV(WBM *wbm, transaction_entry *in_etr, KEYT key, value
 		key_packing_free(kp);
 
 		/*data write*/
+		bench_custom_start(write_opt_time2,3);
 		issue_data_write(res, LSM.li, DATAW);
+		bench_custom_A(write_opt_time2,3);
 		free(res);
 	
 		for_each_list_node_safe(wbm->open_transaction_list, node, nxt){

@@ -38,7 +38,7 @@ export COMMONFLAGS=\
 			-DKVSSD\
 			-DKOO\
 			-DCHECKINGTIME\
-#	-O3 -march=native -mtune=native -flto=20 \
+-O3 -march=native -mtune=native -flto=20 \
 #-DDEBUG\
 #			-march=armv8-a+crypto\
 

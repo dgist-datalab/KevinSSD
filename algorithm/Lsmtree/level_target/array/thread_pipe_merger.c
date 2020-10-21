@@ -178,9 +178,7 @@ void __pipe_merger(void *argument, int id){
 				rppa=hppa;
 			}
 			else{
-				if(lppa!=UINT32_MAX){
-					invalidate_PPA(DATA,lppa);
-				}
+				invalidate_PPA(DATA,lppa,d->idx);
 				rppa=hppa;
 				insert_key=hp_key;
 			}
@@ -407,5 +405,8 @@ next_round:
 	bench_custom_A(write_opt_time2, 9);
 	free(o_data);
 	free(u_data);
+	if(d->idx==LSM.LEVELN-1){
+		bc_clear_ignore_flag();
+	}
 }
 

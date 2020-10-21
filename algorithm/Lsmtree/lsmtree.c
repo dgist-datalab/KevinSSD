@@ -6,6 +6,7 @@
 #include "../../include/lsm_settings.h"
 #include "../../include/slab.h"
 #include "../../interface/interface.h"
+#include "../../interface/koo_hg_inf.h"
 #include "../../interface/koo_inf.h"
 #include "../../bench/bench.h"
 #include "variable.h"
@@ -22,8 +23,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-extern MeasureTime write_opt_time[10];
-MeasureTime write_opt_time2[10];
+MeasureTime write_opt_time2[15];
 
 #ifdef KVSSD
 KEYT key_max, key_min;
@@ -70,7 +70,7 @@ uint32_t lsm_create(lower_info *li,blockmanager *bm, algorithm *lsm){
 	LSM.bm=bm;
 	__lsm_create_normal(li,lsm);
 	LSM.result_padding=2;
-	bench_custom_init(write_opt_time2,10);
+	bench_custom_init(write_opt_time2,15);
 	return 1;
 }
 
@@ -199,7 +199,7 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	fprintf(stdout,"========================================================\n");
 
 
-	bench_custom_print(write_opt_time2,10);
+	bench_custom_print(write_opt_time2,15);
 
 	compaction_free();
 	free(LLP.size_factor_change);
@@ -722,6 +722,8 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 }
 #ifndef MULTILEVELREAD
 extern char *debug_koo_key;
+extern bool debug_target;
+extern uint32_t debugging_ppa;
 int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int idx){
 	int res=0;
 	
@@ -867,6 +869,11 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 		}*/
 		req->value->ppa=ppa;
 		if(!ISHWREAD(LSM.setup_values) || lsm_req->type==DATAR){
+			if(ppa/NPCINPAGE==debugging_ppa){
+				char buf[100]={0,};
+				key_interpreter(req->key, buf);
+				printf("read %s at ppa:%u\n", buf, ppa/NPCINPAGE);
+			}
 			LSM.li->read(ppa/(NPCINPAGE),PAGESIZE,req->value,ASYNC,lsm_req);
 		}
 		else{

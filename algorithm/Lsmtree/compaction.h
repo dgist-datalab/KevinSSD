@@ -141,6 +141,7 @@ inline void issue_data_write(value_set **data_sets, lower_info *li, uint8_t type
 		if(params->value->dmatag==-1){
 			abort();
 		}
+
 		li->write(CONVPPA(data_sets[i]->ppa),PAGESIZE,params->value,ASYNC,lsm_req);
 	}
 }

@@ -81,7 +81,7 @@ lsm_block* getRBlock(uint8_t type);
 
 void change_reserve_to_active(uint8_t type);
 void change_new_reserve(uint8_t type);
-bool invalidate_PPA(uint8_t type,uint32_t ppa);
+bool invalidate_PPA(uint8_t type,uint32_t ppa, int level);
 void erase_PPA(uint8_t type,uint32_t ppa);
 bool validate_PPA(uint8_t type,uint32_t ppa);
 void pm_set_oob(uint32_t ppa, char *data, int len, int type);

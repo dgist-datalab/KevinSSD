@@ -19,7 +19,7 @@ extern pm d_m;
 extern my_tm _tm;
 Redblack transaction_indexer;
 fdriver_lock_t indexer_lock;
-extern MeasureTime write_opt_time2[10];
+extern MeasureTime write_opt_time2[15];
 inline bool commit_exist(){
 	Redblack target;
 	li_node *ln;
@@ -243,7 +243,6 @@ inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *targe
 bool delete_debug=false;
 value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid, KEYT key, value_set *value, bool valid,  transaction_entry **t){
 
-	bench_custom_start(write_opt_time2, 1);
 	transaction_entry *target=find_last_entry(tid);
 	if(!target){
 		//printf("new transaction added in set!\n");
@@ -254,18 +253,13 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 		}
 		target=find_last_entry(tid);
 	}
-	bench_custom_A(write_opt_time2, 1);
 
-	bench_custom_start(write_opt_time2, 2);
 	if(target->helper_type==BFILTER){
 		bf_set(target->read_helper.bf, key);
 	}
-	bench_custom_A(write_opt_time2, 2);
 
 	if(table->wbm){
-		bench_custom_start(write_opt_time2, 3);
 		write_buffer_insert_KV(table->wbm, target, key, value, valid);
-		bench_custom_A(write_opt_time2, 3);
 		return NULL;
 	}
 	else{

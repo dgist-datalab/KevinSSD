@@ -197,7 +197,7 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 */
 	ppa_t *ppa=(ppa_t*)inv;
 	for(int i=0; i<invalidate_num; i++){
-		invalidate_PPA(DATA,ppa[i]);
+		invalidate_PPA(DATA,ppa[i],-1);
 	}
 	
 	for(int i=ktable_num; i<tp_num; i++){
@@ -212,7 +212,7 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 			abort();
 		}*/
 		//printf("inv validate: %u - %d\n",ppa,__LINE__);;
-		if(!invalidate_PPA(HEADER,lp_array[i])){
+		if(!invalidate_PPA(HEADER,lp_array[i],-1)){
 			LSM.lop->print(origin);
 			abort();
 		}
@@ -220,7 +220,7 @@ uint32_t hw_partial_leveling(level *t, level *origin, leveling_node* lnode, leve
 //	free(test_array);
 	for(int i=0; i<hp_num; i++){
 		//printf("inv validate: %u - %d\n",ppa,__LINE__);;
-		invalidate_PPA(HEADER,hp_array[i]);
+		invalidate_PPA(HEADER,hp_array[i],-1);
 	}
 
 

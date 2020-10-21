@@ -11,6 +11,8 @@
 #include "../../interface/interface.h"
 #include "../../include/data_struct/list.h"
 #include "../../include/sem_lock.h"
+#include "../../interface/koo_hg_inf.h"
+#include "../../bench/bench.h"
 #include "level.h"
 #include <string.h>
 #include <stdlib.h>
@@ -34,6 +36,7 @@ typedef struct temp_gc_h{
 	bool is_should_write;
 }temp_gc_h;
 
+extern MeasureTime write_opt_time2[15];
 #ifdef KVSSD
 uint32_t gc_cnt=0;
 int gc_header(){
@@ -197,6 +200,7 @@ int __gc_data();
 int gc_data(){
 
 	LMI.data_gc_cnt++;
+	bench_custom_start(write_opt_time2, 11);
 	if(ISTRANSACTION(LSM.setup_values)){
 		if(fdriver_try_lock(&_tm.table_lock)==-1){
 			fdriver_unlock(&_tm.table_lock);
@@ -205,20 +209,25 @@ int gc_data(){
 		}
 	}
 	compaction_wait_jobs();
+	bench_custom_A(write_opt_time2, 11);
+
+
+	bench_custom_start(write_opt_time2, 12);
 	__gc_data();
+	bench_custom_A(write_opt_time2, 12);
 	return 1;
 }
 
 extern _bc bc;
 extern uint32_t debugging_ppa;
 int __gc_data(){
-	
+	/*
 	static int cnt=0;
 	printf("gc_cnt:%u\n",cnt++);
 	static bool flag=false;
 	if(!flag){
 		flag=true;
-	}
+	}*/
 	
 	gc_general_wait_init();
 
@@ -239,7 +248,7 @@ int __gc_data(){
 		if(!bitmap_cache_check){
 			start_page=tpage;
 			if(tpage!=bc.start_block_ppn){
-				printf("different block with bitmap_cache :%u\n", tpage);
+				//printf("different block with bitmap_cache :%u\n", tpage);
 				//abort();
 			}
 			bitmap_cache_check=true;
@@ -301,7 +310,7 @@ int __gc_data(){
 		for(int j=0;j<NPCINPAGE; j++){
 			t_ppa=tpage*NPCINPAGE+j;
 			if(t_ppa/NPCINPAGE==debugging_ppa){
-				printf("break!\n");
+				//printf("break!\n");
 			}
 			oob_len=foot->map[j];
 			if(!oob_len){
@@ -360,8 +369,9 @@ next_page:
 	}
 
 	free(tables);
-
-	gc_data_header_update_add(gc_node_array, node_idx);
+	
+	if(node_idx)
+		gc_data_header_update_add(gc_node_array, node_idx);
 
 	for_each_block(tseg,tblock,bidx){
 		lb_free((lsm_block*)tblock->private_data);
@@ -583,6 +593,7 @@ uint32_t gc_data_each_header_check(struct gc_node *g, int size){
 	return done_cnt;
 }
 
+bool debug_target;
 void gc_data_header_update(struct gc_node **g, int size){
 	uint32_t done_cnt=0;
 	int result=0;
@@ -607,7 +618,7 @@ void gc_data_header_update(struct gc_node **g, int size){
 			target->validate_test=true;
 
 			if(target->ppa/NPCINPAGE==debugging_ppa){
-				printf("break2\n");
+				debug_target=true;
 			}
 
 			if(!bc_valid_query(target->ppa)){
@@ -653,7 +664,7 @@ void gc_data_header_update(struct gc_node **g, int size){
 	}
 
 	if(!plength_zero_cnt){
-		printf("no data to remove!!!!!\n");
+		//printf("no data to remove!!!!!\n");
 	//	abort();
 	}
 

@@ -238,7 +238,7 @@ lsm_block* getRBlock(uint8_t type){
 	return lb;
 }
 
-bool invalidate_PPA(uint8_t type,uint32_t ppa){
+bool invalidate_PPA(uint8_t type, uint32_t ppa, int level){
 	if(ppa==TOMBSTONE) return true;
 	uint32_t t_p=ppa;
 	void *t;
@@ -275,7 +275,12 @@ bool invalidate_PPA(uint8_t type,uint32_t ppa){
 	}
 	else{
 		if(bc.full_caching){
-			bc_set_invalidate(ppa);
+			if(level==LSM.LEVELN-1 && bc_is_ignore(ppa/NPCINPAGE/_PPS)){
+			
+			}
+			else{
+				bc_set_invalidate(ppa);
+			}
 		}
 	}
 	return true;

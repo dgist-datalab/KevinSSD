@@ -41,7 +41,7 @@ void temp_func(char* body, level *d, bool insert){
 	KEYT key;
 	ppa_t *ppa_ptr;
 	for_each_header_start(idx,key,ppa_ptr,bitmap,body)
-		if(*ppa_ptr/NPCINPAGE==512141){
+	/*	if(*ppa_ptr/NPCINPAGE==512141){
 			char buf[100];
 			key_interpreter(key, buf);
 			printf("KEY-(%s), ppa:%u ",buf,*ppa_ptr);
@@ -55,7 +55,7 @@ void temp_func(char* body, level *d, bool insert){
 				printf("cutter %d\n",d->idx);
 			}
 		}
-		else if(key_const_compare(key, 'd', 36928, 1, NULL) || key_const_compare(key, 'd', 36928, 2, NULL)){
+		else*/ if(key_const_compare(key, 'd', 222551, 13, NULL) || key_const_compare(key, 'd', 222551, 13, NULL)){
 				char buf[100];
 				key_interpreter(key, buf);			
 				printf("maybe update KEY-(%s), ppa:%u ",buf,*ppa_ptr);
@@ -72,6 +72,7 @@ void temp_func(char* body, level *d, bool insert){
 	for_each_header_end
 }
 
+extern uint32_t debugging_ppa;
 void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	bench_custom_start(write_opt_time2, 9);
 	cutter_start=true;
@@ -158,7 +159,8 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 				rppa=hppa;
 			}
 			else{
-				invalidate_PPA(DATA,lppa);
+				invalidate_PPA(DATA,lppa, d->idx);
+
 				rppa=hppa;
 				insert_key=hp_key;
 			}
@@ -185,7 +187,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 			result_cnt++;
 		}
 	}
-	if(d->idx==LSM.LEVELN-1 && bc.full_caching){
+	if(d->idx==LSM.LEVELN-1 && !bc.full_caching){
 		bc_set_validate(rppa);
 	}
 
@@ -199,6 +201,9 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	free(u_data);
 	pbody_clear(lp);
 	pbody_clear(hp);
+	if(d->idx==LSM.LEVELN-1){
+		bc_clear_ignore_flag();
+	}
 	bench_custom_A(write_opt_time2, 9);
 }
 
@@ -305,7 +310,7 @@ run_t *array_pipe_p_merger_cutter(skiplist *skip, pl_run *u_data, pl_run* l_data
 				p_rppa=hppa;
 			}
 			else{
-				invalidate_PPA(DATA,lppa);
+				invalidate_PPA(DATA,lppa,d->idx);
 				p_rppa=hppa;
 				insert_key=hp_key;
 			}

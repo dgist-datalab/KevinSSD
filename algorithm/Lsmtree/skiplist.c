@@ -245,7 +245,7 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
 #endif
 	{
 		//ignore new one;
-		invalidate_PPA(DATA,ppa);
+		invalidate_PPA(DATA,ppa,-1);
 		abort();
 		return x;
 	}
@@ -328,7 +328,7 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 			abort();
 		}
 		if(x->ppa!=TOMBSTONE){
-			invalidate_PPA(DATA,x->ppa);
+			invalidate_PPA(DATA,x->ppa,-1);
 		}
 		free(key.key);
 		x->ppa=ppa;

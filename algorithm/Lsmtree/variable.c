@@ -3,11 +3,14 @@
 #include "level.h"
 #include "page.h"
 #include "../../bench/bench.h"
+#include "../../interface/koo_hg_inf.h"
 #include <stdlib.h>
 #include <stdio.h>
 extern lsmtree LSM;
 extern MeasureTime write_opt_time[10];
 extern KEYT debug_key;
+extern uint32_t debugging_ppa;
+//extern bool debug_target;
 void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset, int* target_valueset_from, key_packing **kp, bool isgc){
 	int v_idx;
 	value_set **v_des=NULL;
@@ -109,6 +112,8 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 	}
 
 	*target_valueset_from=v_idx;
+	//if(debug_target)
+	//	debug_target=false;
 	return v_des;
 }
 

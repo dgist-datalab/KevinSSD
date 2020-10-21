@@ -665,7 +665,7 @@ bool htable_read_preproc(run_t *r){
 void htable_read_postproc(run_t *r){
 	if(r->iscompactioning!=INVBYGC && r->iscompactioning!=SEQCOMP){
 		if(r->pbn!=UINT32_MAX)
-			invalidate_PPA(HEADER,r->pbn);
+			invalidate_PPA(HEADER,r->pbn,-1);
 		else{
 			//the run belong to levelcaching lev
 		}

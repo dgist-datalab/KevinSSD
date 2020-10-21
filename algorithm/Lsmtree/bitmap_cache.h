@@ -5,6 +5,7 @@
 #include "../../include/settings.h"
 
 typedef struct BC{
+	char *ignore_invalidate_flag;
 	char **main_buf;
 	uint32_t start_block_ppn;
 	uint32_t max;
@@ -23,6 +24,8 @@ void bc_set_validate(uint32_t ppa);
 void bc_set_invalidate(uint32_t _ppa);
 void bc_range_print();
 void bc_clear_block(uint32_t ppa);
+void bc_clear_ignore_flag();
+bool bc_is_ignore(uint32_t seg_num);
 static inline int bc_used_memory(uint32_t max_caching_segment){
 	return _PPS*NPCINPAGE*max_caching_segment/8;
 }

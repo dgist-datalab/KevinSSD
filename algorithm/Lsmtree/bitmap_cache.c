@@ -3,7 +3,7 @@
 #include "../../include/lsm_settings.h"
 _bc bc;
 
-uint32_t debugging_ppa=7444224;
+uint32_t debugging_ppa=2510691;
 
 static inline void bc_set_bitmap(char* body, uint32_t idx, uint32_t offset){
 	body[idx]|=1<<offset;
@@ -62,19 +62,20 @@ void bc_init(uint32_t max_size, uint32_t start_block_ppn, uint32_t min_ppn, uint
 	}
 	else bc.full_caching=false;
 
-	bc.max=max_size;
+	bc.max=max_size+1;
 	bc.start_block_ppn=start_block_ppn;
 	bc.min_ppn=min_ppn;
 	bc.max_ppn=max_ppn;
 
-	bc.main_buf=(char**)malloc(sizeof(char*)* max_size);
+	bc.main_buf=(char**)malloc(sizeof(char*)* bc.max);
 
-	for(uint32_t i=0; i<max_size; i++){
+	for(uint32_t i=0; i<bc.max; i++){
 		bc.main_buf[i]=(char*)malloc(_PPS*NPCINPAGE/8);
 		memset(bc.main_buf[i],0,_PPS*NPCINPAGE/8);
 	}
 	bc.pop_cnt=0;
 	pthread_mutex_init(&bc.lock, NULL);
+	bc.ignore_invalidate_flag=(char*)calloc(bc.max/8+(bc.max%8?1:0), 1);
 }
 
 void bc_reset(){
@@ -125,9 +126,6 @@ bool bc_valid_query(uint32_t _ppa){
 
 void bc_set_validate(uint32_t _ppa){
 	uint32_t bc_num;
-	if(_ppa/NPCINPAGE==debugging_ppa){
-		printf("%u: validate - %u\n",debugging_ppa, _ppa);
-	}
 	if(set_bc_num(_ppa, &bc_num)){
 		if(bc_num>bc.max){
 			abort();
@@ -146,9 +144,6 @@ void bc_set_validate(uint32_t _ppa){
 void bc_set_invalidate(uint32_t _ppa){
 	if(!bc.full_caching) return;
 	uint32_t bc_num;
-	if(_ppa/NPCINPAGE==debugging_ppa){
-		printf("%u: invalidate - %u\n",debugging_ppa, _ppa);
-	}
 	if(set_bc_num(_ppa, &bc_num)){
 		if(bc_num>bc.max){
 			abort();
@@ -174,4 +169,14 @@ void bc_clear_block(uint32_t ppa){
 	uint32_t bc_num;
 	set_bc_num(ppa*NPCINPAGE, &bc_num);
 	memset(bc.main_buf[bc_num],0,_PPS*NPCINPAGE/8);
+	uint32_t seg_num=ppa/_PPS;
+	bc_set_bitmap(bc.ignore_invalidate_flag, seg_num/8, seg_num%8);
+}
+
+void bc_clear_ignore_flag(){
+	memset(bc.ignore_invalidate_flag,0,bc.max/8+(bc.max%8?1:0));
+}
+
+bool bc_is_ignore(uint32_t seg_num){
+	return bc_chk_bitmap(bc.ignore_invalidate_flag, seg_num/8, seg_num%8);
 }
