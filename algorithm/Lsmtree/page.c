@@ -555,4 +555,20 @@ bool block_active_full(bool isgc){
 	else
 		return d_m.active->used_page_num==_PPS;
 }
+
+uint32_t block_get_start_page(bool isgc){
+	if(isgc){
+		return d_m.reserve->used_page_num;
+	}
+	else
+		return d_m.active->used_page_num;
+}
+
+uint32_t block_active_remain_pagenum(bool isgc){
+	if(isgc){
+		return _PPS-d_m.reserve->used_page_num;
+	}
+	else
+		return _PPS-d_m.active->used_page_num;
+}
 #endif

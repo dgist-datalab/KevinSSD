@@ -149,8 +149,10 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 		}
 		else{
 			printf("\t|bitmap_caching memroy:%u\n",bc_used_memory(bc.max)/PAGESIZE);
-			printf("\t|LRU size :%u pages\n",1);
-			LSM.llru=lsm_lru_init(1);
+	//		printf("\t|LRU size :%u pages\n",1);
+	//		LSM.llru=lsm_lru_init(1);
+			printf("\t|LRU size :%u pages\n",remain_memory);
+			LSM.llru=lsm_lru_init(remain_memory);
 		}
 	}
 	else{
@@ -1165,13 +1167,13 @@ uint32_t lsm_memory_size(){
 	uint32_t res=0;
 	snode *temp;
 	res+=skiplist_memory_size(LSM.memtable);
-	for_each_sk(temp,LSM.memtable){
+	for_each_sk(LSM.memtable,temp){
 		if(temp->value.u_value) res+=PAGESIZE;
 	}
 
 	res+=skiplist_memory_size(LSM.temptable);
 	if(LSM.temptable)
-		for_each_sk(temp,LSM.temptable){
+		for_each_sk(LSM.temptable, temp){
 			if(temp->value.u_value) res+=PAGESIZE;
 		}
 	res+=sizeof(lsmtree);
@@ -1350,6 +1352,7 @@ void *testing(KEYT a, ppa_t ppa){
 
 
 bool lsm_should_flush(skiplist *mem, __segment *seg){
+	/*
 	uint32_t data_size=mem->data_size;
 	uint32_t needed_page=data_size/PAGESIZE+(data_size%PAGESIZE?1:0)+1;
 	uint32_t remain_page=_PPS-seg->used_page_num;
@@ -1360,9 +1363,9 @@ bool lsm_should_flush(skiplist *mem, __segment *seg){
 		return true;	
 	}
 	else if(needed_page>remain_page){
-		lsm_block_aligning(needed_page, false);
+		//lsm_block_aligning(needed_page, false);
 	}
-
+*/
 check_mem:
 	if(METAFLUSHCHECK(*mem)){
 		LMI.full_comp_cnt++;
@@ -1391,6 +1394,7 @@ bool lsm_block_aligning(uint32_t try_page_num, bool isgc){
 		ppa_t pa=LSM.bm->get_page_num(LSM.bm, t_seg);
 		footer *foot=(footer*)pm_get_oob(pa, DATA, false);
 		foot->map[0]=NPCINPAGE+1;
+		printf("set null value-ppa:%u\n",pa);
 	}
 	return false;
 }

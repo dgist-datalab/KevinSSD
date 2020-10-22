@@ -15,12 +15,12 @@ typedef struct gc_node gc_node;
 #endif
 #define MAX_L 30 //max level number
 #define PROB 4 //the probaility of level increasing : 1/PROB => 1/4
-#define for_each_sk(node,skip)\
+#define for_each_sk(skip,node)\
 	for(node=skip->header->list[1];\
 			node!=skip->header;\
 			node=node->list[1])
 
-#define for_each_sk_from(node,from,skip)\
+#define for_each_sk_from(skip,node,from)\
 	for(node=from;\
 			node!=skip->header;\
 			node=node->list[1])
@@ -114,7 +114,7 @@ static inline bool skiplist_data_to_bucket(skiplist *input, l_bucket *b, KEYT *s
 	bool data_is_empty=true;
 	uint32_t idx=1;
 	snode *target;
-	for_each_sk(target,input){
+	for_each_sk(input,target){
 		if(set_range){
 			if(idx==1){
 				kvssd_cpy_key(start,&target->key);
@@ -148,7 +148,7 @@ snode *skiplist_general_insert(skiplist*,KEYT,void *,void (*overlap)(void*));
 snode *skiplist_pop(skiplist *);
 skiplist *skiplist_cutting_header(skiplist *,uint32_t *avg);
 skiplist *skiplist_cutting_header_se(skiplist *,uint32_t *avg,KEYT *start, KEYT *end);
-value_set **skiplist_make_gc_valueset(skiplist *,gc_node **, int);
+value_set** skiplist_make_gc_valueset(skiplist *,gc_node **, int);
 void skiplist_free_iter(skiplist *list);  //free skiplist
 #endif
 snode *skiplist_at(skiplist *,int idx);

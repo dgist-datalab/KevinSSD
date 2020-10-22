@@ -55,6 +55,7 @@ void list_delete_node(list *li, li_node* t){
 	li->size--;
 	free(t);
 }
+
 void list_free(list *li){
 	li_node *now, *nxt;
 	if(li->size){

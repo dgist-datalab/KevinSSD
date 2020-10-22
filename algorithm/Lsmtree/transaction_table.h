@@ -7,7 +7,8 @@
 #include "../../interface/interface.h"
 #include "../../include/utils.h"
 #include "memory_log.h"
-#include "write_buffer_manager.h"
+//#include "write_buffer_manager.h"
+#include "koo_buffer_manager.h"
 #include "bloomfilter.h"
 #include <queue>
 #define TABLE_ENTRY_SZ (sizeof(uint32_t)+sizeof(uint32_t)+sizeof(uint8_t))
@@ -41,7 +42,7 @@ typedef struct transaction_entry{
 	t_ptr ptr;
 	t_range range;
 	uint8_t helper_type;
-	li_node *wbm_node;
+	//li_node *wbm_node;
 	li_node *rb_li_node;
 	transaction_read_helper read_helper;
 	uint32_t kv_pair_num;
@@ -51,7 +52,8 @@ typedef struct transaction_table{
 	transaction_entry *etr;
 	volatile uint32_t now;
 	volatile uint32_t full;
-	struct write_buffer_manager *wbm;
+	//struct write_buffer_manager *wbm;
+	struct koo_buffer_manager *kbm;
 	pthread_cond_t block_cond;
 	pthread_mutex_t block;
 	std::queue<transaction_entry *> *etr_q; 

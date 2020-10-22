@@ -23,7 +23,7 @@ char *array_skip_cvt2_data(skiplist *mem){
 	uint32_t idx=1;
 	uint16_t data_start=KEYBITMAP;
 	snode *temp;
-	for_each_sk(temp,mem){
+	for_each_sk(mem,temp){
 		memcpy(&res[data_start],&temp->ppa,sizeof(temp->ppa));
 		memcpy(&res[data_start+sizeof(temp->ppa)],temp->key.key,temp->key.len);
 		bitmap[idx]=data_start;

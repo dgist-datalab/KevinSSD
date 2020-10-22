@@ -244,7 +244,9 @@ int __gc_data(){
 	bool bitmap_cache_check=false;
 	uint32_t start_page;
 	//printf("invalidate number:%d\n",tseg->invalidate_number);
-	for_each_page_in_seg_blocks(tseg,tblock,tpage,bidx,pidx){
+	int idx=0;
+	for_each_page_in_seg_blocks_reverse(tseg,tblock,tpage,bidx,pidx){
+		printf("%d tpage:%u\n", idx++, tpage);
 		if(!bitmap_cache_check){
 			start_page=tpage;
 			if(tpage!=bc.start_block_ppn){
@@ -280,7 +282,7 @@ int __gc_data(){
 	key_packing *kp=NULL;
 	uint32_t temp_kp_idx=0;
 	uint32_t time;
-	for_each_page_in_seg_blocks(tseg,tblock,tpage,bidx,pidx){
+	for_each_page_in_seg_blocks_reverse(tseg,tblock,tpage,bidx,pidx){
 		uint32_t t_ppa;
 		KEYT lpa;
 		uint8_t oob_len;
@@ -327,7 +329,7 @@ int __gc_data(){
 			if(lpa.len==0){
 				abort();
 			}
-
+/*
 			if(oob_len==NPCINPAGE && oob_len%NPCINPAGE==0){
 				temp_g=gc_data_write_new_page(t_ppa,NULL,tables[i],NPCINPAGE,&lpa);
 				temp_g->time=time;
@@ -340,7 +342,7 @@ int __gc_data(){
 				gc_node_array[node_idx++]=temp_g;
 				j+=foot->map[j]-1;
 			}
-	
+*/	
 			if(full_page) break;
 		}
 		if(used_page)

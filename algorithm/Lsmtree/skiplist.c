@@ -96,7 +96,7 @@ snode *skiplist_get_end(skiplist *list){
 	/*
 	printf("please remove test code!!!\n");
 	snode *test;
-	for_each_sk(test, list){
+	for_each_sk(list,test){
 		if(test->list[1]==list->header)
 			break;
 	}
@@ -214,7 +214,7 @@ int getLevel(){
 }
 
 #ifdef Lsmtree
-snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
+snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool valid){
 #if !(defined(KVSSD) )
 	if(key>RANGE){
 		printf("bad page read key:%u\n",key);
@@ -270,7 +270,7 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
 #endif
 		x->key=key;
 		x->ppa=ppa;
-		x->isvalid=deletef;
+		x->isvalid=valid;
 #ifdef Lsmtree
 		x->iscaching_entry=false;
 #endif
@@ -290,7 +290,7 @@ snode *skiplist_insert_wP(skiplist *list, KEYT key, ppa_t ppa,bool deletef){
 	return x;
 }
 
-snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool deletef){
+snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool valid){
 #ifndef KVSSD
 	if(key>RANGE){
 		printf("bad page read\n");
@@ -332,7 +332,7 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 		}
 		free(key.key);
 		x->ppa=ppa;
-		x->isvalid=deletef;
+		x->isvalid=valid;
 		return x;
 	}
 	else{
@@ -360,7 +360,7 @@ snode *skiplist_insert_existIgnore(skiplist *list,KEYT key,ppa_t ppa,bool delete
 #endif
 		x->key=key;
 		x->ppa=ppa;
-		x->isvalid=deletef;
+		x->isvalid=valid;
 		x->value.u_value=NULL;
 		for(int i=1; i<=level; i++){
 			x->list[i]=update[i]->list[i];
@@ -453,7 +453,7 @@ skiplist *skiplist_cutting_header(skiplist *in,uint32_t *value){
 	uint32_t length=0;
 	uint32_t idx=0;
 	snode *temp;
-	for_each_sk(temp,in){
+	for_each_sk(in,temp){
 		length+=KEYLEN(temp->key);
 		idx++;
 		if(length+KEYLEN(temp->list[1]->key)>=size_limit || idx>=num_limit ) break;
@@ -475,7 +475,7 @@ skiplist *skiplist_cutting_header_se(skiplist *in,uint32_t *value,KEYT *start, K
 	uint32_t idx=0;
 	KEYT t_end;
 	if(in->all_length<size_limit && in->size <num_limit){
-		for_each_sk(temp,in){
+		for_each_sk(in,temp){
 			if(idx==0){
 				kvssd_cpy_key(start,&temp->key);
 			}
@@ -488,7 +488,7 @@ skiplist *skiplist_cutting_header_se(skiplist *in,uint32_t *value,KEYT *start, K
 		return in;
 	}
 
-	for_each_sk(temp,in){
+	for_each_sk(in,temp){
 		if(idx==0){
 			kvssd_cpy_key(start,&temp->key);
 		}
@@ -581,7 +581,7 @@ snode *skiplist_insert_iter(skiplist *list,KEYT key,ppa_t ppa){
 	return x;
 }
 //extern bool testflag;
-snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
+snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool valid){
 	snode *update[MAX_L+1];
 	snode *x=list->header;
 	for(int i=list->level; i>=1; i--){
@@ -605,28 +605,22 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 	{
 #ifdef DEBUG
 
-#endif
-	//	algo_req * old_req=x->req;
-	//	lsm_params *old_params=(lsm_params*)old_req->params;
-	//	old_params->lsm_type=OLDDATA;
-		/*
-		static int cnt=0;
-		if(testflag){
-			printf("%d overlap!\n",++cnt);
-		}*/
-		
+#endif	
 		list->data_size-=x->value.u_value?(x->value.u_value->length*PIECE):0;
 		list->data_size+=value?(value->length*PIECE):0;
-		if(x->value.u_value)
+		if(x->value.u_value){
 			inf_free_valueset(x->value.u_value,FS_MALLOC_W);
+		}
+		else if(!(x->ppa==UINT32_MAX || x->ppa==TOMBSTONE)){
+			invalidate_PPA(DATA,x->ppa, -1);
+			x->ppa=valid?UINT32_MAX:TOMBSTONE;
+		}
 #if defined(KVSSD)
-		//printf("tttt\n");
 		free(key.key);
 #endif
-	//	old_req->end_req(old_req);
 
 		x->value.u_value=value;
-		x->isvalid=deletef;
+		x->isvalid=valid;
 		return x;
 	}
 	else{
@@ -646,9 +640,9 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool deletef){
 		x->list=(snode**)malloc(sizeof(snode*)*(level+1));
 
 		x->key=key;
-		x->isvalid=deletef;
+		x->isvalid=valid;
 
-		x->ppa=deletef?UINT32_MAX:TOMBSTONE;
+		x->ppa=valid?UINT32_MAX:TOMBSTONE;
 		x->value.u_value=value;
 
 #ifdef KVSSD
@@ -986,7 +980,7 @@ skiplist *skiplist_load(){
 void skiplist_print(skiplist *skip){
 	snode *temp;
 	
-	for_each_sk(temp,skip){
+	for_each_sk(skip,temp){
 		printf("[lev:%d]%p\t",temp->level,temp);
 		for(uint32_t i=0; i<temp->level; i++){
 			printf("[%.*s] ", temp->key.len,temp->key.key);
@@ -1064,7 +1058,7 @@ uint32_t skiplist_memory_size(skiplist *skip){
 	if(!skip) return 0;
 	uint32_t res=0;
 	snode *temp;
-	for_each_sk(temp,skip){
+	for_each_sk(skip,temp){
 		res+=sizeof(snode)+temp->level*sizeof(snode*);
 		res+=temp->key.len;
 		res+=sizeof(temp->key);

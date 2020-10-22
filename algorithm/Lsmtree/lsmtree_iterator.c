@@ -166,7 +166,7 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 	bool break_flag=false;
 	algo_req *al_req;
 	algo_lsm_range_params *al_params;
-	for_each_sk(t_node, temp_list){
+	for_each_sk(temp_list, t_node){
 		if(i+1==req->length) {
 			break_flag=true;
 		}
@@ -251,7 +251,7 @@ inline static uint32_t __lsm_range_key(request *const req, range_get_params *rgp
 	req->length=rgparams->read_target_num;
 	uint32_t i=0;
 	//uint32_t iter_num=0;
-	for_each_sk(t_node, temp_list){
+	for_each_sk(temp_list, t_node){
 		if(i+1==req->length){
 			break_flag=true;
 		}

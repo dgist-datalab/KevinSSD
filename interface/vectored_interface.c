@@ -71,7 +71,7 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark)
 				temp->length=(2*M)/4/K-2;
 				break;
 			case FS_SET_T:
-				temp->value=inf_get_valueset(NULL, FS_MALLOC_W, rand()%2?DEFVALUESIZE:512);
+				temp->value=inf_get_valueset(NULL, FS_MALLOC_W, rand()%2?LPAGESIZE:512);
 				break;
 			default:
 				printf("error type!\n");
@@ -82,6 +82,9 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark)
 		
 		temp->key.len=*(uint8_t*)buf_parser(buf, &idx, sizeof(uint8_t));
 		temp->key.key=buf_parser(buf, &idx, temp->key.len);
+		/*debug*/
+		temp->key.key[0]=temp->value->length==4096?'d':'m';
+		memcpy(temp->value->value, temp->key.key, temp->key.len);
 #ifdef CHECKINGDATA
 		if(temp->type==FS_SET_T){
 			__checking_data_make_key( temp->key,temp->value->value, temp->value->length);

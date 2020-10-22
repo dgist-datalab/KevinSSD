@@ -109,5 +109,7 @@ void gc_data_transaction_header_update(struct gc_node **, int size, struct lengt
 
 int gc_data_write_using_bucket(struct length_bucket *b,int target_level,char order);
 
+uint32_t block_get_start_page(bool isgc);
 bool block_active_full(bool isgc);
+uint32_t block_active_remain_pagenum(bool isgc);
 #endif

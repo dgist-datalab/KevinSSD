@@ -267,7 +267,11 @@ struct blockmanager{
 	#define for_each_page_in_seg_blocks(segs,block,page,bidx,pidx)\
 		for(bidx=0, block=segs->blocks[bidx]; bidx<BPS; bidx++, block=segs->blocks[(bidx!=BPS?bidx:BPS-1)])\
 			for(pidx=0, page=PPAMAKER(segs->blocks[bidx],pidx); pidx<_PPB; pidx++, page=PPAMAKER(segs->blocks[bidx],pidx))
-		
+	
+	#define for_each_page_in_seg_blocks_reverse(segs,block,page,bidx,pidx)\
+		for(bidx=BPS-1, block=segs->blocks[bidx]; bidx>=0; bidx--, block=segs->blocks[((int)bidx!=-1?bidx:0)])\
+			for(pidx=_PPB-1, page=PPAMAKER(segs->blocks[bidx],pidx); pidx>=0; pidx--, page=PPAMAKER(segs->blocks[bidx],pidx))
+
 #else
 	#define PPAMAKER(bl,idx) ((bl)->punit_num)+(idx<<6)+((bl)->block_num)
 	#define for_each_page_in_seg(segs,page,bidx,pidx)\

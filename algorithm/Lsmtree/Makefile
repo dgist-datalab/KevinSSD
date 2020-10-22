@@ -47,7 +47,7 @@ SRCS +=\
 	   lsmtree_iterator.c\
 	   lsmtree_lru_manager.c\
 	   memory_log.c\
-	   write_buffer_manager.c\
+	   koo_buffer_manager.c\
 
 #merge_compaction.c\
 	   run_array.c\
@@ -57,6 +57,7 @@ SRCS +=\
 	   lsmtree_multi.c\
 	   pipeline_compaction2.c\
 	   lru_cache.c\
+	   write_buffer_manager.c\
 
 
 OBJS :=\

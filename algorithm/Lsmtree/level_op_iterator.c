@@ -1,6 +1,6 @@
 #include "level_op_iterator.h"
 #include "lsmtree.h"
-#include "write_buffer_manager.h"
+//#include "write_buffer_manager.h"
 #include "../../include/utils/kvssd.h"
 #include "../../interface/koo_inf.h"
 
@@ -60,7 +60,7 @@ meta_iterator *meta_iter_skip_init(skiplist *skip, KEYT key, bool include){
 
 	KEYT prefix=res->m_prefix;
 	bool check=false;
-	for_each_sk_from(res->sk_node, skiplist_find_lowerbound(skip, key), skip){
+	for_each_sk_from(skip, res->sk_node, skiplist_find_lowerbound(skip, key)){
 		if(KEYFILTER(res->sk_node->key, prefix.key, prefix.len)){
 			if(!check){
 				check=true;

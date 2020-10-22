@@ -68,7 +68,7 @@ bool transaction_entry_buffered_write(transaction_entry *etr, li_node *node){
 	skiplist_free(t_mem);
 	
 	uint32_t tid=etr->tid;
-	etr->wbm_node=NULL;
+	//etr->wbm_node=NULL;
 	etr->status=LOGGED;
 
 	etr->range.start=temp_run.key;
@@ -81,7 +81,7 @@ bool transaction_entry_buffered_write(transaction_entry *etr, li_node *node){
 		printf("over size of table! %s:%d\n", __FILE__, __LINE__);
 		abort();
 	}*/
-	etr->wbm_node=node;
+	//etr->wbm_node=node;
 	node->data=(void*)etr;
 
 	return false;
@@ -97,7 +97,8 @@ uint32_t transaction_table_init(transaction_table **_table, uint32_t size, uint3
 	//table->base=32;
 	table->now=0;
 
-	table->wbm=write_buffer_init(max_kp_num, transaction_entry_buffered_write);
+	//table->wbm=write_buffer_init(max_kp_num, transaction_entry_buffered_write);
+	table->kbm=write_buffer_init(false);
 
 	pthread_mutex_init(&table->block,NULL);
 	pthread_cond_init(&table->block_cond, NULL);
@@ -143,7 +144,7 @@ uint32_t transaction_table_destroy(transaction_table * table){
 		}
 	}
 
-	write_buffer_free(table->wbm);
+	write_buffer_free(table->kbm);
 
 	free(table->etr);
 	free(table);
@@ -204,7 +205,7 @@ uint32_t transaction_table_add_new(transaction_table *table, uint32_t tid, uint3
 	
 	//etr=get_transaction_entry(table, tid*table->base+offset);
 	etr=get_transaction_entry(table, tid);
-	etr->wbm_node=write_buffer_insert_trans_etr(table->wbm, etr);
+//	etr->wbm_node=write_buffer_insert_trans_etr(table->wbm, etr);
 	return 1;
 }
 
@@ -215,16 +216,32 @@ inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *targe
 		LMI.non_full_comp++;
 	}
 
+	/*
 	if(_tm.ttb->wbm && target->wbm_node){
 		target->status=NONFULLCOMPACTION;
 		write_buffer_delete_node(_tm.ttb->wbm, target->wbm_node);
 		target->wbm_node=NULL;
-	}
+	}*/
+	write_buffer_force_flush(_tm.ttb->kbm, target->tid);
 
+	/*debug test*/
+	snode *tt;
+	int idx=0;
+	for_each_sk(t_mem,tt){
+//		printf("test %d\n",idx++);
+		if(tt->ppa==UINT32_MAX){
+			printf("KEY - %.*s \n", KEYFORMAT(tt->key));
+			printf("it has unwrittend data!!\n");
+			abort();
+		}
+	}
+	/*debug test*/
+
+/*
 	value_set **data_sets=skiplist_make_valueset(t_mem, LSM.disk[0], &target->range.start, &target->range.end);
 	issue_data_write(data_sets, LSM.li,DATAW);
 	free(data_sets);
-
+*/
 	htable *key_sets=LSM.lop->mem_cvt2table(t_mem,NULL, NULL);
 	value_set *res;	
 	if(ISNOCPY(LSM.setup_values)){
@@ -258,27 +275,29 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 		bf_set(target->read_helper.bf, key);
 	}
 
+	/*
 	if(table->wbm){
 		write_buffer_insert_KV(table->wbm, target, key, value, valid);
 		return NULL;
 	}
 	else{
 		abort();
-	}
+	}*/
 
 	skiplist *t_mem=target->ptr.memtable;
-
-	skiplist_insert(t_mem, key, value, valid);
-	
+	snode *sn=skiplist_insert(t_mem, key, value, valid);
+	write_buffer_insert_KV(table->kbm, tid, sn, !valid);
 	
 	(*t)=target;
 
 	if(lsm_should_flush(t_mem, d_m.active)){
+	//	printf("tid-%d flush!\n", tid);
 		if(transaction_table_add_new(table, target->tid, 0)==UINT_MAX){
 			printf("%s:%d full table!\n", __FILE__,__LINE__);
 			abort();
 			return NULL;
 		}
+		target->status=LOGGED;
 		return trans_flush_skiplist(t_mem, target);
 	}
 	else return NULL;
@@ -394,8 +413,8 @@ value_set* transaction_table_force_write(transaction_table *table, uint32_t tid,
 //	}
 
 	if(res==NULL){
-		if(table->wbm) write_buffer_delete_node(table->wbm, target->wbm_node);
-		target->wbm_node=NULL;
+		//if(table->wbm) write_buffer_delete_node(table->wbm, target->wbm_node);
+		//target->wbm_node=NULL;
 		transaction_table_clear(table, target, NULL);
 	}
 	return res;
@@ -461,12 +480,12 @@ transaction_entry *transaction_table_get_comp_target(transaction_table *table, u
 
 uint32_t transaction_table_clear(transaction_table *table, transaction_entry *etr, void *target_li){
 	Redblack res;
-
+/*
 	if(table->wbm && etr->wbm_node){
 		write_buffer_delete_node(table->wbm, etr->wbm_node);
 		etr->wbm_node=NULL;
 	}
-
+*/
 	if(etr->status==CACHED){
 		skiplist_free(etr->ptr.memtable);
 	}

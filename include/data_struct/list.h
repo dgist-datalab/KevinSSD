@@ -24,6 +24,6 @@ void list_free(list *li);
 
 
 #define for_each_list_node_safe(li, ln, lp)\
-	for(ln=li->head, lp=li->head->nxt; ln!=NULL; ln=lp, lp=ln?ln->nxt:NULL)
+	for(ln=li->head, lp=ln?li->head->nxt:NULL; ln!=NULL; ln=lp, lp=ln?ln->nxt:NULL)
 
 #endif

@@ -89,6 +89,34 @@ snode * skiplist_insert_wP_gc(skiplist *list, KEYT key, char *value, uint32_t *t
 	return x;
 }
 
+#if 0
+int skiplist_make_gc_valueset(skiplist * skip,gc_node ** gc_node_array, int size){
+
+	for(int i=0; i<size; i++){
+		gc_node *t=gc_node_array[i];
+		if(t->plength==0){
+			continue;
+		}
+		uint8_t length=t->plength;
+		KEYT temp_lpa;
+		kvssd_cpy_key(&temp_lpa,&t->lpa);
+		uint32_t time=t->time;
+		snode *target=skiplist_insert_wP_gc(skip, temp_lpa, t->value, &t->time, false);
+		if(time!=t->time){
+			continue;
+		}
+	}
+
+	if(skip->size==0){
+		printf("%s:%d it no data to mapping move!\n",__FILE__,__LINE__);
+		free(res);
+		return NULL;
+	}
+
+//	key_packing_free(kp);
+	return res;
+}
+#endif
 value_set **skiplist_make_gc_valueset(skiplist * skip,gc_node ** gc_node_array, int size){
 	value_set **res=(value_set**)malloc(sizeof(value_set*)*(_PPS));
 	int res_idx=0;
