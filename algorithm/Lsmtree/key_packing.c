@@ -1,5 +1,6 @@
 #include "key_packing.h"
 #include "skiplist.h"
+#include "bitmap_cache.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -18,6 +19,7 @@ key_packing *key_packing_init_nodata(){
 	res->data=(char*)malloc(PAGESIZE);
 	res->offset=0;
 	res->using_assigned_data=false;
+	*(uint32_t*)res->data=UINT32_MAX;
 	return res;
 }
 
@@ -28,6 +30,10 @@ void key_packing_set_start(key_packing *kp, uint32_t ppa){
 	}
 	*(uint32_t*)kp->data=ppa;
 	kp->offset=sizeof(ppa);
+	if(ppa>_NOP){
+		printf("wtf??\n");
+		abort();
+	}
 }
 uint32_t key_packing_insert_try(key_packing * kp, KEYT key){
 	if(kp->offset + key.len + 1 + sizeof(cnt) > PAGESIZE){
@@ -81,5 +87,6 @@ value_set *key_packing_to_valueset(key_packing *kp, uint32_t piece_ppa){
 	res->ppa=piece_ppa;
 	footer *foot=(footer*)pm_get_oob(piece_ppa/NPCINPAGE, DATA, false);
 	foot->map[0]=0;
+	bc_set_validate(piece_ppa);
 	return res;
 }

@@ -3,6 +3,7 @@
 #include "../../../../include/settings.h"
 #include "../../../../bench/bench.h"
 #include "../../../../include/utils/thpool.h"
+#include "../../../../interface/koo_hg_inf.h"
 #include "../../compaction.h"
 #include "../../nocpy.h"
 #include "../../bitmap_cache.h"
@@ -27,15 +28,19 @@ static void temp_func(char* body, level *d, bool merger){
 	KEYT prev_key;
 	ppa_t *ppa_ptr;
 	for_each_header_start(idx,key,ppa_ptr,bitmap,body)
-		if(idx==1){
-			prev_key=key;
-		}
-		else if(idx>1){
-			if(KEYCMP(prev_key, key)>=0){
-				printf("order is failed!\n");
+		if(key_const_compare(key, 'd', 29361, 33, NULL)){
+			char buf[100];
+			key_interpreter(key, buf);			
+			printf("maybe update KEY-(%s), ppa:%u ",buf,*ppa_ptr);
+			if(key.len==0){
+				printf("error!\n");
 				abort();
 			}
-			prev_key=key;
+			if(merger)
+				printf("insert into %d\n",d->idx);
+			else{
+				printf("cutter %d\n",d->idx);
+			}
 		}
 	for_each_header_end
 }
@@ -312,7 +317,7 @@ void array_thread_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct
 	char **o_data=(char**)malloc(sizeof(char*)*o_num);
 	for(int i=0; o[i]!=NULL; i++){ 
 		o_data[i]=data_from_run(o[i]);
-		//temp_func(o_data[i], d, true);
+	//	temp_func(o_data[i], d, true);
 		if(!o_data[i]) abort();
 	}
 

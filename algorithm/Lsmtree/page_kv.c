@@ -38,7 +38,6 @@ typedef struct temp_gc_h{
 
 extern MeasureTime write_opt_time2[15];
 #ifdef KVSSD
-uint32_t gc_cnt=0;
 int gc_header(){
 	LMI.header_gc_cnt++;
 	//printf("gc_header %u\n", LMI.header_gc_cnt);
@@ -220,14 +219,18 @@ int gc_data(){
 
 extern _bc bc;
 extern uint32_t debugging_ppa;
+bool gc_debug_flag;
 int __gc_data(){
-	/*
+	
 	static int cnt=0;
 	printf("gc_cnt:%u\n",cnt++);
+	if(cnt==11){
+	//	gc_debug_flag=true;
+	}
 	static bool flag=false;
 	if(!flag){
 		flag=true;
-	}*/
+	}
 	
 	gc_general_wait_init();
 
@@ -240,134 +243,165 @@ int __gc_data(){
 	int tpage=0;
 	int bidx=0;
 	int pidx=0;
-	int i=0;
-	bool bitmap_cache_check=false;
-	uint32_t start_page;
+	volatile uint32_t start_page;
+	bool isstart=true;
 	//printf("invalidate number:%d\n",tseg->invalidate_number);
 	int idx=0;
+	int read_pages=0;
 	for_each_page_in_seg_blocks_reverse(tseg,tblock,tpage,bidx,pidx){
-		printf("%d tpage:%u\n", idx++, tpage);
-		if(!bitmap_cache_check){
-			start_page=tpage;
-			if(tpage!=bc.start_block_ppn){
-				//printf("different block with bitmap_cache :%u\n", tpage);
-				//abort();
-			}
-			bitmap_cache_check=true;
-		}
+		if(isstart){ start_page=tpage; isstart=false;}
+		idx++;
+
 #ifdef DVALUE
 		bool page_read=false;
 		for(int j=0; j<NPCINPAGE; j++){
 			uint32_t npc=tpage*NPCINPAGE+j;
-			//if(!bc_valid_query(npc)) continue;
+			if(!bc_valid_query(npc)) continue;
 			page_read=true;
-			tables[i]=(htable_t*)malloc(sizeof(htable_t));
-			gc_data_read(npc,tables[i],GCDR,NULL);
+			tables[tpage%_PPS]=(htable_t*)malloc(sizeof(htable_t));
+			gc_data_read(npc,tables[tpage%_PPS],GCDR,NULL);
+			read_pages++;
 			break;
 		}
-		if(!page_read) continue;
+		if(!page_read){
+			tables[tpage%_PPS]=NULL;
+			continue;
+		}
 #else
-		tables[i]=(htable_t*)malloc(sizeof(htable_t));
-		gc_data_read(tpage,tables[i],GCDR);
+		tables[tpage%_PPS]=(htable_t*)malloc(sizeof(htable_t));
+		gc_data_read(tpage,tables[tpage%_PPS],GCDR);
 #endif
-		i++;
 	}
 
 	gc_general_waiting(); //wait for read req
-	gc_node **gc_node_array=(gc_node**)malloc(sizeof(gc_node*)*i*(PAGESIZE/DEFVALUESIZE * 2 )+1);
+	gc_node **gc_node_array=(gc_node**)malloc(sizeof(gc_node*)*read_pages*(PAGESIZE/DEFVALUESIZE * 2 )+1);
 	int node_idx=0;
-	i=0;
 	//int cnt=0;
 	//list *kp_list=list_init();
 	key_packing *kp=NULL;
 	uint32_t temp_kp_idx=0;
 	uint32_t time;
+	footer *foot;
+	uint32_t t_ppa;
+	KEYT lpa;
+	uint8_t oob_len;
+	gc_node *temp_g;
+	bool full_page=false;
+	bool used_page=false;
+	uint32_t back=_PPS;
 	for_each_page_in_seg_blocks_reverse(tseg,tblock,tpage,bidx,pidx){
-		uint32_t t_ppa;
-		KEYT lpa;
-		uint8_t oob_len;
-		gc_node *temp_g;
-		bool full_page=false;
+		uint32_t tpage_offset=tpage%_PPS;
+		if(tpage_offset >=back) continue;
 #ifdef DVALUE
-		bool used_page=false;
-		footer *foot=(footer*)bm->get_oob(bm,tpage);
+		foot=(footer*)bm->get_oob(bm,tpage);
 		if(foot->map[0]==NPCINPAGE+1){
-			free(tables[i]);
-			i++;
+			free(tables[tpage%_PPS]);
+			tables[tpage%_PPS]=NULL;
 			continue;
-		}
-		if(foot->map[0]==0){
+		}	
+		else if(foot->map[0]==0){
 			if(kp){
 				free(kp->data);
 				key_packing_free(kp);
 				kp=NULL;
 			}
-			kp=key_packing_init(NULL, (char*)tables[i]->sets);
-			temp_kp_idx=i;
-			//list_insert(kp_list, (void*)kp);
-			i++;
-			continue;
-		}
-	
-		for(int j=0;j<NPCINPAGE; j++){
-			t_ppa=tpage*NPCINPAGE+j;
-			if(t_ppa/NPCINPAGE==debugging_ppa){
-				//printf("break!\n");
+			kp=key_packing_init(NULL, (char*)tables[tpage_offset]->sets);
+			if(tables[tpage_offset]->sets==NULL){
+				printf("???????\n");
+				abort();
 			}
-			oob_len=foot->map[j];
-			if(!oob_len){
-				continue;
+			temp_kp_idx=tpage_offset;
+			volatile uint32_t k=key_packing_start_ppa(kp);
+			if(k>start_page || k<start_page-_PPS){
+				printf("error!! %u\n", tpage);
+				abort();
 			}
+			back=k%_PPS;
+			if(gc_debug_flag){
+				printf("back:%u,tpage:%u, k:%u\n", back, tpage, k);
+			}
+			for(; k<tpage; k++){
+				used_page=full_page=false;
+				foot=(footer*)bm->get_oob(bm, k);
+				if(gc_debug_flag){
+					printf("interpreting:%u\n",k);
+				}
+				/*
+				if(k==1765788){
+					printf("gc_debug2\n");
+				}*/
+				for(int j=0; j<NPCINPAGE; j++){
 
-			used_page=true;
-			if(!kp){
-				printf("kp is null, it can't be!! target page: %u\n", tpage);
-				abort();
+					t_ppa=k*NPCINPAGE+j;
+					oob_len=foot->map[j];
+					if(!oob_len){continue;}
+					lpa=key_packing_get_next(kp, &time);
+					if(!bc_valid_query(t_ppa)) continue;
+
+					used_page=true;
+					if(lpa.len==0){
+						printf("snity error in key!\n");
+						abort();
+					}
+
+					if(oob_len==NPCINPAGE && oob_len%NPCINPAGE==0){
+						temp_g=gc_data_write_new_page(t_ppa,NULL,tables[k%_PPS],NPCINPAGE,&lpa);
+						temp_g->time=time;
+						gc_node_array[node_idx++]=temp_g;
+						full_page=true;
+					}
+					else{
+						temp_g=gc_data_write_new_page(t_ppa,&((char*)tables[k%_PPS]->sets)[PIECE*j],NULL,oob_len,&lpa);
+						temp_g->time=time;
+						gc_node_array[node_idx++]=temp_g;
+						/*debug code*/
+						/*
+						KEYT temp;
+						temp.len=20;
+						temp.key=&((char*)tables[k%_PPS]->sets)[PIECE*j];
+						if(KEYCMP(lpa, temp)){
+							printf("sanity failed!\n");
+							abort();
+						}*/
+						/*debug code end*/
+						j+=foot->map[j]-1;
+					}
+					if(full_page) break;
+				}
+				if(used_page){
+					goto next_page;
+				}
+				else{
+					free(tables[k%_PPS]);
+					tables[k%_PPS]=NULL;
+					continue;
+				}
+next_page:
+				if(!full_page){
+					free(tables[k%_PPS]);
+					tables[k%_PPS]=NULL;
+				}
 			}
-			lpa=key_packing_get_next(kp, &time);
-			if(!bc_valid_query(t_ppa)) continue;
-			if(lpa.len==0){
-				abort();
-			}
-/*
-			if(oob_len==NPCINPAGE && oob_len%NPCINPAGE==0){
-				temp_g=gc_data_write_new_page(t_ppa,NULL,tables[i],NPCINPAGE,&lpa);
-				temp_g->time=time;
-				gc_node_array[node_idx++]=temp_g;
-				full_page=true;
-			}
-			else{
-				temp_g=gc_data_write_new_page(t_ppa,&((char*)tables[i]->sets)[PIECE*j],NULL,oob_len,&lpa);
-				temp_g->time=time;
-				gc_node_array[node_idx++]=temp_g;
-				j+=foot->map[j]-1;
-			}
-*/	
-			if(full_page) break;
 		}
-		if(used_page)
-			goto next_page;
 		else{
-			free(tables[i]);
-			tables[i]=NULL;
-			i++;
-			continue;
+			printf("unknown footer length! in tpage %u\n", tpage);
+			abort();
 		}
 #else 
 		t_ppa=tpage;
 		lpa=LSM.lop->get_lpa_from_data((char*)tables[i]->sets,t_ppa,false);
 		temp_g=gc_data_write_new_page(t_ppa,NULL,tables[i],NPCINPAGE,lpa);
-#endif
-next_page:
 		if(!full_page){
 			free(tables[i]);	
 		}
 		i++;
+#endif
 	}
 	
 	if(tables[temp_kp_idx]){
 		free(tables[temp_kp_idx]);
-		key_packing_free(kp);
+		if(kp)
+			key_packing_free(kp);
 	}
 
 	free(tables);
@@ -673,6 +707,8 @@ void gc_data_header_update(struct gc_node **g, int size){
 	gc_read_wait=0;
 
 	LSM.gc_list=skiplist_init();
+	bool skip_init_flag=false;
+#if 0
 	value_set **res=skiplist_make_gc_valueset(LSM.gc_list, g, size);
 	bool skip_init_flag=LSM.gc_list->size?true:false;
 	if(!res){
@@ -684,7 +720,15 @@ void gc_data_header_update(struct gc_node **g, int size){
 		free(res);
 		LSM.gc_list->isgc=skip_init_flag;
 	}
-
+#else
+	if((skip_init_flag=skiplist_make_gc_valueset(LSM.gc_list, g, size))){
+		LSM.gc_list->isgc=true;
+	}
+	else{
+		skiplist_free(LSM.gc_list);
+		LSM.gc_list=NULL;
+	}
+#endif
 	for(int i=0; i<size; i++){
 		gc_node *t=g[i];
 		free(t->params);

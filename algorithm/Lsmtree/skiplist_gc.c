@@ -3,10 +3,11 @@
 #include "lsmtree.h"
 #include "key_packing.h"
 #include "variable.h"
+#include "koo_buffer_manager.h"
 
 extern lsmtree LSM;
 extern KEYT debug_key;
-snode * skiplist_insert_wP_gc(skiplist *list, KEYT key, char *value, uint32_t *time, bool deletef){
+snode * skiplist_insert_wP_gc(skiplist *list, KEYT key, char *value, uint32_t *time, uint16_t piece_len,bool deletef){
 #if !(defined(KVSSD) )
 	if(key>RANGE){
 		printf("bad page read key:%u\n",key);
@@ -40,7 +41,8 @@ snode * skiplist_insert_wP_gc(skiplist *list, KEYT key, char *value, uint32_t *t
 		//invalidate_PPA(DATA,ppa);
 		//abort();
 		if(x->time < *time){
-			x->value.g_value=value;
+			x->value.g_value_new.data=value;
+			x->value.g_value_new.piece_len=piece_len;
 			x->time=*time;
 		}
 		else{
@@ -72,7 +74,10 @@ snode * skiplist_insert_wP_gc(skiplist *list, KEYT key, char *value, uint32_t *t
 #ifdef Lsmtree
 		x->iscaching_entry=false;
 #endif
-		x->value.g_value=value;
+
+		x->value.g_value_new.data=value;
+		x->value.g_value_new.piece_len=piece_len;
+
 		for(int i=1; i<=level; i++){
 			x->list[i]=update[i]->list[i];
 			update[i]->list[i]=x;
@@ -89,9 +94,9 @@ snode * skiplist_insert_wP_gc(skiplist *list, KEYT key, char *value, uint32_t *t
 	return x;
 }
 
-#if 0
+//#if 0
 int skiplist_make_gc_valueset(skiplist * skip,gc_node ** gc_node_array, int size){
-
+	KBM *temp_write_buffer=write_buffer_init(true);
 	for(int i=0; i<size; i++){
 		gc_node *t=gc_node_array[i];
 		if(t->plength==0){
@@ -101,22 +106,25 @@ int skiplist_make_gc_valueset(skiplist * skip,gc_node ** gc_node_array, int size
 		KEYT temp_lpa;
 		kvssd_cpy_key(&temp_lpa,&t->lpa);
 		uint32_t time=t->time;
-		snode *target=skiplist_insert_wP_gc(skip, temp_lpa, t->value, &t->time, false);
+		snode *target=skiplist_insert_wP_gc(skip, temp_lpa, t->value, &t->time, length, false);
 		if(time!=t->time){
 			continue;
 		}
+		write_buffer_insert_KV(temp_write_buffer, UINT32_MAX, target, false);
 	}
 
 	if(skip->size==0){
+		write_buffer_free(temp_write_buffer);
 		printf("%s:%d it no data to mapping move!\n",__FILE__,__LINE__);
-		free(res);
-		return NULL;
+		return 0;
 	}
 
-//	key_packing_free(kp);
-	return res;
+	write_buffer_force_flush(temp_write_buffer,UINT32_MAX);
+	write_buffer_free(temp_write_buffer);
+	return 1;
 }
-#endif
+//#endif
+#if 0
 value_set **skiplist_make_gc_valueset(skiplist * skip,gc_node ** gc_node_array, int size){
 	value_set **res=(value_set**)malloc(sizeof(value_set*)*(_PPS));
 	int res_idx=0;
@@ -186,3 +194,4 @@ value_set **skiplist_make_gc_valueset(skiplist * skip,gc_node ** gc_node_array, 
 //	key_packing_free(kp);
 	return res;
 }
+#endif

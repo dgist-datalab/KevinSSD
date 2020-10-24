@@ -4,6 +4,7 @@
 #include "../../include/utils/kvssd.h"
 #include "../../include/sem_lock.h"
 #include "../../include/data_struct/list.h"
+#include "../../interface/koo_hg_inf.h"
 #include "../../bench/bench.h"
 
 #include "skiplist.h"
@@ -12,6 +13,7 @@
 #include "page.h"
 
 #include <pthread.h>
+#include <unistd.h>
 
 extern lsmtree LSM;
 extern lmi LMI;
@@ -209,7 +211,9 @@ uint32_t transaction_table_add_new(transaction_table *table, uint32_t tid, uint3
 	return 1;
 }
 
-
+#ifdef TRACECOLLECT
+extern int trace_fd;
+#endif
 inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *target){
 	if(t_mem->size==0) return NULL;
 	if(!METAFLUSHCHECK(*t_mem)){
@@ -224,17 +228,29 @@ inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *targe
 	}*/
 	write_buffer_force_flush(_tm.ttb->kbm, target->tid);
 
+	if(target->ptr.memtable!=t_mem){
+		printf("erorror different memtable!\n");
+		abort();
+	}
+
 	/*debug test*/
+	/*
 	snode *tt;
 	int idx=0;
 	for_each_sk(t_mem,tt){
 //		printf("test %d\n",idx++);
 		if(tt->ppa==UINT32_MAX){
-			printf("KEY - %.*s \n", KEYFORMAT(tt->key));
+			char buf[100];
+			key_interpreter(tt->key, buf);
+			printf("%s\n", buf);
+		//	printf("KEY - %.*s \n", KEYFORMAT(tt->key));
 			printf("it has unwrittend data!!\n");
+#ifdef TRACECOLLECT
+			fsync(trace_fd);
+#endif
 			abort();
 		}
-	}
+	}*/
 	/*debug test*/
 
 /*

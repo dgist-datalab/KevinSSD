@@ -55,7 +55,7 @@ void temp_func(char* body, level *d, bool insert){
 				printf("cutter %d\n",d->idx);
 			}
 		}
-		else*/ if(key_const_compare(key, 'd', 222551, 13, NULL) || key_const_compare(key, 'd', 222551, 13, NULL)){
+		else*/ if(key_const_compare(key, 'd', 29361, 33, NULL)){
 				char buf[100];
 				key_interpreter(key, buf);			
 				printf("maybe update KEY-(%s), ppa:%u ",buf,*ppa_ptr);
@@ -160,7 +160,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 			}
 			else{
 				invalidate_PPA(DATA,lppa, d->idx);
-
+				if(lppa)
 				rppa=hppa;
 				insert_key=hp_key;
 			}
@@ -191,7 +191,6 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 		bc_set_validate(rppa);
 	}
 
-	
 	if((pbody_insert_new_key(rp,insert_key,rppa,true))){
 			result_cnt++;
 	}

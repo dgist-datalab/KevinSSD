@@ -160,6 +160,16 @@ uint32_t transaction_set(request *const req){
 		map_crc_insert(req->key, req->value->value, req->value->length);
 	}
 #endif
+
+	if (key_const_compare(req->key, 'd', 29361, 33, NULL)) {
+		printf("target key(d 29361 33) is insert, validate:%d\n", req->type!=FS_DELETE_T);
+		static int ttt=0;
+		printf("ttt:%d\n", ttt++);
+		if(ttt==7){
+			printf("break!!\n");
+		}
+	}
+ 
 	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, req->type !=FS_DELETE_T, &etr);
 	fdriver_unlock(&_tm.table_lock);
 	bench_custom_A(write_opt_time2, 0);
