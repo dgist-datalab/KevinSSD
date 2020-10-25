@@ -287,10 +287,11 @@ void copy_from_mem(uint32_t PPA, uint8_t type,char *value){
 void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	uint8_t test_type;
 	uint32_t PPA=convert_ppa(_PPA);
+	/*
 	if(_PPA==2718412){
 		printf("testing :%u start\n", *(uint32_t*)value->value);
 		//abort();
-	}
+	}*/
 /*
 	if(PPA==32764){
 		printf("pushed 32764----!!!\n");

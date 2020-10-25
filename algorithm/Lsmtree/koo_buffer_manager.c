@@ -192,14 +192,13 @@ void issue_single_page(value_set *value_set, lower_info *li, uint8_t type) {
 		abort();
 	}
 	last_push_ppa=value_set->ppa;
-	if(last_push_ppa==9699344){
-		printf("break!\n");
-	}
 	li->write(CONVPPA(value_set->ppa),PAGESIZE,params->value,ASYNC,lsm_req);
 }
 
 void issue_single_kp(KBM *kbm, key_packing *kp, lower_info *li, uint8_t type) {
+	KEYT temp;
 	uint32_t ppa = LSM.lop->moveTo_fr_page(kbm->is_gc);
+	ppa=LSM.lop->get_page(NPCINPAGE, temp);
 	value_set *target_value_set = key_packing_to_valueset(kp, ppa);
 	//printf("key_packing ppa-%u (%u-%u)\n", ppa, ppa/NPCINPAGE, (ppa/NPCINPAGE)%_PPS);
 	uint32_t temp_ppa=*(uint32_t*)target_value_set->value;

@@ -1,4 +1,5 @@
 #include "bitmap_cache.h"
+#include "skiplist.h"
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
 _bc bc;
@@ -148,10 +149,13 @@ void bc_set_validate(uint32_t _ppa){
 void bc_set_invalidate(uint32_t _ppa){
 	if(!bc.full_caching) return;
 	uint32_t bc_num;
+	/*debug start*/
 	/*
-	if(debugging_ppa==(_ppa/NPCINPAGE)){
-		printf("%u %u invalidate!!\n", debugging_ppa, _ppa);
+	footer *foot=(footer*)pm_get_oob(_ppa/NPCINPAGE, DATA, false);
+	if(foot->map[0]==0){
+		//abort();
 	}*/
+	/*debug end*/
 	if(set_bc_num(_ppa, &bc_num)){
 		if(bc_num>bc.max){
 			abort();
