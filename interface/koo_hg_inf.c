@@ -14,6 +14,7 @@
 using namespace std;
 map<string, uint32_t> chk_data;
 
+extern MeasureTime write_opt_time2[15];
 #endif
 
 #define barrier() __asm__ __volatile__("": : :"memory")
@@ -484,6 +485,9 @@ out:
 	return res;
 }
 
+extern uint32_t total_queue_size;
+extern uint32_t send_req_size;
+
 vec_request *get_vectored_request(){
     static bool isstart=false;
 
@@ -653,7 +657,7 @@ bool key_const_compare(KEYT key,char keytype, int blocknum, int blocknum2, const
 	key_blocknum=Swap8Bytes(key_blocknum);
 	if(blocknum!=key_blocknum) return false;
 	if(keytype=='m'){
-		return strncmp(&key.key[1+sizeof(uint64_t)], filename, key.len-1-sizeof(uint64_t));
+		return !strncmp(&key.key[1+sizeof(uint64_t)], filename, key.len-1-sizeof(uint64_t));
 	}
 	else{
 		uint64_t key_block_num2=*(uint64_t*)&key.key[1+sizeof(uint64_t)];

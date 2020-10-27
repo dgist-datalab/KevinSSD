@@ -173,6 +173,13 @@ void compaction_free(){
 		pthread_cond_destroy(&t->cond);
 		delete t->tagQ;
 		delete t->q;
+		pthread_mutex_unlock(&t->tag_lock);
+	}
+
+	for(int i=0; i<CTHREAD; i++){
+		compP *t=&compactor.processors[i];
+		delete t->tagQ;
+		delete t->q;
 	}
 	free(compactor.processors);
 }
@@ -582,7 +589,12 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 	if(des->idx!=0){
 		printf("compaction result(target_max:%d): %d+%d =",des->m_num, LSM.disk[des->idx-1]->n_num, LSM.disk[des->idx]->n_num);
 	}*/
-	while((target=LSM.lop->cutter(top,des,&key,&end))){
+#ifdef THREADCOMPACTION
+	while((target=LSM.lop->cutter(top,des,&key,&end, NULL)))
+#else
+	while((target=LSM.lop->cutter(top,des,&key,&end)))
+#endif
+	{
 		if(des->idx<LSM.LEVELCACHING){
 			if(header_debug_flag){
 				LSM.lop->checking_each_key(target->level_caching_data, key_find_test);			

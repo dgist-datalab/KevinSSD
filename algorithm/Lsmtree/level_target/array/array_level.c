@@ -3,6 +3,7 @@
 #include "../../bloomfilter.h"
 #include "../../lsmtree.h"
 #include "../../../../interface/interface.h"
+#include "../../../../interface/koo_hg_inf.h"
 #include "../../../../include/utils/kvssd.h"
 #include "../../../../include/settings.h"
 #include "array.h"
@@ -10,6 +11,53 @@ extern lsmtree LSM;
 
 void array_tier_align( level *lev){
 	printf("this is empty\n");
+}
+/*
+static int binary_search_in_runs(run_t *arrs, int max){
+}
+*/
+
+static int test_run(run_t *target, run_t *tt){
+	if(KEYCMP(target->key,tt->end)>0) return 1;
+	if(KEYCMP(target->end, tt->key)<0) return -1;
+	return 0;
+}
+
+int32_t array_chk_overlap_run( level *des, level *src, KEYT start, KEYT end){
+	if(!(des && src))  return -1;
+	int upper_max=src->n_num;
+	int lower_max=des->n_num;
+
+	run_t *up_body=((array_body*)src->level_data)->arrs;
+	run_t *lo_body=((array_body*)des->level_data)->arrs;
+
+	run_t* up, *down_now, *down_nxt;
+	uint32_t before_idx=0;
+	int res1, res2;
+	uint32_t res=0;
+	array_print(des);
+	array_print(src);
+	for(uint32_t i=0; i<upper_max; i++){
+		up=&up_body[i];
+		for(int j=before_idx; j<lower_max-1; j++){
+			down_now=&lo_body[j];
+			down_nxt=&lo_body[j+1];
+
+			res1=test_run(up, down_now);
+			if(!res1){
+				before_idx=j-1>0?j-1:0;
+				break;
+			}
+			res2=test_run(up, down_nxt);
+			if(res1==1 && res2==-1){
+				res++;
+				before_idx=j+1;
+				break;
+			}
+			before_idx=j-1>0?j-1:0;
+		}
+	}
+	return res;
 }
 
 bool array_chk_overlap(level * lev, KEYT start, KEYT end){
@@ -21,6 +69,19 @@ bool array_chk_overlap(level * lev, KEYT start, KEYT end){
 	{
 		return false;
 	}
+
+#ifdef KOO
+	/*
+	printf("--------------------------\n");
+	char buf[100], buf2[100];
+	key_interpreter(lev->start, buf);
+	key_interpreter(lev->end, buf2);
+	printf("lev:\t%s ~ %s\n",buf, buf2);
+	key_interpreter(start, buf);
+	key_interpreter(end, buf2);
+	printf("target:\t%s ~ %s\n",buf, buf2);*/
+#endif
+
 	return true;
 }
 
@@ -137,7 +198,9 @@ void array_header_print(char *data){
 	ppa_t *ppa;
 	uint16_t *bitmap;
 	char *body;
-
+#ifdef KOO
+	char buf[100];
+#endif
 	body=data;
 	bitmap=(uint16_t*)body;
 	printf("header_num:%d : %p\n",bitmap[0],data);
@@ -147,7 +210,12 @@ void array_header_print(char *data){
 			abort();
 		}*/
 #ifdef DVALUE
+	#ifdef KOO
+		key_interpreter(key, buf);
+		fprintf(stderr,"%d key:%s ppa:%u\n",idx,buf, *ppa);
+	#else
 		fprintf(stderr,"[%d:%d] key(%p):%.*s(%d) ,%u\n",idx,bitmap[idx],&data[bitmap[idx]],key.len,key.key,key.len,*ppa);
+	#endif
 #else
 		fprintf(stderr,"[%d:%d] key(%p):%.*s(%d) ,%u\n",idx,bitmap[idx],&data[bitmap[idx]],key.len,key.key,key.len,*ppa);
 #endif

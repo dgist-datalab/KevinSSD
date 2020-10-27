@@ -36,9 +36,15 @@ typedef struct footer{
 }footer;
  
 
+typedef struct gc_temp_value{
+	char *data;
+	uint16_t piece_len;
+}gc_temp_value;
+
 typedef union snode_value{
 	value_set *u_value;
 	char *g_value;
+	gc_temp_value g_value_new;
 }s_value;
 
 #endif
@@ -141,14 +147,15 @@ static inline bool skiplist_data_to_bucket(skiplist *input, l_bucket *b, KEYT *s
 
 skiplist *skiplist_merge(skiplist *src,skiplist *des);
 snode *skiplist_insert_wP(skiplist*,KEYT,ppa_t,bool);//with ppa;
-snode *skiplist_insert_wP_gc(skiplist*,KEYT,char *value, uint32_t *time,bool);//with ppa;
+snode *skiplist_insert_wP_gc(skiplist*,KEYT,char *value, uint32_t *time, uint16_t len,bool);//with ppa;
 snode *skiplist_insert_existIgnore(skiplist *, KEYT,ppa_t,bool isvalid); //insert skiplist, if key exists, input data be ignored
 value_set **skiplist_make_valueset(skiplist*,struct level *from, KEYT *start, KEYT *end);
 snode *skiplist_general_insert(skiplist*,KEYT,void *,void (*overlap)(void*));
 snode *skiplist_pop(skiplist *);
 skiplist *skiplist_cutting_header(skiplist *,uint32_t *avg);
 skiplist *skiplist_cutting_header_se(skiplist *,uint32_t *avg,KEYT *start, KEYT *end);
-value_set** skiplist_make_gc_valueset(skiplist *,gc_node **, int);
+//value_set** skiplist_make_gc_valueset(skiplist *,gc_node **, int);
+int skiplist_make_gc_valueset(skiplist *,gc_node **, int);
 void skiplist_free_iter(skiplist *list);  //free skiplist
 #endif
 snode *skiplist_at(skiplist *,int idx);

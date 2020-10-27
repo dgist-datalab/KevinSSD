@@ -86,7 +86,7 @@ char *pbody_insert_new_key(p_body *p,KEYT key, uint32_t ppa, bool flush)
 		else{
 			static int cnt=0;
 			if(KEYCMP(p->prev_check, key) >=0){
-				printf("order is failed! %d\n", cnt++);
+				printf("order is failed! %d %.*s~%.*s\n", cnt++, KEYFORMAT(p->prev_check), KEYFORMAT(key));
 				abort();
 			}
 			p->prev_check=key;

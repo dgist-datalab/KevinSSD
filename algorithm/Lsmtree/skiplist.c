@@ -621,6 +621,7 @@ snode *skiplist_insert(skiplist *list,KEYT key,value_set* value, bool valid){
 
 		x->value.u_value=value;
 		x->isvalid=valid;
+		x->ppa=valid?UINT32_MAX:TOMBSTONE;
 		return x;
 	}
 	else{

@@ -195,6 +195,8 @@ void *posix_destroy(lower_info *li){
 	/*for(int i=0; i<LREQ_TYPE_NUM;i++){
 		fprintf(stderr,"%s %lu\n",bench_lower_type(i),li->req_type_cnt[i]);
 	}*/
+	fprintf(stderr, "write_overlapped_cnt:%u", li->write_overlapped);
+	fprintf(stderr, "read_overlapped_cnt:%u", li->read_overlapped);
 	for(uint32_t i = 0; i < li->NOP; i++){
 		free(seg_table[i].storage);
 	}
@@ -287,6 +289,11 @@ void copy_from_mem(uint32_t PPA, uint8_t type,char *value){
 void *posix_push_data(uint32_t _PPA, uint32_t size, value_set* value, bool async,algo_req *const req){
 	uint8_t test_type;
 	uint32_t PPA=convert_ppa(_PPA);
+	/*
+	if(_PPA==2718412){
+		printf("testing :%u start\n", *(uint32_t*)value->value);
+		//abort();
+	}*/
 /*
 	if(PPA==32764){
 		printf("pushed 32764----!!!\n");

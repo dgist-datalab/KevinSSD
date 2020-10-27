@@ -83,7 +83,7 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark)
 		temp->key.len=*(uint8_t*)buf_parser(buf, &idx, sizeof(uint8_t));
 		temp->key.key=buf_parser(buf, &idx, temp->key.len);
 		/*debug*/
-		temp->key.key[0]=temp->value->length==4096?'d':'m';
+//		temp->key.key[0]=temp->value->length==4096?'d':'m';
 		memcpy(temp->value->value, temp->key.key, temp->key.len);
 #ifdef CHECKINGDATA
 		if(temp->type==FS_SET_T){

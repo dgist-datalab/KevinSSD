@@ -57,12 +57,9 @@ uint32_t transaction_init(uint32_t cached_size){
 	uint32_t cached_entry_num=cached_size/PAGESIZE;
 
 	uint32_t max_KP_buffer_num=(7*K)/(DEFKEYLENGTH+4);
-	uint32_t target_KP_buffer=(max_KP_buffer_num*4096/PAGESIZE < cached_entry_num ? //size
-			max_KP_buffer_num : cached_entry_num*(PAGESIZE/4096)); //kp num
+	uint32_t target_KP_buffer=4;
 
-
-
-	transaction_table_init(&_tm.ttb, PAGESIZE, target_KP_buffer);
+	transaction_table_init(&_tm.ttb, PAGESIZE, 0);
 	cached_entry_num-=(target_KP_buffer*4096)/PAGESIZE;
 	if(((int)cached_entry_num)<=0){
 		printf("[WRANINIG!!]memory calculated miss!, memory log will be 0 %s:%d\n", __FILE__, __LINE__);
@@ -140,6 +137,9 @@ uint32_t __trans_write(char *data, value_set *value, ppa_t ppa, uint32_t type, r
 
 uint32_t transaction_set(request *const req){
 	static uint32_t prev_tid=0;
+	if(KEYCONSTCOMP(req->key, "m0000000000004134313")==0){
+		printf("%.*s input!!\n", KEYFORMAT(req->key));
+	}
 	if(prev_tid==req->tid){
 	
 	}
@@ -160,6 +160,16 @@ uint32_t transaction_set(request *const req){
 		map_crc_insert(req->key, req->value->value, req->value->length);
 	}
 #endif
+
+	if (key_const_compare(req->key, 'd', 29361, 33, NULL)) {
+		printf("target key(d 29361 33) is insert, validate:%d\n", req->type!=FS_DELETE_T);
+		static int ttt=0;
+		printf("ttt:%d\n", ttt++);
+		if(ttt==7){
+			printf("break!!\n");
+		}
+	}
+ 
 	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, req->type !=FS_DELETE_T, &etr);
 	fdriver_unlock(&_tm.table_lock);
 	bench_custom_A(write_opt_time2, 0);
@@ -669,6 +679,7 @@ uint32_t transaction_get_postproc(request *const req, uint32_t res_type){
 	#endif
 #else
 		printf("notfound key: %.*s\n",KEYFORMAT(req->key));
+	//	abort();
 #endif
 		req->end_req(req);
 		//abort();

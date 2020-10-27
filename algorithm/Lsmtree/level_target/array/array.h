@@ -166,6 +166,7 @@ run_t *array_cutter( skiplist*,  level*, KEYT *start,KEYT *end);
 
 run_t *array_next_run(level *,KEYT);
 bool array_chk_overlap( level *, KEYT, KEYT);
+int32_t array_chk_overlap_run( level *, level *, KEYT, KEYT);
 void array_overlap(void *);
 void array_tier_align( level *);
 void array_print(level *);
@@ -223,7 +224,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end);
 
 void array_thread_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*);
-run_t *array_thread_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end);
+run_t *array_thread_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KEYT *_end,struct trivial_move_container**);
 
 run_t *array_pipe_make_run(char *data,uint32_t level_idx);
 #ifdef PARTITION

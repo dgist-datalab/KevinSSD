@@ -28,6 +28,7 @@ level_ops a_ops={
 	.tier_align=array_tier_align,
 	.move_heap=def_move_heap,
 	.chk_overlap=array_chk_overlap,
+	.chk_overlap_run=array_chk_overlap_run,
 	.range_find=array_range_find,
 	.range_find_compaction=array_range_find_compaction,
 	.unmatch_find=array_unmatch_find,
@@ -372,6 +373,7 @@ keyset* array_find_keyset(char *data,KEYT lpa){
 	int s=1,e=bitmap[0];
 	KEYT target;
 	while(s<=e){
+		LMI.run_binary_cnt++;
 		int mid=(s+e)/2;
 		target.key=&body[bitmap[mid]+sizeof(ppa_t)];
 		target.len=bitmap[mid+1]-bitmap[mid]-sizeof(ppa_t);

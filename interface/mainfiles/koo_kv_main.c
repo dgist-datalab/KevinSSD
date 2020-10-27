@@ -12,6 +12,10 @@
 #include "../vectored_interface.h"
 #include "../koo_hg_inf.h"
 
+uint32_t total_queue_size;
+uint32_t send_req_size;
+
+extern MeasureTime write_opt_time2[15];
 void log_print(int sig){
 	free_koo();
 	inf_free();
@@ -23,7 +27,8 @@ void log_print(int sig){
 
 void * thread_test(void *){
 	vec_request *req=NULL;
-	while((req=get_vectored_request())){
+	while(1){
+		req=get_vectored_request();
 		assign_vectored_req(req);
 	}
 	return NULL;

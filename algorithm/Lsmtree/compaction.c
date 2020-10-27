@@ -5,6 +5,7 @@
 #include "nocpy.h"
 #include "lsmtree_transaction.h"
 #include "lsmtree_lru_manager.h"
+#include "level.h"
 #include "../../bench/bench.h"
 #include <pthread.h>
 extern volatile int epc_check;
@@ -66,7 +67,7 @@ bool level_sequential(level *from, level *to,level *des, run_t *entry,leveling_n
 	
 	KEYT start=from?from->start:lnode->start;
 	KEYT end=from?from->end:lnode->end;
-	if(LSM.lop->chk_overlap(to,start,end)) return false;
+	if(to->n_num>0 && LSM.lop->chk_overlap(to,start,end)) return false;
 
 	bool target_processed=false;
 	if(KEYCMP(to->start,end)<0){
@@ -147,6 +148,7 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,rwlock *lock){
 	page_check_available(HEADER,total_number+(GETCOMPOPT(LSM.setup_values)==HW?1:0)+LSM.result_padding);
 	
 	if(level_sequential(from, to, target, entry, l_node)){
+		LMI.trivial_compaction_cnt++;
 		goto last;
 	}
 
@@ -155,7 +157,7 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,rwlock *lock){
 			compaction_empty_level(&from,l_node,&target);
 			goto last;
 		}
-
+		LMI.zero_compaction_cnt++;
 		partial_leveling(target,target_origin,l_node,from);	
 	}
 	else{
@@ -222,8 +224,7 @@ last:
 }
 
 uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* upper){
-
-	KEYT start=key_min;
+	KEYT start=upper?upper->start:lnode->start;
 	KEYT end=key_max;
 	run_t **target_s=NULL;
 	run_t **data=NULL;
@@ -231,7 +232,7 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 	compaction_sub_pre();
 
 	if((lnode && lnode->mem) || (!upper && !ISTRANSACTION(LSM.setup_values))){
-		LSM.lop->range_find_compaction(origin,start,end,&target_s);
+		LSM.lop->range_find_compaction(origin,key_min,end,&target_s);
 
 		for(int j=0; target_s[j]!=NULL; j++){
 			if(!htable_read_preproc(target_s[j])){
@@ -249,7 +250,6 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 	}
 	else{
 		int src_num, des_num; //for stream compaction
-		des_num=LSM.lop->range_find_compaction(origin,start,end,&target_s);//for stream compaction
 		if(upper){
 			if(upper->idx<LSM.LEVELCACHING){
 				//for caching more data
@@ -258,10 +258,13 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 				src_num=LSM.lop->cache_comp_formatting(upper,&data,upper->idx<LSM.LEVELCACHING);
 			}
 			else{
-				src_num=LSM.lop->range_find_compaction(upper,start,end,&data);	
+				src_num=LSM.lop->range_find_compaction(upper,key_min,end,&data);	
 			}
-
+			des_num=LSM.lop->range_find_compaction(origin,start,key_max,&target_s);//for stream compaction
 			if(src_num && des_num == 0 ){
+				if(des_num==0){
+					LSM.lop->print(origin);
+				}
 				printf("can't be\n");
 				abort();
 			}
@@ -272,6 +275,19 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 			src_num=1;
 			data[0]=lnode->entry;
 			data[1]=NULL;
+			start=lnode->entry->key;
+			des_num=LSM.lop->range_find_compaction(origin,start,key_max,&target_s);//for stream compaction
+		}
+/*
+		if(des_num!=origin->n_num){
+			LSM.lop->print(origin);
+			printf("origin! start key:%.*s\n", KEYFORMAT(start));
+		}
+*/
+		run_t *r;
+		lev_iter *iter=LSM.lop->get_iter(origin,key_min,start);
+		for_each_lev(r,iter, LSM.lop->iter_nxt){
+			LSM.lop->insert(t,r);	
 		}
 
 		for(int i=0; target_s[i]!=NULL; i++){
@@ -284,6 +300,9 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 			}
 			epc_check++;
 		}
+
+		KEYT temp;
+		//LSM.lop->chk_overlap_run(origin, upper, temp, temp);
 
 		if(upper && upper->idx<LSM.LEVELCACHING){
 			goto skip;
@@ -315,6 +334,7 @@ skip:
 		}
 		free(data);
 		free(target_s);
+	//	LSM.lop->print(t);
 	}
 	compaction_sub_post();
 	if(!lnode) skiplist_free(skip);

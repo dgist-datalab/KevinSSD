@@ -54,21 +54,16 @@ void temp_func(char* body, level *d, bool insert){
 			else{
 				printf("cutter %d\n",d->idx);
 			}
+		}*/
+
+		if(KEYCONSTCOMP(key, "m0000000000004134313")==0){
+			if(insert)
+				printf("[%.*s] insert into %d\n",KEYFORMAT(key), d->idx);
+			else{
+				printf("[%.*s] cutter %d\n",KEYFORMAT(key), d->idx);
+			}	
 		}
-		else*/ if(key_const_compare(key, 'd', 222551, 13, NULL) || key_const_compare(key, 'd', 222551, 13, NULL)){
-				char buf[100];
-				key_interpreter(key, buf);			
-				printf("maybe update KEY-(%s), ppa:%u ",buf,*ppa_ptr);
-				if(key.len==0){
-					printf("error!\n");
-					abort();
-				}
-				if(insert)
-					printf("insert into %d\n",d->idx);
-				else{
-					printf("cutter %d\n",d->idx);
-				}
-		}
+
 	for_each_header_end
 }
 
@@ -85,7 +80,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 		u_num=1;
 		u_data=(char**)malloc(sizeof(char*)*u_num);
 		u_data[0]=array_skip_cvt2_data(mem);
-		//temp_func(u_data[0],d,true);
+		temp_func(u_data[0],d,true);
 	}
 	else{
 		for(int i=0; s[i]!=NULL; i++) u_num++;
@@ -93,7 +88,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 		for(int i=0; i<u_num; i++) {
 			u_data[i]=data_from_run(s[i]);
 			if(!u_data[i]) abort();
-			//temp_func(u_data[i],d,true);
+			temp_func(u_data[i],d,true);
 		}
 	}
 
@@ -102,7 +97,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	for(int i=0; o[i]!=NULL; i++){ 
 		o_data[i]=data_from_run(o[i]);
 		if(!o_data[i]) abort();
-		//temp_func(o_data[i],d,true);
+		temp_func(o_data[i],d,true);
 	}
 
 
@@ -160,7 +155,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 			}
 			else{
 				invalidate_PPA(DATA,lppa, d->idx);
-
+				if(lppa)
 				rppa=hppa;
 				insert_key=hp_key;
 			}
@@ -191,7 +186,6 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 		bc_set_validate(rppa);
 	}
 
-	
 	if((pbody_insert_new_key(rp,insert_key,rppa,true))){
 			result_cnt++;
 	}
@@ -247,7 +241,7 @@ run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KE
 		return NULL;
 	}
 	
-	//temp_func(data,d,false);
+	temp_func(data,d,false);
 
 	return array_pipe_make_run(data,d->idx);
 }

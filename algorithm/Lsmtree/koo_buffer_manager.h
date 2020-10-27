@@ -26,8 +26,9 @@ typedef struct koo_buffer_manager{
 	list *meta_bucket_list; // list is place on "../../include/utils/list.c"
 	list *data_bucket_list;
 	list *commit_bucket_list;
-	uint32_t buffered_kp_len[4]; //0: meta, 1: data, 2: both, 3: commit
+	int32_t buffered_kp_len[4]; //0: meta, 1: data, 2: both, 3: commit
 	key_packing *current_kp;
+	int debug_cnt;
 	bool need_start_ppa;
 	bool is_gc;
 }KBM;

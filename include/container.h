@@ -113,6 +113,7 @@ struct algo_req{
 	void *params;
 };
 
+
 struct lower_info {
 	uint32_t (*create)(struct lower_info*, blockmanager *bm);
 	void* (*destroy)(struct lower_info*);
@@ -152,6 +153,8 @@ struct lower_info {
 	uint64_t all_pages_in_dev;//for scale up test
 
 	uint64_t req_type_cnt[LREQ_TYPE_NUM];
+	uint64_t read_overlapped;
+	uint64_t write_overlapped;
 	//anything
 };
 

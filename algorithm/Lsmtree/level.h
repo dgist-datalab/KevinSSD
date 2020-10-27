@@ -102,6 +102,12 @@ typedef struct keyset_iter{
 	void *private_data;
 }keyset_iter;
 
+typedef struct trivial_move_container{
+	bool isupper;
+	uint32_t start_idx;
+	uint32_t end_idx;
+}tirival_move_container;
+
 typedef struct level_ops{
 	/*level operation*/
 	level* (*init)(int size, int idx, float fpr, bool istier);
@@ -116,6 +122,7 @@ typedef struct level_ops{
 	void (*tier_align)( level*);
 	void (*move_heap)( level* des,  level *src);
 	bool (*chk_overlap)( level *des, KEYT star, KEYT end);
+	int32_t (*chk_overlap_run) (level *des, level *src, KEYT start, KEYT end);
 	uint32_t (*range_find)( level *l,KEYT start, KEYT end,  run_t ***r, uint32_t max_num);
 	uint32_t (*range_find_compaction)( level *l,KEYT start, KEYT end,  run_t ***r);
 	uint32_t (*unmatch_find)( level *,KEYT start, KEYT end, run_t ***r);
@@ -137,7 +144,11 @@ typedef struct level_ops{
 #endif
 
 	void (*merger)( skiplist*, run_t** src,  run_t** org,  level *des);
+#ifdef THREADCOMPACTION
+	run_t *(*cutter)( skiplist *,  level* des, KEYT* start, KEYT* end, trivial_move_container **res);
+#else
 	run_t *(*cutter)( skiplist *,  level* des, KEYT* start, KEYT* end);
+#endif
 	run_t *(*partial_merger_cutter)(skiplist*,pl_run *, pl_run *,uint32_t, uint32_t, level *,void*(*lev_insert_write)(level*, run_t*));
 	void (*normal_merger)(skiplist *,run_t *t_run, bool);
 //	run_t **(*normal_cutter)(skiplist *,KEYT, bool just_one);

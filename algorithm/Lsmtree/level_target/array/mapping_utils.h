@@ -66,8 +66,11 @@ static inline char *__split_data(char *data, KEYT key, KEYT key2, bool debug){
 	if(KEYCMP(__extract_end_key(data), key2) < 0){
 		return NULL;
 	}
-	char *res=(char *)calloc(PAGESIZE,1);
 	uint16_t boundary=__find_idx_boundary(data, key, key2);
+	if(boundary==0){
+		return NULL;
+	}
+	char *res=(char *)calloc(PAGESIZE,1);
 
 	char *ptr=res;
 	uint16_t *bitmap=(uint16_t*)res;
@@ -93,6 +96,12 @@ static inline char *__split_data(char *data, KEYT key, KEYT key2, bool debug){
 	KEYT boundary_key=__key_at(boundary, data, org_bitmap);
 	org_bitmap[0]=boundary;
 	org_bitmap[boundary+1]=org_bitmap[boundary]+boundary_key.len+sizeof(ppa_t);
+
+	/*
+	printf("split front!\n");
+	array_header_print(res);
+	printf("split back!\n");
+	array_header_print(data);*/
 	return res;
 }
 
@@ -114,4 +123,13 @@ static inline int __find_boundary_in_data_list(KEYT lpa, char **data, int data_n
 		return mid;
 }
 
+static inline int __header_overlap_chk(char *upper_data, char *lower_data){
+	KEYT upper_start=__extract_start_key(upper_data);
+	KEYT upper_end=__extract_end_key(upper_data);
+	KEYT lower_start=__extract_start_key(lower_data);
+	KEYT lower_end=__extract_end_key(lower_data);
+	if(KEYCMP(upper_start, lower_end)>0) return 1;
+	if(KEYCMP(upper_end, lower_start)<0) return -1;
+	return 0;
+}
 #endif

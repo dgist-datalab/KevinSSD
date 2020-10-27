@@ -3,7 +3,7 @@
 #include "../../include/lsm_settings.h"
 _bc bc;
 
-uint32_t debugging_ppa=2510691;
+uint32_t debugging_ppa=1765788;
 
 static inline void bc_set_bitmap(char* body, uint32_t idx, uint32_t offset){
 	body[idx]|=1<<offset;
@@ -126,6 +126,10 @@ bool bc_valid_query(uint32_t _ppa){
 
 void bc_set_validate(uint32_t _ppa){
 	uint32_t bc_num;
+	/*
+	if(debugging_ppa==(_ppa/NPCINPAGE)){
+		printf("%u %u validate!!\n", debugging_ppa,_ppa);
+	}*/
 	if(set_bc_num(_ppa, &bc_num)){
 		if(bc_num>bc.max){
 			abort();
@@ -144,6 +148,10 @@ void bc_set_validate(uint32_t _ppa){
 void bc_set_invalidate(uint32_t _ppa){
 	if(!bc.full_caching) return;
 	uint32_t bc_num;
+	/*
+	if(debugging_ppa==(_ppa/NPCINPAGE)){
+		printf("%u %u invalidate!!\n", debugging_ppa, _ppa);
+	}*/
 	if(set_bc_num(_ppa, &bc_num)){
 		if(bc_num>bc.max){
 			abort();

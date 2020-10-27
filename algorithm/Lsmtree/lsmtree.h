@@ -170,9 +170,14 @@ typedef struct lsmtree_monitor_info{
 	uint32_t data_gc_cnt;
 	uint32_t header_gc_cnt;
 	uint32_t log_gc_cnt;
+
 	uint32_t compaction_cnt;
 	uint32_t last_compaction_cnt;
 	uint32_t zero_compaction_cnt;
+	uint32_t trivial_compaction_cnt;
+	uint64_t compacting_run_cnt;
+	uint64_t move_run_cnt;
+
 	uint32_t __header_read_cnt;
 	uint32_t channel_overlap_cnt;
 	uint32_t full_comp_cnt;
@@ -182,9 +187,11 @@ typedef struct lsmtree_monitor_info{
 	uint32_t lru_hit_cnt;
 	uint32_t iteration_map_read_cnt;
 #ifdef PREFIXCHECK
-	uint32_t pr_check_cnt;
+	uint64_t pr_check_cnt;
 #endif
-	uint32_t check_cnt;
+	uint64_t check_cnt;
+	uint64_t run_binary_cnt;
+	uint64_t transaction_read_hit;
 }lmi;
 
 /*

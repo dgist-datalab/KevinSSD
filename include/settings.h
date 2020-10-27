@@ -58,7 +58,7 @@
 
 #elif defined(SLC)
 
-#define GIGAUNIT 32L
+#define GIGAUNIT 128L
 #define OP 70
 #define SHOWINGSIZE (GIGAUNIT * G)
 #define TOTALSIZE (SHOWINGSIZE + (SHOWINGSIZE/100*(100-OP)))
@@ -192,7 +192,7 @@ static inline bool KEYVALCHECK(KEYT a){
 #define DATATRANS
 
 
-//#define TRACECOLLECT "/home/koo/trace_data"
+#define TRACECOLLECT "/home/koo/trace_data"
 
 //#define KEYGEN
 #define SPINSYNC

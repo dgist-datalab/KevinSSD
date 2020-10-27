@@ -3,6 +3,7 @@
 #include "../../../../include/settings.h"
 #include "../../../../bench/bench.h"
 #include "../../../../include/utils/thpool.h"
+#include "../../../../interface/koo_hg_inf.h"
 #include "../../compaction.h"
 #include "../../nocpy.h"
 #include "../../bitmap_cache.h"
@@ -18,8 +19,10 @@ bool ismulti_thread;
 extern float t_fpr;
 #endif
 extern _bc bc;
+extern lmi LMI;
 bool header_debug_flag;
 bool isclear;
+
 static void temp_func(char* body, level *d, bool merger){
 	int idx;
 	uint16_t *bitmap=(uint16_t*)body;
@@ -27,18 +30,30 @@ static void temp_func(char* body, level *d, bool merger){
 	KEYT prev_key;
 	ppa_t *ppa_ptr;
 	for_each_header_start(idx,key,ppa_ptr,bitmap,body)
-		if(idx==1){
-			prev_key=key;
-		}
-		else if(idx>1){
-			if(KEYCMP(prev_key, key)>=0){
-				printf("order is failed!\n");
+		if(key_const_compare(key, 'd', 29361, 33, NULL)){
+			char buf[100];
+			key_interpreter(key, buf);			
+			printf("maybe update KEY-(%s), ppa:%u ",buf,*ppa_ptr);
+			if(key.len==0){
+				printf("error!\n");
 				abort();
 			}
-			prev_key=key;
+			if(merger)
+				printf("insert into %d\n",d->idx);
+			else{
+				printf("cutter %d\n",d->idx);
+			}
 		}
 	for_each_header_end
 }
+#ifdef KOO
+static void header_start_end_print(char *data, int idx){
+	char start[100], end[100];
+	key_interpreter(__extract_start_key(data), start);
+	key_interpreter(__extract_end_key(data), end);
+	printf("%d %s ~ %s\n", idx, start, end);
+}
+#endif
 
 typedef struct thread_params{
 	uint32_t o_num;
@@ -52,10 +67,11 @@ typedef struct thread_params{
 	bool isdone;
 	bool isdummy;
 	struct level *d;
+	struct trivial_move_container *res;
 }tp;
 
 static tp *init_thread_params(uint32_t num, char *target, level *d, uint32_t idx){
-	tp *res=(tp*)malloc(sizeof(tp));
+	tp *res=(tp*)calloc(1,sizeof(tp));
 	res->u_data=(char**)malloc(sizeof(char*)*1);
 	res->u_data[0]=target;
 	res->o_data=(char**)malloc(sizeof(char*)*num);
@@ -70,7 +86,7 @@ static tp *init_thread_params(uint32_t num, char *target, level *d, uint32_t idx
 }
 
 static tp *init_dummy_thread_params(uint32_t num, char *target, level *d, uint32_t idx){
-	tp *res=(tp*)malloc(sizeof(tp));
+	tp *res=(tp*)calloc(1,sizeof(tp));
 	res->u_data=(char**)malloc(sizeof(char*)*1);
 	res->u_data[0]=target;
 	res->o_data=NULL;
@@ -94,13 +110,28 @@ static tp *init_dummy_thread_params(uint32_t num, char *target, level *d, uint32
 
 void tp_print(tp *t){
 	if(!t->isdummy){
-	printf("[%d] %.*s ~ %.*s(1) && %.*s ~ %.*s (%d)\n",t->idx,
+#ifdef KOO
+		char buf[4][100];
+		key_interpreter(__extract_start_key(t->u_data[0]), buf[0]);
+		key_interpreter(__extract_end_key(t->u_data[0]), buf[1]);
+		key_interpreter(__extract_start_key(t->o_data[0]), buf[2]);
+		key_interpreter(__extract_end_key(t->o_data[t->o_num-1]), buf[3]);
+		printf("[%d] %s ~ %s(1) && %s ~ %s (%d)\n",t->idx,
+			buf[0], buf[1], buf[2], buf[3],
+			t->o_num
+			);
+#else
+		printf("[%d] %.*s ~ %.*s(1) && %.*s ~ %.*s (%d)\n",t->idx,
 			KEYFORMAT(__extract_start_key(t->u_data[0])),
 			KEYFORMAT(__extract_end_key(t->u_data[0])),
 			KEYFORMAT(__extract_start_key(t->o_data[0])),
-			KEYFORMAT(__extract_end_key(t->o_data[t->o_num-1])),		
+			KEYFORMAT(__extract_end_key(t->o_data[t->o_num?t->o_num-1:0])),		
 			t->o_num
 			);
+#endif
+	}
+	else{
+	//	printf("[%d] isdummy\n", t->idx);
 	}
 }
 
@@ -133,6 +164,7 @@ void __pipe_merger(void *argument, int id){
 	uint32_t o_num=params->o_num;
 	uint32_t u_num=1;
 	level *d=params->d;
+	//tp_print(params);
 
 	char **tp_r_data=(char**)calloc(sizeof(char*),(o_num+u_num+LSM.result_padding));
 	p_body *lp, *hp, *rp;
@@ -226,9 +258,12 @@ thread_params **tpp;
 int params_idx;
 int params_max;
 
-
-run_t* array_thread_pipe_cutter(struct skiplist *mem, struct level *d, KEYT *_start, KEYT *_end){
-	if(!ismulti_thread) return array_pipe_cutter(mem, d, _start,_end);
+run_t* array_thread_pipe_cutter(struct skiplist *mem, struct level *d, KEYT *_start, KEYT *_end, trivial_move_container **res){
+	if(!ismulti_thread){
+		if(res)
+			*res=NULL;
+		return array_pipe_cutter(mem, d, _start,_end);
+	}
 	char *data;
 retry:
 	static int KP_cnt=0;
@@ -275,6 +310,13 @@ retry:
 	return array_pipe_make_run(data,d->idx);
 }
 
+static int temp_print_format(KEYT key, int boundary, char *tt){
+	char buf[100];
+	key_interpreter(key, buf);
+	printf("[%s] %s -> %d\n", tt, buf, boundary);
+	return 0;
+}
+
 void array_thread_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
 	if(mem) return array_pipe_merger(mem, s, o, d);
 	ismulti_thread=true;
@@ -296,10 +338,21 @@ void array_thread_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct
 	t_fpr=d->fpr;
 #endif
 	
+	static int cnt=0;
+	bool debug=false;
+	/*
+	printf("mg cnt:%d\n", cnt++);
+	if(cnt==44){
+		debug=true;
+		printf("break!\n");
+	}*/
+
 	for(int i=0; s[i]!=NULL; i++) u_num++;
 	u_data=(char**)malloc(sizeof(char*)*u_num);
+	//printf("upper print\n");
 	for(int i=0; i<u_num; i++) {
 		u_data[i]=data_from_run(s[i]);
+	//	header_start_end_print(u_data[i], i);
 		//temp_func(u_data[i], d, true);
 		if(!u_data[i]) abort();
 	}
@@ -310,13 +363,17 @@ void array_thread_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct
 
 	for(int i=0;o[i]!=NULL ;i++) o_num++;
 	char **o_data=(char**)malloc(sizeof(char*)*o_num);
+//	printf("lower print\n");
 	for(int i=0; o[i]!=NULL; i++){ 
 		o_data[i]=data_from_run(o[i]);
-		//temp_func(o_data[i], d, true);
+		//header_start_end_print(o_data[i], i);
+		//printf("lower:%d\n",i);
+		//array_header_print(o_data[i]);
+	//	temp_func(o_data[i], d, true);
 		if(!o_data[i]) abort();
 	}
 
-	tpp=(tp**)malloc(sizeof(tp*)*u_num);
+	tpp=(tp**)malloc(sizeof(tp*)*(u_num+2));
 	int tp_num=0, t_data_num;
 	int prev_consume_num=0;
 	int end_boundary;
@@ -331,9 +388,6 @@ void array_thread_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct
 	array_print(LSM.disk[d->idx-1]);
 	printf("lower level!\n");
 	array_print(LSM.disk[d->idx]);
-
-	static int cnt=0;
-	printf("mg cnt:%d\n", cnt++);
 */
 	for(uint32_t i=0; i<u_num; i++){
 		if(i==u_num-1){
@@ -346,14 +400,35 @@ void array_thread_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct
 		next_start_key=__extract_start_key(u_data[i+1]);
 
 		end_boundary=__find_boundary_in_data_list(now_end_key, &o_data[prev_consume_num], o_num-prev_consume_num);
+		//temp_print_format(now_end_key, end_boundary, "now_end_key");
+
 		next_boundary=__find_boundary_in_data_list(next_start_key, &o_data[prev_consume_num], o_num-prev_consume_num);
+		//temp_print_format(next_start_key, next_boundary, "nxt_start_key");
 
 make_params:
-		if(end_boundary==-1){
+		if(end_boundary==-1){ //-1==no data or before data
 			real_bound=prev_consume_num+end_boundary;
-			num=(issplit_start?1:0);
-			if(num==0){
-				tpp[tp_num]=init_dummy_thread_params(1, u_data[i], d, i);
+			if(splited_data){
+				switch(__header_overlap_chk(u_data[i],splited_data)){
+					case 1://no overlap: [splited_data] [u_data[i]]
+						tpp[tp_num]=init_dummy_thread_params(1, splited_data, d, tp_num);
+						tp_num++;
+						LMI.move_run_cnt++;
+						issplit_start=false;
+					case -1: //no overlap :[u_data[i]] [splited_data]
+						num=0;
+						tpp[tp_num]=init_dummy_thread_params(1, u_data[i], d, tp_num);
+						LMI.move_run_cnt++;
+						goto next_round;
+					case 0: //overlap splited data
+						num=1;
+						break;
+				}
+			}
+			else{
+				num=0;
+				tpp[tp_num]=init_dummy_thread_params(1, u_data[i], d, tp_num);
+				LMI.move_run_cnt++;
 				goto next_round;
 			}
 		}
@@ -362,9 +437,10 @@ make_params:
 			num=real_bound-prev_consume_num+(issplit_start?1:0)+1;
 		}
 
-		tpp[tp_num]=init_thread_params(num, u_data[i], d, i);
+		tpp[tp_num]=init_thread_params(num, u_data[i], d, tp_num);
 		t_data_num=0;
 		target_data_set=tpp[tp_num]->o_data;
+
 
 		if(issplit_start){
 			target_data_set[t_data_num++]=splited_data;
@@ -394,18 +470,27 @@ make_params:
 		}
 
 		tpp[tp_num]->o_num=t_data_num;
+		LMI.compacting_run_cnt+=t_data_num+1;
 		thpool_add_work(pool, __pipe_merger, (void*)tpp[tp_num]);
 next_round:
 		tp_num++;
 	}
+	
+	if(issplit_start){
+		tpp[tp_num]=init_dummy_thread_params(1, splited_data, d, tp_num);
+		tp_num++;
+		LMI.move_run_cnt++;
+		issplit_start=false;
+	}
 
 	//tp_check_sanity(tpp, tp_num);
+	
+	//if(debug){
 	/*
-	if(debug){
-		for(int i=0; i<tp_num; i++){
-			tp_print(tpp[i]);
-		}
+	for(int i=0; i<tp_num; i++){
+		tp_print(tpp[i]);
 	}*/
+	//}
 
 
 //	exit(1);

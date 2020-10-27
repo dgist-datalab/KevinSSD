@@ -55,8 +55,6 @@ lsp LSP;
  extern lsp LSP;
  */
 
-
-
 extern level_ops h_ops;
 extern level_ops a_ops;
 extern _bc bc;
@@ -189,17 +187,24 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	fprintf(stdout,"compaction_cnt:%d\n",LMI.compaction_cnt);
 	fprintf(stdout,"last_compaction_cnt:%d\n",LMI.last_compaction_cnt);
 	fprintf(stdout,"zero compaction_cnt:%d\n",LMI.zero_compaction_cnt);
+	fprintf(stdout,"trivial compaction_cnt:%d\n",LMI.trivial_compaction_cnt);
+
+	fprintf(stdout,"\tcompacting_run_cnt:%d\n",LMI.compacting_run_cnt);
+	fprintf(stdout,"\tmove_run_cnt:%d\n",LMI.move_run_cnt);
+
 	fprintf(stdout,"channel overlap cnt:%d\n",LMI.channel_overlap_cnt);
 	fprintf(stdout,"lru_hit_cnt:%d\n",LMI.lru_hit_cnt);
 	fprintf(stdout,"iteration_map_read_cnt:%d\n",LMI.iteration_map_read_cnt);
-	fprintf(stdout,"pr_check cnt:%d\n",LMI.pr_check_cnt);
-	fprintf(stdout,"normal check cnt:%d\n",LMI.check_cnt);
+	fprintf(stdout,"RUN search cnt\n");
+	fprintf(stdout,"\tpr_check cnt:%lu\n",LMI.pr_check_cnt);
+	fprintf(stdout,"\tnormal check cnt:%lu\n",LMI.check_cnt);
+	fprintf(stdout,"KEY search cnt:%lu\n",LMI.run_binary_cnt);
+
 	fprintf(stdout,"gc_compaction_read:%d\n",LMI.gc_comp_read_cnt);
 	fprintf(stdout,"gc_compaction_write:%d\n",LMI.gc_comp_write_cnt);
 	fprintf(stdout,"gc_compaction_write:%d\n",LMI.gc_comp_write_cnt);
 	fprintf(stdout,"LSM lru num:%d %d (m n)\n",LSM.llru->max, LSM.llru->now);
 	fprintf(stdout,"========================================================\n");
-
 
 	bench_custom_print(write_opt_time2,15);
 
@@ -223,8 +228,9 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	if(ISNOCPY(LSM.setup_values))
 		nocpy_free();
 
-	if(ISTRANSACTION(LSM.setup_values))
+	if(ISTRANSACTION(LSM.setup_values)){
 		transaction_destroy();
+	}
 }
 
 #ifdef DVALUE
