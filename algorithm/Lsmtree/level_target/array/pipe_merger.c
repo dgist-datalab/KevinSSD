@@ -63,7 +63,6 @@ void temp_func(char* body, level *d, bool insert){
 				printf("[%.*s] cutter %d\n",KEYFORMAT(key), d->idx);
 			}	
 		}
-
 	for_each_header_end
 }
 

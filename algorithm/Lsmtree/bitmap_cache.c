@@ -1,4 +1,5 @@
 #include "bitmap_cache.h"
+#include "skiplist.h"
 #include "../../include/settings.h"
 #include "../../include/lsm_settings.h"
 _bc bc;
@@ -148,10 +149,6 @@ void bc_set_validate(uint32_t _ppa){
 void bc_set_invalidate(uint32_t _ppa){
 	if(!bc.full_caching) return;
 	uint32_t bc_num;
-	/*
-	if(debugging_ppa==(_ppa/NPCINPAGE)){
-		printf("%u %u invalidate!!\n", debugging_ppa, _ppa);
-	}*/
 	if(set_bc_num(_ppa, &bc_num)){
 		if(bc_num>bc.max){
 			abort();

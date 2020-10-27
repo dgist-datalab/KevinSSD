@@ -369,6 +369,7 @@ void array_thread_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct
 		//header_start_end_print(o_data[i], i);
 		//printf("lower:%d\n",i);
 		//array_header_print(o_data[i]);
+
 	//	temp_func(o_data[i], d, true);
 		if(!o_data[i]) abort();
 	}

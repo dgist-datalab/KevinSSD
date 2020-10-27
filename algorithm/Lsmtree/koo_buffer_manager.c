@@ -192,9 +192,7 @@ void issue_single_page(value_set *value_set, lower_info *li, uint8_t type) {
 		abort();
 	}
 	last_push_ppa=value_set->ppa;
-	if(last_push_ppa==9699344){
-		printf("break!\n");
-	}
+
 	li->write(CONVPPA(value_set->ppa),PAGESIZE,params->value,ASYNC,lsm_req);
 }
 

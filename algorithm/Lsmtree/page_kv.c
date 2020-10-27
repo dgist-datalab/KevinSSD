@@ -219,12 +219,17 @@ int gc_data(){
 
 extern _bc bc;
 extern uint32_t debugging_ppa;
+
+#ifdef TRACECOLLECT
+extern int trace_fd;
+#endif
 bool gc_debug_flag;
 int __gc_data(){
 	
 	static int cnt=0;
 	printf("gc_cnt:%u\n",cnt++);
 	if(cnt==11){
+
 	//	gc_debug_flag=true;
 	}
 	static bool flag=false;
@@ -252,11 +257,17 @@ int __gc_data(){
 		if(isstart){ start_page=tpage; isstart=false;}
 		idx++;
 
+		if(gc_debug_flag){
+			if(tpage==1474156){
+				printf("break!\n");
+			}
+		}
 #ifdef DVALUE
 		bool page_read=false;
 		for(int j=0; j<NPCINPAGE; j++){
 			uint32_t npc=tpage*NPCINPAGE+j;
-			if(!bc_valid_query(npc)) continue;
+
+		//	if(!bc_valid_query(npc)) continue;
 			page_read=true;
 			tables[tpage%_PPS]=(htable_t*)malloc(sizeof(htable_t));
 			gc_data_read(npc,tables[tpage%_PPS],GCDR,NULL);
@@ -307,7 +318,11 @@ int __gc_data(){
 			}
 			kp=key_packing_init(NULL, (char*)tables[tpage_offset]->sets);
 			if(tables[tpage_offset]->sets==NULL){
-				printf("???????\n");
+
+				printf("??????? page_offset:%u, tpage:%u\n", tpage_offset, tpage);
+#ifdef TRACECOLLECT
+				fsync(trace_fd);
+#endif
 				abort();
 			}
 			temp_kp_idx=tpage_offset;
