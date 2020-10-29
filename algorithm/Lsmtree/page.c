@@ -33,7 +33,7 @@ void pm_init(){
 	d_m.reserve=bm->pt_get_segment(bm,DATA_S,true);
 	d_m.active=bm->pt_get_segment(bm, DATA_S, false);
 
-	uint32_t start_ppn=LSM.bm->pick_page_num(LSM.bm, d_m.active);
+	//uint32_t start_ppn=LSM.bm->pick_page_num(LSM.bm, d_m.active);
 	uint32_t min_ppn=LSM.bm->pick_page_num(LSM.bm, d_m.reserve);
 //	bc_init(_NOS/LLP.size_factor+1, start_ppn, min_ppn, min_ppn+DATAPART_SEGS*_PPS-1);
 	bc_init(DATAPART_SEGS, min_ppn, min_ppn, min_ppn+DATAPART_SEGS*_PPS-1);

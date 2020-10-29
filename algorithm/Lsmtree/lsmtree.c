@@ -149,6 +149,8 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 			printf("\t|bitmap_caching memroy:%u\n",bc_used_memory(bc.max)/PAGESIZE);
 	//		printf("\t|LRU size :%u pages\n",1);
 	//		LSM.llru=lsm_lru_init(1);
+	//		printf("\t|LRU size :%u pages\n",30000);
+	//		LSM.llru=lsm_lru_init(30000);
 			printf("\t|LRU size :%u pages\n",remain_memory);
 			LSM.llru=lsm_lru_init(remain_memory);
 		}
@@ -174,7 +176,13 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 #ifdef EMULATOR
 	LSM.rb_ppa_key=rb_create();
 #endif
-
+#ifdef COMPRESSEDCACHE
+	LSM.decompressed_buf=(char*)malloc(PAGESIZE);
+	LSM.comp_decompressed_buf=(char*)malloc(PAGESIZE);
+#else
+	LSM.decompressed_buf=NULL;
+	LSM.comp_decompressed_buf=NULL;
+#endif
 	fdriver_mutex_init(&LSM.iterator_lock);
 	return 0;
 }
@@ -189,8 +197,8 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	fprintf(stdout,"zero compaction_cnt:%d\n",LMI.zero_compaction_cnt);
 	fprintf(stdout,"trivial compaction_cnt:%d\n",LMI.trivial_compaction_cnt);
 
-	fprintf(stdout,"\tcompacting_run_cnt:%d\n",LMI.compacting_run_cnt);
-	fprintf(stdout,"\tmove_run_cnt:%d\n",LMI.move_run_cnt);
+	fprintf(stdout,"\tcompacting_run_cnt:%lu\n",LMI.compacting_run_cnt);
+	fprintf(stdout,"\tmove_run_cnt:%lu\n",LMI.move_run_cnt);
 
 	fprintf(stdout,"channel overlap cnt:%d\n",LMI.channel_overlap_cnt);
 	fprintf(stdout,"lru_hit_cnt:%d\n",LMI.lru_hit_cnt);
@@ -203,12 +211,13 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	fprintf(stdout,"gc_compaction_read:%d\n",LMI.gc_comp_read_cnt);
 	fprintf(stdout,"gc_compaction_write:%d\n",LMI.gc_comp_write_cnt);
 	fprintf(stdout,"gc_compaction_write:%d\n",LMI.gc_comp_write_cnt);
-	fprintf(stdout,"LSM lru num:%d %d (m n)\n",LSM.llru->max, LSM.llru->now);
+	fprintf(stdout,"LSM lru num:%d %d, entry_num:%u (m n)\n",LSM.llru->max_bytes, LSM.llru->now_bytes, LSM.llru->cached_entry);
+	fprintf(stdout,"LSM lru compress ratio :%lf\n", (double)LSM.llru->compressed_length/LSM.llru->input_length);
 	fprintf(stdout,"========================================================\n");
 
 	bench_custom_print(write_opt_time2,15);
 
-	compaction_free();
+
 	free(LLP.size_factor_change);
 	printf("last summary-----\n");
 	LSM.lop->print_level_summary();
@@ -224,10 +233,13 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	free(LSM.level_lock);
 
 	lsm_lru_free(LSM.llru);
+	free(LSM.decompressed_buf);
+	free(LSM.comp_decompressed_buf);
 
 	if(ISNOCPY(LSM.setup_values))
 		nocpy_free();
 
+	compaction_free();
 	if(ISTRANSACTION(LSM.setup_values)){
 		transaction_destroy();
 	}
@@ -694,7 +706,7 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 #endif
 		}
 		else{
-			char *cache_data=lsm_lru_pick(LSM.llru, &entries[0]);
+			char *cache_data=lsm_lru_pick(LSM.llru, &entries[0], LSM.decompressed_buf);
 			if(cache_data){
 				LMI.lru_hit_cnt++;
 				keyset *find=LSM.lop->find_keyset(cache_data, key);
@@ -793,7 +805,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 			keyset *new_target_set;
 			algo_req *new_lsm_req;
 
-			lsm_lru_insert(LSM.llru, entry, (char*)table);
+			lsm_lru_insert(LSM.llru, entry, (char*)table, LSM.LEVELN-1);
 
 			for(int i=0; i<entry->wait_idx; i++){
 				temp_req=(request*)entry->waitreq[i];
@@ -1371,8 +1383,9 @@ bool lsm_should_flush(skiplist *mem, __segment *seg){
 	else if(needed_page>remain_page){
 		//lsm_block_aligning(needed_page, false);
 	}
-*/
+
 check_mem:
+*/
 	if(METAFLUSHCHECK(*mem)){
 		LMI.full_comp_cnt++;
 		return true;

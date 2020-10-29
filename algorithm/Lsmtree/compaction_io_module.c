@@ -46,7 +46,7 @@ ppa_t compaction_htable_write_insert(level *target,run_t *entry,bool isbg){
 	if(isbg){
 		abort();
 	}else{
-		lsm_lru_insert(LSM.llru, cache_target,(char*) entry->cpt_data->sets);
+		lsm_lru_insert(LSM.llru, cache_target,(char*) entry->cpt_data->sets, target->idx);
 		compaction_htable_write(entry->pbn,entry->cpt_data,entry->key);
 	}
 	LSM.lop->release_run(entry);

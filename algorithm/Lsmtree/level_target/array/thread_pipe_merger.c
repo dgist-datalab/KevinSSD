@@ -338,8 +338,8 @@ void array_thread_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct
 	t_fpr=d->fpr;
 #endif
 	
-	static int cnt=0;
-	bool debug=false;
+	//static int cnt=0;
+	//bool debug=false;
 	/*
 	printf("mg cnt:%d\n", cnt++);
 	if(cnt==44){

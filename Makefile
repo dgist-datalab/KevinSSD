@@ -119,6 +119,7 @@ SRCS +=\
 	./include/utils/kvssd.c\
 	./include/utils/sha256.c\
 	./include/utils/tag_q.c\
+	./include/utils/lz4.c\
 	./blockmanager/base_block_manager.c\
 	./blockmanager/bb_checker.c\
 #	./interface/buse.c\

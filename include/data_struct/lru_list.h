@@ -14,11 +14,12 @@ typedef struct __lru{
 	int size;
 	lru_node *head;
 	lru_node *tail;
-	void (*free_data)(void *);
+	void (*free_data)(struct __lru*, void *);
+	void *private_data;
 } LRU;
 
 //lru
-void lru_init(LRU**, void(*)(void*));
+void lru_init(LRU**, void(*)(LRU *, void*));
 void lru_free(LRU*);
 lru_node* lru_push(LRU*, void*);
 void* lru_pop(LRU*);

@@ -180,7 +180,7 @@ level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_
 			res->m_iter[i]=NULL;
 			(*read_num)++;
 
-			char *data=lsm_lru_pick(LSM.llru, t);
+			char *data=lsm_lru_pick(LSM.llru, t, LSM.decompressed_buf);
 			if(data){
 				LMI.lru_hit_cnt++;
 				ppa_list[i]=UINT_MAX-1;

@@ -1,6 +1,6 @@
 #include "lru_list.h"
 
-void lru_init(LRU** lru, void (*data_free)(void*)){
+void lru_init(LRU** lru, void (*data_free)(LRU *lru, void*)){
 	*lru = (LRU*)malloc(sizeof(LRU));
 	(*lru)->size=0;
 	(*lru)->head = (*lru)->tail = NULL;
@@ -43,7 +43,7 @@ void* lru_pop(LRU* lru){
 	}
 	lru->size--;
 	if(lru->free_data){
-		lru->free_data(re);
+		lru->free_data(lru, re);
 	}
 	free(now);
 	return re;
@@ -93,7 +93,7 @@ void lru_delete(LRU* lru, lru_node* now){
 	}	
 	lru->size--;
 	if(lru->free_data){
-		lru->free_data(now->data);
+		lru->free_data(lru, now->data);
 	}
 	free(now);
 }

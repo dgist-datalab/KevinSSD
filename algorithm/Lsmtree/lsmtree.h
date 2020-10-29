@@ -225,6 +225,8 @@ typedef struct lsmtree{
 	level_ops *lop;
 	lower_info* li;
 	struct lsm_lru *llru;
+	char *decompressed_buf;
+	char *comp_decompressed_buf;
 #ifdef DVALUE
 	pthread_mutex_t data_lock;
 	ppa_t data_ppa; //for one data caching for read

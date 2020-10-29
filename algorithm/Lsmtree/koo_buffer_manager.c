@@ -98,7 +98,7 @@ static inline bool checking_sanity(uint32_t keypacking_piece_ppa){
 	int last_ppa=keypacking_piece_ppa/NPCINPAGE;
 	footer *foot;
 	KEYT key, data_key;
-	bool isstart=true;
+	//bool isstart=true;
 	uint32_t time;
 	//printf("ppa :%u (idx:%u) - %s\n", last_ppa, last_ppa%_PPS, "key_packing");
 	char test_page[8192];
@@ -393,22 +393,11 @@ void write_buffer_insert_KV(KBM *kbm, uint32_t tid, snode *kv_pair, bool isdelet
 		printf("break!\n");
 	}
 */
-/*debgu code*/
 	
 	if(!block_active_remain_pagenum(kbm->is_gc)){
 	//	checking_sanity(last_push_ppa);
 	}
-/*debgu code*/
-/*
-	if (key_const_compare(kv_pair->key, 'm', 14703, UINT32_MAX, "00000089")) {
-		static int cnt=0;
-		printf("%d break!\n", cnt++);
-		if(cnt==7){
-			printf("debug!!!\n");
-			write_buffer_debug=true;
-		}
-	}
-*/
+
 	list *target_list;
 	int max_items, remain_pages;
 	bool is_meta = is_meta_kv(kv_pair), retry;

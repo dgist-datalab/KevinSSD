@@ -657,7 +657,7 @@ bool htable_read_preproc(run_t *r){
 		return true;
 	}
 	
-	char *cache_data=lsm_lru_pick(LSM.llru, r);
+	char *cache_data=lsm_lru_pick(LSM.llru, r, LSM.comp_decompressed_buf);
 	if(cache_data){
 		memcpy_cnt++;
 		r->cpt_data=htable_assign(cache_data, 0);

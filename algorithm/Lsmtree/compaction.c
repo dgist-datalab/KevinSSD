@@ -132,7 +132,7 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,rwlock *lock){
 	if(to->idx==LSM.LEVELN-2){
 		int32_t target_num=to->m_num;
 		target_num-=(to->n_num+LSM.disk[to->idx-1]->n_num);
-		lsm_lru_resize(LSM.llru, LSM.llru->origin_max+target_num);
+		lsm_lru_resize(LSM.llru, LSM.llru->origin_max+target_num*PAGESIZE);
 	}
 
 	uint32_t up_num=0;
@@ -202,7 +202,7 @@ last:
 	if(entry) free(entry);
 
 	if(to->idx==LSM.LEVELN-2){
-		lsm_lru_resize(LSM.llru, LSM.llru->origin_max+(target->m_num-target->n_num));
+		lsm_lru_resize(LSM.llru, LSM.llru->origin_max+(target->m_num-target->n_num)*PAGESIZE);
 	}
 	uint32_t res=level_change(from,to,target,lock);
 	//printf("ending\n");
@@ -301,7 +301,7 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 			epc_check++;
 		}
 
-		KEYT temp;
+	//	KEYT temp;
 		//LSM.lop->chk_overlap_run(origin, upper, temp, temp);
 
 		if(upper && upper->idx<LSM.LEVELCACHING){

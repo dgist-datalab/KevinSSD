@@ -16,8 +16,6 @@
 #define BLOOM
 #endif
 
-
-
 #define PREFIXNUM	(9)
 
 //#define SIMDSEARCHER
@@ -50,6 +48,8 @@
 #define WRITEWAIT
 #define MAXKEYSIZE 255
 #define THREADCOMPACTION 8
+//#define CACHEFILETEST "cache_test_file.temp"
+#define COMPRESSEDCACHE
 
 /*compaction*/
 #define MAXITER 16

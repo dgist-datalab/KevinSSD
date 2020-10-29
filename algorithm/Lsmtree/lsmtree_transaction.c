@@ -56,7 +56,7 @@ void checking_table_nonfull(){
 uint32_t transaction_init(uint32_t cached_size){
 	uint32_t cached_entry_num=cached_size/PAGESIZE;
 
-	uint32_t max_KP_buffer_num=(7*K)/(DEFKEYLENGTH+4);
+	//uint32_t max_KP_buffer_num=(7*K)/(DEFKEYLENGTH+4);
 	uint32_t target_KP_buffer=4;
 
 	transaction_table_init(&_tm.ttb, PAGESIZE, 0);
@@ -137,9 +137,6 @@ uint32_t __trans_write(char *data, value_set *value, ppa_t ppa, uint32_t type, r
 
 uint32_t transaction_set(request *const req){
 	static uint32_t prev_tid=0;
-	if(KEYCONSTCOMP(req->key, "m0000000000004134313")==0){
-		printf("%.*s input!!\n", KEYFORMAT(req->key));
-	}
 	if(prev_tid==req->tid){
 	
 	}
@@ -161,14 +158,6 @@ uint32_t transaction_set(request *const req){
 	}
 #endif
 
-	if (key_const_compare(req->key, 'd', 29361, 33, NULL)) {
-		printf("target key(d 29361 33) is insert, validate:%d\n", req->type!=FS_DELETE_T);
-		static int ttt=0;
-		printf("ttt:%d\n", ttt++);
-		if(ttt==7){
-			printf("break!!\n");
-		}
-	}
  
 	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, req->type !=FS_DELETE_T, &etr);
 	fdriver_unlock(&_tm.table_lock);
@@ -834,6 +823,7 @@ uint32_t gc_log(){
 	compaction_wait_jobs();
 	LMI.log_gc_cnt++;
 	blockmanager *bm=LSM.bm;
+	printf("gc log!!\n");
 	__gsegment *tseg=bm->pt_get_gc_target(bm, LOG_S);
 	if(!tseg || tseg->invalidate_number==0){
 		printf("log full!\n");
@@ -913,14 +903,14 @@ bool transaction_debug_search(KEYT key){
 }
 
 void transaction_evicted_write_entry(transaction_entry* etr, char *data){
-	//printf("called??\n");
+	printf("called??\n");
 	//transaction_table_print(_tm.ttb, true);
 	//abort();
 	if((void*)etr==(void*)&_tm.last_table){
 		ppa_t ppa=get_log_PPA(TABLEW);
 		value_set *value=inf_get_valueset(data, FS_MALLOC_W, PAGESIZE);
 		__trans_write(NULL, value, ppa, LOGW, NULL, true);
-	//	printf("table ppa update %d->%d\n", _tm.last_table, ppa);
+		printf("table ppa update %d->%d\n", _tm.last_table, ppa);
 		_tm.last_table=ppa;
 	}
 	else{
@@ -932,7 +922,7 @@ void transaction_evicted_write_entry(transaction_entry* etr, char *data){
 		ppa_t ppa=get_log_PPA(LOGW);
 		value_set *value=inf_get_valueset(data, FS_MALLOC_W, PAGESIZE);
 		__trans_write(NULL, value, ppa, LOGW, NULL, true);
-	//	printf("tid: %d ppa update %d->%d\n",etr->tid, etr->ptr.physical_pointer, ppa);
+		printf("tid: %d ppa update %d->%d\n",etr->tid, etr->ptr.physical_pointer, ppa);
 		if(temp_tid==0){
 			temp_tid=etr->tid;
 		}
