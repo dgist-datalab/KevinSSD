@@ -17,8 +17,7 @@ robusta*
 *log
 .
 *log
-*trace*
-driver
+*driver
 range_driver
 *driver
 *.swp
