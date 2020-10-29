@@ -62,6 +62,7 @@ static inline void make_mget_req(vec_request *res, request *req, uint32_t size){
 	kvssd_cpy_key(&copied_key, &req->key);
 
 	free(res->req_array);
+	res->size=size;
 	res->req_array=(request*)calloc(size, sizeof(request));
 	for(uint32_t i=0; i<size; i++){
 		request *temp=&res->req_array[i];
@@ -77,7 +78,6 @@ static inline void make_mget_req(vec_request *res, request *req, uint32_t size){
 		temp_k=Swap8Bytes(temp_k);
 		temp_k+=i;
 		*(uint64_t*)&temp->key.key[temp->key.len-sizeof(uint64_t)]=Swap8Bytes(temp_k);
-
 		temp->value=inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 	}
 

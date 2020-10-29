@@ -706,8 +706,15 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 #endif
 		}
 		else{
+			/*
+			char buf[50], buf2[50], buf3[50];
+			key_interpreter(entries[0].key, buf);
+			key_interpreter(entries[0].end, buf2);
+			key_interpreter(key, buf3);
+*/
 			char *cache_data=lsm_lru_pick(LSM.llru, &entries[0], LSM.decompressed_buf);
 			if(cache_data){
+//				printf("%s~%s key:%s find!\n", buf, buf2, buf3);
 				LMI.lru_hit_cnt++;
 				keyset *find=LSM.lop->find_keyset(cache_data, key);
 				lsm_lru_pick_release(LSM.llru, &entries[0]);
@@ -718,6 +725,7 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 					return CACHING;
 				}
 			}else{
+//				printf("%s~%s key:%s miss!\n", buf, buf2, buf3);
 				lsm_lru_pick_release(LSM.llru, &entries[0]);
 			}
 
@@ -746,10 +754,10 @@ extern bool debug_target;
 extern uint32_t debugging_ppa;
 int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int idx){
 	int res=0;
-	
 	if(!entry && !table && !list && idx != LSM.LEVELN-1){
 		return 0;
 	}
+
 	uint32_t ppa;
 	algo_req *lsm_req=NULL;
 	snode *target_node;
@@ -906,6 +914,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 	return res;
 }
 uint32_t __lsm_get(request *const req){
+
 	int level;
 	int run;
 	int round;
@@ -920,7 +929,6 @@ uint32_t __lsm_get(request *const req){
 	int *temp_data;
 	rparams *rp;
 	//printf("%.*s\n", KEYFORMAT(req->key));
-
 	if(req->params==NULL){
 		if(!ISTRANSACTION(LSM.setup_values)){
 			/*memtable*/
@@ -1021,7 +1029,7 @@ retry:
 			temp_data[1]=run;
 
 			rp->entry=entry;
-			temp_data[2]=++round;
+			static int cnt=0;
 			if(!(ISHWREAD(LSM.setup_values) && level==LSM.LEVELN-1) && entry->isflying==1){	
 				if(entry->wait_idx==0){
 					if(entry->waitreq){
@@ -1031,7 +1039,9 @@ retry:
 				}
 				entry->waitreq[entry->wait_idx++]=(void*)req;
 				res=FOUND;
+				temp_data[2]=LSM.LEVELN;
 			}else{
+				temp_data[2]=++round;
 				lsm_req=lsm_get_req_factory(req,HEADERR,level);
 				params=(lsm_params*)lsm_req->params;
 				params->ppa=entry->pbn;

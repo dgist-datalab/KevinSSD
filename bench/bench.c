@@ -528,7 +528,7 @@ void bench_reap_data(request *const req,lower_info *li){
 	}
 #ifdef CDF
 	int slot_num=req->latency_checker.micro_time/TIMESLOT;
-	if(req->type==FS_GET_T || req->type==FS_RANGEGET_T){
+	if(req->type==FS_GET_T || req->type==FS_RANGEGET_T || req->type==FS_MGET_T){
 		if(slot_num>=1000000/TIMESLOT){
 			_data->read_cdf[1000000/TIMESLOT]++;
 		}
