@@ -43,4 +43,8 @@ void lsm_lru_pick_release(lsm_lru *, struct run *);
 void lsm_lru_resize(lsm_lru *, int32_t target_size);
 void lsm_lru_delete(lsm_lru *,struct run *ent);
 void lsm_lru_free(lsm_lru *);
+#if COMPRESSEDCACHE==DELTACOMP
+ppa_t lsm_lru_find_cache(lsm_lru*, struct run *, KEYT lpa);
+#endif
+
 #endif

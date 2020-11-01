@@ -13,7 +13,7 @@
 
 extern master_processor mp;
 extern tag_manager *tm;
-static int32_t flying_cnt = QDEPTH;
+int32_t flying_cnt = QDEPTH;
 static pthread_mutex_t flying_cnt_lock=PTHREAD_MUTEX_INITIALIZER; 
 bool vectored_end_req (request * const req);
 /*request-length request-size tid*/

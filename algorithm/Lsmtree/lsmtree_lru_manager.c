@@ -2,6 +2,8 @@
 #include "../../include/utils.h"
 #include "../../bench/measurement.h"
 #include "../../include/utils/lz4.h"
+#include "delta_comp.h"
+#include "../../interface/koo_hg_inf.h"
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -60,7 +62,11 @@ void lsm_lru_insert(lsm_lru *llru, run_t *ent, char *data, int level_idx){
 #ifdef COMPRESSEDCACHE
 	target->entry=ent;
 	target->data=(compressed_cache_node*)malloc(sizeof(compressed_cache_node));
+	#if COMPRESSEDCACHE==LZ4
 	target->data->len=LZ4_compress_default(data, target->data->buf, PAGESIZE, PAGESIZE);
+	#elif COMPRESSEDCACHE==DELTACOMP
+	target->data->len=delta_compression_comp(data, target->data->buf);
+	#endif
 	llru->now_bytes+=target->data->len;
 
 	llru->input_length+=PAGESIZE;
@@ -85,7 +91,11 @@ char* lsm_lru_get(lsm_lru *llru, run_t *ent, char *buf){
 	if(ent->lru_cache_node){
 		lsm_lru_node *target=(lsm_lru_node*)((lru_node*)ent->lru_cache_node)->data;
 #ifdef COMPRESSEDCACHE
+	#if COMPRESSEDCACHE==LZ4
 		LZ4_decompress_safe(target->data->buf, buf, target->data->len, PAGESIZE);
+	#elif COMPRESSEDCACHE==DELTACOMP
+		delta_compression_decomp(target->data->buf, buf, target->data->len);
+	#endif
 		res=buf;
 #else
 		res=target->data;
@@ -107,7 +117,11 @@ char *lsm_lru_pick(lsm_lru *llru, struct run *ent, char *buf){
 	if(ent->lru_cache_node){
 		lsm_lru_node *target=(lsm_lru_node*)((lru_node*)ent->lru_cache_node)->data;
 #ifdef COMPRESSEDCACHE
+	#if COMPRESSEDCACHE==LZ4
 		LZ4_decompress_safe(target->data->buf, buf, target->data->len, PAGESIZE);
+	#elif COMPRESSEDCACHE==DELTACOMP
+		delta_compression_decomp(target->data->buf, buf, target->data->len);
+	#endif
 		res=buf;
 #else
 		res=target->data;
@@ -157,3 +171,22 @@ void lsm_lru_free(lsm_lru *llru){
 	close(compress_fd);
 #endif
 }
+
+#if COMPRESSEDCACHE==DELTACOMP
+ppa_t lsm_lru_find_cache(lsm_lru* llru, struct run *ent, KEYT lpa){
+	if(!llru->max_bytes) return UINT32_MAX;
+	ppa_t res;
+	fdriver_lock(&llru->lock);
+	if(ent->lru_cache_node){
+		lsm_lru_node *target=(lsm_lru_node*)((lru_node*)ent->lru_cache_node)->data;
+		res=delta_compression_find(target->data->buf, lpa, target->data->len);
+		lru_update(llru->lru, (lru_node*)ent->lru_cache_node);
+	}
+	else{
+		res=UINT32_MAX;
+	}
+	fdriver_unlock(&llru->lock);
+	return res;
+
+}
+#endif

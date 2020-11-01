@@ -265,7 +265,7 @@ uint32_t lsm_remove(request *const);
 uint32_t lsm_wait_bg_jobs();
 
 uint32_t __lsm_get(request *const);
-uint8_t lsm_find_run(KEYT key, run_t **,run_t *,struct keyset **, int *level, int *run, rwlock **);
+uint8_t lsm_find_run(KEYT key, run_t **,run_t *,struct keyset **, uint32_t *ppa, int *level, int *run, rwlock **);
 uint32_t __lsm_range_get(request *const);
 
 void* lsm_end_req(struct algo_req*const);

@@ -580,7 +580,6 @@ extern bool header_debug_flag;
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
 	
 	compaction_sub_wait();
-	
 	LSM.lop->merger(top,src,org,des);
 
 	KEYT key,end;

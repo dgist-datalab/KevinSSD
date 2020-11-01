@@ -101,6 +101,7 @@ uint32_t __lsm_get(request *const req){
 	int *temp_data;
 	int ov_cnt=0;
 	mreq_params *mrqp;
+	uint32_t found_ppa;
 
 	bool debug_flag=false;
 	if(req->params!=NULL){
@@ -180,13 +181,13 @@ uint32_t __lsm_get(request *const req){
 retry:
 	run=0;
 pin_retry:
-	result=lsm_find_run(req->key,&entry,&found,&level,&run);
+	result=lsm_find_run(req->key,&entry,&found,&found_ppa, &level,&run);
 	switch(result){
 		case CACHING:
-			if(found){
+			if(found || found_ppa!=UINT32_MAX){
 				lsm_req=lsm_get_req_factory(req,DATAR);
-				req->value->ppa=found->ppa;
-				LSM.li->read(CONVPPA(found->ppa),PAGESIZE,req->value,ASYNC,lsm_req);
+				req->value->ppa=found_ppa==UINT32_MAX?found->ppa:found_ppa;
+				LSM.li->read(CONVPPA(req->value->ppa),PAGESIZE,req->value,ASYNC,lsm_req);
 			}
 			else{
 				level++;

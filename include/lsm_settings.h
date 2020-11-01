@@ -47,9 +47,11 @@
 #define RQSIZE 1024
 #define WRITEWAIT
 #define MAXKEYSIZE 255
-#define THREADCOMPACTION 8
+#define THREADCOMPACTION 1
 //#define CACHEFILETEST "cache_test_file.temp"
-#define COMPRESSEDCACHE
+#define DELTACOMP	1
+#define LZ4			2
+#define COMPRESSEDCACHE DELTACOMP
 
 /*compaction*/
 #define MAXITER 16

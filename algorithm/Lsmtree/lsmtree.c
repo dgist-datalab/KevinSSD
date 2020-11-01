@@ -648,7 +648,7 @@ void dummy_htable_read(uint32_t pbn,request *req){
 #endif
 }
 
-uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, int *level,int *run, rwlock **rw_lock){
+uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, uint32_t *found_ppa, int *level,int *run, rwlock **rw_lock){
 	run_t *entries=NULL;
 #ifdef PARTITION
 	rwlock *up_entry_lock=NULL;
@@ -695,6 +695,7 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 			keyset *find=LSM.lop->find_keyset(entries->level_caching_data,key);
 			if(find){
 				*found=find;
+				(*found_ppa)=UINT32_MAX;
 				if(level) *level=i;
 				rwlock_read_unlock(level_rw_lock);
 				return CACHING;
@@ -712,6 +713,15 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 			key_interpreter(entries[0].end, buf2);
 			key_interpreter(key, buf3);
 */
+#if (defined(COMPRESSEDCACHE)&&COMPRESSEDCACHE==DELTACOMP)
+			ppa_t compressed_result=lsm_lru_find_cache(LSM.llru, &entries[0], key);
+			if(compressed_result!=UINT32_MAX){
+				(*found)=NULL;
+				(*found_ppa)=compressed_result;
+				rwlock_read_unlock(level_rw_lock);
+				return CACHING;
+			}
+#else
 			char *cache_data=lsm_lru_pick(LSM.llru, &entries[0], LSM.decompressed_buf);
 			if(cache_data){
 //				printf("%s~%s key:%s find!\n", buf, buf2, buf3);
@@ -720,6 +730,7 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 				lsm_lru_pick_release(LSM.llru, &entries[0]);
 				if(find){
 					*found=find;
+					*found_ppa=UINT32_MAX;
 					if(level) *level=i;
 					rwlock_read_unlock(level_rw_lock);
 					return CACHING;
@@ -728,6 +739,7 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 //				printf("%s~%s key:%s miss!\n", buf, buf2, buf3);
 				lsm_lru_pick_release(LSM.llru, &entries[0]);
 			}
+#endif
 
 			if(level) *level=i;
 			if(run) *run=0;
@@ -925,10 +937,18 @@ uint32_t __lsm_get(request *const req){
 	algo_req *lsm_req=NULL;
 	lsm_params *params;
 	uint8_t result=0;
-
+	uint32_t found_ppa;
 	int *temp_data;
 	rparams *rp;
 	//printf("%.*s\n", KEYFORMAT(req->key));
+/*
+	if(key_const_compare(req->key,'d',11, 6504875,NULL)){
+		printf("break!\n");
+	}
+	char buf[100];
+	key_interpreter(req->key, buf);
+	printf("processing %s\n",buf);
+*/
 	if(req->params==NULL){
 		if(!ISTRANSACTION(LSM.setup_values)){
 			/*memtable*/
@@ -1008,15 +1028,15 @@ retry:
 		return 1;
 	}
 
-	result=lsm_find_run(req->key, &entry, entry, &found,&level,&run, &rp->rw_lock);
+	result=lsm_find_run(req->key, &entry, entry, &found,&found_ppa,&level,&run, &rp->rw_lock);
 	if(temp_data[3]==1) temp_data[3]=0;
 	switch(result){
 		case CACHING:
-			if(found){
+			if(found || found_ppa!=UINT32_MAX){
 				lsm_req=lsm_get_req_factory(req,DATAR,level);
-				req->value->ppa=found->ppa;
+				req->value->ppa=found_ppa==UINT32_MAX?found->ppa:found_ppa;
 				req->magic=3;
-				LSM.li->read(CONVPPA(found->ppa),PAGESIZE,req->value,ASYNC,lsm_req);
+				LSM.li->read(CONVPPA(req->value->ppa),PAGESIZE,req->value,ASYNC,lsm_req);
 			}
 			else{
 				level++;
