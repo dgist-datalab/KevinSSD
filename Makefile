@@ -37,10 +37,10 @@ export COMMONFLAGS=\
 			-Wno-unused-but-set-variable\
 			-DKVSSD\
 			-DKOO\
--O3 -march=native -mtune=native -flto=20 \
+#			-O3 -march=native -mtune=native -flto=20 \
 			-DCHECKINGTIME\
-#-DDEBUG\
 #			-march=armv8-a+crypto\
+#			-DDEBUG\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 

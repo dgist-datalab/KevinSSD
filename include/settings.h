@@ -192,7 +192,7 @@ static inline bool KEYVALCHECK(KEYT a){
 #define DATATRANS
 
 
-#define TRACECOLLECT "/home/koo/trace_data"
+//#define TRACECOLLECT "/home/koo/trace_data"
 
 //#define KEYGEN
 #define SPINSYNC
