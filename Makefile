@@ -39,8 +39,8 @@ export COMMONFLAGS=\
 			-DKOO\
 -O3 -march=native -mtune=native -flto=20 \
 			-DCHECKINGTIME\
-#-DDEBUG\
 #			-march=armv8-a+crypto\
+#-DDEBUG\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 

@@ -56,12 +56,13 @@ static inline FSTYPE koo_to_req(uint8_t t){
 	}
 	return FS_SET_T;
 }
-
+static uint32_t my_seq=0;
 static inline void make_mget_req(vec_request *res, request *req, uint32_t size){
 	KEYT copied_key;
 	kvssd_cpy_key(&copied_key, &req->key);
 
 	free(res->req_array);
+	my_seq--;
 	res->size=size;
 	res->req_array=(request*)calloc(size, sizeof(request));
 	for(uint32_t i=0; i<size; i++){
@@ -70,7 +71,7 @@ static inline void make_mget_req(vec_request *res, request *req, uint32_t size){
 		temp->parents=res;
 		temp->end_req=trace_end_req;
 		temp->isAsync=ASYNC;
-		temp->seq=i;
+		temp->seq=my_seq++;
 		temp->type=FS_MGET_T;
 		kvssd_cpy_key(&temp->key, &copied_key);
 
@@ -96,7 +97,6 @@ int main(int argc,char* argv[]){
 		return 0;
 	}
 
-
 	uint32_t tid;
 	uint32_t type;
 	uint32_t key_len;
@@ -117,6 +117,7 @@ int main(int argc,char* argv[]){
 		treq->isAsync=ASYNC;
 		treq->end_req=trace_end_req;
 		treq->parents=req;
+		treq->seq=my_seq++;
 		if(type==FS_TRANS_COMMIT){
 			treq->key.len=0;
 			assign_vectored_req(req);
@@ -209,8 +210,24 @@ int main(int argc,char* argv[]){
 }
 
 extern master_processor mp;
+extern int flying_cnt;
+bool first=true;
+int seqcheck;
 bool trace_end_req(request *const req){
 	vectored_request *preq=req->parents;
+	char buf[100];
+	if(first){
+		first=false;
+		seqcheck=req->seq;
+	}
+	else{
+		if(seqcheck+1==req->seq){
+			seqcheck=req->seq;
+		}
+		else{
+			abort();
+		}
+	}
 	switch(req->type){
 		case FS_NOTFOUND_T:
 			bench_reap_data(req, mp.li);
@@ -222,6 +239,7 @@ bool trace_end_req(request *const req){
 			break;
 		case FS_MGET_T:
 		case FS_GET_T:
+			key_interpreter(req->key,buf);
 			bench_reap_data(req, mp.li);
 			inf_free_valueset(req->value,FS_MALLOC_R);
 			if(req->key.len){
@@ -245,6 +263,7 @@ bool trace_end_req(request *const req){
 		default:
 			abort();
 	}
+
 	release_each_req(req);
 	preq->done_cnt++;
 

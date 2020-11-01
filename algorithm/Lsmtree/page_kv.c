@@ -486,10 +486,11 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 	uint8_t result=0;
 	run_t *now=NULL;
 	keyset *found=NULL;
+	uint32_t found_ppa;
 	//static int cnt=0;
 	//printf("test cnt:%d\n",cnt++);
 //retry:
-	result=lsm_find_run(g->lpa,&now,NULL,&found,&params->level,&params->run, &params->target_level_lock);
+	result=lsm_find_run(g->lpa,&now,NULL,&found,&found_ppa,&params->level,&params->run, &params->target_level_lock);
 	if(result==FOUND){
 		if(skiplist_find(LSM.memtable,g->lpa)){
 			g->plength=0;
@@ -515,6 +516,21 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 				}
 				g->validate_test=false;
 				return CACHING;
+			}
+			else if(found_ppa!=UINT32_MAX){
+				if(found_ppa==g->ppa){
+					g->status=DONE;
+					update_cache++;
+				}
+				else{
+					g->plength=0;
+					params->level++;
+					g->status=NOUPTDONE;
+					noupdate_cache++;
+			//		goto retry;
+				}
+				g->validate_test=false;
+				return CACHING;		
 			}
 		case FOUND:
 			if(params->level==LSM.LEVELN-1){
@@ -557,7 +573,7 @@ uint8_t gc_data_issue_header(struct gc_node *g, gc_params *params, int req_size)
 			}
 			break;
 		case NOTFOUND:
-			result=lsm_find_run(g->lpa,&now,NULL,&found,&params->level,&params->run, NULL);
+			result=lsm_find_run(g->lpa,&now,NULL,&found,&found_ppa,&params->level,&params->run, NULL);
 			LSM.lop->print_level_summary();
 			printf("lpa: %.*s ppa:%u\n",KEYFORMAT(g->lpa),g->ppa);
 			if(!transaction_debug_search(g->lpa)){

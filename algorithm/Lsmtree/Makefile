@@ -48,6 +48,7 @@ SRCS +=\
 	   lsmtree_lru_manager.c\
 	   memory_log.c\
 	   koo_buffer_manager.c\
+	   delta_comp.c\
 
 #merge_compaction.c\
 	   run_array.c\

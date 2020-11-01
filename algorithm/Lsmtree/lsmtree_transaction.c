@@ -903,14 +903,14 @@ bool transaction_debug_search(KEYT key){
 }
 
 void transaction_evicted_write_entry(transaction_entry* etr, char *data){
-	printf("called??\n");
+	//printf("called??\n");
 	//transaction_table_print(_tm.ttb, true);
 	//abort();
 	if((void*)etr==(void*)&_tm.last_table){
 		ppa_t ppa=get_log_PPA(TABLEW);
 		value_set *value=inf_get_valueset(data, FS_MALLOC_W, PAGESIZE);
 		__trans_write(NULL, value, ppa, LOGW, NULL, true);
-		printf("table ppa update %d->%d\n", _tm.last_table, ppa);
+	//	printf("table ppa update %d->%d\n", _tm.last_table, ppa);
 		_tm.last_table=ppa;
 	}
 	else{
@@ -922,7 +922,7 @@ void transaction_evicted_write_entry(transaction_entry* etr, char *data){
 		ppa_t ppa=get_log_PPA(LOGW);
 		value_set *value=inf_get_valueset(data, FS_MALLOC_W, PAGESIZE);
 		__trans_write(NULL, value, ppa, LOGW, NULL, true);
-		printf("tid: %d ppa update %d->%d\n",etr->tid, etr->ptr.physical_pointer, ppa);
+	//	printf("tid: %d ppa update %d->%d\n",etr->tid, etr->ptr.physical_pointer, ppa);
 		if(temp_tid==0){
 			temp_tid=etr->tid;
 		}

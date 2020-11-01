@@ -634,7 +634,7 @@ bool cheeze_end_req(request *const req){
 				preq->buf_len+=sizeof(uint16_t);
 			}
 			creq->ubuf_len=preq->buf_len;
-	//		DPRINTF("tag:%d [%s] buf_len:%u\n",preq->tag_id, type_to_str(req->type), creq->ubuf_len);
+		//	DPRINTF("tag:%d [%s] buf_len:%u\n",preq->tag_id, type_to_str(req->type), creq->ubuf_len);
 
 		    	barrier();
 			recv_event_addr[preq->tag_id]=1;

@@ -209,6 +209,9 @@ send_req:
 }
 
 uint32_t inf_algorithm_caller(request *const inf_req){
+	if(inf_req->seq==7905329){
+		printf("break!\n");
+	}
 	switch(inf_req->type){
 		case FS_MGET_T:
 		case FS_GET_T:
