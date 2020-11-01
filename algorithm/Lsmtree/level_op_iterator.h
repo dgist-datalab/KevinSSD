@@ -18,6 +18,7 @@ typedef struct meta_iterator{
 	snode *sk_node;
 	snode *header;
 	bool include;
+	bool iscached;
 	uint16_t idx;
 	uint16_t max_idx;
 	uint16_t *len_map;
@@ -34,7 +35,7 @@ typedef struct level_op_iterator{
 	meta_iterator **m_iter;
 }level_op_iterator;
 
-meta_iterator *meta_iter_init(char *data, KEYT prefix, bool include);
+meta_iterator *meta_iter_init(char *data, KEYT prefix, bool include, bool iscached);
 meta_iterator *meta_iter_skip_init(skiplist *, KEYT prefix, bool include);
 
 bool meta_iter_pick_key_addr_pair(meta_iterator *, ka_pair *);

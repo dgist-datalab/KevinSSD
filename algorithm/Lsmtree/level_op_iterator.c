@@ -10,7 +10,7 @@ extern lsmtree LSM;
 extern lmi LMI;
 
 
-meta_iterator *meta_iter_init(char *data, KEYT key, bool include){
+meta_iterator *meta_iter_init(char *data, KEYT key, bool include, bool iscached){
 	meta_iterator *res=(meta_iterator*)malloc(sizeof(meta_iterator));
 	res->data=data;
 	res->len_map=(uint16_t*)data;
@@ -46,6 +46,7 @@ meta_iterator *meta_iter_init(char *data, KEYT key, bool include){
 	res->m_prefix.len=PREFIXNUM;
 
 	res->include=include;
+	res->iscached=iscached;
 	return res;
 }
 
@@ -123,7 +124,9 @@ void meta_iter_move_next(meta_iterator *mi){
 }
 
 void meta_iter_free(meta_iterator *mi){
-	free(mi->data);
+	if(!mi->iscached){
+		free(mi->data);
+	}
 	free(mi);
 }
 
@@ -173,7 +176,7 @@ level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_
 		if(lev->idx<LSM.LEVELCACHING){
 			char *data=(char*)malloc(PAGESIZE);
 			memcpy(data,t->level_caching_data, PAGESIZE);
-			res->m_iter[i]=meta_iter_init(data, key, include);
+			res->m_iter[i]=meta_iter_init(data, key, include, false);
 		}
 		else{
 			ppa_list[i]=t->pbn;
@@ -184,11 +187,15 @@ level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_
 			if(data){
 				LMI.lru_hit_cnt++;
 				ppa_list[i]=UINT_MAX-1;
-				res->m_iter[i]=meta_iter_init(data, key, include);
+				res->m_iter[i]=meta_iter_init(data, key, include, true);
 				(*read_num)--;
 			}
 			lsm_lru_pick_release(LSM.llru, t);
 		}
+	}
+
+	if((*read_num)==0){
+		(*should_read)=false;
 	}
 
 	if(*should_read){
@@ -253,7 +260,7 @@ level_op_iterator *level_op_iterator_skiplist_init(skiplist *skip, KEYT prefix, 
 }
 
 void level_op_iterator_set_iterator(level_op_iterator *loi, uint32_t idx, char *data, KEYT prefix, bool include){
-	loi->m_iter[idx]=meta_iter_init(data, prefix, include);
+	loi->m_iter[idx]=meta_iter_init(data, prefix, include, false);
 }
 
 bool level_op_iterator_pick_key_addr_pair(level_op_iterator *loi, ka_pair* ka){

@@ -389,6 +389,7 @@ uint32_t lsm_range_get(request *const req){
 		for(uint32_t i=0; i<target_trans_entry_num; i++){
 			params->loi[target_trans_entry_num-1-i]=level_op_iterator_transact_init(trans_sets[i], req->key, &ppa, req->offset, &should_read);
 			if(params->loi[target_trans_entry_num-1-i]){
+	//			printf("trans :%u - max_idx:%u\n", target_trans_entry_num-1-i, params->loi[target_trans_entry_num-1-i]->max_idx);
 				nothing_flag=false;
 			}
 
@@ -415,6 +416,10 @@ uint32_t lsm_range_get(request *const req){
 	for(int32_t i=LSM.LEVELN-1; i>=0; i--){
 		read_num=0;
 		params->loi[i+target_trans_entry_num]=level_op_iterator_init(LSM.disk[i], req->key, &ppa_list, &read_num, meta_read_target, req->offset, &should_read);
+		if(params->loi[i+target_trans_entry_num]){
+	//a		printf("level :%u - max_idx:%u\n", i, params->loi[i+target_trans_entry_num]->max_idx);	
+			nothing_flag=false;
+		}
 
 		if(should_read){
 			/*
@@ -425,7 +430,7 @@ uint32_t lsm_range_get(request *const req){
 			free(ppa_list);*/
 			noread=false;
 		}
-
+		
 		_rt[target_trans_entry_num+i].read_target_num=should_read?read_num:0;
 		_rt[target_trans_entry_num+i].ppa_list=ppa_list;
 		params->read_target_num+=read_num;
