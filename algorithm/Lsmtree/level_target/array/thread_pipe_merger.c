@@ -27,7 +27,7 @@ static void temp_func(char* body, level *d, bool merger){
 	int idx;
 	uint16_t *bitmap=(uint16_t*)body;
 	KEYT key;
-	KEYT prev_key;
+	//KEYT prev_key;
 	ppa_t *ppa_ptr;
 	for_each_header_start(idx,key,ppa_ptr,bitmap,body)
 		if(key_const_compare(key, 'd', 29361, 33, NULL)){

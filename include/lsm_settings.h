@@ -51,7 +51,7 @@
 //#define CACHEFILETEST "cache_test_file.temp"
 #define DELTACOMP	1
 #define LZ4			2
-#define COMPRESSEDCACHE DELTACOMP
+#define COMPRESSEDCACHE LZ4
 
 /*compaction*/
 #define MAXITER 16

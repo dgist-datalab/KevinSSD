@@ -217,7 +217,7 @@ typedef struct lsmtree{
 	rwlock *level_lock;
 	pthread_mutex_t memlock;
 	pthread_mutex_t templock;
-	fdriver_lock_t iterator_lock;
+	rwlock iterator_lock;
 	struct skiplist *memtable;
 	struct skiplist *temptable;
 	level **disk;

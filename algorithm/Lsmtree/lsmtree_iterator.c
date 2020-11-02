@@ -138,7 +138,7 @@ void *lsm_range_end_req(algo_req *const al_req){
 			inf_assign_try(req);
 		}
 		else{
-			fdriver_unlock(&LSM.iterator_lock);
+			rwlock_read_unlock(&LSM.iterator_lock);
 			req->end_req(req);
 			for(int32_t i=rgparams->total_loi_num-1; i>=0; i--){
 				level_op_iterator_free(rgparams->loi[i]);
@@ -180,7 +180,7 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 			rgparams->read_num++;
 			if(rgparams->read_num==rgparams->read_target_num){
 				pthread_mutex_unlock(&cnt_lock);
-				fdriver_unlock(&LSM.iterator_lock);
+				rwlock_read_unlock(&LSM.iterator_lock);
 	
 				req->buf_len=offset;
 
@@ -203,7 +203,7 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 			req->length=rgparams->read_target_num=rgparams->read_target_num-1;
 			if(rgparams->read_num==rgparams->read_target_num){
 				pthread_mutex_unlock(&cnt_lock);
-				fdriver_unlock(&LSM.iterator_lock);
+				rwlock_read_unlock(&LSM.iterator_lock);
 	
 				req->buf_len=pre_offset;
 
@@ -262,7 +262,7 @@ inline static uint32_t __lsm_range_key(request *const req, range_get_params *rgp
 		i++;
 		if(break_flag) break;
 	}
-	fdriver_unlock(&LSM.iterator_lock);
+	rwlock_read_unlock(&LSM.iterator_lock);
 
 	req->end_req(req);
 	for(int32_t i=rgparams->total_loi_num-1; i>=0; i--){
@@ -315,7 +315,7 @@ uint32_t __lsm_range_get(request *const req){ //after range_get
 	if(!req->length){
 		//printf("lsm_range_get: no data to read!\n");
 		req->length=0;
-		fdriver_unlock(&LSM.iterator_lock);
+		rwlock_read_unlock(&LSM.iterator_lock);
 		for(int32_t i=rgparams->total_loi_num-1; i>=0; i--){
 			level_op_iterator_free(rgparams->loi[i]);
 		}
@@ -349,7 +349,7 @@ uint32_t lsm_range_get(request *const req){
 
 	req->length=req->length > (2*M)/(256+2+2+ITERREADVALUE) ? (2*M)/(256+2+2+ITERREADVALUE):req->length;
 
-	fdriver_lock(&LSM.iterator_lock);
+	rwlock_read_lock(&LSM.iterator_lock);
 
 	range_get_params *params=(range_get_params*)malloc(sizeof(range_get_params));
 	params->read_target_num=0;
@@ -443,7 +443,7 @@ uint32_t lsm_range_get(request *const req){
 	if(nothing_flag){
 	//	printf("lsm_range_get: no data!\n");
 		req->length=0;
-		fdriver_unlock(&LSM.iterator_lock);
+		rwlock_read_unlock(&LSM.iterator_lock);
 		for(int32_t i=params->total_loi_num-1; i>=0; i--){
 			level_op_iterator_free(params->loi[i]);
 		}

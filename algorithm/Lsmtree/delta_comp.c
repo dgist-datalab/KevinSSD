@@ -158,7 +158,6 @@ uint32_t delta_compression_comp(char *src, char *des){
 	}
 	//printf("set_idx:%u\n", set_idx);
 	compress_master_footer_init(&cm.footer, &des[cm.now_body_idx],set_idx);
-	int cumul=0;
 	for(uint32_t i=0; i<set_idx; i++){
 		now=&cm.sets[i];
 		footer_insert_set(&cm.footer, now);
@@ -264,7 +263,6 @@ uint32_t delta_compression_decomp(char *src, char *des, uint32_t compressed_size
 	compress_master cm;
 	compress_master_footer_decomp_init(&cm.footer, src, compressed_size);
 	compress_set *now;
-	static int cnt=0;
 	for(uint32_t i=1; i<*cm.footer.set_num; i++){
 		now=&cm.sets[i-1];
 		compress_master_set_decomp_init(now, &src[cm.footer.set_position[i-1]],cm.footer.set_position[i]-cm.footer.set_position[i-1]);
@@ -276,6 +274,7 @@ uint32_t delta_compression_decomp(char *src, char *des, uint32_t compressed_size
 		}
 	}
 	decompress_finish(&dm);
+	return 1;
 }
 
 static inline KEYT extract_key_from_footer(char *src, uint16_t position){
@@ -297,7 +296,6 @@ static inline int find_compress_set_idx(delta_compress_footer *footer, char *src
 	int s=0, e=(*footer->set_num)-1;
 	int mid;
 	int32_t res;
-	uint8_t type;
 	while(s<=e){
 		mid=(s+e)/2;
 		KEYT target=extract_key_from_footer(src, footer->set_position[mid]);
@@ -321,7 +319,6 @@ uint32_t delta_compression_find(char *src, KEYT key, uint32_t compressed_size){
 	compress_set set;
 	compress_master_set_decomp_init(&set, &src[cm.footer.set_position[target]], cm.footer.set_position[target+1]-cm.footer.set_position[target]);
 	
-	char *data=(char*)set.body+set.body_key_idx;
 	if(set.type==DATACOMPSET){
 		data_delta_t find_target=extract_block_num_delta(key, set.key);
 		uint32_t total_num=(set.size-(set.key.len+sizeof(set.key.len)+sizeof(uint32_t)))/(sizeof(data_delta_t)+sizeof(uint32_t));

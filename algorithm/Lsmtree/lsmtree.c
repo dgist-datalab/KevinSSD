@@ -183,7 +183,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	LSM.decompressed_buf=NULL;
 	LSM.comp_decompressed_buf=NULL;
 #endif
-	fdriver_mutex_init(&LSM.iterator_lock);
+	rwlock_init(&LSM.iterator_lock);
 	return 0;
 }
 
