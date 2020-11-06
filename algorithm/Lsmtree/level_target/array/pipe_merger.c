@@ -68,7 +68,6 @@ void temp_func(char* body, level *d, bool insert){
 
 extern uint32_t debugging_ppa;
 void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level* d){
-	bench_custom_start(write_opt_time2, 9);
 	cutter_start=true;
 	int o_num=0; int u_num=0;
 	char **u_data;
@@ -197,7 +196,6 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	if(d->idx==LSM.LEVELN-1){
 		bc_clear_ignore_flag();
 	}
-	bench_custom_A(write_opt_time2, 9);
 }
 
 run_t *array_pipe_make_run(char *data,uint32_t level_idx)

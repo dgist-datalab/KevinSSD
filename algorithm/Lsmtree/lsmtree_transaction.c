@@ -1,4 +1,5 @@
 #include "lsmtree_transaction.h"
+#include "transaction_table.h"
 #include "page.h"
 #include "lsmtree.h"
 #include "nocpy.h"
@@ -189,7 +190,7 @@ uint32_t transaction_set(request *const req){
 }
 
 uint32_t transaction_range_delete(request *const req){
-	//printf(":::::::::::range delete tid: %u\n", req->tid);
+	printf(":::::::::::range delete tid: %u, size:%u\n", req->tid, req->offset);
 	transaction_entry *etr;
 	range_delete_flag=true;
 	KEYT key;
@@ -211,6 +212,10 @@ uint32_t transaction_range_delete(request *const req){
 		fdriver_unlock(&_tm.table_lock);
 		if(!log){
 			continue;
+		}
+	
+		if(memory_log_isfull(_tm.mem_log)){
+			transaction_table_print(_tm.ttb,false);
 		}
 
 		if(memory_log_usable(_tm.mem_log)){
@@ -241,6 +246,9 @@ typedef struct commit_log_read{
 void *insert_KP_to_skip(KEYT, ppa_t);
 
 uint32_t transaction_commit(request *const req){
+	if(memory_log_isfull(_tm.mem_log)){
+		compaction_wait_jobs();
+	}
 	if(!transaction_table_checking_commitable(_tm.ttb, req->tid)){
 		transaction_table_clear_all(_tm.ttb, req->tid);
 		req->end_req(req);
@@ -334,10 +342,13 @@ uint32_t transaction_commit(request *const req){
 	if(memory_log_usable(_tm.mem_log)){
 		ppa=_tm.last_table;
 		if(ppa!=UINT32_MAX){
+			memory_log_lock(_tm.mem_log);
 			if(ISMEMPPA(ppa)){
 				memory_log_delete(_tm.mem_log, ppa);	
+				memory_log_unlock(_tm.mem_log);
 			}
 			else{
+				memory_log_unlock(_tm.mem_log);
 				transaction_invalidate_PPA(LOG, ppa);	
 			}
 		}
@@ -369,13 +380,16 @@ uint32_t transaction_commit(request *const req){
 		temp_cml=(cml*)malloc(sizeof(cml));
 		temp_cml->isdone=false;
 		temp_cml->etr=etr;
+		memory_log_lock(_tm.mem_log);
 		if(ISMEMPPA(etr->ptr.physical_pointer)){
 			cached_data=memory_log_get(_tm.mem_log, etr->ptr.physical_pointer);
 			temp_cml->data=(char*)malloc(PAGESIZE);
 			memcpy(temp_cml->data, cached_data, PAGESIZE);
 			temp_cml->isdone=true;
+			memory_log_unlock(_tm.mem_log);
 		}	
 		else{
+			memory_log_unlock(_tm.mem_log);
 			temp_cml->value=inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
 			algo_req *treq=(algo_req*)malloc(sizeof(algo_req));
 			treq->end_req=transaction_end_req;
@@ -423,6 +437,9 @@ uint32_t transaction_commit(request *const req){
 	if(memory_log_isfull(_tm.mem_log)){
 		if(!compaction_wait_job_number()){
 			skiplist *committing_skip=_tm.commit_KP;
+			if(committing_skip->size==0){
+				goto out;
+			}
 			list *committing_etr=_tm.commit_etr;
 
 			//	printf("insert_kp compaction target num :%u\n", committing_skip->size);
@@ -433,7 +450,7 @@ uint32_t transaction_commit(request *const req){
 			compaction_send_creq_by_skip(committing_skip, committing_etr, false);
 			bench_custom_A(write_opt_time2, 7);
 		}
-		
+out:	
 		compaction_wait_jobs();
 	}
 
@@ -523,9 +540,11 @@ uint32_t processing_read(void * req, transaction_entry **entry_set, t_rparams *t
 				break;
 			case LOGGED:
 			case COMMIT:
+				memory_log_lock(_tm.mem_log);
 				if(ISMEMPPA(temp->ptr.physical_pointer)){
 					//log buffer hit
 					target=LSM.lop->find_keyset(memory_log_get(_tm.mem_log, temp->ptr.physical_pointer), user_req->key);
+					memory_log_unlock(_tm.mem_log);
 					if(target){
 						tr_req=(algo_req*)malloc(sizeof(algo_req));
 						tr_req->end_req=transaction_end_req;
@@ -541,6 +560,7 @@ uint32_t processing_read(void * req, transaction_entry **entry_set, t_rparams *t
 
 				}
 				else{
+					memory_log_unlock(_tm.mem_log);
 					trp->entry_set=entry_set;
 					tr_req=(algo_req*)malloc(sizeof(algo_req));
 					tr_req->end_req=type==0?transaction_end_req:gc_transaction_end_req;
@@ -903,9 +923,11 @@ bool transaction_debug_search(KEYT key){
 }
 
 void transaction_evicted_write_entry(transaction_entry* etr, char *data){
-	//printf("called??\n");
+	//printf("called!\n");
 	//transaction_table_print(_tm.ttb, true);
 	//abort();
+	printf("abort log_write!!\n");
+	abort();
 	if((void*)etr==(void*)&_tm.last_table){
 		ppa_t ppa=get_log_PPA(TABLEW);
 		value_set *value=inf_get_valueset(data, FS_MALLOC_W, PAGESIZE);
@@ -931,6 +953,7 @@ void transaction_evicted_write_entry(transaction_entry* etr, char *data){
 			printf("no data in table!\n");
 			abort();
 		}*/
+	//	printf("called?? %u->%u\n",etr->ptr.physical_pointer, ppa);
 		etr->ptr.physical_pointer=ppa;
 	}
 }

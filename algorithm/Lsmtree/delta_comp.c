@@ -366,4 +366,3 @@ uint32_t delta_compression_find(char *src, KEYT key, uint32_t compressed_size){
 	}
 	return 0;
 }
-

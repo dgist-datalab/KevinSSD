@@ -159,6 +159,9 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 		printf("LRU size :%lu pages\n",LSP.cache_memory/PAGESIZE);
 		LSM.llru=lsm_lru_init(LSP.cache_memory/PAGESIZE);
 	}
+#ifdef THREADCOMPACTION
+	printf("multi thread compaction!! %d\n", THREADCOMPACTION);
+#endif
 	q_init(&LSM.re_q,RQSIZE);
 
 	LSM.delayed_trim_ppa=UINT32_MAX;
@@ -207,6 +210,7 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	fprintf(stdout,"\tpr_check cnt:%lu\n",LMI.pr_check_cnt);
 	fprintf(stdout,"\tnormal check cnt:%lu\n",LMI.check_cnt);
 	fprintf(stdout,"KEY search cnt:%lu\n",LMI.run_binary_cnt);
+	fprintf(stdout,"read stall by compaction cnt:%lu\n",LMI.read_stall_by_compaction);
 
 	fprintf(stdout,"gc_compaction_read:%d\n",LMI.gc_comp_read_cnt);
 	fprintf(stdout,"gc_compaction_write:%d\n",LMI.gc_comp_write_cnt);
@@ -669,7 +673,11 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 		if(rw_lock){
 			(*rw_lock)=level_rw_lock;
 		}
-		rwlock_read_lock(level_rw_lock);
+		bench_custom_start(write_opt_time2, 11);
+		if(!rwlock_read_lock(level_rw_lock)){
+			LMI.read_stall_by_compaction++;
+		}
+		bench_custom_A(write_opt_time2, 11);
 #ifdef PARTITION
 		if(up_entry){
 			entries=LSM.lop->find_run_se(LSM.disk[i],key,up_entry);
@@ -719,6 +727,7 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 				(*found)=NULL;
 				(*found_ppa)=compressed_result;
 				rwlock_read_unlock(level_rw_lock);
+				if(level)*level=i;
 				return CACHING;
 			}
 #else
@@ -907,6 +916,8 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 			req->end_req(req);
 			return res;
 		}*/
+		rparams *rp=(rparams*)req->params;
+		rp->datas[2]+=idx;
 		req->value->ppa=ppa;
 		if(!ISHWREAD(LSM.setup_values) || lsm_req->type==DATAR){
 			LSM.li->read(ppa/(NPCINPAGE),PAGESIZE,req->value,ASYNC,lsm_req);
@@ -1011,8 +1022,9 @@ uint32_t __lsm_get(request *const req){
 		res=__lsm_get_sub(req,entry,mapinfo.sets,NULL, level);
 		entry->from_req=NULL;
 		entry->isflying=0;
-		if(res)return res;
-
+		if(res){
+			return res;
+		}
 #ifndef FLASHCHCK
 		run+=1;
 #endif
@@ -1036,6 +1048,7 @@ retry:
 				lsm_req=lsm_get_req_factory(req,DATAR,level);
 				req->value->ppa=found_ppa==UINT32_MAX?found->ppa:found_ppa;
 				req->magic=3;
+				temp_data[2]=level;
 				LSM.li->read(CONVPPA(req->value->ppa),PAGESIZE,req->value,ASYNC,lsm_req);
 			}
 			else{
@@ -1059,7 +1072,7 @@ retry:
 				}
 				entry->waitreq[entry->wait_idx++]=(void*)req;
 				res=FOUND;
-				temp_data[2]=LSM.LEVELN;
+				temp_data[2]=level;
 			}else{
 				temp_data[2]=++round;
 				lsm_req=lsm_get_req_factory(req,HEADERR,level);

@@ -192,6 +192,8 @@ typedef struct lsmtree_monitor_info{
 	uint64_t check_cnt;
 	uint64_t run_binary_cnt;
 	uint64_t transaction_read_hit;
+	uint64_t read_stall_by_compaction;
+	uint64_t compaction_stall_by_read;
 }lmi;
 
 /*

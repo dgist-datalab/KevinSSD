@@ -41,17 +41,17 @@
 /*lsmtree flash thread*/
 #define KEYSETSIZE 8
 #define CTHREAD 1
-#define CQSIZE 4
+#define CQSIZE 128
 #define FTHREAD 1
 #define FQSIZE 2
 #define RQSIZE 1024
 #define WRITEWAIT
 #define MAXKEYSIZE 255
-#define THREADCOMPACTION 1
+#define THREADCOMPACTION 4
 //#define CACHEFILETEST "cache_test_file.temp"
 #define DELTACOMP	1
 #define LZ4			2
-#define COMPRESSEDCACHE LZ4
+#define COMPRESSEDCACHE DELTACOMP
 
 /*compaction*/
 #define MAXITER 16

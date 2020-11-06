@@ -7,7 +7,8 @@ void rwlock_init(rwlock *rw){
 	rw->writecnt=0;
 }
 
-void rwlock_read_lock(rwlock* rw){
+bool rwlock_read_lock(rwlock* rw){
+	char check=2;
 retry:
 	pthread_mutex_lock(&rw->cnt_lock);
 	rw->readcnt++;
@@ -15,7 +16,11 @@ retry:
 		if(fdriver_try_lock(&rw->lock)==-1){
 			rw->readcnt--;
 			pthread_mutex_unlock(&rw->cnt_lock);
+			check=1;
 			goto retry;
+		}
+		else if(check==2){
+			check=0;
 		}
 		if(rw->writecnt){
 			printf("it can't be!!\n");
@@ -23,6 +28,7 @@ retry:
 		}
 	}
 	pthread_mutex_unlock(&rw->cnt_lock);
+	return check==0;
 }
 
 void rwlock_read_unlock(rwlock *rw){
@@ -37,14 +43,19 @@ void rwlock_read_unlock(rwlock *rw){
 	pthread_mutex_unlock(&rw->cnt_lock);
 }
 
-void rwlock_write_lock(rwlock *rw){
+bool rwlock_write_lock(rwlock *rw){
+	char check=2;
 retry:
 	pthread_mutex_lock(&rw->cnt_lock);
 	if(fdriver_try_lock(&rw->lock)==-1){
+		check=1;
 		pthread_mutex_unlock(&rw->cnt_lock);
 		goto retry;
 	}
 	else{
+		if(check==2){
+			check=0;
+		}
 		if(rw->readcnt){
 			printf("it can't be!!\n");
 			abort();
@@ -52,6 +63,7 @@ retry:
 		rw->writecnt++;
 	}
 	pthread_mutex_unlock(&rw->cnt_lock);
+	return check==0;
 }
 
 void rwlock_write_unlock(rwlock *rw){

@@ -3,6 +3,7 @@
 
 #include "../../include/data_struct/lru_list.h"
 #include "../../include/sem_lock.h"
+#include "../../include/utils/tag_q.h"
 #include "transaction_table.h"
 #include <queue>
 #include <stdint.h>
@@ -22,13 +23,14 @@ typedef struct memory_node{
 
 typedef struct memory_log{
 	LRU *lru; 
-	uint32_t now;
-	uint32_t max;
+	int32_t now;
+	int32_t max;
 	fdriver_lock_t lock;
 	memory_node *mem_node_list;
 	char *mem_body;
 	void (*log_write)(struct transaction_entry *etr, char *data);
-	std::queue<struct memory_node *> *mem_node_q;
+	tag_manager *tagQ;
+	//std::queue<struct memory_node *> *mem_node_q;
 }memory_log;
 
 memory_log *memory_log_init(uint32_t max, void(*)(transaction_entry *, char *data));
@@ -46,6 +48,14 @@ void memory_log_delete(memory_log *, uint32_t log_ppa);
 void memory_log_free(memory_log*);
 
 bool memory_log_isfull(memory_log *ml);
+
+static inline void memory_log_lock(memory_log* ml){
+	fdriver_lock(&ml->lock);
+}
+
+static inline void memory_log_unlock(memory_log* ml){
+	fdriver_unlock(&ml->lock);
+}
 
 #endif
 

@@ -20,7 +20,6 @@ extern float t_fpr;
 #endif
 extern _bc bc;
 extern lmi LMI;
-bool header_debug_flag;
 bool isclear;
 
 static void temp_func(char* body, level *d, bool merger){
@@ -329,7 +328,6 @@ void array_thread_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct
 #endif
 	}
 
-	bench_custom_start(write_opt_time2, 9);
 	cutter_start=true;
 	params_idx=0;
 	int o_num=0; int u_num=0;
@@ -499,7 +497,6 @@ next_round:
 
 	//thpool_wait(pool);
 
-	bench_custom_A(write_opt_time2, 9);
 	free(o_data);
 	free(u_data);
 	if(d->idx==LSM.LEVELN-1){

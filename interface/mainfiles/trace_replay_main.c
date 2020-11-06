@@ -225,7 +225,7 @@ bool trace_end_req(request *const req){
 			seqcheck=req->seq;
 		}
 		else{
-			abort();
+			//abort();
 		}
 	}
 	switch(req->type){

@@ -50,7 +50,6 @@ void compaction_sub_pre(){
 }
 
 void compaction_selector(level *a, level *b,leveling_node *lnode, rwlock* rwlock){
-
 	bench_custom_start(write_opt_time2, 8);
 	rwlock_write_lock(&LSM.iterator_lock);
 	if(b->istier){
@@ -389,7 +388,6 @@ void *compaction_main(void *input){
 
 
 		if(trans_node){
-			
 			compaction_selector(NULL, LSM.disk[0], trans_node, &LSM.level_lock[0]);
 			transaction_clear(trans_node->tetr);
 			if(trans_node->entry){
@@ -402,6 +400,8 @@ void *compaction_main(void *input){
 		}
 
 		leveling_node *lnode;
+		static int debug_cnt=0;
+		static int prev_ppa=0;
 		if(req->fromL==-1){
 			//lnode.mem=req->temptable;
 			//compaction_data_write(&lnode);
@@ -409,11 +409,12 @@ void *compaction_main(void *input){
 			compaction_selector(NULL,LSM.disk[0],lnode,&LSM.level_lock[0]);
 			free(lnode->start.key);
 			free(lnode->end.key);
-
+		
 			if(lnode->committed_list){
 				li_node *li;
 				for_each_list_node(lnode->committed_list, li){
 					transaction_entry *etr=(transaction_entry*)li->data;
+					prev_ppa=etr->ptr.physical_pointer;
 					transaction_clear(etr);	
 				}
 				list_free(lnode->committed_list);
@@ -426,7 +427,7 @@ void *compaction_main(void *input){
 			compaction_gc_add(req->temptable);
 			goto end_req;
 		}
-
+		debug_cnt++;
 cascade:
 		if(LSM.LEVELN!=1){
 			compaction_cascading(&is_gc_needed);
@@ -576,10 +577,10 @@ void compaction_assign_reinsert(skiplist *gc_list){
 
 	compaction_assign(req,NULL, true);
 }
-extern bool header_debug_flag;
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
 	
 	compaction_sub_wait();
+	bench_custom_start(write_opt_time2, 9);
 	LSM.lop->merger(top,src,org,des);
 
 	KEYT key,end;
@@ -595,9 +596,6 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 #endif
 	{
 		if(des->idx<LSM.LEVELCACHING){
-			if(header_debug_flag){
-				LSM.lop->checking_each_key(target->level_caching_data, key_find_test);			
-			}
 			LSM.lop->insert(des,target);
 			LSM.lop->release_run(target);
 		}
@@ -606,6 +604,7 @@ void compaction_subprocessing(struct skiplist *top, struct run** src, struct run
 		}
 		free(target);
 	}
+	bench_custom_A(write_opt_time2, 9);
 	/*
 	if(des->idx!=0){
 		printf("%d\n", des->n_num);

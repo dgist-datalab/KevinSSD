@@ -78,6 +78,7 @@ bool transaction_table_checking_commitable(transaction_table *, uint32_t tid);
 void transaction_table_sanity_check();
 
 void transaction_table_print(transaction_table *, bool full);
+void transaction_etr_print(transaction_entry *etr, uint32_t i);
 
 value_set* transaction_table_force_write(transaction_table *, uint32_t tid, transaction_entry **etr);
 value_set* transaction_table_get_data(transaction_table *);

@@ -34,6 +34,14 @@ lsm_lru* lsm_lru_init(uint32_t max){
 	res->origin_max=res->max_bytes;
 	res->input_length=res->compressed_length=0;
 	res->cached_entry=0;
+
+#ifdef COMPRESSEDCACHE
+	#if COMPRESSEDCACHE==LZ4
+	printf("CACHE TYPE!! LZ4 compression\n");
+	#elif COMPRESSEDCACHE==DELTACOMP
+	printf("CACHE TYPE!! DELTA compression\n");
+	#endif
+#endif
 #ifdef CACHEFILETEST
 	compress_fd=open(CACHEFILETEST, O_RDWR|O_CREAT|O_TRUNC, 0666);
 	if(compress_fd==-1){

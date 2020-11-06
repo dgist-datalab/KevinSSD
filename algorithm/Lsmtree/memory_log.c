@@ -1,4 +1,5 @@
 #include "memory_log.h"
+#include "../../include/utils/tag_q.h"
 #include "../../include/settings.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -14,17 +15,22 @@ memory_log *memory_log_init(uint32_t max, void (*log_write)(transaction_entry *e
 	res->mem_node_list=(memory_node*)calloc(max,sizeof(memory_node));
 
 	res->mem_body=(char*)malloc(PAGESIZE * max);
-	res->mem_node_q=new std::queue<struct memory_node*>();
 
 	for(uint32_t i=0; i<max; i++){
 		memory_node *temp=&res->mem_node_list[i];
 		temp->data=&res->mem_body[i*PAGESIZE];
 		temp->tag=i;
-		res->mem_node_q->push(temp);
+	//	res->mem_node_q->push(temp);
 	}
+	res->tagQ=tag_manager_init(max);
 	
 	res->log_write=log_write;
 	return res;
+}
+
+static memory_node* setup_mn(memory_log *ml){
+	uint32_t tag=tag_manager_get_tag(ml->tagQ);
+	return &ml->mem_node_list[tag];
 }
 
 uint32_t memory_log_insert(memory_log *ml, transaction_entry *etr, uint32_t KP_size, char *data){
@@ -39,20 +45,19 @@ uint32_t memory_log_insert(memory_log *ml, transaction_entry *etr, uint32_t KP_s
 	if(ml->now>=ml->max){
 		mn=(memory_node*)lru_pop(ml->lru);
 		ml->log_write(mn->etr, mn->data);
-		ml->mem_node_q->push(mn);
+	//	ml->mem_node_q->push(mn);
+		tag_manager_free_tag(ml->tagQ, mn->tag);
 		ml->now--;
-		if((int32_t)ml->now<0){abort();}
+		if(ml->now<0){abort();}
 	}
-		
+	/*
 	if(!ml->mem_node_q->size()){
 		printf("empty queue error! %s:%d\n",__FILE__, __LINE__);
 		abort();
-	}
+	}*/
 
-	mn=ml->mem_node_q->front();
+	mn=setup_mn(ml);
 	res=mn->tag;
-	ml->mem_node_q->pop();
-
 	mn->KP_size=KP_size;
 	mn->etr=etr;
 	memcpy(mn->data, data, PAGESIZE);
@@ -70,34 +75,28 @@ uint32_t memory_log_insert(memory_log *ml, transaction_entry *etr, uint32_t KP_s
 void memory_log_update(memory_log *ml, uint32_t log_ppa, char *data){
 	if(!ml->max) return;
 	if(!ISMEMPPA(log_ppa)) return;
-	fdriver_lock(&ml->lock);
 	uint32_t tag=GETTAGMEMPPA(log_ppa);
 	memory_node *mn=&ml->mem_node_list[tag];
 	memcpy(mn->data, data, PAGESIZE);
 	lru_update(ml->lru, mn->l_node);
-	fdriver_unlock(&ml->lock);
 }
 
 void memory_log_set_mru(memory_log *ml, uint32_t log_ppa){
 	if(!ml->max) return;
 	if(!ISMEMPPA(log_ppa)) return;
-	fdriver_lock(&ml->lock);
 	uint32_t tag=GETTAGMEMPPA(log_ppa);
 	memory_node *mn=&ml->mem_node_list[tag];
 	lru_update(ml->lru, mn->l_node);
-	fdriver_unlock(&ml->lock);
 }
 
 char *memory_log_get(memory_log *ml, uint32_t log_ppa){
 	if(!ml->max) return NULL;
 	if(!ISMEMPPA(log_ppa)) return NULL;
 	char *res;
-	fdriver_lock(&ml->lock);
 	uint32_t tag=GETTAGMEMPPA(log_ppa);
 	memory_node *mn=&ml->mem_node_list[tag];
 	lru_update(ml->lru, mn->l_node);
 	res=mn->data;
-	fdriver_unlock(&ml->lock);
 	return res;
 }
 
@@ -105,7 +104,6 @@ char *memory_log_pick(memory_log *ml, uint32_t log_ppa){
 	if(!ml->max) return NULL;
 	if(!ISMEMPPA(log_ppa)) return NULL;
 	char *res;
-	fdriver_lock(&ml->lock);
 	uint32_t tag=GETTAGMEMPPA(log_ppa);
 	memory_node *mn=&ml->mem_node_list[tag];
 	lru_update(ml->lru, mn->l_node);
@@ -116,28 +114,26 @@ char *memory_log_pick(memory_log *ml, uint32_t log_ppa){
 void memory_log_release(memory_log *ml, uint32_t log_ppa){
 	if(!ml->max) return ;
 	if(!ISMEMPPA(log_ppa)) return ;
-	fdriver_unlock(&ml->lock);
 }
 
 void memory_log_delete(memory_log *ml, uint32_t log_ppa){
 	//after compaction
 	if(!ml->max) return;
 	if(!ISMEMPPA(log_ppa)) return;
-	fdriver_lock(&ml->lock);
 	uint32_t tag=GETTAGMEMPPA(log_ppa);
 	memory_node *mn=&ml->mem_node_list[tag];
 	lru_delete(ml->lru, mn->l_node);
-	ml->mem_node_q->push(mn);
+	//ml->mem_node_q->push(mn);
+	tag_manager_free_tag(ml->tagQ,tag);
 	ml->now--;
-	if((int32_t)ml->now<0){abort();}
-	fdriver_unlock(&ml->lock);
+	if(ml->now<0){abort();}
 }
 
 void memory_log_free(memory_log *ml){
 	free(ml->mem_node_list);
 	free(ml->mem_body);
-	delete ml->mem_node_q;
 	free(ml);
+	tag_manager_free_manager(ml->tagQ);
 }
 
 bool memory_log_usable(memory_log* ml){
@@ -146,6 +142,6 @@ bool memory_log_usable(memory_log* ml){
 }
 
 bool memory_log_isfull(memory_log *ml){
-	if(ml->now>=ml->max-10) return true;
+	if(ml->now>=ml->max) return true;
 	return false;
 }

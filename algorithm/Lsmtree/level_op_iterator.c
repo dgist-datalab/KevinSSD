@@ -224,14 +224,17 @@ level_op_iterator *level_op_iterator_transact_init(transaction_entry *etr, KEYT 
 		case CACHEDCOMMIT:
 		case LOGGED:
 		case COMMIT:
+			memory_log_lock(_tm.mem_log);
 			if(ISMEMPPA((etr->ptr.physical_pointer))){
 				data=(char*)malloc(PAGESIZE);
 				cached_data=memory_log_get(_tm.mem_log, etr->ptr.physical_pointer);
 				memcpy(data, cached_data, PAGESIZE);
 				level_op_iterator_set_iterator(res, 0, data, key, include);
 				*should_read=false;
+				memory_log_unlock(_tm.mem_log);
 			}
 			else{
+				memory_log_unlock(_tm.mem_log);
 				*ppa=etr->ptr.physical_pointer;
 				*should_read=true;
 			}

@@ -509,10 +509,13 @@ uint32_t transaction_table_clear(transaction_table *table, transaction_entry *et
 		skiplist_free(etr->ptr.memtable);
 	}
 	else{
+		memory_log_lock(_tm.mem_log);
 		if(ISMEMPPA(etr->ptr.physical_pointer)){
 			memory_log_delete(_tm.mem_log, etr->ptr.physical_pointer);
+			memory_log_unlock(_tm.mem_log);
 		}
 		else{
+			memory_log_unlock(_tm.mem_log);
 			transaction_invalidate_PPA(LOG, etr->ptr.physical_pointer);	
 		}
 	}
@@ -621,35 +624,39 @@ char* statusToString(uint8_t a){
 	return NULL;
 }
 
+void transaction_etr_print(transaction_entry *etr, uint32_t i){
+	switch(etr->status){
+		case EMPTY:
+			printf("[%u] tid: %u status:%s\n", i, etr->tid,
+					statusToString(etr->status));
+			break;
+		case LOGGED:
+		case COMMIT:
+		case COMPACTION:
+		case CACHEDCOMMIT:
+		case NONFULLCOMPACTION:
+			printf("[%u] tid: %u %p status:%s %.*s ~ %.*s page:%u kv_num:%u\n", i, etr->tid, etr,
+					statusToString(etr->status), KEYFORMAT(etr->range.start),
+					KEYFORMAT(etr->range.end), etr->ptr.physical_pointer,etr->kv_pair_num);
+
+			break;
+		case CACHED:
+			if(etr->ptr.memtable->size){
+				printf("[%u] tid: %u %p status:%s size:%lu\n", i, etr->tid, etr,
+						statusToString(etr->status), etr->ptr.memtable->size);			
+			}
+			else{
+				printf("[%u] tid: %u %p status:%s %.*s ~ size:%lu\n", i, etr->tid, etr,
+						statusToString(etr->status), KEYFORMAT(etr->ptr.memtable->header->list[1]->key), etr->ptr.memtable->size);	
+			}
+			break;
+	}
+}
+
 void transaction_table_print(transaction_table *table, bool full){
 	for(uint32_t i=0; i<table->full; i++){
 		if(!full && table->etr[i].status==EMPTY) continue;
-		switch(table->etr[i].status){
-			case EMPTY:
-				printf("[%u] tid: %u status:%s\n", i, table->etr[i].tid,
-						statusToString(table->etr[i].status));
-				break;
-			case LOGGED:
-			case COMMIT:
-			case COMPACTION:
-			case CACHEDCOMMIT:
-			case NONFULLCOMPACTION:
-				printf("[%u] tid: %u %p status:%s %.*s ~ %.*s page:%u kv_num:%u\n", i, table->etr[i].tid, &table->etr[i],
-						statusToString(table->etr[i].status), KEYFORMAT(table->etr[i].range.start),
-						KEYFORMAT(table->etr[i].range.end), table->etr[i].ptr.physical_pointer,table->etr[i].kv_pair_num);
-
-				break;
-			case CACHED:
-				if(!table->etr[i].ptr.memtable->size){
-					printf("[%u] tid: %u %p status:%s size:%lu\n", i, table->etr[i].tid, &table->etr[i],
-							statusToString(table->etr[i].status), table->etr[i].ptr.memtable->size);			
-				}
-				else{
-					printf("[%u] tid: %u %p status:%s %.*s ~ size:%lu\n", i, table->etr[i].tid, &table->etr[i],
-							statusToString(table->etr[i].status), KEYFORMAT(table->etr[i].ptr.memtable->header->list[1]->key), table->etr[i].ptr.memtable->size);	
-				}
-				break;
-		}
+		transaction_etr_print(&table->etr[i], i);
 	}
 }
 
