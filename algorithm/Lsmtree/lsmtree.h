@@ -176,6 +176,7 @@ typedef struct lsmtree_monitor_info{
 	uint32_t zero_compaction_cnt;
 	uint32_t trivial_compaction_cnt;
 	uint64_t compacting_run_cnt;
+	uint64_t force_compaction_req_cnt;
 	uint64_t move_run_cnt;
 
 	uint32_t __header_read_cnt;

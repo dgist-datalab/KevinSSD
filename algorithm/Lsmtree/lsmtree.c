@@ -138,7 +138,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	pm_init();
 	compaction_init();
 	if(ISTRANSACTION(LSM.setup_values)){
-		uint32_t remain_memory=transaction_init(LSP.cache_memory);
+		uint32_t remain_memory=transaction_init(LSP.cache_memory)-CQSIZE;
 		if(!bc.full_caching){
 			remain_memory=!remain_memory?1:remain_memory;
 			printf("\t|bitmap_caching memroy:%u\n",bc_used_memory(bc.max)/PAGESIZE);
@@ -196,6 +196,7 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	fprintf(stdout,"data gc: %d\n",LMI.data_gc_cnt);
 	fprintf(stdout,"header gc: %d\n",LMI.header_gc_cnt);
 	fprintf(stdout,"compaction_cnt:%d\n",LMI.compaction_cnt);
+	fprintf(stdout,"force_compaction_req_cnt:%d\n",LMI.force_compaction_req_cnt);
 	fprintf(stdout,"last_compaction_cnt:%d\n",LMI.last_compaction_cnt);
 	fprintf(stdout,"zero compaction_cnt:%d\n",LMI.zero_compaction_cnt);
 	fprintf(stdout,"trivial compaction_cnt:%d\n",LMI.trivial_compaction_cnt);

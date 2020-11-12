@@ -422,12 +422,15 @@ void *compaction_main(void *input){
 		
 			if(lnode->committed_list){
 				li_node *li;
-				for_each_list_node(lnode->committed_list, li){
-					transaction_entry *etr=(transaction_entry*)li->data;
-					prev_ppa=etr->ptr.physical_pointer;
-					transaction_clear(etr);	
+				if(lnode->committed_list){
+					for_each_list_node(lnode->committed_list, li){
+						transaction_entry *etr=(transaction_entry*)li->data;
+						prev_ppa=etr->ptr.physical_pointer;
+						transaction_clear(etr);	
+					}
+
+					list_free(lnode->committed_list);
 				}
-				list_free(lnode->committed_list);
 			}
 
 			skiplist_free(req->temptable);

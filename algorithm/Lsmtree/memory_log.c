@@ -1,11 +1,13 @@
 #include "memory_log.h"
 #include "../../include/utils/tag_q.h"
 #include "../../include/settings.h"
+#include "../../include/data_struct/list.h"
 #include "transaction_table.h"
 #include "lsmtree_transaction.h"
 #include <stdlib.h>
 #include <stdio.h>
 
+extern fdriver_lock_t indexer_lock;
 extern my_tm _tm;
 memory_log *memory_log_init(uint32_t max, void (*log_write)(transaction_entry *etr, char *data)){
 	memory_log *res=(memory_log *)malloc(sizeof(memory_log));
@@ -34,11 +36,24 @@ memory_log *memory_log_init(uint32_t max, void (*log_write)(transaction_entry *e
 static inline memory_node* setup_mn(memory_log *ml){
 	bool isempty=tag_manager_is_empty(ml->tagQ);
 	if(isempty){
-		fdriver_unlock(&_tm.table_lock);
+		transaction_force_compaction();
+		//fdriver_unlock(&_tm.table_lock);
+		//fdriver_unlock(&indexer_lock);
+		//transaction_table_print(_tm.ttb, false);
+		/*
+		list *tt=_tm.commit_etr;
+		list_node *ln;
+		int idx=0;
+		for_each_list_node(tt, ln){
+			transaction_entry *etr=(transaction_entry*)ln->data;
+			printf("idx: %d etr tid:%u %p\n",idx++, etr->tid, etr);
+		}
+		printf("temp skiplist_size :%u\n", _tm.commit_KP->size);*/
 	}
 	uint32_t tag=tag_manager_get_tag(ml->tagQ);
 	if(isempty){
-		fdriver_lock(&_tm.table_lock);
+		//fdriver_lock(&indexer_lock);
+		//fdriver_lock(&_tm.table_lock);
 	}
 	return &ml->mem_node_list[tag];
 }
@@ -153,6 +168,6 @@ bool memory_log_usable(memory_log* ml){
 }
 
 bool memory_log_isfull(memory_log *ml){
-	if(ml->now>=ml->max-20) return true;
+	if(ml->now>=ml->max-10) return true;
 	return false;
 }

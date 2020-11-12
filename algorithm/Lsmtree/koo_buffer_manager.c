@@ -277,10 +277,6 @@ static inline bool issue_snode_data(KBM *kbm, list *list, int idx){
 		target=(snode_bucket*)ln->data;
 		target_snode=target->kv_pair;
 
-		if(key_const_compare(target_snode->key, 'd', 201277, 32, NULL)){
-			printf("flushed key!!\n");
-		}
-
 		if(!target_snode->isvalid){
 			abort();
 		}
