@@ -56,6 +56,5 @@ static inline void memory_log_lock(memory_log* ml){
 static inline void memory_log_unlock(memory_log* ml){
 	fdriver_unlock(&ml->lock);
 }
-
 #endif
 

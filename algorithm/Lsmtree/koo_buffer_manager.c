@@ -62,18 +62,6 @@ static inline bool processing_same_snode(list *li, snode *sn, bool isdelete){
 	return false;
 }
 
-static inline uint32_t has_tid(list *li, uint32_t tid){
-	list_node *n;
-	snode_bucket *t;
-	uint32_t cnt = 0;
-	for_each_list_node(li, n){
-		t=(snode_bucket*)n->data;
-		if(t->tid==tid)
-			cnt++;
-	}
-	return cnt;
-}
-
 static inline uint32_t move_tid_list_item(list *src, list *dst, uint32_t tid) {
 	li_node *now, *nxt;
 	snode_bucket *bucket;
@@ -236,68 +224,10 @@ KBM* write_buffer_init(bool is_gc){
 	}
 	kbm->is_gc = is_gc;
 	kbm->debug_cnt=0;
+	kbm->min_tid=INT32_MAX;
+	kbm->max_tid=0;
 	return kbm;
 }
-
-#if 0
-static inline issue_snode_data(list *list, bool ismeta){
-	/*before copy data, it needs number of page to use (including key footer)*/
-	uint32_t number_of_page;
-
-	/*aligning page*/
-	// move to next page
-	lsm_block_aligning(number_of_page, false);
-
-	value_set **issue_target=(value_set**)malloc(sizeof(value_set*) * (number of page+1));
-	/*last of issue_target must be NULL*/
-
-	li_node *ln;
-	uint32_t piece_ppa;
-	footer *foot; //foot/er is array of uint16 which contains length of value (512 granuality), in skiplist.h
-	uint32_t container_idx=0;
-	value_set *now_page_container;
-	char *now_page;
-	uint16_t now_page_idx=0;
-
-	snode_bucket *target;
-	snode *target_snode;
-	value_set *target_value;
-	key_packing *kp;//....no idea
-	for(...number_of_page){ //physicla page 
-		//get a page
-		piece_ppa=LSM.lop->moveTo_fr_page(false); //get one page (512 granuality);
-		foot=(footer*)pm_get_oob(piece_ppa/NPCINPAGE, DATA, false); //get oob, set value_length
-		now_page_container=inf_get_valueset(NULL, FS_MALLOC_W, PAGESIZE); //value_set is described in ../../include/containter
-		now_page_container->ppa=piece_ppa;
-		now_page=now_page_container->value;
-		now_page_idx=0;
-
-		// 1page에 value들을 넣는것
-		for_each_list_node(list, ln){//key value
-			target=(snode_bucket*)ln->data;
-			target_snode=target->kv_pair;
-			target_value=target_snode->value.u_value;
-			target_snode->ppa=LSM.lop->get_page(target_value->length, target_sndoe->key);
-			foot->map[target_snode->ppa%NPCINPAGE]=target_value->length;
-			memcpy(&now_page[now_page_idx*PIECE], target_value.value, target_value->length*PIECE);
-			now_page_idx+=target_value->length;
-
-			//page check
-			issue_target[container_idx++]=now_page_container; // IO 할 page 완성
-			/*insert key*/
-			if(!key_packing_insert_try(kp, target_snode->key)){
-				uint32_t ppa=LSM.lop->move_To_fr_page(false);
-				issue_target[container_idx++]=key_packing_to_valueset(kp,ppa);
-				key_packing_free(kp);
-				kp=key_packing_init_nodata();
-			}
-		}
-	}
-
-	issue_data_write(issue_target, LSM.li, DATAW); // IO 수행
-	free(issue_target);
-}
-#endif
 
 static inline bool issue_snode_data(KBM *kbm, list *list, int idx){
 	bool should_flush_kp;
@@ -346,6 +276,14 @@ static inline bool issue_snode_data(KBM *kbm, list *list, int idx){
 	for_each_list_node(list, ln){//key value
 		target=(snode_bucket*)ln->data;
 		target_snode=target->kv_pair;
+
+		if(key_const_compare(target_snode->key, 'd', 201277, 32, NULL)){
+			printf("flushed key!!\n");
+		}
+
+		if(!target_snode->isvalid){
+			abort();
+		}
 		if(!kbm->is_gc){
 			target_value=target_snode->value.u_value;
 			target_snode->ppa=LSM.lop->get_page(target_value->length, target_snode->key);
@@ -382,18 +320,43 @@ static inline bool issue_snode_data(KBM *kbm, list *list, int idx){
 }
 
 
+inline static void copy_tid_list(uint32_t *tid_list, list *target){
+	li_node *now, *next;
+	snode_bucket *bucket;
+	int idx=0;
+	int prev=-1;
+	for_each_list_node_safe(target, now, next) {
+		bucket = (snode_bucket *)now->data;
+		if(prev==-1){
+			tid_list[idx++]=bucket->tid;
+			prev=bucket->tid;
+		}
+		else{
+			if(prev!=bucket->tid){
+				tid_list[idx++]=bucket->tid;
+				prev=bucket->tid;		
+			}
+		}
+	}
+	tid_list[idx]=UINT32_MAX;
+}
+
 /*
    you can figure out the remaining number of page in the activated block by 'block_active_remain_pagenum(false)'
 
  */
 
-void write_buffer_insert_KV(KBM *kbm, uint32_t tid, snode *kv_pair, bool isdelete){
-/*
-	if(KEYCONSTCOMP(kv_pair->key, "m0000000000001505500")==0){
-		printf("break!\n");
-	}
-*/
+bool write_buffer_insert_KV(KBM *kbm, uint32_t tid, snode *kv_pair, bool isdelete, uint32_t *tid_list){
+	/*if(tid==2023934){
+		printf("%u comming isdelete:%d\n", 2023934, isdelete);
+		if(isdelete==0){
+			printf("break!\n");
+		}
+	}*/
+	bool res=false;
+	if(isdelete){
 	
+	}
 	if(!block_active_remain_pagenum(kbm->is_gc)){
 	//	checking_sanity(last_push_ppa);
 	}
@@ -402,10 +365,10 @@ void write_buffer_insert_KV(KBM *kbm, uint32_t tid, snode *kv_pair, bool isdelet
 	int max_items, remain_pages;
 	bool is_meta = is_meta_kv(kv_pair), retry;
 	if(processing_same_snode(is_meta?kbm->meta_bucket_list:kbm->data_bucket_list, kv_pair, isdelete)){
-		return;
+		return false;
 	}
 	else if(isdelete){ 
-		return;
+		return false;
 	}
 	snode_bucket *bucket = alloc_snode_bucket(tid, kv_pair);
 
@@ -423,8 +386,11 @@ void write_buffer_insert_KV(KBM *kbm, uint32_t tid, snode *kv_pair, bool isdelet
 
 
 	//printf("[INSERT BEFORE] meta_list->size: %d, data_list->size: %d, kp_len[meta]: %d, kp_len[data]: %d\n", kbm->meta_bucket_list->size, kbm->data_bucket_list->size, kbm->buffered_kp_len[0], kbm->buffered_kp_len[1]);
-
+	
 	if (target_list->size == max_items) {
+		res=true;
+		if(tid_list)
+			copy_tid_list(tid_list, target_list);
 		retry = issue_snode_data(kbm, target_list, !is_meta);
 		remain_pages = block_active_remain_pagenum(kbm->is_gc);
 		if (retry) { // occurs overflow in kp (kp has issued) (2: kp, data or 3: kp, data, kp )
@@ -464,6 +430,7 @@ void write_buffer_insert_KV(KBM *kbm, uint32_t tid, snode *kv_pair, bool isdelet
 	if (target_list->size >= max_items) {
 		abort();
 	}
+	return res;
 }
 /*
 snode *write_buffer_get(KBM *kbm ,KEYT key){
@@ -489,7 +456,7 @@ snode *write_buffer_get(KBM *kbm ,KEYT key){
 	return NULL;
 }
 */
-void write_buffer_force_flush(KBM *kbm, uint32_t tid){
+bool write_buffer_force_flush(KBM *kbm, uint32_t tid, uint32_t* tid_list){
 	/*
 	 * case 1: if there is no data to commit, just issue kp
 	 * case 2: if there are data to commit, move those bucket to commit_bucket_list, issue that list and kp
@@ -521,7 +488,7 @@ void write_buffer_force_flush(KBM *kbm, uint32_t tid){
 		if(kbm->is_gc){
 	//		checking_sanity(last_push_ppa);
 		}
-		return;
+		return false;
 	}
 
 	if (commiting_data_num * DATA_LEN >= MAX_LEN_PER_PAGE) {
@@ -566,7 +533,7 @@ void write_buffer_force_flush(KBM *kbm, uint32_t tid){
 			target_list = NULL;
 		}
 	}
-
+	bool res;
 	if (!target_list) { // case 1;
 		if(key_packing_start_ppa(kbm->current_kp)!=UINT32_MAX){
 			lsm_block_aligning(1, kbm->is_gc);
@@ -575,7 +542,11 @@ void write_buffer_force_flush(KBM *kbm, uint32_t tid){
 			kbm->current_kp = key_packing_init_nodata();
 			kbm->need_start_ppa = true;
 		}
+		res=false;
 	} else {
+		if(tid_list){
+			copy_tid_list(tid_list, target_list);
+		}
 		switch (target_idx) {
 			case COMMIT_IDX: // 2 page or 3 page
 				// flush list
@@ -611,6 +582,7 @@ void write_buffer_force_flush(KBM *kbm, uint32_t tid){
 		key_packing_free(kbm->current_kp);
 		kbm->current_kp = key_packing_init_nodata();
 		kbm->need_start_ppa = true;
+		res=true;
 	}
 
 	remain_pages = block_active_remain_pagenum(kbm->is_gc);
@@ -624,6 +596,7 @@ void write_buffer_force_flush(KBM *kbm, uint32_t tid){
 	if(kbm->is_gc){
 //		checking_sanity(last_push_ppa);
 	}
+	return res;
 }
 
 void write_buffer_free(KBM *kbm){
@@ -641,3 +614,4 @@ void write_buffer_free(KBM *kbm){
 	key_packing_free(kbm->current_kp);
 	free(kbm);
 }
+

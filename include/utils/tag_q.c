@@ -27,6 +27,14 @@ uint32_t tag_manager_get_tag(tag_manager *tm){
 	return res;
 }
 
+bool tag_manager_is_empty(tag_manager *tm){
+	bool res;
+	pthread_mutex_lock(&tm->tag_lock);
+	res=tm->tagQ->empty();
+	pthread_mutex_unlock(&tm->tag_lock);
+	return res;
+}
+
 void tag_manager_free_tag(tag_manager *tm, uint32_t tag_num){
 	//printf("free tag %u\n", tag_num);
 	pthread_mutex_lock(&tm->tag_lock);

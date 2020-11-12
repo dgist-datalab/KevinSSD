@@ -135,15 +135,18 @@ uint32_t transaction_table_destroy(transaction_table * table){
 			case COMPACTION:
 				printf("can't be compaction status\n");
 				break;
+			case WAITFLUSHCOMMITCACHED:
 			case CACHED:
 				skiplist_free(etr->ptr.memtable);
 				break;
 			case LOGGED:
 			case COMMIT:
 			case CACHEDCOMMIT:
+			case WAITFLUSHCOMMITLOGGED:
 				free(etr->range.start.key);
 				free(etr->range.end.key);
 				break;
+			case WAITCOMMIT:
 			case EMPTY:
 				break;
 		}
@@ -217,50 +220,24 @@ uint32_t transaction_table_add_new(transaction_table *table, uint32_t tid, uint3
 #ifdef TRACECOLLECT
 extern int trace_fd;
 #endif
-inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *target){
+
+inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *target, uint32_t *tid_list){
 	if(t_mem->size==0) return NULL;
 	if(!METAFLUSHCHECK(*t_mem)){
 		LMI.non_full_comp++;
 	}
 
-	/*
-	if(_tm.ttb->wbm && target->wbm_node){
-		target->status=NONFULLCOMPACTION;
-		write_buffer_delete_node(_tm.ttb->wbm, target->wbm_node);
-		target->wbm_node=NULL;
-	}*/
-	write_buffer_force_flush(_tm.ttb->kbm, target->tid);
+	bool tt=write_buffer_force_flush(_tm.ttb->kbm, target->tid, tid_list);
+	if(tt && !memory_log_isfull(_tm.mem_log) && !lsm_should_flush(t_mem, d_m.active)){
+		printf("can't be\n");
+		abort();
+	}
 
 	if(target->ptr.memtable!=t_mem){
 		printf("erorror different memtable!\n");
 		abort();
 	}
-
-	/*debug test*/
-	/*
-	snode *tt;
-	int idx=0;
-	for_each_sk(t_mem,tt){
-//		printf("test %d\n",idx++);
-		if(tt->ppa==UINT32_MAX){
-			char buf[100];
-			key_interpreter(tt->key, buf);
-			printf("%s\n", buf);
-		//	printf("KEY - %.*s \n", KEYFORMAT(tt->key));
-			printf("it has unwrittend data!!\n");
-#ifdef TRACECOLLECT
-			fsync(trace_fd);
-#endif
-			abort();
-		}
-	}*/
-	/*debug test*/
-
-/*
-	value_set **data_sets=skiplist_make_valueset(t_mem, LSM.disk[0], &target->range.start, &target->range.end);
-	issue_data_write(data_sets, LSM.li,DATAW);
-	free(data_sets);
-*/
+	//printf("tid:%u size:%u\n", target->tid, t_mem->size);
 	htable *key_sets=LSM.lop->mem_cvt2table(t_mem,NULL, NULL);
 	value_set *res;	
 	if(ISNOCPY(LSM.setup_values)){
@@ -273,11 +250,13 @@ inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *targe
 	}
 
 	skiplist_free(t_mem);
+	target->status=LOGGED;
 	return res;
 }
 
 bool delete_debug=false;
-value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid, KEYT key, value_set *value, bool valid,  transaction_entry **t){
+value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid, KEYT key, value_set *value, bool valid,  transaction_entry **t, bool *is_changed_status, uint32_t* flushed_tid_list){
+
 
 	transaction_entry *target=find_last_entry(tid);
 	if(!target){
@@ -302,14 +281,47 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 	else{
 		abort();
 	}*/
+	
 
+	if(key_const_compare(key, 'd', 201277, 32, NULL)){
+		printf("tid:%u etr:%p target insert!!\n", tid, target);
+	}
+
+	bool is_changed=false;
 	skiplist *t_mem=target->ptr.memtable;
 	snode *sn=skiplist_insert(t_mem, key, value, valid);
-	write_buffer_insert_KV(table->kbm, tid, sn, !valid);
+	int force_prev_idx=0;
+	if(write_buffer_insert_KV(table->kbm, tid, sn, !valid, flushed_tid_list)){
+		for(int i=0; flushed_tid_list[i]!=UINT32_MAX; i++){
+			if(transaction_table_update_all_entry(table, flushed_tid_list[i], COMMIT, true)==2){
+				is_changed=true;
+			}
+			force_prev_idx++;
+		}
+		if(is_changed){
+			(*is_changed_status)=true;
+		}
+		else{
+			(*is_changed_status)=false;
+		}
+	}
+	else{
+		(*is_changed_status)=false;
+	}
 	
 	(*t)=target;
 
+	value_set *res;
 	if(lsm_should_flush(t_mem, d_m.active)){
+		if(tid==2023934){
+			static int cnt=0;
+			//if(cnt==6){
+			printf("break! %d\n",cnt++);
+			if(cnt==8){
+				printf("debug_break!\n");
+			}
+			//}
+		}
 	//	printf("tid-%d flush!\n", tid);
 		if(transaction_table_add_new(table, target->tid, 0)==UINT_MAX){
 			printf("%s:%d full table!\n", __FILE__,__LINE__);
@@ -317,7 +329,19 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 			return NULL;
 		}
 		target->status=LOGGED;
-		return trans_flush_skiplist(t_mem, target);
+		res=trans_flush_skiplist(t_mem, target, &flushed_tid_list[force_prev_idx]);
+		for(int i=force_prev_idx; flushed_tid_list[i]!=UINT32_MAX; i++){
+			if(transaction_table_update_all_entry(table, flushed_tid_list[i], COMMIT, true)==2){
+				is_changed=true;
+			}
+		}
+		if(is_changed){
+			(*is_changed_status)=true;
+		}
+		else{
+			(*is_changed_status)=false;
+		}	
+		return res;
 	}
 	else return NULL;
 }
@@ -328,7 +352,33 @@ uint32_t transaction_table_update_last_entry(transaction_table *table,uint32_t t
 	return 1;
 }
 
-uint32_t transaction_table_update_all_entry(transaction_table *table,uint32_t tid, TSTATUS status){
+static inline void wait_commit_flush(transaction_table *table, transaction_entry *etr){
+	skiplist *t_mem=etr->ptr.memtable;
+	//printf("tid:%u size:%u\n", etr->tid, t_mem->size);
+	htable *key_sets=LSM.lop->mem_cvt2table(t_mem,NULL, NULL);
+	value_set *res;	
+	if(ISNOCPY(LSM.setup_values)){
+		res=inf_get_valueset((char*)key_sets->sets, FS_MALLOC_W, PAGESIZE);
+		htable_free(key_sets);
+	}
+	else{
+		res=key_sets->origin;
+		free(key_sets);
+	}
+
+	if(memory_log_usable(_tm.mem_log)){
+		etr->ptr.physical_pointer=memory_log_insert(_tm.mem_log, etr, -1, res->value);
+		inf_free_valueset(res, FS_MALLOC_W);
+	}
+	else{
+		printf("need implementation!\n");
+		abort();
+	}
+	skiplist_free(t_mem);
+}
+
+uint32_t transaction_table_update_all_entry(transaction_table *table,uint32_t tid, TSTATUS status, bool istry){
+	bool is_changed_commit=false;
 	Redblack res;
 	list *li; li_node *ln;
 	///transaction_table_print(table,false);
@@ -338,11 +388,31 @@ uint32_t transaction_table_update_all_entry(transaction_table *table,uint32_t ti
 	for_each_list_node(li, ln){
 		transaction_entry *data=(transaction_entry*)ln->data;
 		//printf("etr print %p\n", data);
+		if(istry && status==COMMIT && (data->status==WAITFLUSHCOMMITCACHED || data->status==WAITFLUSHCOMMITLOGGED)){
+			if(data->status==WAITFLUSHCOMMITCACHED && !write_buffer_has_tid(table->kbm, data->tid)){
+				wait_commit_flush(table, data);
+				data->status=COMMIT;
+				is_changed_commit=true;
+			}
+			else if(data->status==WAITFLUSHCOMMITLOGGED){
+				data->status=COMMIT;
+				is_changed_commit=true;
+			}
+			continue;
+		}
+		
+		if(istry) continue;
+
 		if(status==COMMIT && data->status==CACHED){
 			data->status=CACHEDCOMMIT;
 		}
 		else{
-			data->status=status;
+			if(status==WAITCOMMIT){
+				data->status=((data->status==CACHED)?WAITFLUSHCOMMITCACHED:COMMIT);
+			}
+			else{
+				data->status=status;
+			}
 		}
 	}
 	/*
@@ -358,8 +428,10 @@ uint32_t transaction_table_update_all_entry(transaction_table *table,uint32_t ti
 		res=res->next;
 	}*/
 	fdriver_unlock(&indexer_lock);
+	if(is_changed_commit) return 2;
 	return 1;
 }
+
 
 uint32_t transaction_table_find(transaction_table *table, uint32_t tid, KEYT key, transaction_entry*** result){
 	Redblack res;
@@ -417,19 +489,30 @@ static void *test_test(KEYT a, ppa_t ppa){
 	return NULL;
 }
 
-value_set* transaction_table_force_write(transaction_table *table, uint32_t tid, transaction_entry **t){
+value_set* transaction_table_force_write(transaction_table *table, uint32_t tid, transaction_entry **t, bool *is_wait_commit, uint32_t *tid_list){
 	transaction_entry *target=find_last_entry(tid);
 	skiplist *t_mem=target->ptr.memtable;
 	(*t)=target;
-
 	//printf("tid:%u mum KP:%u\n", tid, t_mem->size);
+	if(!t_mem){
+		(*is_wait_commit)=false;
+		return NULL;
+	}
 
+	if(memory_log_isfull(_tm.mem_log) && !compaction_has_job()){
+		/*it needs flush write buffer*/
+		(*is_wait_commit)=false;
+	}
+	else{
+		(*is_wait_commit)=write_buffer_has_tid(table->kbm, tid)?true:false;
+		if((*is_wait_commit))
+			return NULL;
+	}
 	target->kv_pair_num=t_mem->size;
-	value_set *res=trans_flush_skiplist(t_mem, target);
-
-//	if(res && res->value){
-//		LSM.lop->checking_each_key(res->value, test_test);
-//	}
+	value_set *res=trans_flush_skiplist(t_mem, target, tid_list);
+	for(int i=0; tid_list[i]!=UINT32_MAX; i++){
+		transaction_table_update_all_entry(table, tid_list[i], COMMIT, true);
+	}
 
 	if(res==NULL){
 		//if(table->wbm) write_buffer_delete_node(table->wbm, target->wbm_node);
@@ -480,6 +563,7 @@ transaction_entry *transaction_table_get_comp_target(transaction_table *table, u
 	fdriver_lock(&indexer_lock);
 	rb_find_int(transaction_indexer, tid, &target);
 	li=(list*)target->item;
+
 	for_each_list_node(li, ln){
 		etr=(transaction_entry *)ln->data;
 		if(etr->status==COMMIT){
@@ -620,12 +704,15 @@ char* statusToString(uint8_t a){
 		case CACHEDCOMMIT: return "CACHEDCOMMIT";
 		case COMPACTION: return "COMPACTION";
 		case NONFULLCOMPACTION: return "NONFULL COMPACTION";
+		case WAITFLUSHCOMMITCACHED: return "WAITFLUSHCOMMITCACHED";
+		case WAITFLUSHCOMMITLOGGED: return "WAITFLUSHCOMMITLOGGED";
 	}
 	return NULL;
 }
 
 void transaction_etr_print(transaction_entry *etr, uint32_t i){
 	switch(etr->status){
+		case WAITCOMMIT:
 		case EMPTY:
 			printf("[%u] tid: %u status:%s\n", i, etr->tid,
 					statusToString(etr->status));
@@ -635,11 +722,13 @@ void transaction_etr_print(transaction_entry *etr, uint32_t i){
 		case COMPACTION:
 		case CACHEDCOMMIT:
 		case NONFULLCOMPACTION:
+		case WAITFLUSHCOMMITLOGGED:
 			printf("[%u] tid: %u %p status:%s %.*s ~ %.*s page:%u kv_num:%u\n", i, etr->tid, etr,
 					statusToString(etr->status), KEYFORMAT(etr->range.start),
 					KEYFORMAT(etr->range.end), etr->ptr.physical_pointer,etr->kv_pair_num);
 
 			break;
+		case WAITFLUSHCOMMITCACHED:
 		case CACHED:
 			if(etr->ptr.memtable->size){
 				printf("[%u] tid: %u %p status:%s size:%lu\n", i, etr->tid, etr,
@@ -679,7 +768,9 @@ uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, 
 			transaction_entry *etr=(transaction_entry*)ln->data;
 			snode *s;
 			switch(etr->status){
+				case WAITCOMMIT:
 				case EMPTY:break;
+				case WAITFLUSHCOMMITCACHED:
 				case CACHED:
 						   if(!etr->ptr.memtable->size) break;
 						   s=skiplist_find_lowerbound(etr->ptr.memtable, key);
@@ -688,6 +779,7 @@ uint32_t transaction_table_iterator_targets(transaction_table *table, KEYT key, 
 							   res[i++]=etr;
 						   }
 						   break;
+				case WAITFLUSHCOMMITLOGGED:
 				case CACHEDCOMMIT:
 				case LOGGED:
 				case COMMIT:

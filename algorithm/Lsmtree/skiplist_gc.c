@@ -106,11 +106,11 @@ int skiplist_make_gc_valueset(skiplist * skip,gc_node ** gc_node_array, int size
 		KEYT temp_lpa;
 		kvssd_cpy_key(&temp_lpa,&t->lpa);
 		uint32_t time=t->time;
-		snode *target=skiplist_insert_wP_gc(skip, temp_lpa, t->value, &t->time, length, false);
+		snode *target=skiplist_insert_wP_gc(skip, temp_lpa, t->value, &t->time, length, true);
 		if(time!=t->time){
 			continue;
 		}
-		write_buffer_insert_KV(temp_write_buffer, UINT32_MAX, target, false);
+		write_buffer_insert_KV(temp_write_buffer, UINT32_MAX, target, false, NULL);
 	}
 
 	if(skip->size==0){
@@ -119,7 +119,7 @@ int skiplist_make_gc_valueset(skiplist * skip,gc_node ** gc_node_array, int size
 		return 0;
 	}
 
-	write_buffer_force_flush(temp_write_buffer,UINT32_MAX);
+	write_buffer_force_flush(temp_write_buffer,UINT32_MAX, NULL);
 	write_buffer_free(temp_write_buffer);
 	return 1;
 }

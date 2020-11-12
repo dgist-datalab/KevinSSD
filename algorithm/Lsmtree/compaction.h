@@ -125,6 +125,7 @@ void compaction_pause();
 void compaction_resume();
 void compaction_wait_jobs();
 int compaction_wait_job_number();
+bool compaction_has_job();
 
 
 inline void issue_data_write(value_set **data_sets, lower_info *li, uint8_t type){

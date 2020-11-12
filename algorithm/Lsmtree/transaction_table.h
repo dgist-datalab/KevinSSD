@@ -14,7 +14,7 @@
 #define TABLE_ENTRY_SZ (sizeof(uint32_t)+sizeof(uint32_t)+sizeof(uint8_t))
 
 typedef enum transaction_status{
-	EMPTY, CACHED, LOGGED, COMMIT, CACHEDCOMMIT, COMPACTION, NONFULLCOMPACTION
+	EMPTY, CACHED, LOGGED, COMMIT, CACHEDCOMMIT, COMPACTION, NONFULLCOMPACTION, WAITFLUSHCOMMITCACHED, WAITFLUSHCOMMITLOGGED, WAITCOMMIT
 }TSTATUS;
 
 typedef union transaction_pointer{
@@ -67,9 +67,9 @@ uint32_t transaction_table_destroy(transaction_table *);
 uint32_t transaction_table_add_new(transaction_table *, uint32_t tid, uint32_t offset);
 uint32_t transaction_table_find(transaction_table *, uint32_t tid, KEYT key, transaction_entry***);
 uint32_t transaction_table_gc_find(transaction_table *, KEYT key, transaction_entry***);
-value_set* transaction_table_insert_cache(transaction_table *, uint32_t tid, KEYT key, value_set *value, bool isdelete, transaction_entry **);
+value_set* transaction_table_insert_cache(transaction_table *, uint32_t tid, KEYT key, value_set *value, bool isdelete, transaction_entry **, bool *, uint32_t *);
 uint32_t transaction_table_update_last_entry(transaction_table *,uint32_t tid, TSTATUS);
-uint32_t transaction_table_update_all_entry(transaction_table *,uint32_t tid, TSTATUS);
+uint32_t transaction_table_update_all_entry(transaction_table *,uint32_t tid, TSTATUS, bool istry);
 uint32_t transaction_table_clear(transaction_table *, transaction_entry *etr, void *li);
 uint32_t transaction_table_clear_all(transaction_table *, uint32_t tid);
 uint32_t transaction_table_iterator_targets(transaction_table *, KEYT key, uint32_t tid, transaction_entry ***etr);
@@ -80,7 +80,7 @@ void transaction_table_sanity_check();
 void transaction_table_print(transaction_table *, bool full);
 void transaction_etr_print(transaction_entry *etr, uint32_t i);
 
-value_set* transaction_table_force_write(transaction_table *, uint32_t tid, transaction_entry **etr);
+value_set* transaction_table_force_write(transaction_table *, uint32_t tid, transaction_entry **etr, bool *is_wait_commit, uint32_t *tid_list);
 value_set* transaction_table_get_data(transaction_table *);
 
 transaction_entry *transaction_table_get_comp_target(transaction_table *, uint32_t tid);

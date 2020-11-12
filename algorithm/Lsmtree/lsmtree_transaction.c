@@ -56,7 +56,6 @@ void checking_table_nonfull(){
 
 uint32_t transaction_init(uint32_t cached_size){
 	uint32_t cached_entry_num=cached_size/PAGESIZE;
-
 	//uint32_t max_KP_buffer_num=(7*K)/(DEFKEYLENGTH+4);
 	uint32_t target_KP_buffer=4;
 
@@ -136,6 +135,139 @@ uint32_t __trans_write(char *data, value_set *value, ppa_t ppa, uint32_t type, r
 	return 1;
 }
 
+typedef struct commit_log_read{
+	volatile bool isdone;
+	transaction_entry *etr;
+	value_set *value;
+	char *data;
+}cml;
+
+void *insert_KP_to_skip(KEYT, ppa_t);
+
+void transaction_force_compaction(){
+	if(!compaction_wait_job_number()){
+		skiplist *committing_skip=_tm.commit_KP;
+		if(committing_skip->size==0){
+			goto out;
+		}
+		list *committing_etr=_tm.commit_etr;
+	//	printf("force commiting list size:%u\n",committing_etr->size);
+		_tm.commit_KP=skiplist_init();
+		_tm.commit_etr=list_init();
+		bench_custom_start(write_opt_time2, 7);
+		compaction_send_creq_by_skip(committing_skip, committing_etr, false);
+		bench_custom_A(write_opt_time2, 7);
+
+		//printf("jobs!! %u\n", compaction_wait_job_number());
+	}
+out:
+	return;
+}
+
+static inline void __make_committed_etr_to_compaction(request *req, uint32_t tid){
+	uint32_t ppa;
+	fdriver_lock(&_tm.table_lock);
+	value_set *table_data=transaction_table_get_data(_tm.ttb);
+	if(memory_log_usable(_tm.mem_log)){
+		ppa=_tm.last_table;
+		if(ppa!=UINT32_MAX){
+			memory_log_lock(_tm.mem_log);
+			if(ISMEMPPA(ppa)){
+				memory_log_delete(_tm.mem_log, ppa);	
+				memory_log_unlock(_tm.mem_log);
+			}
+			else{
+				memory_log_unlock(_tm.mem_log);
+				transaction_invalidate_PPA(LOG, ppa);	
+			}
+		}
+		_tm.last_table=memory_log_insert(_tm.mem_log, (transaction_entry*)&_tm.last_table, -1, table_data->value);
+		inf_free_valueset(table_data, FS_MALLOC_W);
+	}
+	else{
+		ppa=get_log_PPA(TABLEW);
+		__trans_write(NULL, table_data, ppa, TABLEW, req, false);
+		if(_tm.last_table!=UINT_MAX)
+			transaction_invalidate_PPA(LOG, _tm.last_table);
+		_tm.last_table=ppa;
+	}
+	fdriver_unlock(&_tm.table_lock);
+
+	if(!_tm.mem_log){
+		leveling_node *lnode;
+		while((lnode=transaction_get_comp_target(_tm.commit_KP, tid))){
+			compaction_assign(NULL,lnode,false);
+		}
+		return;
+	}
+	list* temp_list=list_init();
+	cml *temp_cml;
+	char *cached_data;
+	transaction_entry *etr;
+	while((etr=transaction_table_get_comp_target(_tm.ttb, tid))){
+		temp_cml=(cml*)malloc(sizeof(cml));
+		temp_cml->isdone=false;
+		temp_cml->etr=etr;
+		memory_log_lock(_tm.mem_log);
+		if(ISMEMPPA(etr->ptr.physical_pointer)){
+			cached_data=memory_log_get(_tm.mem_log, etr->ptr.physical_pointer);
+			temp_cml->data=(char*)malloc(PAGESIZE);
+			memcpy(temp_cml->data, cached_data, PAGESIZE);
+			temp_cml->isdone=true;
+			memory_log_unlock(_tm.mem_log);
+		}	
+		else{
+			transaction_table_print(_tm.ttb, false);
+			abort();
+			memory_log_unlock(_tm.mem_log);
+			temp_cml->value=inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
+			algo_req *treq=(algo_req*)malloc(sizeof(algo_req));
+			treq->end_req=transaction_end_req;
+			treq->type=LOGR;
+			treq->parents=NULL;
+			treq->params=(void*)temp_cml;
+			LSM.li->read(etr->ptr.physical_pointer, PAGESIZE, temp_cml->value, ASYNC, treq);
+		}
+		list_insert(temp_list, (void*)temp_cml);
+	}
+
+	bench_custom_start(write_opt_time2, 5);
+	li_node *now, *nxt;
+	for_each_list_node_safe(temp_list, now, nxt){
+		temp_cml=(cml*)now->data;
+		while(!temp_cml->isdone){}
+		//uint32_t number_of_kp=*(uint16_t*)(temp_cml->data);
+		/*
+
+			I'm not sure this code is unnecessary
+
+		if(_tm.commit_KP->size && METAFLUSHTRYCHECK(*_tm.commit_KP, number_of_kp)){
+			skiplist *committing_skip=_tm.commit_KP;
+			list *committing_etr=_tm.commit_etr;
+		
+			printf("before_insert compaction target num :%u\n", committing_skip->size);
+
+			_tm.commit_KP=skiplist_init();
+			_tm.commit_etr=list_init();
+
+			compaction_send_creq_by_skip(committing_skip, committing_etr, false);		
+		}*/
+		
+	//	printf("temp_cml->etr:%u\n", temp_cml->etr->tid);
+		list_insert(_tm.commit_etr, temp_cml->etr);
+
+		LSM.lop->checking_each_key(temp_cml->data, insert_KP_to_skip);
+		free(temp_cml->data);
+		free(temp_cml);
+		list_delete_node(temp_list, now);
+	}
+
+	if(memory_log_isfull(_tm.mem_log)){
+		transaction_force_compaction();
+	}
+	list_free(temp_list);
+}
+
 uint32_t transaction_set(request *const req){
 	static uint32_t prev_tid=0;
 	if(prev_tid==req->tid){
@@ -145,10 +277,11 @@ uint32_t transaction_set(request *const req){
 		//printf("aaaaa set tid: %u\n", req->tid);
 	}
 	prev_tid=req->tid;
-	/*
-	if(KEYCMP(req->key, debug_key)==0){
-		printf("target key inserted value:%d\n", req->value->value[0]);
-	}*/
+
+	if(memory_log_isfull(_tm.mem_log)){
+		transaction_force_compaction();
+		compaction_wait_jobs();
+	}
 
 	transaction_entry *etr;
 	fdriver_lock(&_tm.table_lock);
@@ -159,9 +292,22 @@ uint32_t transaction_set(request *const req){
 	}
 #endif
 
- 
-	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, req->type !=FS_DELETE_T, &etr);
+	bool is_changed_status;
+	uint32_t flushed_tid_list[20];
+	flushed_tid_list[0]=UINT32_MAX;
+	value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, req->key, req->value, req->type !=FS_DELETE_T, &etr, &is_changed_status, flushed_tid_list);
 	fdriver_unlock(&_tm.table_lock);
+
+	if(is_changed_status){
+		for(int i=0; flushed_tid_list[i]!=UINT32_MAX; i++){
+			__make_committed_etr_to_compaction(req, flushed_tid_list[i]);
+		}
+		
+		//printf("insert!!\n");
+		//transaction_table_print(_tm.ttb,false);
+	}
+
+
 	bench_custom_A(write_opt_time2, 0);
 
 	req->value=NULL;
@@ -173,7 +319,6 @@ uint32_t transaction_set(request *const req){
 	}
 
 	if(memory_log_usable(_tm.mem_log)){
-
 		etr->ptr.physical_pointer=memory_log_insert(_tm.mem_log, etr, -1, log->value);
 		inf_free_valueset(log, FS_MALLOC_W);
 		req->end_req(req);
@@ -190,7 +335,13 @@ uint32_t transaction_set(request *const req){
 }
 
 uint32_t transaction_range_delete(request *const req){
-	printf(":::::::::::range delete tid: %u, size:%u\n", req->tid, req->offset);
+	//printf(":::::::::::range delete tid: %u, size:%u\n", req->tid, req->offset);
+
+	if(memory_log_isfull(_tm.mem_log)){
+		transaction_force_compaction();
+		compaction_wait_jobs();
+	}
+
 	transaction_entry *etr;
 	range_delete_flag=true;
 	KEYT key;
@@ -208,14 +359,23 @@ uint32_t transaction_range_delete(request *const req){
 		}
 
 		fdriver_lock(&_tm.table_lock);
-		value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, key, NULL, false, &etr);
+		bool is_changed_status;
+		uint32_t flushed_tid_list[20];
+		flushed_tid_list[0]=UINT32_MAX;
+		value_set* log=transaction_table_insert_cache(_tm.ttb,req->tid, key, NULL, false, &etr, &is_changed_status, flushed_tid_list);
 		fdriver_unlock(&_tm.table_lock);
+
+		if(is_changed_status){
+			for(int i=0; flushed_tid_list[i]!=UINT32_MAX; i++){
+				__make_committed_etr_to_compaction(req, flushed_tid_list[i]);
+			}
+		}
+		/*
+		printf("range_delete!\n");
+		transaction_table_print(_tm.ttb,false);*/
+
 		if(!log){
 			continue;
-		}
-	
-		if(memory_log_isfull(_tm.mem_log)){
-			transaction_table_print(_tm.ttb,false);
 		}
 
 		if(memory_log_usable(_tm.mem_log)){
@@ -236,16 +396,8 @@ uint32_t transaction_range_delete(request *const req){
 }
 
 
-typedef struct commit_log_read{
-	volatile bool isdone;
-	transaction_entry *etr;
-	value_set *value;
-	char *data;
-}cml;
-
-void *insert_KP_to_skip(KEYT, ppa_t);
-
 uint32_t transaction_commit(request *const req){
+	//printf("commit req->tid:%u\n", req->tid);
 	if(memory_log_isfull(_tm.mem_log)){
 		compaction_wait_jobs();
 	}
@@ -294,9 +446,15 @@ uint32_t transaction_commit(request *const req){
 		cparams->done_num=0;
 	}
 
+	bool is_wait_commit=false;
 	transaction_entry *etr;
+	uint32_t flushed_tid_list[20];
+	flushed_tid_list[0]=UINT32_MAX;
+	if(req->tid==44){
+		printf("break!\n");
+	}
 	fdriver_lock(&_tm.table_lock);
-	value_set *log=transaction_table_force_write(_tm.ttb, req->tid, &etr);
+	value_set *log=transaction_table_force_write(_tm.ttb, req->tid, &etr, &is_wait_commit, flushed_tid_list);
 	fdriver_unlock(&_tm.table_lock);
 
 	if(log){
@@ -328,133 +486,34 @@ uint32_t transaction_commit(request *const req){
 
 	/*write table*/
 	fdriver_lock(&_tm.table_lock);
-
-	//transaction_table_print(_tm.ttb, false);
-
-	transaction_table_update_all_entry(_tm.ttb, req->tid, COMMIT);
-
-
-	//transaction_table_print(_tm.ttb, false);
-	//checking_table_nonfull();
-
-	value_set *table_data=transaction_table_get_data(_tm.ttb);
-
-	if(memory_log_usable(_tm.mem_log)){
-		ppa=_tm.last_table;
-		if(ppa!=UINT32_MAX){
-			memory_log_lock(_tm.mem_log);
-			if(ISMEMPPA(ppa)){
-				memory_log_delete(_tm.mem_log, ppa);	
-				memory_log_unlock(_tm.mem_log);
-			}
-			else{
-				memory_log_unlock(_tm.mem_log);
-				transaction_invalidate_PPA(LOG, ppa);	
-			}
-		}
-		_tm.last_table=memory_log_insert(_tm.mem_log, (transaction_entry*)&_tm.last_table, -1, table_data->value);
-		inf_free_valueset(table_data, FS_MALLOC_W);
-	}
-	else{
-		ppa=get_log_PPA(TABLEW);
-		__trans_write(NULL, table_data, ppa, TABLEW, req, false);
-		if(_tm.last_table!=UINT_MAX)
-			transaction_invalidate_PPA(LOG, _tm.last_table);
-		_tm.last_table=ppa;
-	}
+	transaction_table_update_all_entry(_tm.ttb, req->tid, is_wait_commit?WAITCOMMIT:COMMIT, false);
 	fdriver_unlock(&_tm.table_lock);
 
-	if(!_tm.mem_log){
-		leveling_node *lnode;
-		while((lnode=transaction_get_comp_target(_tm.commit_KP, req->tid))){
-			compaction_assign(NULL,lnode,false);
-		}
-		return 1;
+/*
+	if(req->tid==684886){
+		printf("target tid print!!!!\n");
+		transaction_table_print(_tm.ttb,false);
 	}
-
-
-	list* temp_list=list_init();
-	cml *temp_cml;
-	char *cached_data;
-	while((etr=transaction_table_get_comp_target(_tm.ttb, req->tid))){
-		temp_cml=(cml*)malloc(sizeof(cml));
-		temp_cml->isdone=false;
-		temp_cml->etr=etr;
-		memory_log_lock(_tm.mem_log);
-		if(ISMEMPPA(etr->ptr.physical_pointer)){
-			cached_data=memory_log_get(_tm.mem_log, etr->ptr.physical_pointer);
-			temp_cml->data=(char*)malloc(PAGESIZE);
-			memcpy(temp_cml->data, cached_data, PAGESIZE);
-			temp_cml->isdone=true;
-			memory_log_unlock(_tm.mem_log);
-		}	
-		else{
-			memory_log_unlock(_tm.mem_log);
-			temp_cml->value=inf_get_valueset(NULL, FS_MALLOC_R, PAGESIZE);
-			algo_req *treq=(algo_req*)malloc(sizeof(algo_req));
-			treq->end_req=transaction_end_req;
-			treq->type=LOGR;
-			treq->parents=NULL;
-			treq->params=(void*)temp_cml;
-			LSM.li->read(etr->ptr.physical_pointer, PAGESIZE, temp_cml->value, ASYNC, treq);
-		}
-		list_insert(temp_list, (void*)temp_cml);
-	}
-
-
-
-	bench_custom_start(write_opt_time2, 5);
-	li_node *now, *nxt;
-	for_each_list_node_safe(temp_list, now, nxt){
-		temp_cml=(cml*)now->data;
-		while(!temp_cml->isdone){}
-		//uint32_t number_of_kp=*(uint16_t*)(temp_cml->data);
-		/*
-
-			I'm not sure this code is unnecessary
-
-		if(_tm.commit_KP->size && METAFLUSHTRYCHECK(*_tm.commit_KP, number_of_kp)){
-			skiplist *committing_skip=_tm.commit_KP;
-			list *committing_etr=_tm.commit_etr;
-		
-			printf("before_insert compaction target num :%u\n", committing_skip->size);
-
-			_tm.commit_KP=skiplist_init();
-			_tm.commit_etr=list_init();
-
-			compaction_send_creq_by_skip(committing_skip, committing_etr, false);		
-		}*/
-		
-	//	printf("temp_cml->etr:%u\n", temp_cml->etr->tid);
-		list_insert(_tm.commit_etr, temp_cml->etr);
-
-		LSM.lop->checking_each_key(temp_cml->data, insert_KP_to_skip);
-		free(temp_cml->data);
-		free(temp_cml);
-		list_delete_node(temp_list, now);
-	}
-
-	if(memory_log_isfull(_tm.mem_log)){
-		if(!compaction_wait_job_number()){
-			skiplist *committing_skip=_tm.commit_KP;
-			if(committing_skip->size==0){
-				goto out;
+*/	
+	//checking_table_nonfull();
+	if(log){
+		bool check=false;
+		for(int i=0; flushed_tid_list[i]!=UINT32_MAX; i++){
+			if(flushed_tid_list[i]==req->tid){
+				check=true;
 			}
-			list *committing_etr=_tm.commit_etr;
-
-			//	printf("insert_kp compaction target num :%u\n", committing_skip->size);
-
-			_tm.commit_KP=skiplist_init();
-			_tm.commit_etr=list_init();
-			bench_custom_start(write_opt_time2, 7);
-			compaction_send_creq_by_skip(committing_skip, committing_etr, false);
-			bench_custom_A(write_opt_time2, 7);
+			__make_committed_etr_to_compaction(req, flushed_tid_list[i]);
 		}
-out:	
-		compaction_wait_jobs();
 	}
+	__make_committed_etr_to_compaction(req, req->tid);
+	/*
+	printf("commit!!!!\n");
+	transaction_table_print(_tm.ttb,false);*/
 
-	list_free(temp_list);
+	if(req->tid==684886){
+		printf("target tid print!!!!\n");
+		transaction_table_print(_tm.ttb,false);
+	}
 
 	if(memory_log_usable(_tm.mem_log)){
 		req->end_req(req);
@@ -463,7 +522,6 @@ out:
 	bench_custom_A(write_opt_time2, 5);
 	return 1;
 }
-
 
 void *insert_KP_to_skip(KEYT _key, ppa_t ppa){
 	KEYT temp_key;
@@ -515,6 +573,7 @@ uint32_t processing_read(void * req, transaction_entry **entry_set, t_rparams *t
 		switch(temp->status){
 			case CACHED:
 			case CACHEDCOMMIT:
+			case WAITFLUSHCOMMITCACHED:
 				if(type==0){
 					res=__lsm_get_sub(user_req, NULL, NULL, temp->ptr.memtable, 0);
 					if(res){
@@ -538,6 +597,7 @@ uint32_t processing_read(void * req, transaction_entry **entry_set, t_rparams *t
 				}
 				trp->index=i+1;
 				break;
+			case WAITFLUSHCOMMITLOGGED:
 			case LOGGED:
 			case COMMIT:
 				memory_log_lock(_tm.mem_log);
@@ -688,7 +748,7 @@ uint32_t transaction_get_postproc(request *const req, uint32_t res_type){
 	#endif
 #else
 		printf("notfound key: %.*s\n",KEYFORMAT(req->key));
-	//	abort();
+		abort();
 #endif
 		req->end_req(req);
 		//abort();

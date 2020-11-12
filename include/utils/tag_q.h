@@ -13,4 +13,5 @@ tag_manager *tag_manager_init(uint32_t tag_num);
 uint32_t tag_manager_get_tag(tag_manager *);
 void tag_manager_free_tag(tag_manager *, uint32_t tag_num);
 void tag_manager_free_manager(tag_manager *);
+bool tag_manager_is_empty(tag_manager*);
 #endif

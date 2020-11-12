@@ -46,4 +46,6 @@ struct leveling_node *transaction_get_comp_target(skiplist *skip, uint32_t tid);
 
 void transaction_evicted_write_entry(transaction_entry *etr, char *data);
 void transaction_log_write_entry(transaction_entry *etr, char *data);
+void transaction_reclaim_wait_flush_commit();
+void transaction_force_compaction();
 #endif

@@ -1,9 +1,12 @@
 #include "memory_log.h"
 #include "../../include/utils/tag_q.h"
 #include "../../include/settings.h"
+#include "transaction_table.h"
+#include "lsmtree_transaction.h"
 #include <stdlib.h>
 #include <stdio.h>
 
+extern my_tm _tm;
 memory_log *memory_log_init(uint32_t max, void (*log_write)(transaction_entry *etr, char *data)){
 	memory_log *res=(memory_log *)malloc(sizeof(memory_log));
 
@@ -28,8 +31,15 @@ memory_log *memory_log_init(uint32_t max, void (*log_write)(transaction_entry *e
 	return res;
 }
 
-static memory_node* setup_mn(memory_log *ml){
+static inline memory_node* setup_mn(memory_log *ml){
+	bool isempty=tag_manager_is_empty(ml->tagQ);
+	if(isempty){
+		fdriver_unlock(&_tm.table_lock);
+	}
 	uint32_t tag=tag_manager_get_tag(ml->tagQ);
+	if(isempty){
+		fdriver_lock(&_tm.table_lock);
+	}
 	return &ml->mem_node_list[tag];
 }
 
@@ -40,9 +50,11 @@ uint32_t memory_log_insert(memory_log *ml, transaction_entry *etr, uint32_t KP_s
 	uint32_t res=UINT32_MAX;
 	memory_node *mn;
 //	printf("memlog insert : %u, remain: %u\n", tid, ml->max-ml->now);
-
+	mn=setup_mn(ml);
 	fdriver_lock(&ml->lock);
+
 	if(ml->now>=ml->max){
+		abort();
 		mn=(memory_node*)lru_pop(ml->lru);
 		ml->log_write(mn->etr, mn->data);
 	//	ml->mem_node_q->push(mn);
@@ -56,7 +68,6 @@ uint32_t memory_log_insert(memory_log *ml, transaction_entry *etr, uint32_t KP_s
 		abort();
 	}*/
 
-	mn=setup_mn(ml);
 	res=mn->tag;
 	mn->KP_size=KP_size;
 	mn->etr=etr;
@@ -142,6 +153,6 @@ bool memory_log_usable(memory_log* ml){
 }
 
 bool memory_log_isfull(memory_log *ml){
-	if(ml->now>=ml->max) return true;
+	if(ml->now>=ml->max-20) return true;
 	return false;
 }

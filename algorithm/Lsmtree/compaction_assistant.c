@@ -239,6 +239,16 @@ int compaction_wait_job_number(){
 	return res;
 }
 
+
+bool compaction_has_job(){
+	compP* proc=&compactor.processors[0];
+	int res=0;
+	pthread_mutex_lock(&proc->tag_lock);
+	res=CQSIZE-proc->tagQ->size();
+	pthread_mutex_unlock(&proc->tag_lock);
+	return !(res==CQSIZE);
+}
+
 bool compaction_force(){
 	for(int i=LSM.LEVELN-2; i>=0; i--){
 		if(LSM.disk[i]->n_num){
