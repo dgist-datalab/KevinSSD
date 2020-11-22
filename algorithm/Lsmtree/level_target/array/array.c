@@ -219,6 +219,10 @@ void array_run_cpy_to(run_t *input, run_t *res,int idx){
 		res->level_caching_data=input->level_caching_data;
 		input->level_caching_data=NULL;
 	}
+
+	if(input->lru_cache_node){
+		lsm_lru_delete(LSM.llru, input);
+	}
 }
 
 void array_body_free(run_t *runs, int size){

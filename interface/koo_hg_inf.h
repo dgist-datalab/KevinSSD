@@ -72,6 +72,8 @@ void map_crc_insert(KEYT key, char *value, uint32_t length);
 void key_interpreter(KEYT key, char *);
 
 bool key_const_compare(KEYT key,char keytype, int blocknum, int blocknum2, const char *filename);
+void key_make_const_target(KEYT *target, char keytype, uint64_t blocknum, uint64_t blocknum2, const char *filename);
+
 vec_request *get_vectored_request();
 
 #endif

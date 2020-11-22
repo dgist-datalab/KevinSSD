@@ -25,4 +25,7 @@ lru_node* lru_push(LRU*, void*);
 void* lru_pop(LRU*);
 void lru_update(LRU*, lru_node*);
 void lru_delete(LRU*, lru_node*);
+
+#define for_each_lru_list(lru, ln)\
+	for((ln)=(lru)->head; (ln)!=NULL; (ln)=(ln)->next)
 #endif

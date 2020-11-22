@@ -277,10 +277,6 @@ static inline bool issue_snode_data(KBM *kbm, list *list, int idx){
 		target=(snode_bucket*)ln->data;
 		target_snode=target->kv_pair;
 
-		if(key_const_compare(target_snode->key, 'd', 201277, 32, NULL)){
-			printf("flushed key!!\n");
-		}
-
 		if(!target_snode->isvalid){
 			abort();
 		}
@@ -298,6 +294,11 @@ static inline bool issue_snode_data(KBM *kbm, list *list, int idx){
 			memcpy(&now_page[now_page_idx*PIECE], target_gc_value.data, target_gc_value.piece_len*PIECE);
 			now_page_idx+=target_gc_value.piece_len;		
 		}
+/*
+		if(key_const_compare(target_snode->key, 'd', 3707, 262149, NULL)){
+			printf("target write_value: %u -> %u, data:%u idx:%u\n", *(uint32_t*)target_snode->value.u_value->value, target_snode->ppa, *(uint32_t*)&now_page[(now_page_idx-target_value->length)*PIECE], now_page_idx-target_value->length);
+		}
+*/
 		if (target_snode->ppa == UINT32_MAX) {
 			abort();
 		}

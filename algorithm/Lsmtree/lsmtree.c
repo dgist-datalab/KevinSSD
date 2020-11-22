@@ -138,7 +138,7 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	pm_init();
 	compaction_init();
 	if(ISTRANSACTION(LSM.setup_values)){
-		uint32_t remain_memory=transaction_init(LSP.cache_memory);
+		uint32_t remain_memory=transaction_init(LSP.cache_memory)-CQSIZE;
 		if(!bc.full_caching){
 			remain_memory=!remain_memory?1:remain_memory;
 			printf("\t|bitmap_caching memroy:%u\n",bc_used_memory(bc.max)/PAGESIZE);
@@ -187,6 +187,10 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	LSM.comp_decompressed_buf=NULL;
 #endif
 	rwlock_init(&LSM.iterator_lock);
+
+
+	fdriver_mutex_init(&LSM.compaction_skiplist_lock);
+	LSM.compaction_skiplist_queue=new std::deque<skiplist*>();
 	return 0;
 }
 
@@ -196,6 +200,7 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	fprintf(stdout,"data gc: %d\n",LMI.data_gc_cnt);
 	fprintf(stdout,"header gc: %d\n",LMI.header_gc_cnt);
 	fprintf(stdout,"compaction_cnt:%d\n",LMI.compaction_cnt);
+	fprintf(stdout,"force_compaction_req_cnt:%d\n",LMI.force_compaction_req_cnt);
 	fprintf(stdout,"last_compaction_cnt:%d\n",LMI.last_compaction_cnt);
 	fprintf(stdout,"zero compaction_cnt:%d\n",LMI.zero_compaction_cnt);
 	fprintf(stdout,"trivial compaction_cnt:%d\n",LMI.trivial_compaction_cnt);
@@ -231,6 +236,13 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	}
 	free(LSM.disk);
 	skiplist_free(LSM.memtable);
+
+	while(!LSM.compaction_skiplist_queue->empty()){
+		skiplist *temp=LSM.compaction_skiplist_queue->front();
+		skiplist_free(temp);
+		LSM.compaction_skiplist_queue->pop_front();
+	}
+
 	if(LSM.temptable)
 		skiplist_free(LSM.temptable);
 	
@@ -376,6 +388,10 @@ void* lsm_end_req(algo_req* const req){
 			value_len=variable_get_value_len(parents->value->ppa);
 			parents->value->length=value_len;	
 			start_offset=parents->value->ppa%NPCINPAGE;
+			/*
+			if(key_const_compare(parents->key, 'd', 3707, 262149, NULL)){
+				printf("break\n");
+			}*/
 			if(parents->value->ppa%NPCINPAGE){
 				memmove(parents->value->value, &parents->value->value[start_offset*PIECE], value_len);
 			}
@@ -730,6 +746,13 @@ uint8_t lsm_find_run(KEYT key, run_t ** entry, run_t *up_entry, keyset **found, 
 				if(level)*level=i;
 				return CACHING;
 			}
+			else if(entries[0].lru_cache_node){
+				char buf[100];
+				key_interpreter(key, buf);
+//				printf("key %s\n", buf);
+//				printf("cant be!!!\n");
+//				abort();
+			}
 #else
 			char *cache_data=lsm_lru_pick(LSM.llru, &entries[0], LSM.decompressed_buf);
 			if(cache_data){
@@ -788,7 +811,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 		target_node=skiplist_find(list,req->key);
 		if(!target_node) return 0;
 		if(target_node->value.u_value){
-			memcpy(req->value->value, target_node->value.u_value->value, target_node->value.u_value->length);
+			memcpy(req->value->value, target_node->value.u_value->value, target_node->value.u_value->length*PIECE);
 			req->end_req(req);
 			return 2;
 		}
@@ -917,7 +940,8 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 			return res;
 		}*/
 		rparams *rp=(rparams*)req->params;
-		rp->datas[2]+=idx;
+		if(rp)
+			rp->datas[2]+=idx;
 		req->value->ppa=ppa;
 		if(!ISHWREAD(LSM.setup_values) || lsm_req->type==DATAR){
 			LSM.li->read(ppa/(NPCINPAGE),PAGESIZE,req->value,ASYNC,lsm_req);
@@ -952,14 +976,7 @@ uint32_t __lsm_get(request *const req){
 	int *temp_data;
 	rparams *rp;
 	//printf("%.*s\n", KEYFORMAT(req->key));
-/*
-	if(key_const_compare(req->key,'d',11, 6504875,NULL)){
-		printf("break!\n");
-	}
-	char buf[100];
-	key_interpreter(req->key, buf);
-	printf("processing %s\n",buf);
-*/
+
 	if(req->params==NULL){
 		if(!ISTRANSACTION(LSM.setup_values)){
 			/*memtable*/
@@ -972,8 +989,19 @@ uint32_t __lsm_get(request *const req){
 
 
 			if(unlikely(res)) return res;
-		 }
+		}
 
+		fdriver_lock(&LSM.compaction_skiplist_lock);
+		std::deque<skiplist*>::iterator it;
+		for(it=LSM.compaction_skiplist_queue->begin(); it!=LSM.compaction_skiplist_queue->end(); it++){
+			res=__lsm_get_sub(req,NULL,NULL,*it, 0);
+			if(unlikely(res)){
+				fdriver_unlock(&LSM.compaction_skiplist_lock);
+				return res;
+			}
+		}
+		fdriver_unlock(&LSM.compaction_skiplist_lock);
+		
 		/*gc list*/
 		if(LSM.gc_list){
 			fdriver_lock(&LSM.gc_lock_list[0]);

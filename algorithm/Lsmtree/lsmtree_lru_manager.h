@@ -20,6 +20,7 @@ typedef struct lsm_lru_node{
 #else
 	char *data;
 #endif
+	volatile uint32_t level_idx;
 }lsm_lru_node;
 
 typedef struct lsm_lru{

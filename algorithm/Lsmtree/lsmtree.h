@@ -19,6 +19,7 @@
 #include "../../include/sem_lock.h"
 #include "../../include/data_struct/redblack.h"
 #include "../../interface/interface.h"
+#include <deque>
 //#define ONESEGMENT (DEFKEYINHEADER*DEFVALUESIZE)
 #define		META_NUM_LIMIT  (KEYBITMAP/sizeof(uint16_t)-2)
 #define		META_SIZE_LIMIT (PAGESIZE-KEYBITMAP-128)
@@ -176,6 +177,7 @@ typedef struct lsmtree_monitor_info{
 	uint32_t zero_compaction_cnt;
 	uint32_t trivial_compaction_cnt;
 	uint64_t compacting_run_cnt;
+	uint64_t force_compaction_req_cnt;
 	uint64_t move_run_cnt;
 
 	uint32_t __header_read_cnt;
@@ -229,6 +231,8 @@ typedef struct lsmtree{
 	struct lsm_lru *llru;
 	char *decompressed_buf;
 	char *comp_decompressed_buf;
+	fdriver_lock_t compaction_skiplist_lock;
+	std::deque<skiplist*> *compaction_skiplist_queue;
 #ifdef DVALUE
 	pthread_mutex_t data_lock;
 	ppa_t data_ppa; //for one data caching for read

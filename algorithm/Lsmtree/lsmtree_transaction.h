@@ -18,7 +18,7 @@ typedef struct transaction_manager{
 	ppa_t last_table;
 	struct memory_log *mem_log;
 	skiplist *commit_KP;
-	list *commit_etr;
+	//list *commit_etr;
 }my_tm;
 
 typedef struct transaction_read_params{

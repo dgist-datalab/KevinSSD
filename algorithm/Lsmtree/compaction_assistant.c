@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <sched.h>
+#include <deque>
 
 #include "../../interface/interface.h"
 #include "../../include/types.h"
@@ -19,6 +20,7 @@
 #include "../../include/utils/kvssd.h"
 #include "../../include/sem_lock.h"
 #include "../../bench/bench.h"
+#include "../../interface/koo_hg_inf.h"
 
 #ifdef DEBUG
 #endif
@@ -422,15 +424,33 @@ void *compaction_main(void *input){
 		
 			if(lnode->committed_list){
 				li_node *li;
-				for_each_list_node(lnode->committed_list, li){
-					transaction_entry *etr=(transaction_entry*)li->data;
-					prev_ppa=etr->ptr.physical_pointer;
-					transaction_clear(etr);	
+				if(lnode->committed_list){
+					for_each_list_node(lnode->committed_list, li){
+						transaction_entry *etr=(transaction_entry*)li->data;
+						prev_ppa=etr->ptr.physical_pointer;
+						transaction_clear(etr);	
+					}
+
+					list_free(lnode->committed_list);
 				}
-				list_free(lnode->committed_list);
 			}
 
+			fdriver_lock(&LSM.compaction_skiplist_lock);
+			bool checkdone=false;
+			std::deque<skiplist*>::iterator it;
+			for(it=LSM.compaction_skiplist_queue->begin(); it!=LSM.compaction_skiplist_queue->end(); it++){
+				if(*it==req->temptable){
+					LSM.compaction_skiplist_queue->erase(it);
+					checkdone=true;
+					break;
+				}
+			}
+			if(!checkdone){
+				printf("no find data %s:%d\n",__FILE__, __LINE__);
+				abort();
+			}
 			skiplist_free(req->temptable);
+			fdriver_unlock(&LSM.compaction_skiplist_lock);
 			free(lnode);
 		}
 		else if(req->fromL==LSP.LEVELN){
@@ -553,7 +573,11 @@ void compaction_send_creq_by_skip(skiplist *skip, list *committed_list, bool syn
 
 	kvssd_cpy_key(&req->lnode->start, &skip->header->list[1]->key);
 	kvssd_cpy_key(&req->lnode->end, &((skiplist_get_end(skip))->key));
-	
+
+	fdriver_lock(&LSM.compaction_skiplist_lock);
+	LSM.compaction_skiplist_queue->push_back(skip);
+	fdriver_unlock(&LSM.compaction_skiplist_lock);
+
 	compaction_assign(req, NULL, sync);
 }
 
@@ -631,15 +655,20 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 		else{
 			LSM.lop->cache_comp_formatting(src,&datas,false);
 		}
+
+		KEYT temp;
+		key_make_const_target(&temp, 'd', 3707, 262149, NULL);
 		for(int i=0;datas[i]!=NULL; i++){
 			if(des->idx<LSM.LEVELCACHING){
 				LSM.lop->insert(des,datas[i]);
 			}
 			else{
 				compaction_htable_write_insert(des,datas[i],false);
+
 				free(datas[i]);
 			}
 		}
+		kvssd_free_key_content(&temp);
 		free(datas);
 		return;
 	}

@@ -1,5 +1,9 @@
 #include "delta_comp.h"
 #include "../../interface/koo_hg_inf.h"
+
+#include "lsmtree.h"
+extern lsmtree LSM;
+char buf[100];
 static inline void compress_master_footer_init(delta_compress_footer *footer, char *des, uint32_t set_num){
 	footer->set_position=((uint16_t*)des);
 	footer->body=(uint8_t*)des;
@@ -119,6 +123,7 @@ uint32_t delta_compression_comp(char *src, char *des){
 	compress_set *now=&cm.sets[set_idx++];
 	int nxt_cnt=0;
 	static int called_cnt=0;
+
 	for_each_header_start(idx,key,ppa,bitmap,body)
 		nxt_cnt++;
 		if(cm.now_body_idx>8192){
@@ -164,6 +169,7 @@ uint32_t delta_compression_comp(char *src, char *des){
 	}
 	cm.now_body_idx+=((*cm.footer.set_num)+1)*sizeof(uint16_t);
 	called_cnt++;
+
 	return cm.now_body_idx;
 }
 
@@ -299,7 +305,20 @@ static inline int find_compress_set_idx(delta_compress_footer *footer, char *src
 	while(s<=e){
 		mid=(s+e)/2;
 		KEYT target=extract_key_from_footer(src, footer->set_position[mid]);
-		res=(target.key[0]=='m'?KEYNCMP(target, key, 9):KEYNCMP(target, key, 9+sizeof(uint64_t)-sizeof(data_delta_t)));
+		if(target.key[0]=='m'){
+			res=KEYNCMP(target, key, 9);
+		}
+		else{
+			res=KEYNCMP(target, key, 9);
+			if(res==0){
+				res=(extract_block_num_delta(key, target));
+				if(((uint32_t)res)<DATA_DELTA_TARGET_LEN){
+					res=0;	
+				}
+			}
+		}
+//		res=(target.key[0]=='m'?KEYNCMP(target, key, 9):KEYNCMP(target, key, 9+sizeof(uint64_t)-sizeof(data_delta_t)));
+
 		if(res==0) return mid;
 		else if(res<0) s=mid+1;
 		else e=mid-1;

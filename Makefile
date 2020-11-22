@@ -11,8 +11,8 @@ override export AR=gcc-ar
 override export NM=gcc-nm
 
 TARGET_INF=interface
-TARGET_LOWER=posix_memory
-#TARGET_LOWER=AMF
+#TARGET_LOWER=posix_memory
+TARGET_LOWER=AMF
 TARGET_ALGO=Lsmtree
 TARGET_BM=sequential
 JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
@@ -29,7 +29,7 @@ DEBUGFLAGS=\
 export COMMONFLAGS=\
 			-Wno-write-strings\
 			-Wno-sign-compare\
-		-Wno-unused-function\
+			-Wno-unused-function\
 			-DLARGEFILE64_SOURCE\
 			-D_GNU_SOURCE\
 			-DSLC\
@@ -37,10 +37,11 @@ export COMMONFLAGS=\
 			-Wno-unused-but-set-variable\
 			-DKVSSD\
 			-DKOO\
-#	-O3 -march=native -mtune=native -flto=20 \
 			-DCHECKINGTIME\
+			-O3 -march=native -mtune=native -flto=20 \
+#			-DCHECKINGDATA\
 #			-march=armv8-a+crypto\
-#			-DDEBUG\
+			-DDEBUG\
 
 COMMONFLAGS+=$(DEBUGFLAGS)\
 

@@ -92,4 +92,5 @@ typedef struct decompress_master{
 uint32_t delta_compression_comp(char *src, char *des);
 uint32_t delta_compression_decomp(char *src, char *des, uint32_t compressed_size);
 uint32_t delta_compression_find(char *src, KEYT key, uint32_t compressed_size);
+uint32_t delta_compression_decomp(char *src, char *des, uint32_t compressed_size);
 #endif

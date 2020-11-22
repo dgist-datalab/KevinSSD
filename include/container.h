@@ -59,6 +59,11 @@ struct request {
 	char *buf;
 	//uint64_t ppa;/*it can be the iter_idx*/
 	uint32_t seq;
+#ifdef CHECKINGDATA
+	uint32_t crc_value;
+	KEYT temp_key;
+#endif
+
 #ifdef hash_dftl
 	volatile int num; /*length of requests*/
 	volatile int cpl; /*number of completed requests*/

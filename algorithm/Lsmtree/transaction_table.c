@@ -256,9 +256,12 @@ inline value_set *trans_flush_skiplist(skiplist *t_mem, transaction_entry *targe
 
 bool delete_debug=false;
 value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid, KEYT key, value_set *value, bool valid,  transaction_entry **t, bool *is_changed_status, uint32_t* flushed_tid_list){
-
-
 	transaction_entry *target=find_last_entry(tid);
+/*
+	if(key_const_compare(key, 'd', 3707, 262149, NULL)){
+		printf("target set write_value: %u tid:%u ptr:%p\n", *(uint32_t*)value->value, tid, target);
+	}
+*/
 	if(!target){
 		//printf("new transaction added in set!\n");
 		if(transaction_table_add_new(table, tid, 0)==UINT_MAX){
@@ -281,17 +284,16 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 	else{
 		abort();
 	}*/
-	
-
-	if(key_const_compare(key, 'd', 201277, 32, NULL)){
-		printf("tid:%u etr:%p target insert!!\n", tid, target);
-	}
 
 	bool is_changed=false;
+
+	bench_custom_start(write_opt_time2, 4);
 	skiplist *t_mem=target->ptr.memtable;
 	snode *sn=skiplist_insert(t_mem, key, value, valid);
+	bench_custom_A(write_opt_time2, 4);
 	int force_prev_idx=0;
 	if(write_buffer_insert_KV(table->kbm, tid, sn, !valid, flushed_tid_list)){
+		bench_custom_start(write_opt_time2, 3);
 		for(int i=0; flushed_tid_list[i]!=UINT32_MAX; i++){
 			if(transaction_table_update_all_entry(table, flushed_tid_list[i], COMMIT, true)==2){
 				is_changed=true;
@@ -304,6 +306,7 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 		else{
 			(*is_changed_status)=false;
 		}
+		bench_custom_A(write_opt_time2, 3);
 	}
 	else{
 		(*is_changed_status)=false;
@@ -323,11 +326,13 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 			//}
 		}
 	//	printf("tid-%d flush!\n", tid);
+
 		if(transaction_table_add_new(table, target->tid, 0)==UINT_MAX){
 			printf("%s:%d full table!\n", __FILE__,__LINE__);
 			abort();
 			return NULL;
 		}
+		bench_custom_start(write_opt_time2, 3);
 		target->status=LOGGED;
 		res=trans_flush_skiplist(t_mem, target, &flushed_tid_list[force_prev_idx]);
 		for(int i=force_prev_idx; flushed_tid_list[i]!=UINT32_MAX; i++){
@@ -341,6 +346,7 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 		else{
 			(*is_changed_status)=false;
 		}	
+		bench_custom_A(write_opt_time2, 3);
 		return res;
 	}
 	else return NULL;
@@ -437,15 +443,16 @@ uint32_t transaction_table_find(transaction_table *table, uint32_t tid, KEYT key
 	Redblack res;
 	list *li; li_node *ln;
 	fdriver_lock(&indexer_lock);
-	rb_find_int(transaction_indexer, tid, &res);
+	//rb_find_int(transaction_indexer, tid, &res);
 	(*result)=(transaction_entry**)malloc(sizeof(transaction_entry*) * (table->now+1));
 
 	uint32_t index=0;
-	for(; res!=transaction_indexer; res=rb_prev(res)){
+	rb_traverse(res, transaction_indexer){
+	//for(; res!=transaction_indexer; res=rb_prev(res)){
 		li=(list*)res->item;
 		for_each_list_node(li, ln){
 			transaction_entry *target=(transaction_entry*)ln->data;
-			if(target->status==CACHED || (KEYCMP(key, target->range.start) >=0 && KEYCMP(key, target->range.end)<=0)){
+			if((target->status==CACHED||target->status==WAITFLUSHCOMMITCACHED)){// || (KEYCMP(key, target->range.start) >=0 && KEYCMP(key, target->range.end)<=0)){
 				if(target->helper_type==BFILTER && !bf_check(target->read_helper.bf, key)){
 					continue;
 				}

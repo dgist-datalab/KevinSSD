@@ -11,6 +11,27 @@
 extern lsmtree LSM;
 int compress_fd;
 #endif
+
+#include "level_target/array/array.h"
+static inline void checking_lru(){
+	lru_node *ln;
+	for_each_lru_list(LSM.llru->lru, ln){
+		run_t *t=((lsm_lru_node*)ln->data)->entry;
+		array_body* b=(array_body*)LSM.disk[3]->level_data;
+		bool check=false;
+		for(uint32_t i=0; i<LSM.disk[3]->n_num; i++){
+			if(t==&b->arrs[i]){
+				check=true;
+				break;
+			}
+		}
+		if(!check){
+			printf("wtf!!!!!\n");
+			abort();
+		}
+	}
+}
+
 void free_data(LRU * lru, void *_lsm_lru_node){
 	lsm_lru_node *node=(lsm_lru_node*)_lsm_lru_node;
 	node->entry->lru_cache_node=NULL;
@@ -55,6 +76,12 @@ lsm_lru* lsm_lru_init(uint32_t max){
 void lsm_lru_insert(lsm_lru *llru, run_t *ent, char *data, int level_idx){
 	if(!llru->max_bytes) return;
 	fdriver_lock(&llru->lock);
+	if(ent->lru_cache_node){
+//		printf("alread exist!!!!\n");
+		fdriver_unlock(&llru->lock);
+		return;
+//		abort();
+	}
 	while(llru->now_bytes>=llru->max_bytes){
 		lru_pop(llru->lru);
 		llru->cached_entry--;
@@ -67,6 +94,7 @@ void lsm_lru_insert(lsm_lru *llru, run_t *ent, char *data, int level_idx){
 #endif
 
 	lsm_lru_node *target=(lsm_lru_node*)malloc(sizeof(lsm_lru_node));
+	target->level_idx=level_idx;
 #ifdef COMPRESSEDCACHE
 	target->entry=ent;
 	target->data=(compressed_cache_node*)malloc(sizeof(compressed_cache_node));

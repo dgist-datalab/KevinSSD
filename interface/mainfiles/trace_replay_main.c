@@ -12,8 +12,73 @@
 #include "../vectored_interface.h"
 #include "../koo_hg_inf.h"
 #include "../../include/utils/kvssd.h"
+#include <map>
+#include <string>
+using namespace std;
+static map<string, uint32_t> chk_data;
 
 bool trace_end_req(request *const res);
+
+static string convertToString(char *a ,int size){
+	int i; 
+    string s = ""; 
+    for (i = 0; i < size; i++) { 
+        s = s + a[i]; 
+    } 
+    return s; 
+}
+
+static inline void map_crc_insert(KEYT key, uint32_t crc){
+	string a=convertToString(key.key, key.len);
+	map<string, uint32_t>::iterator it=chk_data.find(a);
+	if(it==chk_data.end()){
+		chk_data.insert(pair<string, uint32_t>(a, crc));
+	}
+	else{
+		it->second=crc;
+	}
+	if(key_const_compare(key, 'd', 227, 29803, NULL)){
+		printf("target -> crc:%u\n", crc);
+	}
+}
+
+static inline void map_crc_check(KEYT key, uint32_t input){
+	string a=convertToString(key.key, key.len);
+	map<string, uint32_t>::iterator it=chk_data.find(a);
+	if(it==chk_data.end()){
+		printf("no key!!!!!\n");
+	//	print_key(key);
+		return;
+	}
+
+	if(input!=it->second){
+		char buf[100];
+		key_interpreter(key, buf);
+		printf("key:%s differ crc32 original:%u input:%u\n", buf, it->second, input);
+		if(it->second==0){
+			printf("value was deleted!!!\n");
+		}
+		abort();
+	}
+}
+
+static inline void map_crc_range_delete(request *const req){
+	KEYT key;
+	KEYT copied_key;
+	kvssd_cpy_key(&copied_key, &req->temp_key);
+	for(uint32_t i=0; i<req->offset; i++){
+		if(i==0){
+			key=req->key;
+		}else{
+			kvssd_cpy_key(&key, &copied_key);
+			uint64_t temp=*(uint64_t*)&key.key[key.len-sizeof(uint64_t)];
+			temp=Swap8Bytes(temp);
+			temp+=i;
+			*(uint64_t*)&key.key[key.len-sizeof(uint64_t)]=Swap8Bytes(temp);
+		}
+		map_crc_insert(key, 0);
+	}
+}
 
 void log_print(int sig){
 	free_koo();
@@ -168,20 +233,24 @@ int main(int argc,char* argv[]){
 				treq->length=length;
 				break;
 			case FS_SET_T:
+				kvssd_cpy_key(&treq->temp_key, &treq->key);
 				treq->offset=offset;
 				treq->length=length;
-				
+				fscanf(f, "%u", &treq->crc_value);
 				if(treq->key.key[0]=='d'){
 					treq->value=inf_get_valueset(NULL, FS_MALLOC_W, LPAGESIZE);
 				}
 				else{
 					treq->value=inf_get_valueset(NULL, FS_MALLOC_W, 512);			
 				}
+				memcpy(treq->value->value, &treq->crc_value, sizeof(uint32_t));
 				break;
 			case FS_DELETE_T:
+				kvssd_cpy_key(&treq->temp_key, &treq->key);
 				break;
 			case FS_RANGEDEL_T:
 				treq->offset=offset;
+				kvssd_cpy_key(&treq->temp_key, &treq->key);
 				break;
 			case FS_RANGEGET_T:
 				treq->offset=offset;
@@ -239,7 +308,7 @@ bool trace_end_req(request *const req){
 			break;
 		case FS_MGET_T:
 		case FS_GET_T:
-			key_interpreter(req->key,buf);
+			map_crc_check(req->key, *(uint32_t*)req->value->value);
 			bench_reap_data(req, mp.li);
 			inf_free_valueset(req->value,FS_MALLOC_R);
 			if(req->key.len){
@@ -247,16 +316,23 @@ bool trace_end_req(request *const req){
 			}
 			break;
 		case FS_SET_T:
+			map_crc_insert(req->temp_key, req->crc_value);
+			kvssd_free_key_content(&req->temp_key);
 			bench_reap_data(req, mp.li);
 			if(req->value) inf_free_valueset(req->value, FS_MALLOC_W);
 			break;
 		case FS_DELETE_T:
+			map_crc_insert(req->temp_key, 0);
+			kvssd_free_key_content(&req->temp_key);
+			//bench_reap_data(req, mp.li);
 			break;
 		case FS_RMW_T:
 			return true;
 		case FS_TRANS_COMMIT:
 			break;
 		case FS_RANGEDEL_T:
+			map_crc_range_delete(req);
+			kvssd_free_key_content(&req->temp_key);
 			break;
 		case FS_RANGEGET_T:
 			break;

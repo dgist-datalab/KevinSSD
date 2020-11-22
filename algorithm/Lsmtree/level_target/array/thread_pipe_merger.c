@@ -29,7 +29,7 @@ static void temp_func(char* body, level *d, bool merger){
 	//KEYT prev_key;
 	ppa_t *ppa_ptr;
 	for_each_header_start(idx,key,ppa_ptr,bitmap,body)
-		if(key_const_compare(key, 'd', 29361, 33, NULL)){
+		if(key_const_compare(key, 'd', 3707, 262149, NULL)){
 			char buf[100];
 			key_interpreter(key, buf);			
 			printf("maybe update KEY-(%s), ppa:%u ",buf,*ppa_ptr);
@@ -368,7 +368,7 @@ void array_thread_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct
 		//printf("lower:%d\n",i);
 		//array_header_print(o_data[i]);
 
-	//	temp_func(o_data[i], d, true);
+		//temp_func(o_data[i], d, true);
 		if(!o_data[i]) abort();
 	}
 

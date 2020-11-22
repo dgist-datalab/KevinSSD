@@ -7,15 +7,15 @@
 #include "../bench/bench.h"
 #include "../include/settings.h"
 #include "../include/sem_lock.h"
+#include "../include/utils/crc32.h"
 #ifdef CHECKINGDATA
 #include <map>
 #include <string>
-#include "../include/utils/crc32.h"
 using namespace std;
-map<string, uint32_t> chk_data;
+static map<string, uint32_t> chk_data;
 
-extern MeasureTime write_opt_time2[15];
 #endif
+extern MeasureTime write_opt_time2[15];
 
 #define barrier() __asm__ __volatile__("": : :"memory")
 
@@ -57,7 +57,6 @@ char *null_value;
 bool cheeze_end_req(request *const req);
 void print_buf(char *buf, uint32_t len);
 extern master_processor mp;
-fdriver_lock_t  crc_lock;
 
 void key_interpreter(KEYT key, char *buf){
 	uint64_t block_num=(*(uint64_t*)&key.key[1]);
@@ -83,15 +82,21 @@ void write_req_trace(request *req){
 		dprintf(trace_fd, "%d %d\n",req->tid, req->type);
 	}
 	else{
-		char buf[100]={0,};
+		char buf[200]={0,};
 		key_interpreter(req->key, buf);
-		dprintf(trace_fd, "%d %d %d %s %d %d\n",req->tid, req->type, req->key.len, buf,
+		dprintf(trace_fd, "%d %d %d %s %d %d",req->tid, req->type, req->key.len, buf,
 			req->offset, req->length);
+		if(req->type==FS_SET_T){
+			dprintf(trace_fd, " %u\n", crc32(req->value->value, LPAGESIZE));
+		}
+		else{
+			dprintf(trace_fd, "\n");
+		}
 	}
 }
 
 void write_req_trace_temp(uint32_t tid, uint32_t type, KEYT key, uint32_t size){
-	char buf[100]={0,};
+	char buf[200]={0,};
 	key_interpreter(key, buf);
 	dprintf(trace_fd, "%d %d %d %s %d\n",tid, type, key.len, buf, size);
 
@@ -130,7 +135,7 @@ int chrfd;
 static inline char *translation_buffer(char *buf, uint32_t *idx, uint32_t size, uint32_t limit);
 
 #ifdef CHECKINGDATA
-string convertToString(char *a ,int size){
+static string convertToString(char *a ,int size){
 	int i; 
     string s = ""; 
     for (i = 0; i < size; i++) { 
@@ -139,56 +144,56 @@ string convertToString(char *a ,int size){
     return s; 
 }
 
-void map_crc_insert(KEYT key, char *value, uint32_t length){
-	fdriver_lock(&crc_lock);
-	string a=convertToString(key.key, key.len);
-	map<string, uint32_t>::iterator it=chk_data.find(a);
-	if(it!=chk_data.end()){
-		if(key.key[0]=='d'){
-			printf("data update????\n");
-			sleep(1);
-		}
-		it->second=crc32(value,length);
-	}
-	else{
-		chk_data.insert(pair<string, uint32_t>(a, crc32(value, LPAGESIZE)));
-	}
-	fdriver_unlock(&crc_lock);
-}
-
-bool map_crc_check(KEYT key, char *value, uint32_t length){
-	fdriver_lock(&crc_lock);
+static inline void map_crc_insert(KEYT key, uint32_t crc){
 	string a=convertToString(key.key, key.len);
 	map<string, uint32_t>::iterator it=chk_data.find(a);
 	if(it==chk_data.end()){
-		printf("not populated key!!\n");
-		print_key(key, true);
-		fdriver_unlock(&crc_lock);
-		return true;
+		chk_data.insert(pair<string, uint32_t>(a, crc));
 	}
-
-	uint32_t t=it->second;
-	uint32_t data=crc32(value, length);
-
-	if(t!=data){
-		printf("data check failed");
-		print_key(key, true);
-	//	abort();
-		fdriver_unlock(&crc_lock);
-		return false;
+	else{
+		it->second=crc;
 	}
-	fdriver_unlock(&crc_lock);
-	return true;
+	if(key_const_compare(key, 'd', 227, 29803, NULL)){
+		printf("target -> crc:%u\n", crc);
+	}
 }
 
-void map_crc_range_delete(KEYT key, uint32_t size){
-	KEYT copied_key;
-	kvssd_cpy_key(&copied_key, &key);
-	for(uint32_t i=0; i<size; i++){
-		(*(uint64_t*)&copied_key.key[copied_key.len-sizeof(uint64_t)])++;
-		map_crc_insert(copied_key, null_value, LPAGESIZE);
+static inline void map_crc_check(KEYT key, uint32_t input){
+	string a=convertToString(key.key, key.len);
+	map<string, uint32_t>::iterator it=chk_data.find(a);
+	if(it==chk_data.end()){
+		printf("no key!!!!!\n");
+	//	print_key(key);
+		return;
 	}
-	kvssd_free_key_content(&copied_key);
+
+	if(input!=it->second){
+		char buf[200];
+		key_interpreter(key, buf);
+		printf("key:%s differ crc32 original:%u input:%u\n", buf, it->second, input);
+		if(it->second==0){
+			printf("value was deleted!!!\n");
+		}
+		abort();
+	}
+}
+
+static inline void map_crc_range_delete(request *const req){
+	KEYT key;
+	KEYT copied_key;
+	kvssd_cpy_key(&copied_key, &req->temp_key);
+	for(uint32_t i=0; i<req->offset; i++){
+		if(i==0){
+			key=req->key;
+		}else{
+			kvssd_cpy_key(&key, &copied_key);
+			uint64_t temp=*(uint64_t*)&key.key[key.len-sizeof(uint64_t)];
+			temp=Swap8Bytes(temp);
+			temp+=i;
+			*(uint64_t*)&key.key[key.len-sizeof(uint64_t)]=Swap8Bytes(temp);
+		}
+		map_crc_insert(key, 0);
+	}
 }
 
 void map_crc_iter_check(uint32_t len, char *buf){
@@ -207,6 +212,9 @@ void map_crc_iter_check(uint32_t len, char *buf){
 #endif
 
 static inline FSTYPE koo_to_req(uint8_t t){
+	if (t > LIGHTFS_GET_MULTI) {
+		abort();
+	}
 	switch(t){
 		case LIGHTFS_META_GET:
 		case LIGHTFS_DATA_GET:
@@ -232,7 +240,7 @@ static inline FSTYPE koo_to_req(uint8_t t){
 		case LIGHTFS_GET_MULTI:
 			return FS_MGET_T;
 		default:
-			printf("no match type %s:%d\n", __FILE__, __LINE__);
+			printf("no match type %s:%d:%d\n", __FILE__, __LINE__, t);
 			abort();
 			break;
 	}
@@ -271,7 +279,6 @@ void init_koo(uint64_t phy_addr){
 #endif
 
 #ifdef CHECKINGDATA
-	fdriver_mutex_init(&crc_lock);
 	printf("Data checking mode on!\n");
 #endif
 
@@ -417,8 +424,10 @@ static inline vec_request *get_vreq2creq(cheeze_req *creq, int tag_id){
 				else{
 					temp->value=inf_get_valueset(translation_buffer(req_buf, &idx, LPAGESIZE, limit), FS_MALLOC_W, 512);			
 				}
+
 #ifdef CHECKINGDATA
-	//			map_crc_insert(temp->key, temp->value->value);
+				kvssd_cpy_key(&temp->temp_key, &temp->key);
+				temp->crc_value=crc32(temp->value->value, temp->value->length);
 #endif
 				break;
 			case FS_MGET_T:
@@ -429,13 +438,13 @@ static inline vec_request *get_vreq2creq(cheeze_req *creq, int tag_id){
 				goto out;
 			case FS_DELETE_T:
 #ifdef CHECKINGDATA
-	//			map_crc_insert(temp->key, null_value);
+				kvssd_cpy_key(&temp->temp_key, &temp->key);
 #endif
 				break;
 			case FS_RANGEDEL_T:
 				temp->offset=*(uint16_t*)translation_buffer(req_buf, &idx, sizeof(uint16_t), limit);
 #ifdef CHECKINGDATA
-				map_crc_range_delete(temp->key, temp->length);
+				kvssd_cpy_key(&temp->temp_key, &temp->key);
 #endif
 				break;
 			case FS_RANGEGET_T:
@@ -530,41 +539,26 @@ bool cheeze_end_req(request *const req){
 	vectored_request *preq=req->parents;
 	switch(req->type){
 		case FS_NOTFOUND_T:
+#ifdef CHECKINGDATA
+			map_crc_check(req->key, 0);
+#endif
+			
 			bench_reap_data(req, mp.li);
 #ifdef DEBUG
 			DPRINTF("\t\t%d-not found!",0);
 			print_key(req->key, true);
-#ifdef CHECKINGDATA
-			if(map_crc_check(req->key, null_value, LPAGESIZE)){
-				printf("\t\tdeleted key!! or not inserted key\n");
-				abort();
-			}
-			else{
-			//	printf("\t\tPinK really can't find it\n");
-			//	abort();
-			}
-#endif
-
 #endif
 			preq->buf_len=0;
 			inf_free_valueset(req->value,FS_MALLOC_R);
 			break;
 		case FS_MGET_NOTFOUND_T:
+#ifdef CHECKINGDATA
+			map_crc_check(req->key, 0);
+#endif
 			bench_reap_data(req, mp.li);
 #ifdef DEBUG
 			DPRINTF("\t\t%d-not mget found!",0);
 			print_key(req->key, true);
-
-#ifdef CHECKINGDATA
-			if(map_crc_check(req->key, null_value, LPAGESIZE)){
-				printf("\t\tdeleted key!! or not inserted key\n");
-				abort();
-			}
-			else{
-			//	printf("\t\tPinK really can't find it\n");
-			//	abort();
-			}
-#endif
 			preq->eof=1;
 #endif
 			if(req->value){
@@ -575,17 +569,10 @@ bool cheeze_end_req(request *const req){
 			break;
 		case FS_MGET_T:
 		case FS_GET_T:
-			/*
-			printf("get all value print\n");
-			print_buf(req->value->value, 4096);
-			*/
-			bench_reap_data(req, mp.li);
 #ifdef CHECKINGDATA
-			if(!map_crc_check(req->key, req->value->value, req->value->length)){
-				printf("data missed!\n");
-				//abort();
-			}
+			map_crc_check(req->key, crc32(req->value->value, req->key.key[0]=='m'?512:LPAGESIZE));
 #endif
+			bench_reap_data(req, mp.li);
 			if(req->value){
 				memcpy(&preq->buf[req->seq*LPAGESIZE], req->value->value,req->value->length);
 				inf_free_valueset(req->value,FS_MALLOC_R);
@@ -594,17 +581,22 @@ bool cheeze_end_req(request *const req){
 			preq->buf_len+=LPAGESIZE;
 			break;
 		case FS_SET_T:
+#ifdef CHECKINGDATA
+			map_crc_insert(req->temp_key, req->crc_value);
+			kvssd_free_key_content(&req->temp_key);
+#endif
 			bench_reap_data(req, mp.li);
 			if(req->value) inf_free_valueset(req->value, FS_MALLOC_W);
 			break;
 		case FS_DELETE_T:
+#ifdef CHECKINGDATA
+			map_crc_insert(req->temp_key, req->crc_value);
+			kvssd_free_key_content(&req->temp_key);
+#endif
 			break;
 		case FS_RMW_T:
 			req->type=FS_SET_T;
 			memcpy(&req->value->value[req->offset], req->buf, req->length);
-#ifdef CHECKINGDATA
-			map_crc_insert(req->key, req->value->value, req->value->length);
-#endif
 			inf_assign_try(req);
 			return true;
 		case FS_TRANS_COMMIT:
@@ -613,7 +605,8 @@ bool cheeze_end_req(request *const req){
 			break;
 		case FS_RANGEDEL_T:
 #ifdef CHECKINGDATA
-			map_crc_iter_check(req->buf_len, req->buf);
+			map_crc_range_delete(req);
+			kvssd_free_key_content(&req->temp_key);
 #endif
 			break;
 		case FS_RANGEGET_T:
@@ -637,7 +630,7 @@ bool cheeze_end_req(request *const req){
 			DPRINTF("tag:%d [%s] buf_len:%u\n",preq->tag_id, type_to_str(req->type), creq->ubuf_len);
 
 
-		    	barrier();
+		    barrier();
 			recv_event_addr[preq->tag_id]=1;
 		}
 
@@ -664,5 +657,21 @@ bool key_const_compare(KEYT key,char keytype, int blocknum, int blocknum2, const
 		uint64_t key_block_num2=*(uint64_t*)&key.key[1+sizeof(uint64_t)];
 		key_block_num2=Swap8Bytes(key_block_num2);
 		return blocknum2==key_block_num2;
+	}
+}
+
+
+void key_make_const_target(KEYT *target, char keytype, uint64_t blocknum, uint64_t blocknum2, const char *filename){
+	target->len=(keytype=='d'?1+sizeof(uint64_t)*2:1+sizeof(uint64_t)+strlen(filename));
+	target->key=(char*)malloc(target->len);
+	target->key[0]=keytype;
+	blocknum=Swap8Bytes(blocknum);
+	memcpy(&target->key[1],&blocknum, sizeof(uint64_t));
+	if(keytype=='d'){
+		blocknum2=Swap8Bytes(blocknum2);
+		memcpy(&target->key[1+8], &blocknum2, sizeof(uint64_t));
+	}
+	else{
+		memcpy(&target->key[1+8], filename, strlen(filename));
 	}
 }
