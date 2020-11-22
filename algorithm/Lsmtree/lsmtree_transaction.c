@@ -303,6 +303,12 @@ uint32_t transaction_set(request *const req){
 	transaction_entry *etr;
 	fdriver_lock(&_tm.table_lock);
 
+#ifdef CHECKINGDATA
+	if(req->type!=FS_DELETE_T){
+		map_crc_insert(req->key, req->value->value, req->value->length);
+	}
+#endif
+
 	bool is_changed_status;
 	uint32_t flushed_tid_list[20];
 	bench_custom_start(write_opt_time2, 0);
