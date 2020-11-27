@@ -234,7 +234,6 @@ static inline bool issue_snode_data(KBM *kbm, list *list, int idx){
 	/*aligning page*/
 	// move to next page
 
-
 	lsm_block_aligning(1, kbm->is_gc);
 
 	should_flush_kp = !kp_has_available_bytes(kbm->current_kp, kbm->buffered_kp_len[idx]);

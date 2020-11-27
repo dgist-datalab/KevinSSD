@@ -447,7 +447,7 @@ uint32_t transaction_table_find(transaction_table *table, uint32_t tid, KEYT key
 	(*result)=(transaction_entry**)malloc(sizeof(transaction_entry*) * (table->now+1));
 
 	uint32_t index=0;
-	rb_traverse(res, transaction_indexer){
+	rb_rtraverse(res, transaction_indexer){
 	//for(; res!=transaction_indexer; res=rb_prev(res)){
 		li=(list*)res->item;
 		for_each_list_node(li, ln){

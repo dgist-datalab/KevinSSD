@@ -304,9 +304,9 @@ uint32_t transaction_set(request *const req){
 	fdriver_lock(&_tm.table_lock);
 
 #ifdef CHECKINGDATA
-	if(req->type!=FS_DELETE_T){
-		map_crc_insert(req->key, req->value->value, req->value->length);
-	}
+	//if(req->type!=FS_DELETE_T){
+	//	map_crc_insert(req->key, req->value->value, req->value->length);
+	//}
 #endif
 
 	bool is_changed_status;

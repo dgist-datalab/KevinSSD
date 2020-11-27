@@ -176,6 +176,7 @@ struct algorithm{
 	uint32_t (*partial_update)(request *const);
 	uint32_t (*range_query)(request *const);
 	uint32_t (*key_range_query)(request *const);
+	uint32_t (*defragmentation)(request *const);
 #endif
 
 	uint32_t (*wait_bg_jobs)();

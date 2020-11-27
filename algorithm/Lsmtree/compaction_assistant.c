@@ -252,7 +252,7 @@ bool compaction_has_job(){
 }
 
 bool compaction_force(){
-	for(int i=LSM.LEVELN-2; i>=0; i--){
+	for(int i=0; i<LSM.LEVELN; i++){
 		if(LSM.disk[i]->n_num){
 			compaction_selector(LSM.disk[i],LSM.disk[LSM.LEVELN-1],NULL,&LSM.level_lock[LSM.LEVELN-1]);
 			return true;

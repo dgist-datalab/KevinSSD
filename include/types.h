@@ -22,6 +22,7 @@
 #define FS_RANGEDEL_T 20
 #define FS_MGET_NOTFOUND_T 21
 #define FS_MGET_T 22
+#define FS_DEFRAG_T 23
 
 #define LREQ_TYPE_NUM 15
 #define TRIM 0

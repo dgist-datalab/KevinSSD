@@ -48,6 +48,13 @@ static void shm_data_init(void *ppage_addr) {
     data_addr[1] = ((char *)ppage_addr) + (2ULL * 1024 * 1024 * 1024);
 }
 
+static void print_partial_value(char *value){
+	for(int i=0; i<10; i++){
+		printf("%d ",value[i]);
+	}
+	printf("\n");
+}
+
 uint32_t iteration_cnt;
 char* debug_koo_key="look.1.gz";
 
@@ -298,7 +305,7 @@ static inline char *translation_buffer(char *buf, uint32_t *idx, uint32_t size, 
 	char *res=&buf[*idx];
 	(*idx)+=size;
 	if(*idx > limit){
-		printf("the poiter is over limit of buffer %s:%d\n", __FILE__, __LINE__);
+		printf("[ERROR]the poiter is over limit of buffer %s:%d idx: %d, size: %d, limit: %d\n", __FILE__, __LINE__, *idx, size, limit);
 	}
 	return res;
 }
@@ -427,6 +434,7 @@ static inline vec_request *get_vreq2creq(cheeze_req *creq, int tag_id){
 
 #ifdef CHECKINGDATA
 				kvssd_cpy_key(&temp->temp_key, &temp->key);
+				print_partial_value(temp->value->value);
 				temp->crc_value=crc32(temp->value->value, temp->value->length);
 #endif
 				break;

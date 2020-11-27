@@ -40,6 +40,7 @@ struct algorithm algo_lsm={
 	.partial_update=lsm_partial_update,
 	.range_query=lsm_range_get,
 	.key_range_query=lsm_range_get,
+	.defragmentation=lsm_defragmentation,
 	.wait_bg_jobs=lsm_wait_bg_jobs,
 	.trans_begin=transaction_start,
 	.trans_commit=transaction_commit
