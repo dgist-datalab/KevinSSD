@@ -434,7 +434,7 @@ static inline vec_request *get_vreq2creq(cheeze_req *creq, int tag_id){
 
 #ifdef CHECKINGDATA
 				kvssd_cpy_key(&temp->temp_key, &temp->key);
-				print_partial_value(temp->value->value);
+				//print_partial_value(temp->value->value);
 				temp->crc_value=crc32(temp->value->value, temp->value->length);
 #endif
 				break;
