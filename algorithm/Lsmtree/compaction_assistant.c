@@ -58,6 +58,7 @@ void compaction_selector(level *a, level *b,leveling_node *lnode, rwlock* rwlock
 
 	}
 	else{
+
 		int s_idx=a?a->idx:-1;
 		int d_idx=b->idx;
 		if(s_idx!=-1){	
@@ -70,10 +71,11 @@ void compaction_selector(level *a, level *b,leveling_node *lnode, rwlock* rwlock
 
 
 		leveling(a,b,lnode,rwlock);
+		
 		rwlock_write_unlock(&LSM.level_lock[d_idx]);
 		if(s_idx!=-1){
 			rwlock_write_unlock(&LSM.level_lock[s_idx]);
-		}	
+		}
 	}
 	rwlock_write_unlock(&LSM.iterator_lock);
 	bench_custom_A(write_opt_time2, 8);
@@ -252,13 +254,15 @@ bool compaction_has_job(){
 }
 
 bool compaction_force(){
-	for(int i=0; i<LSM.LEVELN; i++){
-		if(LSM.disk[i]->n_num){
-			compaction_selector(LSM.disk[i],LSM.disk[LSM.LEVELN-1],NULL,&LSM.level_lock[LSM.LEVELN-1]);
-			return true;
+	for(int j=0; j<2; j++){
+		for(int i=0; i<LSM.LEVELN-1; i++){
+			if(LSM.disk[i]->n_num){
+				compaction_selector(LSM.disk[i],LSM.disk[LSM.LEVELN-1],NULL,&LSM.level_lock[LSM.LEVELN-1]);
+			}
 		}
 	}
-	return false;
+	return true;
+	//return false;
 }
 bool compaction_force_target(int from, int to){
 	int test=LSM.lop->get_number_runs(LSM.disk[from]);
@@ -681,9 +685,16 @@ void compaction_lev_seq_processing(level *src, level *des, int headerSize){
 #endif
 	run_t *r;
 	lev_iter *iter=LSM.lop->get_iter(src,src->start, src->end);
+	int idx=0;
 	for_each_lev(r,iter,LSM.lop->iter_nxt){
-		r->iscompactioning=SEQMOV;
-		LSM.lop->insert(des,r);
+		if(idx<src->n_num){
+		//r->iscompactioning=SEQMOV;
+			LSM.lop->insert(des,r);
+			idx++;
+		}
+		else{
+			break;
+		}
 	}
 }
 

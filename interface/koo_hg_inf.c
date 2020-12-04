@@ -435,7 +435,7 @@ static inline vec_request *get_vreq2creq(cheeze_req *creq, int tag_id){
 #ifdef CHECKINGDATA
 				kvssd_cpy_key(&temp->temp_key, &temp->key);
 				//print_partial_value(temp->value->value);
-				temp->crc_value=crc32(temp->value->value, temp->value->length);
+				temp->crc_value=crc32(temp->value->value, temp->key.key[0]=='m'? 152:temp->value->length);
 #endif
 				break;
 			case FS_MGET_T:
@@ -578,7 +578,7 @@ bool cheeze_end_req(request *const req){
 		case FS_MGET_T:
 		case FS_GET_T:
 #ifdef CHECKINGDATA
-			map_crc_check(req->key, crc32(req->value->value, req->key.key[0]=='m'?512:LPAGESIZE));
+			map_crc_check(req->key, crc32(req->value->value, req->key.key[0]=='m'?152:LPAGESIZE));
 #endif
 			bench_reap_data(req, mp.li);
 			if(req->value){

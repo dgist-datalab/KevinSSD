@@ -208,7 +208,7 @@ void lsm_lru_free(lsm_lru *llru){
 #endif
 }
 
-#if COMPRESSEDCACHE==DELTACOMP
+#if defined(COMPRESSEDCACHE) && COMPRESSEDCACHE==DELTACOMP
 ppa_t lsm_lru_find_cache(lsm_lru* llru, struct run *ent, KEYT lpa){
 	if(!llru->max_bytes) return UINT32_MAX;
 	ppa_t res;

@@ -139,12 +139,23 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	pm_init();
 	compaction_init();
 	if(ISTRANSACTION(LSM.setup_values)){
-		uint32_t remain_memory=transaction_init(LSP.cache_memory)-CQSIZE;
+		uint32_t remain_memory=transaction_init(LSP.remain_memory);
 		if(!bc.full_caching){
 			remain_memory=!remain_memory?1:remain_memory;
 			printf("\t|bitmap_caching memroy:%u\n",bc_used_memory(bc.max)/PAGESIZE);
 			printf("\t|LRU size :%u pages\n",remain_memory);
-			LSM.llru=lsm_lru_init(remain_memory);
+			if(LSM.special_flag==1){
+				printf("real cache :%d\n", 0);
+				LSM.llru=lsm_lru_init(0);
+			}
+			else if(LSM.special_flag==2){
+				printf("real cache :%d\n", remain_memory*2);
+				LSM.llru=lsm_lru_init(remain_memory*2);
+			}
+			else{
+				printf("real cache :%d\n", remain_memory);
+				LSM.llru=lsm_lru_init(remain_memory);
+			}
 		}
 		else{
 			printf("\t|bitmap_caching memroy:%u\n",bc_used_memory(bc.max)/PAGESIZE);
@@ -153,7 +164,19 @@ uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 	//		printf("\t|LRU size :%u pages\n",30000);
 	//		LSM.llru=lsm_lru_init(30000);
 			printf("\t|LRU size :%u pages\n",remain_memory);
-			LSM.llru=lsm_lru_init(remain_memory);
+	//		LSM.llru=lsm_lru_init(remain_memory);
+			if(LSM.special_flag==1){
+				printf("real cache :%d\n", 0);
+				LSM.llru=lsm_lru_init(0);
+			}
+			else if(LSM.special_flag==2){
+				printf("real cache :%d\n", remain_memory*2);
+				LSM.llru=lsm_lru_init(remain_memory*2);
+			}
+			else{
+				printf("real cache :%d\n", remain_memory);
+				LSM.llru=lsm_lru_init(remain_memory);
+			}
 		}
 	}
 	else{
@@ -213,7 +236,9 @@ void lsm_destroy(lower_info *li, algorithm *lsm){
 	fprintf(stdout,"lru_hit_cnt:%d\n",LMI.lru_hit_cnt);
 	fprintf(stdout,"iteration_map_read_cnt:%d\n",LMI.iteration_map_read_cnt);
 	fprintf(stdout,"RUN search cnt\n");
+#ifdef PREFIXCHECK
 	fprintf(stdout,"\tpr_check cnt:%lu\n",LMI.pr_check_cnt);
+#endif
 	fprintf(stdout,"\tnormal check cnt:%lu\n",LMI.check_cnt);
 	fprintf(stdout,"KEY search cnt:%lu\n",LMI.run_binary_cnt);
 	fprintf(stdout,"read stall by compaction cnt:%lu\n",LMI.read_stall_by_compaction);
@@ -616,12 +641,12 @@ void* lsm_hw_end_req(algo_req* const req){
 			rp=(rparams*)parents->params;
 			req_temp_params=(void*)rp->datas;
 			if(req_temp_params){
-				if(((int*)req_temp_params)[2]==-1){
+				if(((int*)req_temp_params)[ROUND]==-1){
 					printf("here!\n");
 				}
-				parents->type_ftl=((int*)req_temp_params)[2];
+				parents->type_ftl=((int*)req_temp_params)[ROUND];
 			}
-			parents->type_lower=req->type_lower;
+			parents->type_lower=0;//req->type_lower;
 			free(req_temp_params);
 			break;
 	}
@@ -865,11 +890,12 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 				new_target_set=LSM.lop->find_keyset((char*)table,temp_req->key);
 
 				int *temp_params=(int*)temp_req->params;
-				temp_params[3]++;
+				temp_params[BYPASS]++;
 				if(new_target_set){
 					new_lsm_req=lsm_get_req_factory(temp_req,DATAR,0);
 //					temp_req->value->ppa=new_target_set->ppa>>1;
 					temp_req->value->ppa=new_target_set->ppa;
+					temp_params[ROUND]++;
 #ifdef DVALUE
 					/*
 					if(lsm_data_cache_check(temp_req,temp_req->value->ppa)){
@@ -942,7 +968,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 		}*/
 		rparams *rp=(rparams*)req->params;
 		if(rp)
-			rp->datas[2]+=idx;
+			rp->datas[ROUND]++;
 		req->value->ppa=ppa;
 		if(!ISHWREAD(LSM.setup_values) || lsm_req->type==DATAR){
 			LSM.li->read(ppa/(NPCINPAGE),PAGESIZE,req->value,ASYNC,lsm_req);
@@ -1026,10 +1052,10 @@ uint32_t __lsm_get(request *const req){
 
 		temp_data=rp->datas;
 
-		temp_data[0]=level=0;
-		temp_data[1]=run=0;
-		temp_data[2]=round=0;
-		temp_data[3]=0; //bypass
+		temp_data[NOWLEVEL]=level=0;
+		temp_data[NOWRUN]=run=0;
+		temp_data[ROUND]=round=0;
+		temp_data[BYPASS]=0; //bypass
 	}
 	else{
 		rp=(rparams*)req->params;
@@ -1037,12 +1063,12 @@ uint32_t __lsm_get(request *const req){
 		temp_data=rp->datas;
 
 
-		level=temp_data[0];
-		run=temp_data[1];
-		round=temp_data[2];
+		level=temp_data[NOWLEVEL];
+		run=temp_data[NOWRUN];
+		round=temp_data[ROUND];
 		
 
-		if(temp_data[3]){
+		if(temp_data[BYPASS]){
 			run++;
 			goto retry;
 		}
@@ -1064,20 +1090,20 @@ uint32_t __lsm_get(request *const req){
 	_temp_data[1]=run=0;
 	_temp_data[2]=round=0;*/
 retry:
-	if(ISHWREAD(LSM.setup_values) && temp_data[3]==2){
+	if(ISHWREAD(LSM.setup_values) && temp_data[BYPASS]==2){
 		LSM.li->read(CONVPPA(rp->ppa),PAGESIZE,req->value,ASYNC,lsm_get_req_factory(req,DATAR,level));
 		return 1;
 	}
 
 	result=lsm_find_run(req->key, &entry, entry, &found,&found_ppa,&level,&run, &rp->rw_lock);
-	if(temp_data[3]==1) temp_data[3]=0;
+	if(temp_data[BYPASS]==1) temp_data[BYPASS]=0;
 	switch(result){
 		case CACHING:
 			if(found || found_ppa!=UINT32_MAX){
 				lsm_req=lsm_get_req_factory(req,DATAR,level);
 				req->value->ppa=found_ppa==UINT32_MAX?found->ppa:found_ppa;
 				req->magic=3;
-				temp_data[2]=level;
+				temp_data[ROUND]=++round;
 				LSM.li->read(CONVPPA(req->value->ppa),PAGESIZE,req->value,ASYNC,lsm_req);
 			}
 			else{
@@ -1087,9 +1113,8 @@ retry:
 			res=CACHING;
 			break;
 	case FOUND:
-			temp_data[0]=level;
-			temp_data[1]=run;
-
+			temp_data[NOWLEVEL]=level;
+			temp_data[NOWRUN]=run;
 			rp->entry=entry;
 			static int cnt=0;
 			if(!(ISHWREAD(LSM.setup_values) && level==LSM.LEVELN-1) && entry->isflying==1){	
@@ -1101,9 +1126,9 @@ retry:
 				}
 				entry->waitreq[entry->wait_idx++]=(void*)req;
 				res=FOUND;
-				temp_data[2]=level;
+				temp_data[ROUND]=round;
 			}else{
-				temp_data[2]=++round;
+				temp_data[ROUND]=++round;
 				lsm_req=lsm_get_req_factory(req,HEADERR,level);
 				params=(lsm_params*)lsm_req->params;
 				params->ppa=entry->pbn;
@@ -1340,7 +1365,7 @@ uint32_t lsm_argument_set(int argc, char **argv){
 
 	LSM.setup_values=0;
 	uint32_t value=0;
-	while((c=getopt(argc,argv,"lcgomnrbhvtx"))!=-1){
+	while((c=getopt(argc,argv,"lcgomnrbhvtxs"))!=-1){
 		switch(c){
 			case 't':
 				lsm_type=true;
@@ -1394,6 +1419,10 @@ uint32_t lsm_argument_set(int argc, char **argv){
 			case 'x':
 				printf("[*]transaction mode!\n");
 				SETTRANSACTION(LSM.setup_values);
+				break;
+			case 's':
+				LSM.special_flag=atoi(argv[optind]);
+				printf("[***]special %d\n",LSM.special_flag);
 				break;
 		}
 	}

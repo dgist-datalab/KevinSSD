@@ -31,9 +31,11 @@ typedef struct algo_lsm_range_params{
 	uint32_t lev;
 	uint32_t idx;
 	uint32_t offset;
+	uint32_t ppa;
 	KEYT key;
 	char *copied_data;
 	value_set *value;
+	list *merged_list;
 }algo_lsm_range_params;
 
 typedef struct algo_lsm_preread_struct{
@@ -102,6 +104,9 @@ void *lsm_range_end_req(algo_req *const al_req){
 	request *req=al_req->parents;
 	range_get_params *rgparams=(range_get_params*)req->params;
 	algo_lsm_range_params *al_params=(algo_lsm_range_params*)al_req->params;
+	algo_lsm_range_params *al_params_child;
+	int i=0;
+	li_node *ln;
 	switch(al_req->type){
 		case HEADERR:
 			al_params->copied_data=(char*)malloc(PAGESIZE);
@@ -110,13 +115,29 @@ void *lsm_range_end_req(algo_req *const al_req){
 			break;
 		case DATAR:
 	//		printf("%d iter key :%.*s\n", iter_num++,KEYFORMAT(al_params->key));
+			/*
 			if(al_params->value->ppa%NPCINPAGE){
+				abort();
 				if(req->buf)
 					copy_key_value_to_buf(&req->buf[al_params->offset], al_params->key, &al_params->value->value[4096]);	
 			}
 			else{
-				if(req->buf)
-					copy_key_value_to_buf(&req->buf[al_params->offset], al_params->key, al_params->value->value);	
+			}*/
+			for_each_list_node(al_params->merged_list, ln){
+				al_params_child=(algo_lsm_range_params*)ln->data;
+				if(req->buf){
+					copy_key_value_to_buf(&req->buf[al_params_child->offset], al_params_child->key, &al_params->value->value[al_params_child->ppa%NPCINPAGE]);
+				}
+				if(i++==0){
+					continue;
+				}
+				else{
+					pthread_mutex_lock(&cnt_lock);
+					rgparams->read_num++;
+					pthread_mutex_unlock(&cnt_lock);
+					free(al_params_child->key.key);
+					free(al_params_child);
+				}
 			}
 			inf_free_valueset(al_params->value, FS_MALLOC_R);
 			free(al_params->key.key);
@@ -156,6 +177,56 @@ void *lsm_range_end_req(algo_req *const al_req){
 
 extern char *debug_koo_key;
 
+inline static algo_lsm_range_params *params_setting(KEYT key, uint32_t ppa, uint32_t offset){
+	algo_lsm_range_params* al_params;
+	al_params=(algo_lsm_range_params*)malloc(sizeof(algo_lsm_range_params));
+	kvssd_cpy_key(&al_params->key,&key);
+	al_params->offset=offset;
+	al_params->ppa=ppa;
+	return al_params;
+}
+inline static algo_req* new_req_setting(request *req,KEYT key, uint32_t ppa, uint32_t offset){
+	algo_req *al_req=(algo_req*)malloc(sizeof(algo_req));
+	algo_lsm_range_params* al_params=params_setting(key, ppa, offset);
+	al_params->merged_list=list_init();
+	list_insert(al_params->merged_list, (void*)al_params);
+	al_params->value=inf_get_valueset(NULL, FS_MALLOC_R,PAGESIZE);
+	al_params->value->ppa=al_req->ppa;
+	al_req->ppa=ppa;
+	al_req->parents=req;
+	al_req->type=DATAR;
+	al_req->end_req=lsm_range_end_req;
+	al_req->params=al_params;
+	return al_req;
+}
+
+inline static algo_req* issue_read_data_for_iter(request *req, snode *t_node, algo_req *prev, uint32_t offset,  bool last){
+	if(last){
+		if(prev){
+			LSM.li->read(prev->ppa/NPCINPAGE, PAGESIZE, ((algo_lsm_range_params*)prev->params)->value, ASYNC, prev);
+		}
+		return NULL;
+	}
+
+	algo_req *al_req=prev;
+	algo_lsm_range_params *al_params;
+	if(!al_req){
+		al_req=new_req_setting(req, t_node->key, t_node->ppa, offset);
+		return al_req;
+	}
+	else{
+		if(prev->ppa/NPCINPAGE==t_node->ppa/NPCINPAGE){
+			al_params=params_setting(t_node->key, t_node->ppa, offset);
+			list_insert(al_params->merged_list, (void*)al_params);
+		}
+		else{
+			LSM.li->read(al_req->ppa/NPCINPAGE, PAGESIZE, al_params->value, ASYNC, al_req);
+			al_req=new_req_setting(req, t_node->key, t_node->ppa, offset);
+		}
+	}
+	return al_req;
+}
+
 inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgparams, skiplist *temp_list){
 	snode *t_node;
 	uint32_t offset=0, pre_offset=0;
@@ -164,7 +235,7 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 	uint32_t i=0;
 	int32_t j;
 	bool break_flag=false;
-	algo_req *al_req;
+	algo_req *prev=NULL;
 	algo_lsm_range_params *al_params;
 	for_each_sk(temp_list, t_node){
 		if(i+1==req->length) {
@@ -198,7 +269,6 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 			goto next_round;
 		}
 		else if(t_node->ppa==TOMBSTONE){
-
 			pthread_mutex_lock(&cnt_lock);
 			req->length=rgparams->read_target_num=rgparams->read_target_num-1;
 			if(rgparams->read_num==rgparams->read_target_num){
@@ -220,25 +290,16 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 			}
 			goto next_round;
 		}
-		al_req=(algo_req*)malloc(sizeof(algo_req));
-		al_params=(algo_lsm_range_params*)malloc(sizeof(algo_lsm_range_params));
-		al_req->ppa=t_node->ppa;
-		al_req->parents=req;
-		al_req->type=DATAR;
-		al_req->end_req=lsm_range_end_req;
-		al_req->params=al_params;
-
-		al_params->value=inf_get_valueset(NULL, FS_MALLOC_R,PAGESIZE);
-		kvssd_cpy_key(&al_params->key,&t_node->key);
-		al_params->offset=offset;
-		al_params->value->ppa=al_req->ppa;
 		req->buf_len=offset+t_node->key.len+2+2+ITERREADVALUE;
-		LSM.li->read(al_req->ppa/NPCINPAGE, PAGESIZE, al_params->value, ASYNC, al_req);	
+		prev=issue_read_data_for_iter(req, t_node, prev, offset, break_flag);
 next_round:
 		pre_offset=offset;
 		offset+=t_node->key.len+2+2+ITERREADVALUE;
 		i++;
-		if(break_flag) break;
+		if(break_flag) {
+			issue_read_data_for_iter(req, NULL, prev,-1, true);
+			break;
+		}
 	}
 	return 1;
 }

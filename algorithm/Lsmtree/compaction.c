@@ -64,10 +64,13 @@ uint32_t level_change(level *from ,level *to,level *target, rwlock *lock){
 }
 
 bool level_sequential(level *from, level *to,level *des, run_t *entry,leveling_node *lnode){
-	
+	//return false;
 	KEYT start=from?from->start:lnode->start;
 	KEYT end=from?from->end:lnode->end;
 	if(to->n_num>0 && LSM.lop->chk_overlap(to,start,end)) return false;
+#ifdef ALLLEVELCOMPACTION
+	if(to->n_num!=0) return false;
+#endif
 
 	bool target_processed=false;
 	if(KEYCMP(to->start,end)<0){
@@ -98,7 +101,7 @@ bool level_sequential(level *from, level *to,level *des, run_t *entry,leveling_n
 			}
 			else{	
 				compaction_htable_write_insert(des,entry,false);
-				LSM.lop->release_run(entry);
+				//LSM.lop->release_run(entry);
 			}
 			free(entry);
 		}
@@ -132,7 +135,8 @@ uint32_t leveling(level *from,level *to, leveling_node *l_node,rwlock *lock){
 	if(to->idx==LSM.LEVELN-2){
 		int32_t target_num=to->m_num;
 		target_num-=(to->n_num+LSM.disk[to->idx-1]->n_num);
-		lsm_lru_resize(LSM.llru, LSM.llru->origin_max+target_num*PAGESIZE);
+		if((to->idx<LSM.LEVELCACHING && to->idx==2))
+			lsm_lru_resize(LSM.llru, LSM.llru->origin_max+target_num*PAGESIZE);
 	}
 
 	uint32_t up_num=0;
@@ -202,7 +206,9 @@ last:
 	if(entry) free(entry);
 
 	if(to->idx==LSM.LEVELN-2){
-		lsm_lru_resize(LSM.llru, LSM.llru->origin_max+(target->m_num-target->n_num)*PAGESIZE);
+			if((to->idx<LSM.LEVELCACHING && to->idx==2)){
+				lsm_lru_resize(LSM.llru, LSM.llru->origin_max+(target->m_num-target->n_num)*PAGESIZE);
+			}
 	}
 	uint32_t res=level_change(from,to,target,lock);
 	//printf("ending\n");
@@ -260,7 +266,12 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 			else{
 				src_num=LSM.lop->range_find_compaction(upper,key_min,end,&data);	
 			}
+			//des_num=LSM.lop->range_find_compaction(origin,start,key_max,&target_s);//for stream compaction
+#ifdef ALLLEVELCOMPACTION
+			des_num=LSM.lop->range_find_compaction(origin,key_min,key_max,&target_s);//for stream compaction
+#else
 			des_num=LSM.lop->range_find_compaction(origin,start,key_max,&target_s);//for stream compaction
+#endif
 			if(src_num && des_num == 0 ){
 				if(des_num==0){
 					LSM.lop->print(origin);
@@ -276,19 +287,23 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 			data[0]=lnode->entry;
 			data[1]=NULL;
 			start=lnode->entry->key;
+#ifdef ALLLEVELCOMPACTION
+			des_num=LSM.lop->range_find_compaction(origin,key_min,key_max,&target_s);//for stream compaction
+#else
 			des_num=LSM.lop->range_find_compaction(origin,start,key_max,&target_s);//for stream compaction
+#endif
 		}
-/*
-		if(des_num!=origin->n_num){
-			LSM.lop->print(origin);
-			printf("origin! start key:%.*s\n", KEYFORMAT(start));
-		}
-*/
+#ifdef ALLLEVELCOMPACTION
+
+#else
 		run_t *r;
 		lev_iter *iter=LSM.lop->get_iter(origin,key_min,start);
 		for_each_lev(r,iter, LSM.lop->iter_nxt){
 			LSM.lop->insert(t,r);	
 		}
+#endif
+
+
 
 		for(int i=0; target_s[i]!=NULL; i++){
 			run_t *temp=target_s[i];

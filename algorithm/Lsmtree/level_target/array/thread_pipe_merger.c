@@ -135,7 +135,7 @@ void tp_print(tp *t){
 }
 
 void tp_check_sanity(tp **_t, int num){
-	KEYT pe,ns;
+	KEYT ps,pe,ns,ne;
 	for(int i=0; i<num-1; i++){
 		if(_t[i]->isdummy || _t[i+1]->isdummy) continue;
 		tp *t=_t[i];
@@ -148,6 +148,39 @@ void tp_check_sanity(tp **_t, int num){
 			abort();
 		}
 	}
+	for(int i=0; i<num-1; i++){
+		if(_t[i]->isdummy || _t[i+1]->isdummy) continue;
+		tp *t=_t[i]; tp *tn=_t[i+1];
+		ps=__extract_start_key(t->o_data[0]);
+		pe=__extract_start_key(t->o_data[t->o_num-1]);
+		ns=__extract_start_key(tn->o_data[0]);
+		ne=__extract_start_key(tn->o_data[tn->o_num-1]);
+
+		if(KEYCMP(pe,ns)>=0){
+			printf("tpp idx:%d~%d\n", i, i+1);
+			printf("sanity failed %s:%d\n", __FILE__, __LINE__);
+			abort();        
+		}
+	}
+	//u_data check!!!
+	for(int i=0; i<num-1; i++){
+		//if(_t[i]->isdummy || _t[i+1]->isdummy) continue;
+		tp *t=_t[i]; tp *tn=_t[i+1];
+		ps=__extract_start_key(t->u_data[0]);
+		pe=__extract_start_key(t->u_data[0]);
+		ns=__extract_start_key(tn->u_data[0]);
+		ne=__extract_start_key(tn->u_data[0]);
+
+		if(KEYCMP(pe,ns)>=0){
+			char buf[2][100];
+			key_interpreter(pe, buf[0]);
+			key_interpreter(ns, buf[1]);
+			printf("tpp idx:%d~%d pe:%s ns:%d\n", i, i+1, buf[0], buf[1]);
+			printf("sanity failed %s:%d\n", __FILE__, __LINE__);
+			abort();        
+		}
+	}
+
 }
 
 static void free_thread_params(tp *t){
@@ -413,6 +446,7 @@ make_params:
 						tpp[tp_num]=init_dummy_thread_params(1, splited_data, d, tp_num);
 						tp_num++;
 						LMI.move_run_cnt++;
+						splited_data=NULL;
 						issplit_start=false;
 					case -1: //no overlap :[u_data[i]] [splited_data]
 						num=0;

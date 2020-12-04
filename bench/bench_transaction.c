@@ -151,6 +151,68 @@ char *get_vectored_one_command(uint8_t type, uint32_t tid, uint32_t key){
 	return res;
 }
 
+void vectored_fill_set(uint32_t start, uint32_t end, monitor* m, bool isseq){
+	uint32_t request_per_command=_master->trans_configure.request_num_per_command;
+	uint32_t number_of_command=(m->m_num)/request_per_command;
+	m->m_num=number_of_command*request_per_command;
+	m->tbody=(transaction_bench_value*)malloc(number_of_command * sizeof(transaction_bench_value));
+
+	uint32_t request_buf_size=_master->trans_configure.request_size * request_per_command;
+
+	m->command_num=number_of_command;
+	m->command_issue_num=0;
+	printf("total command : %lu\n", m->command_num);
+	uint32_t *temp_memory=(uint32_t*)malloc(sizeof(uint32_t)*(number_of_command*request_per_command));
+	for(uint32_t i=0; i<number_of_command*request_per_command; i++){
+		temp_memory[i]=start+i;
+	}
+
+	//shuffle
+	uint32_t max_bound=number_of_command*request_per_command;
+	for(uint32_t i=0; i<number_of_command*request_per_command*2; i++){
+		uint32_t j=rand()%max_bound;
+		uint32_t k=rand()%max_bound;
+
+		uint32_t temp=temp_memory[j];
+		temp_memory[j]=temp_memory[k];
+		temp_memory[k]=temp;
+	}
+
+	for(uint32_t i=0; i<number_of_command; i++){
+		uint32_t populate_idx=0;
+		uint32_t idx=0;
+		m->tbody[i].buf=(char*)malloc(request_buf_size + TXNHEADERSIZE);
+		char *buf=m->tbody[i].buf;
+
+		idx+=sizeof(uint32_t);//tid
+		(*(uint32_t*)&buf[idx])=request_per_command;
+		idx+=sizeof(uint32_t);
+
+		for(uint32_t j=0; j<request_per_command; j++){
+			(*(uint8_t*)&buf[idx])=FS_SET_T;
+			idx+=sizeof(uint8_t);
+
+			(*(uint8_t*)&buf[idx])=KEYLENGTH;
+			idx+=sizeof(uint8_t);
+			if(isseq){	
+				idx+=my_itoa(start+i*request_per_command+j, NULL, &buf[idx]);
+			}
+			else{
+				idx+=my_itoa(populate_idx++, NULL, &buf[idx]);
+			}
+			(*(uint32_t*)&buf[idx])=0; //offset
+			idx+=sizeof(uint32_t);
+			m->write_cnt++;
+			if(idx > request_buf_size+TXNHEADERSIZE){
+				printf("%s:%d bufffer overflow!\n", __FILE__,__LINE__);
+				abort();		
+			}
+		}
+	}
+	free(temp_memory);
+}
+
+
 void vectored_set(uint32_t start, uint32_t end, monitor* m, bool isseq){
 	uint32_t request_per_command=_master->trans_configure.request_num_per_command;
 	uint32_t number_of_command=(m->m_num)/request_per_command;
@@ -211,7 +273,7 @@ void vectored_unique_rset(uint32_t start, uint32_t end, monitor* m){
 	for(uint32_t i=0; i<max_num_of_req; i++){
 		key_buf[i]=max_num_of_req-1-i;
 	}
-	/*
+	
 	for(uint32_t i=0; i<max_num_of_req; i++){
 		uint32_t temp_idx=rand()%max_num_of_req;
 		uint32_t temp_idx2=rand()%max_num_of_req;
@@ -219,7 +281,7 @@ void vectored_unique_rset(uint32_t start, uint32_t end, monitor* m){
 		uint32_t temp=key_buf[temp_idx];
 		key_buf[temp_idx]=key_buf[temp_idx2];
 		key_buf[temp_idx2]=temp;
-	}*/
+	}
 
 	
 	uint32_t key_idx=0;
@@ -399,6 +461,44 @@ void vectored_rw(uint32_t start, uint32_t end, monitor* m, bool isseq){
 	free(key_buf);
 }
 
+void vectored_locality_rget(uint32_t start, uint32_t end, monitor* m){
+	uint32_t request_per_command=_master->trans_configure.request_num_per_command;
+	uint32_t number_of_command=(m->m_num)/request_per_command;
+	m->m_num=number_of_command*request_per_command;
+	m->tbody=(transaction_bench_value*)malloc(number_of_command * sizeof(transaction_bench_value));
+
+	uint32_t request_buf_size=_master->trans_configure.request_size * request_per_command;
+	m->command_num=number_of_command;
+	m->command_issue_num=0;
+	for(uint32_t i=0; i<number_of_command; i++){
+		uint32_t idx=0;
+		m->tbody[i].buf=(char*)malloc(request_buf_size + TXNHEADERSIZE);
+		char *buf=m->tbody[i].buf;
+
+		idx+=sizeof(uint32_t);//tid
+		(*(uint32_t*)&buf[idx])=request_per_command;
+		idx+=sizeof(uint32_t);
+
+		for(uint32_t j=0; j<request_per_command; j++){
+			(*(uint8_t*)&buf[idx])=FS_GET_T;
+			idx+=sizeof(uint8_t);
+
+			(*(uint8_t*)&buf[idx])=KEYLENGTH;
+			idx+=sizeof(uint8_t);
+			if(rand()%100 <10){
+				idx+=my_itoa(start+rand()%(end-start), NULL, &buf[idx]);
+			}
+			else{
+				idx+=my_itoa(start+rand()%((end-start)/10), NULL, &buf[idx]);
+			}
+			
+			(*(uint32_t*)&buf[idx])=0; //offset
+			idx+=sizeof(uint32_t);
+			m->read_cnt++;
+		}
+	}
+
+}
 
 void *bench_transaction_end_req(void *_req){
 	vec_request *vec=(vec_request*)_req;

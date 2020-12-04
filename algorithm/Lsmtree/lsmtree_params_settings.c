@@ -37,7 +37,7 @@ void lsm_setup_params(){
 	printf("SHOWINGSIZE:%lu TOTAL _NOS:%ld\n",SHOWINGSIZE, _NOS);
 	LSP.HEADERNUM=(SHOWINGSIZE/LSP.ONESEGMENT)+(SHOWINGSIZE%LSP.ONESEGMENT?1:0);
 	//LSP.HEADERNUM+=LSP.HEADERNUM/10;
-	LSP.total_memory-=(LSP.HEADERNUM*(DEFKEYLENGTH+4));
+	LSP.total_memory-=(LSP.HEADERNUM*(DEFKEYLENGTH+4+8));
 	
 	LSP.bf_fprs=(float*)calloc(sizeof(float),LSM.LEVELN);
 	
@@ -226,7 +226,8 @@ void calc_fpr_remain_memory(){
 	int i=0;
 	uint32_t run_memory=get_memory_per_run(LLP.size_factor);
 	float start=0;
-	float fpr=bf_fpr_from_memory(LSP.KEYNUM,run_memory);
+	//float fpr=bf_fpr_from_memory(LSP.KEYNUM,run_memory);
+	float fpr=0.25f;
 	float ffpr=0.0f;
 	uint32_t header_num=ceil(LLP.size_factor);
 	LSP.bf_memory=0;
@@ -272,7 +273,8 @@ uint32_t calc_cache_page(){
 		LSP.cache_memory=0;
 		return 0;
 	}
-	LSP.cache_memory=LSP.remain_memory/PAGESIZE*PAGESIZE;
+	//LSP.cache_memory=LSP.remain_memory/PAGESIZE*PAGESIZE;
+//	LSP.cache_memory=600;
 	LSP.remain_memory-=LSP.cache_memory;
 	return LSP.cache_memory;
 }

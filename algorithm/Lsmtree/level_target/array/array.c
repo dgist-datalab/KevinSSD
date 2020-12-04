@@ -436,6 +436,8 @@ run_t *array_find_run( level* lev,KEYT lpa){
 	//	__builtin_prefetch(&arrs[(mid+1+end)/2].key,0,1);
 	//	__builtin_prefetch(&arrs[(start+mid-1)/2].key,0,1);
 		if(start>end){
+			if((KEYCMP(arrs[mid].end, lpa) <0  || KEYCMP(arrs[mid].key, lpa) >0) )
+				return NULL;
 			return &arrs[mid];
 		}   
 	}

@@ -56,7 +56,11 @@ enum comp_opt_type{
 	NON,PIPE,HW,MIXEDCOMP
 };
 enum LSMTYPE{
-	NOUSE,ONLYCACHE,FIXEDFILTER,ONLYFILTER,ONLYFIXEDFILTER,PINASYM,LASTFILTER
+	NOUSE,ONLYCACHE,FIXEDFILTER,ONLYFILTER,ONLYFIXEDFILTER,PINASYM,LASTFILTER,
+};
+
+enum SPECIAL{
+	NOFLAG, NOCACHE, COMPRESSCACHE
 };
 
 #ifdef MULTILEVELREAD
@@ -93,6 +97,7 @@ typedef struct multi_req_params{
 }mreq_params;
 #endif
 
+enum{NOWLEVEL, NOWRUN, ROUND, BYPASS};
 typedef struct req_params{
 	int datas[4];
 	ppa_t ppa;
@@ -215,6 +220,7 @@ typedef struct lsmtree{
 	uint8_t LEVELN;
 	uint8_t LEVELCACHING;
 	uint8_t result_padding;
+	uint8_t special_flag;
 	//level opertaion sets//
 	struct queue *re_q;
 	pthread_mutex_t level_rw_global_lock;

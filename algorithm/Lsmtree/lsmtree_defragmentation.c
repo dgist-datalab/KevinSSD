@@ -29,14 +29,16 @@ uint32_t lsm_defragmentation(request *const req){
 			abort();
 			break;
 	}
+	return 1;
 }
 
 static void __lsm_check_logical_defrag(){
-	for(int i=0; i<LSM.LEVELN-1; i++){
+	for(int i=0; i<LSM.LEVELN-2; i++){
 		if(LSM.disk[i]->n_num){
 			printf("level %d has entry!!!\n", i);
 			abort();
 		}
 	}
+	LSM.lop->print_level_summary();
 	return;
 }

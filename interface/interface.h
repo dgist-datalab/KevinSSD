@@ -40,6 +40,6 @@ void inf_print_debug();
 void* qmanager_find_by_algo(KEYT key);
 value_set *inf_get_valueset(PTR,int,uint32_t length);//NULL is uninitial, non-NULL is memcpy
 void inf_free_valueset(value_set*, int);
-
+void inf_defrag_call();
 #endif
 

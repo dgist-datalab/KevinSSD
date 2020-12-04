@@ -777,7 +777,7 @@ uint32_t transaction_get_postproc(request *const req, uint32_t res_type){
 	#endif
 #else
 		printf("notfound key: %.*s\n",KEYFORMAT(req->key));
-		abort();
+		//abort();
 #endif
 		req->end_req(req);
 		//abort();

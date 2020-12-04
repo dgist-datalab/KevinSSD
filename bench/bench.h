@@ -6,8 +6,8 @@
 #include <stdio.h>
 
 #define PRINTPER 1
-#define ALGOTYPE 300
-#define LOWERTYPE 300
+#define ALGOTYPE 20
+#define LOWERTYPE 20
 #define BENCHNUM 16
 
 #ifdef CDF
@@ -164,6 +164,7 @@ void vectored_set(uint32_t, uint32_t, monitor*, bool isseq);
 void vectored_get(uint32_t, uint32_t, monitor*, bool isseq);
 void vectored_rw(uint32_t, uint32_t, monitor*, bool isseq);
 void vectored_unique_rset(uint32_t, uint32_t, monitor*);
+void vectored_locality_rget(uint32_t, uint32_t, monitor*);
 
 int my_itoa(uint32_t key, char **_target, char *buf);
 int my_itoa_len(uint32_t key, int lenght, char **_target, char *buf);

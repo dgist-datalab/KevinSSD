@@ -212,9 +212,14 @@ uint32_t inf_algorithm_caller(request *const inf_req){
 	if(inf_req->seq==7905329){
 		printf("break!\n");
 	}
+	static bool get_called=false;
 	switch(inf_req->type){
 		case FS_MGET_T:
 		case FS_GET_T:
+			if(!get_called){
+				//inf_defrag_call();
+				get_called=true;
+			}
 			mp.algo->read(inf_req);
 			break;
 		case FS_SET_T:
@@ -829,4 +834,11 @@ bool inf_wait_background(){
 		return true;
 	}
 	return false;
+}
+
+void inf_defrag_call(){
+	request req;
+	req.offset=0;
+	mp.algo->defragmentation(&req);
+	return;
 }
