@@ -209,7 +209,7 @@ inline static algo_req* issue_read_data_for_iter(request *req, snode *t_node, al
 	}
 
 	algo_req *al_req=prev;
-	algo_lsm_range_params *al_params;
+	algo_lsm_range_params *al_params=NULL;
 	if(!al_req){
 		al_req=new_req_setting(req, t_node->key, t_node->ppa, offset);
 		return al_req;
@@ -236,7 +236,7 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 	int32_t j;
 	bool break_flag=false;
 	algo_req *prev=NULL;
-	algo_lsm_range_params *al_params;
+	//algo_lsm_range_params *al_params;
 	for_each_sk(temp_list, t_node){
 		if(i+1==req->length) {
 			break_flag=true;

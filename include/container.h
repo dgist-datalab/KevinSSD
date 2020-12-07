@@ -262,13 +262,14 @@ struct blockmanager{
 
 
 #define for_each_block(segs,block,idx)\
-	for(idx=0,block=segs->blocks[idx];idx<BPS; block=++idx>BPS?segs->blocks[idx-1]:segs->blocks[idx])
+	for(idx=0,block=segs->blocks[idx]; idx<BPS; block=(++idx>=BPS?segs->blocks[BPS-1]:segs->blocks[idx]))
 
 #define for_each_page(blocks,page,idx)\
 	for(idx=0,page=blocks->ppa; idx!=PPB; page++,idx++)
 
 #ifdef sequential
 	#define PPAMAKER(bl,idx) ((bl)->block_num*_PPB+idx)
+	#define BLOCKSTARTPPA(bl) PPAMAKER(bl,0)
 	#define for_each_page_in_seg(segs,page,bidx,pidx)\
 		for(bidx=0; bidx<BPS; bidx++)\
 			for(pidx=0, page=PPAMAKER(segs->blocks[bidx],pidx); pidx<_PPB; pidx++, page=PPAMAKER(segs->blocks[bidx],pidx))

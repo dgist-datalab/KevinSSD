@@ -131,9 +131,9 @@ void write_buffer_insert_KV(WBM *wbm, transaction_entry *in_etr, KEYT key, value
 		key_packing_free(kp);
 
 		/*data write*/
-		bench_custom_start(write_opt_time2,3);
+	//	bench_custom_start(write_opt_time2,3);
 		issue_data_write(res, LSM.li, DATAW);
-		bench_custom_A(write_opt_time2,3);
+	//	bench_custom_A(write_opt_time2,3);
 		free(res);
 	
 		for_each_list_node_safe(wbm->open_transaction_list, node, nxt){

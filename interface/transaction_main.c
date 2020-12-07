@@ -40,12 +40,24 @@ void log_print(int sig){
 	exit(1);
 }
 
+void log_lower_print(int sig){
+	printf("-------------lower print!!!!-------------\n");
+	inf_lower_log_print();
+	printf("-------------lower print end-------------\n");
+}
+
 int main(int argc,char* argv[]){
 
 	struct sigaction sa;
 	sa.sa_handler = log_print;
 	sigaction(SIGINT, &sa, NULL);
 	printf("signal add!\n");
+
+	struct sigaction sa2;
+	sa2.sa_handler = log_lower_print;
+	sigaction(SIGUSR1, &sa2, NULL);
+
+	//while(1){};
 
 	char *temp_argv[10];
 	int temp_cnt=bench_set_params(argc,argv,temp_argv);
@@ -54,10 +66,11 @@ int main(int argc,char* argv[]){
 	bench_vectored_configure();
 	bench_transaction_configure(2, 1);
 	printf("TOTALKEYNUM: %ld\n",TOTALKEYNUM);
-	bench_add(VECTOREDSSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/3*2,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/3*2));
+	//bench_add(VECTOREDSSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/3*2,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/3*2));
 	//bench_add(VECTOREDUNIQRSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/3*2,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL))/3*2);
 	//bench_add(VECTOREDRGET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/3*2,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/3*2));
-	bench_add(VECTORLOCALITYGET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/3*2,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/3*2));
+	bench_add(VECTOREDRSET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/3*2,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)));
+	//bench_add(VECTORLOCALITYGET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/3*2,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/3*2));
 	//bench_add(VECTOREDSGET,0,(INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/3*2,((INPUTREQNUM?INPUTREQNUM:SHOWINGFULL)/3*2));
 
 

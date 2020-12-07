@@ -41,6 +41,17 @@ void temp_func(char* body, level *d, bool insert){
 	KEYT key;
 	ppa_t *ppa_ptr;
 	for_each_header_start(idx,key,ppa_ptr,bitmap,body)
+#ifdef KOO
+		if(*ppa_ptr==248554776){
+			char buf[100];
+			key_interpreter(key, buf);			
+			if(insert)
+				printf("[%u] %s insert into %d\n",*ppa_ptr, buf,d->idx);
+			else{
+				printf("[%u] %s cutter %d\n",*ppa_ptr, buf, d->idx);
+			}	
+		}
+#endif
 	/*	if(*ppa_ptr/NPCINPAGE==512141){
 			char buf[100];
 			key_interpreter(key, buf);
@@ -95,7 +106,7 @@ void array_pipe_merger(struct skiplist* mem, run_t** s, run_t** o, struct level*
 	for(int i=0; o[i]!=NULL; i++){ 
 		o_data[i]=data_from_run(o[i]);
 		if(!o_data[i]) abort();
-	//	temp_func(o_data[i],d,true);
+		//temp_func(o_data[i],d,true);
 	}
 
 
@@ -238,7 +249,7 @@ run_t *array_pipe_cutter(struct skiplist* mem, struct level* d, KEYT* _start, KE
 		return NULL;
 	}
 	
-//	temp_func(data,d,false);
+	//temp_func(data,d,false);
 
 	return array_pipe_make_run(data,d->idx);
 }

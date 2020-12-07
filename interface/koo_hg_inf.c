@@ -181,7 +181,7 @@ static inline void map_crc_check(KEYT key, uint32_t input){
 		if(it->second==0){
 			printf("value was deleted!!!\n");
 		}
-		abort();
+		//abort();
 	}
 }
 
@@ -191,7 +191,7 @@ static inline void map_crc_range_delete(request *const req){
 	kvssd_cpy_key(&copied_key, &req->temp_key);
 	for(uint32_t i=0; i<req->offset; i++){
 		if(i==0){
-			key=req->key;
+			key=req->temp_key;
 		}else{
 			kvssd_cpy_key(&key, &copied_key);
 			uint64_t temp=*(uint64_t*)&key.key[key.len-sizeof(uint64_t)];
@@ -385,7 +385,7 @@ static inline vec_request *get_vreq2creq(cheeze_req *creq, int tag_id){
 	res->tag_id=tag_id;
 	if(!isstart){
 		isstart=true;
-		printf("now waiting req!!\n");
+		printf("now waiting req2!!\n");
 	}
 
 	char *req_buf=get_buf_addr(data_addr,tag_id);
@@ -487,10 +487,10 @@ static inline vec_request *get_vreq2creq(cheeze_req *creq, int tag_id){
 			print_key(temp->key, true);
 		}
 		else{
-	//		if(temp->type!=FS_SET_T && temp->type!=FS_TRANS_COMMIT){
+			if(temp->type!=FS_SET_T && temp->type!=FS_TRANS_COMMIT){
 				DPRINTF("TID: %uREQ-TYPE:%s INFO(seq-%d:%d, ret_buf:%px) (keylen:%d)",temp->tid, type_to_str(temp->type), creq->id, i, creq->ret_buf, temp->key.len);
 				print_key(temp->key, true);
-	//		}
+			}
 		}
 #endif
 	}
@@ -526,10 +526,10 @@ vec_request *get_vectored_request(){
                 if (seq_addr[id] == seq) {
                     ureq = ureq_addr + id;
                     res=get_vreq2creq(ureq, id);
-		    barrier();
+					barrier();
                     *send = 0;
                     if(!ureq->ret_buf){
-		    	barrier();
+				    	barrier();
                         *recv = 1;
                     }
                     seq++;
@@ -577,6 +577,7 @@ bool cheeze_end_req(request *const req){
 			break;
 		case FS_MGET_T:
 		case FS_GET_T:
+			DPRINTF("mget %d/%d\n", preq->done_cnt+1, preq->size);
 #ifdef CHECKINGDATA
 			map_crc_check(req->key, crc32(req->value->value, req->key.key[0]=='m'?152:LPAGESIZE));
 #endif

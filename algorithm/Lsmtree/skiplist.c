@@ -713,7 +713,7 @@ value_set **skiplist_make_valueset(skiplist *input, level *from,KEYT *start, KEY
 		foot->map[0]=NPCINPAGE;
 
 		target->value.u_value=NULL;
-		key_packing_insert(kp, target->key);
+		key_packing_insert(kp, target->key, target->ppa);
 		res_idx++;
 	}
 	b.idx[PAGESIZE/PIECE]=0;

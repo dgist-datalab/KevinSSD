@@ -197,21 +197,17 @@ void amf_call_back_e(void *_req){
 void amf_error_call_back_r(void *_req){
 	algo_req *req=(algo_req*)_req;
 
-	printf("error! in AMF read ppa:%u\n",req->test_ppa);
-
 	req->end_req(req);
 }
 void amf_error_call_back_w(void *_req){
 	algo_req *req=(algo_req*)_req;
 
-	printf("error! in AMF write ppa:%u\n",req->test_ppa);
 
 	req->end_req(req);
 }
 void amf_error_call_back_e(void *_req){
 	dummy_req *req=(dummy_req*)_req;
 
-	printf("error! in AMF erase ppa:%u\n",req->test_ppa);
 
 	//req->end_req(req);
 }

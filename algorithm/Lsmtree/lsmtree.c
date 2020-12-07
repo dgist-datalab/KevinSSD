@@ -73,6 +73,15 @@ uint32_t lsm_create(lower_info *li,blockmanager *bm, algorithm *lsm){
 	return 1;
 }
 
+static inline void read_wrapper(bool ispiece, uint32_t addr, algo_req* req){
+	if(ispiece){
+		
+	}
+	else{
+	
+	}
+}
+
 uint32_t __lsm_create_normal(lower_info *li, algorithm *lsm){
 #ifdef KVSSD
 	key_max.key=(char*)malloc(sizeof(char)*MAXKEYSIZE);
@@ -836,7 +845,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 	if(list){//skiplist check for memtable and temp_table;
 		target_node=skiplist_find(list,req->key);
 		if(!target_node) return 0;
-		if(target_node->value.u_value){
+		if(!list->isgc && target_node->value.u_value){
 			memcpy(req->value->value, target_node->value.u_value->value, target_node->value.u_value->length*PIECE);
 			req->end_req(req);
 			return 2;
@@ -897,13 +906,7 @@ int __lsm_get_sub(request *req,run_t *entry, keyset *table,skiplist *list, int i
 					temp_req->value->ppa=new_target_set->ppa;
 					temp_params[ROUND]++;
 #ifdef DVALUE
-					/*
-					if(lsm_data_cache_check(temp_req,temp_req->value->ppa)){
-						temp_req->end_req(temp_req);
-					}
-					else{*/
-						LSM.li->read(temp_req->value->ppa/NPCINPAGE,PAGESIZE,temp_req->value,ASYNC,new_lsm_req);
-					//}
+					LSM.li->read(temp_req->value->ppa/NPCINPAGE,PAGESIZE,temp_req->value,ASYNC,new_lsm_req);
 #else
 					LSM.li->read(temp_req->value->ppa,PAGESIZE,temp_req->value,ASYNC,new_lsm_req);
 #endif
@@ -1555,3 +1558,45 @@ bool lsm_rwlock_is_clean(){
 	}
 	return true;
 }
+
+bool lsm_entry_exists_in_pinning(KEYT key, uint32_t ppa){
+	rwlock *level_rw_lock;
+	run_t *up_entry=NULL;
+	run_t *target=NULL;
+	for(int i=0; i<LSM.LEVELCACHING; i++){
+		level_rw_lock=&LSM.level_lock[i];
+		rwlock_read_lock(level_rw_lock);
+#ifdef PARTITION
+		if(up_entry){
+			target=LSM.lop->find_run_se(LSM.disk[i], key, up_entry);
+		}
+		else
+#endif
+		{
+			target=LSM.lop->find_run(LSM.disk[i], key);
+		}
+
+		if(!target){
+			rwlock_read_unlock(level_rw_lock);
+			up_entry=NULL;
+			continue;
+		}
+	
+		keyset *find=LSM.lop->find_keyset(target->level_caching_data, key);
+		if(find){
+			if(find->ppa==ppa){
+				rwlock_read_unlock(level_rw_lock);
+				return true;
+			}
+			else{
+				rwlock_read_unlock(level_rw_lock);
+				return false;
+			}
+		}
+		else{
+			rwlock_read_unlock(level_rw_lock);
+		}
+		
+	}
+	return false;
+}	

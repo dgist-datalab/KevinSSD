@@ -312,7 +312,7 @@ bool lsm_rwlock_is_clean();
 uint32_t lsm_defragmentation(request *const);
 
 uint32_t lsm_partial_update(request * const);
-
+bool lsm_entry_exists_in_pinning(KEYT key, uint32_t ppa);
 
 static void *key_find_test(KEYT a, ppa_t ppa){
 	if(KEYCONSTCOMP(a,"00000000000009373698")==0){

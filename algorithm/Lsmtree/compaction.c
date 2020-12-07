@@ -69,7 +69,7 @@ bool level_sequential(level *from, level *to,level *des, run_t *entry,leveling_n
 	KEYT end=from?from->end:lnode->end;
 	if(to->n_num>0 && LSM.lop->chk_overlap(to,start,end)) return false;
 #ifdef ALLLEVELCOMPACTION
-	if(to->n_num!=0) return false;
+	//if(to->n_num!=0) return false;
 #endif
 
 	bool target_processed=false;
@@ -241,10 +241,10 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 		LSM.lop->range_find_compaction(origin,key_min,end,&target_s);
 
 		for(int j=0; target_s[j]!=NULL; j++){
+			epc_check++;
 			if(!htable_read_preproc(target_s[j])){
 				compaction_htable_read(target_s[j],(char**)&target_s[j]->cpt_data->sets);
 			}
-			epc_check++;
 		}
 
 		compaction_subprocessing(skip,NULL,target_s,t);
@@ -307,13 +307,13 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 
 		for(int i=0; target_s[i]!=NULL; i++){
 			run_t *temp=target_s[i];
+			epc_check++;
 			if(temp->iscompactioning==SEQCOMP){
 				continue;
 			}
 			if(!htable_read_preproc(temp)){
 				compaction_htable_read(temp,(char**)&temp->cpt_data->sets);
 			}
-			epc_check++;
 		}
 
 	//	KEYT temp;
@@ -325,10 +325,10 @@ uint32_t partial_leveling(level* t,level *origin,leveling_node *lnode, level* up
 
 		for(int i=0; data[i]!=NULL; i++){
 			run_t *temp=data[i];
+			epc_check++;
 			if(!htable_read_preproc(temp)){
 				compaction_htable_read(temp,(char**)&temp->cpt_data->sets);
 			}
-			epc_check++;
 		}
 skip:
 		compaction_subprocessing(NULL,data,target_s,t);

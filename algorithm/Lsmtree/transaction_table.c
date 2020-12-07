@@ -287,13 +287,13 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 
 	bool is_changed=false;
 
-	bench_custom_start(write_opt_time2, 4);
+	//bench_custom_start(write_opt_time2, 4);
 	skiplist *t_mem=target->ptr.memtable;
 	snode *sn=skiplist_insert(t_mem, key, value, valid);
-	bench_custom_A(write_opt_time2, 4);
+	//bench_custom_A(write_opt_time2, 4);
 	int force_prev_idx=0;
 	if(write_buffer_insert_KV(table->kbm, tid, sn, !valid, flushed_tid_list)){
-		bench_custom_start(write_opt_time2, 3);
+		//bench_custom_start(write_opt_time2, 3);
 		for(int i=0; flushed_tid_list[i]!=UINT32_MAX; i++){
 			if(transaction_table_update_all_entry(table, flushed_tid_list[i], COMMIT, true)==2){
 				is_changed=true;
@@ -306,7 +306,7 @@ value_set* transaction_table_insert_cache(transaction_table *table, uint32_t tid
 		else{
 			(*is_changed_status)=false;
 		}
-		bench_custom_A(write_opt_time2, 3);
+		//bench_custom_A(write_opt_time2, 3);
 	}
 	else{
 		(*is_changed_status)=false;

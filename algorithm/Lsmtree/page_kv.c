@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <assert.h>
+
 extern algorithm algo_lsm;
 extern lsmtree LSM;
  extern lmi LMI;
@@ -200,6 +201,7 @@ int gc_data(){
 
 	LMI.data_gc_cnt++;
 	bench_custom_start(write_opt_time2, 11);
+	/*
 	if(ISTRANSACTION(LSM.setup_values)){
 		if(fdriver_try_lock(&_tm.table_lock)==-1){
 			fdriver_unlock(&_tm.table_lock);
@@ -207,12 +209,17 @@ int gc_data(){
 			fdriver_lock(&_tm.table_lock);
 		}
 	}
-	compaction_wait_jobs();
+	compaction_wait_jobs();*/
 	bench_custom_A(write_opt_time2, 11);
 
-
+	int res=0;
 	bench_custom_start(write_opt_time2, 12);
-	__gc_data();
+	rwlock_read_lock(&LSM.level_lock[LSM.LEVELN-1]);
+	res=__gc_data_new();
+	rwlock_read_unlock(&LSM.level_lock[LSM.LEVELN-1]);
+	if(res){
+		compaction_assign_reinsert(LSM.gc_list);
+	}
 	bench_custom_A(write_opt_time2, 12);
 	return 1;
 }
@@ -225,7 +232,6 @@ extern int trace_fd;
 #endif
 bool gc_debug_flag;
 int __gc_data(){
-	
 	static int cnt=0;
 	printf("gc_cnt:%u\n",cnt++);
 	if(cnt==11){

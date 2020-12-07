@@ -571,4 +571,18 @@ uint32_t block_active_remain_pagenum(bool isgc){
 	else
 		return _PPS-d_m.active->used_page_num;
 }
+
+uint32_t pm_keypack_addr(uint32_t piece_addr){
+	d_m.key_packing_list[piece_addr/NPCINPAGE/_PPS].push_back(piece_addr/NPCINPAGE);
+	return 1; 
+}
+
+uint32_t pm_keypack_clean(uint32_t page_addr){
+	d_m.key_packing_list[page_addr/_PPS].clear();
+	return 1;
+}
+
+std::vector<uint32_t> * pm_get_keypack(uint32_t page_addr){
+	return &d_m.key_packing_list[page_addr/_PPS];
+}
 #endif

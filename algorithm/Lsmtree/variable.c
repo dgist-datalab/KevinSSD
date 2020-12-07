@@ -52,7 +52,7 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 				//printf("test cnt %d\n",cnt++);
 				snode *target=src->bucket[target_length][src->idx[target_length]-1];
 
-				if(!key_packing_insert_try(*kp, target->key)){
+				if(!key_packing_insert_try(*kp, target->key, target->ppa)){
 					lsm_block_aligning(2, isgc);
 					value_set *temp=variable_change_kp(kp, remain, v_des[v_idx], isgc);
 					if(temp){
@@ -70,7 +70,7 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 					remain=PAGESIZE;
 					ptr=0;
 
-					key_packing_insert(*kp, target->key);
+					key_packing_insert(*kp, target->key, target->ppa);
 					last_kp=(*kp);
 				}
 
@@ -89,7 +89,7 @@ void *variable_value2Page(level *in, l_bucket *src, value_set ***target_valueset
 				memcpy(&page[ptr],target->value.u_value->value,target_length*PIECE);
 				inf_free_valueset(target->value.u_value, FS_MALLOC_W);
 				target->value.u_value=NULL;
-				key_packing_insert(*kp, target->key);
+				key_packing_insert(*kp, target->key, target->ppa);
 				bench_custom_A(write_opt_time2, 2);
 			}
 			used_piece+=target_length;
@@ -239,7 +239,7 @@ void full_page_setting(int *_res_idx, value_set **res, key_packing *kp, l_bucket
 		foot->map[0]=NPCINPAGE;
 
 		target->value.u_value=NULL;
-		key_packing_insert(kp, target->key);
+		key_packing_insert(kp, target->key, target->ppa);
 		res_idx++;
 	}
 	b->idx[PAGESIZE/PIECE]=0;

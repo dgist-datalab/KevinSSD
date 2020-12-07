@@ -56,6 +56,13 @@ __segment* seq_pt_get_segment (struct blockmanager*bm, int pt_num, bool isreserv
 	sbm_pri *p=(sbm_pri*)bm->private_data;
 	
 	block_set *free_block_set=(block_set*)q_dequeue(p->free_logical_seg_q_pt[pt_num]);
+	/*
+	if(isreserve){
+		printf("remain block: %d", p->free_logical_seg_q_pt[pt_num]->size);
+		if(!p->free_logical_seg_q_pt[pt_num]->size){
+			printf("break!\n");
+		}
+	}*/
 	if(!free_block_set){
 		printf("fuck!!\n");
 		abort();

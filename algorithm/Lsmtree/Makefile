@@ -50,6 +50,7 @@ SRCS +=\
 	   koo_buffer_manager.c\
 	   delta_comp.c\
 	   lsmtree_defragmentation.c\
+	   page_kv_new.c\
 
 #merge_compaction.c\
 	   run_array.c\

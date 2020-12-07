@@ -29,6 +29,18 @@ static void temp_func(char* body, level *d, bool merger){
 	//KEYT prev_key;
 	ppa_t *ppa_ptr;
 	for_each_header_start(idx,key,ppa_ptr,bitmap,body)
+#ifdef KOO
+		if(*ppa_ptr==248554776){
+			char buf[100];
+			key_interpreter(key, buf);			
+			if(merger)
+				printf("[%u] %s insert into %d\n",*ppa_ptr, buf,d->idx);
+			else{
+				printf("[%u] %s cutter %d\n",*ppa_ptr, buf, d->idx);
+			}	
+		}
+#endif
+		/*
 		if(key_const_compare(key, 'd', 3707, 262149, NULL)){
 			char buf[100];
 			key_interpreter(key, buf);			
@@ -42,7 +54,7 @@ static void temp_func(char* body, level *d, bool merger){
 			else{
 				printf("cutter %d\n",d->idx);
 			}
-		}
+		}*/
 	for_each_header_end
 }
 #ifdef KOO

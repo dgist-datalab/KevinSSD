@@ -613,7 +613,7 @@ void compaction_assign_reinsert(skiplist *gc_list){
 	req->last=true;
 	req->temptable=gc_list;
 
-	compaction_assign(req,NULL, true);
+	compaction_assign(req,NULL, false);
 }
 void compaction_subprocessing(struct skiplist *top, struct run** src, struct run** org, struct level *des){
 	

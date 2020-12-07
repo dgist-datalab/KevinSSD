@@ -189,6 +189,7 @@ void issue_single_kp(KBM *kbm, key_packing *kp, lower_info *li, uint8_t type) {
 	uint32_t ppa = LSM.lop->moveTo_fr_page(kbm->is_gc);
 	ppa=LSM.lop->get_page(NPCINPAGE, temp);
 	value_set *target_value_set = key_packing_to_valueset(kp, ppa);
+	pm_keypack_addr(target_value_set->ppa);
 	//printf("key_packing ppa-%u (%u-%u)\n", ppa, ppa/NPCINPAGE, (ppa/NPCINPAGE)%_PPS);
 	uint32_t temp_ppa=*(uint32_t*)target_value_set->value;
 	if(temp_ppa==UINT32_MAX){
@@ -309,7 +310,7 @@ static inline bool issue_snode_data(KBM *kbm, list *list, int idx){
 		}
 */
 		/*insert key*/
-		key_packing_insert(kbm->current_kp, target_snode->key);
+		key_packing_insert(kbm->current_kp, target_snode->key, target_snode->ppa);
 	}
 	//printf("any_data ppa-%u (%u-%u)\n", piece_ppa, piece_ppa/NPCINPAGE, (piece_ppa/NPCINPAGE)%_PPS);
 	issue_single_page(now_page_container, LSM.li, kbm->is_gc?GCDW:DATAW);

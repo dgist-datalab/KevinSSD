@@ -26,7 +26,7 @@
 #endif
 
 #define PROGRESS
-#define LOWER_FILE_NAME "./data/simulator.data"
+//#define LOWER_FILE_NAME "./data/simulator.data"
 #define interface_vector
 
 #define BENCH_LOG "./result/"
@@ -98,7 +98,8 @@
 #define PARTNUM 3
 #define SHOWINGSEGS (SHOWINGSIZE/(_PPS*PAGESIZE))
 #define LOGPART_SEGS (1)
-#define MAPPART_SEGS (GIGAUNIT/8*2)
+#define MAPPART_SEGS ((GIGAUNIT/20*G)/_PPS/8192+1)
+//#define MAPPART_SEGS ((GIGAUNIT/8*2))
 #define DATAPART_SEGS (_NOS-MAPPART_SEGS-LOGPART_SEGS)
 enum{
 	MAP_S,DATA_S, LOG_S
@@ -192,7 +193,7 @@ static inline bool KEYVALCHECK(KEYT a){
 #define DATATRANS
 
 
-#define TRACECOLLECT "/home/koo/trace_data"
+//#define TRACECOLLECT "/home/koo/trace_data"
 
 //#define KEYGEN
 #define SPINSYNC

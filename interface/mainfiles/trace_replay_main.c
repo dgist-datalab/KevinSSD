@@ -43,6 +43,7 @@ static inline void map_crc_insert(KEYT key, uint32_t crc){
 }
 
 static inline void map_crc_check(KEYT key, uint32_t input){
+	return;
 	string a=convertToString(key.key, key.len);
 	map<string, uint32_t>::iterator it=chk_data.find(a);
 	if(it==chk_data.end()){
@@ -58,7 +59,7 @@ static inline void map_crc_check(KEYT key, uint32_t input){
 		if(it->second==0){
 			printf("value was deleted!!!\n");
 		}
-		abort();
+	//	abort();
 	}
 }
 
@@ -68,7 +69,7 @@ static inline void map_crc_range_delete(request *const req){
 	kvssd_cpy_key(&copied_key, &req->temp_key);
 	for(uint32_t i=0; i<req->offset; i++){
 		if(i==0){
-			key=req->key;
+			key=req->temp_key;
 		}else{
 			kvssd_cpy_key(&key, &copied_key);
 			uint64_t temp=*(uint64_t*)&key.key[key.len-sizeof(uint64_t)];

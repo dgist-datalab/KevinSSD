@@ -6,6 +6,7 @@
 #include "../../include/rwlock.h"
 #include "level.h"
 #include "skiplist.h"
+#include <vector>
 
 #define HEADER 0
 #define DATA 1
@@ -64,6 +65,8 @@ typedef struct page_manager{
 	__gsegment *target;//gc_target;
 	__segment *reserve; //no reserve block ->null
 	__segment *active;
+//	list *key_packing_list[_NOS];
+	std::vector<uint32_t> key_packing_list[_NOS];
 	queue *erased_q;
 }pm;
 
@@ -112,4 +115,8 @@ int gc_data_write_using_bucket(struct length_bucket *b,int target_level,char ord
 uint32_t block_get_start_page(bool isgc);
 bool block_active_full(bool isgc);
 uint32_t block_active_remain_pagenum(bool isgc);
+uint32_t pm_keypack_addr(uint32_t piece_addr);
+uint32_t pm_keypack_clean(uint32_t page_addr);
+std::vector<uint32_t> * pm_get_keypack(uint32_t page_addr);
+int __gc_data_new();
 #endif

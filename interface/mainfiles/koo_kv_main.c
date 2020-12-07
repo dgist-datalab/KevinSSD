@@ -34,12 +34,25 @@ void * thread_test(void *){
 	return NULL;
 }
 
+void log_lower_print(int sig){
+	printf("-------------lower print!!!!-------------\n");
+	inf_lower_log_print();
+	printf("-------------lower print end-------------\n");
+}
+
 pthread_t thr; 
 int main(int argc,char* argv[]){
 	struct sigaction sa;
 	sa.sa_handler = log_print;
 	sigaction(SIGINT, &sa, NULL);
+
+	struct sigaction sa2;
+	sa2.sa_handler = log_lower_print;
+	sigaction(SIGUSR1, &sa2, NULL);
+
 	printf("signal add!\n");
+	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
 
 	inf_init(1,0,argc,argv);
 

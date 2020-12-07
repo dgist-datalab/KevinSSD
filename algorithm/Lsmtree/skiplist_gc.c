@@ -4,6 +4,7 @@
 #include "key_packing.h"
 #include "variable.h"
 #include "koo_buffer_manager.h"
+#include "../../interface/koo_hg_inf.h"
 
 extern lsmtree LSM;
 extern KEYT debug_key;
@@ -39,7 +40,11 @@ snode * skiplist_insert_wP_gc(skiplist *list, KEYT key, char *value, uint32_t *t
 	{
 		//ignore new one;
 		//invalidate_PPA(DATA,ppa);
-		//abort();
+		/*
+		char buf[100];
+		key_interpreter(key, buf);
+		printf("overlap key:%s in gc \n", buf);
+		abort();*/
 		if(x->time < *time){
 			x->value.g_value_new.data=value;
 			x->value.g_value_new.piece_len=piece_len;
@@ -180,7 +185,7 @@ value_set **skiplist_make_gc_valueset(skiplist * skip,gc_node ** gc_node_array, 
 		res[res_idx]->ppa=t->ppa;
 		footer *foot=(footer*)pm_get_oob(CONVPPA(t->ppa),DATA,false);
 		foot->map[0]=NPCINPAGE;
-		key_packing_insert(kp, t->key);
+		key_packing_insert(kp, t->key, t->ppa);
 		res_idx++;
 	}
 	b.idx[NPCINPAGE]=0;
