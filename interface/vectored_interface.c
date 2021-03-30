@@ -106,6 +106,8 @@ uint32_t inf_vector_make_req(char *buf, void* (*end_req) (void*), uint32_t mark)
 }
 
 void assign_vectored_req(vec_request *txn){
+	static uint32_t request_num=0;
+	static uint32_t before_request_num=0;
 	while(1){
 		pthread_mutex_lock(&flying_cnt_lock);
 		if(flying_cnt - (int32_t)txn->size < 0){
@@ -120,10 +122,18 @@ void assign_vectored_req(vec_request *txn){
 			}
 			pthread_mutex_unlock(&flying_cnt_lock);
 		}
-
+		request_num+=txn->size;
+		/*
+		if(request_num-before_request_num > 200000){	
+			for(int i=0; i<LREQ_TYPE_NUM;i++){
+				fprintf(stderr,"%s %lu\n",bench_lower_type(i),mp.li->req_type_cnt[i]);
+			}
+			before_request_num=request_num;
+		}*/
 		if(q_enqueue((void*)txn, mp.processors[0].req_q)){
 			break;
 		}
+
 	}
 }
 

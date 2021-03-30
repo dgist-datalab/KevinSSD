@@ -133,6 +133,7 @@ void meta_iter_free(meta_iterator *mi){
 level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_ppa_list, uint32_t *read_num, uint32_t _max_meta, bool include, bool *should_read){
 	level_op_iterator *res=(level_op_iterator*)malloc(sizeof(level_op_iterator));
 	res->max_idx=res->idx=0;
+	res->cache_target=NULL;
 
 	uint32_t max_meta=_max_meta?_max_meta:lev->n_num;
 	run_t **target_run;
@@ -199,6 +200,7 @@ level_op_iterator *level_op_iterator_init(level *lev, KEYT key, uint32_t **read_
 	}
 
 	if(*should_read){
+		res->cache_target=target_run[0];
 		ppa_list[res->max_idx]=UINT_MAX;
 	}
 
@@ -217,6 +219,7 @@ level_op_iterator *level_op_iterator_transact_init(transaction_entry *etr, KEYT 
 
 	char *data, *cached_data;
 	switch(etr->status){
+		case WAITFLUSHCOMMITCACHED:
 		case CACHED:
 			res->m_iter[0]=meta_iter_skip_init(etr->ptr.memtable, key, include);
 			*should_read=false;
@@ -256,7 +259,7 @@ level_op_iterator *level_op_iterator_skiplist_init(skiplist *skip, KEYT prefix, 
 	level_op_iterator *res=(level_op_iterator*)malloc(sizeof(level_op_iterator));
 	res->max_idx=1;
 	res->idx=0;
-
+	res->cache_target=NULL;
 	res->m_iter=(meta_iterator**)malloc(sizeof(meta_iterator*)*res->max_idx);
 	res->m_iter[0]=meta_iter_skip_init(skip, prefix, include);
 	return res;

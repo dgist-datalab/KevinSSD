@@ -561,6 +561,10 @@ void compaction_gc_add(skiplist *list){
 
 	LMI.gc_comp_read_cnt+=(LSM.li->req_type_cnt[MAPPINGR]-before_map_read);
 	LMI.gc_comp_write_cnt+=(LSM.li->req_type_cnt[MAPPINGW]-before_map_write);
+
+	pthread_mutex_lock(&LSM.gc_consume_lock);
+	LSM.gc_list_exist=false;
+	pthread_mutex_unlock(&LSM.gc_consume_lock);
 }
 
 void compaction_send_creq_by_skip(skiplist *skip, list *committed_list, bool sync){
@@ -612,6 +616,10 @@ void compaction_assign_reinsert(skiplist *gc_list){
 	req->fromL=LSP.LEVELN;
 	req->last=true;
 	req->temptable=gc_list;
+
+	pthread_mutex_lock(&LSM.gc_consume_lock);
+	LSM.gc_list_exist=true;
+	pthread_mutex_unlock(&LSM.gc_consume_lock);
 
 	compaction_assign(req,NULL, false);
 }

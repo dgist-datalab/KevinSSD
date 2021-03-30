@@ -118,5 +118,5 @@ uint32_t block_active_remain_pagenum(bool isgc);
 uint32_t pm_keypack_addr(uint32_t piece_addr);
 uint32_t pm_keypack_clean(uint32_t page_addr);
 std::vector<uint32_t> * pm_get_keypack(uint32_t page_addr);
-int __gc_data_new();
+struct skiplist *__gc_data_new();
 #endif

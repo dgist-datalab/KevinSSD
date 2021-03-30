@@ -139,7 +139,7 @@ static void gc_issue_kp_r_req(io_node *p, uint32_t page_addr){
 	LSM.li->read(page_addr,PAGESIZE,p->value,ASYNC,areq);
 }
 
-int __gc_data_new(){
+skiplist*__gc_data_new(){
 	static int cnt=0;
 	uint32_t res=0;
 	blockmanager *bm=LSM.bm;
@@ -234,7 +234,7 @@ int __gc_data_new(){
 	uint32_t value_done_cnt=0;
 	//wait for completion previous reinsert
 	//while(LSM.gc_list){};
-	LSM.gc_list=skiplist_init();
+	skiplist *new_gc_list=skiplist_init();
 	KBM *temp_write_buffer=write_buffer_init(true);
 	snode *target;
 	while(value_done_cnt!=value_issue_cnt){
@@ -254,7 +254,7 @@ int __gc_data_new(){
 			abort();
 		}
 #endif
-		target=skiplist_insert_wP_gc(LSM.gc_list, temp_lpa, now->value_ptr, &now->packed_addr, now->piece_len, true);
+		target=skiplist_insert_wP_gc(new_gc_list, temp_lpa, now->value_ptr, &now->packed_addr, now->piece_len, true);
 		write_buffer_insert_KV(temp_write_buffer, UINT32_MAX, target, false, NULL);
 		length+=now->piece_len*PIECE;
 
@@ -262,16 +262,16 @@ int __gc_data_new(){
 	}
 
 	bc_pop();
-	if(LSM.gc_list->size==0){
+	if(new_gc_list->size==0){
 		write_buffer_free(temp_write_buffer);
-		skiplist_free(LSM.gc_list);
-		LSM.gc_list=NULL;
+		skiplist_free(new_gc_list);
+		new_gc_list=NULL;
 		res=0;
 	}
 	else{
 		write_buffer_force_flush(temp_write_buffer, UINT32_MAX, NULL);
 		write_buffer_free(temp_write_buffer);
-		LSM.gc_list->isgc=true;
+		new_gc_list->isgc=true;
 		res=1;
 		//compaction_assign_reinsert(LSM.gc_list);
 	}
@@ -299,6 +299,19 @@ int __gc_data_new(){
 	}
 	free(kp_data);
 	pm_keypack_clean(start_page);
+/*
+	while(1){
+		pthread_mutex_lock(&LSM.gc_consume_lock);
+		if(LSM.gc_list_exist){
+			pthread_mutex_unlock(&LSM.gc_consume_lock);
+			continue;
+		}
+		else{
+			pthread_mutex_unlock(&LSM.gc_consume_lock);
+			break;
+		}
+	}
 
-	return res;
+*/
+	return new_gc_list;
 }

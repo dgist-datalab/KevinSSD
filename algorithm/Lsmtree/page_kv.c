@@ -212,14 +212,25 @@ int gc_data(){
 	compaction_wait_jobs();*/
 	bench_custom_A(write_opt_time2, 11);
 
-	int res=0;
+	skiplist *res=0;
 	bench_custom_start(write_opt_time2, 12);
 	rwlock_read_lock(&LSM.level_lock[LSM.LEVELN-1]);
 	res=__gc_data_new();
 	rwlock_read_unlock(&LSM.level_lock[LSM.LEVELN-1]);
-	if(res){
-		compaction_assign_reinsert(LSM.gc_list);
+	if(!res) return NULL;
+	while(1){
+		pthread_mutex_lock(&LSM.gc_consume_lock);
+		if(LSM.gc_list_exist){
+			pthread_mutex_unlock(&LSM.gc_consume_lock);
+			continue;
+		}
+		else{
+			pthread_mutex_unlock(&LSM.gc_consume_lock);
+			break;
+		}
 	}
+	LSM.gc_list=res;
+	compaction_assign_reinsert(LSM.gc_list);
 	bench_custom_A(write_opt_time2, 12);
 	return 1;
 }

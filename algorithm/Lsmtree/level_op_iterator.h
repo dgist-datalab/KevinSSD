@@ -33,6 +33,7 @@ typedef struct level_op_iterator{
 	bool istransaction;
 	//uint32_t* ppa;
 	meta_iterator **m_iter;
+	run_t *cache_target;
 }level_op_iterator;
 
 meta_iterator *meta_iter_init(char *data, KEYT prefix, bool include, bool iscached);

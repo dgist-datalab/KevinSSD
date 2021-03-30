@@ -252,6 +252,8 @@ typedef struct lsmtree{
 	struct skiplist *gc_now_act_list;
 
 	blockmanager *bm;
+	pthread_mutex_t gc_consume_lock;
+	volatile bool gc_list_exist;
 	struct lsm_block *active_block;
 	bool delayed_header_trim;
 	uint32_t delayed_trim_ppa;

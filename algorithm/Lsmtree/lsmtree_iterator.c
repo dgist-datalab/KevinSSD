@@ -6,8 +6,10 @@
 #include "../../include/utils/kvssd.h"
 #include "../../include/sem_lock.h"
 #include "../../interface/koo_inf.h"
+#include "../../bench/bench.h"
 #include <stdlib.h>
 
+#include "../../interface/koo_hg_inf.h"
 #define ITERREADVALUE 152
 
 extern lsmtree LSM;
@@ -15,8 +17,9 @@ extern lmi LMI;
 extern my_tm _tm;
 
 //static int iter_num=0;
-static pthread_mutex_t cnt_lock=PTHREAD_MUTEX_INITIALIZER;
+//static pthread_mutex_t cnt_lock=PTHREAD_MUTEX_INITIALIZER;
 bool iterator_debug=false;
+extern MeasureTime write_opt_time2[15];
 
 typedef struct lsm_range_get_params{
 	level_op_iterator **loi;
@@ -24,6 +27,7 @@ typedef struct lsm_range_get_params{
 	uint32_t read_target_num;
 	uint32_t read_num;
 	bool read_done;
+	pthread_mutex_t cnt_lock;
 	list *algo_params_list;
 }range_get_params;
 
@@ -105,6 +109,7 @@ void *lsm_range_end_req(algo_req *const al_req){
 	range_get_params *rgparams=(range_get_params*)req->params;
 	algo_lsm_range_params *al_params=(algo_lsm_range_params*)al_req->params;
 	algo_lsm_range_params *al_params_child;
+	pthread_mutex_t *cnt_lock=&rgparams->cnt_lock;
 	int i=0;
 	li_node *ln;
 	switch(al_req->type){
@@ -132,9 +137,9 @@ void *lsm_range_end_req(algo_req *const al_req){
 					continue;
 				}
 				else{
-					pthread_mutex_lock(&cnt_lock);
+					pthread_mutex_lock(cnt_lock);
 					rgparams->read_num++;
-					pthread_mutex_unlock(&cnt_lock);
+					pthread_mutex_unlock(cnt_lock);
 					free(al_params_child->key.key);
 					free(al_params_child);
 				}
@@ -145,10 +150,10 @@ void *lsm_range_end_req(algo_req *const al_req){
 			break;
 	}
 
-	pthread_mutex_lock(&cnt_lock);
+	pthread_mutex_lock(cnt_lock);
 	rgparams->read_num++;
 	if(rgparams->read_num == rgparams->read_target_num){
-		pthread_mutex_unlock(&cnt_lock);
+		pthread_mutex_unlock(cnt_lock);
 		if(al_req->type==HEADERR){
 			if(rgparams->read_done){
 				printf("error double retry %s:%d\n", __FILE__, __LINE__);
@@ -169,7 +174,7 @@ void *lsm_range_end_req(algo_req *const al_req){
 		}
 	}
 	else{
-		pthread_mutex_unlock(&cnt_lock);
+		pthread_mutex_unlock(cnt_lock);
 	}
 	free(al_req);
 	return NULL;
@@ -200,9 +205,28 @@ inline static algo_req* new_req_setting(request *req,KEYT key, uint32_t ppa, uin
 	return al_req;
 }
 
-inline static algo_req* issue_read_data_for_iter(request *req, snode *t_node, algo_req *prev, uint32_t offset,  bool last){
-	if(last){
+static void key_interpreter_iter(KEYT key, char *buf){
+	uint64_t block_num=(*(uint64_t*)&key.key[1]);
+	block_num=Swap8Bytes(block_num);
+	uint32_t offset=1+sizeof(uint64_t);
+
+	if(key.key[0]=='m'){
+		uint32_t remain=key.len-offset;
+		sprintf(buf, "%c %lu %.*s",key.key[0], block_num,remain, &key.key[offset]);
+	}
+	else{
+		uint64_t block_num2=*(uint64_t*)&key.key[offset];
+		block_num2=Swap8Bytes(block_num2);
+		sprintf(buf, "%c %lu %lu",key.key[0], block_num, block_num2);
+	}
+}
+static inline algo_req* issue_read_data_for_iter(request *req, snode *t_node, algo_req *prev, uint32_t offset,  bool last){
+	if(last && offset==UINT32_MAX){
 		if(prev){
+			/*
+			char buf[100];
+			key_interpreter_iter(req->key, buf);
+			printf("[%u](%d) ppa:%u %u key:%s\n",req->tid,req->length, prev->ppa, prev->ppa/NPCINPAGE, buf);*/
 			LSM.li->read(prev->ppa/NPCINPAGE, PAGESIZE, ((algo_lsm_range_params*)prev->params)->value, ASYNC, prev);
 		}
 		return NULL;
@@ -217,9 +241,15 @@ inline static algo_req* issue_read_data_for_iter(request *req, snode *t_node, al
 	else{
 		if(prev->ppa/NPCINPAGE==t_node->ppa/NPCINPAGE){
 			al_params=params_setting(t_node->key, t_node->ppa, offset);
-			list_insert(al_params->merged_list, (void*)al_params);
+			algo_lsm_range_params *prev_params=(algo_lsm_range_params*)prev->params;
+			list_insert(prev_params->merged_list, (void*)al_params);
 		}
 		else{
+			algo_lsm_range_params *al_params=(algo_lsm_range_params*)al_req->params;
+			/*
+			char buf[100];
+			key_interpreter_iter(req->key, buf);
+			printf("[%u](%d) ppa:%u %u %s\n",req->tid, req->length,prev->ppa, prev->ppa/NPCINPAGE, buf);*/
 			LSM.li->read(al_req->ppa/NPCINPAGE, PAGESIZE, al_params->value, ASYNC, al_req);
 			al_req=new_req_setting(req, t_node->key, t_node->ppa, offset);
 		}
@@ -231,12 +261,14 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 	snode *t_node;
 	uint32_t offset=0, pre_offset=0;
 	rgparams->read_target_num=temp_list->size>req->length?req->length:temp_list->size;
+	pthread_mutex_t *cnt_lock=&rgparams->cnt_lock;
 	req->length=rgparams->read_target_num;
 	uint32_t i=0;
 	int32_t j;
 	bool break_flag=false;
 	algo_req *prev=NULL;
 	//algo_lsm_range_params *al_params;
+	bench_custom_start(write_opt_time2, 13);
 	for_each_sk(temp_list, t_node){
 		if(i+1==req->length) {
 			break_flag=true;
@@ -247,10 +279,10 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 				copy_key_value_to_buf(&req->buf[offset], t_node->key, t_node->value.g_value);
 			//printf("target %d iter key :%.*s\n", iter_num++,KEYFORMAT(t_node->key));
 
-			pthread_mutex_lock(&cnt_lock);
+			pthread_mutex_lock(cnt_lock);
 			rgparams->read_num++;
 			if(rgparams->read_num==rgparams->read_target_num){
-				pthread_mutex_unlock(&cnt_lock);
+				pthread_mutex_unlock(cnt_lock);
 				rwlock_read_unlock(&LSM.iterator_lock);
 	
 				req->buf_len=offset;
@@ -264,15 +296,15 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 				break;
 			}
 			else{
-				pthread_mutex_unlock(&cnt_lock);
+				pthread_mutex_unlock(cnt_lock);
 			}
 			goto next_round;
 		}
 		else if(t_node->ppa==TOMBSTONE){
-			pthread_mutex_lock(&cnt_lock);
+			pthread_mutex_lock(cnt_lock);
 			req->length=rgparams->read_target_num=rgparams->read_target_num-1;
 			if(rgparams->read_num==rgparams->read_target_num){
-				pthread_mutex_unlock(&cnt_lock);
+				pthread_mutex_unlock(cnt_lock);
 				rwlock_read_unlock(&LSM.iterator_lock);
 	
 				req->buf_len=pre_offset;
@@ -286,7 +318,7 @@ inline static uint32_t __lsm_range_KV(request *const req, range_get_params *rgpa
 				break;
 			}
 			else{
-				pthread_mutex_unlock(&cnt_lock);
+				pthread_mutex_unlock(cnt_lock);
 			}
 			goto next_round;
 		}
@@ -301,6 +333,7 @@ next_round:
 			break;
 		}
 	}
+	bench_custom_A(write_opt_time2, 13);
 	return 1;
 }
 
@@ -335,11 +368,15 @@ inline static uint32_t __lsm_range_key(request *const req, range_get_params *rgp
 }
 
 uint32_t __lsm_range_get(request *const req){ //after range_get
+	bench_custom_start(write_opt_time2, 14);
 	range_get_params *rgparams=(range_get_params*)req->params;
 	li_node *temp;
 	level_op_iterator **loi=rgparams->loi;
 	for_each_list_node(rgparams->algo_params_list, temp){
 		algo_lsm_range_params *al_params=(algo_lsm_range_params*)temp->data;
+		if(loi[al_params->lev]->cache_target){
+			lsm_lru_insert(LSM.llru, loi[al_params->lev]->cache_target,al_params->copied_data, LSM.LEVELN-1);
+		}
 		level_op_iterator_set_iterator(loi[al_params->lev], al_params->idx, al_params->copied_data, req->key, req->offset);
 		free(al_params);
 	}
@@ -371,6 +408,7 @@ uint32_t __lsm_range_get(request *const req){ //after range_get
 
 	req->length=req->length > temp_list->size? temp_list->size :req->length;
 	
+	bench_custom_A(write_opt_time2, 14);
 
 	uint32_t res=0;
 	if(!req->length){
@@ -403,7 +441,10 @@ uint32_t __lsm_range_get(request *const req){ //after range_get
 
 uint32_t lsm_range_get(request *const req){
 	//req->magic is include flag
-	compaction_wait_jobs();
+	//compaction_wait_jobs();
+	static int cnt=0;
+	cnt++;
+	//printf("iter cnt:%d\n", cnt++);
 	if(req->params){
 		return __lsm_range_get(req);
 	}
@@ -417,6 +458,7 @@ uint32_t lsm_range_get(request *const req){
 	params->read_num=0;
 	params->read_done=false;
 	params->algo_params_list=list_init();
+	pthread_mutex_init(&params->cnt_lock,NULL);
 	req->params=params;
 /*
 	if(ISTRANSACTION(LSM.setup_values)){
@@ -473,7 +515,7 @@ uint32_t lsm_range_get(request *const req){
 	}
 
 	uint32_t *ppa_list=NULL, read_num=0;
-	uint32_t meta_read_target=req->length;
+	uint32_t meta_read_target=1;//req->length
 	for(int32_t i=LSM.LEVELN-1; i>=0; i--){
 		read_num=0;
 		params->loi[i+target_trans_entry_num]=level_op_iterator_init(LSM.disk[i], req->key, &ppa_list, &read_num, meta_read_target, req->offset, &should_read);

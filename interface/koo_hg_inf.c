@@ -542,6 +542,60 @@ vec_request *get_vectored_request(){
     }
 
 }
+/*
+#define TIMEVALUE 10000
+vec_request **get_vectored_request_arr(){
+    static bool isstart=false;
+
+    if(!isstart){
+        isstart=true;
+        printf("now waiting req!!\n");
+    }
+
+    cheeze_req *ureq;
+    vec_request **res=NULL;
+    volatile uint8_t *send, *recv;
+	bool check[CHEEZE_QUEUE_SIZE]={0,};
+    int id;
+	int check_idx=0;
+	int i;
+	uint32_t total_size=0;
+
+	while(1){
+		for (i = 0; i < CHEEZE_QUEUE_SIZE; i++) {
+			send = &send_event_addr[i];
+			if (*send) {
+				check[i]=true;
+                ureq = ureq_addr + id;
+				total_size+=
+			}
+		}
+	}
+	
+
+	for (int i = 0; i < CHEEZE_QUEUE_SIZE; i++) {
+            send = &send_event_addr[i];
+            recv = &recv_event_addr[i];
+            if (*send) {
+                id = i;
+                if (seq_addr[id] == seq) {
+                    ureq = ureq_addr + id;
+                    res=get_vreq2creq(ureq, id);
+					barrier();
+                    *send = 0;
+                    if(!ureq->ret_buf){
+				    	barrier();
+                        *recv = 1;
+                    }
+                    seq++;
+                    return res;
+                } else {
+                    continue;
+                }
+         }
+    }
+}
+*/
 
 bool cheeze_end_req(request *const req){
 	vectored_request *preq=req->parents;
