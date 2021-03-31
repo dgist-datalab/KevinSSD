@@ -19,7 +19,7 @@ robusta*
 *log
 *driver
 range_driver
-*driver
+!libamfdriver
 *.swp
 ycsb*
 cscope*
